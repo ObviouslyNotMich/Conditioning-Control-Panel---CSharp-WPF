@@ -2631,9 +2631,10 @@ namespace ConditioningControlPanel
             {
                 if (BtnWebcamTracking == null) return;
                 var on = App.Webcam?.IsRunning == true;
-                BtnWebcamTracking.Content = Loc.Get(on
-                    ? "btn_browser_webcam_tracking_on"
-                    : "btn_browser_webcam_tracking_off");
+                if (TxtWebcamTracking != null)
+                    TxtWebcamTracking.Text = Loc.Get(on
+                        ? "btn_browser_webcam_tracking_on"
+                        : "btn_browser_webcam_tracking_off");
                 BtnWebcamTracking.ToolTip = Loc.Get(on
                     ? "tooltip_browser_webcam_tracking_on"
                     : "tooltip_browser_webcam_tracking_off");
@@ -5018,7 +5019,7 @@ namespace ConditioningControlPanel
             // displaying the Running state. Other states (Error / NeedsX) get
             // their own copy from ApplyBlinkTrainerStatusState.
             if (BlinkTrainerStatusText != null && _currentBlinkTrainerStatusState == BlinkTrainerStatusState.Running)
-                BlinkTrainerStatusText.Text = Localization.Loc.GetF("blink_trainer_status_running", $"{rem:mm\\:ss}");
+                BlinkTrainerStatusText.Text = Localization.Loc.GetF("blink_trainer_status_running", rem.ToString(rem.TotalHours >= 1 ? @"h\:mm\:ss" : @"mm\:ss"));
         }
 
         /// <summary>
@@ -7462,7 +7463,7 @@ namespace ConditioningControlPanel
                     BlinkTrainerStatusDot.Fill = green;
                     // Initial text — BlinkTrainerTick takes over each second.
                     var rem = App.BlinkTrainer?.Remaining ?? TimeSpan.Zero;
-                    BlinkTrainerStatusText.Text = Localization.Loc.GetF("blink_trainer_status_running", $"{rem:mm\\:ss}");
+                    BlinkTrainerStatusText.Text = Localization.Loc.GetF("blink_trainer_status_running", rem.ToString(rem.TotalHours >= 1 ? @"h\:mm\:ss" : @"mm\:ss"));
                     BlinkTrainerStatusText.Foreground = FindResource("TextMutedBrush") as Brush ?? Brushes.Gray;
                     WireBlinkTrainerStatusAction(null, null);
                     SetStartButtonState(enabled: true, content: stopLabel);
@@ -9590,6 +9591,26 @@ namespace ConditioningControlPanel
                 {
                     if (s is Button btn && btn.Tag is string promptId)
                     {
+                        // CCBill AI Addendum: gate community prompts that ship a SlutModePersonality
+                        // when SlutMode is on. Synthesize a probe preset for the gate check.
+                        var probePrompt = App.CommunityPrompts?.GetInstalledPrompt(promptId);
+                        var slutModeOn = App.Settings?.Current?.SlutModeEnabled == true;
+                        var probe = new Models.PersonalityPreset { PromptSettings = probePrompt?.PromptSettings };
+                        if (Services.ExplicitContentGate.RequiresAcknowledgement(probe, slutModeOn))
+                        {
+                            var prevSettings = App.Settings?.Current?.CompanionPrompt;
+                            if (!Services.ExplicitContentGate.IsAlreadyAcknowledged(prevSettings))
+                            {
+                                var dlg = new ExplicitContentAcknowledgementDialog { Owner = this };
+                                if (dlg.ShowDialog() != true) return;
+                                if (prevSettings != null)
+                                {
+                                    Services.ExplicitContentGate.MarkAcknowledged(prevSettings);
+                                    App.Settings?.Save();
+                                }
+                            }
+                        }
+
                         App.CommunityPrompts?.ActivatePrompt(promptId);
                         UpdateCommunityPromptsUI();
                     }
@@ -11226,7 +11247,34 @@ namespace ConditioningControlPanel
             if (_isLoading) return;
             var s = App.Settings?.Current;
             if (s == null || ChkSlutMode == null) return;
-            s.SlutModeEnabled = ChkSlutMode.IsChecked == true;
+
+            var newValue = ChkSlutMode.IsChecked == true;
+
+            // CCBill AI Addendum: flipping SlutMode ON activates the explicit variant of
+            // any active preset that ships a SlutModePersonality. Gate behind acknowledgement.
+            if (newValue && !s.SlutModeEnabled)
+            {
+                var activePreset = App.Personality?.GetActivePreset();
+                if (Services.ExplicitContentGate.RequiresAcknowledgement(activePreset, slutModeOn: true))
+                {
+                    if (!Services.ExplicitContentGate.IsAlreadyAcknowledged(s.CompanionPrompt))
+                    {
+                        var dlg = new ExplicitContentAcknowledgementDialog { Owner = this };
+                        var ok = dlg.ShowDialog() == true;
+                        if (!ok)
+                        {
+                            // Revert checkbox without re-triggering this handler.
+                            _isLoading = true;
+                            try { ChkSlutMode.IsChecked = false; }
+                            finally { _isLoading = false; }
+                            return;
+                        }
+                        Services.ExplicitContentGate.MarkAcknowledged(s.CompanionPrompt);
+                    }
+                }
+            }
+
+            s.SlutModeEnabled = newValue;
             App.Settings?.Save();
         }
 
@@ -13325,10 +13373,12 @@ namespace ConditioningControlPanel
             };
             stack.Children.Add(topRow);
 
-            topRow.Children.Add(new System.Windows.Controls.TextBlock
+            topRow.Children.Add(new System.Windows.Controls.Image
             {
-                Text = preset.Icon,
-                FontSize = 26,
+                Source = Helpers.EmojiImage.Get(preset.Icon),
+                Width = 28,
+                Height = 28,
+                Stretch = System.Windows.Media.Stretch.Uniform,
             });
 
             if (preset.RequiresAi)
@@ -16699,10 +16749,12 @@ namespace ConditioningControlPanel
 
             var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
 
-            stack.Children.Add(new TextBlock
+            stack.Children.Add(new Image
             {
-                Text = skill.Icon,
-                FontSize = 18,
+                Source = Helpers.EmojiImage.Get(skill.Icon),
+                Width = 22,
+                Height = 22,
+                Stretch = System.Windows.Media.Stretch.Uniform,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 3)
             });

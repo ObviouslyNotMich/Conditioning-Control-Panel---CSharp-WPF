@@ -265,6 +265,11 @@ namespace ConditioningControlPanel
         public static TutorialService Tutorial { get; private set; } = null!;
         public static IAiService Ai { get; private set; } = null!;
         public static IAiCommandService Commands { get; private set; } = null!;
+        public static Services.Moderation.IModerationGuard ModerationGuard { get; private set; } = null!;
+        public static Services.Moderation.ModerationLog ModerationLog { get; private set; } = null!;
+        public static Services.Moderation.ModerationSession ModerationSession { get; private set; } = null!;
+        public static Services.Moderation.IPromptValidator PromptValidator { get; private set; } = null!;
+        public static Services.Moderation.IModerationCounter ModerationCounter { get; private set; } = null!;
         public static WindowAwarenessService WindowAwareness { get; private set; } = null!;
         public static PatreonService Patreon { get; private set; } = null!;
         public static UpdateService Update { get; private set; } = null!;
@@ -994,6 +999,31 @@ namespace ConditioningControlPanel
             Achievements?.Progress?.AwardDeferredStreakBonus();
 
             splash.SetProgress(0.85, "Initializing companion...");
+            // Moderation guard + log: substantive content moderation that runs in C# code
+            // OUTSIDE the LLM prompt. User-editable prompt sections (Personality,
+            // SlutModePersonality, CompanionPrompt, custom Awareness templates, etc.) cannot
+            // bypass these — the wordlist is hardcoded in ModerationGuard and applies to
+            // every input that goes to an LLM and every output that comes back. See
+            // AI_AUDIT.md §15 and §13 P1 for the CCBill rationale. Must be initialized
+            // BEFORE the AI services so AiService / LocalAiService can read App.ModerationGuard.
+            ModerationSession = new Services.Moderation.ModerationSession();
+            ModerationLog = new Services.Moderation.ModerationLog(ModerationSession);
+            ModerationGuard = new Services.Moderation.ModerationGuard();
+            // PromptValidator (P1.3) is a soft validator that runs on the prompt-editor
+            // surfaces (CompanionPromptEditorDialog, AwarenessPresetDetailDialog,
+            // QuizCategoryEditorWindow). Hits warn the user and log to moderation.log;
+            // they do NOT block save. ModerationGuard is the load-bearing layer.
+            PromptValidator = new Services.Moderation.PromptValidator();
+            // ModerationCounter (P1.4) sliding-window counter that escalates: 3 hits in
+            // 10 min raises a warning modal once; 5 hits engages a 5-min chat cooldown.
+            // RecordHit is called from each ModerationGuard refusal site (AiService,
+            // LocalAiService, KeywordTriggerService, QuizService).
+            ModerationCounter = new Services.Moderation.ModerationCounter();
+            // P2-H8: hydrate counter + cooldown from disk so a restart doesn't bypass
+            // an in-flight cooldown. Best-effort; logs nothing on a missing file.
+            try { ModerationCounter.LoadFromDisk(); }
+            catch (Exception ex) { Logger?.Debug("ModerationCounter.LoadFromDisk failed: {Error}", ex.Message); }
+
             Ai = new AiServiceStrategy();
             Commands = new AiCommandService();
 
@@ -1203,6 +1233,16 @@ namespace ConditioningControlPanel
             // Drop Topmost FIRST so deferred dialogs (What's New, Age Verification) aren't hidden behind it
             splash.Topmost = false;
             splash.SetProgress(1.0, "Ready!");
+
+            // Activate the main window before AND after the splash fades. Show()
+            // alone doesn't reliably foreground the window because the splash
+            // was Topmost during init and Windows can give focus to whatever
+            // was foreground before launch (Explorer, prior app) when the
+            // splash closes. Topmost-pulse is the standard WPF workaround for
+            // ForegroundLockTimeout blocking Activate().
+            ForceWindowToFront(mainWindow);
+            splash.Closed += (_, _) => ForceWindowToFront(mainWindow);
+
             splash.FadeOutAndClose();
             _splash = null;
 
@@ -1231,7 +1271,34 @@ namespace ConditioningControlPanel
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
         }
-        
+
+        // Standard WPF "bring to front" sequence. Activate() alone is silently
+        // ignored when Windows' ForegroundLockTimeout is active (e.g. another
+        // app was foregrounded recently). Pulsing Topmost true→false is the
+        // documented workaround — it bypasses the lock without leaving the
+        // window stuck on top.
+        private static void ForceWindowToFront(Window window)
+        {
+            try
+            {
+                if (window == null) return;
+                if (window.WindowState == WindowState.Minimized)
+                    window.WindowState = WindowState.Normal;
+                window.Activate();
+                bool wasTopmost = window.Topmost;
+                window.Topmost = true;
+                window.Topmost = wasTopmost;
+                window.Focus();
+
+                // Topmost-pulse on main moves it to the top of the regular
+                // z-band, which can leave the avatar tube buried behind it
+                // (tube was Show()'n above main but the pulse rearranges).
+                // Raise the tube too so the attached pair stays paired.
+                AvatarWindow?.RaiseAttachedTubeAboveOwner();
+            }
+            catch (Exception ex) { Logger?.Debug("ForceWindowToFront failed: {Error}", ex.Message); }
+        }
+
         private void OnAchievementUnlocked(object? sender, Models.Achievement achievement)
         {
             Logger.Information("OnAchievementUnlocked handler called for: {Name}", achievement.Name);

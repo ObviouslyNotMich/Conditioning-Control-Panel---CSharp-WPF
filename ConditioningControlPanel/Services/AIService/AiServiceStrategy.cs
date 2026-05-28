@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Services.Moderation;
 
 namespace ConditioningControlPanel.Services.AIService
 {
@@ -66,6 +67,9 @@ namespace ConditioningControlPanel.Services.AIService
 
         public Task<string> GetBambiReplyAsync(string userInput, bool isUserMessage = false)
             => Active.GetBambiReplyAsync(userInput, isUserMessage);
+
+        public Task<AiReplyResult> GetBambiReplyExAsync(string userInput, bool isUserMessage = false)
+            => Active.GetBambiReplyExAsync(userInput, isUserMessage);
 
         public Task<string?> GetAwarenessReactionAsync(string detectedName, string category,
             string serviceName = "", string pageTitle = "")
