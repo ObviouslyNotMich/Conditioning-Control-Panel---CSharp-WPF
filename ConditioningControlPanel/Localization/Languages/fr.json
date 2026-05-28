@@ -258,6 +258,8 @@ Utilise le mode Fenêtré sans Bordure à la place.",
   "label_duck": "Atténuation",
   "tooltip_automatically_reduce_other_app_volumes_during": "Réduire automatiquement le volume des autres applis pendant les vidéos",
   "setting_master": "Principal",
+  
+  "label_ai_custom_error": "Erreur IA personnalisée – vérifie l'endpoint, le modèle et la clé API.",
   "tooltip_master_volume_for_all_audio": "Volume principal pour tout l'audio",
   "tooltip_overall_audio_volume_level": "Niveau de volume audio global",
   "setting_video": "Vidéo",

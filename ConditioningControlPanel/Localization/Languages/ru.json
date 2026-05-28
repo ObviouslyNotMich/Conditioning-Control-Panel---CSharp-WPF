@@ -241,6 +241,7 @@
   "tooltip_automatically_reduce_other_app_volumes_during": "Автоматически снижать громкость других приложений во время воспроизведения видео.",
   "setting_master": "Общая",
   "tooltip_master_volume_for_all_audio": "Общая громкость для всего аудио",
+  "label_ai_custom_error": "Ошибка пользовательского ИИ – проверь endpoint, модель и API-ключ.",
   "tooltip_overall_audio_volume_level": "Общий уровень громкости",
   "setting_video": "Видео",
   "tooltip_volume_for_mandatory_videos": "Громкость обязательных видео",

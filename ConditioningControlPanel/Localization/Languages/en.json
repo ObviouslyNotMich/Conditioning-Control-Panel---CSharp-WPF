@@ -245,6 +245,8 @@
   "deeper_editor_haptic_test": "Test on device",
   "deeper_editor_haptic_test_no_device": "No haptic device connected — connect one in Settings to test.",
   "deeper_editor_haptic_delete": "Delete event",
+  
+  "label_ai_custom_error": "Custom AI error – check endpoint, model, and API key.",
   "deeper_editor_section_rules": "Rules",
   "deeper_editor_rules_empty": "No rules yet. Use + to add a trigger → action rule.",
   "deeper_editor_rules_add_tooltip": "Add rule",

@@ -259,6 +259,7 @@
   "tooltip_automatically_reduce_other_app_volumes_during": "動画再生中に他のアプリの音量を自動的に下げる",
   "setting_master": "マスター",
   "tooltip_master_volume_for_all_audio": "全オーディオのマスター音量",
+  "label_ai_custom_error": "カスタムAIエラー – エンドポイント、モデル、APIキーを確認してください。",
   "tooltip_overall_audio_volume_level": "全体のオーディオ音量レベル",
   "setting_video": "動画",
   "tooltip_volume_for_mandatory_videos": "強制動画の音量",
