@@ -11105,10 +11105,11 @@ namespace ConditioningControlPanel
             var s = App.Settings?.Current;
             if (s?.CompanionPrompt == null) return;
             s.AiChatEnabled = true;
-            s.CompanionPrompt.UseLocalAi = false;
+            s.CompanionPrompt.AiProvider = AiProviderType.Cloud;
             if (ChkAiChat != null) ChkAiChat.IsChecked = true;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
+            if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
             // Cloud can't trigger effects, so prior local-session entries would be misleading.
             App.AiLiveActions?.Clear();
             UpdateAiBrainPills();
@@ -11120,10 +11121,11 @@ namespace ConditioningControlPanel
             var s = App.Settings?.Current;
             if (s?.CompanionPrompt == null) return;
             s.AiChatEnabled = true;
-            s.CompanionPrompt.UseLocalAi = true;
+            s.CompanionPrompt.AiProvider = AiProviderType.Local;
             if (ChkAiChat != null) ChkAiChat.IsChecked = true;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Visible;
+            if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
             UpdateAiBrainPills();
 
             // First-time opt-in: if Ollama isn't reachable, offer the setup wizard so
@@ -11151,6 +11153,20 @@ namespace ConditioningControlPanel
             {
                 App.Logger?.Warning(ex, "MainWindow: detect-on-local-toggle failed");
             }
+        }
+
+        private void RadioAiOpenAiCompatible_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s?.CompanionPrompt == null) return;
+            s.AiChatEnabled = true;
+            s.CompanionPrompt.AiProvider = AiProviderType.OpenAiCompatible;
+            if (ChkAiChat != null) ChkAiChat.IsChecked = true;
+            App.Settings.Save();
+            if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
+            if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Visible;
+            UpdateAiBrainPills();
         }
 
         private void BtnSetupLocalAi_Click(object sender, RoutedEventArgs e)
@@ -11214,6 +11230,35 @@ namespace ConditioningControlPanel
             App.Settings.Save();
         }
 
+        private void TxtOpenAiEndpoint_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtOpenAiEndpoint == null) return;
+            s.OpenAiCompatibleEndpoint = (TxtOpenAiEndpoint.Text ?? string.Empty).Trim();
+            App.Settings.Save();
+        }
+
+        private void TxtOpenAiModel_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtOpenAiModel == null) return;
+            s.OpenAiCompatibleModel = (TxtOpenAiModel.Text ?? string.Empty).Trim();
+            App.Settings.Save();
+        }
+
+        private void TxtOpenAiApiKey_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtOpenAiApiKey == null) return;
+
+            var plain = TxtOpenAiApiKey.Password ?? string.Empty;
+            s.OpenAiCompatibleApiKey = Services.SecureStringHelper.Protect(plain);
+            App.Settings.Save();
+        }
+
         private async void BtnTestOllamaConnection_Click(object sender, RoutedEventArgs e)
         {
             if (TxtAiHealthStatus == null || TxtAiHost == null) return;
@@ -11252,6 +11297,60 @@ namespace ConditioningControlPanel
             {
                 TxtAiHealthStatus.Text = $"{Loc.Get("label_status_failed")} · {ex.GetType().Name}";
                 TxtAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+            }
+        }
+
+        private void TxtDailyLimit_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtDailyLimit == null) return;
+
+            var text = (TxtDailyLimit.Text ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(text))
+            {
+                s.DailyRequestLimit = 0;
+            }
+            else if (int.TryParse(text, out var value) && value >= 0)
+            {
+                s.DailyRequestLimit = value;
+            }
+
+            App.Settings.Save();
+        }
+
+        private async void BtnTestOpenAiConnection_Click(object sender, RoutedEventArgs e)
+        {
+            if (TxtOpenAiHealthStatus == null) return;
+
+            TxtOpenAiHealthStatus.Text = Loc.Get("label_status_testing");
+            TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Gray);
+
+            try
+            {
+                // Use a minimal prompt to validate connectivity and auth.
+                var service = new Services.AIService.OpenAiCompatibleService();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var reply = await service.GetBambiReplyAsync("Say OK", isUserMessage: true);
+                sw.Stop();
+                service.Dispose();
+
+                if (string.IsNullOrWhiteSpace(reply))
+                {
+                    TxtOpenAiHealthStatus.Text = Loc.Get("label_status_failed");
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+                }
+                else
+                {
+                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_connected")} · {sw.ElapsedMilliseconds}ms";
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78));
+                }
+            }
+            catch (Exception ex)
+            {
+                TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_failed")} · {ex.GetType().Name}";
+                TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+                App.Logger?.Warning(ex, "MainWindow: OpenAI-compatible test connection failed");
             }
         }
 
@@ -11394,16 +11493,29 @@ namespace ConditioningControlPanel
 
             // Provider radios
             var aiOn = s.AiChatEnabled;
-            var local = s.CompanionPrompt.UseLocalAi;
+            var provider = s.CompanionPrompt.AiProvider;
             if (RadioAiOff != null)   RadioAiOff.IsChecked   = !aiOn;
-            if (RadioAiCloud != null) RadioAiCloud.IsChecked = aiOn && !local;
-            if (RadioAiLocal != null) RadioAiLocal.IsChecked = aiOn && local;
+            if (RadioAiCloud != null) RadioAiCloud.IsChecked = aiOn && provider == AiProviderType.Cloud;
+            if (RadioAiLocal != null) RadioAiLocal.IsChecked = aiOn && provider == AiProviderType.Local;
+            if (RadioAiOpenAiCompatible != null)
+                RadioAiOpenAiCompatible.IsChecked = aiOn && provider == AiProviderType.OpenAiCompatible;
+
             if (LocalConfigPanel != null)
-                LocalConfigPanel.Visibility = (aiOn && local) ? Visibility.Visible : Visibility.Collapsed;
+                LocalConfigPanel.Visibility = (aiOn && provider == AiProviderType.Local)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            if (OpenAiCompatibleConfigPanel != null)
+                OpenAiCompatibleConfigPanel.Visibility = (aiOn && provider == AiProviderType.OpenAiCompatible)
+                    ? Visibility.Visible : Visibility.Collapsed;
 
             // Local config fields
             if (TxtAiModel != null) TxtAiModel.Text = s.CompanionPrompt.AiModel ?? "";
             if (TxtAiHost != null)  TxtAiHost.Text  = s.CompanionPrompt.AiOllamaHost ?? "";
+
+            // OpenAI-compatible provider fields
+            if (TxtOpenAiEndpoint != null)
+                TxtOpenAiEndpoint.Text = s.CompanionPrompt.OpenAiCompatibleEndpoint ?? string.Empty;
+            if (TxtOpenAiModel != null)
+                TxtOpenAiModel.Text = s.CompanionPrompt.OpenAiCompatibleModel ?? string.Empty;
 
             // Capability checkboxes (ChkAiChat / ChkAwarenessMode handled by their own sync paths)
             if (ChkCapEffects != null)

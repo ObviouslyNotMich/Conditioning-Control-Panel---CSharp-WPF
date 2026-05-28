@@ -6149,8 +6149,27 @@
                                     <StackPanel x:Name="AiProviderRadioGroup" Orientation="Horizontal" Margin="0,0,0,10">
                                         <RadioButton x:Name="RadioAiOff" GroupName="AiProvider" Content="{loc:Str label_provider_off}" Foreground="White" FontSize="17" Margin="0,0,16,0" Checked="RadioAiOff_Checked"/>
                                         <RadioButton x:Name="RadioAiCloud" GroupName="AiProvider" Content="{loc:Str label_provider_cloud}" Foreground="White" FontSize="17" Margin="0,0,16,0" Checked="RadioAiCloud_Checked"/>
-                                        <RadioButton x:Name="RadioAiLocal" GroupName="AiProvider" Content="{loc:Str label_provider_local}" Foreground="White" FontSize="17" Checked="RadioAiLocal_Checked"/>
+                                        <RadioButton x:Name="RadioAiLocal" GroupName="AiProvider" Content="{loc:Str label_provider_local}" Foreground="White" FontSize="17" Margin="0,0,16,0" Checked="RadioAiLocal_Checked"/>
+                                        <RadioButton x:Name="RadioAiOpenAiCompatible" GroupName="AiProvider" Content="{loc:Str label_provider_custom}" Foreground="White" FontSize="17" Checked="RadioAiOpenAiCompatible_Checked"/>
                                     </StackPanel>
+
+                                    <!-- Daily request limit (OpenAI-compatible provider only) -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{loc:Str label_daily_request_limit}" Foreground="White" FontSize="14"/>
+                                            <TextBlock Text="{loc:Str label_daily_request_limit_hint}" Foreground="{DynamicResource TextDimBrush}" FontSize="12"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="TxtDailyLimit" Grid.Column="1" Width="60" Height="28"
+                                                 VerticalAlignment="Center"
+                                                 Background="{DynamicResource SurfaceBgBrush}" Foreground="White"
+                                                 BorderBrush="#505050" BorderThickness="1" Padding="4,0" FontSize="13"
+                                                 HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
+                                                 LostFocus="TxtDailyLimit_LostFocus"/>
+                                    </Grid>
 
                                     <!-- Local config -->
                                     <Border x:Name="LocalConfigPanel" Visibility="Collapsed" CornerRadius="8" Padding="10" Margin="0,0,0,12"
@@ -6190,6 +6209,63 @@
                                                             Padding="10,4" FontSize="13" Cursor="Hand" Click="BtnTestOllamaConnection_Click"/>
                                                 </StackPanel>
                                             </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- OpenAI-compatible config -->
+                                    <Border x:Name="OpenAiCompatibleConfigPanel" Visibility="Collapsed" CornerRadius="8" Padding="10" Margin="0,0,0,12"
+                                            Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#9370DB" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Str label_custom_ai_config}" Foreground="#9370DB" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+
+                                                <!-- Endpoint URL -->
+                                                <StackPanel Grid.Row="0" Margin="0,0,0,4">
+                                                    <TextBlock Text="{loc:Str label_custom_endpoint}" Foreground="{DynamicResource TextDimBrush}" FontSize="12"/>
+                                                    <TextBox x:Name="TxtOpenAiEndpoint"
+                                                             Background="{DynamicResource SurfaceBgBrush}" Foreground="White"
+                                                             BorderBrush="#505050" BorderThickness="1" Padding="6,4" FontSize="13" Margin="0,3,0,0"
+                                                             Style="{StaticResource FocusGlowTextBox}" LostFocus="TxtOpenAiEndpoint_LostFocus"
+                                                             ToolTip="{loc:Str label_custom_endpoint_placeholder}"/>
+                                                </StackPanel>
+
+                                                <!-- API Key -->
+                                                <StackPanel Grid.Row="1" Margin="0,4,0,4">
+                                                    <TextBlock Text="{loc:Str label_custom_api_key}" Foreground="{DynamicResource TextDimBrush}" FontSize="12"/>
+                                                    <PasswordBox x:Name="TxtOpenAiApiKey"
+                                                                 Background="{DynamicResource SurfaceBgBrush}" Foreground="White"
+                                                                 BorderBrush="#505050" BorderThickness="1" Padding="6,4" FontSize="13" Margin="0,3,0,0"
+                                                                 PasswordChanged="TxtOpenAiApiKey_PasswordChanged"/>
+                                                </StackPanel>
+
+                                                <!-- Model + Test connection -->
+                                                <Grid Grid.Row="2" Margin="0,4,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{loc:Str label_custom_model}" Foreground="{DynamicResource TextDimBrush}" FontSize="12"/>
+                                                        <TextBox x:Name="TxtOpenAiModel"
+                                                                 Background="{DynamicResource SurfaceBgBrush}" Foreground="White"
+                                                                 BorderBrush="#505050" BorderThickness="1" Padding="6,4" FontSize="13" Margin="0,3,0,0"
+                                                                 Style="{StaticResource FocusGlowTextBox}" LostFocus="TxtOpenAiModel_LostFocus"
+                                                                 ToolTip="{loc:Str label_custom_model_placeholder}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8,0,0,0">
+                                                        <Button x:Name="BtnTestOpenAiConnection" Content="{loc:Str label_test_connection}"
+                                                                Background="{DynamicResource SurfaceBgBrush}" Foreground="White" BorderBrush="#9370DB" BorderThickness="1"
+                                                                Padding="10,4" FontSize="13" Cursor="Hand" Click="BtnTestOpenAiConnection_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Grid>
+
+                                            <TextBlock x:Name="TxtOpenAiHealthStatus" Text="{loc:Str label_status_unknown}" Foreground="{DynamicResource TextDimBrush}" FontSize="13" Margin="0,8,0,0"/>
                                         </StackPanel>
                                     </Border>
 

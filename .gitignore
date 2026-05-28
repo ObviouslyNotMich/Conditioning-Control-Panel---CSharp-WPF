@@ -13,6 +13,8 @@ ConditioningControlPanel/docs/surveys/
 # Claude Code local config
 .claude/
 ConditioningControlPanel/.claude/
+.github/agents/wpf-ui-specialist.agent.md
+AGENTS.md
 
 # Build logs
 build-output.log
@@ -144,3 +146,4 @@ ConditioningControlPanel/DroneMod/*
 *.env
 *.env.*
 nul
+
