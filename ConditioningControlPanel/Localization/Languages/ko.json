@@ -273,6 +273,7 @@
   "tooltip_automatically_reduce_other_app_volumes_during": "영상 재생 중 다른 앱 볼륨을 자동으로 줄여요",
   "setting_master": "마스터",
   "tooltip_master_volume_for_all_audio": "전체 오디오의 마스터 볼륨",
+  "label_ai_custom_error": "커스텀 AI 오류 – 엔드포인트, 모델, API 키를 확인하세요.",
   "tooltip_overall_audio_volume_level": "전체 오디오 볼륨 레벨",
   "setting_video": "영상",
   "tooltip_volume_for_mandatory_videos": "필수 영상 볼륨",

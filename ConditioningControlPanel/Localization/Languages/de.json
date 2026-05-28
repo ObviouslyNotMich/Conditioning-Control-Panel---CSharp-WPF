@@ -272,6 +272,8 @@ Nutze stattdessen den randlosen Fenstermodus.",
   "label_duck": "Absenken",
   "tooltip_automatically_reduce_other_app_volumes_during": "Automatisch andere App-Lautstärken während Videos reduzieren",
   "setting_master": "Master",
+
+  "label_ai_custom_error": "Benutzerdefinierte KI-Fehler – Endpunkt, Modell und API-Schlüssel prüfen.",
   "tooltip_master_volume_for_all_audio": "Master-Lautstärke für alles Audio",
   "tooltip_overall_audio_volume_level": "Gesamt-Audio-Lautstärkepegel",
   "setting_video": "Video",

@@ -6293,7 +6293,7 @@
                                     </StackPanel>
 
                                     <!-- Daily request limit (OpenAI-compatible provider only) -->
-                                    <Grid Margin="0,0,0,8">
+                                    <Grid x:Name="DailyLimitPanel" Margin="0,0,0,8">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>

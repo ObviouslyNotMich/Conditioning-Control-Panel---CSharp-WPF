@@ -10624,13 +10624,41 @@ namespace ConditioningControlPanel
             // Update AI connection status
             if (TxtAiStatus != null)
             {
+                var provider = App.Settings?.Current?.CompanionPrompt?.AiProvider ?? AiProviderType.Cloud;
+
                 if (App.Ai?.IsAvailable == true)
                 {
-                    TxtAiStatus.Text = $"AI Ready - {App.Ai.DailyRequestsRemaining} requests remaining today";
+                    var remaining = App.Ai.DailyRequestsRemaining;
+
+                    // Cloud provider always has a finite baked-in limit (100/1000):
+                    // always show the remaining count for cloud.
+                    if (provider == AiProviderType.Cloud)
+                    {
+                        TxtAiStatus.Text = $"AI Ready - {remaining} requests remaining today";
+                    }
+                    else if (remaining < 0)
+                    {
+                        // Unlimited (local + custom provider with limit 0) → no remaining-count suffix
+                        TxtAiStatus.Text = "AI Ready";
+                    }
+                    else
+                    {
+                        // Custom provider with a finite limit
+                        TxtAiStatus.Text = $"AI Ready - {remaining} requests remaining today";
+                    }
                 }
                 else
                 {
-                    TxtAiStatus.Text = Loc.Get("label_ai_initializing");
+                    // For the custom OpenAI-compatible provider, surface a clearer error hint
+                    // when the service is not available (likely bad endpoint/API key/model).
+                    if (provider == AiProviderType.OpenAiCompatible)
+                    {
+                        TxtAiStatus.Text = Loc.Get("label_ai_custom_error");
+                    }
+                    else
+                    {
+                        TxtAiStatus.Text = Loc.Get("label_ai_initializing");
+                    }
                 }
             }
 
@@ -11750,9 +11778,10 @@ namespace ConditioningControlPanel
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
             if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Collapsed;
             // Cloud can't trigger effects, so prior local-session entries would be misleading.
             App.AiLiveActions?.Clear();
-            UpdateAiBrainPills();
+            SyncAiBrainUI();
         }
 
         private void RadioAiLocal_Checked(object sender, RoutedEventArgs e)
@@ -11766,7 +11795,8 @@ namespace ConditioningControlPanel
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Visible;
             if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
-            UpdateAiBrainPills();
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Collapsed;
+            SyncAiBrainUI();
 
             // First-time opt-in: if Ollama isn't reachable, offer the setup wizard so
             // the user doesn't have to hunt for the button. Detect runs on a 2s timeout.
@@ -11806,7 +11836,7 @@ namespace ConditioningControlPanel
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
             if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Visible;
-            UpdateAiBrainPills();
+            SyncAiBrainUI();
         }
 
         private void BtnSetupLocalAi_Click(object sender, RoutedEventArgs e)
@@ -12196,6 +12226,16 @@ namespace ConditioningControlPanel
                 OpenAiCompatibleConfigPanel.Visibility = (aiOn && provider == AiProviderType.OpenAiCompatible)
                     ? Visibility.Visible : Visibility.Collapsed;
 
+            // Daily request limit row is only meaningful for the OpenAI-compatible provider
+            if (DailyLimitPanel != null)
+            {
+                // Only show the daily request limit row when the custom OpenAI-compatible
+                // provider is active. Cloud uses built-in free/Patreon limits that are
+                // not user-editable; Local has unlimited requests.
+                DailyLimitPanel.Visibility = (aiOn && provider == AiProviderType.OpenAiCompatible)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             // Local config fields
             if (TxtAiModel != null) TxtAiModel.Text = s.CompanionPrompt.AiModel ?? "";
             if (TxtAiHost != null)  TxtAiHost.Text  = s.CompanionPrompt.AiOllamaHost ?? "";
@@ -12206,7 +12246,7 @@ namespace ConditioningControlPanel
             if (TxtOpenAiModel != null)
                 TxtOpenAiModel.Text = s.CompanionPrompt.OpenAiCompatibleModel ?? string.Empty;
 
-            // Daily request limit (0 = unlimited)
+            // Daily request limit (0 = unlimited) – only for OpenAI-compatible provider
             if (TxtDailyLimit != null)
             {
                 var limit = s.CompanionPrompt.DailyRequestLimit;
