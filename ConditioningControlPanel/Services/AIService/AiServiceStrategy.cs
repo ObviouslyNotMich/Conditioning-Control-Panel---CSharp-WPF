@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Services.Moderation;
 
 namespace ConditioningControlPanel.Services.AIService
@@ -15,35 +16,47 @@ namespace ConditioningControlPanel.Services.AIService
         private readonly object _lock = new();
         private AiService? _cloud;
         private LocalAiService? _local;
+        private OpenAiCompatibleService? _openAi;
 
-        private static bool UseLocal =>
-            App.Settings?.Current?.CompanionPrompt?.UseLocalAi == true;
+        private static AiProviderType Provider =>
+            App.Settings?.Current?.CompanionPrompt?.AiProvider ?? AiProviderType.Cloud;
 
         private IAiService Active
         {
             get
             {
-                if (UseLocal)
+                switch (Provider)
                 {
-                    if (_local == null)
-                    {
-                        lock (_lock)
+                    case AiProviderType.Local:
+                        if (_local == null)
                         {
-                            _local ??= new LocalAiService();
+                            lock (_lock)
+                            {
+                                _local ??= new LocalAiService();
+                            }
                         }
-                    }
-                    return _local;
-                }
-                else
-                {
-                    if (_cloud == null)
-                    {
-                        lock (_lock)
+                        return _local;
+
+                    case AiProviderType.OpenAiCompatible:
+                        if (_openAi == null)
                         {
-                            _cloud ??= new AiService();
+                            lock (_lock)
+                            {
+                                _openAi ??= new OpenAiCompatibleService();
+                            }
                         }
-                    }
-                    return _cloud;
+                        return _openAi;
+
+                    case AiProviderType.Cloud:
+                    default:
+                        if (_cloud == null)
+                        {
+                            lock (_lock)
+                            {
+                                _cloud ??= new AiService();
+                            }
+                        }
+                        return _cloud;
                 }
             }
         }
@@ -78,6 +91,7 @@ namespace ConditioningControlPanel.Services.AIService
         {
             _cloud?.Dispose();
             _local?.Dispose();
+            _openAi?.Dispose();
         }
 
         /// <summary>
@@ -104,7 +118,7 @@ namespace ConditioningControlPanel.Services.AIService
         /// </summary>
         public Task WarmUpLocalAsync()
         {
-            if (!UseLocal) return Task.CompletedTask;
+            if (Provider != Models.AiProviderType.Local) return Task.CompletedTask;
 
             lock (_lock)
             {

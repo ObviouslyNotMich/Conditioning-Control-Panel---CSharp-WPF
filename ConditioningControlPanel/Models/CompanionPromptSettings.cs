@@ -1,7 +1,15 @@
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace ConditioningControlPanel.Models
 {
+    public enum AiProviderType
+    {
+        Cloud = 0,
+        Local = 1,
+        OpenAiCompatible = 2
+    }
+
     /// <summary>
     /// User-customizable settings for the AI companion's personality and behavior.
     /// Each section corresponds to a part of the system prompt sent to the AI.
@@ -14,12 +22,18 @@ namespace ConditioningControlPanel.Models
         public bool UseCustomPrompt { get; set; } = false;
 
         /// <summary>
-        /// Use a local Ollama-backed AI provider instead of the cloud proxy.
+        /// Selected AI provider. Replaces the legacy boolean UseLocalAi.
         /// </summary>
-        public bool UseLocalAi { get; set; } = false;
+        public AiProviderType AiProvider { get; set; } = AiProviderType.Cloud;
 
         /// <summary>
-        /// Name of the Ollama model to use when <see cref="UseLocalAi"/> is true.
+        /// Legacy backward-compat computed property. Not persisted.
+        /// </summary>
+        [JsonIgnore]
+        public bool UseLocalAi => AiProvider == AiProviderType.Local;
+
+        /// <summary>
+        /// Name of the Ollama model to use when Local provider is selected.
         /// </summary>
         public string AiModel { get; set; } = "qwen3.5:latest";
 
@@ -27,6 +41,31 @@ namespace ConditioningControlPanel.Models
         /// Base URL of the local Ollama HTTP server.
         /// </summary>
         public string AiOllamaHost { get; set; } = "http://localhost:11434/";
+
+        // -------- OpenAI-Compatible Provider Settings --------
+
+        /// <summary>
+        /// Base URL of the OpenAI-compatible API endpoint.
+        /// Example: https://api.openai.com/v1 or https://my-llm.example.com/v1
+        /// </summary>
+        public string OpenAiCompatibleEndpoint { get; set; } = "";
+
+        /// <summary>
+        /// API key for the OpenAI-compatible provider. Encrypted via DPAPI before saving.
+        /// </summary>
+        public string OpenAiCompatibleApiKey { get; set; } = "";
+
+        /// <summary>
+        /// Model name for the OpenAI-compatible provider.
+        /// Example: gpt-4o-mini, claude-3-haiku-20240307
+        /// </summary>
+        public string OpenAiCompatibleModel { get; set; } = "";
+
+        /// <summary>
+        /// Daily request limit for the OpenAI-compatible provider. 0 = unlimited.
+        /// Cloud and local providers use their own built-in limits.
+        /// </summary>
+        public int DailyRequestLimit { get; set; } = 0;
 
         // -------- AI Effect Permissions --------
         // Master switch — when false, the AI cannot trigger any effect regardless of per-effect toggles.
@@ -163,9 +202,13 @@ namespace ConditioningControlPanel.Models
             return new CompanionPromptSettings
             {
                 UseCustomPrompt = false,
-                UseLocalAi = false,
+                AiProvider = AiProviderType.Cloud,
                 AiModel = "qwen3.5:latest",
                 AiOllamaHost = "http://localhost:11434/",
+                OpenAiCompatibleEndpoint = "",
+                OpenAiCompatibleApiKey = "",
+                OpenAiCompatibleModel = "",
+                DailyRequestLimit = 0,
                 AllowAiToControlEffects = false,
                 AllowAiFlash = false,
                 AllowAiVideo = false,
@@ -284,9 +327,13 @@ FREQUENCY RULE:
             return new CompanionPromptSettings
             {
                 UseCustomPrompt = UseCustomPrompt,
-                UseLocalAi = UseLocalAi,
+                AiProvider = AiProvider,
                 AiModel = AiModel,
                 AiOllamaHost = AiOllamaHost,
+                OpenAiCompatibleEndpoint = OpenAiCompatibleEndpoint,
+                OpenAiCompatibleApiKey = OpenAiCompatibleApiKey,
+                OpenAiCompatibleModel = OpenAiCompatibleModel,
+                DailyRequestLimit = DailyRequestLimit,
                 AllowAiToControlEffects = AllowAiToControlEffects,
                 AllowAiFlash = AllowAiFlash,
                 AllowAiVideo = AllowAiVideo,

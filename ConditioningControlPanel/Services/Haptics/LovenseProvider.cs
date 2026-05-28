@@ -32,9 +32,9 @@ namespace ConditioningControlPanel.Services.Haptics
         public List<string> ConnectedDevices { get; } = new();
         public LovenseConnectionMode Mode => _mode;
 
-        public event EventHandler<bool> ConnectionChanged;
-        public event EventHandler<string> DeviceDiscovered;
-        public event EventHandler<string> Error;
+        public event EventHandler<bool>? ConnectionChanged;
+        public event EventHandler<string>? DeviceDiscovered;
+        public event EventHandler<string>? Error;
 
         public LovenseProvider()
         {

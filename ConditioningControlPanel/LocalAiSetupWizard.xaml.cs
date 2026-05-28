@@ -385,7 +385,7 @@ namespace ConditioningControlPanel
             {
                 if (App.Settings?.Current?.CompanionPrompt != null)
                 {
-                    App.Settings.Current.CompanionPrompt.UseLocalAi = true;
+                    App.Settings.Current.CompanionPrompt.AiProvider = Models.AiProviderType.Local;
                     App.Settings.Current.CompanionPrompt.AiModel = _targetModel;
                     App.Settings.Save();
                 }
