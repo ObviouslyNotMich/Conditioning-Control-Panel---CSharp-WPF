@@ -11517,6 +11517,13 @@ namespace ConditioningControlPanel
             if (TxtOpenAiModel != null)
                 TxtOpenAiModel.Text = s.CompanionPrompt.OpenAiCompatibleModel ?? string.Empty;
 
+            // Daily request limit (0 = unlimited)
+            if (TxtDailyLimit != null)
+            {
+                var limit = s.CompanionPrompt.DailyRequestLimit;
+                TxtDailyLimit.Text = limit > 0 ? limit.ToString() : string.Empty;
+            }
+
             // Capability checkboxes (ChkAiChat / ChkAwarenessMode handled by their own sync paths)
             if (ChkCapEffects != null)
                 ChkCapEffects.IsChecked = s.CompanionPrompt.AllowAiToControlEffects;
