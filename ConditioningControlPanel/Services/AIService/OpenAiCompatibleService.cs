@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Services.AIService;
+using ConditioningControlPanel.Services.Moderation;
 
 namespace ConditioningControlPanel.Services.AIService
 {
@@ -251,6 +252,38 @@ namespace ConditioningControlPanel.Services.AIService
             var prompt = _bambiSprite.GetSystemPrompt();
             var reply = await SendChatAsync(prompt, userInput).ConfigureAwait(false);
             return reply ?? GetFallbackResponse();
+        }
+
+        /// <summary>
+        /// Typed variant of the main chat API. Mirrors the behavior of
+        /// <see cref="AiService.GetBambiReplyExAsync"/> and
+        /// <see cref="LocalAiService.GetBambiReplyExAsync"/>, but routed through
+        /// the OpenAI-compatible HTTP endpoint.
+        /// </summary>
+        public async Task<AiReplyResult> GetBambiReplyExAsync(string userInput, bool isUserMessage = false)
+        {
+            // isUserMessage currently only affects local-queue semantics in
+            // LocalAiService; this provider is stateless, so we ignore it.
+            _ = isUserMessage;
+
+            if (App.Settings?.Current?.OfflineMode == true)
+                return new AiReplyResult(GetFallbackResponse(), IsAiGenerated: false, Refusal: null);
+
+            if (!IsAvailable)
+            {
+                App.Logger?.Debug("OpenAiCompatibleService: AI not available for typed reply");
+                return new AiReplyResult(GetFallbackResponse(), IsAiGenerated: false, Refusal: null);
+            }
+
+            var systemPrompt = _bambiSprite.GetSystemPrompt();
+            var reply = await SendChatAsync(systemPrompt, userInput).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(reply))
+                return new AiReplyResult(GetFallbackResponse(), IsAiGenerated: false, Refusal: null);
+
+            // Moderation integration for this provider is currently handled
+            // upstream, so we always return a non-refusal result here.
+            return new AiReplyResult(reply, IsAiGenerated: true, Refusal: null);
         }
 
         public async Task<string?> GetAwarenessReactionAsync(string detectedName, string category, string serviceName = "", string pageTitle = "")
