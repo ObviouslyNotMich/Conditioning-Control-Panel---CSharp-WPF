@@ -1531,6 +1531,23 @@ namespace ConditioningControlPanel
                     if (resolved != null)
                         img.Source = resolved;
                 }
+
+                // Lab hero headers (mod-sensitive): drone-mode ships green versions under
+                // resources/features/lab_*_hero.png; the embedded pink ones are the fallback.
+                var labHeroMap = new (string resourcePath, ImageBrush? brush)[]
+                {
+                    ("features/lab_quiz_hero.png", LabQuizHeroBrush),
+                    ("features/lab_aimemory_hero.png", LabAiMemoryHeroBrush),
+                    ("features/lab_gaze_hero.png", LabGazeHeroBrush),
+                    ("features/lab_focusgaze_hero.png", LabFocusHeroBrush),
+                };
+                foreach (var (path, brush) in labHeroMap)
+                {
+                    if (brush == null) continue;
+                    var image = ModResourceResolver.ResolveImage(path);
+                    if (image != null)
+                        brush.ImageSource = image;
+                }
             }
             catch (Exception ex)
             {
@@ -1910,6 +1927,13 @@ namespace ConditioningControlPanel
 
             // Title-bar camera-active indicator
             WireWebcamActivePill();
+
+            // Movable loading splash shown while the webcam engine starts up
+            InstallWebcamLoadingSplash();
+
+            // Global 6-blink → stop-everything + recalibrate gesture
+            WireRapidBlinkRecalibrateShortcut();
+            SyncBlinkRecalToggles(App.Settings?.Current?.BlinkRecalibrateShortcutEnabled ?? true);
 
             // Load custom sessions from disk (so they persist across restarts)
             if (_sessionManager == null)
@@ -2324,6 +2348,12 @@ namespace ConditioningControlPanel
             {
                 _avatarTubeWindow.ShowTube();
                 _avatarTubeWindow.StartPoseAnimation();
+                // Force the pair above the main window. Callers reach ShowAvatarTube right
+                // after a Topmost true→false pulse (panic restore, video end, chat-from-tray),
+                // which lifts main to the top of the z-band. Activate() hasn't transferred
+                // foreground yet, so the gated raise inside ShowTube can bail and leave the
+                // tube/bubble buried behind main. A forced raise here closes that gap.
+                _avatarTubeWindow.RaiseAttachedTubeAboveOwner();
             }
         }
 
@@ -2718,25 +2748,13 @@ namespace ConditioningControlPanel
             }
         }
 
-        // Webcam-needing enhancement check — mirrors EnhancementPlayerWindow's
-        // EnhancementNeedsWebcam: AutoTags first, then Trigger.Type fallback for
-        // pre-AutoTags enhancements.
+        // Webcam-needing enhancement check. Delegates to the shared
+        // EnhancementCapabilities.NeedsWebcam so the browser hub, the mandatory-
+        // video engine-start nudge, and the Deeper player all answer identically
+        // (AutoTags first, then a trigger scan across both the unified timeline
+        // and the legacy Rules collection).
         private static bool BrowserEnhancementNeedsWebcam(Models.Deeper.Enhancement enh)
-        {
-            if (enh == null) return false;
-            if (enh.Metadata?.AutoTags?.Contains(Services.Deeper.EnhancementAutoTagger.TagWebcam) == true) return true;
-            if (enh.Rules == null) return false;
-            foreach (var rule in enh.Rules)
-            {
-                var t = rule?.Trigger?.Type;
-                if (t == Models.Deeper.TriggerTypes.GazeTarget
-                 || t == Models.Deeper.TriggerTypes.GazeAvoid
-                 || t == Models.Deeper.TriggerTypes.AttentionLost
-                 || t == Models.Deeper.TriggerTypes.BlinkDetected
-                 || t == Models.Deeper.TriggerTypes.MouthOpen) return true;
-            }
-            return false;
-        }
+            => Services.Deeper.EnhancementCapabilities.NeedsWebcam(enh);
 
         private void MaybePromptBrowserWebcamForEnhancement(Models.Deeper.Enhancement enhancement)
         {
@@ -2767,6 +2785,105 @@ namespace ConditioningControlPanel
             catch (Exception ex)
             {
                 App.Logger?.Debug("MaybePromptBrowserWebcamForEnhancement: {Error}", ex.Message);
+            }
+        }
+
+        // Set once the engine-start enhancement nudge has been shown this launch,
+        // so repeated Start/Stop cycles don't re-pop it (once per launch; a "Not
+        // now" is remembered until the app restarts — webcam isn't auto-started,
+        // so a fresh launch legitimately re-asks).
+        private bool _mandatoryVideoEnhanceNudgeShown;
+
+        /// <summary>
+        /// Engine-start nudge: if the mandatory / asset video folder contains an
+        /// enhanced video the current settings won't fully honour, offer to flip
+        /// the missing switch(es) in one combined dialog:
+        ///   • VideoEnhanceIfPossible is off but enhanced videos exist → enable it.
+        ///   • An enhancement needs the webcam tracker but it isn't running → start
+        ///     it, routing through the same consent/calibration flow as the manual
+        ///     toggle.
+        /// Scans the folder off the UI thread (cached + short-circuited) and
+        /// prompts at most once per launch. No-op unless mandatory videos are on.
+        /// </summary>
+        private async void MaybePromptMandatoryVideoEnhancement()
+        {
+            try
+            {
+                if (_mandatoryVideoEnhanceNudgeShown) return;
+
+                var settings = App.Settings?.Current;
+                if (settings == null || !settings.MandatoryVideosEnabled) return;
+
+                // Don't interrupt remote-controlled or locked-down sessions.
+                if (App.RemoteControl?.ControllerConnected == true) return;
+                if (App.Lockdown?.IsActive == true) return;
+
+                var folder = System.IO.Path.Combine(App.EffectiveAssetsPath, "videos");
+
+                Services.Deeper.MandatoryVideoEnhancementScanner.ScanResult scan;
+                try
+                {
+                    scan = await Task.Run(() => Services.Deeper.MandatoryVideoEnhancementScanner.Scan(folder));
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("MaybePromptMandatoryVideoEnhancement: scan failed: {Error}", ex.Message);
+                    return;
+                }
+
+                // The window/engine may have gone away during the async scan.
+                if (!IsLoaded || Dispatcher.HasShutdownStarted) return;
+                if (!_isRunning) return;            // engine stopped before scan returned
+                if (_mandatoryVideoEnhanceNudgeShown) return; // a concurrent start won the race
+
+                if (!scan.AnyEnhanced) return;      // nothing to nudge about
+
+                var enhanceOff = !settings.VideoEnhanceIfPossible;
+                var webcamSvc = App.Webcam;
+                var webcamGap = scan.AnyWebcamEnhanced && (webcamSvc == null || !webcamSvc.IsRunning);
+
+                // No gap → no prompt (enhancement already on and either no webcam
+                // rules or the webcam is already tracking).
+                if (!enhanceOff && !webcamGap) return;
+
+                _mandatoryVideoEnhanceNudgeShown = true;
+
+                var sb = new System.Text.StringBuilder();
+                sb.Append("Some videos in your mandatory video folder have enhancements ");
+                sb.Append("(synced flashes, haptics, overlays and more).\n\n");
+                if (enhanceOff)
+                    sb.Append("• Video enhancement is currently turned OFF, so they won't play.\n");
+                if (webcamGap)
+                    sb.Append("• Some use webcam tracking (gaze / blink), but the webcam engine isn't running.\n");
+                sb.Append("\nWould you like to turn ");
+                sb.Append(enhanceOff && webcamGap ? "these on now?"
+                          : enhanceOff ? "enhancement on now?"
+                          : "the webcam on now?");
+
+                var yes = enhanceOff && webcamGap ? "Yes, set it up"
+                          : enhanceOff ? "Yes, enable enhancement"
+                          : "Yes, turn on webcam";
+
+                var confirmed = ShowStyledDialog("✨ Enhanced videos detected", sb.ToString(), yes, "Not now");
+                if (!confirmed) return;
+
+                if (enhanceOff)
+                {
+                    settings.VideoEnhanceIfPossible = true;
+                    App.Settings?.Save();
+                    App.Logger?.Information("Mandatory-video enhancement enabled via engine-start nudge.");
+                }
+
+                if (webcamGap)
+                {
+                    // Reuse the manual toggle's flow so consent + calibration
+                    // gating is identical to clicking the webcam button.
+                    BtnWebcamTracking_Click(this, new RoutedEventArgs());
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("MaybePromptMandatoryVideoEnhancement: {Error}", ex.Message);
             }
         }
 
@@ -2989,46 +3106,12 @@ namespace ConditioningControlPanel
             ImportEnhancementFiles(dlg.FileNames);
         }
 
-        // Drag-over handler reused for both DragEnter and DragOver. Sets effect=Copy
-        // when payload contains at least one file the importer might accept (we don't
-        // pre-validate JSON shape here — just the extension), otherwise None so the
-        // cursor flips back to the no-drop glyph for media files etc.
-        private void DeeperTab_DragOver(object sender, DragEventArgs e)
-        {
-            try
-            {
-                if (e.Data.GetDataPresent(DataFormats.FileDrop))
-                {
-                    var files = e.Data.GetData(DataFormats.FileDrop) as string[];
-                    if (files != null && files.Any(IsImportableEnhancementPath))
-                    {
-                        e.Effects = DragDropEffects.Copy;
-                        e.Handled = true;
-                        return;
-                    }
-                }
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-            }
-            catch (Exception ex) { App.Logger?.Debug("DeeperTab_DragOver: {Error}", ex.Message); }
-        }
-
-        private void DeeperTab_Drop(object sender, DragEventArgs e)
-        {
-            try
-            {
-                if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
-                var files = e.Data.GetData(DataFormats.FileDrop) as string[];
-                if (files == null || files.Length == 0) return;
-                e.Handled = true;
-                ImportEnhancementFiles(files);
-            }
-            catch (Exception ex)
-            {
-                App.Logger?.Warning(ex, "DeeperTab_Drop failed");
-                MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
+        // NOTE: Deeper-tab drag-and-drop is intentionally handled by the window-wide
+        // Window_Drop / DetectDropType system (DropType.Enhancement → ImportEnhancementFiles)
+        // rather than a tab-local handler. A tab-local AllowDrop handler swallowed the
+        // bubbling drag events the global drop overlay relies on, so it only covered
+        // part of the tab. Keeping one global handler makes the entire window — and thus
+        // the whole Deeper tab — a uniform drop target.
 
         private static bool IsImportableEnhancementPath(string path)
         {
@@ -4621,10 +4704,13 @@ namespace ConditioningControlPanel
 
             void Update(WebcamTrackingState s)
             {
-                if (WebcamActivePill == null) return;
-                WebcamActivePill.Visibility = (s == WebcamTrackingState.Tracking || s == WebcamTrackingState.FaceLost)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                if (WebcamActivePill != null)
+                {
+                    WebcamActivePill.Visibility = (s == WebcamTrackingState.Tracking || s == WebcamTrackingState.FaceLost)
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                }
+                UpdateLabTrackerUi(s);
             }
 
             _onPillStateChanged = Update;
@@ -4632,6 +4718,173 @@ namespace ConditioningControlPanel
             // Reflect current state on wire-up — service may already be running
             // if we got here after a previous Stop/Start cycle.
             Update(App.Webcam.State);
+        }
+
+        // --- Rapid 6-blink recalibration gesture -----------------------------
+        // Blinking fast 6 times in a row halts all active conditioning (keeping
+        // the camera on) and offers recalibration. The blink detector enforces a
+        // 500ms cooldown between fires (WebcamTrackingService.BlinkCooldownMs),
+        // so 6 blinks physically span >=2.5s — a literal "6 in 2s" can't fire.
+        // 3.5s is the achievable window, and still far above the natural blink
+        // rate (~1 per 3-4s) so spontaneous blinking never triggers it.
+        private const int RapidBlinkRecalCount = 6;
+        private const int RapidBlinkRecalWindowMs = 3500;
+        private readonly Queue<DateTime> _rapidBlinkTimes = new();
+        private Action? _onRapidBlinkRecal;
+        private bool _rapidBlinkRecalInProgress;
+
+        private void WireRapidBlinkRecalibrateShortcut()
+        {
+            if (App.Webcam == null || _onRapidBlinkRecal != null) return;
+
+            void OnBlink()
+            {
+                // Opt-in via the toggle shown on every webcam card.
+                if (App.Settings?.Current?.BlinkRecalibrateShortcutEnabled != true) return;
+                // Don't fire while a calibration window is already open (its
+                // verify step asks the user to blink) or while we're mid-trigger.
+                if (_rapidBlinkRecalInProgress || WebcamCalibrationWindow.IsShowing) return;
+
+                var now = DateTime.UtcNow;
+                _rapidBlinkTimes.Enqueue(now);
+                var cutoff = now.AddMilliseconds(-RapidBlinkRecalWindowMs);
+                while (_rapidBlinkTimes.Count > 0 && _rapidBlinkTimes.Peek() < cutoff)
+                    _rapidBlinkTimes.Dequeue();
+
+                if (_rapidBlinkTimes.Count >= RapidBlinkRecalCount)
+                {
+                    _rapidBlinkTimes.Clear();
+                    _ = TriggerRapidBlinkRecalibrateAsync();
+                }
+            }
+
+            _onRapidBlinkRecal = OnBlink;
+            App.Webcam.OnBlink += _onRapidBlinkRecal;
+        }
+
+        private async Task TriggerRapidBlinkRecalibrateAsync()
+        {
+            if (_rapidBlinkRecalInProgress) return;
+            _rapidBlinkRecalInProgress = true;
+            try
+            {
+                App.Logger?.Information("Rapid 6-blink gesture: stopping all activity and offering recalibration.");
+
+                // Halt everything the user is experiencing — same surface as a
+                // panic press — but DELIBERATELY leave App.Webcam running: the
+                // calibration window requires the capture loop to be live.
+                StopAllForRecalibration();
+
+                // Guard against a race where the capture loop stopped between the
+                // triggering blink and here.
+                var svc = App.Webcam;
+                if (svc != null && !svc.IsRunning)
+                    await Task.Run(() => svc.Start());
+                if (svc == null || !svc.IsRunning)
+                {
+                    App.Logger?.Warning("Rapid-blink recal: webcam not running and could not be (re)started; aborting.");
+                    return;
+                }
+
+                var choice = MessageBox.Show(this,
+                    "You blinked to stop everything. Recalibrate webcam tracking now?",
+                    "Recalibrate?",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (choice != MessageBoxResult.Yes) return;
+
+                WebcamCalibrationWindow.ShowDialogWithRecalibrate(this);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Rapid-blink recalibration failed");
+            }
+            finally
+            {
+                _rapidBlinkRecalInProgress = false;
+                _rapidBlinkTimes.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Stops all active conditioning output (engine, session, videos, audio,
+        /// gaze features) — mirroring the "stop" branch of the panic key, minus
+        /// the window-restore / exit / achievement bookkeeping. Leaves the
+        /// webcam capture loop (App.Webcam) RUNNING so recalibration can proceed.
+        /// </summary>
+        private void StopAllForRecalibration()
+        {
+            try { Controls.HelpPopover.CloseActive(); } catch { }
+            try { App.KillAllAudio(); } catch (Exception ex) { App.Logger?.Warning(ex, "Recal stop: KillAllAudio failed"); }
+            try { App.Autonomy?.CancelActivePulses(); } catch { }
+            try { App.GazeFocus?.Stop(); } catch { }
+            try { App.BlinkTrainer?.Stop(); } catch { }
+            try
+            {
+                if (_sessionEngine != null && _sessionEngine.IsRunning && !_sessionEngine.IsPaused)
+                {
+                    _sessionEngine.PauseSession();
+                    if (TxtPauseIcon != null) TxtPauseIcon.Text = "▶";
+                    if (BtnPauseSession != null) BtnPauseSession.ToolTip = Loc.Get("tooltip_resume_session");
+                }
+            }
+            catch (Exception ex) { App.Logger?.Warning(ex, "Recal stop: pause session failed"); }
+            try { if (_isRunning) StopEngine(); } catch (Exception ex) { App.Logger?.Warning(ex, "Recal stop: StopEngine failed"); }
+            try { App.InteractionQueue?.ForceReset(); } catch { }
+        }
+
+        // --- "Blink to recalibrate" toggle, mirrored on every webcam card -----
+        // A single setting (BlinkRecalibrateShortcutEnabled) surfaced as a small
+        // checkbox on each webcam card. Toggling any one writes the setting and
+        // keeps the others in sync.
+        private bool _syncingBlinkRecalToggles;
+
+        private void ChkBlinkRecalShortcut_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_syncingBlinkRecalToggles) return;
+            bool val = (sender as System.Windows.Controls.CheckBox)?.IsChecked == true;
+            if (App.Settings?.Current != null)
+            {
+                App.Settings.Current.BlinkRecalibrateShortcutEnabled = val;
+                App.Settings?.Save();
+            }
+            SyncBlinkRecalToggles(val);
+        }
+
+        private void SyncBlinkRecalToggles(bool val)
+        {
+            _syncingBlinkRecalToggles = true;
+            try
+            {
+                var boxes = new[]
+                {
+                    ChkBlinkRecalGaze, ChkBlinkRecalFocus, ChkBlinkRecalWebcamBar,
+                    ChkBlinkRecalBlinkTrainer, ChkBlinkRecalDeeper
+                };
+                foreach (var cb in boxes)
+                {
+                    if (cb != null && cb.IsChecked != val) cb.IsChecked = val;
+                }
+            }
+            finally { _syncingBlinkRecalToggles = false; }
+        }
+
+        // Lab redesign: reflect tracker state on the Eyes engine-bar status pill and
+        // dim the two Eyes cards (with "start tracking" hints) when the tracker is off.
+        // Additive — keyed off the same OnTrackingStateChanged path as the title pill.
+        private void UpdateLabTrackerUi(WebcamTrackingState s)
+        {
+            bool live = (s == WebcamTrackingState.Tracking || s == WebcamTrackingState.FaceLost);
+            var green = TryFindResource("SuccessGreenBrush") as Brush;
+            var muted = TryFindResource("TextMutedBrush") as Brush;
+            var panelAccent = TryFindResource("PanelAccentBrush") as Brush;
+
+            if (LabTrackerDot != null) LabTrackerDot.Fill = live ? (green ?? LabTrackerDot.Fill) : (muted ?? LabTrackerDot.Fill);
+            if (LabTrackerPill != null) LabTrackerPill.BorderBrush = live ? (green ?? LabTrackerPill.BorderBrush) : (panelAccent ?? LabTrackerPill.BorderBrush);
+
+            if (LabGazeCard != null) LabGazeCard.Opacity = live ? 1.0 : 0.62;
+            if (LabFocusCard != null) LabFocusCard.Opacity = live ? 1.0 : 0.62;
+            if (LabGazeNeedsTracker != null) LabGazeNeedsTracker.Visibility = live ? Visibility.Collapsed : Visibility.Visible;
+            if (LabFocusNeedsTracker != null) LabFocusNeedsTracker.Visibility = live ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void WebcamActivePill_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -4706,6 +4959,9 @@ namespace ConditioningControlPanel
         {
             AppendWebcamDebugLog("Starting webcam (camera open + model load can take a few seconds)…");
             if (TxtWebcamDebugStatus != null) TxtWebcamDebugStatus.Text = "Starting…";
+            // The movable loading splash is driven globally off the service's
+            // OnStartupProgress event (see InstallWebcamLoadingSplash), so it
+            // shows no matter which code path calls Start() — not just this one.
             try
             {
                 return await Task.Run(() => svc.Start());
@@ -4716,6 +4972,71 @@ namespace ConditioningControlPanel
                 AppendWebcamDebugLog($"Start() threw: {ex.Message}");
                 return false;
             }
+        }
+
+        // The webcam loading splash is shown/updated/closed purely in response
+        // to WebcamTrackingService.OnStartupProgress (fired from inside Start())
+        // and OnTrackingStateChanged. Wiring it here, once, means every entry
+        // point that starts the engine — the Lab debug button, calibration, the
+        // Blink Trainer, the enhanced-video / browser nudges, the mandatory
+        // video player — gets the splash without each call site knowing about
+        // it. All these events are marshalled to the UI thread by the service.
+        private WebcamLoadingSplash? _webcamLoadingSplash;
+        private Action<double, string>? _onWebcamStartupProgress;
+        private Action<WebcamTrackingState>? _onWebcamStartupState;
+
+        private void InstallWebcamLoadingSplash()
+        {
+            if (App.Webcam == null || _onWebcamStartupProgress != null) return;
+
+            _onWebcamStartupProgress = (progress, status) =>
+            {
+                try
+                {
+                    if (progress >= 1.0)
+                    {
+                        // Engine is up — show the bar full for a beat, then fade.
+                        _webcamLoadingSplash?.SetProgress(1.0, status);
+                        _webcamLoadingSplash?.CloseSplash();
+                        return;
+                    }
+
+                    if (_webcamLoadingSplash == null)
+                    {
+                        // Don't pop a splash if the main window isn't on screen
+                        // (e.g. minimized to tray during a background start).
+                        if (!IsVisible) return;
+                        var splash = new WebcamLoadingSplash { Owner = this };
+                        splash.Closed += (s, e) =>
+                        {
+                            if (ReferenceEquals(_webcamLoadingSplash, splash)) _webcamLoadingSplash = null;
+                        };
+                        _webcamLoadingSplash = splash;
+                        splash.Show();
+                    }
+                    _webcamLoadingSplash.SetProgress(progress, status);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning(ex, "MainWindow: webcam loading splash update failed");
+                }
+            };
+
+            _onWebcamStartupState = state =>
+            {
+                if (_webcamLoadingSplash == null) return;
+                // Start() failed or was aborted before reaching 1.0 — dismiss.
+                if (state == WebcamTrackingState.Error
+                    || state == WebcamTrackingState.CameraInUse
+                    || state == WebcamTrackingState.CameraDenied
+                    || state == WebcamTrackingState.Stopped)
+                {
+                    _webcamLoadingSplash.CloseSplash();
+                }
+            };
+
+            App.Webcam.OnStartupProgress += _onWebcamStartupProgress;
+            App.Webcam.OnTrackingStateChanged += _onWebcamStartupState;
         }
 
         private void EnsureWebcamDebugSubscribed()
@@ -8202,7 +8523,7 @@ namespace ConditioningControlPanel
             }
         }
 
-        private void BtnBlinkTrainerQuickRecal_Click(object sender, RoutedEventArgs e)
+        private async void BtnBlinkTrainerQuickRecal_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -8230,7 +8551,9 @@ namespace ConditioningControlPanel
                 bool startedHere = false;
                 if (!svc.IsRunning)
                 {
-                    if (svc.Start()) startedHere = true;
+                    // Off the UI thread so the camera/ONNX load doesn't freeze
+                    // the window; the loading splash shows during the wait.
+                    if (await svc.StartAsync()) startedHere = true;
                 }
 
                 var recalDlg = new WebcamQuickRecalWindow { Owner = this };
@@ -12195,6 +12518,14 @@ namespace ConditioningControlPanel
             App.Settings.Current.OcrHighlightAll = CmbOcrHighlightMode.SelectedIndex == 0;
         }
 
+        private void CmbOcrConfirmation_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isLoading || CmbOcrConfirmation == null) return;
+            // Index 0/1/2 → 1/2/3 consecutive scans required before a keyword fires.
+            App.Settings.Current.OcrConfirmationScans = CmbOcrConfirmation.SelectedIndex + 1;
+            App.Settings.Save();
+        }
+
         private void ChkHighlightVisibleInCapture_Changed(object sender, RoutedEventArgs e)
         {
             if (_isLoading) return;
@@ -13263,8 +13594,23 @@ namespace ConditioningControlPanel
             System.Windows.Controls.ToolTipService.SetInitialShowDelay(card, 400);
             card.MouseLeftButtonUp += AwarenessPresetCard_Click;
 
-            var stack = new System.Windows.Controls.StackPanel();
-            card.Child = stack;
+            // Active presets get a pink accent border so the grid reads at a glance.
+            if (preset.MasterEnabled)
+            {
+                card.BorderBrush = (System.Windows.Media.Brush)FindResource("PinkBrush");
+                card.BorderThickness = new Thickness(1.5);
+            }
+
+            // Two-row layout: content fills, an action row docks to the bottom so the
+            // activate toggle / trash button sit at a consistent spot on every card.
+            var layout = new System.Windows.Controls.Grid();
+            layout.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            layout.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = GridLength.Auto });
+            card.Child = layout;
+
+            var stack = new System.Windows.Controls.StackPanel { ClipToBounds = true };
+            System.Windows.Controls.Grid.SetRow(stack, 0);
+            layout.Children.Add(stack);
 
             // Top row: emoji + optional AI badge.
             var topRow = new System.Windows.Controls.StackPanel
@@ -13321,19 +13667,101 @@ namespace ConditioningControlPanel
                 TextWrapping = TextWrapping.Wrap,
             });
 
-            if (preset.MasterEnabled)
+            // Action row (docked bottom): activate/deactivate toggle + optional trash.
+            var actionRow = new System.Windows.Controls.Grid { Margin = new Thickness(0, 10, 0, 0) };
+            actionRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            actionRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
+            System.Windows.Controls.Grid.SetRow(actionRow, 1);
+            layout.Children.Add(actionRow);
+
+            var toggle = BuildPresetToggleButton(preset);
+            System.Windows.Controls.Grid.SetColumn(toggle, 0);
+            actionRow.Children.Add(toggle);
+
+            // Trash button only for user-created presets — built-ins reappear on launch.
+            if (!preset.IsBuiltIn)
             {
-                stack.Children.Add(new System.Windows.Controls.TextBlock
-                {
-                    Text = "✓ Installed",
-                    Foreground = (System.Windows.Media.Brush)FindResource("PinkBrush"),
-                    FontSize = 10,
-                    FontWeight = FontWeights.Bold,
-                    Margin = new Thickness(0, 8, 0, 0),
-                });
+                var trash = BuildPresetTrashButton(preset);
+                System.Windows.Controls.Grid.SetColumn(trash, 1);
+                actionRow.Children.Add(trash);
             }
 
             return card;
+        }
+
+        /// <summary>
+        /// Inline pill toggle on a preset card. Activates/deactivates the preset
+        /// without opening the detail dialog. Being a Button, it swallows the click
+        /// so the card's own MouseLeftButtonUp (open detail) does not also fire.
+        /// </summary>
+        private System.Windows.Controls.Button BuildPresetToggleButton(KeywordTriggerPreset preset)
+        {
+            var active = preset.MasterEnabled;
+            var btn = new System.Windows.Controls.Button
+            {
+                Content = active ? "✓ Active" : "Activate",
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Padding = new Thickness(10, 4, 10, 4),
+                BorderThickness = new Thickness(1),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Foreground = active ? System.Windows.Media.Brushes.White : (System.Windows.Media.Brush)FindResource("PinkBrush"),
+                Background = active
+                    ? (System.Windows.Media.Brush)FindResource("PinkBrush")
+                    : System.Windows.Media.Brushes.Transparent,
+                BorderBrush = (System.Windows.Media.Brush)FindResource("PinkBrush"),
+                ToolTip = active ? "Turn this preset off" : "Turn this preset on",
+            };
+            btn.Click += (_, _) =>
+            {
+                if (App.KeywordPresets == null) return;
+                if (App.KeywordPresets.IsInstalled(preset.Id))
+                    App.KeywordPresets.UninstallPreset(preset.Id);
+                else
+                    App.KeywordPresets.InstallPreset(preset.Id);
+                // PresetsChanged → OnPresetsChanged rebuilds the grid.
+            };
+            return btn;
+        }
+
+        /// <summary>
+        /// Small trash button on a custom preset card. Confirms, then deletes the
+        /// preset (deactivating it first so cloned triggers / canned phrases are
+        /// cleaned up). Built-in presets never get this button.
+        /// </summary>
+        private System.Windows.Controls.Button BuildPresetTrashButton(KeywordTriggerPreset preset)
+        {
+            var btn = new System.Windows.Controls.Button
+            {
+                Content = "🗑",
+                FontSize = 12,
+                Padding = new Thickness(6, 3, 6, 3),
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                Background = System.Windows.Media.Brushes.Transparent,
+                Foreground = (System.Windows.Media.Brush)FindResource("TextMutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Delete this preset",
+            };
+            btn.Click += (_, _) =>
+            {
+                var label = string.IsNullOrWhiteSpace(preset.Name) ? "this preset" : $"\"{preset.Name}\"";
+                var confirm = System.Windows.MessageBox.Show(this,
+                    $"Delete {label}?\n\nThis removes the preset and all its triggers permanently.",
+                    "Delete preset", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (confirm != MessageBoxResult.Yes) return;
+
+                if (App.KeywordPresets?.IsInstalled(preset.Id) == true)
+                    App.KeywordPresets.UninstallPreset(preset.Id);
+
+                var list = App.Settings?.Current?.KeywordTriggerPresets;
+                list?.RemoveAll(p => p.Id == preset.Id);
+                App.Settings?.Save();
+
+                RefreshAwarenessPresetCards();
+            };
+            return btn;
         }
 
         /// <summary>
@@ -15321,6 +15749,8 @@ namespace ConditioningControlPanel
             foreach (var kvp in Models.Achievement.All)
             {
                 var achievement = kvp.Value;
+                // Skip parked achievements (no reachable unlock path in this build).
+                if (achievement.IsHidden) continue;
                 var isUnlocked = App.Achievements?.Progress.IsUnlocked(achievement.Id) ?? false;
                 
                 var border = new Border { Style = tileStyle };
@@ -17070,7 +17500,8 @@ namespace ConditioningControlPanel
             // doesn't get a ? button (it's a navigation signpost, not a feature
             // surface).
             SetHelpContent(HelpBtnQuiz, "Quiz");
-            SetHelpContent(HelpBtnWebcamGames, "WebcamGames");
+            // HelpBtnWebcamGames removed: the bundled Webcam Games card was split into
+            // separate Gaze Minigame + Focus Gaze cards (each with its own ? button).
             SetHelpContent(HelpBtnGazeMinigame, "GazeMinigame");
             SetHelpContent(HelpBtnFocusGaze, "FocusGaze");
             SetHelpContent(HelpBtnKeywordTriggers, "KeywordTriggers");
@@ -19133,6 +19564,10 @@ namespace ConditioningControlPanel
                     HandleSessionDrop(files[0]);
                     break;
 
+                case DropType.Enhancement:
+                    ImportEnhancementFiles(files);
+                    break;
+
                 case DropType.Assets:
                 case DropType.Zip:
                 case DropType.Folder:
@@ -19141,7 +19576,7 @@ namespace ConditioningControlPanel
             }
         }
 
-        private enum DropType { None, Session, Assets, Zip, Folder }
+        private enum DropType { None, Session, Assets, Zip, Folder, Enhancement }
 
         private static readonly HashSet<string> AssetVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -19183,6 +19618,13 @@ namespace ConditioningControlPanel
             if (files.Length == 1 && files[0].EndsWith(".session.json", StringComparison.OrdinalIgnoreCase))
                 return DropType.Session;
 
+            // Deeper enhancement project file(s). Accept the canonical *.ccpenh.json
+            // double-suffix or a plain *.json (the serializer rejects non-enhancement
+            // JSON on import), but never a *.session.json — that's handled above.
+            if (files.All(IsImportableEnhancementPath)
+                && !files.Any(f => f.EndsWith(".session.json", StringComparison.OrdinalIgnoreCase)))
+                return DropType.Enhancement;
+
             // Single folder
             if (files.Length == 1 && Directory.Exists(files[0]))
                 return DropType.Folder;
@@ -19220,6 +19662,14 @@ namespace ConditioningControlPanel
                     DropOverlayIcon.Text = "📋";
                     DropOverlayTitle.Text = Loc.Get("label_drop_to_import_session");
                     DropOverlaySubtitle.Text = Path.GetFileName(files[0]);
+                    break;
+
+                case DropType.Enhancement:
+                    DropOverlayIcon.Text = "🌊";
+                    DropOverlayTitle.Text = Loc.Get("label_drop_to_import_enhancement");
+                    DropOverlaySubtitle.Text = files.Length == 1
+                        ? Path.GetFileName(files[0])
+                        : $"{files.Length} enhancements";
                     break;
 
                 case DropType.Zip:
@@ -21070,7 +21520,7 @@ namespace ConditioningControlPanel
                 // Free-only count so the patron-exclusive set is never folded into this number.
                 var unlocked = App.Achievements?.GetUnlockedCount(exclusive: false) ?? 0;
                 var total = App.Achievements?.GetTotalCount(exclusive: false)
-                            ?? System.Linq.Enumerable.Count(Models.Achievement.All.Values, a => !a.IsExclusive);
+                            ?? System.Linq.Enumerable.Count(Models.Achievement.All.Values, a => !a.IsExclusive && !a.IsHidden);
                 TxtProfileViewerAchievements.Text = $"{unlocked} / {total}";
             }
 
@@ -22014,6 +22464,12 @@ namespace ConditioningControlPanel
 
             App.Logger?.Information("Engine started - Overlay: {Overlay}, Bubbles: {Bubbles}, LockCard: {LockCard}, BubbleCount: {BubbleCount}, MindWipe: {MindWipe}, BrainDrain: {BrainDrain}",
                 App.Overlay.IsRunning, App.Bubbles.IsRunning, App.LockCard.IsRunning, App.BubbleCount.IsRunning, App.MindWipe.IsRunning, App.BrainDrain.IsRunning);
+
+            // If the mandatory video folder holds enhanced videos the current
+            // settings won't fully honour (enhancement off, or webcam rules but
+            // webcam not running), offer to flip the missing switch(es). Fire-and-
+            // forget: scans off the UI thread and never blocks engine start.
+            MaybePromptMandatoryVideoEnhancement();
         }
 
         public void StopEngine()
@@ -22874,6 +23330,8 @@ namespace ConditioningControlPanel
                     ChkScreenOcrEnabled.IsEnabled = hasKeywordAccess;
                     SliderScreenOcrInterval.Value = s.ScreenOcrIntervalMs / 1000.0;
                     ScreenOcrIntervalPanel.Visibility = s.ScreenOcrEnabled && hasKeywordAccess ? Visibility.Visible : Visibility.Collapsed;
+                    if (CmbOcrConfirmation != null)
+                        CmbOcrConfirmation.SelectedIndex = Math.Clamp(s.OcrConfirmationScans - 1, 0, 2);
                 }
                 if (ChkKeywordHighlightEnabled != null)
                 {
@@ -28605,6 +29063,11 @@ namespace ConditioningControlPanel
                 {
                     App.Webcam.OnTrackingStateChanged -= _onPillStateChanged;
                     _onPillStateChanged = null;
+                }
+                if (_onRapidBlinkRecal != null && App.Webcam != null)
+                {
+                    App.Webcam.OnBlink -= _onRapidBlinkRecal;
+                    _onRapidBlinkRecal = null;
                 }
                 if (App.Progression != null)
                 {

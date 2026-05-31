@@ -252,10 +252,10 @@ namespace ConditioningControlPanel
             else if (triggers.Count == 0)
                 TriggerStack.Children.Add(BuildEmptyStateNotice());
 
-            // Clone-to-custom only helps for built-in previews (dumps defaults
-            // into the Exclusives editor for free tweaking). Custom presets have
-            // a Delete button instead.
-            BtnClone.Visibility = (_preset.IsBuiltIn && !installed) ? Visibility.Visible : Visibility.Collapsed;
+            // Copy-to-custom spins a built-in off into an editable custom preset.
+            // Offered for built-ins regardless of activation state. Custom presets
+            // are already editable in place and get a Delete button instead.
+            BtnClone.Visibility = _preset.IsBuiltIn ? Visibility.Visible : Visibility.Collapsed;
             BtnDeletePreset.Visibility = !_preset.IsBuiltIn ? Visibility.Visible : Visibility.Collapsed;
             TxtFooterNote.Visibility = editable ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -264,12 +264,12 @@ namespace ConditioningControlPanel
         {
             if (App.KeywordPresets?.IsInstalled(_preset.Id) == true)
             {
-                BtnInstall.Content = "Uninstall";
+                BtnInstall.Content = "Deactivate";
                 BtnInstall.Background = new SolidColorBrush(Color.FromRgb(0x5A, 0x30, 0x30));
             }
             else
             {
-                BtnInstall.Content = "Install";
+                BtnInstall.Content = "Activate";
                 BtnInstall.Background = (Brush)FindResource("PinkBrush");
             }
         }
@@ -1229,10 +1229,22 @@ namespace ConditioningControlPanel
         private void BtnClone_Click(object sender, RoutedEventArgs e)
         {
             if (App.KeywordPresets == null) { Close(); return; }
-            var added = App.KeywordPresets.CloneToCustom(_preset.Id);
+
+            var copy = App.KeywordPresets.CloneToCustom(_preset.Id);
             Changed = true;
-            MessageBox.Show($"Cloned {added} trigger(s) into your custom list.", "Cloned",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            if (copy == null)
+            {
+                MessageBox.Show("Couldn't copy this preset.", "Copy failed",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Close this preview and open the fresh editable copy so the user lands
+            // straight in the new preset (which is also now a card in the grid).
+            var owner = Owner;
+            Close();
+            var dlg = new AwarenessPresetDetailDialog(copy) { Owner = owner };
+            dlg.ShowDialog();
         }
 
         /// <summary>

@@ -608,7 +608,7 @@ namespace ConditioningControlPanel.Views.Deeper
         // webcam-driven rules and the webcam isn't already running. No
         // return value — the user's choice doesn't block playback, it just
         // decides whether the webcam-gated rules will actually fire.
-        private void MaybePromptForWebcamBeforePlay()
+        private async void MaybePromptForWebcamBeforePlay()
         {
             if (_webcamPromptShownForCurrentEnh) return;
             var enh = _host?.LoadedEnhancement;
@@ -643,7 +643,11 @@ namespace ConditioningControlPanel.Views.Deeper
                         MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
-                if (svc.Start())
+                // Off the UI thread — Start() opens the camera + loads ONNX
+                // models and can block several seconds; running it inline here
+                // would freeze the player and prevent the loading splash from
+                // painting. Playback already proceeded (this prompt is advisory).
+                if (await svc.StartAsync())
                 {
                     // Remember that THIS player session started the webcam so
                     // Window_Closing can put it back the way it found it.
@@ -662,26 +666,16 @@ namespace ConditioningControlPanel.Views.Deeper
         // in this player session. Used by Window_Closing to stop it on exit.
         private bool _playerStartedWebcam;
 
-        // Webcam dependency check: AutoTags is the primary signal (saved by the
-        // EnhancementAutoTagger at file-write time). Falls back to scanning the
-        // rules' Trigger.Type so enhancements written by pre-AutoTags builds
-        // still trigger the prompt.
+        // Webcam dependency check. Delegates to the shared
+        // EnhancementCapabilities.NeedsWebcam so the player detects webcam rules
+        // identically to the browser hub and the mandatory-video nudge. The old
+        // copy here scanned only enh.Rules; new-editor files store webcam
+        // triggers only in TimelineItems (the save back-projection to Rules was
+        // removed), so the Rules-only scan silently missed them and skipped the
+        // pre-play webcam prompt.
         private static bool EnhancementNeedsWebcam(Models.Deeper.Enhancement enh)
         {
-            if (enh == null) return false;
-            // AutoTags lives on Metadata, not the Enhancement root.
-            if (enh.Metadata?.AutoTags?.Contains(EnhancementAutoTagger.TagWebcam) == true) return true;
-            if (enh.Rules == null) return false;
-            foreach (var rule in enh.Rules)
-            {
-                var t = rule?.Trigger?.Type;
-                if (t == Models.Deeper.TriggerTypes.GazeTarget
-                 || t == Models.Deeper.TriggerTypes.GazeAvoid
-                 || t == Models.Deeper.TriggerTypes.AttentionLost
-                 || t == Models.Deeper.TriggerTypes.BlinkDetected
-                 || t == Models.Deeper.TriggerTypes.MouthOpen) return true;
-            }
-            return false;
+            return EnhancementCapabilities.NeedsWebcam(enh);
         }
 
         private void BtnStop_Click(object sender, RoutedEventArgs e)
@@ -705,7 +699,7 @@ namespace ConditioningControlPanel.Views.Deeper
 
         private Action<WebcamTrackingState>? _onWebcamStateChanged;
 
-        private void BtnEyeTracking_Click(object sender, RoutedEventArgs e)
+        private async void BtnEyeTracking_Click(object sender, RoutedEventArgs e)
         {
             var svc = App.Webcam;
             if (svc == null)
@@ -746,7 +740,7 @@ namespace ConditioningControlPanel.Views.Deeper
 
             try
             {
-                if (!svc.Start())
+                if (!await svc.StartAsync())
                 {
                     MessageBox.Show(this,
                         string.Format(Loc.Get("deeper_player_eye_tracking_start_failed_fmt"), svc.State),
@@ -1203,9 +1197,20 @@ namespace ConditioningControlPanel.Views.Deeper
             // rejects programmatic v.play() calls (the WPF Play button is not
             // a JS user gesture), which manifested as "I click Play and
             // nothing happens" on Editor → Preview → browser-video flows.
+            //
+            // --disable-direct-composition-video-overlays: in HTML5 fullscreen
+            // Chromium promotes the <video> to a DirectComposition hardware
+            // overlay (MPO) plane that the GPU scans out ABOVE DWM-composited
+            // topmost windows. That hides our Spiral / Pink-filter overlay
+            // windows the moment the HT video goes fullscreen (mandatory videos
+            // use a WPF MediaElement so DWM composites them normally and the
+            // overlays stay on top — only the WebView2 path was affected).
+            // Disabling the video overlay plane forces the video back through
+            // normal compositing so the overlays render on top again.
             var options = new Microsoft.Web.WebView2.Core.CoreWebView2EnvironmentOptions
             {
-                AdditionalBrowserArguments = "--autoplay-policy=no-user-gesture-required"
+                AdditionalBrowserArguments =
+                    "--autoplay-policy=no-user-gesture-required --disable-direct-composition-video-overlays"
             };
             var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment
                 .CreateAsync(browserExecutableFolder: null, userDataFolder: userDataFolder, options: options)

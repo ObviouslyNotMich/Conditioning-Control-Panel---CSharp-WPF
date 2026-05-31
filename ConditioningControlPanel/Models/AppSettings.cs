@@ -1436,6 +1436,17 @@ namespace ConditioningControlPanel.Models
             set { _panicKeyEnabled = value; OnPropertyChanged(); }
         }
 
+        // When enabled, blinking fast 6 times in a row (within ~3.5s) stops all
+        // active conditioning (engine, session, videos, audio) — leaving the
+        // webcam capture running — and prompts the user to recalibrate. Toggled
+        // via the checkbox shown on every webcam card.
+        private bool _blinkRecalibrateShortcutEnabled = true;
+        public bool BlinkRecalibrateShortcutEnabled
+        {
+            get => _blinkRecalibrateShortcutEnabled;
+            set { _blinkRecalibrateShortcutEnabled = value; OnPropertyChanged(); }
+        }
+
         private string _panicKey = "Escape"; // Default panic key
         public string PanicKey
         {
@@ -3261,6 +3272,21 @@ namespace ConditioningControlPanel.Models
         {
             get => _screenOcrIntervalMs;
             set { _screenOcrIntervalMs = Math.Clamp(value, 2000, 10000); OnPropertyChanged(); }
+        }
+
+        private int _ocrConfirmationScans = 2;
+        /// <summary>
+        /// Number of consecutive scans a keyword must appear in (at the same on-screen
+        /// position) before it is allowed to fire. Filters transient OCR ghosts from
+        /// scrolling, tab switches, or a word that moved between frames — which used to
+        /// leave a highlight box hanging over empty space. 1 = fire on first sighting
+        /// (legacy behavior), 2 = double confirmation (default), 3 = triple.
+        /// </summary>
+        [JsonProperty]
+        public int OcrConfirmationScans
+        {
+            get => _ocrConfirmationScans;
+            set { _ocrConfirmationScans = Math.Clamp(value, 1, 5); OnPropertyChanged(); }
         }
 
         private bool _keywordHighlightEnabled = true;

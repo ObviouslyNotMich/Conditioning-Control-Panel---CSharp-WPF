@@ -49,6 +49,20 @@
             </Ellipse>
         </Canvas>
 
+        <!-- Discoverability hint for the global 6-blink recalibrate gesture.
+             Shown on the intro + verify panels (toggled from code-behind), hidden
+             during the dot grid so it never overlaps the top-row dots. -->
+        <Border x:Name="ShortcutHintBanner" Visibility="Collapsed"
+                VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,12,0,0"
+                Background="#22FF69B4" BorderBrush="#55FF69B4" BorderThickness="1"
+                CornerRadius="10" Padding="16,7" Panel.ZIndex="100">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="👁" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Foreground="#FFE3F0" FontSize="12" VerticalAlignment="Center"
+                           Text="Tip: blink fast 6 times in a row, anytime, to stop everything and jump straight back here to recalibrate."/>
+            </StackPanel>
+        </Border>
+
         <StackPanel x:Name="StatusPanel" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,40,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBlock x:Name="TxtTitle" Text="Webcam Calibration" Foreground="White"
@@ -103,7 +117,7 @@
                     <TextBlock Grid.Column="0" Text="1." Foreground="#FF69B4"
                                FontSize="15" FontWeight="Bold" VerticalAlignment="Top"/>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Dot grid (25 dots)" Foreground="#FFFFFF"
+                        <TextBlock Text="Dot grid (16 dots)" Foreground="#FFFFFF"
                                    FontSize="15" FontWeight="SemiBold"/>
                         <TextBlock Text="A pink dot moves around the screen. Look at it and hold your gaze until the ring around it fills up."
                                    Foreground="#CCCCCC" FontSize="13" TextWrapping="Wrap" Margin="0,2,0,0"/>
@@ -120,7 +134,7 @@
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Quick checks" Foreground="#FFFFFF"
                                    FontSize="15" FontWeight="SemiBold"/>
-                        <TextBlock Text="A few prompts to confirm tracking works: glance left and right, blink, open your mouth, stick your tongue out."
+                        <TextBlock Text="Two quick prompts to warm up tracking: blink, then open your mouth wide."
                                    Foreground="#CCCCCC" FontSize="13" TextWrapping="Wrap" Margin="0,2,0,0"/>
                     </StackPanel>
                 </Grid>
@@ -185,7 +199,7 @@
             <StackPanel>
                 <TextBlock Text="Calibration verified" Foreground="#FF69B4" FontSize="22"
                            FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="Gaze, blink, mouth-open and tongue detection confirmed working."
+                <TextBlock Text="Calibration complete. Blink and mouth tracking warmed up — you're all set."
                            Foreground="#CCCCCC" FontSize="13" Margin="0,8,0,0"
                            TextWrapping="Wrap" HorizontalAlignment="Center"/>
                 <TextBlock x:Name="TxtVerifyStatus" Text="Click Verify to preview accuracy with a live gaze cursor, or close when ready."

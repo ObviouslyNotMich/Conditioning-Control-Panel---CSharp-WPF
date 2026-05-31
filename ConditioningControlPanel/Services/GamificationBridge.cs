@@ -325,8 +325,6 @@ public class GamificationBridge : IDisposable
     {
         try
         {
-            var p = Prog; if (p == null) return;
-            p.LockdownStartTime = DateTime.Now;
             Ach?.TryUnlockExclusive("locked_in");
         }
         catch (Exception ex) { App.Logger?.Warning(ex, "GamificationBridge: lockdown activated handler failed"); }
@@ -336,14 +334,12 @@ public class GamificationBridge : IDisposable
     {
         try
         {
-            var p = Prog; if (p == null) return;
-            if (p.LockdownStartTime.HasValue)
-            {
-                var elapsed = DateTime.Now - p.LockdownStartTime.Value;
-                if (elapsed.TotalMinutes >= ThrowAwayKeyMinutes)
-                    Ach?.TryUnlockExclusive("throw_away_the_key");
-            }
-            p.LockdownStartTime = null;
+            // Read the authoritative duration off the service (computed in Deactivate)
+            // rather than tracking our own start time — the two can't desync, and it
+            // survives the bridge being stopped/restarted mid-lockdown.
+            var elapsed = App.Lockdown?.LastActiveDuration ?? TimeSpan.Zero;
+            if (elapsed.TotalMinutes >= ThrowAwayKeyMinutes)
+                Ach?.TryUnlockExclusive("throw_away_the_key");
         }
         catch (Exception ex) { App.Logger?.Warning(ex, "GamificationBridge: lockdown deactivated handler failed"); }
     }

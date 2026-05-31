@@ -136,35 +136,74 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
-        /// Clones a preset's triggers into the user's custom triggers list with fresh ids
-        /// and no preset linkage — gives power users a starting point to tweak freely.
+        /// Copies a preset into a brand-new editable custom preset — same triggers,
+        /// metadata, and canned phrases, but a fresh id, <c>IsBuiltIn = false</c>, and
+        /// <c>MasterEnabled = false</c> (the copy starts deactivated). The new preset is
+        /// added to <see cref="AppSettings.KeywordTriggerPresets"/> so it shows up as its
+        /// own card in the Awareness grid, ready to tweak and activate freely.
+        ///
+        /// Returns the new preset (so the caller can open it), or null on failure.
         /// </summary>
-        public int CloneToCustom(string presetId)
+        public KeywordTriggerPreset? CloneToCustom(string presetId)
         {
             var settings = App.Settings?.Current;
-            var preset = GetPreset(presetId);
-            if (settings == null || preset == null) return 0;
+            var source = GetPreset(presetId);
+            if (settings == null || source == null) return null;
 
-            int added = 0;
-            foreach (var source in preset.Triggers)
+            var copy = new KeywordTriggerPreset
             {
-                if (source == null) continue;
-                var clone = source.Clone();
+                Id = "custom." + Guid.NewGuid().ToString("N")[..8],
+                Name = MakeCopyName(source.Name, settings),
+                Icon = source.Icon,
+                Description = source.Description,
+                LongDescription = source.LongDescription,
+                Author = "You",
+                Version = 1,
+                IsBuiltIn = false,
+                RequiresAi = source.RequiresAi,
+                AvatarPromptTemplate = source.AvatarPromptTemplate,
+                PhrasePools = new List<string>(source.PhrasePools ?? new List<string>()),
+                CannedPhrases = source.CannedPhrases?.ToDictionary(
+                    kvp => kvp.Key, kvp => new List<string>(kvp.Value ?? new List<string>()))
+                    ?? new Dictionary<string, List<string>>(),
+                MasterEnabled = false,
+                Triggers = new List<KeywordTrigger>(),
+            };
+
+            foreach (var src in source.Triggers ?? new List<KeywordTrigger>())
+            {
+                if (src == null) continue;
+                var clone = src.Clone();
                 clone.Id = Guid.NewGuid().ToString("N")[..8];
                 clone.LastTriggeredAt = DateTime.MinValue;
                 if (clone.Actions == null || clone.Actions.Count == 0)
                     KeywordTriggerService.RebuildActionsFromFlatFields(clone);
-
-                settings.KeywordTriggers.Add(clone);
-                added++;
+                copy.Triggers.Add(clone);
             }
 
-            if (added > 0)
-            {
-                App.Settings?.Save();
-                PresetsChanged?.Invoke(this, EventArgs.Empty);
-            }
-            return added;
+            settings.KeywordTriggerPresets.Add(copy);
+            App.Settings?.Save();
+            App.Logger?.Information("CloneToCustom: created {NewId} from {SourceId} ({Count} triggers)",
+                copy.Id, presetId, copy.Triggers.Count);
+
+            PresetsChanged?.Invoke(this, EventArgs.Empty);
+            return copy;
+        }
+
+        /// <summary>Builds a unique "Foo (Copy)" / "Foo (Copy 2)" name within the preset list.</summary>
+        private static string MakeCopyName(string? baseName, AppSettings settings)
+        {
+            var root = string.IsNullOrWhiteSpace(baseName) ? "Preset" : baseName.Trim();
+            var existing = settings.KeywordTriggerPresets
+                .Select(p => p.Name)
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var candidate = $"{root} (Copy)";
+            int n = 2;
+            while (existing.Contains(candidate))
+                candidate = $"{root} (Copy {n++})";
+            return candidate;
         }
 
         /// <summary>

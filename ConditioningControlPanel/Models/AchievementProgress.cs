@@ -183,10 +183,6 @@ public class AchievementProgress
     [System.Text.Json.Serialization.JsonIgnore]
     public HashSet<string> DistinctTriggerTypesThisPlay { get; set; } = new();
 
-    /// <summary>When the current lockdown began (for the 60-minute achievement)</summary>
-    [System.Text.Json.Serialization.JsonIgnore]
-    public DateTime? LockdownStartTime { get; set; }
-
     // ========== HELPER METHODS ==========
     
     public bool IsUnlocked(string achievementId) => UnlockedAchievements.Contains(achievementId);

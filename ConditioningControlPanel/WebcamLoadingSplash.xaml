@@ -1,0 +1,93 @@
+<Window x:Class="ConditioningControlPanel.WebcamLoadingSplash"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Starting Eye Tracking"
+        Height="200" Width="420"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Border Background="{DynamicResource DarkerBgBrush}" CornerRadius="15" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="5" Opacity="0.6"/>
+        </Border.Effect>
+
+        <Grid Margin="28,18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="&#x1F441;" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Starting Eye Tracking"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource PinkBrush}"
+                           VerticalAlignment="Center"
+                           FontFamily="Segoe UI"/>
+            </StackPanel>
+
+            <!-- Loading status -->
+            <TextBlock x:Name="TxtStatus"
+                       Grid.Row="1"
+                       Text="Preparing eye-tracking engine…"
+                       FontSize="12"
+                       Foreground="#CCCCCC"
+                       HorizontalAlignment="Center"
+                       Margin="0,12,0,12"
+                       FontFamily="Segoe UI"/>
+
+            <!-- Progress bar -->
+            <Grid Grid.Row="2" Height="8">
+                <Border Background="{DynamicResource PanelBgBrush}" CornerRadius="4"/>
+                <Border x:Name="ProgressFill">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                            <GradientStop Color="#DA70D6" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.CornerRadius>
+                        <CornerRadius TopLeft="4" BottomLeft="4" TopRight="4" BottomRight="4"/>
+                    </Border.CornerRadius>
+                    <Border.RenderTransform>
+                        <ScaleTransform x:Name="ProgressScale" ScaleX="0" ScaleY="1"/>
+                    </Border.RenderTransform>
+                    <Border.RenderTransformOrigin>
+                        <Point X="0" Y="0.5"/>
+                    </Border.RenderTransformOrigin>
+                </Border>
+            </Grid>
+
+            <!-- Hint -->
+            <TextBlock Grid.Row="3"
+                       Text="First run can take a few seconds while the camera warms up and the AI models load."
+                       FontSize="10"
+                       Foreground="#888888"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       Margin="0,14,0,0"
+                       FontFamily="Segoe UI"/>
+
+            <!-- Drag affordance -->
+            <TextBlock Grid.Row="4"
+                       Text="drag to move"
+                       FontSize="9"
+                       Foreground="#555555"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Bottom"
+                       Margin="0,8,0,0"
+                       FontFamily="Segoe UI"/>
+        </Grid>
+    </Border>
+</Window>

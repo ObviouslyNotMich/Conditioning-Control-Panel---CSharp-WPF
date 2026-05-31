@@ -237,7 +237,13 @@ namespace ConditioningControlPanel
 
         // Window message hook for maintaining topmost during drag
         private const int WM_WINDOWPOSCHANGING = 0x0046;
+        private const int WM_WINDOWPOSCHANGED = 0x0047;
         private HwndSource? _hwndSource;
+        // Hook on the PARENT window so we can lift the tube back above main the
+        // instant main changes z-order (click, flash/overlay close, subsystem
+        // re-activation) — event-driven, no polling gap.
+        private HwndSource? _parentHwndSource;
+        private bool _reassertingAboveParent;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct WINDOWPOS
@@ -1215,6 +1221,18 @@ namespace ConditioningControlPanel
             _hwndSource = HwndSource.FromHwnd(_tubeHandle);
             _hwndSource?.AddHook(WndProc);
 
+            // Hook the parent window's messages too. The keep-on-top timer polls at
+            // Background priority and gets starved exactly when AI speech is busy
+            // (GIF animation, text streaming, effects firing) — so the bubble can sit
+            // behind main for noticeably longer than the 300ms tick. Reacting to the
+            // parent's own WM_WINDOWPOSCHANGED lifts the tube back the instant main
+            // moves up in z-order, with no polling gap.
+            if (_parentHandle != IntPtr.Zero)
+            {
+                _parentHwndSource = HwndSource.FromHwnd(_parentHandle);
+                _parentHwndSource?.AddHook(ParentWndProc);
+            }
+
             // Hide from Alt+Tab by adding WS_EX_TOOLWINDOW style.
             // SetWindowLong caches frame data; without a follow-up SetWindowPos
             // with SWP_FRAMECHANGED the layered window (AllowsTransparency=True)
@@ -1239,7 +1257,10 @@ namespace ConditioningControlPanel
                 {
                     UpdatePosition();
                     StartFloatingAnimation();
-                    BringAttachedPairToFront();
+                    // Force on first show: at startup foreground may not have transferred
+                    // to us yet, so the gated raise would bail and the tube would come up
+                    // behind the main window.
+                    BringAttachedPairToFront(force: true);
                 }
 
                             // Reset bubble position to ensure correct placement after layout
@@ -1429,6 +1450,59 @@ namespace ConditioningControlPanel
         {
             // No longer intercepting z-order changes - let Windows handle it normally
             return IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// Hook on the PARENT (main) window. When main's z-order changes, lift the tube
+        /// back above it immediately so the avatar/speech bubble never gets buried behind
+        /// main's UI. This is the event-driven counterpart to the (Background-priority,
+        /// pollable-to-starvation) keep-on-top timer — it fires synchronously the moment
+        /// main moves up, closing the gap the timer leaves during busy AI speech.
+        /// </summary>
+        private IntPtr ParentWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg != WM_WINDOWPOSCHANGED) return IntPtr.Zero;
+            if (!_isAttached || _tubeHandle == IntPtr.Zero) return IntPtr.Zero;
+            if (_reassertingAboveParent) return IntPtr.Zero; // guard against re-entrancy
+
+            try
+            {
+                // Only react when the z-order actually changed (ignore pure move/resize —
+                // those are already handled by LocationChanged/SizeChanged).
+                var wp = Marshal.PtrToStructure<WINDOWPOS>(lParam);
+                if ((wp.flags & SWP_NOZORDER) != 0) return IntPtr.Zero;
+
+                // Don't fight pop quiz (it owns HWND_TOPMOST), and don't pop over other
+                // apps — only lift the tube when our own app owns the foreground.
+                if (PopQuizWindow.IsOpen || QuizWindow.IsOpen) return IntPtr.Zero;
+                if (!IsOurAppForeground()) return IntPtr.Zero;
+
+                // Place the tube directly above main. Moving the tube only triggers
+                // WM_WINDOWPOSCHANGED on the TUBE (its WndProc is a no-op), not on the
+                // parent, so this can't loop — but guard anyway for safety.
+                _reassertingAboveParent = true;
+                SetWindowPos(_tubeHandle, HWND_TOP, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+            catch { /* parent may be tearing down */ }
+            finally { _reassertingAboveParent = false; }
+
+            return IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// True when the foreground window belongs to our process. Used to gate z-order
+        /// raises so we lift the tube only when our app is actually in front — never
+        /// stealing z-order from other apps (e.g. a fullscreen video player).
+        /// </summary>
+        private bool IsOurAppForeground()
+        {
+            var foreground = GetForegroundWindow();
+            if (foreground == IntPtr.Zero) return false;
+            if (foreground == _parentHandle || foreground == _tubeHandle) return true;
+            GetWindowThreadProcessId(foreground, out uint foregroundPid);
+            uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+            return foregroundPid == ourPid;
         }
 
         private void CalculateScaleFactor()
@@ -1923,9 +1997,11 @@ namespace ConditioningControlPanel
                 // Release GIF animation frames to prevent memory leak
                 AnimationBehavior.SetSourceUri(ImgAvatarAnimated, null);
 
-                // Remove window message hook
+                // Remove window message hooks
                 _hwndSource?.RemoveHook(WndProc);
                 _hwndSource = null;
+                _parentHwndSource?.RemoveHook(ParentWndProc);
+                _parentHwndSource = null;
 
                 // Unsubscribe from video service events
                 if (App.Video != null)
@@ -3209,14 +3285,23 @@ namespace ConditioningControlPanel
         /// to defeat ForegroundLockTimeout, the tube needs to be re-raised so
         /// the attached pair stays paired. Wraps the existing private method.
         /// </summary>
-        public void RaiseAttachedTubeAboveOwner() => BringAttachedPairToFront();
+        public void RaiseAttachedTubeAboveOwner() => BringAttachedPairToFront(force: true);
 
         /// <summary>
         /// Bring both the parent window and the tube to the top of z-order together.
         /// This prevents the tube from being separated from the parent (e.g. tube on top,
         /// parent behind other apps) after video ends, fullscreen exit, or tab changes.
         /// </summary>
-        private void BringAttachedPairToFront()
+        /// <param name="force">
+        /// When true, skip the "our process owns the foreground" gate. Use this only when
+        /// the caller is DELIBERATELY foregrounding our app right now (startup show, a
+        /// Topmost true→false pulse, panic/video-end restore). In those moments Activate()
+        /// hasn't transferred foreground yet, so the gate sees the previous app and wrongly
+        /// bails — leaving the tube/bubble buried behind the main window. Passive callers
+        /// (poll timer, Activated, mouse-down, position changes) leave this false so we
+        /// never steal z-order from other apps (e.g. fullscreen video players).
+        /// </param>
+        private void BringAttachedPairToFront(bool force = false)
         {
             if (_tubeHandle == IntPtr.Zero) return;
             if (!_isAttached) return;
@@ -3232,14 +3317,18 @@ namespace ConditioningControlPanel
             if (_parentHandle == IntPtr.Zero) return;
 
             // Only bring to front when our process owns the foreground window —
-            // otherwise we'd steal z-order from other apps (e.g. fullscreen video players)
-            var foreground = GetForegroundWindow();
-            if (foreground != IntPtr.Zero && foreground != _parentHandle && foreground != _tubeHandle)
+            // otherwise we'd steal z-order from other apps (e.g. fullscreen video players).
+            // Skipped when force=true (caller is intentionally foregrounding our app).
+            if (!force)
             {
-                GetWindowThreadProcessId(foreground, out uint foregroundPid);
-                uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
-                if (foregroundPid != ourPid)
-                    return;
+                var foreground = GetForegroundWindow();
+                if (foreground != IntPtr.Zero && foreground != _parentHandle && foreground != _tubeHandle)
+                {
+                    GetWindowThreadProcessId(foreground, out uint foregroundPid);
+                    uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+                    if (foregroundPid != ourPid)
+                        return;
+                }
             }
 
             // Parent to top first, then tube above it — keeps them as a pair
@@ -3332,31 +3421,24 @@ namespace ConditioningControlPanel
         private void StartZOrderRefreshTimer()
         {
             StopZOrderRefreshTimer();
-            // Use shorter interval (300ms) to keep speech bubble reliably on top
-            // The main issue is when user clicks on already-active main window (no Activated event fires)
-            _zOrderRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            // Backstop to the ParentWndProc z-order hook. Runs at Render priority (NOT the
+            // DispatcherTimer default of Background, which gets starved during busy AI
+            // speech — GIF animation, text streaming, effects — and was letting the bubble
+            // sit behind main for far longer than one tick). The hook does the heavy
+            // lifting now; this just catches anything message-driven raises miss.
+            _zOrderRefreshTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(300)
+            };
             _zOrderRefreshTimer.Tick += (s, e) =>
             {
                 if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
                 if (_isAttached && _tubeHandle != IntPtr.Zero && SpeechBubble.Visibility == Visibility.Visible)
                 {
-                    // Only refresh z-order when our app owns the foreground — don't steal focus
-                    // from other apps. ParentWindow_Activated handles restoration when user returns.
-                    // Use process-ID check (not just parent/tube handle) so dialogs, flashes,
-                    // overlays, and other app windows also count as "our foreground".
-                    var foreground = GetForegroundWindow();
-                    bool isOurProcess = false;
-                    if (foreground == _parentHandle || foreground == _tubeHandle)
-                    {
-                        isOurProcess = true;
-                    }
-                    else if (foreground != IntPtr.Zero)
-                    {
-                        GetWindowThreadProcessId(foreground, out uint foregroundPid);
-                        uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
-                        isOurProcess = (foregroundPid == ourPid);
-                    }
-                    if (isOurProcess)
+                    // Only refresh z-order when our app owns the foreground — don't steal
+                    // z-order from other apps. ParentWindow_Activated handles restoration
+                    // when the user returns to us.
+                    if (IsOurAppForeground())
                     {
                         BringAttachedPairToFront();
                     }

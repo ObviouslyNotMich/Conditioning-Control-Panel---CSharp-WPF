@@ -13,20 +13,17 @@ using WpfPoint = System.Windows.Point;
 namespace ConditioningControlPanel
 {
     /// <summary>
-    /// Fullscreen 25-point gaze calibration (5×5 grid). Samples raw iris vectors
+    /// Fullscreen 16-point gaze calibration (4×4 grid). Samples raw iris vectors
     /// at each point, fits a 3×3 homography and an over-determined 2nd-order
     /// polynomial (Cerrolaza asymmetric form, ridge-regularized with λ chosen
     /// by leave-one-out CV, iris → screen DIPs), and persists via
     /// WebcamCalibrationData.
     ///
-    /// Grid sizing: 5×5 with margin=40 puts corner dots ~40 DIPs from the bezel,
-    /// so the polynomial is trained on near-edge gaze angles directly — corner
-    /// reach (especially top/bottom regions, which 4×4 had to extrapolate) is
-    /// dramatically better. An earlier 5×5 attempt was abandoned because of
-    /// jumpy cursor + drift, but those issues traced to the unregularized
-    /// Tikhonov fit, mean+σ outlier rejection, head-pose comp, and edge-pull
-    /// — all replaced or removed. The current pipeline (Cerrolaza + ridge LOO,
-    /// I-DT saccade-settle + MAD trim) is robust enough at the wider angles.
+    /// Grid sizing: 4×4 with margin=40 keeps the calibration short while the
+    /// ridge-LOO polynomial fit (plus I-DT saccade-settle + MAD trim) handles
+    /// corner reach. The pipeline replaced an earlier unregularized Tikhonov
+    /// fit, mean+σ outlier rejection, head-pose comp, and edge-pull that caused
+    /// jumpy cursor + drift.
     ///
     /// Caller is responsible for ensuring App.Webcam is already running.
     /// </summary>
@@ -38,7 +35,7 @@ namespace ConditioningControlPanel
         private const int RetryReadyMs = 900;     // longer pause before retrying a missed dot
         private const int MinSamplesPerPoint = 20;
         private const int MaxAttemptsPerPoint = 2; // miss twice in a row → fail calibration
-        private const int GridSize = 5;            // 5×5 = 25 calibration points (top/bottom/side midpoints + corners + interior)
+        private const int GridSize = 4;            // 4×4 = 16 calibration points (corners + interior)
         private const double EdgeMargin = 40;      // distance from screen edge for corner dots (DIPs); small enough that polynomial extrapolation to bezel is negligible
 
         // Sample target for the "ring is full" feedback. We treat the SampleMs
@@ -52,7 +49,7 @@ namespace ConditioningControlPanel
         // drifted off-center — those samples carry the right iris but the
         // wrong head-relative reference frame, so they bias the mean.
         private readonly List<List<(double X, double Y, double Yaw, double Pitch, bool HasPose)>> _allSamples = new();
-        // Head-pose samples accumulated across all 9 dots (single flat list,
+        // Head-pose samples accumulated across all 16 dots (single flat list,
         // not per-dot — we just want a "head still, looking forward" average
         // for the baseline). Sampled in lockstep with iris during _collecting.
         private readonly List<(double Yaw, double Pitch)> _allPoseSamples = new();
@@ -76,12 +73,21 @@ namespace ConditioningControlPanel
         private bool _ringIsFull;
         // Index of the dot currently being sampled. Read by OnRawIris so
         // samples land in the right per-dot bucket across retries (we can't
-        // rely on "last list" because all 25 are allocated up-front).
+        // rely on "last list" because all 16 are allocated up-front).
         private int _activeDotIndex = -1;
+
+        /// <summary>
+        /// True while a calibration window is on screen. The global 6-blink
+        /// recalibrate gesture (MainWindow) checks this so blinking during the
+        /// verify step — or while calibration is already open — can't re-trigger
+        /// another calibration.
+        /// </summary>
+        public static bool IsShowing { get; private set; }
 
         public WebcamCalibrationWindow()
         {
             InitializeComponent();
+            IsShowing = true;
         }
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -107,11 +113,16 @@ namespace ConditioningControlPanel
             DotCanvas.Visibility = Visibility.Collapsed;
             StatusPanel.Visibility = Visibility.Collapsed;
             IntroPanel.Visibility = Visibility.Visible;
+            // Surface the blink-shortcut hint while the user is reading the
+            // intro (and again on the verify panel) — but not during the dot
+            // grid, where it would sit over the top-row dots.
+            ShortcutHintBanner.Visibility = Visibility.Visible;
 
             var proceed = await _introDone.Task;
             if (!proceed || _cancelled) return;
 
             IntroPanel.Visibility = Visibility.Collapsed;
+            ShortcutHintBanner.Visibility = Visibility.Collapsed;
             DotCanvas.Visibility = Visibility.Visible;
             StatusPanel.Visibility = Visibility.Visible;
 
@@ -133,6 +144,8 @@ namespace ConditioningControlPanel
 
         private void Window_Closed(object sender, EventArgs e)
         {
+            IsShowing = false;
+
             // Unblock the intro awaiter if the user closed via title-bar X
             // (or owner-cascade) instead of ESC / Continue. Window_Loaded is
             // async void and awaits _introDone — without this, the awaiter
@@ -224,19 +237,18 @@ namespace ConditioningControlPanel
 
             var w = ActualWidth;
             var h = ActualHeight;
-            // 5×5 grid, row-major. 25 dots evenly spaced across cols/rows 0..4
+            // 4×4 grid, row-major. 16 dots evenly spaced across cols/rows 0..3
             // of the usable span. Layout:
-            //    0  1  2  3  4      (top row)
-            //    5  6  7  8  9
-            //   10 11 12 13 14
-            //   15 16 17 18 19
-            //   20 21 22 23 24      (bottom row)
-            // Left column = {0,5,10,15,20}; right column = {4,9,14,19,24};
-            // top row = {0..4}; bottom row = {20..24}.
+            //    0  1  2  3      (top row)
+            //    4  5  6  7
+            //    8  9 10 11
+            //   12 13 14 15      (bottom row)
+            // Left column = {0,4,8,12}; right column = {3,7,11,15};
+            // top row = {0..3}; bottom row = {12..15}.
             double xL = EdgeMargin, xR = w - EdgeMargin;
             double yT = EdgeMargin, yB = h - EdgeMargin;
-            string[] rowLabels = { "Top", "Upper", "Middle", "Lower", "Bottom" };
-            string[] colLabels = { "left", "mid-left", "center", "mid-right", "right" };
+            string[] rowLabels = { "Top", "Upper", "Lower", "Bottom" };
+            string[] colLabels = { "left", "mid-left", "mid-right", "right" };
             var positions = new (string Label, WpfPoint Screen)[GridSize * GridSize];
             for (int r = 0; r < GridSize; r++)
             {
@@ -439,8 +451,8 @@ namespace ConditioningControlPanel
             // we used previously. Ridge λ is selected by leave-one-out CV
             // from log-spaced candidates {1e-5..1e-1} × trace(AᵀA)/p, which
             // trims 15-30% off corner error vs the previous fixed-λ fit
-            // on webcam data (Hansen & Ji 2010, Zhang & Hornof 2014). 25
-            // points × 5 candidates × 2 axes = ~250 small linear-system
+            // on webcam data (Hansen & Ji 2010, Zhang & Hornof 2014). 16
+            // points × 5 candidates × 2 axes = ~160 small linear-system
             // solves at finalize time — milliseconds.
             PolynomialFitData? polynomial = FitCerrolazaPolynomial(srcMeans, dstPoints);
 
@@ -503,7 +515,7 @@ namespace ConditioningControlPanel
             // by the runtime.
             var data = new WebcamCalibrationData
             {
-                Mode = "TwentyFivePoint",
+                Mode = "SixteenPoint",
                 Timestamp = DateTime.UtcNow,
                 MonitorBounds = new MonitorBoundsRecord
                 {
@@ -523,27 +535,18 @@ namespace ConditioningControlPanel
                 HeadPoseComp = null,
             };
 
-            // Live-apply (in-memory only, no disk write yet) so the validation
-            // phase exercises the live classifier against this candidate fit.
-            // We restore the previous calibration (or null) if validation fails.
-            var previousCalibration = App.Webcam?.Calibration;
+            // Live-apply (in-memory only, no disk write yet) so the verify
+            // panel can preview the live cursor against this candidate fit.
             App.Webcam?.SetCalibrationLive(data);
 
-            var validated = await RunValidationPhaseAsync();
+            // Guided gesture checks. These NEVER fail the calibration anymore —
+            // once the grid is sampled, calibration always completes. The blink/
+            // mouth prompts are best-effort warm-ups that advance on a timeout
+            // whether or not detection fires (see RunValidationPhaseAsync).
+            await RunValidationPhaseAsync();
             if (_cancelled) return;
 
-            if (!validated)
-            {
-                // Roll back: don't write to disk, restore the previous in-memory state.
-                App.Webcam?.SetCalibrationLive(previousCalibration);
-                ShowError(
-                    "The system couldn't reliably detect your gaze, blinks, or mouth-open with this calibration. " +
-                    "Tips: sit closer to the camera, make sure your face is well-lit and unshadowed, " +
-                    "remove reflective glasses if possible, and try again.");
-                return;
-            }
-
-            // Validation passed — persist permanently.
+            // Persist permanently.
             App.Webcam?.ApplyCalibration(data);
 
             // Clear the legacy-calibration sticky toast (if it was up) now
@@ -554,7 +557,7 @@ namespace ConditioningControlPanel
             if (settings != null)
             {
                 settings.WebcamCalibrated = true;
-                settings.WebcamCalibrationMode = "TwentyFivePoint";
+                settings.WebcamCalibrationMode = "SixteenPoint";
                 App.Settings?.Save();
             }
 
@@ -569,6 +572,7 @@ namespace ConditioningControlPanel
             // chance to preview accuracy via the debug cursor and either
             // accept (Done) or redo (Recalibrate).
             VerifyPanel.Visibility = Visibility.Visible;
+            ShortcutHintBanner.Visibility = Visibility.Visible;
         }
 
         /// <summary>
@@ -676,159 +680,89 @@ namespace ConditioningControlPanel
             Close();
         }
 
-        private async Task<bool> RunValidationPhaseAsync()
+        private async Task RunValidationPhaseAsync()
         {
             // Hide the dot UI; show the validation prompt panel.
             DotCanvas.Visibility = Visibility.Collapsed;
             ValidationPanel.Visibility = Visibility.Visible;
             TxtTitle.Text = "Verifying calibration";
-            TxtStatus.Text = "Follow the prompts to confirm the system can read your gaze and blinks.";
+            TxtStatus.Text = "Follow the prompts to confirm the system can read your blinks and mouth.";
             TxtProgress.Text = "";
 
             // Brief preface so the user can register the mode change before
-            // the first arrow appears.
+            // the first prompt appears.
             TxtValidationCue.Text = "";
             TxtValidationPrompt.Text = "Get ready…";
-            TxtValidationDetail.Text = "We'll check that the system can detect your gaze and blinks with this calibration.";
+            TxtValidationDetail.Text = "A couple of quick gesture checks and you're done.";
             TxtValidationAttempt.Text = "";
             await Task.Delay(1400);
-            if (_cancelled) return false;
+            if (_cancelled) return;
 
-            // Sequence: L, R, L, R, blink×2, mouth-open×3.
-            // Each step gets up to 3 attempts (12 s timeout each) before failing
-            // the whole calibration. Mouth uses 3 passes (the MAR ratio is
-            // steady, gestures are unambiguous).
+            // Calibration NEVER fails once the grid has been sampled. The blink
+            // and mouth prompts are guided, best-effort warm-ups: each gets a
+            // single ~5s window and we advance whether or not detection fires.
+            // A missed gesture used to roll back the user's entire calibration
+            // (bug #297 / BUG-988DL9V99S), which was a miserable experience for
+            // a detection gate that was never fully reliable.
             //
-            // Tongue-out was dropped from the required sequence: its HSV-color
-            // heuristic was too unreliable across lighting/angle variance, and as
-            // the final gate a missed detection rolled back the user's entire
-            // gaze+blink+mouth calibration (bug #297 / BUG-988DL9V99S). The
-            // detection plumbing (OnTongueOut / WaitForTongueOutsAsync /
-            // ValidateTongueOutStepAsync) is left in place but unused.
-            if (!await ValidateGazeStepAsync(GazeSide.Left,  "Look LEFT",  "←", roundLabel: "1 of 4")) return false;
-            if (_cancelled) return false;
-            if (!await ValidateGazeStepAsync(GazeSide.Right, "Look RIGHT", "→", roundLabel: "2 of 4")) return false;
-            if (_cancelled) return false;
-            if (!await ValidateGazeStepAsync(GazeSide.Left,  "Look LEFT",  "←", roundLabel: "3 of 4")) return false;
-            if (_cancelled) return false;
-            if (!await ValidateGazeStepAsync(GazeSide.Right, "Look RIGHT", "→", roundLabel: "4 of 4")) return false;
-            if (_cancelled) return false;
-            if (!await ValidateBlinkStepAsync(needed: 2)) return false;
-            if (_cancelled) return false;
-            if (!await ValidateMouthOpenStepAsync(needed: 3)) return false;
-            return true;
+            // The look-left / look-right gaze-direction round was removed
+            // entirely: the 16-point grid sample already validates the gaze
+            // mapping, so the explicit side check was superfluous. The gaze-side
+            // classifier (LeftRefVec / RightRefVec / OnGazeSide) is unaffected —
+            // it still drives the gaze minigame at runtime.
+            //
+            // Tongue-out is likewise not in the sequence (HSV heuristic too
+            // unreliable across lighting/angle). The detection plumbing
+            // (OnTongueOut / WaitForTongueOutsAsync / ValidateTongueOutStepAsync)
+            // is left in place but unused.
+            await RunGestureCheckAsync("👁", "Blink a couple of times", needed: 2, WaitForBlinksAsync);
+            if (_cancelled) return;
+
+            // Two distinct mouth-opens with a deliberate ~1s gap between them,
+            // rather than one needed:2 check. The pause lets the user fully
+            // close (so the MAR baseline + open/close hysteresis reset cleanly)
+            // and makes the second open a separate, unambiguous gesture instead
+            // of a fast double that the 800ms detection cooldown might merge.
+            await RunGestureCheckAsync("😮", "Open your mouth wide", needed: 1, WaitForMouthOpensAsync);
+            if (_cancelled) return;
+            TxtValidationDetail.Text = "Good — close, and once more in a moment…";
+            await Task.Delay(1000);
+            if (_cancelled) return;
+            await RunGestureCheckAsync("😮", "Open your mouth wide again", needed: 1, WaitForMouthOpensAsync);
         }
 
-        private async Task<bool> ValidateGazeStepAsync(GazeSide target, string prompt, string cue, string roundLabel)
+        /// <summary>
+        /// Guided, non-blocking gesture check used during the verify phase.
+        /// Shows the prompt, waits up to ~5s for <paramref name="needed"/>
+        /// detections via <paramref name="waiter"/>, then advances regardless —
+        /// it can never fail the calibration. Shows a check on success or a
+        /// gentle "moving on" if the timeout elapses.
+        /// </summary>
+        private async Task RunGestureCheckAsync(string cue, string prompt, int needed,
+            Func<int, int, Action<int>, Task<bool>> waiter)
         {
-            // Require 2 seconds of continuous on-target classification. Short
-            // glances or involuntary saccades shouldn't be enough to pass —
-            // the user has to actually fixate on the requested side.
-            const int HoldMs = 2000;
-            const int TimeoutMs = 12000;
-            const int MaxAttempts = 3;
+            const int TimeoutMs = 5000;
 
-            for (int attempt = 1; attempt <= MaxAttempts; attempt++)
+            TxtValidationCue.Text = cue;
+            TxtValidationPrompt.Text = prompt;
+            TxtValidationDetail.Text = $"Detected: 0 / {needed}";
+            TxtValidationAttempt.Text = "";
+
+            var got = await waiter(needed, TimeoutMs, count =>
             {
-                if (_cancelled) return false;
+                TxtValidationDetail.Text = $"Detected: {count} / {needed}";
+            });
+            if (_cancelled) return;
 
-                TxtValidationCue.Text = cue;
-                TxtValidationPrompt.Text = $"{prompt}  ({roundLabel})";
-                TxtValidationDetail.Text = $"Hold your gaze on the {target.ToString().ToLowerInvariant()} side for {HoldMs / 1000.0:F1}s.";
-                TxtValidationAttempt.Text = $"Attempt {attempt} / {MaxAttempts}";
-
-                var detected = await WaitForGazeSideAsync(target, HoldMs, TimeoutMs, (elapsedMs, totalMs) =>
-                {
-                    if (elapsedMs <= 0)
-                        TxtValidationDetail.Text = $"Hold your gaze on the {target.ToString().ToLowerInvariant()} side for {totalMs / 1000.0:F1}s.";
-                    else
-                        TxtValidationDetail.Text = $"Holding… {elapsedMs / 1000.0:F1} / {totalMs / 1000.0:F1}s";
-                });
-                if (_cancelled) return false;
-
-                if (detected)
-                {
-                    await FlashSuccessAsync();
-                    return true;
-                }
-
-                if (attempt < MaxAttempts)
-                {
-                    TxtValidationDetail.Text = "Didn't detect that. Try again — exaggerate the look if needed.";
-                    await Task.Delay(900);
-                }
-            }
-            return false;
-        }
-
-        private async Task<bool> ValidateBlinkStepAsync(int needed)
-        {
-            const int TimeoutMs = 12000;
-            const int MaxAttempts = 3;
-
-            for (int attempt = 1; attempt <= MaxAttempts; attempt++)
+            if (got)
             {
-                if (_cancelled) return false;
-
-                TxtValidationCue.Text = "👁";
-                TxtValidationPrompt.Text = $"Blink {needed} times";
-                TxtValidationDetail.Text = "Detected: 0 / " + needed;
-                TxtValidationAttempt.Text = $"Attempt {attempt} / {MaxAttempts}";
-
-                var got = await WaitForBlinksAsync(needed, TimeoutMs, count =>
-                {
-                    TxtValidationDetail.Text = $"Detected: {count} / {needed}";
-                });
-                if (_cancelled) return false;
-
-                if (got)
-                {
-                    await FlashSuccessAsync();
-                    return true;
-                }
-
-                if (attempt < MaxAttempts)
-                {
-                    TxtValidationDetail.Text = "Didn't get enough blinks. Try again — blink slowly and deliberately.";
-                    await Task.Delay(900);
-                }
+                await FlashSuccessAsync();
             }
-            return false;
-        }
-
-        private async Task<bool> ValidateMouthOpenStepAsync(int needed)
-        {
-            const int TimeoutMs = 12000;
-            const int MaxAttempts = 3;
-
-            for (int attempt = 1; attempt <= MaxAttempts; attempt++)
+            else
             {
-                if (_cancelled) return false;
-
-                TxtValidationCue.Text = "😮";
-                TxtValidationPrompt.Text = needed == 1 ? "Open your mouth wide" : $"Open your mouth wide {needed} times";
-                TxtValidationDetail.Text = "Detected: 0 / " + needed;
-                TxtValidationAttempt.Text = $"Attempt {attempt} / {MaxAttempts}";
-
-                var got = await WaitForMouthOpensAsync(needed, TimeoutMs, count =>
-                {
-                    TxtValidationDetail.Text = $"Detected: {count} / {needed}";
-                });
-                if (_cancelled) return false;
-
-                if (got)
-                {
-                    await FlashSuccessAsync();
-                    return true;
-                }
-
-                if (attempt < MaxAttempts)
-                {
-                    TxtValidationDetail.Text = "Didn't detect a mouth-open. Try again — open wide like a yawn.";
-                    await Task.Delay(900);
-                }
+                TxtValidationDetail.Text = "No worries — moving on.";
+                await Task.Delay(700);
             }
-            return false;
         }
 
         private async Task<bool> ValidateTongueOutStepAsync(int needed)
@@ -877,44 +811,6 @@ namespace ConditioningControlPanel
             await Task.Delay(700);
             TxtValidationCue.Text = prevCue;
             TxtValidationCue.Foreground = prevColor;
-        }
-
-        private async Task<bool> WaitForGazeSideAsync(GazeSide target, int holdMs, int timeoutMs, Action<int, int> onProgress)
-        {
-            if (App.Webcam == null) return false;
-            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            DateTime? holdStart = null;
-
-            void Handler(GazeSide side)
-            {
-                var now = DateTime.UtcNow;
-                if (side == target)
-                {
-                    holdStart ??= now;
-                    var elapsed = (int)(now - holdStart.Value).TotalMilliseconds;
-                    onProgress(elapsed, holdMs);
-                    if (elapsed >= holdMs)
-                    {
-                        tcs.TrySetResult(true);
-                    }
-                }
-                else
-                {
-                    if (holdStart != null) onProgress(0, holdMs);
-                    holdStart = null;
-                }
-            }
-
-            App.Webcam.OnGazeSide += Handler;
-            try
-            {
-                var winner = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
-                return winner == tcs.Task && tcs.Task.Result;
-            }
-            finally
-            {
-                App.Webcam.OnGazeSide -= Handler;
-            }
         }
 
         private async Task<bool> WaitForBlinksAsync(int needed, int timeoutMs, Action<int> onProgress)
