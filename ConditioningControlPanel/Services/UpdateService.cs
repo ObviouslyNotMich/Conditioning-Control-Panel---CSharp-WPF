@@ -20,42 +20,48 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.0.2";
+        public const string AppVersion = "6.0.3";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.0.2 — Deeper Drop
-
-🎨 UI/UX
-- Color emojis everywhere — bundled Twemoji SVG set replaces WPF's
-  monochrome silhouettes across nav, cards, popups, premium gates,
-  section headers, Remote Control emote presets, and more.
-- Blink Trainer ""Revoke"" button shortened + smaller font.
-
-🔒 HARDENING
-- Ongoing AI safety hardening across moderation, prompt validation,
-  and output filtering.
+        public const string CurrentPatchNotes = @"v6.0.3 - Deeper Drop
 
 ✨ FEATURES
-- Webcam tracking toggle above browser + auto-prompt on bound
-  enhancements.
+- Enhance ANY video - the Deeper engine now binds to mandatory and asset
+  videos, not just bound enhancements (gated behind a default-off setting
+  with a new how-it-works bridge).
+- Calibration overhaul: 16-point grid, never-fail verify, and a 6-blink
+  stop-and-recalibrate gesture.
+- Gamification v2 - GamificationBridge plus 30 new achievements.
+- Season Recap card with mod-aware theming.
+- In-app tutorial video help system with interactive help popovers.
+- Dashboard: right-click any feature card to quick-toggle it.
+- Deeper editor: webcam loading splash, unified drag-and-drop, export QoL.
+- Smart nudge to enable enhancement/webcam on enhanced mandatory videos.
+
+🎨 UI/UX
+- Lab tab redesign - Mind/Eyes zones, hero headers, webcam engine bar.
+- Mod-sensitive Lab hero headers with drone-mode versions.
+- Wide banner hero art for Awareness, Remote Control, and Blink Trainer.
+- 58 new achievement icons (29 drone-styled + 29 neon) for gamification v2.
 
 🔧 BUG FIXES
-- Main window now reliably comes to front on launch.
-- Avatar tube now renders on first paint instead of requiring a
-  window move.
-- Plugged small lambda/timer leaks in the Deeper enhancement player.
-- Pause-session tooltip showed literal \n instead of a newline.
-- Blink Trainer remaining time wrapped past 60min.
-- Stats merge order: SyncCurrentStreak now runs before Save.
-- Deeper player + editor fullscreen no longer orphans a window on
-  partial exit.
-- Banner text wrapping in prompt editor dialogs.
-- V2 sync now pulls cloud stats down into local AchievementProgress.
-- Exclusives sub-items now switch tabs after click.
-- Deeper editor + player WebView fullscreen reparent crash.";
+- Avatar tube and bubble now stay above the main window on foregrounding.
+- Auth: self-heal a divergent auth token on provider validate.
+- Season data-loss + video-bridge threading/leak fixes from pre-merge review.
+- Webcam: better low-light mouth detection + 1s gap between calibration
+  mouth opens.
+- Haptics: device pulses on each Blink Trainer blink.
+- Moderation: corrected policy URL domain + scoped Content Policy Notice
+  to user input.
+- Takeover: dropped phantom level-100 gate + added a how-it-works guide.
+- Autonomy toggle no longer desyncs on remote panic.
+- Achievements: parked unobtainable directors_cut + hardened
+  throw_away_the_key.
+- Deeper: correct gaze geometry, detect TimelineItems webcam rules, and
+  start the engine off the UI thread.";
 
         private const string GitHubOwner = "CodeBambi";
         private const string GitHubRepo = "Conditioning-Control-Panel---CSharp-WPF";
