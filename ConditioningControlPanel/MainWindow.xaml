@@ -7399,6 +7399,36 @@
         <!-- Lab Tab -->
         <ContentControl x:Name="LabTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" Template="{StaticResource AnimatedTabBackground}">
             <Grid>
+            <Grid.Resources>
+                <!-- Lab redesign (mod-aware): all colour via DynamicResource theme keys so the
+                     whole tab recolours per active mod (drone→green, Bambi→pink, …). -->
+                <Style x:Key="LabCard" TargetType="Border">
+                    <Setter Property="CornerRadius" Value="16"/>
+                    <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource PanelAccentBrush}"/>
+                    <Setter Property="BorderThickness" Value="1"/>
+                    <Setter Property="Padding" Value="22"/>
+                    <Setter Property="Margin" Value="9"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource PanelAccentHoverBrush}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style x:Key="LabZoneTag" TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+                    <Setter Property="FontFamily" Value="Consolas"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="FontSize" Value="12"/>
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                </Style>
+                <Style x:Key="LabCardTitle" TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="FontSize" Value="18"/>
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                </Style>
+            </Grid.Resources>
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="20">
                     <!-- Header -->
@@ -7409,30 +7439,56 @@
                     </TextBlock>
                     <TextBlock Text="{loc:Str label_experimental_features_and_special_modes}" Foreground="{DynamicResource TextDimBrush}" FontSize="12" Margin="0,0,0,16"/>
 
-                    <!-- Modes Grid (Lockdown graduated to its own Exclusives tab in v5.8.4) -->
-                    <UniformGrid Rows="1" Columns="3">
-                        <!-- Quiz Training Card -->
-                        <Border CornerRadius="12" Margin="6" Padding="15">
+                    <!-- ===================== ZONE: MIND ===================== -->
+                    <Grid Margin="2,4,2,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="MIND" Style="{StaticResource LabZoneTag}" Margin="0,0,14,0"/>
+                        <Border Grid.Column="1" Height="1" VerticalAlignment="Center">
                             <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="#1A1A32" Offset="0"/>
-                                    <GradientStop Color="#201A38" Offset="1"/>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="{DynamicResource PanelAccentHover}" Offset="0"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
                                 </LinearGradientBrush>
                             </Border.Background>
-                            <Border.BorderBrush>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="{DynamicResource PatreonPurple}" Offset="0"/>
-                                    <GradientStop Color="{DynamicResource PinkColor}" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.BorderBrush>
-                            <Border.BorderThickness>
-                                <Thickness>2</Thickness>
-                            </Border.BorderThickness>
+                        </Border>
+                    </Grid>
+
+                    <UniformGrid Rows="1" Columns="2">
+                        <!-- Quiz Training Card -->
+                        <Border Style="{StaticResource LabCard}">
                             <StackPanel>
+                                <!-- hero header -->
+                                <Border CornerRadius="16,16,0,0" Height="138" Margin="-22,-22,-22,16" ClipToBounds="True">
+                                    <Grid>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_quiz_hero.png" Stretch="UniformToFill"/>
+                                            </Border.Background>
+                                        </Border>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                    <GradientStop Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                                    <GradientStop Color="Transparent" Offset="0.9"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Grid>
+                                </Border>
                                 <Grid Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{loc:Str label_quiz_training}" Foreground="White" FontWeight="Bold" FontSize="16"/>
-                                        <TextBlock Text="{loc:Str label_beta_2}" Foreground="{DynamicResource SecondaryBrush}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,11,0"
+                                                Background="{DynamicResource AccentTintedBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1">
+                                            <Image Width="18" Height="18" Source="{Binding Source='❓', Converter={StaticResource EmojiToImageSource}}"/>
+                                        </Border>
+                                        <TextBlock Text="{loc:Str label_quiz_training}" Style="{StaticResource LabCardTitle}"/>
+                                        <Border Background="{DynamicResource TransparentPink20Brush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                                                CornerRadius="6" Padding="6,2" Margin="9,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_beta_2}" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="9.5"/>
+                                        </Border>
                                     </StackPanel>
                                     <Button x:Name="HelpBtnQuiz" Style="{StaticResource HelpButtonStyle}" HorizontalAlignment="Right" Tag="Quiz"/>
                                 </Grid>
@@ -7497,28 +7553,38 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- AI Companion Effects & Memory (moved up from below; T2-gated by smokescreen) -->
-                        <Border CornerRadius="12" Margin="6" Padding="15">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="#1A1A32" Offset="0"/>
-                                    <GradientStop Color="#1F1B36" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <Border.BorderBrush>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                    <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
-                                    <GradientStop Color="{DynamicResource PatreonPurple}" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.BorderBrush>
-                            <Border.BorderThickness>
-                                <Thickness>2</Thickness>
-                            </Border.BorderThickness>
+                        <!-- AI Companion Effects & Memory -->
+                        <Border Style="{StaticResource LabCard}">
                             <StackPanel>
+                                <!-- hero header -->
+                                <Border CornerRadius="16,16,0,0" Height="138" Margin="-22,-22,-22,16" ClipToBounds="True">
+                                    <Grid>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_aimemory_hero.png" Stretch="UniformToFill"/>
+                                            </Border.Background>
+                                        </Border>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                    <GradientStop Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                                    <GradientStop Color="Transparent" Offset="0.9"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Grid>
+                                </Border>
                                 <Grid Margin="0,0,0,4">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{loc:Str lab_ai_effects_memory_title}" Foreground="White" FontWeight="Bold" FontSize="16"/>
-                                        <TextBlock Text="{loc:Str label_beta_2}" Foreground="{DynamicResource SecondaryBrush}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,11,0"
+                                                Background="{DynamicResource AccentTintedBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1">
+                                            <Image Width="18" Height="18" Source="{Binding Source='🧠', Converter={StaticResource EmojiToImageSource}}"/>
+                                        </Border>
+                                        <TextBlock Text="{loc:Str lab_ai_effects_memory_title}" Style="{StaticResource LabCardTitle}"/>
+                                        <Border Background="{DynamicResource TransparentPink20Brush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                                                CornerRadius="6" Padding="6,2" Margin="9,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_beta_2}" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="9.5"/>
+                                        </Border>
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Text="{loc:Str lab_ai_effects_memory_subtitle}"
@@ -7619,117 +7685,287 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Webcam Games Card — Gaze Minigame + Focus Gaze packed into one Lab tile -->
-                        <Border CornerRadius="12" Margin="6" Padding="15"
-                                Background="#1A1A2E" BorderBrush="#FF69B4" BorderThickness="2">
-                            <StackPanel>
-                                <Grid Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Image Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center"
-                                               Source="{Binding Source='👁', Converter={StaticResource EmojiToImageSource}}"/>
-                                        <TextBlock Text="{loc:Str label_webcam_games}" Foreground="White" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Str label_beta_2}" Foreground="#FF8800" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                    </StackPanel>
-                                    <Button x:Name="HelpBtnWebcamGames" Style="{StaticResource HelpButtonStyle}" HorizontalAlignment="Right" Tag="WebcamGames"/>
-                                </Grid>
-                                <TextBlock Text="{loc:Str label_webcam_games_description}"
-                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                    </UniformGrid>
 
-                                <!-- Gaze Minigame row -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Image Width="15" Height="15" Margin="0,0,5,0" VerticalAlignment="Center"
-                                                   Source="{Binding Source='🎯', Converter={StaticResource EmojiToImageSource}}"/>
-                                            <TextBlock Text="{loc:Str label_gaze_minigame}" Foreground="White" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
-                                            <Button x:Name="HelpBtnGazeMinigame" Style="{StaticResource HelpButtonStyle}" Tag="GazeMinigame" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                        <TextBlock Text="{loc:Str label_gaze_minigame_description}"
-                                                   Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    <!-- ===================== ZONE: EYES ===================== -->
+                    <Grid Margin="2,18,2,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="EYES" Style="{StaticResource LabZoneTag}" Margin="0,0,14,0"/>
+                        <Border Grid.Column="1" Height="1" VerticalAlignment="Center">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="{DynamicResource PanelAccentHover}" Offset="0"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <!-- Blink Trainer relocation chip (kept clickable → opens it in Exclusives) -->
+                        <Button Grid.Column="2" x:Name="BtnLabBlinkTrainerOpenNew"
+                                ToolTip="{loc:Str blink_trainer_lab_stub_body}"
+                                Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+                                Click="BtnLabBlinkTrainerOpenNew_Click">
+                            <Border Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1"
+                                    CornerRadius="8" Padding="11,6">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{loc:Str blink_trainer_lab_stub_moved}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
+                                    <TextBlock Text=" ↗" Foreground="{DynamicResource PinkBrush}" FontSize="12" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+                        </Button>
+                    </Grid>
+
+                    <!-- Engine bar — slim webcam tracking controls (reproportioned from the old card) -->
+                    <Border CornerRadius="16" Margin="9,4,9,12" Padding="16,14"
+                            Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource PanelAccentHoverBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <WrapPanel Orientation="Horizontal">
+                                <!-- label -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,18,4">
+                                    <Border Width="38" Height="38" CornerRadius="11" Margin="0,0,11,0"
+                                            Background="{DynamicResource AccentTintedBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1">
+                                        <Image Width="20" Height="20" Source="{Binding Source='👁', Converter={StaticResource EmojiToImageSource}}"/>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Webcam tracking" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15"/>
+                                        <TextBlock Text="local · on-device" Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" FontSize="11"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" x:Name="BtnGazeMinigame" Content="{loc:Str btn_open}"
-                                            ToolTip="{loc:Str tooltip_gaze_minigame_open}"
-                                            Padding="14,6" Background="#FF69B4" Foreground="Black"
-                                            BorderThickness="0" FontWeight="Bold" FontSize="12" Cursor="Hand"
-                                            VerticalAlignment="Center"
-                                            Click="BtnGazeMinigame_Click">
-                                        <Button.Resources>
-                                            <Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style>
-                                        </Button.Resources>
+                                </StackPanel>
+                                <!-- camera -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,12,4">
+                                    <TextBlock Text="CAM" Foreground="{DynamicResource TextDimBrush}" FontFamily="Consolas" FontSize="10.5" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                    <ComboBox x:Name="CmbWebcamDevice" Width="150"
+                                              Foreground="Black" Background="White"
+                                              BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" VerticalAlignment="Center"
+                                              ToolTip="Pick the capture device to use for blink / gaze tracking. If your physical webcam doesn't show its in-use light, you may have a virtual camera selected (OBS, Snap, etc.) — switch here, then hit Start."
+                                              SelectionChanged="CmbWebcamDevice_SelectionChanged"/>
+                                    <Button x:Name="BtnWebcamDeviceRefresh" Content="↻"
+                                            ToolTip="Re-scan connected video-capture devices."
+                                            Padding="9,3" Margin="6,0,0,0" VerticalAlignment="Center"
+                                            Background="Transparent" Foreground="{DynamicResource PinkBrush}"
+                                            BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                                            FontSize="12" FontWeight="Bold" Cursor="Hand"
+                                            Click="BtnWebcamDeviceRefresh_Click">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
                                     </Button>
+                                </StackPanel>
+                                <!-- monitor -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,12,4">
+                                    <TextBlock Text="MON" Foreground="{DynamicResource TextDimBrush}" FontFamily="Consolas" FontSize="10.5" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                    <ComboBox x:Name="CmbWebcamMonitor" Width="140"
+                                              Foreground="Black" Background="White"
+                                              BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" VerticalAlignment="Center"
+                                              ToolTip="{loc:Str webcam_monitor_tooltip}"
+                                              SelectionChanged="CmbWebcamMonitor_SelectionChanged"/>
+                                </StackPanel>
+                                <!-- status pill -->
+                                <Border x:Name="LabTrackerPill" CornerRadius="9" Padding="11,7" Margin="0,4,16,4" VerticalAlignment="Center"
+                                        Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse x:Name="LabTrackerDot" Width="8" Height="8" Fill="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TxtWebcamDebugStatus" Text="Stopped" Foreground="{DynamicResource TextLightBrush}"
+                                                   FontFamily="Consolas" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <!-- actions -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,4">
+                                    <Button x:Name="BtnWebcamReviewPrivacy" Content="Privacy info"
+                                            ToolTip="{loc:Str tooltip_webcam_review_privacy}"
+                                            Padding="10,6" Margin="0,0,6,0" VerticalAlignment="Center"
+                                            Background="Transparent" Foreground="{DynamicResource TextMutedBrush}"
+                                            BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1"
+                                            FontSize="11" Cursor="Hand" Click="BtnWebcamReviewPrivacy_Click">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                                    </Button>
+                                    <Button x:Name="BtnWebcamDebugCalibrate" Content="Calibrate"
+                                            ToolTip="{loc:Str tooltip_webcam_calibrate}"
+                                            Padding="11,6" Margin="0,0,6,0" VerticalAlignment="Center"
+                                            Background="Transparent" Foreground="{DynamicResource PinkBrush}"
+                                            BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                                            FontSize="11" FontWeight="SemiBold" Cursor="Hand" Click="BtnWebcamDebugCalibrate_Click">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                                    </Button>
+                                    <Button x:Name="BtnWebcamDebugQuickRecal" Content="Quick Recal"
+                                            ToolTip="One-dot drift correction. Stare at the pink center dot for ~2 s — a constant nudge is added to the cursor so it lands where you're looking, no full recalibration needed."
+                                            Padding="11,6" Margin="0,0,6,0" VerticalAlignment="Center"
+                                            Background="Transparent" Foreground="{DynamicResource PinkBrush}"
+                                            BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                                            FontSize="11" FontWeight="SemiBold" Cursor="Hand" Click="BtnWebcamDebugQuickRecal_Click">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                                    </Button>
+                                    <Button x:Name="BtnWebcamDebugStart" Content="Start tracking"
+                                            ToolTip="{loc:Str tooltip_webcam_start_tracking}"
+                                            Padding="14,7" VerticalAlignment="Center"
+                                            Background="{DynamicResource SuccessGreenBrush}" Foreground="Black" BorderThickness="0"
+                                            FontWeight="Bold" FontSize="12" Cursor="Hand" Click="BtnWebcamDebugStart_Click">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="9"/></Style></Button.Resources>
+                                    </Button>
+                                </StackPanel>
+                            </WrapPanel>
+
+                            <!-- Advanced / diagnostics (everything from the old card preserved) -->
+                            <Expander Header="Advanced" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,12,0,0">
+                                <StackPanel Margin="4,8,0,0">
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button x:Name="BtnWebcamDebugTrackerTest" Content="Tracker Test"
+                                                ToolTip="{loc:Str tooltip_webcam_tracker_test}"
+                                                Padding="11,6" Margin="0,0,10,8" VerticalAlignment="Center"
+                                                Background="Transparent" Foreground="{DynamicResource SecondaryBrush}"
+                                                BorderBrush="{DynamicResource SecondaryBrush}" BorderThickness="1"
+                                                FontSize="11" FontWeight="SemiBold" Cursor="Hand" Click="BtnWebcamDebugTrackerTest_Click">
+                                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                                        </Button>
+                                        <Button x:Name="BtnWebcamRevokeConsent" Content="Revoke consent"
+                                                ToolTip="Stops webcam tracking, deletes calibration data, and clears your consent. You'll be re-prompted next time you enable a webcam feature."
+                                                Padding="11,6" Margin="0,0,10,8" VerticalAlignment="Center"
+                                                Background="Transparent" Foreground="{DynamicResource DangerBrush}"
+                                                BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1"
+                                                FontSize="11" FontWeight="SemiBold" Cursor="Hand" Click="BtnWebcamRevokeConsent_Click">
+                                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                                        </Button>
+                                        <CheckBox x:Name="ChkWebcamDebugCursor" Content="Show debug gaze cursor"
+                                                  ToolTip="{loc:Str tooltip_webcam_show_debug_cursor}"
+                                                  Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                                  Checked="ChkWebcamDebugCursor_Changed" Unchecked="ChkWebcamDebugCursor_Changed"/>
+                                    </WrapPanel>
+                                    <TextBlock x:Name="TxtWebcamDebugCounters"
+                                               Text="Face: — | Blinks: 0 | Gaze: —"
+                                               Foreground="{DynamicResource SuccessGreenBrush}" FontFamily="Consolas" FontSize="12"
+                                               FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                    <Border Background="{DynamicResource PreviewBgBrush}" CornerRadius="6" Padding="10" Margin="0,8,0,0">
+                                        <TextBlock x:Name="TxtWebcamDebugLog" Text="(events will appear here)"
+                                                   Foreground="{DynamicResource SuccessGreenBrush}" FontFamily="Consolas" FontSize="11"
+                                                   TextWrapping="Wrap" MinHeight="60"/>
+                                    </Border>
+                                    <CheckBox x:Name="ChkRestrictGazeToCalScreen"
+                                              Content="Restrict gaze-reactive effects to the calibrated screen"
+                                              ToolTip="Advanced: leave on unless you know what you're doing. Affects how gaze-reactive effects map to your monitors."
+                                              Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,10,0,0"
+                                              Checked="ChkRestrictGazeToCalScreen_Changed"
+                                              Unchecked="ChkRestrictGazeToCalScreen_Changed"/>
+                                </StackPanel>
+                            </Expander>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Eyes cards (dim when tracker is off — gated in code-behind) -->
+                    <UniformGrid Rows="1" Columns="2">
+                        <!-- Gaze Minigame Card -->
+                        <Border x:Name="LabGazeCard" Style="{StaticResource LabCard}">
+                            <StackPanel>
+                                <!-- hero header -->
+                                <Border CornerRadius="16,16,0,0" Height="138" Margin="-22,-22,-22,16" ClipToBounds="True">
+                                    <Grid>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_gaze_hero.png" Stretch="UniformToFill"/>
+                                            </Border.Background>
+                                        </Border>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                    <GradientStop Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                                    <GradientStop Color="Transparent" Offset="0.9"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <Grid Margin="0,0,0,6">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,11,0"
+                                                Background="{DynamicResource AccentTintedBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1">
+                                            <Image Width="18" Height="18" Source="{Binding Source='🎯', Converter={StaticResource EmojiToImageSource}}"/>
+                                        </Border>
+                                        <TextBlock Text="{loc:Str label_gaze_minigame}" Style="{StaticResource LabCardTitle}"/>
+                                        <Border Background="{DynamicResource TransparentPink20Brush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                                                CornerRadius="6" Padding="6,2" Margin="9,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_beta_2}" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="9.5"/>
+                                        </Border>
+                                        <Button x:Name="HelpBtnGazeMinigame" Style="{StaticResource HelpButtonStyle}" Tag="GazeMinigame" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </Grid>
+                                <TextBlock Text="{loc:Str label_gaze_minigame_description}"
+                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                <Button x:Name="BtnGazeMinigame" Content="{loc:Str btn_open}"
+                                        ToolTip="{loc:Str tooltip_gaze_minigame_open}"
+                                        HorizontalAlignment="Left"
+                                        Padding="16,8" Background="{DynamicResource AccentGradientBrush}" Foreground="White"
+                                        BorderThickness="0" FontWeight="Bold" FontSize="13" Cursor="Hand"
+                                        Click="BtnGazeMinigame_Click">
+                                    <Button.Resources>
+                                        <Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style>
+                                    </Button.Resources>
+                                </Button>
+                                <Border x:Name="LabGazeNeedsTracker" Visibility="Collapsed"
+                                        Background="{DynamicResource AccentTintedBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1"
+                                        CornerRadius="8" Padding="10,7" Margin="0,12,0,0" HorizontalAlignment="Left">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Start tracking to play" Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
 
-                                <Border Height="1" Background="#33FF69B4" Margin="0,4,0,8"/>
-
-                                <!-- Focus Gaze row -->
+                        <!-- Focus Gaze Card -->
+                        <Border x:Name="LabFocusCard" Style="{StaticResource LabCard}">
+                            <StackPanel>
+                                <!-- hero header -->
+                                <Border CornerRadius="16,16,0,0" Height="138" Margin="-22,-22,-22,16" ClipToBounds="True">
+                                    <Grid>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_focusgaze_hero.png" Stretch="UniformToFill"/>
+                                            </Border.Background>
+                                        </Border>
+                                        <Border CornerRadius="16,16,0,0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                    <GradientStop Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                                    <GradientStop Color="Transparent" Offset="0.9"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <Grid Margin="0,0,0,6">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="34" Height="34" CornerRadius="10" Margin="0,0,11,0"
+                                                Background="{DynamicResource AccentTintedBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1">
+                                            <Image Width="18" Height="18" Source="{Binding Source='✨', Converter={StaticResource EmojiToImageSource}}"/>
+                                        </Border>
+                                        <TextBlock Text="{loc:Str label_focus_gaze}" Style="{StaticResource LabCardTitle}"/>
+                                        <Button x:Name="HelpBtnFocusGaze" Style="{StaticResource HelpButtonStyle}" Tag="FocusGaze" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="{loc:Str label_focus_gaze_description}"
+                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Image Width="15" Height="15" Margin="0,0,5,0" VerticalAlignment="Center"
-                                                   Source="{Binding Source='✨', Converter={StaticResource EmojiToImageSource}}"/>
-                                            <TextBlock Text="{loc:Str label_focus_gaze}" Foreground="White" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
-                                            <Button x:Name="HelpBtnFocusGaze" Style="{StaticResource HelpButtonStyle}" Tag="FocusGaze" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                        <TextBlock Text="{loc:Str label_focus_gaze_description}"
-                                                   Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
-                                        <TextBlock x:Name="TxtFocusGazeStatus" Text=""
-                                                   Foreground="#FFD080" FontSize="11" Margin="0,4,0,0"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
+                                    <TextBlock Grid.Column="0" Text="Enable" Foreground="{DynamicResource TextLightBrush}" FontSize="14" VerticalAlignment="Center"/>
                                     <CheckBox Grid.Column="1" x:Name="ChkFocusGaze" Style="{StaticResource ToggleStyle}"
                                               ToolTip="{loc:Str tooltip_focus_gaze_toggle}"
                                               VerticalAlignment="Center"
                                               Checked="ChkFocusGaze_Changed" Unchecked="ChkFocusGaze_Changed"/>
                                 </Grid>
-
-                                <Border Height="1" Background="#33FF69B4" Margin="0,8,0,8"/>
-
-                                <!-- TODO Remove this stub in v6.0 (or two minor releases after v5.9.8),
-                                     by which point users have either migrated to the Exclusives page or
-                                     noticed the relocation. -->
-                                <!-- Blink Trainer — moved to Exclusives → Blink Trainer in v5.9.8.
-                                     Compact stub kept for one release cycle so users who looked here
-                                     see where it went. Phase F of the Blink Trainer flagship migration. -->
-                                <StackPanel Margin="0,8,0,0">
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                        <Image Width="15" Height="15" Margin="0,0,5,0" VerticalAlignment="Center"
-                                               Source="{Binding Source='💫', Converter={StaticResource EmojiToImageSource}}"/>
-                                        <TextBlock Text="{loc:Str tab_blink_trainer}"
-                                                   Foreground="White" FontWeight="SemiBold"
-                                                   FontSize="13" VerticalAlignment="Center"/>
-                                        <Border Background="{DynamicResource PinkBrush}"
-                                                CornerRadius="3" Padding="5,1" Margin="8,0,0,0"
-                                                VerticalAlignment="Center">
-                                            <TextBlock Text="{loc:Str blink_trainer_lab_stub_moved}" Foreground="Black"
-                                                       FontSize="9" FontWeight="Bold"/>
-                                        </Border>
+                                <TextBlock x:Name="TxtFocusGazeStatus" Text=""
+                                           Foreground="{DynamicResource SuccessGreenBrush}" FontSize="11" Margin="0,6,0,0"
+                                           TextWrapping="Wrap"/>
+                                <Border x:Name="LabFocusNeedsTracker" Visibility="Collapsed"
+                                        Background="{DynamicResource AccentTintedBgBrush}" BorderBrush="{DynamicResource PanelAccentBrush}" BorderThickness="1"
+                                        CornerRadius="8" Padding="10,7" Margin="0,12,0,0" HorizontalAlignment="Left">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Start tracking to enable" Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                    <TextBlock Text="{loc:Str blink_trainer_lab_stub_body}"
-                                               Foreground="{DynamicResource TextMutedBrush}"
-                                               FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                    <Button x:Name="BtnLabBlinkTrainerOpenNew"
-                                            Content="{loc:Str blink_trainer_lab_stub_open}"
-                                            HorizontalAlignment="Left"
-                                            Padding="14,5" FontSize="11" FontWeight="SemiBold"
-                                            Background="{DynamicResource PinkBrush}"
-                                            Foreground="Black"
-                                            BorderThickness="0" Cursor="Hand"
-                                            Click="BtnLabBlinkTrainerOpenNew_Click">
-                                        <Button.Resources>
-                                            <Style TargetType="Border">
-                                                <Setter Property="CornerRadius" Value="4"/>
-                                            </Style>
-                                        </Button.Resources>
-                                    </Button>
-                                </StackPanel>
+                                </Border>
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -7776,149 +8012,7 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Webcam Tracking card -->
-                    <Border CornerRadius="12" Margin="6,12,6,6" Padding="15"
-                            Background="#1A1A2E" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2">
-                        <StackPanel>
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Webcam Tracking" Foreground="{DynamicResource PinkBrush}" FontWeight="Bold" FontSize="16"/>
-                                    <TextBlock Text="Calibration, tracker test, quick recal, and live diagnostics."
-                                               Foreground="#888888" FontSize="11" Margin="0,2,0,0"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                    <Button x:Name="BtnWebcamReviewPrivacy"
-                                            Content="Review privacy info"
-                                            ToolTip="{loc:Str tooltip_webcam_review_privacy}"
-                                            Padding="10,6"
-                                            Background="Transparent" Foreground="#FF69B4"
-                                            BorderBrush="#FF69B4" BorderThickness="1"
-                                            FontSize="11" FontWeight="SemiBold" Cursor="Hand"
-                                            Click="BtnWebcamReviewPrivacy_Click"/>
-                                    <Button x:Name="BtnWebcamRevokeConsent"
-                                            Content="Revoke consent"
-                                            ToolTip="Stops webcam tracking, deletes calibration data, and clears your consent. You'll be re-prompted next time you enable a webcam feature."
-                                            Padding="10,6" Margin="8,0,0,0"
-                                            Background="Transparent" Foreground="#FF6060"
-                                            BorderBrush="#FF6060" BorderThickness="1"
-                                            FontSize="11" FontWeight="SemiBold" Cursor="Hand"
-                                            Click="BtnWebcamRevokeConsent_Click"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Camera selector — let users pick which capture device to use
-                                 (physical webcam vs. virtual cameras like OBS / Snap). The
-                                 selection is saved to App.Settings.Current.WebcamDeviceIndex
-                                 and applied on the next Start. -->
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Camera:" Foreground="#CCCCCC" FontSize="12"
-                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <ComboBox Grid.Column="1" x:Name="CmbWebcamDevice"
-                                          Foreground="Black" Background="White"
-                                          BorderBrush="#FF8800" BorderThickness="1"
-                                          ToolTip="Pick the capture device to use for blink / gaze tracking. If your physical webcam doesn't show its in-use light, you may have a virtual camera selected (OBS, Snap, etc.) — switch here, then hit Start."
-                                          SelectionChanged="CmbWebcamDevice_SelectionChanged"/>
-                                <Button Grid.Column="2" x:Name="BtnWebcamDeviceRefresh" Content="Refresh"
-                                        ToolTip="Re-scan connected video-capture devices."
-                                        Padding="10,4" Margin="8,0,0,0"
-                                        Background="#33333A" Foreground="White"
-                                        BorderBrush="#FF8800" BorderThickness="1"
-                                        FontSize="11" FontWeight="SemiBold" Cursor="Hand"
-                                        Click="BtnWebcamDeviceRefresh_Click"/>
-                            </Grid>
-
-                            <!-- Monitor picker: which display the calibration / Quick
-                                 Recal / Tracker Test windows open on. Stored by
-                                 device name so reordering monitors is non-destructive. -->
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{loc:Str webcam_monitor_label}"
-                                           Foreground="#CCCCCC" FontSize="12"
-                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <ComboBox Grid.Column="1" x:Name="CmbWebcamMonitor"
-                                          Foreground="Black" Background="White"
-                                          BorderBrush="#FF8800" BorderThickness="1"
-                                          ToolTip="{loc:Str webcam_monitor_tooltip}"
-                                          SelectionChanged="CmbWebcamMonitor_SelectionChanged"/>
-                            </Grid>
-
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Status:" Foreground="#888" FontSize="11"/>
-                                    <TextBlock x:Name="TxtWebcamDebugStatus" Text="Stopped"
-                                               Foreground="White" FontSize="14" FontWeight="SemiBold"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <Button x:Name="BtnWebcamDebugCalibrate" Content="Calibrate (16-point)"
-                                            ToolTip="{loc:Str tooltip_webcam_calibrate}"
-                                            Padding="12,8" Margin="0,0,8,0"
-                                            Background="#33333A" Foreground="White" BorderBrush="#FF8800"
-                                            BorderThickness="1" FontWeight="SemiBold" Cursor="Hand"
-                                            Click="BtnWebcamDebugCalibrate_Click"/>
-                                    <Button x:Name="BtnWebcamDebugTrackerTest" Content="Tracker Test"
-                                            ToolTip="{loc:Str tooltip_webcam_tracker_test}"
-                                            Padding="12,8" Margin="0,0,8,0"
-                                            Background="#33333A" Foreground="White" BorderBrush="#00B0FF"
-                                            BorderThickness="1" FontWeight="SemiBold" Cursor="Hand"
-                                            Click="BtnWebcamDebugTrackerTest_Click"/>
-                                    <Button x:Name="BtnWebcamDebugQuickRecal" Content="Quick Recal"
-                                            ToolTip="One-dot drift correction. Stare at the pink center dot for ~2 s — a constant nudge is added to the cursor so it lands where you're looking, no full recalibration needed."
-                                            Padding="12,8" Margin="0,0,8,0"
-                                            Background="#33333A" Foreground="White" BorderBrush="#FF69B4"
-                                            BorderThickness="1" FontWeight="SemiBold" Cursor="Hand"
-                                            Click="BtnWebcamDebugQuickRecal_Click"/>
-                                    <Button x:Name="BtnWebcamDebugStart" Content="Start tracking"
-                                            ToolTip="{loc:Str tooltip_webcam_start_tracking}"
-                                            Padding="14,8" Background="#FF8800" Foreground="Black" BorderThickness="0"
-                                            FontWeight="Bold" Cursor="Hand" Click="BtnWebcamDebugStart_Click"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <CheckBox x:Name="ChkWebcamDebugCursor" Content="Show debug gaze cursor"
-                                      ToolTip="{loc:Str tooltip_webcam_show_debug_cursor}"
-                                      Foreground="#CCCCCC" Margin="0,10,0,0"
-                                      Checked="ChkWebcamDebugCursor_Changed"
-                                      Unchecked="ChkWebcamDebugCursor_Changed"/>
-
-                            <TextBlock x:Name="TxtWebcamDebugCounters"
-                                       Text="Face: — | Blinks: 0 | Gaze: —"
-                                       Foreground="#FFD080" FontFamily="Consolas" FontSize="12"
-                                       FontWeight="SemiBold" Margin="0,10,0,0"/>
-
-                            <Border Background="#0A0A14" CornerRadius="6" Padding="10" Margin="0,8,0,0">
-                                <TextBlock x:Name="TxtWebcamDebugLog" Text="(events will appear here)"
-                                           Foreground="#88CC88" FontFamily="Consolas" FontSize="11"
-                                           TextWrapping="Wrap" MinHeight="80"/>
-                            </Border>
-
-                            <Expander Header="Advanced" Foreground="#888888" FontSize="11" Margin="0,12,0,0">
-                                <StackPanel Margin="4,6,0,0">
-                                    <CheckBox x:Name="ChkRestrictGazeToCalScreen"
-                                              Content="Restrict gaze-reactive effects to the calibrated screen"
-                                              ToolTip="Advanced: leave on unless you know what you're doing. Affects how gaze-reactive effects map to your monitors."
-                                              Foreground="#AAAAAA" FontSize="11"
-                                              Checked="ChkRestrictGazeToCalScreen_Changed"
-                                              Unchecked="ChkRestrictGazeToCalScreen_Changed"/>
-                                </StackPanel>
-                            </Expander>
-                        </StackPanel>
-                    </Border>
+                    <!-- (Webcam Tracking controls relocated into the Eyes engine bar above.) -->
 
                 </StackPanel>
             </ScrollViewer>

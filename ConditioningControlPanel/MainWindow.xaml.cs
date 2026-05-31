@@ -4627,10 +4627,13 @@ namespace ConditioningControlPanel
 
             void Update(WebcamTrackingState s)
             {
-                if (WebcamActivePill == null) return;
-                WebcamActivePill.Visibility = (s == WebcamTrackingState.Tracking || s == WebcamTrackingState.FaceLost)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                if (WebcamActivePill != null)
+                {
+                    WebcamActivePill.Visibility = (s == WebcamTrackingState.Tracking || s == WebcamTrackingState.FaceLost)
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                }
+                UpdateLabTrackerUi(s);
             }
 
             _onPillStateChanged = Update;
@@ -4638,6 +4641,25 @@ namespace ConditioningControlPanel
             // Reflect current state on wire-up — service may already be running
             // if we got here after a previous Stop/Start cycle.
             Update(App.Webcam.State);
+        }
+
+        // Lab redesign: reflect tracker state on the Eyes engine-bar status pill and
+        // dim the two Eyes cards (with "start tracking" hints) when the tracker is off.
+        // Additive — keyed off the same OnTrackingStateChanged path as the title pill.
+        private void UpdateLabTrackerUi(WebcamTrackingState s)
+        {
+            bool live = (s == WebcamTrackingState.Tracking || s == WebcamTrackingState.FaceLost);
+            var green = TryFindResource("SuccessGreenBrush") as Brush;
+            var muted = TryFindResource("TextMutedBrush") as Brush;
+            var panelAccent = TryFindResource("PanelAccentBrush") as Brush;
+
+            if (LabTrackerDot != null) LabTrackerDot.Fill = live ? (green ?? LabTrackerDot.Fill) : (muted ?? LabTrackerDot.Fill);
+            if (LabTrackerPill != null) LabTrackerPill.BorderBrush = live ? (green ?? LabTrackerPill.BorderBrush) : (panelAccent ?? LabTrackerPill.BorderBrush);
+
+            if (LabGazeCard != null) LabGazeCard.Opacity = live ? 1.0 : 0.62;
+            if (LabFocusCard != null) LabFocusCard.Opacity = live ? 1.0 : 0.62;
+            if (LabGazeNeedsTracker != null) LabGazeNeedsTracker.Visibility = live ? Visibility.Collapsed : Visibility.Visible;
+            if (LabFocusNeedsTracker != null) LabFocusNeedsTracker.Visibility = live ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void WebcamActivePill_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -17078,7 +17100,8 @@ namespace ConditioningControlPanel
             // doesn't get a ? button (it's a navigation signpost, not a feature
             // surface).
             SetHelpContent(HelpBtnQuiz, "Quiz");
-            SetHelpContent(HelpBtnWebcamGames, "WebcamGames");
+            // HelpBtnWebcamGames removed: the bundled Webcam Games card was split into
+            // separate Gaze Minigame + Focus Gaze cards (each with its own ? button).
             SetHelpContent(HelpBtnGazeMinigame, "GazeMinigame");
             SetHelpContent(HelpBtnFocusGaze, "FocusGaze");
             SetHelpContent(HelpBtnKeywordTriggers, "KeywordTriggers");

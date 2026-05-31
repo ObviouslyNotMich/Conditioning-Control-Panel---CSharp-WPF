@@ -15,6 +15,12 @@
     <SolidColorBrush x:Key="PreviewBgBrush" Color="{DynamicResource PreviewBg}"/>
 
     <SolidColorBrush x:Key="DangerBrush" Color="{DynamicResource Danger}"/>
+
+    <!-- Semantic success green (see Colors.xaml). Static across mods. -->
+    <SolidColorBrush x:Key="SuccessGreenBrush" Color="{DynamicResource SuccessGreen}"/>
+    <SolidColorBrush x:Key="SuccessGreenDeepBrush" Color="{DynamicResource SuccessGreenDeep}"/>
+    <SolidColorBrush x:Key="SuccessGreenSoftBrush" Color="{DynamicResource SuccessGreenSoft}"/>
+
     <SolidColorBrush x:Key="TransparentPinkBrush" Color="{DynamicResource TransparentPink}"/>
     <SolidColorBrush x:Key="PinkButtonHoveredBrush" Color="{DynamicResource PinkButtonHovered}"/>
 

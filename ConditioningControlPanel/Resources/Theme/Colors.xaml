@@ -15,6 +15,14 @@
     <Color x:Key="PreviewBg">#FF0D0D18</Color>
 
     <Color x:Key="Danger">#FFE53935</Color>
+
+    <!-- Semantic success / "go / live / correct" green. Static across mods on purpose
+         (like Danger red): green=go reads universally, and it harmonises with the
+         drone-mode green accent. Used by the Lab engine-bar LIVE pill + Start button. -->
+    <Color x:Key="SuccessGreen">#FF3EE87A</Color>
+    <Color x:Key="SuccessGreenDeep">#FF1FB85A</Color>
+    <Color x:Key="SuccessGreenSoft">#223EE87A</Color>
+
     <Color x:Key="TransparentPink">#30FF69B4</Color>
 
     <Color x:Key="PinkButtonHovered">#FFFF8FAF</Color>
