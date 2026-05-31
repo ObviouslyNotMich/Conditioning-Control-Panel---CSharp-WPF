@@ -1436,6 +1436,17 @@ namespace ConditioningControlPanel.Models
             set { _panicKeyEnabled = value; OnPropertyChanged(); }
         }
 
+        // When enabled, blinking fast 6 times in a row (within ~3.5s) stops all
+        // active conditioning (engine, session, videos, audio) — leaving the
+        // webcam capture running — and prompts the user to recalibrate. Toggled
+        // via the checkbox shown on every webcam card.
+        private bool _blinkRecalibrateShortcutEnabled = true;
+        public bool BlinkRecalibrateShortcutEnabled
+        {
+            get => _blinkRecalibrateShortcutEnabled;
+            set { _blinkRecalibrateShortcutEnabled = value; OnPropertyChanged(); }
+        }
+
         private string _panicKey = "Escape"; // Default panic key
         public string PanicKey
         {

@@ -1928,6 +1928,10 @@ namespace ConditioningControlPanel
             // Title-bar camera-active indicator
             WireWebcamActivePill();
 
+            // Global 6-blink → stop-everything + recalibrate gesture
+            WireRapidBlinkRecalibrateShortcut();
+            SyncBlinkRecalToggles(App.Settings?.Current?.BlinkRecalibrateShortcutEnabled ?? true);
+
             // Load custom sessions from disk (so they persist across restarts)
             if (_sessionManager == null)
                 InitializeSessionManager();
@@ -4745,6 +4749,154 @@ namespace ConditioningControlPanel
             // Reflect current state on wire-up — service may already be running
             // if we got here after a previous Stop/Start cycle.
             Update(App.Webcam.State);
+        }
+
+        // --- Rapid 6-blink recalibration gesture -----------------------------
+        // Blinking fast 6 times in a row halts all active conditioning (keeping
+        // the camera on) and offers recalibration. The blink detector enforces a
+        // 500ms cooldown between fires (WebcamTrackingService.BlinkCooldownMs),
+        // so 6 blinks physically span >=2.5s — a literal "6 in 2s" can't fire.
+        // 3.5s is the achievable window, and still far above the natural blink
+        // rate (~1 per 3-4s) so spontaneous blinking never triggers it.
+        private const int RapidBlinkRecalCount = 6;
+        private const int RapidBlinkRecalWindowMs = 3500;
+        private readonly Queue<DateTime> _rapidBlinkTimes = new();
+        private Action? _onRapidBlinkRecal;
+        private bool _rapidBlinkRecalInProgress;
+
+        private void WireRapidBlinkRecalibrateShortcut()
+        {
+            if (App.Webcam == null || _onRapidBlinkRecal != null) return;
+
+            void OnBlink()
+            {
+                // Opt-in via the toggle shown on every webcam card.
+                if (App.Settings?.Current?.BlinkRecalibrateShortcutEnabled != true) return;
+                // Don't fire while a calibration window is already open (its
+                // verify step asks the user to blink) or while we're mid-trigger.
+                if (_rapidBlinkRecalInProgress || WebcamCalibrationWindow.IsShowing) return;
+
+                var now = DateTime.UtcNow;
+                _rapidBlinkTimes.Enqueue(now);
+                var cutoff = now.AddMilliseconds(-RapidBlinkRecalWindowMs);
+                while (_rapidBlinkTimes.Count > 0 && _rapidBlinkTimes.Peek() < cutoff)
+                    _rapidBlinkTimes.Dequeue();
+
+                if (_rapidBlinkTimes.Count >= RapidBlinkRecalCount)
+                {
+                    _rapidBlinkTimes.Clear();
+                    _ = TriggerRapidBlinkRecalibrateAsync();
+                }
+            }
+
+            _onRapidBlinkRecal = OnBlink;
+            App.Webcam.OnBlink += _onRapidBlinkRecal;
+        }
+
+        private async Task TriggerRapidBlinkRecalibrateAsync()
+        {
+            if (_rapidBlinkRecalInProgress) return;
+            _rapidBlinkRecalInProgress = true;
+            try
+            {
+                App.Logger?.Information("Rapid 6-blink gesture: stopping all activity and offering recalibration.");
+
+                // Halt everything the user is experiencing — same surface as a
+                // panic press — but DELIBERATELY leave App.Webcam running: the
+                // calibration window requires the capture loop to be live.
+                StopAllForRecalibration();
+
+                // Guard against a race where the capture loop stopped between the
+                // triggering blink and here.
+                var svc = App.Webcam;
+                if (svc != null && !svc.IsRunning)
+                    await Task.Run(() => svc.Start());
+                if (svc == null || !svc.IsRunning)
+                {
+                    App.Logger?.Warning("Rapid-blink recal: webcam not running and could not be (re)started; aborting.");
+                    return;
+                }
+
+                var choice = MessageBox.Show(this,
+                    "You blinked to stop everything. Recalibrate webcam tracking now?",
+                    "Recalibrate?",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (choice != MessageBoxResult.Yes) return;
+
+                WebcamCalibrationWindow.ShowDialogWithRecalibrate(this);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Rapid-blink recalibration failed");
+            }
+            finally
+            {
+                _rapidBlinkRecalInProgress = false;
+                _rapidBlinkTimes.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Stops all active conditioning output (engine, session, videos, audio,
+        /// gaze features) — mirroring the "stop" branch of the panic key, minus
+        /// the window-restore / exit / achievement bookkeeping. Leaves the
+        /// webcam capture loop (App.Webcam) RUNNING so recalibration can proceed.
+        /// </summary>
+        private void StopAllForRecalibration()
+        {
+            try { Controls.HelpPopover.CloseActive(); } catch { }
+            try { App.KillAllAudio(); } catch (Exception ex) { App.Logger?.Warning(ex, "Recal stop: KillAllAudio failed"); }
+            try { App.Autonomy?.CancelActivePulses(); } catch { }
+            try { App.GazeFocus?.Stop(); } catch { }
+            try { App.BlinkTrainer?.Stop(); } catch { }
+            try
+            {
+                if (_sessionEngine != null && _sessionEngine.IsRunning && !_sessionEngine.IsPaused)
+                {
+                    _sessionEngine.PauseSession();
+                    if (TxtPauseIcon != null) TxtPauseIcon.Text = "▶";
+                    if (BtnPauseSession != null) BtnPauseSession.ToolTip = Loc.Get("tooltip_resume_session");
+                }
+            }
+            catch (Exception ex) { App.Logger?.Warning(ex, "Recal stop: pause session failed"); }
+            try { if (_isRunning) StopEngine(); } catch (Exception ex) { App.Logger?.Warning(ex, "Recal stop: StopEngine failed"); }
+            try { App.InteractionQueue?.ForceReset(); } catch { }
+        }
+
+        // --- "Blink to recalibrate" toggle, mirrored on every webcam card -----
+        // A single setting (BlinkRecalibrateShortcutEnabled) surfaced as a small
+        // checkbox on each webcam card. Toggling any one writes the setting and
+        // keeps the others in sync.
+        private bool _syncingBlinkRecalToggles;
+
+        private void ChkBlinkRecalShortcut_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_syncingBlinkRecalToggles) return;
+            bool val = (sender as System.Windows.Controls.CheckBox)?.IsChecked == true;
+            if (App.Settings?.Current != null)
+            {
+                App.Settings.Current.BlinkRecalibrateShortcutEnabled = val;
+                App.Settings?.Save();
+            }
+            SyncBlinkRecalToggles(val);
+        }
+
+        private void SyncBlinkRecalToggles(bool val)
+        {
+            _syncingBlinkRecalToggles = true;
+            try
+            {
+                var boxes = new[]
+                {
+                    ChkBlinkRecalGaze, ChkBlinkRecalFocus, ChkBlinkRecalWebcamBar,
+                    ChkBlinkRecalBlinkTrainer, ChkBlinkRecalDeeper
+                };
+                foreach (var cb in boxes)
+                {
+                    if (cb != null && cb.IsChecked != val) cb.IsChecked = val;
+                }
+            }
+            finally { _syncingBlinkRecalToggles = false; }
         }
 
         // Lab redesign: reflect tracker state on the Eyes engine-bar status pill and
@@ -28853,6 +29005,11 @@ namespace ConditioningControlPanel
                 {
                     App.Webcam.OnTrackingStateChanged -= _onPillStateChanged;
                     _onPillStateChanged = null;
+                }
+                if (_onRapidBlinkRecal != null && App.Webcam != null)
+                {
+                    App.Webcam.OnBlink -= _onRapidBlinkRecal;
+                    _onRapidBlinkRecal = null;
                 }
                 if (App.Progression != null)
                 {

@@ -76,9 +76,18 @@ namespace ConditioningControlPanel
         // rely on "last list" because all 16 are allocated up-front).
         private int _activeDotIndex = -1;
 
+        /// <summary>
+        /// True while a calibration window is on screen. The global 6-blink
+        /// recalibrate gesture (MainWindow) checks this so blinking during the
+        /// verify step — or while calibration is already open — can't re-trigger
+        /// another calibration.
+        /// </summary>
+        public static bool IsShowing { get; private set; }
+
         public WebcamCalibrationWindow()
         {
             InitializeComponent();
+            IsShowing = true;
         }
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -104,11 +113,16 @@ namespace ConditioningControlPanel
             DotCanvas.Visibility = Visibility.Collapsed;
             StatusPanel.Visibility = Visibility.Collapsed;
             IntroPanel.Visibility = Visibility.Visible;
+            // Surface the blink-shortcut hint while the user is reading the
+            // intro (and again on the verify panel) — but not during the dot
+            // grid, where it would sit over the top-row dots.
+            ShortcutHintBanner.Visibility = Visibility.Visible;
 
             var proceed = await _introDone.Task;
             if (!proceed || _cancelled) return;
 
             IntroPanel.Visibility = Visibility.Collapsed;
+            ShortcutHintBanner.Visibility = Visibility.Collapsed;
             DotCanvas.Visibility = Visibility.Visible;
             StatusPanel.Visibility = Visibility.Visible;
 
@@ -130,6 +144,8 @@ namespace ConditioningControlPanel
 
         private void Window_Closed(object sender, EventArgs e)
         {
+            IsShowing = false;
+
             // Unblock the intro awaiter if the user closed via title-bar X
             // (or owner-cascade) instead of ESC / Continue. Window_Loaded is
             // async void and awaits _introDone — without this, the awaiter
@@ -556,6 +572,7 @@ namespace ConditioningControlPanel
             // chance to preview accuracy via the debug cursor and either
             // accept (Done) or redo (Recalibrate).
             VerifyPanel.Visibility = Visibility.Visible;
+            ShortcutHintBanner.Visibility = Visibility.Visible;
         }
 
         /// <summary>

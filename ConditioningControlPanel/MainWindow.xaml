@@ -7745,6 +7745,13 @@
                                         <TextBlock Text="local · on-device" Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" FontSize="11"/>
                                     </StackPanel>
                                 </StackPanel>
+                                <!-- 6-blink → stop & recalibrate shortcut toggle -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,18,4"
+                                            ToolTip="Blink fast 6 times in a row to stop everything and jump to recalibration.">
+                                    <CheckBox x:Name="ChkBlinkRecalWebcamBar" Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                                              Checked="ChkBlinkRecalShortcut_Changed" Unchecked="ChkBlinkRecalShortcut_Changed"/>
+                                    <TextBlock Text="Blink to recalibrate" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="7,0,0,0"/>
+                                </StackPanel>
                                 <!-- camera -->
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,12,4">
                                     <TextBlock Text="CAM" Foreground="{DynamicResource TextDimBrush}" FontFamily="Consolas" FontSize="10.5" VerticalAlignment="Center" Margin="0,0,7,0"/>
@@ -7898,6 +7905,12 @@
                                         </Border>
                                         <Button x:Name="HelpBtnGazeMinigame" Style="{StaticResource HelpButtonStyle}" Tag="GazeMinigame" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                ToolTip="Blink fast 6 times in a row to stop everything and jump to recalibration.">
+                                        <CheckBox x:Name="ChkBlinkRecalGaze" Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                                                  Checked="ChkBlinkRecalShortcut_Changed" Unchecked="ChkBlinkRecalShortcut_Changed"/>
+                                        <TextBlock Text="Blink to recal" Foreground="{DynamicResource TextMutedBrush}" FontSize="10.5" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </StackPanel>
                                 </Grid>
                                 <TextBlock Text="{loc:Str label_gaze_minigame_description}"
                                            Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,14"/>
@@ -7951,6 +7964,12 @@
                                         </Border>
                                         <TextBlock Text="{loc:Str label_focus_gaze}" Style="{StaticResource LabCardTitle}"/>
                                         <Button x:Name="HelpBtnFocusGaze" Style="{StaticResource HelpButtonStyle}" Tag="FocusGaze" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                ToolTip="Blink fast 6 times in a row to stop everything and jump to recalibration.">
+                                        <CheckBox x:Name="ChkBlinkRecalFocus" Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                                                  Checked="ChkBlinkRecalShortcut_Changed" Unchecked="ChkBlinkRecalShortcut_Changed"/>
+                                        <TextBlock Text="Blink to recal" Foreground="{DynamicResource TextMutedBrush}" FontSize="10.5" VerticalAlignment="Center" Margin="6,0,0,0"/>
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Text="{loc:Str label_focus_gaze_description}"
@@ -9506,14 +9525,22 @@
                         <SolidColorBrush Color="{DynamicResource PinkColor}" Opacity="0.25"/>
                     </Border.BorderBrush>
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <Image Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,8,0"
-                                   Source="{Binding Source='📷', Converter={StaticResource EmojiToImageSource}}"/>
-                            <TextBlock Text="{loc:Str blink_trainer_section_webcam}"
-                                       Foreground="{DynamicResource PinkBrush}"
-                                       FontSize="13" FontWeight="SemiBold"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <Grid Margin="0,0,0,4">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <Image Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Source="{Binding Source='📷', Converter={StaticResource EmojiToImageSource}}"/>
+                                <TextBlock Text="{loc:Str blink_trainer_section_webcam}"
+                                           Foreground="{DynamicResource PinkBrush}"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        ToolTip="Blink fast 6 times in a row to stop everything and jump to recalibration.">
+                                <CheckBox x:Name="ChkBlinkRecalDeeper" Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                                          Checked="ChkBlinkRecalShortcut_Changed" Unchecked="ChkBlinkRecalShortcut_Changed"/>
+                                <TextBlock Text="Blink to recal" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
                         <TextBlock Text="Webcam-driven Deeper triggers (gaze, blink, face-lost) need camera consent + a calibration. Both are free and configured right here."
                                    Foreground="{DynamicResource TextMutedBrush}" FontSize="10"
                                    TextWrapping="Wrap" Margin="0,0,0,10"/>
@@ -11978,8 +12005,16 @@
                             </StackPanel>
 
                             <!-- Help button — TODO Phase H: wire HelpContentService entry for "BlinkTrainer" -->
-                            <Button Grid.Column="2" x:Name="HelpBtnBlinkTrainer" Style="{StaticResource HelpButtonStyle}"
-                                    VerticalAlignment="Center" Tag="BlinkTrainer"/>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <Button x:Name="HelpBtnBlinkTrainer" Style="{StaticResource HelpButtonStyle}"
+                                        HorizontalAlignment="Right" Tag="BlinkTrainer"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0"
+                                            ToolTip="Blink fast 6 times in a row to stop everything and jump to recalibration.">
+                                    <TextBlock Text="Blink to recal" Foreground="{DynamicResource TextMutedBrush}" FontSize="10.5" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <CheckBox x:Name="ChkBlinkRecalBlinkTrainer" Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                                              Checked="ChkBlinkRecalShortcut_Changed" Unchecked="ChkBlinkRecalShortcut_Changed"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Grid>
 
                         <!-- ═══ STAGE + GATED ZONES (side-by-side, v5.9.9) ═══
