@@ -797,9 +797,16 @@ public class AchievementService : IDisposable
     public int GetUnlockedCount() => _progress.UnlockedAchievements.Count;
 
     /// <summary>
-    /// Get total achievement count (all achievements, free + exclusive)
+    /// Get total achievement count (all achievements, free + exclusive). Parked
+    /// (IsHidden) achievements are excluded so the denominator only counts earnable ones.
     /// </summary>
-    public int GetTotalCount() => Achievement.All.Count;
+    public int GetTotalCount()
+    {
+        var count = 0;
+        foreach (var a in Achievement.All.Values)
+            if (!a.IsHidden) count++;
+        return count;
+    }
 
     /// <summary>
     /// Get unlock count filtered by exclusivity. The free (false) and patron (true)
@@ -824,6 +831,7 @@ public class AchievementService : IDisposable
         var count = 0;
         foreach (var a in Achievement.All.Values)
         {
+            if (a.IsHidden) continue; // parked — not earnable in this build
             if (a.IsExclusive == exclusive) count++;
         }
         return count;

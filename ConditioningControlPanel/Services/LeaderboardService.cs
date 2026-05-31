@@ -426,9 +426,10 @@ public class LeaderboardEntry
 
     /// <summary>
     /// Display string for achievements (X / Y format)
-    /// Uses the total achievement count from the Achievement model
+    /// Uses the total earnable achievement count from the Achievement model
+    /// (parked/IsHidden achievements are excluded from the denominator).
     /// </summary>
-    public string AchievementsDisplay => $"{AchievementsCount} / {Models.Achievement.All.Count}";
+    public string AchievementsDisplay => $"{AchievementsCount} / {System.Linq.Enumerable.Count(Models.Achievement.All.Values, a => !a.IsHidden)}";
 }
 
 /// <summary>

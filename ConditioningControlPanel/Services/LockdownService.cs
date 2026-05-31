@@ -39,6 +39,14 @@ public class LockdownService : IDisposable
 
     public bool IsActive => _isActive;
 
+    /// <summary>
+    /// How long the most recently ended lockdown stayed active (set on Deactivate).
+    /// This is the single source of truth for "how long did the user sit through a
+    /// lockdown" — gamification reads this instead of tracking its own start time, so
+    /// the value can't desync from the service. TimeSpan.Zero before the first lockdown.
+    /// </summary>
+    public TimeSpan LastActiveDuration { get; private set; }
+
     public TimeSpan Remaining
     {
         get
@@ -107,9 +115,14 @@ public class LockdownService : IDisposable
         }
 
         DeleteRecoveryFile();
+
+        // Capture how long this lockdown ran BEFORE clearing _isActive, so gamification
+        // (throw_away_the_key, "60+ minute lockdown") reads an authoritative duration
+        // straight from the service rather than maintaining its own start timestamp.
+        LastActiveDuration = DateTime.Now - _activatedAt;
         _isActive = false;
 
-        App.Logger?.Information("Lockdown deactivated");
+        App.Logger?.Information("Lockdown deactivated after {Minutes:F1} minutes", LastActiveDuration.TotalMinutes);
         LockdownDeactivated?.Invoke();
     }
 

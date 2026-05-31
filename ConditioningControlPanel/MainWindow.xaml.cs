@@ -2324,6 +2324,12 @@ namespace ConditioningControlPanel
             {
                 _avatarTubeWindow.ShowTube();
                 _avatarTubeWindow.StartPoseAnimation();
+                // Force the pair above the main window. Callers reach ShowAvatarTube right
+                // after a Topmost true→false pulse (panic restore, video end, chat-from-tray),
+                // which lifts main to the top of the z-band. Activate() hasn't transferred
+                // foreground yet, so the gated raise inside ShowTube can bail and leave the
+                // tube/bubble buried behind main. A forced raise here closes that gap.
+                _avatarTubeWindow.RaiseAttachedTubeAboveOwner();
             }
         }
 
@@ -15321,6 +15327,8 @@ namespace ConditioningControlPanel
             foreach (var kvp in Models.Achievement.All)
             {
                 var achievement = kvp.Value;
+                // Skip parked achievements (no reachable unlock path in this build).
+                if (achievement.IsHidden) continue;
                 var isUnlocked = App.Achievements?.Progress.IsUnlocked(achievement.Id) ?? false;
                 
                 var border = new Border { Style = tileStyle };
@@ -21070,7 +21078,7 @@ namespace ConditioningControlPanel
                 // Free-only count so the patron-exclusive set is never folded into this number.
                 var unlocked = App.Achievements?.GetUnlockedCount(exclusive: false) ?? 0;
                 var total = App.Achievements?.GetTotalCount(exclusive: false)
-                            ?? System.Linq.Enumerable.Count(Models.Achievement.All.Values, a => !a.IsExclusive);
+                            ?? System.Linq.Enumerable.Count(Models.Achievement.All.Values, a => !a.IsExclusive && !a.IsHidden);
                 TxtProfileViewerAchievements.Text = $"{unlocked} / {total}";
             }
 

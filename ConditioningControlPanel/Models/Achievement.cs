@@ -24,6 +24,15 @@ public class Achievement
     /// </summary>
     public bool IsExclusive { get; set; }
 
+    /// <summary>
+    /// When true, this achievement is "parked": its unlock plumbing still exists, but it
+    /// is hidden from the gallery and excluded from the displayed totals because nothing
+    /// in the current build can satisfy its condition (e.g. it depends on a server-side
+    /// source that does not exist yet). Hiding it prevents a permanent 0%/"???" tile that
+    /// no user can ever clear. Remove the flag once the unlock path is reachable.
+    /// </summary>
+    public bool IsHidden { get; set; }
+
     /// <summary>Localized achievement name (falls back to hardcoded Name)</summary>
     public string LocalizedName => Loc.Get($"achievement_{Id}_name");
     /// <summary>Localized achievement requirement text (falls back to hardcoded Requirement)</summary>
@@ -479,7 +488,13 @@ public class Achievement
             Requirement = "Finish a featured enhancement start to end",
             FlavorText = "You sat through the whole thing. Good girl.",
             ImageName = "directors_cut.png",
-            Category = AchievementCategory.Deeper
+            Category = AchievementCategory.Deeper,
+            // PARKED: gated on Enhancement.Metadata.Featured, which no code path in this
+            // build ever sets true (no server-side featured/approval source yet). The
+            // GamificationBridge wiring stays intact (GamificationBridge.cs:453) so it
+            // unlocks automatically once a featured source lands — until then it is hidden
+            // so it does not sit at a permanent, un-earnable 0%.
+            IsHidden = true
         },
         ["wired_in"] = new Achievement
         {
