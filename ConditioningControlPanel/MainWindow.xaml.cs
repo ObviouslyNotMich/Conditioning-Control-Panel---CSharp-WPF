@@ -8523,7 +8523,7 @@ namespace ConditioningControlPanel
             }
         }
 
-        private void BtnBlinkTrainerQuickRecal_Click(object sender, RoutedEventArgs e)
+        private async void BtnBlinkTrainerQuickRecal_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -8551,7 +8551,9 @@ namespace ConditioningControlPanel
                 bool startedHere = false;
                 if (!svc.IsRunning)
                 {
-                    if (svc.Start()) startedHere = true;
+                    // Off the UI thread so the camera/ONNX load doesn't freeze
+                    // the window; the loading splash shows during the wait.
+                    if (await svc.StartAsync()) startedHere = true;
                 }
 
                 var recalDlg = new WebcamQuickRecalWindow { Owner = this };

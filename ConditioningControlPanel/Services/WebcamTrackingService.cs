@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -564,6 +565,18 @@ namespace ConditioningControlPanel.Services
                 return true;
             }
         }
+
+        /// <summary>
+        /// Runs <see cref="Start"/> on a worker thread. Start() opens the camera
+        /// and constructs three ONNX sessions synchronously, which can block
+        /// 10-30s on slow USB negotiation / first-run model init; calling it
+        /// directly on the UI thread freezes the window (Windows' "not responding"
+        /// reaper can then kill the app) and also prevents the loading splash —
+        /// driven by <see cref="OnStartupProgress"/>, which it dispatches to the
+        /// UI thread — from ever painting. UI callers should await this rather
+        /// than calling Start() directly.
+        /// </summary>
+        public Task<bool> StartAsync() => Task.Run(() => Start());
 
         public void Stop()
         {
