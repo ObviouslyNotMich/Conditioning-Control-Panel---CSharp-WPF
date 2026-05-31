@@ -7465,7 +7465,7 @@
                                     <Grid>
                                         <Border CornerRadius="16,16,0,0">
                                             <Border.Background>
-                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_quiz_hero.png" Stretch="UniformToFill"/>
+                                                <ImageBrush x:Name="LabQuizHeroBrush" ImageSource="pack://application:,,,/Resources/features/lab_quiz_hero.png" Stretch="UniformToFill"/>
                                             </Border.Background>
                                         </Border>
                                         <Border CornerRadius="16,16,0,0">
@@ -7561,7 +7561,7 @@
                                     <Grid>
                                         <Border CornerRadius="16,16,0,0">
                                             <Border.Background>
-                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_aimemory_hero.png" Stretch="UniformToFill"/>
+                                                <ImageBrush x:Name="LabAiMemoryHeroBrush" ImageSource="pack://application:,,,/Resources/features/lab_aimemory_hero.png" Stretch="UniformToFill"/>
                                             </Border.Background>
                                         </Border>
                                         <Border CornerRadius="16,16,0,0">
@@ -7861,7 +7861,7 @@
                                     <Grid>
                                         <Border CornerRadius="16,16,0,0">
                                             <Border.Background>
-                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_gaze_hero.png" Stretch="UniformToFill"/>
+                                                <ImageBrush x:Name="LabGazeHeroBrush" ImageSource="pack://application:,,,/Resources/features/lab_gaze_hero.png" Stretch="UniformToFill"/>
                                             </Border.Background>
                                         </Border>
                                         <Border CornerRadius="16,16,0,0">
@@ -7919,7 +7919,7 @@
                                     <Grid>
                                         <Border CornerRadius="16,16,0,0">
                                             <Border.Background>
-                                                <ImageBrush ImageSource="pack://application:,,,/Resources/features/lab_focusgaze_hero.png" Stretch="UniformToFill"/>
+                                                <ImageBrush x:Name="LabFocusHeroBrush" ImageSource="pack://application:,,,/Resources/features/lab_focusgaze_hero.png" Stretch="UniformToFill"/>
                                             </Border.Background>
                                         </Border>
                                         <Border CornerRadius="16,16,0,0">

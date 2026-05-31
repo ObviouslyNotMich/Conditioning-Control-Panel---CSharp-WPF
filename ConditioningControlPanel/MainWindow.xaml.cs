@@ -1531,6 +1531,23 @@ namespace ConditioningControlPanel
                     if (resolved != null)
                         img.Source = resolved;
                 }
+
+                // Lab hero headers (mod-sensitive): drone-mode ships green versions under
+                // resources/features/lab_*_hero.png; the embedded pink ones are the fallback.
+                var labHeroMap = new (string resourcePath, ImageBrush? brush)[]
+                {
+                    ("features/lab_quiz_hero.png", LabQuizHeroBrush),
+                    ("features/lab_aimemory_hero.png", LabAiMemoryHeroBrush),
+                    ("features/lab_gaze_hero.png", LabGazeHeroBrush),
+                    ("features/lab_focusgaze_hero.png", LabFocusHeroBrush),
+                };
+                foreach (var (path, brush) in labHeroMap)
+                {
+                    if (brush == null) continue;
+                    var image = ModResourceResolver.ResolveImage(path);
+                    if (image != null)
+                        brush.ImageSource = image;
+                }
             }
             catch (Exception ex)
             {
