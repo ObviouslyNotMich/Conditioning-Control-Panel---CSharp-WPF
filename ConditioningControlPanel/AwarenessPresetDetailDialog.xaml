@@ -233,13 +233,13 @@
                         Background="#5A3030" Foreground="White" BorderThickness="0" Cursor="Hand"
                         Visibility="Collapsed"
                         Click="BtnDeletePreset_Click"/>
-                <Button x:Name="BtnClone" Content="Clone to custom" Padding="12,8" Margin="0,0,8,0"
+                <Button x:Name="BtnClone" Content="Copy to custom" Padding="12,8" Margin="0,0,8,0"
                         Background="#2A2A44" Foreground="White" BorderThickness="0" Cursor="Hand"
                         Click="BtnClone_Click"/>
                 <Button x:Name="BtnClose" Content="Close" Padding="12,8" Margin="0,0,8,0"
                         Background="#2A2A44" Foreground="White" BorderThickness="0" Cursor="Hand"
                         Click="BtnClose_Click"/>
-                <Button x:Name="BtnInstall" Content="Install" Padding="16,8"
+                <Button x:Name="BtnInstall" Content="Activate" Padding="16,8"
                         Background="{DynamicResource PinkBrush}" Foreground="White"
                         BorderThickness="0" FontWeight="Bold" Cursor="Hand"
                         Click="BtnInstall_Click"/>

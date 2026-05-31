@@ -103,7 +103,7 @@
                     <TextBlock Grid.Column="0" Text="1." Foreground="#FF69B4"
                                FontSize="15" FontWeight="Bold" VerticalAlignment="Top"/>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Dot grid (25 dots)" Foreground="#FFFFFF"
+                        <TextBlock Text="Dot grid (16 dots)" Foreground="#FFFFFF"
                                    FontSize="15" FontWeight="SemiBold"/>
                         <TextBlock Text="A pink dot moves around the screen. Look at it and hold your gaze until the ring around it fills up."
                                    Foreground="#CCCCCC" FontSize="13" TextWrapping="Wrap" Margin="0,2,0,0"/>
@@ -120,7 +120,7 @@
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Quick checks" Foreground="#FFFFFF"
                                    FontSize="15" FontWeight="SemiBold"/>
-                        <TextBlock Text="A few prompts to confirm tracking works: glance left and right, blink, open your mouth, stick your tongue out."
+                        <TextBlock Text="Two quick prompts to warm up tracking: blink, then open your mouth wide."
                                    Foreground="#CCCCCC" FontSize="13" TextWrapping="Wrap" Margin="0,2,0,0"/>
                     </StackPanel>
                 </Grid>
@@ -185,7 +185,7 @@
             <StackPanel>
                 <TextBlock Text="Calibration verified" Foreground="#FF69B4" FontSize="22"
                            FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="Gaze, blink, mouth-open and tongue detection confirmed working."
+                <TextBlock Text="Calibration complete. Blink and mouth tracking warmed up — you're all set."
                            Foreground="#CCCCCC" FontSize="13" Margin="0,8,0,0"
                            TextWrapping="Wrap" HorizontalAlignment="Center"/>
                 <TextBlock x:Name="TxtVerifyStatus" Text="Click Verify to preview accuracy with a live gaze cursor, or close when ready."

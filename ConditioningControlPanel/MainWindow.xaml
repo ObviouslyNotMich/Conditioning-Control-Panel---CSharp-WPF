@@ -7011,6 +7011,17 @@
                                                         <TextBlock x:Name="TxtScreenOcrInterval" Text="{loc:Str label_3s}"
                                                                    Foreground="{DynamicResource PinkBrush}" FontSize="10" HorizontalAlignment="Right" IsHitTestVisible="False"/>
                                                     </Grid>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                        <TextBlock Text="Confirm before firing" Foreground="#A0A0A0" FontSize="10" VerticalAlignment="Center"/>
+                                                        <ComboBox x:Name="CmbOcrConfirmation" Margin="6,0,0,0" MinWidth="150"
+                                                                  Style="{StaticResource DarkComboBoxStyle}" FontSize="10"
+                                                                  SelectionChanged="CmbOcrConfirmation_SelectionChanged"
+                                                                  ToolTip="How many consecutive scans a word must stay on screen before it fires. Higher settings stop stray highlights when you scroll or tab away, at the cost of a slightly slower reaction.">
+                                                            <ComboBoxItem Content="Fire on first sight"/>
+                                                            <ComboBoxItem Content="Double-confirm (recommended)"/>
+                                                            <ComboBoxItem Content="Triple-confirm"/>
+                                                        </ComboBox>
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </StackPanel>
                                         </Border>
@@ -9621,8 +9632,14 @@
                         <RowDefinition Height="Auto"/> <!-- Advanced link -->
                     </Grid.RowDefinitions>
 
-                    <!-- ==================== HEADER ==================== -->
-                    <Grid Grid.Row="0" Margin="0,0,0,22">
+                    <!-- ==================== HERO BANNER + HEADER ==================== -->
+                    <StackPanel Grid.Row="0">
+                    <Border CornerRadius="14" Margin="0,0,0,18" ClipToBounds="True" MaxHeight="320"
+                            HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
+                        <Image Source="pack://application:,,,/Resources/features/awareness.png"
+                               Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Border>
+                    <Grid Margin="0,0,0,22">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
@@ -9660,6 +9677,7 @@
                             </CheckBox>
                         </StackPanel>
                     </Grid>
+                    </StackPanel>
 
                     <!-- ==================== LIVE PULSE ==================== -->
                     <Border Grid.Row="1" Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
@@ -10019,6 +10037,13 @@
                         Visibility="Collapsed" Template="{StaticResource AnimatedTabBackground}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="36,28,36,28" MaxWidth="1280" HorizontalAlignment="Center">
+
+                    <!-- Hero banner -->
+                    <Border CornerRadius="14" Margin="0,0,0,20" ClipToBounds="True" MaxHeight="320"
+                            HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
+                        <Image Source="pack://application:,,,/Resources/features/remote_control.png"
+                               Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Border>
 
                     <!-- Header -->
                     <Grid Margin="0,0,0,22">
@@ -11846,6 +11871,13 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <Grid Margin="36,28,36,28">
                     <StackPanel MaxWidth="960" HorizontalAlignment="Center">
+
+                        <!-- Hero banner -->
+                        <Border CornerRadius="14" Margin="0,0,0,24" ClipToBounds="True" MaxHeight="320"
+                                HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
+                            <Image Source="pack://application:,,,/Resources/features/blink_trainer.png"
+                                   Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        </Border>
 
                         <!-- ═══ HEADER ZONE ═══ -->
                         <Grid Margin="0,0,0,28">

@@ -3263,6 +3263,21 @@ namespace ConditioningControlPanel.Models
             set { _screenOcrIntervalMs = Math.Clamp(value, 2000, 10000); OnPropertyChanged(); }
         }
 
+        private int _ocrConfirmationScans = 2;
+        /// <summary>
+        /// Number of consecutive scans a keyword must appear in (at the same on-screen
+        /// position) before it is allowed to fire. Filters transient OCR ghosts from
+        /// scrolling, tab switches, or a word that moved between frames — which used to
+        /// leave a highlight box hanging over empty space. 1 = fire on first sighting
+        /// (legacy behavior), 2 = double confirmation (default), 3 = triple.
+        /// </summary>
+        [JsonProperty]
+        public int OcrConfirmationScans
+        {
+            get => _ocrConfirmationScans;
+            set { _ocrConfirmationScans = Math.Clamp(value, 1, 5); OnPropertyChanged(); }
+        }
+
         private bool _keywordHighlightEnabled = true;
         [JsonProperty]
         public bool KeywordHighlightEnabled

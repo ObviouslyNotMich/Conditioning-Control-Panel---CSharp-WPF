@@ -516,14 +516,19 @@ namespace ConditioningControlPanel.Services
         #region OCR Word Matching
 
         // Two layers of tracking:
-        //   _pendingOcrPositions   — position keys seen last scan, for two-scan stability check (anti-scroll)
+        //   _ocrSeenCounts         — per still-visible position key, how many CONSECUTIVE scans
+        //                            it has been seen. A keyword must survive OcrConfirmationScans
+        //                            scans before it may fire (anti-ghost: scrolling, tab switches,
+        //                            or a word that moved between frames used to leave a highlight
+        //                            box hanging over empty space). A key not seen this scan is
+        //                            dropped, resetting its streak.
         //   _highlightedOcrKeys    — position keys (text + bucketed x,y) already highlighted.
         //                            A position-keyed entry is removed the moment that specific
         //                            instance is no longer visible (scrolled off, covered by another
         //                            window, window closed, etc.). This gives the user's desired
         //                            behavior: each word instance fires exactly ONCE while it stays
         //                            on screen, and is eligible to fire again if it reappears.
-        private HashSet<string> _pendingOcrPositions = new();
+        private Dictionary<string, int> _ocrSeenCounts = new();
         private readonly HashSet<string> _highlightedOcrKeys = new();
 
         /// <summary>
@@ -538,7 +543,7 @@ namespace ConditioningControlPanel.Services
             if (!_isActive || _disposed) return;
             if (allWords == null || allWords.Count == 0)
             {
-                _pendingOcrPositions.Clear();
+                _ocrSeenCounts.Clear();
                 _highlightedOcrKeys.Clear();
                 return;
             }
@@ -601,7 +606,7 @@ namespace ConditioningControlPanel.Services
 
             if (matchedWords.Count == 0 || firedTriggers.Count == 0)
             {
-                _pendingOcrPositions.Clear();
+                _ocrSeenCounts.Clear();
                 _highlightedOcrKeys.Clear();
                 return;
             }
@@ -634,6 +639,32 @@ namespace ConditioningControlPanel.Services
             //    off (or gets covered) is forgotten and will re-fire if it reappears.
             _highlightedOcrKeys.IntersectWith(currentPositions);
 
+            // 4. Stability gate: roll each still-visible position's consecutive-scan
+            //    streak forward (positions not seen this scan are dropped, resetting
+            //    their streak). A position must survive OcrConfirmationScans scans
+            //    before it is eligible to fire — this discards transient OCR ghosts
+            //    from scrolling, tab switches, or a word that moved between frames.
+            //    Already-guarded (fired) positions are exempt — they've earned it.
+            int requiredScans = Math.Max(1, settings.OcrConfirmationScans);
+            var seenCounts = new Dictionary<string, int>(currentPositions.Count);
+            bool anyPendingConfirmation = false;
+            foreach (var key in currentPositions)
+            {
+                int streak = (_ocrSeenCounts.TryGetValue(key, out var prior) ? prior : 0) + 1;
+                seenCounts[key] = streak;
+                if (streak < requiredScans && !_highlightedOcrKeys.Contains(key))
+                    anyPendingConfirmation = true;
+            }
+            _ocrSeenCounts = seenCounts;
+
+            // Ask the OCR service for a quick follow-up scan (instead of waiting a full
+            // interval) while candidates are still building confidence.
+            NeedsOcrConfirmation = anyPendingConfirmation;
+
+            // A position is eligible only once its streak reaches the threshold.
+            bool IsConfirmed(string key)
+                => seenCounts.TryGetValue(key, out var c) && c >= requiredScans;
+
             var newWords = new List<OcrWordHit>();
             var newKeys = new HashSet<string>();
 
@@ -641,12 +672,11 @@ namespace ConditioningControlPanel.Services
 
             if (highlightAll)
             {
-                // "All matches" mode: skip two-scan stability gate, highlight every
-                // new instance immediately. An instance is "new" if its position key
-                // isn't already in the guard set.
+                // "All matches" mode: highlight every confirmed new instance. An
+                // instance is "new" if its position key isn't already in the guard set.
                 foreach (var kvp in wordsByKey)
                 {
-                    if (!_highlightedOcrKeys.Contains(kvp.Key))
+                    if (!_highlightedOcrKeys.Contains(kvp.Key) && IsConfirmed(kvp.Key))
                     {
                         newWords.Add(kvp.Value);
                         newKeys.Add(kvp.Key);
@@ -655,11 +685,11 @@ namespace ConditioningControlPanel.Services
             }
             else
             {
-                // "Random subset" mode: pick a random subset of unguarded matches
+                // "Random subset" mode: pick a random subset of confirmed, unguarded matches
                 var candidates = new List<KeyValuePair<string, OcrWordHit>>();
                 foreach (var kvp in wordsByKey)
                 {
-                    if (!_highlightedOcrKeys.Contains(kvp.Key))
+                    if (!_highlightedOcrKeys.Contains(kvp.Key) && IsConfirmed(kvp.Key))
                         candidates.Add(kvp);
                 }
 
@@ -683,7 +713,6 @@ namespace ConditioningControlPanel.Services
             // 6. Update tracking — mark each newly-fired position key as guarded
             //    so the same instance won't re-fire on subsequent scans while it
             //    remains at the same place.
-            _pendingOcrPositions = currentPositions;
             _highlightedOcrKeys.UnionWith(newKeys);
 
             // Diagnostic: log how many position keys were guarded vs newly fired.

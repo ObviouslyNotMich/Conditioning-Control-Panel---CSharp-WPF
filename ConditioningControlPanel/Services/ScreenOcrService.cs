@@ -16,6 +16,14 @@ namespace ConditioningControlPanel.Services
     {
         private const int ConfirmationDelayMs = 200;
 
+        /// <summary>
+        /// Upper bound on quick follow-up scans per tick. With OcrConfirmationScans up
+        /// to 3 a single discovery scan plus two quick confirms is enough to fire
+        /// without waiting a full interval; the cap stops a flickering candidate from
+        /// spinning the confirm loop indefinitely.
+        /// </summary>
+        private const int MaxQuickConfirmScans = 3;
+
         private Timer? _timer;
         private bool _disposed;
         private bool _isRunning;
@@ -85,11 +93,16 @@ namespace ConditioningControlPanel.Services
 
                 await DispatchOcrResultsAsync(allWords);
 
-                // Quick confirmation scan: if the discovery scan found unconfirmed keyword
-                // matches (first sighting), re-scan after a short delay to confirm stability
-                // instead of waiting for the next full interval tick
-                if (!_disposed && App.KeywordTriggers?.NeedsOcrConfirmation == true)
+                // Quick confirmation scans: while the discovery scan found keyword
+                // candidates still building their consecutive-scan streak, re-scan
+                // after a short delay (instead of waiting a full interval tick) until
+                // they fire, disappear, or we hit the quick-scan cap.
+                int quickScans = 0;
+                while (!_disposed
+                       && App.KeywordTriggers?.NeedsOcrConfirmation == true
+                       && quickScans < MaxQuickConfirmScans)
                 {
+                    quickScans++;
                     await Task.Delay(ConfirmationDelayMs);
                     if (_disposed) return;
 

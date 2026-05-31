@@ -1203,9 +1203,20 @@ namespace ConditioningControlPanel.Views.Deeper
             // rejects programmatic v.play() calls (the WPF Play button is not
             // a JS user gesture), which manifested as "I click Play and
             // nothing happens" on Editor → Preview → browser-video flows.
+            //
+            // --disable-direct-composition-video-overlays: in HTML5 fullscreen
+            // Chromium promotes the <video> to a DirectComposition hardware
+            // overlay (MPO) plane that the GPU scans out ABOVE DWM-composited
+            // topmost windows. That hides our Spiral / Pink-filter overlay
+            // windows the moment the HT video goes fullscreen (mandatory videos
+            // use a WPF MediaElement so DWM composites them normally and the
+            // overlays stay on top — only the WebView2 path was affected).
+            // Disabling the video overlay plane forces the video back through
+            // normal compositing so the overlays render on top again.
             var options = new Microsoft.Web.WebView2.Core.CoreWebView2EnvironmentOptions
             {
-                AdditionalBrowserArguments = "--autoplay-policy=no-user-gesture-required"
+                AdditionalBrowserArguments =
+                    "--autoplay-policy=no-user-gesture-required --disable-direct-composition-video-overlays"
             };
             var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment
                 .CreateAsync(browserExecutableFolder: null, userDataFolder: userDataFolder, options: options)

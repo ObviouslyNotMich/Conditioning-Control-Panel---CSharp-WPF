@@ -2741,25 +2741,13 @@ namespace ConditioningControlPanel
             }
         }
 
-        // Webcam-needing enhancement check — mirrors EnhancementPlayerWindow's
-        // EnhancementNeedsWebcam: AutoTags first, then Trigger.Type fallback for
-        // pre-AutoTags enhancements.
+        // Webcam-needing enhancement check. Delegates to the shared
+        // EnhancementCapabilities.NeedsWebcam so the browser hub, the mandatory-
+        // video engine-start nudge, and the Deeper player all answer identically
+        // (AutoTags first, then a trigger scan across both the unified timeline
+        // and the legacy Rules collection).
         private static bool BrowserEnhancementNeedsWebcam(Models.Deeper.Enhancement enh)
-        {
-            if (enh == null) return false;
-            if (enh.Metadata?.AutoTags?.Contains(Services.Deeper.EnhancementAutoTagger.TagWebcam) == true) return true;
-            if (enh.Rules == null) return false;
-            foreach (var rule in enh.Rules)
-            {
-                var t = rule?.Trigger?.Type;
-                if (t == Models.Deeper.TriggerTypes.GazeTarget
-                 || t == Models.Deeper.TriggerTypes.GazeAvoid
-                 || t == Models.Deeper.TriggerTypes.AttentionLost
-                 || t == Models.Deeper.TriggerTypes.BlinkDetected
-                 || t == Models.Deeper.TriggerTypes.MouthOpen) return true;
-            }
-            return false;
-        }
+            => Services.Deeper.EnhancementCapabilities.NeedsWebcam(enh);
 
         private void MaybePromptBrowserWebcamForEnhancement(Models.Deeper.Enhancement enhancement)
         {
@@ -2790,6 +2778,105 @@ namespace ConditioningControlPanel
             catch (Exception ex)
             {
                 App.Logger?.Debug("MaybePromptBrowserWebcamForEnhancement: {Error}", ex.Message);
+            }
+        }
+
+        // Set once the engine-start enhancement nudge has been shown this launch,
+        // so repeated Start/Stop cycles don't re-pop it (once per launch; a "Not
+        // now" is remembered until the app restarts — webcam isn't auto-started,
+        // so a fresh launch legitimately re-asks).
+        private bool _mandatoryVideoEnhanceNudgeShown;
+
+        /// <summary>
+        /// Engine-start nudge: if the mandatory / asset video folder contains an
+        /// enhanced video the current settings won't fully honour, offer to flip
+        /// the missing switch(es) in one combined dialog:
+        ///   • VideoEnhanceIfPossible is off but enhanced videos exist → enable it.
+        ///   • An enhancement needs the webcam tracker but it isn't running → start
+        ///     it, routing through the same consent/calibration flow as the manual
+        ///     toggle.
+        /// Scans the folder off the UI thread (cached + short-circuited) and
+        /// prompts at most once per launch. No-op unless mandatory videos are on.
+        /// </summary>
+        private async void MaybePromptMandatoryVideoEnhancement()
+        {
+            try
+            {
+                if (_mandatoryVideoEnhanceNudgeShown) return;
+
+                var settings = App.Settings?.Current;
+                if (settings == null || !settings.MandatoryVideosEnabled) return;
+
+                // Don't interrupt remote-controlled or locked-down sessions.
+                if (App.RemoteControl?.ControllerConnected == true) return;
+                if (App.Lockdown?.IsActive == true) return;
+
+                var folder = System.IO.Path.Combine(App.EffectiveAssetsPath, "videos");
+
+                Services.Deeper.MandatoryVideoEnhancementScanner.ScanResult scan;
+                try
+                {
+                    scan = await Task.Run(() => Services.Deeper.MandatoryVideoEnhancementScanner.Scan(folder));
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("MaybePromptMandatoryVideoEnhancement: scan failed: {Error}", ex.Message);
+                    return;
+                }
+
+                // The window/engine may have gone away during the async scan.
+                if (!IsLoaded || Dispatcher.HasShutdownStarted) return;
+                if (!_isRunning) return;            // engine stopped before scan returned
+                if (_mandatoryVideoEnhanceNudgeShown) return; // a concurrent start won the race
+
+                if (!scan.AnyEnhanced) return;      // nothing to nudge about
+
+                var enhanceOff = !settings.VideoEnhanceIfPossible;
+                var webcamSvc = App.Webcam;
+                var webcamGap = scan.AnyWebcamEnhanced && (webcamSvc == null || !webcamSvc.IsRunning);
+
+                // No gap → no prompt (enhancement already on and either no webcam
+                // rules or the webcam is already tracking).
+                if (!enhanceOff && !webcamGap) return;
+
+                _mandatoryVideoEnhanceNudgeShown = true;
+
+                var sb = new System.Text.StringBuilder();
+                sb.Append("Some videos in your mandatory video folder have enhancements ");
+                sb.Append("(synced flashes, haptics, overlays and more).\n\n");
+                if (enhanceOff)
+                    sb.Append("• Video enhancement is currently turned OFF, so they won't play.\n");
+                if (webcamGap)
+                    sb.Append("• Some use webcam tracking (gaze / blink), but the webcam engine isn't running.\n");
+                sb.Append("\nWould you like to turn ");
+                sb.Append(enhanceOff && webcamGap ? "these on now?"
+                          : enhanceOff ? "enhancement on now?"
+                          : "the webcam on now?");
+
+                var yes = enhanceOff && webcamGap ? "Yes, set it up"
+                          : enhanceOff ? "Yes, enable enhancement"
+                          : "Yes, turn on webcam";
+
+                var confirmed = ShowStyledDialog("✨ Enhanced videos detected", sb.ToString(), yes, "Not now");
+                if (!confirmed) return;
+
+                if (enhanceOff)
+                {
+                    settings.VideoEnhanceIfPossible = true;
+                    App.Settings?.Save();
+                    App.Logger?.Information("Mandatory-video enhancement enabled via engine-start nudge.");
+                }
+
+                if (webcamGap)
+                {
+                    // Reuse the manual toggle's flow so consent + calibration
+                    // gating is identical to clicking the webcam button.
+                    BtnWebcamTracking_Click(this, new RoutedEventArgs());
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("MaybePromptMandatoryVideoEnhancement: {Error}", ex.Message);
             }
         }
 
@@ -12240,6 +12327,14 @@ namespace ConditioningControlPanel
             App.Settings.Current.OcrHighlightAll = CmbOcrHighlightMode.SelectedIndex == 0;
         }
 
+        private void CmbOcrConfirmation_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isLoading || CmbOcrConfirmation == null) return;
+            // Index 0/1/2 → 1/2/3 consecutive scans required before a keyword fires.
+            App.Settings.Current.OcrConfirmationScans = CmbOcrConfirmation.SelectedIndex + 1;
+            App.Settings.Save();
+        }
+
         private void ChkHighlightVisibleInCapture_Changed(object sender, RoutedEventArgs e)
         {
             if (_isLoading) return;
@@ -13308,8 +13403,23 @@ namespace ConditioningControlPanel
             System.Windows.Controls.ToolTipService.SetInitialShowDelay(card, 400);
             card.MouseLeftButtonUp += AwarenessPresetCard_Click;
 
-            var stack = new System.Windows.Controls.StackPanel();
-            card.Child = stack;
+            // Active presets get a pink accent border so the grid reads at a glance.
+            if (preset.MasterEnabled)
+            {
+                card.BorderBrush = (System.Windows.Media.Brush)FindResource("PinkBrush");
+                card.BorderThickness = new Thickness(1.5);
+            }
+
+            // Two-row layout: content fills, an action row docks to the bottom so the
+            // activate toggle / trash button sit at a consistent spot on every card.
+            var layout = new System.Windows.Controls.Grid();
+            layout.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            layout.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = GridLength.Auto });
+            card.Child = layout;
+
+            var stack = new System.Windows.Controls.StackPanel { ClipToBounds = true };
+            System.Windows.Controls.Grid.SetRow(stack, 0);
+            layout.Children.Add(stack);
 
             // Top row: emoji + optional AI badge.
             var topRow = new System.Windows.Controls.StackPanel
@@ -13366,19 +13476,101 @@ namespace ConditioningControlPanel
                 TextWrapping = TextWrapping.Wrap,
             });
 
-            if (preset.MasterEnabled)
+            // Action row (docked bottom): activate/deactivate toggle + optional trash.
+            var actionRow = new System.Windows.Controls.Grid { Margin = new Thickness(0, 10, 0, 0) };
+            actionRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            actionRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
+            System.Windows.Controls.Grid.SetRow(actionRow, 1);
+            layout.Children.Add(actionRow);
+
+            var toggle = BuildPresetToggleButton(preset);
+            System.Windows.Controls.Grid.SetColumn(toggle, 0);
+            actionRow.Children.Add(toggle);
+
+            // Trash button only for user-created presets — built-ins reappear on launch.
+            if (!preset.IsBuiltIn)
             {
-                stack.Children.Add(new System.Windows.Controls.TextBlock
-                {
-                    Text = "✓ Installed",
-                    Foreground = (System.Windows.Media.Brush)FindResource("PinkBrush"),
-                    FontSize = 10,
-                    FontWeight = FontWeights.Bold,
-                    Margin = new Thickness(0, 8, 0, 0),
-                });
+                var trash = BuildPresetTrashButton(preset);
+                System.Windows.Controls.Grid.SetColumn(trash, 1);
+                actionRow.Children.Add(trash);
             }
 
             return card;
+        }
+
+        /// <summary>
+        /// Inline pill toggle on a preset card. Activates/deactivates the preset
+        /// without opening the detail dialog. Being a Button, it swallows the click
+        /// so the card's own MouseLeftButtonUp (open detail) does not also fire.
+        /// </summary>
+        private System.Windows.Controls.Button BuildPresetToggleButton(KeywordTriggerPreset preset)
+        {
+            var active = preset.MasterEnabled;
+            var btn = new System.Windows.Controls.Button
+            {
+                Content = active ? "✓ Active" : "Activate",
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Padding = new Thickness(10, 4, 10, 4),
+                BorderThickness = new Thickness(1),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Foreground = active ? System.Windows.Media.Brushes.White : (System.Windows.Media.Brush)FindResource("PinkBrush"),
+                Background = active
+                    ? (System.Windows.Media.Brush)FindResource("PinkBrush")
+                    : System.Windows.Media.Brushes.Transparent,
+                BorderBrush = (System.Windows.Media.Brush)FindResource("PinkBrush"),
+                ToolTip = active ? "Turn this preset off" : "Turn this preset on",
+            };
+            btn.Click += (_, _) =>
+            {
+                if (App.KeywordPresets == null) return;
+                if (App.KeywordPresets.IsInstalled(preset.Id))
+                    App.KeywordPresets.UninstallPreset(preset.Id);
+                else
+                    App.KeywordPresets.InstallPreset(preset.Id);
+                // PresetsChanged → OnPresetsChanged rebuilds the grid.
+            };
+            return btn;
+        }
+
+        /// <summary>
+        /// Small trash button on a custom preset card. Confirms, then deletes the
+        /// preset (deactivating it first so cloned triggers / canned phrases are
+        /// cleaned up). Built-in presets never get this button.
+        /// </summary>
+        private System.Windows.Controls.Button BuildPresetTrashButton(KeywordTriggerPreset preset)
+        {
+            var btn = new System.Windows.Controls.Button
+            {
+                Content = "🗑",
+                FontSize = 12,
+                Padding = new Thickness(6, 3, 6, 3),
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                Background = System.Windows.Media.Brushes.Transparent,
+                Foreground = (System.Windows.Media.Brush)FindResource("TextMutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Delete this preset",
+            };
+            btn.Click += (_, _) =>
+            {
+                var label = string.IsNullOrWhiteSpace(preset.Name) ? "this preset" : $"\"{preset.Name}\"";
+                var confirm = System.Windows.MessageBox.Show(this,
+                    $"Delete {label}?\n\nThis removes the preset and all its triggers permanently.",
+                    "Delete preset", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (confirm != MessageBoxResult.Yes) return;
+
+                if (App.KeywordPresets?.IsInstalled(preset.Id) == true)
+                    App.KeywordPresets.UninstallPreset(preset.Id);
+
+                var list = App.Settings?.Current?.KeywordTriggerPresets;
+                list?.RemoveAll(p => p.Id == preset.Id);
+                App.Settings?.Save();
+
+                RefreshAwarenessPresetCards();
+            };
+            return btn;
         }
 
         /// <summary>
@@ -22062,6 +22254,12 @@ namespace ConditioningControlPanel
 
             App.Logger?.Information("Engine started - Overlay: {Overlay}, Bubbles: {Bubbles}, LockCard: {LockCard}, BubbleCount: {BubbleCount}, MindWipe: {MindWipe}, BrainDrain: {BrainDrain}",
                 App.Overlay.IsRunning, App.Bubbles.IsRunning, App.LockCard.IsRunning, App.BubbleCount.IsRunning, App.MindWipe.IsRunning, App.BrainDrain.IsRunning);
+
+            // If the mandatory video folder holds enhanced videos the current
+            // settings won't fully honour (enhancement off, or webcam rules but
+            // webcam not running), offer to flip the missing switch(es). Fire-and-
+            // forget: scans off the UI thread and never blocks engine start.
+            MaybePromptMandatoryVideoEnhancement();
         }
 
         public void StopEngine()
@@ -22922,6 +23120,8 @@ namespace ConditioningControlPanel
                     ChkScreenOcrEnabled.IsEnabled = hasKeywordAccess;
                     SliderScreenOcrInterval.Value = s.ScreenOcrIntervalMs / 1000.0;
                     ScreenOcrIntervalPanel.Visibility = s.ScreenOcrEnabled && hasKeywordAccess ? Visibility.Visible : Visibility.Collapsed;
+                    if (CmbOcrConfirmation != null)
+                        CmbOcrConfirmation.SelectedIndex = Math.Clamp(s.OcrConfirmationScans - 1, 0, 2);
                 }
                 if (ChkKeywordHighlightEnabled != null)
                 {
