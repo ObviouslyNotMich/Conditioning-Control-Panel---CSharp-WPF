@@ -717,7 +717,18 @@ namespace ConditioningControlPanel
             // is left in place but unused.
             await RunGestureCheckAsync("👁", "Blink a couple of times", needed: 2, WaitForBlinksAsync);
             if (_cancelled) return;
-            await RunGestureCheckAsync("😮", "Open your mouth wide", needed: 2, WaitForMouthOpensAsync);
+
+            // Two distinct mouth-opens with a deliberate ~1s gap between them,
+            // rather than one needed:2 check. The pause lets the user fully
+            // close (so the MAR baseline + open/close hysteresis reset cleanly)
+            // and makes the second open a separate, unambiguous gesture instead
+            // of a fast double that the 800ms detection cooldown might merge.
+            await RunGestureCheckAsync("😮", "Open your mouth wide", needed: 1, WaitForMouthOpensAsync);
+            if (_cancelled) return;
+            TxtValidationDetail.Text = "Good — close, and once more in a moment…";
+            await Task.Delay(1000);
+            if (_cancelled) return;
+            await RunGestureCheckAsync("😮", "Open your mouth wide again", needed: 1, WaitForMouthOpensAsync);
         }
 
         /// <summary>

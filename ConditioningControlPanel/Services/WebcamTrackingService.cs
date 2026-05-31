@@ -165,12 +165,22 @@ namespace ConditioningControlPanel.Services
         //   Vertical pairs (top, bottom): (81,178), (13,14), (311,402)
         // Baseline pattern matches EAR: 90-frame rolling buffer, 90th-percentile
         // baseline (rejects yawn / surprised-face spikes from polluting it).
-        // Hysteresis: enter "open" at >1.8×baseline, leave at <1.4×baseline.
+        // Hysteresis: enter "open" at >1.65×baseline, leave at <1.30×baseline.
         // Min open window 80 ms (filters single-frame jitter). Cooldown 800 ms.
+        // In dim light the inner-lip landmark spread compresses and the resting
+        // baseline reads high, so a purely relative threshold can become
+        // unreachable — an open mouth never hits 1.8× its own (inflated) resting
+        // value. The ratio is therefore loosened AND backed by an absolute
+        // "clearly wide open" floor (MAR is normalized by mouth width, so it's
+        // roughly scale-invariant): mouth counts as open if EITHER the relative
+        // ratio OR the absolute floor is crossed. Floors sit well above normal
+        // speech (~0.15-0.30) so talking won't false-fire.
         private const int MarBaselineFrames = 90;
         private const int MarMinSamplesForBaseline = 15;
-        private const double MarOpenRatio = 1.80;
-        private const double MarCloseRatio = 1.40;
+        private const double MarOpenRatio = 1.65;
+        private const double MarCloseRatio = 1.30;
+        private const double MarAbsoluteOpen = 0.38;   // enter open if MAR exceeds this regardless of baseline
+        private const double MarAbsoluteClose = 0.28;  // stay open until MAR drops below this (absolute hysteresis)
         private const int MinMouthOpenMs = 80;
         private const int MouthCooldownMs = 800;
         // Median-of-N smoothing on raw MAR. FaceMesh inner-lip landmarks are
@@ -1783,9 +1793,13 @@ namespace ConditioningControlPanel.Services
             if (_marBuffer.Count < MarMinSamplesForBaseline) return;
             if (_marBaseline <= 0) return;
 
+            // Open if EITHER the relative ratio (vs resting baseline) OR the
+            // absolute floor is crossed. The absolute path is the low-light
+            // rescue: when a dim frame inflates the baseline so the ratio can't
+            // be reached, a genuinely wide-open mouth still trips the floor.
             bool nowOpen = _mouthOpen
-                ? mar > MarCloseRatio * _marBaseline
-                : mar > MarOpenRatio  * _marBaseline;
+                ? (mar > MarCloseRatio * _marBaseline || mar > MarAbsoluteClose)
+                : (mar > MarOpenRatio  * _marBaseline || mar > MarAbsoluteOpen);
 
             if (nowOpen && !_mouthOpen)
             {
