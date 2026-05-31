@@ -43,6 +43,10 @@ namespace ConditioningControlPanel.Features
             EventManager.RegisterRoutedEvent(nameof(Click), RoutingStrategy.Bubble,
                 typeof(RoutedEventHandler), typeof(FeatureCard));
 
+        public static readonly RoutedEvent ToggleRequestedEvent =
+            EventManager.RegisterRoutedEvent(nameof(ToggleRequested), RoutingStrategy.Bubble,
+                typeof(RoutedEventHandler), typeof(FeatureCard));
+
         public string Title
         {
             get => (string)GetValue(TitleProperty);
@@ -99,6 +103,17 @@ namespace ConditioningControlPanel.Features
         {
             add => AddHandler(ClickEvent, value);
             remove => RemoveHandler(ClickEvent, value);
+        }
+
+        /// <summary>
+        /// Raised on right-click so the dashboard can quick-toggle the underlying
+        /// feature on/off without opening its config popup. Left-click still opens
+        /// the popup via <see cref="Click"/>.
+        /// </summary>
+        public event RoutedEventHandler ToggleRequested
+        {
+            add => AddHandler(ToggleRequestedEvent, value);
+            remove => RemoveHandler(ToggleRequestedEvent, value);
         }
 
         public FeatureCard()
@@ -179,6 +194,7 @@ namespace ConditioningControlPanel.Features
             {
                 BtnHelp.Visibility = Visibility.Collapsed;
                 BtnHelp.ToolTip = null;
+                Controls.HelpPopover.Clear(BtnHelp);
                 return;
             }
             // If we haven't been added to the visual tree yet, resource lookup
@@ -188,8 +204,10 @@ namespace ConditioningControlPanel.Features
                 BtnHelp.Visibility = Visibility.Visible;
                 return;
             }
-            BtnHelp.ToolTip = Services.HelpTooltipBuilder.Build(
-                Services.HelpContentService.GetContent(id), this);
+            // Interactive popover replaces the old non-interactive ToolTip; clear
+            // ToolTip so the two never double-render. Attach is idempotent.
+            BtnHelp.ToolTip = null;
+            Controls.HelpPopover.Attach(BtnHelp, Services.HelpContentService.GetContent(id));
             BtnHelp.Visibility = Visibility.Visible;
         }
 
@@ -227,10 +245,16 @@ namespace ConditioningControlPanel.Features
             RaiseEvent(new RoutedEventArgs(ClickEvent, this));
         }
 
-        private void BtnHelp_Click(object sender, RoutedEventArgs e)
+        private void OnRightClick(object sender, MouseButtonEventArgs e)
         {
-            // Prevent the help click from also opening the feature popup.
+            // Swallow right-clicks inside the help button so they don't toggle.
+            if (e.OriginalSource is DependencyObject src && IsDescendantOf(src, BtnHelp))
+                return;
+            // QoL: right-click is a quick on/off shortcut. A locked feature can't be
+            // toggled on, so right-clicking it does nothing.
+            if (IsLocked) return;
             e.Handled = true;
+            RaiseEvent(new RoutedEventArgs(ToggleRequestedEvent, this));
         }
 
         private static bool IsDescendantOf(DependencyObject node, DependencyObject ancestor)

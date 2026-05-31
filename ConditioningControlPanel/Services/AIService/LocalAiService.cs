@@ -46,6 +46,27 @@ namespace ConditioningControlPanel.Services.AIService
         public bool IsAvailable => true;
         public int DailyRequestsRemaining => -1;
 
+        // Number of user/assistant turns seeded from disk at construction (a prior
+        // session's conversation). Non-zero means persistent memory is in play.
+        private int _restoredTurnCount;
+        // Signal she_remembers at most once per session.
+        private bool _memoryRecallSignaled;
+
+        /// <summary>
+        /// Raised once per session when the local companion produces a reply while the
+        /// chat history contains turns restored from a previous session — i.e. persistent
+        /// memory actually surfacing across launches. Static because the provider instance
+        /// is owned by the AI strategy; GamificationBridge subscribes for the app lifetime.
+        /// (Cloud AiService has no cross-session memory, so this is local-AI only.)
+        /// </summary>
+        public static event EventHandler? PersistentMemoryRecalled;
+
+        private static void RaisePersistentMemoryRecalled()
+        {
+            try { PersistentMemoryRecalled?.Invoke(null, EventArgs.Empty); }
+            catch (Exception ex) { App.Logger?.Debug("PersistentMemoryRecalled subscriber error: {Error}", ex.Message); }
+        }
+
         public LocalAiService()
         {
             _bambiSprite = new BambiSprite();
@@ -99,6 +120,10 @@ namespace ConditioningControlPanel.Services.AIService
                     if (t.Role != "user" && t.Role != "assistant") continue;
                     _messages.Add(new ChatMessage(t.Role, t.Content));
                 }
+
+                // At construction _messages holds only restored turns (system/enrichment
+                // are inserted later, per request), so this is the prior-session turn count.
+                _restoredTurnCount = _messages.Count;
             }
             catch (Exception ex)
             {
@@ -391,7 +416,12 @@ namespace ConditioningControlPanel.Services.AIService
                 if (!inputCheck.Allow && inputCheck.Category.HasValue)
                 {
                     App.ModerationLog?.Record(inputCheck.Category.Value, source: "input", modelHint: modelHint);
-                    App.ModerationCounter?.RecordHit(inputCheck.Category.Value, "input:local");
+                    // Only escalate the user-facing Content Policy Notice for content the
+                    // user actually typed (interactive chat path). Background/auto
+                    // reactions leave returnRefusalSentinel false and must not pop the
+                    // warning. Still logged above for the compliance record either way.
+                    if (returnRefusalSentinel)
+                        App.ModerationCounter?.RecordHit(inputCheck.Category.Value, "input:local");
                     App.Logger?.Information("LocalAiService: input blocked by ModerationGuard (category={Cat})", inputCheck.Category);
                     return returnRefusalSentinel ? ModerationRefusal.InputSentinel : null;
                 }
@@ -499,7 +529,9 @@ namespace ConditioningControlPanel.Services.AIService
                     if (!outputCheck.Allow && outputCheck.Category.HasValue)
                     {
                         App.ModerationLog?.Record(outputCheck.Category.Value, source: "output", modelHint: modelHint);
-                        App.ModerationCounter?.RecordHit(outputCheck.Category.Value, "output:local");
+                        // Model OUTPUT tripping the filter is not the user's doing — log
+                        // for compliance (above) but do NOT escalate the Content Policy
+                        // Notice. The warning is reserved for user-typed input.
                         App.Logger?.Information("LocalAiService: output blocked by ModerationGuard (category={Cat})", outputCheck.Category);
                         // Don't fire effects from a blocked response.
                         _currentCommands = new List<AiCommandData>();
@@ -519,6 +551,15 @@ namespace ConditioningControlPanel.Services.AIService
                 // Persist asynchronously so chat latency isn't impacted by disk I/O.
                 // Runs only after output moderation passed (P2/H5).
                 _ = Task.Run(PersistHistory);
+
+                // she_remembers: a reply was produced while turns restored from a previous
+                // session are in context — persistent memory surfacing across launches.
+                // Signal once per session; GamificationBridge entitlement-gates the unlock.
+                if (_restoredTurnCount > 0 && !_memoryRecallSignaled)
+                {
+                    _memoryRecallSignaled = true;
+                    RaisePersistentMemoryRecalled();
+                }
 
                 if (_currentCommands.Count > 0 && App.Commands != null)
                 {
