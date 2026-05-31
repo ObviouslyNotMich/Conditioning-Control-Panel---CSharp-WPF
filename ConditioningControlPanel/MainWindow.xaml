@@ -8972,8 +8972,12 @@
              Mission 2 (hub redesign): single-column layout, unified library
              list with virtualization, search + filter pills + sort dropdown
              replace the two-column Library/Recent grid. -->
-        <ContentControl x:Name="DeeperTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" Template="{StaticResource AnimatedTabBackground}"
-                        AllowDrop="True" DragEnter="DeeperTab_DragOver" DragOver="DeeperTab_DragOver" Drop="DeeperTab_Drop">
+        <!-- Drag-and-drop is handled by the window-wide Window_Drop system (media →
+             Play/Edit/Library prompt, *.ccpenh.json → library import) so the whole
+             tab is a uniform drop target. A tab-local AllowDrop handler here would
+             steal the bubbling events from the global overlay and only cover part of
+             the tab, so it's intentionally absent. -->
+        <ContentControl x:Name="DeeperTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" Template="{StaticResource AnimatedTabBackground}">
             <ContentControl.Resources>
                 <!-- Polish pass: implicit Button style rounds every plain Button
                      in the hub. Buttons with explicit Style or local Button.Template

@@ -173,6 +173,11 @@ namespace ConditioningControlPanel.Services
         private const double MarCloseRatio = 1.40;
         private const int MinMouthOpenMs = 80;
         private const int MouthCooldownMs = 800;
+        // Median-of-N smoothing on raw MAR. FaceMesh inner-lip landmarks are
+        // noisy on webcams; a single-frame spike dipping below the close
+        // threshold mid-open resets the min-open timer and drops a real open.
+        // A short median rejects those spikes with negligible lag.
+        private const int MarSmoothFrames = 3;
         private const int MouthDiagLogIntervalMs = 3000;
         private static readonly int[] MarVerticalPairs = { 81, 178, 13, 14, 311, 402 };
         private const int MouthCornerLeftIdx = 78;
@@ -323,6 +328,16 @@ namespace ConditioningControlPanel.Services
         public event Action<WebcamTrackingState>? OnTrackingStateChanged;
 
         /// <summary>
+        /// Fired during Start() to report engine-load progress (0.0–1.0) and a
+        /// human-readable phase label. Marshalled to the UI dispatcher, so
+        /// handlers may touch UI directly. Start() runs on a worker thread and
+        /// can block several seconds opening the camera and constructing the
+        /// three ONNX sessions; without this the UI has no insight into that
+        /// sequence. Consumed by the movable loading splash.
+        /// </summary>
+        public event Action<double, string>? OnStartupProgress;
+
+        /// <summary>
         /// Raw iris vector (averaged across both eyes) in eye-region-relative
         /// coordinates, roughly in [-0.5, +0.5]. Fired every processed frame
         /// when a face is found. Used by the calibration window to sample
@@ -360,6 +375,7 @@ namespace ConditioningControlPanel.Services
         // Mouth state (mirrors blink state machine)
         private DateTime _lastMouthOpenAt = DateTime.MinValue;
         private readonly Queue<double> _marBuffer = new();
+        private readonly Queue<double> _marSmoothBuffer = new();  // last few raw MAR for median de-jitter
         private double _marBaseline;
         private bool _mouthOpen;
         private DateTime? _mouthOpenedAt;
@@ -497,6 +513,7 @@ namespace ConditioningControlPanel.Services
                 if (IsRunning) return true;
 
                 SetState(WebcamTrackingState.Starting);
+                ReportStartupProgress(0.08, "Preparing eye-tracking engine…");
 
                 var paths = ResolveModelPaths();
                 if (paths.FaceModel == null || paths.FaceAnchors == null || paths.MeshModel == null || paths.IrisModel == null)
@@ -506,11 +523,13 @@ namespace ConditioningControlPanel.Services
                     return false;
                 }
 
+                ReportStartupProgress(0.25, "Opening camera…");
                 if (!TryOpenCamera())
                 {
                     return false; // state already set
                 }
 
+                ReportStartupProgress(0.55, "Loading AI models…");
                 if (!TryLoadModels(paths.FaceModel, paths.FaceAnchors, paths.MeshModel, paths.IrisModel))
                 {
                     ReleaseCapture();
@@ -518,6 +537,7 @@ namespace ConditioningControlPanel.Services
                     return false;
                 }
 
+                ReportStartupProgress(0.92, "Starting capture…");
                 _stopRequested = false;
                 _captureThread = new Thread(CaptureLoop)
                 {
@@ -528,6 +548,7 @@ namespace ConditioningControlPanel.Services
                 _captureThread.Start();
 
                 SetState(WebcamTrackingState.Tracking);
+                ReportStartupProgress(1.0, "Ready");
                 App.Logger?.Information("WebcamTrackingService: capture started ({W}x{H}, target {Fps} fps)",
                     CaptureWidth, CaptureHeight, TargetFps);
                 return true;
@@ -893,6 +914,7 @@ namespace ConditioningControlPanel.Services
             _lastBlinkDiagAt = DateTime.MinValue;
             _blinkCount = 0;
             _marBuffer.Clear();
+            _marSmoothBuffer.Clear();
             _marBaseline = 0;
             _mouthOpen = false;
             _mouthOpenedAt = null;
@@ -1210,6 +1232,7 @@ namespace ConditioningControlPanel.Services
             _eyesClosedAt = null;
             _mouthOpen = false;
             _mouthOpenedAt = null;
+            _marSmoothBuffer.Clear();   // drop stale MAR so the median doesn't blip on face re-acquire
             _tongueOut = false;
             _tongueOutSince = null;
             if (_consecutiveNoFaceFrames > FaceLostFramesThreshold * 2)
@@ -1513,6 +1536,9 @@ namespace ConditioningControlPanel.Services
             Dispatch(() => OnTrackingStateChanged?.Invoke(state));
         }
 
+        private void ReportStartupProgress(double progress, string status)
+            => Dispatch(() => OnStartupProgress?.Invoke(progress, status));
+
         private static void Dispatch(Action action)
         {
             var dispatcher = Application.Current?.Dispatcher;
@@ -1727,12 +1753,25 @@ namespace ConditioningControlPanel.Services
             return w > 1e-6 ? (v1 + v2 + v3) / (3.0 * w) : 0.0;
         }
 
-        private void UpdateMouthState(double mar)
+        private void UpdateMouthState(double rawMar)
         {
-            EnqueueWithCap(_marBuffer, mar, MarBaselineFrames);
+            // De-jitter the noisy raw MAR with a short median before any
+            // thresholding. Without this, single-frame landmark spikes flip the
+            // open/close hysteresis and reset the min-open timer, dropping real
+            // opens. PercentileOf(.,0.50) on the small buffer is the median.
+            EnqueueWithCap(_marSmoothBuffer, rawMar, MarSmoothFrames);
+            double mar = PercentileOf(_marSmoothBuffer, 0.50);
+
+            // Resting-closed baseline = 10th percentile of recent CLOSED frames.
             // Closed-mouth values dominate the buffer; the 10th percentile
-            // approximates the resting closed MAR. We compare current MAR to
-            // that closed baseline (e.g. >1.8× resting = open).
+            // approximates the resting closed MAR, and we compare current MAR to
+            // it (e.g. >1.8× resting = open). We deliberately STOP feeding the
+            // baseline while the mouth is open (except to seed it initially) so
+            // repeated or held opens can't drag the baseline — and thus the open
+            // threshold — upward, which previously made the 2nd/3rd open in a
+            // row harder to detect than the first.
+            if (!_mouthOpen || _marBuffer.Count < MarMinSamplesForBaseline)
+                EnqueueWithCap(_marBuffer, mar, MarBaselineFrames);
             _marBaseline = PercentileOf(_marBuffer, 0.10);
 
             if (mar < _windowMinMar) _windowMinMar = mar;

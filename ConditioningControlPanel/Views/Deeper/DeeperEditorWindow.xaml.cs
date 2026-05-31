@@ -4158,17 +4158,34 @@ namespace ConditioningControlPanel.Views.Deeper
 
             var library = App.EnhancementLibrary;
 
-            var pickSrc = new OpenFileDialog
+            // If this project is already backed by a local media file the
+            // bundler can embed into (loaded via drag-and-drop or "Change
+            // media"), reuse it directly rather than re-prompting for a source.
+            // Fall back to the picker when the source is a URL, missing on disk,
+            // or a format the bundler can't write into (e.g. webm/mkv).
+            string? sourcePath = null;
+            var currentSrc = _enhancement?.MediaSource ?? "";
+            var srcIsUrl = currentSrc.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                        || currentSrc.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+            if (!srcIsUrl && EnhancementMediaBundler.IsSupportedExtension(currentSrc))
             {
-                Title = Loc.Get("deeper_editor_export_pick_source_title"),
-                Filter = "Media files|*.mp4;*.m4v;*.mov;*.m4a;*.mp3;*.wav|All files|*.*",
-                CheckFileExists = true
-            };
-            var lastDir = library?.LastDirectory;
-            if (!string.IsNullOrEmpty(lastDir)) pickSrc.InitialDirectory = lastDir;
-            if (pickSrc.ShowDialog(this) != true) return;
+                try { if (File.Exists(currentSrc)) sourcePath = currentSrc; } catch { }
+            }
 
-            var sourcePath = pickSrc.FileName;
+            if (sourcePath == null)
+            {
+                var pickSrc = new OpenFileDialog
+                {
+                    Title = Loc.Get("deeper_editor_export_pick_source_title"),
+                    Filter = "Media files|*.mp4;*.m4v;*.mov;*.m4a;*.mp3;*.wav|All files|*.*",
+                    CheckFileExists = true
+                };
+                var lastDir = library?.LastDirectory;
+                if (!string.IsNullOrEmpty(lastDir)) pickSrc.InitialDirectory = lastDir;
+                if (pickSrc.ShowDialog(this) != true) return;
+                sourcePath = pickSrc.FileName;
+            }
+
             if (!EnhancementMediaBundler.IsSupportedExtension(sourcePath))
             {
                 MessageBox.Show(this,

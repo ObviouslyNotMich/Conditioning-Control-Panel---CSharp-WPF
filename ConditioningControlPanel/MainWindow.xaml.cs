@@ -1928,6 +1928,9 @@ namespace ConditioningControlPanel
             // Title-bar camera-active indicator
             WireWebcamActivePill();
 
+            // Movable loading splash shown while the webcam engine starts up
+            InstallWebcamLoadingSplash();
+
             // Global 6-blink → stop-everything + recalibrate gesture
             WireRapidBlinkRecalibrateShortcut();
             SyncBlinkRecalToggles(App.Settings?.Current?.BlinkRecalibrateShortcutEnabled ?? true);
@@ -3103,46 +3106,12 @@ namespace ConditioningControlPanel
             ImportEnhancementFiles(dlg.FileNames);
         }
 
-        // Drag-over handler reused for both DragEnter and DragOver. Sets effect=Copy
-        // when payload contains at least one file the importer might accept (we don't
-        // pre-validate JSON shape here — just the extension), otherwise None so the
-        // cursor flips back to the no-drop glyph for media files etc.
-        private void DeeperTab_DragOver(object sender, DragEventArgs e)
-        {
-            try
-            {
-                if (e.Data.GetDataPresent(DataFormats.FileDrop))
-                {
-                    var files = e.Data.GetData(DataFormats.FileDrop) as string[];
-                    if (files != null && files.Any(IsImportableEnhancementPath))
-                    {
-                        e.Effects = DragDropEffects.Copy;
-                        e.Handled = true;
-                        return;
-                    }
-                }
-                e.Effects = DragDropEffects.None;
-                e.Handled = true;
-            }
-            catch (Exception ex) { App.Logger?.Debug("DeeperTab_DragOver: {Error}", ex.Message); }
-        }
-
-        private void DeeperTab_Drop(object sender, DragEventArgs e)
-        {
-            try
-            {
-                if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
-                var files = e.Data.GetData(DataFormats.FileDrop) as string[];
-                if (files == null || files.Length == 0) return;
-                e.Handled = true;
-                ImportEnhancementFiles(files);
-            }
-            catch (Exception ex)
-            {
-                App.Logger?.Warning(ex, "DeeperTab_Drop failed");
-                MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
+        // NOTE: Deeper-tab drag-and-drop is intentionally handled by the window-wide
+        // Window_Drop / DetectDropType system (DropType.Enhancement → ImportEnhancementFiles)
+        // rather than a tab-local handler. A tab-local AllowDrop handler swallowed the
+        // bubbling drag events the global drop overlay relies on, so it only covered
+        // part of the tab. Keeping one global handler makes the entire window — and thus
+        // the whole Deeper tab — a uniform drop target.
 
         private static bool IsImportableEnhancementPath(string path)
         {
@@ -4990,6 +4959,9 @@ namespace ConditioningControlPanel
         {
             AppendWebcamDebugLog("Starting webcam (camera open + model load can take a few seconds)…");
             if (TxtWebcamDebugStatus != null) TxtWebcamDebugStatus.Text = "Starting…";
+            // The movable loading splash is driven globally off the service's
+            // OnStartupProgress event (see InstallWebcamLoadingSplash), so it
+            // shows no matter which code path calls Start() — not just this one.
             try
             {
                 return await Task.Run(() => svc.Start());
@@ -5000,6 +4972,71 @@ namespace ConditioningControlPanel
                 AppendWebcamDebugLog($"Start() threw: {ex.Message}");
                 return false;
             }
+        }
+
+        // The webcam loading splash is shown/updated/closed purely in response
+        // to WebcamTrackingService.OnStartupProgress (fired from inside Start())
+        // and OnTrackingStateChanged. Wiring it here, once, means every entry
+        // point that starts the engine — the Lab debug button, calibration, the
+        // Blink Trainer, the enhanced-video / browser nudges, the mandatory
+        // video player — gets the splash without each call site knowing about
+        // it. All these events are marshalled to the UI thread by the service.
+        private WebcamLoadingSplash? _webcamLoadingSplash;
+        private Action<double, string>? _onWebcamStartupProgress;
+        private Action<WebcamTrackingState>? _onWebcamStartupState;
+
+        private void InstallWebcamLoadingSplash()
+        {
+            if (App.Webcam == null || _onWebcamStartupProgress != null) return;
+
+            _onWebcamStartupProgress = (progress, status) =>
+            {
+                try
+                {
+                    if (progress >= 1.0)
+                    {
+                        // Engine is up — show the bar full for a beat, then fade.
+                        _webcamLoadingSplash?.SetProgress(1.0, status);
+                        _webcamLoadingSplash?.CloseSplash();
+                        return;
+                    }
+
+                    if (_webcamLoadingSplash == null)
+                    {
+                        // Don't pop a splash if the main window isn't on screen
+                        // (e.g. minimized to tray during a background start).
+                        if (!IsVisible) return;
+                        var splash = new WebcamLoadingSplash { Owner = this };
+                        splash.Closed += (s, e) =>
+                        {
+                            if (ReferenceEquals(_webcamLoadingSplash, splash)) _webcamLoadingSplash = null;
+                        };
+                        _webcamLoadingSplash = splash;
+                        splash.Show();
+                    }
+                    _webcamLoadingSplash.SetProgress(progress, status);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning(ex, "MainWindow: webcam loading splash update failed");
+                }
+            };
+
+            _onWebcamStartupState = state =>
+            {
+                if (_webcamLoadingSplash == null) return;
+                // Start() failed or was aborted before reaching 1.0 — dismiss.
+                if (state == WebcamTrackingState.Error
+                    || state == WebcamTrackingState.CameraInUse
+                    || state == WebcamTrackingState.CameraDenied
+                    || state == WebcamTrackingState.Stopped)
+                {
+                    _webcamLoadingSplash.CloseSplash();
+                }
+            };
+
+            App.Webcam.OnStartupProgress += _onWebcamStartupProgress;
+            App.Webcam.OnTrackingStateChanged += _onWebcamStartupState;
         }
 
         private void EnsureWebcamDebugSubscribed()
@@ -19525,6 +19562,10 @@ namespace ConditioningControlPanel
                     HandleSessionDrop(files[0]);
                     break;
 
+                case DropType.Enhancement:
+                    ImportEnhancementFiles(files);
+                    break;
+
                 case DropType.Assets:
                 case DropType.Zip:
                 case DropType.Folder:
@@ -19533,7 +19574,7 @@ namespace ConditioningControlPanel
             }
         }
 
-        private enum DropType { None, Session, Assets, Zip, Folder }
+        private enum DropType { None, Session, Assets, Zip, Folder, Enhancement }
 
         private static readonly HashSet<string> AssetVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -19575,6 +19616,13 @@ namespace ConditioningControlPanel
             if (files.Length == 1 && files[0].EndsWith(".session.json", StringComparison.OrdinalIgnoreCase))
                 return DropType.Session;
 
+            // Deeper enhancement project file(s). Accept the canonical *.ccpenh.json
+            // double-suffix or a plain *.json (the serializer rejects non-enhancement
+            // JSON on import), but never a *.session.json — that's handled above.
+            if (files.All(IsImportableEnhancementPath)
+                && !files.Any(f => f.EndsWith(".session.json", StringComparison.OrdinalIgnoreCase)))
+                return DropType.Enhancement;
+
             // Single folder
             if (files.Length == 1 && Directory.Exists(files[0]))
                 return DropType.Folder;
@@ -19612,6 +19660,14 @@ namespace ConditioningControlPanel
                     DropOverlayIcon.Text = "📋";
                     DropOverlayTitle.Text = Loc.Get("label_drop_to_import_session");
                     DropOverlaySubtitle.Text = Path.GetFileName(files[0]);
+                    break;
+
+                case DropType.Enhancement:
+                    DropOverlayIcon.Text = "🌊";
+                    DropOverlayTitle.Text = Loc.Get("label_drop_to_import_enhancement");
+                    DropOverlaySubtitle.Text = files.Length == 1
+                        ? Path.GetFileName(files[0])
+                        : $"{files.Length} enhancements";
                     break;
 
                 case DropType.Zip:
