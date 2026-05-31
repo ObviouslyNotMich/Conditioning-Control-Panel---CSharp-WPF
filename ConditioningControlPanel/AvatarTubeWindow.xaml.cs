@@ -1239,7 +1239,10 @@ namespace ConditioningControlPanel
                 {
                     UpdatePosition();
                     StartFloatingAnimation();
-                    BringAttachedPairToFront();
+                    // Force on first show: at startup foreground may not have transferred
+                    // to us yet, so the gated raise would bail and the tube would come up
+                    // behind the main window.
+                    BringAttachedPairToFront(force: true);
                 }
 
                             // Reset bubble position to ensure correct placement after layout
@@ -3209,14 +3212,23 @@ namespace ConditioningControlPanel
         /// to defeat ForegroundLockTimeout, the tube needs to be re-raised so
         /// the attached pair stays paired. Wraps the existing private method.
         /// </summary>
-        public void RaiseAttachedTubeAboveOwner() => BringAttachedPairToFront();
+        public void RaiseAttachedTubeAboveOwner() => BringAttachedPairToFront(force: true);
 
         /// <summary>
         /// Bring both the parent window and the tube to the top of z-order together.
         /// This prevents the tube from being separated from the parent (e.g. tube on top,
         /// parent behind other apps) after video ends, fullscreen exit, or tab changes.
         /// </summary>
-        private void BringAttachedPairToFront()
+        /// <param name="force">
+        /// When true, skip the "our process owns the foreground" gate. Use this only when
+        /// the caller is DELIBERATELY foregrounding our app right now (startup show, a
+        /// Topmost true→false pulse, panic/video-end restore). In those moments Activate()
+        /// hasn't transferred foreground yet, so the gate sees the previous app and wrongly
+        /// bails — leaving the tube/bubble buried behind the main window. Passive callers
+        /// (poll timer, Activated, mouse-down, position changes) leave this false so we
+        /// never steal z-order from other apps (e.g. fullscreen video players).
+        /// </param>
+        private void BringAttachedPairToFront(bool force = false)
         {
             if (_tubeHandle == IntPtr.Zero) return;
             if (!_isAttached) return;
@@ -3232,14 +3244,18 @@ namespace ConditioningControlPanel
             if (_parentHandle == IntPtr.Zero) return;
 
             // Only bring to front when our process owns the foreground window —
-            // otherwise we'd steal z-order from other apps (e.g. fullscreen video players)
-            var foreground = GetForegroundWindow();
-            if (foreground != IntPtr.Zero && foreground != _parentHandle && foreground != _tubeHandle)
+            // otherwise we'd steal z-order from other apps (e.g. fullscreen video players).
+            // Skipped when force=true (caller is intentionally foregrounding our app).
+            if (!force)
             {
-                GetWindowThreadProcessId(foreground, out uint foregroundPid);
-                uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
-                if (foregroundPid != ourPid)
-                    return;
+                var foreground = GetForegroundWindow();
+                if (foreground != IntPtr.Zero && foreground != _parentHandle && foreground != _tubeHandle)
+                {
+                    GetWindowThreadProcessId(foreground, out uint foregroundPid);
+                    uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+                    if (foregroundPid != ourPid)
+                        return;
+                }
             }
 
             // Parent to top first, then tube above it — keeps them as a pair
