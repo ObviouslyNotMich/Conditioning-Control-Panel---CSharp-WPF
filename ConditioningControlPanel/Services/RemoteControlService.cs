@@ -801,6 +801,10 @@ namespace ConditioningControlPanel.Services
                 }
 
                 App.Video?.Stop();
+                // A controller may have started a HypnoTube video in the embedded browser via
+                // the "play_hypnotube" command; App.Video.Stop() only covers LibVLC, so stop
+                // the WebView2 playback explicitly or panic/session-end would leave it running.
+                MainWindowRef?.StopBrowserVideoFromRemote();
                 App.Flash?.Stop();
                 App.Subliminal?.Stop();
                 App.Bubbles?.Stop();
@@ -898,6 +902,8 @@ namespace ConditioningControlPanel.Services
                 App.Autonomy?.CancelActivePulses();
 
                 App.Video?.Stop();
+                // Also stop any HypnoTube video the controller started in the embedded browser.
+                MainWindowRef?.StopBrowserVideoFromRemote();
                 App.Flash?.Stop();
                 App.Subliminal?.Stop();
                 App.Bubbles?.Stop();
@@ -1080,6 +1086,25 @@ namespace ConditioningControlPanel.Services
 
                         case "stop_video":
                             App.Video?.Stop();
+                            break;
+
+                        case "play_hypnotube":
+                            // Controller-supplied HypnoTube video URL. The URL is the only
+                            // thing crossing the trust boundary, so we gate it HARD: reject
+                            // anything that isn't a real hypnotube.com video page, then route
+                            // it through the SAME embedded-browser path the avatar's HypnoTube
+                            // links already use. We deliberately do NOT use App.Video.PlayUrl
+                            // (LibVLC) — HT pages are HTML, not direct media, and PlayUrl has
+                            // no domain gate.
+                            var htUrl = parameters?["url"]?.ToString();
+                            if (string.IsNullOrWhiteSpace(htUrl) || !Helpers.HtUrlHelper.IsEligibleHtUrl(htUrl))
+                            {
+                                App.Logger?.Warning("[RemoteControl] Rejected play_hypnotube — not an eligible HypnoTube URL");
+                                break;
+                            }
+                            App.Logger?.Information("[RemoteControl] play_hypnotube id={Id}",
+                                Helpers.HtUrlHelper.TryExtractHtVideoId(htUrl));
+                            MainWindowRef?.NavigateToUrlInBrowser(htUrl, autoPlayFullscreen: true);
                             break;
 
                         case "trigger_haptic":

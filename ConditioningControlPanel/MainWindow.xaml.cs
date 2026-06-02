@@ -22483,6 +22483,31 @@ namespace ConditioningControlPanel
             }
         }
 
+        /// <summary>
+        /// Hard-stop any video playing in the embedded browser. Used by the remote-control
+        /// panic / session-end path (RemoteControlService.StopAllRemoteEffects): a controller
+        /// can start a HypnoTube video via the "play_hypnotube" command, and panic must reliably
+        /// stop it. Exits forced fullscreen, then navigates the browser to about:blank so the
+        /// page's &lt;video&gt; element is torn down and playback halts.
+        /// </summary>
+        public void StopBrowserVideoFromRemote()
+        {
+            try
+            {
+                if (_isBrowserFullscreen) ExitBrowserFullscreen();
+
+                if (_browser?.WebView?.CoreWebView2 != null)
+                {
+                    _browser.WebView.CoreWebView2.Navigate("about:blank");
+                    App.Logger?.Information("[RemoteControl] Stopped browser video (navigated to about:blank)");
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("StopBrowserVideoFromRemote failed: {Error}", ex.Message);
+            }
+        }
+
         #endregion
 
         #region Start/Stop
