@@ -750,7 +750,19 @@ namespace ConditioningControlPanel.Services
             var devices = WebcamDeviceEnumerator.Enumerate();
             if (devices.Count == 0)
             {
-                App.Logger?.Information("WebcamTrackingService: no video-capture devices found via DirectShow enumeration");
+                // 64-bit DirectShow SystemDeviceEnum misses cameras that register
+                // only 32-bit DirectShow filters or are Media-Foundation-only — yet
+                // OpenCV-MSMF (our open path) and Discord/Windows Camera can still
+                // use them. Fall back to the WinRT/MF list so the selector isn't
+                // empty for those users (#282/#279/#291).
+                var winrt = WebcamWinRtEnumerator.Enumerate();
+                if (winrt.Count > 0)
+                {
+                    App.Logger?.Information("WebcamTrackingService: DirectShow found 0 devices; using WinRT/MF fallback — {Count} device(s): {Names}",
+                        winrt.Count, string.Join(" | ", winrt.Select(d => $"[{d.Index}] {d.Name}")));
+                    return winrt;
+                }
+                App.Logger?.Information("WebcamTrackingService: no video-capture devices found via DirectShow or WinRT enumeration");
             }
             else
             {
