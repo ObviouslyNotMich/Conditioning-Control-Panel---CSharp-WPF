@@ -1699,7 +1699,12 @@
                                               Padding="{TemplateBinding Padding}"
                                               VerticalAlignment="Center"/>
                             </Border>
+                            <!-- Default Collapsed so the grey last-sent ghost doesn't sit on
+                                 top of text the user is typing (#289). The empty-text trigger
+                                 below re-shows it; a template-child attribute is lower
+                                 precedence than ControlTemplate.Triggers, so that still works. -->
                             <TextBlock x:Name="WatermarkText"
+                                       Visibility="Collapsed"
                                        Foreground="#5A5A75"
                                        FontStyle="Italic"
                                        IsHitTestVisible="False"
@@ -1764,26 +1769,47 @@
                     <TextBlock x:Name="TxtTitleBarVersion" Text="{loc:Str app_title}" Foreground="White" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Camera-active indicator — visible whenever WebcamTrackingService.IsRunning is true.
-                     Lives in the title bar so it's visible from every tab; click to stop tracking. -->
-                <Border x:Name="WebcamActivePill" Grid.Column="1"
-                        Visibility="Collapsed"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Background="#882B2B" CornerRadius="12" Padding="10,4"
-                        Margin="0,0,12,0"
-                        Cursor="Hand"
-                        MouseLeftButtonDown="WebcamActivePill_Click"
-                        ToolTip="Webcam tracking is active. Click to stop.">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Fill="#FF4444" Margin="0,0,6,0" VerticalAlignment="Center">
-                            <Ellipse.Effect>
-                                <DropShadowEffect Color="#FF4444" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
-                            </Ellipse.Effect>
-                        </Ellipse>
-                        <TextBlock Text="Camera active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
+                <!-- Title-bar status pills (right-aligned, visible from every tab):
+                     directory-listing status + camera-active indicator. -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+
+                    <!-- Directory listing status — Listed / Private only / Claimed.
+                         Visible only while a remote-control session is active. Text,
+                         dot colour and tooltip are set in UpdateDirectoryListingStatus(). -->
+                    <Border x:Name="DirectoryStatusPill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#2E2E48" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="DirectoryStatusDot" Width="8" Height="8"
+                                     Fill="#B47BFF" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtDirectoryStatus" Text="Private only"
+                                       Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Camera-active indicator — visible whenever WebcamTrackingService.IsRunning is true.
+                         Click to stop tracking. -->
+                    <Border x:Name="WebcamActivePill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#882B2B" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="WebcamActivePill_Click"
+                            ToolTip="Webcam tracking is active. Click to stop.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="#FF4444" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#FF4444" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Text="Camera active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <!-- Window Control Buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -3204,6 +3230,43 @@
                                 </RadioButton>
                                 </StackPanel>
                             </Border>
+                            <!-- Reload / Home button - sits just right of the site toggle.
+                                 Reloads the current site's homepage; gives a way out of a
+                                 stuck/blank page (e.g. after a remote video is stopped), since
+                                 re-clicking an already-selected site radio won't reload. -->
+                            <Button Grid.Column="2" x:Name="BtnReloadBrowser"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Click="BtnReloadBrowser_Click"
+                                    ToolTip="{loc:Str tooltip_reload_browser}"
+                                    FontSize="11" Padding="6,3" Margin="8,0,0,0">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="#33FF69B4"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#55FF69B4"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                                <helpers:EmojiTextBlock Text="🔄"/>
+                            </Button>
                             <!-- Status indicator -->
                             <TextBlock Grid.Column="3" x:Name="TxtBrowserStatus" Text="{loc:Str label_loading}"
                                        Foreground="{DynamicResource PinkBrush}" FontSize="10"
@@ -3642,25 +3705,28 @@
                     <ColumnDefinition Width="10"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" x:Name="VelvetBtnScheduler"
-                        Click="VelvetBtnScheduler_Click"
+                <!-- Webcam card — surfaced from the Lab for discoverability.
+                     Distinct Secondary (cyan) accent + tinted fill so it stands
+                     out from the two neutral cards beside it. -->
+                <Button Grid.Column="0" x:Name="VelvetBtnWebcam"
+                        Click="VelvetBtnWebcam_Click"
                         Cursor="Hand" FontSize="12" FontWeight="Bold">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="b"
-                                    Background="{DynamicResource ElevatedSurfaceBrush}"
-                                    BorderBrush="{DynamicResource GlassBorderBrush}"
-                                    BorderThickness="1"
+                                    Background="{DynamicResource AccentTintedBgBrush}"
+                                    BorderBrush="{DynamicResource SecondaryBrush}"
+                                    BorderThickness="1.5"
                                     CornerRadius="14">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Image Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0"
-                                           Source="{Binding Source='📅', Converter={StaticResource EmojiToImageSource}}"/>
-                                    <helpers:EmojiTextBlock Text="{loc:Str section_scheduler}" Foreground="White" VerticalAlignment="Center"/>
+                                           Source="{Binding Source='📷', Converter={StaticResource EmojiToImageSource}}"/>
+                                    <helpers:EmojiTextBlock Text="{loc:Str blink_trainer_section_webcam}" Foreground="White" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource SecondaryBrush}"/>
                                     <Setter TargetName="b" Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -3694,8 +3760,11 @@
                     </Button.Template>
                 </Button>
 
-                <Button Grid.Column="4" x:Name="VelvetBtnRamp"
-                        Click="VelvetBtnRamp_Click"
+                <!-- Combined Scheduler + Intensity Ramp card. Opens one popup
+                     holding both panels. Label is two live-localized strings
+                     joined by " + " so both halves stay translated. -->
+                <Button Grid.Column="4" x:Name="VelvetBtnSchedulerRamp"
+                        Click="VelvetBtnSchedulerRamp_Click"
                         Cursor="Hand" FontSize="12" FontWeight="Bold">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
@@ -3706,7 +3775,9 @@
                                     CornerRadius="14">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Image Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0"
-                                           Source="{Binding Source='📈', Converter={StaticResource EmojiToImageSource}}"/>
+                                           Source="{Binding Source='📅', Converter={StaticResource EmojiToImageSource}}"/>
+                                    <helpers:EmojiTextBlock Text="{loc:Str section_scheduler}" Foreground="White" VerticalAlignment="Center"/>
+                                    <TextBlock Text=" + " Foreground="White" VerticalAlignment="Center"/>
                                     <helpers:EmojiTextBlock Text="{loc:Str section_intensity_ramp}" Foreground="White" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
@@ -7729,8 +7800,10 @@
                         </Button>
                     </Grid>
 
-                    <!-- Engine bar — slim webcam tracking controls (reproportioned from the old card) -->
-                    <Border CornerRadius="16" Margin="9,4,9,12" Padding="16,14"
+                    <!-- Engine bar — slim webcam tracking controls (reproportioned from the old card).
+                         Named so VelvetBtnWebcam can borrow it into a popup (reparent on open,
+                         restore on close — same instance, all handlers stay valid). -->
+                    <Border x:Name="LabWebcamEngineBar" CornerRadius="16" Margin="9,4,9,12" Padding="16,14"
                             Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource PanelAccentHoverBrush}" BorderThickness="1">
                         <StackPanel>
                             <WrapPanel Orientation="Horizontal">
@@ -9667,7 +9740,7 @@
                     <StackPanel Grid.Row="0">
                     <Border CornerRadius="14" Margin="0,0,0,18" ClipToBounds="True" MaxHeight="320"
                             HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
-                        <Image Source="pack://application:,,,/Resources/features/awareness.png"
+                        <Image x:Name="ImgAwarenessFeature" Source="pack://application:,,,/Resources/features/awareness.png"
                                Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
                     <Grid Margin="0,0,0,22">
@@ -10072,7 +10145,7 @@
                     <!-- Hero banner -->
                     <Border CornerRadius="14" Margin="0,0,0,20" ClipToBounds="True" MaxHeight="320"
                             HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
-                        <Image Source="pack://application:,,,/Resources/features/remote_control.png"
+                        <Image x:Name="ImgRemoteControlFeature" Source="pack://application:,,,/Resources/features/remote_control.png"
                                Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
 
@@ -10307,6 +10380,21 @@
                                         </StackPanel>
                                         <Border x:Name="RemoteLinkPanel" Visibility="Collapsed"/>
                                         <Border x:Name="RemoteCodePanel" Visibility="Collapsed"/>
+
+                                        <!-- Listing confirmation — shown once the directory opt-in
+                                             succeeds so the user gets feedback right here instead of
+                                             having to tab over to the Subjects directory to check. -->
+                                        <Border x:Name="ListedConfirmationPanel" Visibility="Collapsed"
+                                                Background="#1E2E1E" BorderBrush="{DynamicResource SuccessGreenBrush}"
+                                                BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,16,0,0">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="✓" Foreground="{DynamicResource SuccessGreenBrush}"
+                                                           FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="You're listed in the Subjects Directory"
+                                                           Foreground="White" FontSize="13" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
 
                                     <!-- Right: QR code with themed frame -->
@@ -11906,7 +11994,7 @@
                         <!-- Hero banner -->
                         <Border CornerRadius="14" Margin="0,0,0,24" ClipToBounds="True" MaxHeight="320"
                                 HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
-                            <Image Source="pack://application:,,,/Resources/features/blink_trainer.png"
+                            <Image x:Name="ImgBlinkTrainerFeature" Source="pack://application:,,,/Resources/features/blink_trainer.png"
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                         </Border>
 

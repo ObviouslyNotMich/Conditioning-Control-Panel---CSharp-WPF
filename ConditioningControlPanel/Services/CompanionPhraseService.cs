@@ -41,6 +41,17 @@ namespace ConditioningControlPanel.Services
         public const string VoiceLineCategory = "VoiceLine";
 
         /// <summary>
+        /// Literal text the voiceline generator bakes into FILENAMES wherever a
+        /// phrase template had the "{0}" app-name placeholder (see
+        /// tools/voicegen/generate_locked_voicelines.py -> filename_clean). The
+        /// audio itself was rendered with neutral wording, but the on-screen
+        /// bubble uses the filename stem, so it would otherwise read the literal
+        /// placeholder. <see cref="ResolveVoiceLinePlaceholder"/> swaps it for the
+        /// app currently in focus (or a neutral word when nothing is detected).
+        /// </summary>
+        public const string VoiceLinePlaceholder = "target application";
+
+        /// <summary>
         /// All registered phrase category names.
         /// </summary>
         private static readonly string[] _categoryNames = new[]
@@ -417,6 +428,42 @@ namespace ConditioningControlPanel.Services
             var match = customPhrases.FirstOrDefault(c =>
                 c.Category == VoiceLineCategory && string.Equals(c.AudioFileName, fileName, StringComparison.OrdinalIgnoreCase));
             return match?.Text;
+        }
+
+        /// <summary>
+        /// Replaces the baked-in <see cref="VoiceLinePlaceholder"/> in a voiceline's
+        /// display text with the app currently in focus, so an activity line like
+        /// "Watching target application, pet?" renders as "Watching YouTube, pet?".
+        /// Mirrors the activity-reaction path's name choice (service name first,
+        /// then detected name). Falls back to a neutral "that" when nothing is in
+        /// focus (e.g. window awareness disabled). Text without the placeholder is
+        /// returned unchanged, so ordinary voicelines are untouched.
+        /// </summary>
+        public static string ResolveVoiceLinePlaceholder(string? text)
+        {
+            if (string.IsNullOrEmpty(text) ||
+                text.IndexOf(VoiceLinePlaceholder, StringComparison.OrdinalIgnoreCase) < 0)
+                return text ?? string.Empty;
+
+            var wa = App.WindowAwareness;
+            var name = wa == null
+                ? string.Empty
+                : (!string.IsNullOrWhiteSpace(wa.CurrentServiceName)
+                    ? wa.CurrentServiceName
+                    : wa.CurrentDetectedName);
+
+            var usedFallback = string.IsNullOrWhiteSpace(name);
+            var replacement = usedFallback ? "that" : name.Trim();
+
+            var result = text.Replace(VoiceLinePlaceholder, replacement);
+
+            // Filenames carry the placeholder lowercase, so a sentence-initial swap
+            // to the neutral "that" needs capitalizing. (A detected app name is
+            // already a proper noun, so leave that case alone.)
+            if (usedFallback && result.Length > 0 && char.IsLower(result[0]))
+                result = char.ToUpper(result[0]) + result.Substring(1);
+
+            return result;
         }
     }
 }

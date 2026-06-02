@@ -97,11 +97,15 @@ namespace ConditioningControlPanel.Models
 
         internal static List<EmotePreset> DefaultRemoteEmotePresets() => new()
         {
-            new EmotePreset { Icon = "🙏", Text = "yes" },
-            new EmotePreset { Icon = "🥺", Text = "more" },
-            new EmotePreset { Icon = "🫠", Text = "drifting" },
-            new EmotePreset { Icon = "💜", Text = "thank you" },
-            new EmotePreset { Icon = "⚠️", Text = "too much" },
+            // Emoji written as \U escapes (not literal glyphs) so they survive
+            // compilation regardless of the build machine's source code page —
+            // this file has no UTF-8 BOM, and literal emoji here were being
+            // mangled into mojibake (e.g. "ðŸ™") in the emote picker.
+            new EmotePreset { Icon = "\U0001F64F", Text = "yes" },       // 🙏 folded hands
+            new EmotePreset { Icon = "\U0001F97A", Text = "more" },      // 🥺 pleading face
+            new EmotePreset { Icon = "\U0001FAE0", Text = "drifting" },  // 🫠 melting face
+            new EmotePreset { Icon = "\U0001F49C", Text = "thank you" }, // 💜 purple heart
+            new EmotePreset { Icon = "\u26A0\uFE0F", Text = "too much" }, // ⚠️ warning + emoji variation selector
         };
 
         [OnDeserialized]
@@ -123,6 +127,34 @@ namespace ConditioningControlPanel.Models
             {
                 _remoteEmotePresets = _remoteEmotePresets.GetRange(0, 5);
             }
+            // Migration: older builds compiled the emoji defaults from a BOM-less
+            // source as Windows-1252, persisting mojibake icons (the "yes" preset
+            // showed a garbled "df Y(tm)" string instead of a folded-hands emoji).
+            // A real emote icon is ASCII text or an emoji whose chars are all
+            // >= U+2000 or surrogate pairs; mojibake always contains a Latin-1
+            // supplement char (U+00A0..U+00FF). Detect that and restore the correct
+            // default icon for that slot.
+            for (int i = 0; i < _remoteEmotePresets.Count && i < defaults.Count; i++)
+            {
+                if (_remoteEmotePresets[i] != null && LooksLikeEmojiMojibake(_remoteEmotePresets[i].Icon))
+                    _remoteEmotePresets[i].Icon = defaults[i].Icon;
+            }
+        }
+
+        /// <summary>
+        /// True when an emote icon carries the signature of "UTF-8 bytes mis-decoded
+        /// as Windows-1252" mojibake: at least one character in the Latin-1 supplement
+        /// range (U+00A0..U+00FF). Legitimate icons (ASCII text or real emoji whose
+        /// code points are all >= U+2000 or surrogate pairs) never contain those.
+        /// </summary>
+        private static bool LooksLikeEmojiMojibake(string? icon)
+        {
+            if (string.IsNullOrEmpty(icon)) return false;
+            foreach (var ch in icon)
+            {
+                if (ch >= 0x00A0 && ch <= 0x00FF) return true;
+            }
+            return false;
         }
 
         #endregion
@@ -448,6 +480,24 @@ namespace ConditioningControlPanel.Models
         {
             get => _pinkRushEndTime;
             set { _pinkRushEndTime = value; OnPropertyChanged(); }
+        }
+
+        #endregion
+
+        #region Companion Greeting
+
+        private DateTime? _lastSeenUtc = null;
+        /// <summary>
+        /// Local-only UTC timestamp of when the app was last open. Used solely to vary the
+        /// companion's warm in-app welcome-back greeting by absence length (see
+        /// AvatarTubeWindow.ShowGreeting / BuildAbsenceGreeting). Persisted to the local
+        /// settings file only — it is never added to any server request, sync payload, or
+        /// telemetry.
+        /// </summary>
+        public DateTime? LastSeenUtc
+        {
+            get => _lastSeenUtc;
+            set { _lastSeenUtc = value; OnPropertyChanged(); }
         }
 
         #endregion
@@ -1023,6 +1073,8 @@ namespace ConditioningControlPanel.Models
         public Dictionary<string, Dictionary<string, bool>>? LockCardPhrasesByMod { get; set; }
         [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
         public Dictionary<string, List<string>>? CustomTriggersByMod { get; set; }
+        [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+        public Dictionary<string, Dictionary<string, bool>>? BouncingTextPoolByMod { get; set; }
 
         /// <summary>
         /// Migrate legacy ContentMode-based settings to mod-based settings.

@@ -344,6 +344,11 @@ namespace ConditioningControlPanel
             // Apply tube layout offsets for current mod
             ApplyTubeLayoutOffsets();
 
+            // Load the active mod's video links on startup (otherwise the known-video table
+            // keeps its hardcoded defaults until the user switches mods, so a themed mod's
+            // links wouldn't be clickable on a plain boot).
+            ReloadVideoLinks();
+
             // Subscribe to mod changes to refresh tube, avatars, and titles
             if (App.Mods != null)
             {
@@ -1142,6 +1147,13 @@ namespace ConditioningControlPanel
                 transformGroup.Children.Add(new ScaleTransform(1.12, 1.12));
                 transformGroup.Children.Add(new TranslateTransform(10, 0));
                 AvatarBorder.RenderTransform = transformGroup;
+                AvatarBorder.RenderTransformOrigin = new Point(0.5, 0.5);
+            }
+            else if (App.Mods?.ActiveModId == Models.BuiltInMods.LockedId)
+            {
+                // Locked's set 1 ("The Lure") art reads smaller than the other stages
+                // (which get the +12% above); nudge it 6% bigger to match.
+                AvatarBorder.RenderTransform = new ScaleTransform(1.06, 1.06);
                 AvatarBorder.RenderTransformOrigin = new Point(0.5, 0.5);
             }
             else
@@ -3813,6 +3825,10 @@ namespace ConditioningControlPanel
 
                 var text = App.CompanionPhrases?.GetVoiceLineDisplayText(filePath)
                     ?? System.IO.Path.GetFileNameWithoutExtension(filePath);
+                // Activity voicelines bake the "{0}" app placeholder into their
+                // filename ("target application"); swap it for the focused app so
+                // the bubble names what's actually on screen instead of the literal.
+                text = Services.CompanionPhraseService.ResolveVoiceLinePlaceholder(text);
                 if (string.IsNullOrWhiteSpace(text)) return;
 
                 // Clear the queue - voice line takes priority
@@ -4856,9 +4872,142 @@ namespace ConditioningControlPanel
         /// <summary>
         /// Show a greeting when the app starts
         /// </summary>
+        // Ensures the warm welcome-back greeting fires at most once per launch, even if the
+        // avatar window is re-created (e.g. attach/detach). Process-lifetime.
+        private static bool _absenceGreetingShownThisLaunch = false;
+
         private void ShowGreeting()
         {
-            GiggleFromCategory("StartupGreeting");
+            // Subsequent avatar re-creations within the same launch keep the original
+            // startup-greeting behavior; only the first one gets the absence-aware welcome.
+            if (_absenceGreetingShownThisLaunch)
+            {
+                GiggleFromCategory("StartupGreeting");
+                return;
+            }
+            _absenceGreetingShownThisLaunch = true;
+
+            var settings = App.Settings?.Current;
+
+            // Snapshot the previous local "last seen" timestamp BEFORE refreshing it.
+            DateTime? lastSeen = settings?.LastSeenUtc;
+
+            // Refresh last-seen on app open (local only). We write on open rather than on
+            // close so the value is self-contained to this method and survives crashes /
+            // force-kills; the tiny imprecision (open-to-open vs. activity-to-open) is fine
+            // for a warm greeting. suppressCloudBackup keeps this purely on-device — the
+            // timestamp is never added to any server call, sync payload, or telemetry. (It is
+            // also listed in ProfileSyncService.ExcludedBackupProperties as defense in depth.)
+            if (settings != null)
+            {
+                settings.LastSeenUtc = DateTime.UtcNow;
+                App.Settings?.Save(suppressCloudBackup: true);
+            }
+
+            var greeting = BuildAbsenceGreeting(lastSeen);
+            if (greeting == null)
+            {
+                // No prior timestamp (first run) — keep the existing startup greeting.
+                GiggleFromCategory("StartupGreeting");
+                return;
+            }
+
+            Giggle(greeting);
+        }
+
+        /// <summary>
+        /// Builds a warm, in-character welcome-back line varied by how long the user has been
+        /// away, reusing the existing display name (<see cref="App.UserDisplayName"/>) if one is
+        /// set and a generic line otherwise. Returns null when there is no prior timestamp
+        /// (first run) so the caller can fall back to the normal startup greeting.
+        ///
+        /// Tone is welcoming only — never guilt, anxiety, or streak/loss pressure. A long
+        /// absence gets a happy "welcome back", never a reproach.
+        /// </summary>
+        private string? BuildAbsenceGreeting(DateTime? lastSeen)
+        {
+            if (lastSeen == null) return null;
+
+            // Guard against clock changes / future timestamps: treat as a quick return.
+            var elapsed = DateTime.UtcNow - lastSeen.Value;
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+
+            string[] templates;
+            if (elapsed < TimeSpan.FromHours(6))
+            {
+                templates = new[]
+                {
+                    "Back already? Hehe~ 💕",
+                    "Ooh, you're back so soon! ✨",
+                    "Couldn't stay away, {name}? 😘",
+                };
+            }
+            else if (elapsed < TimeSpan.FromHours(18))
+            {
+                templates = new[]
+                {
+                    "Welcome back, {name}! 💖",
+                    "Yay, you're here again! ✨",
+                    "Hi again, cutie~ 💕",
+                };
+            }
+            else if (elapsed < TimeSpan.FromDays(3))
+            {
+                templates = new[]
+                {
+                    "There you are! So good to see you~ 💕",
+                    "You're back, {name}! ✨",
+                    "Hehe, hi again! 💖",
+                };
+            }
+            else if (elapsed < TimeSpan.FromDays(7))
+            {
+                templates = new[]
+                {
+                    "Yay, you came back! 💕",
+                    "So happy you're here, {name}! ✨",
+                    "Hi hi! Let's have some fun~ 💖",
+                };
+            }
+            else if (elapsed < TimeSpan.FromDays(30))
+            {
+                templates = new[]
+                {
+                    "Look who's back! 💕",
+                    "So good to see you again, {name}! ✨",
+                    "Welcome back, gorgeous~ 💖",
+                };
+            }
+            else
+            {
+                templates = new[]
+                {
+                    "It's been ages — welcome back! 💕✨",
+                    "Yaaay, you're back, {name}! So happy to see you! 💖",
+                    "Welcome back! Let's pick up right where we left off~ ✨",
+                };
+            }
+
+            var template = templates[_random.Next(templates.Length)];
+            return FormatGreetingName(template, App.UserDisplayName);
+        }
+
+        /// <summary>
+        /// Substitutes the user's name into a greeting template. If no name is available the
+        /// "{name}" token (and a leading ", "/" " separator, if any) is removed cleanly so the
+        /// generic line still reads naturally.
+        /// </summary>
+        private static string FormatGreetingName(string template, string? name)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+                return template.Replace("{name}", name.Trim());
+
+            return template
+                .Replace(", {name}", "")
+                .Replace(" {name}", "")
+                .Replace("{name}", "")
+                .Replace("  ", " ")
+                .Trim();
         }
 
         /// <summary>
@@ -5108,14 +5257,28 @@ namespace ConditioningControlPanel
             return phrases[_random.Next(phrases.Length)];
         }
 
+        // Matches a run of trailing dots/ellipsis at the end of the phrase, even when
+        // tucked just inside closing wrapper chars () [] * _ ~ / whitespace. Removing
+        // it (while leaving the wrappers themselves in place) is what stops the static
+        // dots in phrases like "(thinking...)" or "[PROCESSING...]" from doubling up
+        // with the thinking animation's own dots.
+        private static readonly Regex TrailingDotsInsideWrappersRegex =
+            new Regex(@"[.…]+(?=[)\]\s*_~]*$)", RegexOptions.Compiled);
+
         // Strips dots, ellipsis, whitespace, AND markdown emphasis chars (* _ ~) from
         // both ends of a thinking phrase so the animation's dots aren't duplicated and
         // wrapping characters like "*Poppin bubbles...*" don't render asterisks around
-        // the animated dots. Trims both ends because phrases come pre-wrapped in *...*.
+        // the animated dots. Also strips a trailing dot-run sitting just inside () or []
+        // wrappers (e.g. "(thinking...)" -> "(thinking)") while preserving those brackets,
+        // since paren/bracket-wrapped phrases would otherwise keep their static dots.
+        // Trims both ends because phrases come pre-wrapped in *...*.
         private static string StripTrailingDots(string phrase)
         {
             if (string.IsNullOrEmpty(phrase)) return phrase;
-            var trimmed = phrase.Trim('.', '…', '*', '_', '~', ' ', '\t');
+            // Drop the trailing dot-run first (handles dots tucked inside ) or ] so the
+            // brackets survive), then trim the outer wrapper decoration as before.
+            var withoutDots = TrailingDotsInsideWrappersRegex.Replace(phrase, "");
+            var trimmed = withoutDots.Trim('.', '…', '*', '_', '~', ' ', '\t');
             // If the phrase was nothing but decoration (e.g. "*~*"), keep the original
             // so we don't end up animating just bare dots.
             return string.IsNullOrEmpty(trimmed) ? phrase : trimmed;
@@ -6254,7 +6417,12 @@ namespace ConditioningControlPanel
                 if (App.Personality?.SetActivePreset(presetId) == true)
                 {
                     UpdateQuickMenuState();
-                    Giggle($"Now using {preset.Name}~ *giggles*");
+                    // Use the mod-aware display name (the menu header already does this via
+                    // GetPersonalityDisplayName) so the confirmation bubble shows e.g. "Circe"
+                    // instead of the raw base preset name "BambiSprite" under the Locked mod.
+                    var shownName = App.Mods?.GetPersonalityDisplayName(preset.Name) ?? preset.Name;
+                    var confirm = $"Now using {shownName}~ *giggles*";
+                    Giggle(App.Mods?.MakeModAware(confirm) ?? confirm);
                 }
             }
         }

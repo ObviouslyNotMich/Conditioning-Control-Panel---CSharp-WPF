@@ -1402,6 +1402,7 @@ namespace ConditioningControlPanel
                         BuiltInMods.BambiSleepId,
                         BuiltInMods.SissyHypnoId,
                         BuiltInMods.DronificationId,
+                        BuiltInMods.LockedId,
                     };
                     foreach (var id in stockOrder)
                     {
@@ -1523,6 +1524,11 @@ namespace ConditioningControlPanel
                     (takeoverPath, ImgBambiTakeoverDesc),
                     ("features/vibe.png", ImgHapticsVibeDesc),
                     ("features/vibe.png", ImgVideoHapticSync),
+                    // These three render via a hardcoded pack:// URI in XAML, so without a
+                    // code override they'd always show the base (embedded) art, never a mod's.
+                    ("features/awareness.png", ImgAwarenessFeature),
+                    ("features/remote_control.png", ImgRemoteControlFeature),
+                    ("features/blink_trainer.png", ImgBlinkTrainerFeature),
                 };
                 foreach (var (path, img) in descImageMap)
                 {
@@ -5025,13 +5031,26 @@ namespace ConditioningControlPanel
             _onWebcamStartupState = state =>
             {
                 if (_webcamLoadingSplash == null) return;
-                // Start() failed or was aborted before reaching 1.0 — dismiss.
-                if (state == WebcamTrackingState.Error
-                    || state == WebcamTrackingState.CameraInUse
-                    || state == WebcamTrackingState.CameraDenied
-                    || state == WebcamTrackingState.Stopped)
+                // Start() failed or was aborted before reaching 1.0. Surface WHY
+                // rather than letting the bar silently vanish (#300) or hang
+                // forever waiting on a wedged camera open (#311).
+                switch (state)
                 {
-                    _webcamLoadingSplash.CloseSplash();
+                    case WebcamTrackingState.CameraInUse:
+                        _webcamLoadingSplash.ShowErrorAndClose(
+                            "Camera unavailable — it may be in use by another app, or blocked by antivirus / Windows camera privacy.");
+                        break;
+                    case WebcamTrackingState.CameraDenied:
+                        _webcamLoadingSplash.ShowErrorAndClose(
+                            "Camera access denied — enable it in Windows Settings ▸ Privacy ▸ Camera, then try again.");
+                        break;
+                    case WebcamTrackingState.Error:
+                        _webcamLoadingSplash.ShowErrorAndClose(
+                            "Eye-tracking engine failed to start. See the webcam debug log for details.");
+                        break;
+                    case WebcamTrackingState.Stopped:
+                        _webcamLoadingSplash.CloseSplash();
+                        break;
                 }
             };
 
@@ -5765,7 +5784,13 @@ namespace ConditioningControlPanel
         private void BtnWebcamDeviceRefresh_Click(object sender, RoutedEventArgs e)
         {
             PopulateWebcamDeviceCombos();
-            AppendWebcamDebugLog($"Re-scanned cameras: {(CmbWebcamDevice?.Items.Count ?? 0)} found.");
+            // Report the count of actually-enumerated devices, NOT CmbWebcamDevice.Items.Count
+            // — when zero cameras are found the combo holds a single "(no cameras detected)"
+            // placeholder item, which made the message falsely say "1 found" (#291).
+            int found = App.Webcam?.EnumerateDevices().Count ?? 0;
+            AppendWebcamDebugLog(found == 0
+                ? "Re-scanned cameras: none detected."
+                : $"Re-scanned cameras: {found} found.");
         }
 
         // Re-entrancy guard so seeding the ComboBox doesn't trigger the save path.
@@ -13957,12 +13982,18 @@ namespace ConditioningControlPanel
                 UpdateRemoteStatus(false);
                 RefreshRemoteQrCode(BuildRemotePairingUrl(code));
 
-                // SP5 layer 3: collapse the opt-in form now that a session is
-                // active (user spec: "section visibility bound to !IsActive").
+                // SP5 layer 3 / community feedback: instead of hiding the opt-in
+                // ("Show Me") section once a session is active, keep it visible but
+                // grey it out + disable it. This gives the user a clear "you're
+                // listed" confirmation rather than the controls silently vanishing.
                 // Then chain the directory opt-in call if the user ticked the
                 // checkbox. Best-effort — the session is already running.
                 if (OptInSectionPanel != null)
-                    OptInSectionPanel.Visibility = System.Windows.Visibility.Collapsed;
+                {
+                    OptInSectionPanel.IsEnabled = false;
+                    OptInSectionPanel.Opacity = 0.5;
+                }
+                UpdateDirectoryListingStatus();
                 _ = RunOptInChainAsync();
 
                 // Listen for controller connection changes
@@ -14584,6 +14615,11 @@ namespace ConditioningControlPanel
                 return;
             }
 
+            // Listed successfully → confirm it in the Session Code section and
+            // the header status pill so the user doesn't have to tab to Subjects.
+            _directoryOptedIn = true;
+            UpdateDirectoryListingStatus();
+
             // Persist tags+status only on success AND only when Remember is on.
             if (ChkRememberOptInDetails?.IsChecked == true && App.Settings?.Current is { } s)
             {
@@ -14600,6 +14636,66 @@ namespace ConditioningControlPanel
                 s2.SavedDirectoryStatusText = "";
                 App.Settings.Save();
             }
+        }
+
+        // True once the directory opt-in for the active remote session has
+        // succeeded. Drives the "Listed/Claimed" header pill + Session Code
+        // confirmation. Reset when the remote session stops.
+        private bool _directoryOptedIn;
+
+        /// <summary>
+        /// Refreshes the header listing pill and the Session Code confirmation
+        /// banner from the current remote-session state:
+        ///   • no active session            → pill hidden, banner hidden
+        ///   • active, not opted in         → "Private only"
+        ///   • active, opted in, no claimer → "Listed" + confirmation banner
+        ///   • active, opted in, claimed    → "Claimed" + confirmation banner
+        /// </summary>
+        private void UpdateDirectoryListingStatus()
+        {
+            var active = App.RemoteControl?.IsActive ?? false;
+            var claimed = App.RemoteControl?.ControllerConnected ?? false;
+
+            // Session Code confirmation banner: only once listed.
+            if (ListedConfirmationPanel != null)
+                ListedConfirmationPanel.Visibility = (active && _directoryOptedIn)
+                    ? System.Windows.Visibility.Visible
+                    : System.Windows.Visibility.Collapsed;
+
+            if (DirectoryStatusPill == null) return;
+
+            if (!active)
+            {
+                DirectoryStatusPill.Visibility = System.Windows.Visibility.Collapsed;
+                return;
+            }
+
+            string text;
+            System.Windows.Media.Color dot;
+            string tip;
+            if (!_directoryOptedIn)
+            {
+                text = "Private only";
+                dot = System.Windows.Media.Color.FromRgb(0x8A, 0x8A, 0xA0); // muted grey
+                tip = "Your session is private — you are not listed in the Available Subjects Directory.";
+            }
+            else if (claimed)
+            {
+                text = "Claimed";
+                dot = System.Windows.Media.Color.FromRgb(0x00, 0xFF, 0x88); // green
+                tip = "A controller has claimed your directory listing.";
+            }
+            else
+            {
+                text = "Listed";
+                dot = System.Windows.Media.Color.FromRgb(0xB4, 0x7B, 0xFF); // neon purple (directory accent)
+                tip = "You're listed in the Available Subjects Directory and waiting to be claimed.";
+            }
+
+            if (TxtDirectoryStatus != null) TxtDirectoryStatus.Text = text;
+            if (DirectoryStatusDot != null) DirectoryStatusDot.Fill = new System.Windows.Media.SolidColorBrush(dot);
+            DirectoryStatusPill.ToolTip = tip;
+            DirectoryStatusPill.Visibility = System.Windows.Visibility.Visible;
         }
 
         private async Task StopRemoteControl()
@@ -14625,12 +14721,21 @@ namespace ConditioningControlPanel
             // SP5 layer 3: restore the opt-in section so the user can
             // configure it for the next session (or untick if they're done).
             // The opt-in checkbox itself stays unchecked — re-opt every time.
+            // Re-enable + un-grey it (it stays visible during the session now).
             if (OptInSectionPanel != null)
+            {
                 OptInSectionPanel.Visibility = System.Windows.Visibility.Visible;
+                OptInSectionPanel.IsEnabled = true;
+                OptInSectionPanel.Opacity = 1.0;
+            }
             if (ChkOptIntoDirectory != null)
                 ChkOptIntoDirectory.IsChecked = false;
             if (OptInFormPanel != null)
                 OptInFormPanel.Visibility = System.Windows.Visibility.Collapsed;
+
+            // Clear the directory listing state + header pill.
+            _directoryOptedIn = false;
+            UpdateDirectoryListingStatus();
         }
 
         private void OnRemoteControllerChanged(object? sender, EventArgs e)
@@ -14640,6 +14745,9 @@ namespace ConditioningControlPanel
                 var connected = App.RemoteControl?.ControllerConnected ?? false;
                 UpdateRemoteStatus(connected);
                 UpdateStartButtonForRemoteControl(connected);
+                // Header listing pill flips Listed ↔ Claimed as a controller
+                // connects/disconnects.
+                UpdateDirectoryListingStatus();
 
                 if (connected)
                 {
@@ -14697,6 +14805,15 @@ namespace ConditioningControlPanel
                 RemoteCodePanel.Visibility = System.Windows.Visibility.Collapsed;
                 RemoteStatusPanel.Visibility = System.Windows.Visibility.Collapsed;
                 BtnStopRemote.Visibility = System.Windows.Visibility.Collapsed;
+
+                // Re-enable + un-grey the opt-in section and clear the listing pill.
+                if (OptInSectionPanel != null)
+                {
+                    OptInSectionPanel.IsEnabled = true;
+                    OptInSectionPanel.Opacity = 1.0;
+                }
+                _directoryOptedIn = false;
+                UpdateDirectoryListingStatus();
             });
         }
 
@@ -18306,10 +18423,103 @@ namespace ConditioningControlPanel
                 Localization.Loc.Get("section_system"),
                 glyph: "⚙");
 
-        private void VelvetBtnScheduler_Click(object sender, RoutedEventArgs e) =>
-            ShowFeaturePopup(new Features.SchedulerFeatureControl(),
-                Localization.Loc.Get("section_scheduler"),
-                glyph: "📅");
+        private void VelvetBtnWebcam_Click(object sender, RoutedEventArgs e)
+        {
+            // Surface the Lab's webcam tracking controls in a popup. We borrow the
+            // same LabWebcamEngineBar instance (reparent into the control's host
+            // pre-show) and return it to the Lab on close — mirrors the App Info
+            // account-sections pattern so every existing handler/tracker stays valid.
+            // Close any existing popup FIRST so its close handler returns whatever
+            // it borrowed (incl. a prior webcam bar) before we borrow it again.
+            _activeFeaturePopup?.Close();
+
+            var control = new Features.WebcamFeatureControl();
+            try
+            {
+                DetachWebcamBarInto(control.WebcamSettingsHost);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Webcam: failed to attach engine bar pre-show");
+            }
+
+            var popup = new Features.FeaturePopupWindow(
+                control,
+                Localization.Loc.Get("blink_trainer_section_webcam"),
+                glyph: "📷")
+            {
+                Owner = this
+            };
+
+            popup.Closed += (_, __) =>
+            {
+                if (_activeFeaturePopup == popup)
+                    _activeFeaturePopup = null;
+                try { ReattachWebcamBar(); }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning(ex, "Webcam: failed to return engine bar to Lab");
+                }
+                try
+                {
+                    if (WindowState == WindowState.Minimized)
+                        WindowState = WindowState.Normal;
+                    Activate();
+                }
+                catch { /* window may be shutting down */ }
+            };
+
+            _activeFeaturePopup = popup;
+            popup.Show();
+
+            // The camera + monitor combos are normally seeded when the Lab tab is
+            // shown. Opening this popup may be the user's first webcam touchpoint,
+            // so populate both here too — otherwise the monitor list shows up empty.
+            try { RefreshWebcamDeviceList(); } catch (Exception ex) { App.Logger?.Warning(ex, "Webcam popup: device list refresh failed"); }
+            try { RefreshWebcamMonitorList(); } catch (Exception ex) { App.Logger?.Warning(ex, "Webcam popup: monitor list refresh failed"); }
+        }
+
+        // Tracks the Lab webcam engine bar's home so it can be restored to the
+        // exact same spot after the Webcam popup closes.
+        private System.Windows.Controls.Panel? _webcamBarParent;
+        private int _webcamBarIndex = -1;
+
+        /// <summary>
+        /// Detaches the Lab webcam engine bar from its place in the Lab and parents
+        /// it into the provided popup host, remembering its original parent + index.
+        /// </summary>
+        private void DetachWebcamBarInto(System.Windows.Controls.Panel target)
+        {
+            if (target == null || LabWebcamEngineBar == null) return;
+            if (_webcamBarParent != null) return; // already borrowed
+
+            if (LabWebcamEngineBar.Parent is System.Windows.Controls.Panel parent)
+            {
+                _webcamBarParent = parent;
+                _webcamBarIndex = parent.Children.IndexOf(LabWebcamEngineBar);
+                parent.Children.Remove(LabWebcamEngineBar);
+            }
+            target.Children.Add(LabWebcamEngineBar);
+        }
+
+        /// <summary>
+        /// Returns the Lab webcam engine bar to its original position in the Lab.
+        /// </summary>
+        private void ReattachWebcamBar()
+        {
+            if (LabWebcamEngineBar == null || _webcamBarParent == null) return;
+
+            if (LabWebcamEngineBar.Parent is System.Windows.Controls.Panel currentParent)
+                currentParent.Children.Remove(LabWebcamEngineBar);
+
+            var idx = _webcamBarIndex;
+            if (idx < 0 || idx > _webcamBarParent.Children.Count)
+                idx = _webcamBarParent.Children.Count;
+            _webcamBarParent.Children.Insert(idx, LabWebcamEngineBar);
+
+            _webcamBarParent = null;
+            _webcamBarIndex = -1;
+        }
 
         private void VelvetBtnAppInfo_Click(object sender, RoutedEventArgs e)
         {
@@ -18363,10 +18573,10 @@ namespace ConditioningControlPanel
             popup.Show();
         }
 
-        private void VelvetBtnRamp_Click(object sender, RoutedEventArgs e) =>
-            ShowFeaturePopup(new Features.IntensityRampFeatureControl(),
-                Localization.Loc.Get("section_intensity_ramp"),
-                glyph: "📈");
+        private void VelvetBtnSchedulerRamp_Click(object sender, RoutedEventArgs e) =>
+            ShowFeaturePopup(new Features.SchedulerRampFeatureControl(),
+                Localization.Loc.Get("section_scheduler") + " + " + Localization.Loc.Get("section_intensity_ramp"),
+                glyph: "📅");
 
         private void BtnSessionHistory_Click(object sender, RoutedEventArgs e)
         {
@@ -22279,6 +22489,88 @@ namespace ConditioningControlPanel
             }
         }
 
+        // True while a remote controller's "play_hypnotube" video is showing in the embedded
+        // browser. Gates StopBrowserVideoFromRemote so panic/session-end only touches the
+        // browser when the controller actually started a video here — never the page the user
+        // was browsing themselves.
+        private bool _remoteBrowserVideoActive;
+
+        /// <summary>
+        /// Play a controller-supplied HypnoTube URL in the embedded browser (remote-control
+        /// "play_hypnotube" command). Marks the browser video as remote-active so a later panic
+        /// / session-end can stop it. The URL has already been allowlist-validated by
+        /// RemoteControlService (HtUrlHelper.IsEligibleHtUrl).
+        /// </summary>
+        public void PlayHypnotubeFromRemote(string url)
+        {
+            _remoteBrowserVideoActive = true;
+            NavigateToUrlInBrowser(url, autoPlayFullscreen: true);
+        }
+
+        /// <summary>
+        /// Stop a video a remote controller started in the embedded browser (panic /
+        /// session-end / controller-disconnect path). Exits forced fullscreen and navigates
+        /// back to the currently-selected site's homepage — this tears down the playing
+        /// &lt;video&gt; (halting playback) while leaving the browser on a usable page, rather
+        /// than a dead-end about:blank. No-op unless a remote video was actually playing.
+        /// </summary>
+        public void StopBrowserVideoFromRemote()
+        {
+            if (!_remoteBrowserVideoActive) return;
+            _remoteBrowserVideoActive = false;
+            try
+            {
+                if (_isBrowserFullscreen) ExitBrowserFullscreen();
+                NavigateBrowserToCurrentSiteHome();
+                App.Logger?.Information("[RemoteControl] Stopped remote browser video, restored site homepage");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("StopBrowserVideoFromRemote failed: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Navigate the embedded browser to the homepage of whichever site (HypnoTube /
+        /// BambiCloud) is currently selected in the toggle. Shared by the remote video-stop
+        /// path and the toolbar Reload button — re-selecting an already-checked site radio
+        /// won't fire its Checked handler, so this gives a reliable way back to a live page.
+        /// </summary>
+        private void NavigateBrowserToCurrentSiteHome()
+        {
+            if (_browser?.WebView?.CoreWebView2 == null) return;
+            try
+            {
+                var isBambiCloud = RbBambiCloud?.IsChecked == true;
+                var url = isBambiCloud ? "https://bambicloud.com/" : "https://hypnotube.com/";
+                _browser.Navigate(url);
+                App.Logger?.Information("Browser navigated to current site home: {Url}", url);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("NavigateBrowserToCurrentSiteHome failed: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Toolbar Reload button: reload the browser onto the currently-selected site's
+        /// homepage (or lazy-init the browser if it was never opened). Gives the user a way
+        /// out of a stuck/blank page — e.g. after a remote video was stopped.
+        /// </summary>
+        private void BtnReloadBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_browserInitialized)
+            {
+                var initialUrl = RbHypnoTube?.IsChecked == true
+                    ? "https://hypnotube.com/"
+                    : "https://bambicloud.com/";
+                _ = InitializeBrowserAsync(initialUrl);
+                return;
+            }
+            if (App.Settings?.Current?.OfflineMode == true) return;
+            NavigateBrowserToCurrentSiteHome();
+        }
+
         #endregion
 
         #region Start/Stop
@@ -24011,6 +24303,36 @@ namespace ConditioningControlPanel
 
             // Also refresh rank title
             UpdateLevelDisplay();
+
+            // Show/hide the Bimbo Journal sub-tab based on the active mod.
+            ApplyBimboJournalModVisibility();
+        }
+
+        /// <summary>
+        /// The Bimbo Journal is built around bimbofication photo tracks, so it only
+        /// fits the CCP Default, Bambi Sleep, and Sissy Hypno mods. For any other mod
+        /// (Dronification, Locked, community mods) we hide its sub-tab entry point —
+        /// and, if it happens to be open, fall back to the Daily/Weekly panel.
+        /// Re-run whenever the active mod changes (via ApplyModFeatureNames).
+        /// </summary>
+        private void ApplyBimboJournalModVisibility()
+        {
+            if (BtnQuestSubRoadmap == null) return;
+
+            var modId = App.Mods?.ActiveModId;
+            bool supported = modId == Models.BuiltInMods.CCPDefaultId
+                          || modId == Models.BuiltInMods.BambiSleepId
+                          || modId == Models.BuiltInMods.SissyHypnoId;
+
+            BtnQuestSubRoadmap.Visibility = supported ? Visibility.Visible : Visibility.Collapsed;
+
+            // If the journal is hidden out from under the user, snap back to Daily/Weekly.
+            if (!supported && RoadmapPanel?.Visibility == Visibility.Visible)
+            {
+                RoadmapPanel.Visibility = Visibility.Collapsed;
+                if (DailyWeeklyPanel != null) DailyWeeklyPanel.Visibility = Visibility.Visible;
+                if (BtnQuestSubDaily != null) BtnQuestSubDaily.Style = (Style)FindResource("TabButtonActive");
+            }
         }
 
         /// <summary>
@@ -27251,9 +27573,9 @@ namespace ConditioningControlPanel
                     // Sync thumbnail checkboxes with current DisabledAssetPaths state
                     RefreshThumbnailCheckboxes();
 
-                    // FlashService caches its file listing for 60s — invalidate so the
-                    // folder-level toggle takes effect on the very next flash (#130).
-                    App.Flash?.ClearFileCache();
+                    // Invalidate cached file listing and the video/bubble queues so the
+                    // folder-level toggle takes effect on the very next flash/video (#130).
+                    InvalidateAssetPoolsAfterSelectionChange();
                 }
                 finally
                 {
@@ -27477,10 +27799,11 @@ namespace ConditioningControlPanel
                 App.Settings.Current.DisabledAssetPaths.Add(file.RelativePath);
             }
 
-            // FlashService caches its file listing for 60s — without this the toggle has
-            // no effect for up to a minute, which users perceive as "unchecking does
-            // nothing" (#130).
-            App.Flash?.ClearFileCache();
+            // Invalidate cached file listing AND the video/bubble queues — without this
+            // the toggle has no effect (Flash for up to a minute via its 60s cache, video
+            // until the stale queue drains or a restart), which users perceive as
+            // "unchecking does nothing" (#130).
+            InvalidateAssetPoolsAfterSelectionChange();
 
             // Update parent folder state - set flag to prevent FolderCheckBox_Changed from
             // propagating changes to all children when the folder's IsChecked changes
@@ -27506,6 +27829,22 @@ namespace ConditioningControlPanel
             _selectedFolder.UpdateCheckState();
         }
 
+        /// <summary>
+        /// Invalidate the in-memory asset pools after a selection toggle so the change
+        /// takes effect immediately. The asset-manager count reads live DisabledAssetPaths,
+        /// but the media services hold their own caches/queues that only refill lazily —
+        /// without this the mandatory video keeps playing from a stale full-pool queue
+        /// (count says "1 active" while playback ignores the toggle until restart).
+        /// FlashService clears its 60s file-listing cache; Video/BubbleCount just empty
+        /// their queues (cheap, O(1)) and refill from the current selection on next use.
+        /// </summary>
+        private void InvalidateAssetPoolsAfterSelectionChange()
+        {
+            App.Flash?.ClearFileCache();
+            App.Video?.ReloadAssets();
+            App.BubbleCount?.ReloadAssets();
+        }
+
         private void BtnSelectAllAssets_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedFolder == null) return;
@@ -27525,6 +27864,7 @@ namespace ConditioningControlPanel
                 // Sync thumbnail checkboxes
                 RefreshThumbnailCheckboxes();
                 UpdateAssetCounts();
+                InvalidateAssetPoolsAfterSelectionChange();
             }
             finally
             {
@@ -27551,6 +27891,7 @@ namespace ConditioningControlPanel
                 // Sync thumbnail checkboxes
                 RefreshThumbnailCheckboxes();
                 UpdateAssetCounts();
+                InvalidateAssetPoolsAfterSelectionChange();
             }
             finally
             {
@@ -27842,6 +28183,7 @@ namespace ConditioningControlPanel
 
                 RefreshAssetPresetsComboBox();
                 CmbAssetPresets.SelectedValue = preset.Id;
+                InvalidateAssetPoolsAfterSelectionChange();
 
                 App.Logger?.Information("Saved asset preset: {Name} with {Images} images, {Videos} videos, {Disabled} disabled paths",
                     preset.Name, imageCount, videoCount, disabledCount);
@@ -27884,6 +28226,7 @@ namespace ConditioningControlPanel
                 // Refresh display
                 RefreshAssetPresetsComboBox();
                 CmbAssetPresets.SelectedValue = preset.Id;
+                InvalidateAssetPoolsAfterSelectionChange();
 
                 App.Logger?.Information("Updated asset preset: {Name} with {Images} images, {Videos} videos, {Disabled} disabled paths",
                     preset.Name, imageCount, videoCount, disabledCount);

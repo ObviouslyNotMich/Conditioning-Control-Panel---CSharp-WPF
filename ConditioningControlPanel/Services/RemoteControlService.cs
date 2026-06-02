@@ -483,8 +483,7 @@ namespace ConditioningControlPanel.Services
                         // Controller disconnected. By default we leave effects running
                         // so a new controller can see the current state and the sub
                         // isn't snapped to a halt mid-session. Opt-in setting stops them.
-                        if (App.Settings?.Current?.StopEffectsOnRemoteDisconnect == true)
-                            StopRemoteTriggeredEffects();
+                        HandleControllerDisconnectCleanup();
 
                         // Re-publish to the Available Subjects directory so the subject
                         // flips from "taken" back to available without restarting Remote
@@ -512,8 +511,7 @@ namespace ConditioningControlPanel.Services
                         App.Logger?.Information("[RemoteControl] Controller idle for {Seconds:F0}s — auto-disconnecting", idleDuration);
                         _controllerAutoDisconnected = true;
                         ControllerConnected = false;
-                        if (App.Settings?.Current?.StopEffectsOnRemoteDisconnect == true)
-                            StopRemoteTriggeredEffects();
+                        HandleControllerDisconnectCleanup();
                         // Same rationale as the explicit-disconnect branch above: flip the
                         // directory entry back to available so the subject isn't stuck as
                         // "taken" after an idle timeout.
@@ -803,6 +801,10 @@ namespace ConditioningControlPanel.Services
                 }
 
                 App.Video?.Stop();
+                // A controller may have started a HypnoTube video in the embedded browser via
+                // the "play_hypnotube" command; App.Video.Stop() only covers LibVLC, so stop
+                // the WebView2 playback explicitly or panic/session-end would leave it running.
+                MainWindowRef?.StopBrowserVideoFromRemote();
                 App.Flash?.Stop();
                 App.Subliminal?.Stop();
                 App.Bubbles?.Stop();
@@ -851,6 +853,46 @@ namespace ConditioningControlPanel.Services
         /// Lighter cleanup for controller disconnect — stops remote-triggered effects
         /// but preserves the user's engine and autonomy state.
         /// </summary>
+        /// <summary>
+        /// Runs when the controller disconnects (explicit or idle timeout). With the
+        /// opt-in "stop effects on disconnect" setting we tear remote effects down;
+        /// otherwise (the default continuity mode) we restore the local engine that
+        /// was force-stopped when the controller took over, so the sub's flashing /
+        /// autonomy(takeover) / haptics resume instead of staying dead (#294).
+        /// </summary>
+        private void HandleControllerDisconnectCleanup()
+        {
+            if (App.Settings?.Current?.StopEffectsOnRemoteDisconnect == true)
+                StopRemoteTriggeredEffects();
+            else
+                RestoreEngineAfterControllerLeftIfNeeded();
+        }
+
+        /// <summary>
+        /// Restart the local engine iff WE stopped it when the controller took over
+        /// (<see cref="_engineStoppedForController"/>). Clearing the flag means a
+        /// later controller reconnect will correctly re-take-over the now-running
+        /// engine. Runs on the poll/UI thread, same context the connect path uses to
+        /// call StopEngine.
+        /// </summary>
+        private void RestoreEngineAfterControllerLeftIfNeeded()
+        {
+            if (!_engineStoppedForController) return;
+            _engineStoppedForController = false;
+            try
+            {
+                if (MainWindowRef != null && MainWindowRef.IsEngineRunning != true)
+                {
+                    App.Logger?.Information("[RemoteControl] Controller left — restoring the engine that was stopped on takeover (#294)");
+                    MainWindowRef.StartEngine();
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "[RemoteControl] Failed to restore engine after controller left");
+            }
+        }
+
         private void StopRemoteTriggeredEffects()
         {
             try
@@ -860,6 +902,8 @@ namespace ConditioningControlPanel.Services
                 App.Autonomy?.CancelActivePulses();
 
                 App.Video?.Stop();
+                // Also stop any HypnoTube video the controller started in the embedded browser.
+                MainWindowRef?.StopBrowserVideoFromRemote();
                 App.Flash?.Stop();
                 App.Subliminal?.Stop();
                 App.Bubbles?.Stop();
@@ -1042,6 +1086,25 @@ namespace ConditioningControlPanel.Services
 
                         case "stop_video":
                             App.Video?.Stop();
+                            break;
+
+                        case "play_hypnotube":
+                            // Controller-supplied HypnoTube video URL. The URL is the only
+                            // thing crossing the trust boundary, so we gate it HARD: reject
+                            // anything that isn't a real hypnotube.com video page, then route
+                            // it through the SAME embedded-browser path the avatar's HypnoTube
+                            // links already use. We deliberately do NOT use App.Video.PlayUrl
+                            // (LibVLC) — HT pages are HTML, not direct media, and PlayUrl has
+                            // no domain gate.
+                            var htUrl = parameters?["url"]?.ToString();
+                            if (string.IsNullOrWhiteSpace(htUrl) || !Helpers.HtUrlHelper.IsEligibleHtUrl(htUrl))
+                            {
+                                App.Logger?.Warning("[RemoteControl] Rejected play_hypnotube — not an eligible HypnoTube URL");
+                                break;
+                            }
+                            App.Logger?.Information("[RemoteControl] play_hypnotube id={Id}",
+                                Helpers.HtUrlHelper.TryExtractHtVideoId(htUrl));
+                            MainWindowRef?.PlayHypnotubeFromRemote(htUrl);
                             break;
 
                         case "trigger_haptic":

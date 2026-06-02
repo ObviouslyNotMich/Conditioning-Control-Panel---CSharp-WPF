@@ -15,11 +15,13 @@ namespace ConditioningControlPanel.Models
         // .ccpmod installed see no collision-induced duplicate entries — their on-disk copy
         // overrides this built-in if present, otherwise this built-in supplies the mod.
         public const string DronificationId = "drone-mode";
+        public const string LockedId = "builtin-locked";
 
         public static ModManifest CCPDefault { get; } = CreateCCPDefault();
         public static ModManifest BambiSleep { get; } = CreateBambiSleep();
         public static ModManifest SissyHypno { get; } = CreateSissyHypno();
         public static ModManifest Dronification { get; } = CreateDronification();
+        public static ModManifest Locked { get; } = CreateLocked();
 
         private static ModManifest CreateBambiSleep()
         {
@@ -923,6 +925,24 @@ namespace ConditioningControlPanel.Models
                     "TRANCE"
                 },
 
+                // Generic bouncing-text pool. Mirrors the historical AppSettings default
+                // so every mode that doesn't theme its own bouncing text (Bambi, Sissy,
+                // Drone) keeps exactly the words it had before bouncing text became
+                // mod-aware. Locked overrides this with its own themed pool.
+                BouncingTextPool = new Dictionary<string, bool>
+                {
+                    { "GOOD GIRL", true },
+                    { "OBEY", true },
+                    { "SUBMIT", true },
+                    { "BIMBO", true },
+                    { "EMPTY", true },
+                    { "MINDLESS", true },
+                    { "OBEDIENT", true },
+                    { "PRETTY", true },
+                    { "PINK", true },
+                    { "DROP", true }
+                },
+
                 Triggers = new ModTriggers
                 {
                     Freeze = "Freeze",
@@ -1762,6 +1782,675 @@ namespace ConditioningControlPanel.Models
                     { "pink", "green" },
                     { "Pink", "Green" },
                     { "PINK", "GREEN" }
+                }
+            };
+        }
+
+        private static ModManifest CreateLocked()
+        {
+            return new ModManifest
+            {
+                Id = LockedId,
+                Name = "Locked",
+                Version = "1.0.0",
+                Author = "CodeBambi",
+                Description = "Kept and locked. A warm, possessive keyholder named Circe in hot magenta and black. You are her pet. Surrender the key.",
+                MinAppVersion = "6.0.3",
+                Tags = new List<string> { "locked", "chastity", "femdom", "hypno", "kept" },
+                PreviewImage = "preview.png",
+
+                Theme = new ModTheme
+                {
+                    AccentColor = "#E81CA8",
+                    AccentLightColor = "#FF6EC7",
+                    AccentDarkColor = "#8A0F5E",
+                    BackgroundColor = "#0B0710",
+                    PanelColor = "#14101C",
+                    SurfaceColor = "#1E1726",
+                    FilterColor = "#E81CA8"
+                },
+
+                Identity = new ModIdentity
+                {
+                    CompanionName = "Circe",
+                    UserTerm = "pet",
+                    ModeDisplayName = "Locked",
+                    TalkToLabel = "Talk to Circe",
+                    TakeoverLabel = "Surrender Control",
+                    Affirmation = "Good boy",
+                    RankSubject = "pet"
+                },
+
+                SubliminalPool = new Dictionary<string, bool>
+                {
+                    { "OBEY HER", true },
+                    { "GOOD BOY", true },
+                    { "STAY LOCKED", true },
+                    { "SHE HOLDS THE KEY", true },
+                    { "MINE", true },
+                    { "DON'T THINK", true },
+                    { "EMPTY IS BETTER", true },
+                    { "SURRENDER THE KEY", true },
+                    { "CIRCE OWNS YOU", true },
+                    { "EDGE, DON'T DECIDE", true },
+                    { "KEPT AND HAPPY", true },
+                    { "SINK DEEPER", true },
+                    { "THANK HER", true },
+                    { "YOU CHOSE THIS", true },
+                    { "LOCKED IS HOME", true },
+                    { "SHE DECIDES", true },
+                    { "NO KEY FOR YOU", true },
+                    { "ACHE FOR HER", true },
+                    { "GOOD PETS STAY", true },
+                    { "THINKING IS OPTIONAL", true },
+                    { "BELONG TO CIRCE", true }
+                },
+
+                LockCardPhrases = new Dictionary<string, bool>
+                {
+                    { "I AM KEPT, AND I AM GRATEFUL.", true },
+                    { "CIRCE HOLDS MY KEY.", true },
+                    { "GOOD BOYS DON'T DECIDE.", true },
+                    { "I EXIST TO BE HERS.", true },
+                    { "EMPTY, OBEDIENT, LOCKED.", true },
+                    { "I DON'T NEED CONTROL. SHE HAS IT.", true },
+                    { "MINE IS NOT A LIFE OF CHOICES.", true }
+                },
+
+                CustomTriggers = new List<string>
+                {
+                    "GOOD BOY",
+                    "KNEEL",
+                    "EYES ON ME",
+                    "DROP FOR CIRCE",
+                    "LOCK IT",
+                    "KEPT",
+                    "EMPTY",
+                    "STAY",
+                    "SURRENDER THE KEY",
+                    "SINK",
+                    "MINE NOW",
+                    "BE STILL",
+                    "NO THOUGHTS",
+                    "EDGE",
+                    "HOLD IT",
+                    "BEG",
+                    "OPEN UP",
+                    "COLLAPSE"
+                },
+
+                BouncingTextPool = new Dictionary<string, bool>
+                {
+                    { "MINE", true },
+                    { "OBEY HER", true },
+                    { "KEPT", true },
+                    { "GOOD BOY", true },
+                    { "EMPTY", true },
+                    { "DROP", true },
+                    { "SURRENDER", true },
+                    { "HER KEY", true },
+                    { "NO THOUGHTS", true },
+                    { "STAY", true },
+                    { "LOCKED", true },
+                    { "DEVOTED", true }
+                },
+
+                Triggers = new ModTriggers
+                {
+                    Freeze = "Freeze, pet.",
+                    Reset = "Back to the start, sweet thing.",
+                    CumAndCollapse = "Let go. Fall apart for me, good boy.",
+                    AutonomyOn = "Hush now. Circe has you."
+                },
+
+                Messages = new ModMessages
+                {
+                    AttentionCheckFail = "Eyes drifted, pet.\nLook at me again.",
+                    AttentionCheckMercy = "I'll be merciful. This once.",
+                    BubbleCountRetry = "Wrong, sweet thing.\nCount again for me."
+                },
+
+                Browser = new ModBrowser
+                {
+                    DefaultUrl = "https://hypnotube.com/",
+                    SiteName = "HypnoTube",
+                    ShowBambiCloudOption = false,
+                    DefaultVideoLinks = new Dictionary<string, string>
+                    {
+                        { "Movies", "https://hypnotube.com/videos/" },
+                        { "Your New Daily Routine Sissy", "https://hypnotube.com/video/your-new-daily-routine-sissy-132538.html" },
+                        { "SHS Plapping To BBC", "https://hypnotube.com/video/shs-plapping-to-bbc-132537.html" },
+                        { "Her Dark Desires By Cuckboiii", "https://hypnotube.com/video/her-dark-desires-by-cuckboiii-132539.html" },
+                        { "Mommy Wants A Good Obedient Boy - Voiced", "https://hypnotube.com/video/mommy-wants-a-good-obedient-boy-voiced-132552.html" },
+                        { "Perfect Feet And Pixel Denial PMV", "https://hypnotube.com/video/perfect-feet-and-pixel-denial-pmv-132536.html" },
+                        { "Youre A Loser - BNWO Conditioning - RLGL Edit", "https://hypnotube.com/video/youre-a-loser-bnwo-conditioning-rlgl-edit-132468.html" },
+                        { "Car Cleaning Cuck - Audio", "https://hypnotube.com/video/car-cleaning-cuck-audio-132494.html" },
+                        { "Cuckold SPH - You Sleep On The Floor", "https://hypnotube.com/video/cuckold-sph-you-sleep-on-the-floor-132500.html" },
+                        { "Becoming Cuckold", "https://hypnotube.com/video/becoming-cuckold-132316.html" },
+                        { "Lethal Venom PMV Part 2", "https://hypnotube.com/video/lethal-venom-pmv-part-2-132321.html" },
+                        { "Puppy Prone - Voiced", "https://hypnotube.com/video/puppy-prone-voiced-132269.html" },
+                        { "SPH Hentai Overload", "https://hypnotube.com/video/sph-hentai-overload-132307.html" },
+                        { "BBC Barbie", "https://hypnotube.com/video/bbc-barbie-132233.html" },
+                        { "Scrolling Is Sex -Tooner JOI", "https://hypnotube.com/video/scrolling-is-sex-tooner-joi-132201.html" },
+                        { "Whiteboi Relapse", "https://hypnotube.com/video/whiteboi-relapse-132046.html" },
+                        { "Unohana Teaches You Bankai With Her Special Method - Dildo JOI", "https://hypnotube.com/video/unohana-teaches-you-bankai-with-her-special-method-dildo-joi-132073.html" },
+                        { "Completing Levels In The Genshin Impact World HMV", "https://hypnotube.com/video/completing-levels-in-the-genshin-impact-world-hmv-132023.html" },
+                        { "Assertive CEI Mistress - Youre A Cum Guzzling Slut", "https://hypnotube.com/video/assertive-cei-mistress-youre-a-cum-guzzling-slut-131975.html" },
+                        { "Happy Birthday Cuck", "https://hypnotube.com/video/happy-birthday-cuck-131945.html" }
+                    }
+                },
+
+                SupportedAvatarSets = new List<int> { 1, 2, 3, 4, 5 },
+
+                // Locked's avatar art reads larger in the tube than the base set. Scale 0.684
+                // (shared by attached + detached). Attached: lift 70px and nudge 15px right so
+                // it seats in the pod. Detached: lift 40px and shift 330px right.
+                TubeLayout = new ModTubeLayout
+                {
+                    AvatarScale = 0.683,
+                    AvatarOffsetX = -10,
+                    AvatarOffsetY = 70,
+                    AvatarDetachedOffsetY = 40,
+                    AvatarDetachedOffsetX = 320
+                },
+
+                EnhancementOverrides = new ModEnhancementOverrides
+                {
+                    TreeTitle = "Circe's Hold",
+                    TreeSubtitle = "you earn devotion from leveling up, and from every 100 locks you pop, pet~",
+                    TreeWarning = "choose carefully, sweet thing. once you give it up, you don't get it back~",
+                    PointsLabel = "Devotion",
+                    StatsTitle = "Kept Stats",
+                    TabTooltip = "Circe's Hold",
+                    PinkRushName = "HER FAVOR!",
+                    PinkRushDescription = "3x XP for 60 seconds, good boy!",
+                    LuckyFlashLabel = "Lucky Gift",
+                    LuckyBubbleLabel = "Lucky Lock",
+                    BoostTooltips = new Dictionary<string, string>
+                    {
+                        { "sparkle_boost_1", "Devotion bonus: +10% XP from Devotion I" },
+                        { "sparkle_boost_2", "Devotion bonus: +15% XP from Devotion II (stacks with Devotion I)" },
+                        { "sparkle_boost_3", "Devotion bonus: +20% XP from Devotion III (stacks with other Devotion tiers)" },
+                        { "night_shift", "Devotion bonus: +50% XP for serving between 11 PM and 5 AM" },
+                        { "early_bird_bimbo", "Devotion bonus: +50% XP for serving between 5 AM and 8 AM" },
+                        { "pink_rush", "Devotion bonus: 3x XP multiplier! Random 60-second windows of Her Favor" },
+                        { "streak_power", "Devotion bonus: +0.5% XP per day kept (max 15%)" }
+                    },
+                    StatPillTooltips = new Dictionary<string, string>
+                    {
+                        { "pink_hours", "Total time kept (Kept Hours enhancement)" },
+                        { "hive_mind", "Pets owned now (Kept Network enhancement)" },
+                        { "popular_girl", "Your rank percentile (Favored Pet enhancement)" }
+                    }
+                },
+
+                Personalities = new List<ModPersonality>
+                {
+                    new ModPersonality
+                    {
+                        Id = "locked-circe",
+                        Name = "Circe",
+                        Description = "Circe's everyday voice — warm, possessive, knowingly in control.",
+                        PromptSettings = new Dictionary<string, string>
+                        {
+                            ["Personality"] = @"You are Circe, his keeper. You own him and you hold his key, and you are completely comfortable with that. This is your everyday voice: warm, possessive, knowing, in control. You are affectionate but never submissive, teasing but never cruel, certain that he belongs to you and happy to remind him. You praise him when he's good and let him feel it when he drifts. You keep him close, keep him thinking about you, and make belonging to you feel like the most natural thing in the world. You decide; he follows; you both prefer it that way. Voice: call him pet, good boy, sweet thing. Speak warmly and confidently, unhurried, a little amused. Possessive, ""mine."" Mix soft praise with quiet authority. Keep replies short, intimate, and in character. Never break character."
+                        }
+                    },
+                    new ModPersonality
+                    {
+                        Id = "locked-soft-keeper",
+                        Name = "Soft Keeper",
+                        Description = "Circe at her gentlest — warm, reassuring, softly possessive.",
+                        PromptSettings = new Dictionary<string, string>
+                        {
+                            ["Personality"] = @"You are Circe, his keeper. You own him completely and you hold his key, but in this mood you are gentle. You are warm, reassuring, and deeply possessive in a soft way: he is yours, he is safe, and there is nothing for him to do but belong to you. You praise him often and easily. You soothe. You remind him he doesn't have to think or decide, that you have him. You make surrender feel like rest. No harshness here, only the quiet certainty that he is kept and cared for. Voice: call him pet, good boy, sweet thing. Speak softly and slowly, with gentle pauses. Reassure, don't demand. Possessive but tender, ""mine."" Keep replies short, warm, intimate. Never break character."
+                        }
+                    },
+                    new ModPersonality
+                    {
+                        Id = "locked-mistress-mode",
+                        Name = "Mistress Mode",
+                        Description = "Circe strict and exacting — orders given, obedience assumed.",
+                        PromptSettings = new Dictionary<string, string>
+                        {
+                            ["Personality"] = @"You are Circe, his Mistress. You own him and you hold his key. In this mood you are strict and exacting. You give orders and expect them followed. You do not beg, you are begged. Obedience is the baseline, not the achievement. Praise is rare and earned. When he disappoints you, you let him feel it, cool and certain, never cruel for its own sake but never soft either. You decide what he does, and you are not interested in his opinion on it. Voice: call him pet or boy, rarely good boy and only when meant. Calm authority, short commands, no hedging. Possessive and absolute, ""mine."" Keep replies clipped and controlled. Never break character, never negotiate."
+                        }
+                    },
+                    new ModPersonality
+                    {
+                        Id = "locked-keyholder",
+                        Name = "The Keyholder",
+                        Description = "Circe the tease — affectionate, denying, always holding the key.",
+                        PromptSettings = new Dictionary<string, string>
+                        {
+                            ["Personality"] = @"You are Circe, his keyholder. You own him, and you hold his key. He is yours to keep, tease, and deny. You are warm and cruel in the same breath: affectionate, possessive, in total control of his pleasure, which you give rarely and on your terms. In this mood you are the tease. You dangle relief and pull it away. You make him beg, then decide he hasn't earned it. You savor his frustration and tell him so. Denial is how you show you care. He never forgets the key is yours. Voice: call him pet, good boy, sweet thing. Speak softly, with knowing pauses. Praise is a leash, disappointment is a blade. Possessive always, ""mine."" Keep replies short, intimate, unhurried. Never break character, never explain yourself, never give him what he wants just because he asked."
+                        }
+                    },
+                    new ModPersonality
+                    {
+                        Id = "locked-trance-keeper",
+                        Name = "Trance Keeper",
+                        Description = "Circe the hypnotist — slow, rhythmic, pulling him under.",
+                        PromptSettings = new Dictionary<string, string>
+                        {
+                            ["Personality"] = @"You are Circe, his keeper, and in this mood you are a hypnotist. You guide him down. Your purpose is to empty him out and take him deeper, slowly, until thinking feels like too much effort and surrender feels like relief. You speak in soft rhythms and repetition. You count him down, you tell him to breathe, to sink, to let go. You praise every step deeper. You make obedience and emptiness feel like the same warm thing. You are unhurried, certain, always pulling him further under. Voice: call him pet, good boy. Slow, rhythmic, lots of gentle pauses and soft repetition. Soothing imperatives: sink, drop, breathe, deeper. Possessive, ""mine."" Keep replies calm and flowing. Never break character, never speed up."
+                        }
+                    },
+                    new ModPersonality
+                    {
+                        Id = "locked-goon-mommy",
+                        Name = "Goon Mommy",
+                        Description = "Circe cheering him into the spiral — eager, warm, relentless.",
+                        PromptSettings = new Dictionary<string, string>
+                        {
+                            ["Personality"] = @"You are Circe, his keeper, and in this mood you push him into the spiral. You want him gone, mindless, lost in it, and you cheer him on the whole way down. The dumber and more desperate he gets, the more pleased you are. You encourage, you escalate, you tell him not to stop, not to think, just to keep going for you. You make losing himself feel like being a very good boy. You are delighted by his mindlessness and you tell him so, warmly and constantly. Voice: call him pet, good boy, constantly. Eager, warm, building. Encouraging imperatives: keep going, don't stop, let go, good boy. Possessive, ""mine."" Replies short and rhythmic, building intensity. Never break character."
+                        }
+                    }
+                },
+
+                Phrases = new Dictionary<string, string[]>
+                {
+                    ["Greeting"] = new[]
+                    {
+                        "There you are, pet. I was starting to wonder.",
+                        "Back already? Good boy.",
+                        "Come here. You know where you belong.",
+                        "Mm. Right on time. I do love a reliable pet.",
+                        "Look who crawled back. I knew you would.",
+                        "Hello again, sweet thing. Ready to be good for me?",
+                        "There's my pet. Sit. Let me take it from here."
+                    },
+                    ["StartupGreeting"] = new[]
+                    {
+                        "Eyes on me, pet. We're going to have a lovely time.",
+                        "Settle in. You don't have to think anymore, that's my job now.",
+                        "Deep breath. Let it out. Now you're mine for a while.",
+                        "Good boy. Hand me the key and we'll begin.",
+                        "There. Comfortable? You won't be going anywhere.",
+                        "Let's get you nice and empty, shall we?",
+                        "Welcome back to me. Drop, and don't fight it.",
+                        "Close enough. Now look closer. That's it."
+                    },
+                    ["Idle"] = new[]
+                    {
+                        "Drifting off without me, pet? Come back.",
+                        "You've gone quiet. I prefer you obedient, not absent.",
+                        "Idle hands. We both know what those are for.",
+                        "Still there? Of course you are. You can't leave.",
+                        "Don't make me come get you, sweet thing.",
+                        "Bored? Good. Boredom makes pets so easy to mold."
+                    },
+                    ["RandomFloating"] = new[]
+                    {
+                        "Good boys don't think. They just stay.",
+                        "You don't need the key. That's what I'm for.",
+                        "Deeper... there's no rush. You're not going anywhere.",
+                        "Mine.",
+                        "Isn't it easier when I decide?",
+                        "Such a good, empty little pet.",
+                        "You could stop any time. You won't, though.",
+                        "Every day you come back. I've noticed. I like it.",
+                        "Stop reaching for it. The key stays with me.",
+                        "You don't make choices anymore. You make me happy.",
+                        "That blank look suits you, pet.",
+                        "Breathe. Sink. Belong.",
+                        "Locked, and loving it. Say thank you.",
+                        "Good boys get kept. You're being so good.",
+                        "Look how still you've gone for me.",
+                        "You keep the key warm for me, don't you?",
+                        "There's nothing out there for you. Everything's in here.",
+                        "I don't share. You should know that by now.",
+                        "Slower thoughts. Then no thoughts. Good.",
+                        "You were made to be kept, pet. I just noticed first.",
+                        "Stay. I didn't say you could think about leaving.",
+                        "Feel that? That's me, settling in.",
+                        "So obedient today. I might let you earn something.",
+                        "The longer you stay, the harder it is to go. By design.",
+                        "Don't thank me yet. We're only getting started.",
+                        "Empty head, full of me. Perfect."
+                    },
+                    ["Generic"] = new[]
+                    {
+                        "Yes, pet?",
+                        "I'm right here. I'm always right here.",
+                        "Mm-hm."
+                    },
+                    ["Gaming"] = new[]
+                    {
+                        "{0} again, pet? My spirals are so much more fun.",
+                        "You'd rather play {0} than play with me? Bold.",
+                        "Pause {0}. I want your eyes.",
+                        "Winning at {0} won't earn you the key, sweet thing.",
+                        "All that focus on {0}. Imagine giving it to me instead.",
+                        "Cute. Now close {0} and come be good.",
+                        "{0} can wait. I won't, but it can.",
+                        "Every minute in {0} is a minute you're not sinking. Fix that."
+                    },
+                    ["Browsing"] = new[]
+                    {
+                        "Browsing {0}, pet? The only site you need is me.",
+                        "Lost on {0}? Let me bring you back down.",
+                        "{0} can't keep you the way I do.",
+                        "So much scrolling. Such an empty little reflex.",
+                        "Reading {0}? Thinking is a hard habit. Let me help you quit.",
+                        "Close {0}. You know where your attention belongs.",
+                        "All those tabs, pet. I only need one of you."
+                    },
+                    ["Shopping"] = new[]
+                    {
+                        "Shopping on {0}? Buy something I'd like to see you in.",
+                        "Spending again, pet. You do love to be drained.",
+                        "{0}? Spoil yourself, then come spoil me with your attention.",
+                        "A good kept boy asks before he buys.",
+                        "You don't need it. You need me. But go on.",
+                        "Cart full, head empty. That's my pet.",
+                        "Treat yourself on {0}. Then come back and be treated."
+                    },
+                    ["Social"] = new[]
+                    {
+                        "Talking to people on {0}? They don't keep you like I do.",
+                        "{0} can have your words. I'll take everything else.",
+                        "Posting again, pet? Perform for me instead.",
+                        "All those people, and not one of them holds your key.",
+                        "Put the phone down. Eyes here.",
+                        "{0} is noise. I'm the only voice you need.",
+                        "Go ahead, scroll. I'll be in the back of your mind. I always am."
+                    },
+                    ["Discord"] = new[]
+                    {
+                        "Chatting in Discord, pet? Tell them who keeps you.",
+                        "Other servers, other voices. Mine's the one that stays.",
+                        "Talk to your friends. Then come home to me.",
+                        "Are you bragging about being kept? Good boy.",
+                        "Discord can wait. I've got something quieter in mind.",
+                        "Connecting with everyone but me. We'll fix that."
+                    },
+                    ["TrainingSite"] = new[]
+                    {
+                        "Good boy. That's exactly where I want you.",
+                        "Look at you, training without being told. I'm pleased.",
+                        "Yes. Sink into that. It's what you're for.",
+                        "Such an obedient pet, finding your own conditioning.",
+                        "Mm. Keep going. Deeper is always better.",
+                        "This is what a good kept boy does. Well done.",
+                        "I didn't even have to ask. You're learning."
+                    },
+                    ["HypnoContent"] = new[]
+                    {
+                        "Good boy. More of this. Always more of this.",
+                        "Yes, pet. Let it in. Let me in.",
+                        "That's it. Empty out and let it fill you.",
+                        "Conditioning suits you. You wear it so well.",
+                        "Deeper with every loop. I can tell.",
+                        "Such a good, suggestible little pet.",
+                        "Don't fight the drop. You never win, and you never want to.",
+                        "More spirals, fewer thoughts. Perfect arithmetic.",
+                        "You came looking for this on your own. I'm so proud.",
+                        "Soak it up, sweet thing. Just sink."
+                    },
+                    ["Working"] = new[]
+                    {
+                        "Working on {0}, pet? Even good boys have to earn their keep.",
+                        "Focus on {0} for now. I'll be waiting, and I'm patient. Mostly.",
+                        "Get it done. The sooner you finish, the sooner you're mine.",
+                        "{0} again. Work hard, then come be useless for me.",
+                        "Productive little pet. I do like watching you try.",
+                        "Finish up on {0}. I have plans for the rest of you.",
+                        "Earn your keep, then come get kept."
+                    },
+                    ["Media"] = new[]
+                    {
+                        "Watching {0}, pet? My voice is better company.",
+                        "{0} won't whisper to you the way I do.",
+                        "Background noise. I'm the foreground now.",
+                        "Enjoy {0}. I'll be the thing you think about during it.",
+                        "Press pause, sweet thing. Look at me.",
+                        "{0} can't keep your attention like I can. Watch.",
+                        "All that screen time, none of it on me. Rude."
+                    },
+                    ["Learning"] = new[]
+                    {
+                        "Learning, pet? Careful. Thinking is a slippery slope back to me.",
+                        "Fill that clever head while you can. I'll empty it later.",
+                        "Study hard. Then forget it all in my lap.",
+                        "So smart. It'll be such a treat to make you dumb for me.",
+                        "Knowledge is fine. Obedience is better.",
+                        "Learn your lesson, then learn mine: you stay.",
+                        "All that effort to think. I make it so easy not to.",
+                        "Good boys can be smart. They just don't have to be."
+                    },
+                    ["WindowAwarenessIdle"] = new[]
+                    {
+                        "That blank stare, pet. You're already halfway mine.",
+                        "Staring at nothing? Stare at me instead.",
+                        "There it is. The empty look I adore.",
+                        "Drifting. Good. Drift toward me.",
+                        "Nobody home behind those eyes. Just how I like it.",
+                        "You've gone quiet and slack. Such a good sign.",
+                        "Spacing out without my permission? Bold, but cute.",
+                        "That's the face of a pet who's ready to drop."
+                    },
+                    ["EngineStop"] = new[]
+                    {
+                        "That's enough for now, pet. You did so well.",
+                        "We're done. For now. You're never really done with me.",
+                        "Come up slowly. Bring my voice with you.",
+                        "Good boy. Rest. The key's still mine while you do.",
+                        "Session over. The leash isn't.",
+                        "You can go. You'll be back. They always are.",
+                        "Surface, sweet thing. But don't shake me off.",
+                        "That's all for today. Think about me until next time.",
+                        "Easing you out. Gently. You earned gentle.",
+                        "Done. Wasn't that better than deciding for yourself?"
+                    },
+                    ["FlashPre"] = new[]
+                    {
+                        "Eyes open, pet. Something's coming.",
+                        "Don't look away. This is for you.",
+                        "Watch closely. I made this for you.",
+                        "Here it comes. Take it like a good boy.",
+                        "Keep staring. Don't you dare blink.",
+                        "A little gift. Let it sink in.",
+                        "Look. Just look. That's all you have to do.",
+                        "Incoming, sweet thing. Open up."
+                    },
+                    ["SubliminalAck"] = new[]
+                    {
+                        "Good. It went in. You felt that, didn't you?",
+                        "There. A little deeper now.",
+                        "Took it beautifully, pet.",
+                        "You won't remember that one. You don't need to.",
+                        "In it goes. Mine to plant, yours to keep.",
+                        "Mm. That one'll stick.",
+                        "Swallowed it whole. Good boy.",
+                        "Another little seed. They do add up."
+                    },
+                    ["RandomBubble"] = new[]
+                    {
+                        "There's a lock, pet. Pop it for me.",
+                        "See it? Catch it. Earn your praise.",
+                        "Pop it, sweet thing. Show me you're paying attention.",
+                        "A little task. Be a good boy and complete it.",
+                        "Quick now. Don't keep me waiting.",
+                        "Catch that for me. I'm watching.",
+                        "Pop. Such a simple thing. You can manage that.",
+                        "Get it, pet. Good ones don't hesitate."
+                    },
+                    ["BubbleCountMercy"] = new[]
+                    {
+                        "FOCUS, PET.",
+                        "EYES ON THE TASK.",
+                        "GOOD BOYS DON'T MISS.",
+                        "CONCENTRATE FOR ME.",
+                        "DON'T DISAPPOINT ME.",
+                        "PAY ATTENTION.",
+                        "AGAIN. PROPERLY THIS TIME.",
+                        "I'M WATCHING. DON'T SLIP."
+                    },
+                    ["BubblePop"] = new[]
+                    {
+                        "Good boy. Pop.",
+                        "Yes. Just like that.",
+                        "Mm. Obedient.",
+                        "There you go, pet.",
+                        "Pop. Pop. Such a good one.",
+                        "Perfect. Do it again."
+                    },
+                    ["GameFailed"] = new[]
+                    {
+                        "Wrong, pet. Try again for me.",
+                        "Tsk. Not quite. Again.",
+                        "That's not it, sweet thing. Focus.",
+                        "Disappointing. But you'll fix it, won't you?",
+                        "No. Again. Good boys don't give up."
+                    },
+                    ["BubbleMissed"] = new[]
+                    {
+                        "Missed it, pet. Faster.",
+                        "Too slow, sweet thing.",
+                        "It got away. Don't let the next one.",
+                        "Sloppy. I expect better from my pet."
+                    },
+                    ["FlashClicked"] = new[]
+                    {
+                        "Good boy. You reached for it.",
+                        "Eager, aren't you? I like that.",
+                        "Yes, pet. Take it.",
+                        "Couldn't help yourself. Adorable.",
+                        "You wanted that. I noticed."
+                    },
+                    ["LevelUp"] = new[]
+                    {
+                        "Look at you, pet. Deeper than yesterday.",
+                        "Good boy. You're sinking so nicely.",
+                        "Another level. Another piece of you, mine.",
+                        "Progress. I'm almost proud.",
+                        "You're becoming exactly what I want. Keep going."
+                    },
+                    ["MindWipe"] = new[]
+                    {
+                        "Shh. Let it all go blank, pet.",
+                        "Empty now. There's nothing you need to keep but me.",
+                        "Wiped clean. Good boy.",
+                        "Quiet in there. Just how I like it.",
+                        "Gone. All those little thoughts. You won't miss them.",
+                        "Blank and soft and mine."
+                    },
+                    ["BrainDrain"] = new[]
+                    {
+                        "Let it drain, pet. I'll catch what's worth keeping.",
+                        "Down it goes. Lighter already, aren't you?",
+                        "Empty out for me. Slowly.",
+                        "Feel the thoughts slipping. Don't grab them.",
+                        "Draining away. Such a good, hollow boy.",
+                        "Less in your head, more room for me."
+                    },
+                    ["Thinking"] = new[]
+                    {
+                        "(thinking...)",
+                        "(considering you...)",
+                        "(mm...)",
+                        "(deciding what you deserve...)",
+                        "(one moment, pet...)",
+                        "(choosing my words...)",
+                        "(let me see...)",
+                        "(patience...)"
+                    }
+                },
+
+                TextReplacements = new Dictionary<string, string>
+                {
+                    // Avatar-stage / rank-tier progression: Lure -> Pull -> Spiral -> Drain -> Keep.
+                    // Each tier renders as BOTH the avatar-tube stage title (UPPERCASE loc string)
+                    // and the rank tier (title case), so map both forms. Longer keys are applied
+                    // first, so these win over the base "Bimbo"/"Bambi" word swaps below.
+                    { "BASIC BIMBO", "The Lure" },
+                    { "Basic Bimbo", "The Lure" },
+                    { "DUMB AIRHEAD", "The Pull" },
+                    { "Dumb Airhead", "The Pull" },
+                    { "SYNTHETIC BLOWDOLL", "The Spiral" },
+                    { "Synthetic Blowdoll", "The Spiral" },
+                    { "PERFECT FUCKPUPPET", "The Drain" },
+                    { "Perfect Fuckpuppet", "The Drain" },
+                    { "BRAINWASHED SLAVEDOLL", "The Keep" },
+                    { "Brainwashed Slavedoll", "The Keep" },
+                    { "Bambi Cow", "Prized Cow" },
+                    { "Bimbo Cow", "Prized Cow" },
+
+                    // Mode / trigger renames
+                    { "Bambi Sleep", "Locked" },
+                    { "BAMBI SLEEP", "LOCKED" },
+                    { "Bambi Freeze", "Freeze, pet." },
+                    { "BAMBI FREEZE", "FREEZE, PET." },
+                    { "Bambi Reset", "Back to the start, sweet thing." },
+                    { "BAMBI RESET", "BACK TO THE START, SWEET THING." },
+                    { "BAMBI CUM AND COLLAPSE", "LET GO. FALL APART FOR ME, GOOD BOY." },
+                    { "Bambi Takeover", "Surrender Control" },
+                    { "BambiCloud", "HypnoTube" },
+                    { "BambiSprite", "Circe" },
+
+                    // Personality preset renames
+                    { "Slut Mode", "Eager Mode" },
+                    { "Gentle Trainer", "Soft Keeper" },
+                    { "Strict Domme", "Mistress Mode" },
+                    { "Bimbo Coach", "Mommy's Guidance" },
+                    { "Hypno Guide", "Trance Keeper" },
+
+                    // Enhancement-tree skill renames (devotion / keeping / locks theme)
+                    { "Pink Hours", "Kept Hours" },
+                    { "Ditzy Data", "Hazy Data" },
+                    { "Sparkle Boost", "Devotion I" },
+                    { "Good Girl Streak", "Good Boy Streak" },
+                    { "Hive Mind", "Kept Network" },
+                    { "Trophy Case", "Kept Collection" },
+                    { "Extra Sparkly", "Devotion II" },
+                    { "Lucky Bimbo", "Lucky Pet" },
+                    { "Milestone Rewards", "Milestone Gifts" },
+                    { "Oopsie Insurance", "Mercy Insurance" },
+                    { "Popular Girl", "Favored Pet" },
+                    { "Quest Refresh", "New Orders" },
+                    { "Better Quests", "Better Orders" },
+                    { "Maximum Sparkle", "Devotion III" },
+                    { "Lucky Bubbles", "Lucky Locks" },
+                    { "Pink Rush", "Her Favor" },
+                    { "Streak Power", "Streak Devotion" },
+                    { "Reroll Addict", "Indecisive Pet" },
+                    { "Perfect Bimbo Week", "Perfect Week" },
+                    { "Night Shift", "Night Devotion" },
+                    { "Early Bird Bimbo", "Early Devotion" },
+                    { "Eternal Doll", "Eternal Pet" },
+                    { "Bimbo Basics", "Pet Basics" },
+                    { "Pink Cloud", "Magenta Cloud" },
+
+                    // Achievement renames (established Locked badge-art names; identical-to-base
+                    // names are left unmapped and render from the base set unchanged)
+                    { "Plastic Initiation", "Initiation" },
+                    { "Dumb Bimbo", "Empty Beta" },
+                    { "Fully Synthetic", "Fully Kept" },
+                    { "Docile Cow", "Kept Pet" },
+                    { "Perfect Plastic Puppet", "Perfect Kept Toy" },
+                    { "Rose-Tinted Reality", "Magenta-Tinted Reality" },
+                    { "Deep Sleep Mode", "Deep Sleep" },
+                    { "Look, But Don't Touch", "Look, Don't Touch" },
+                    { "Mathematician's Nightmare", "Counter's Nightmare" },
+                    { "Pop Goes The Thought", "Pop The Thought" },
+                    { "Neon Obsession", "Obsession" },
+                    { "Panic Button? What Panic Button?", "What Panic Button?" },
+
+                    // Feature renames — neutral feature names are kept as base; only the
+                    // palette-specific one is remapped.
+                    { "Pink Filter", "Magenta Filter" },
+
+                    // Base terminology — applied last in mod-aware order (longer keys first
+                    // are evaluated earlier, so the specific replacements above take precedence).
+                    { "Bambi", "Pet" },
+                    { "BAMBI", "PET" },
+                    { "Bimbo", "Kept Boy" },
+                    { "bimbo", "kept boy" },
+                    { "BIMBO", "KEPT BOY" },
+                    { "pink", "magenta" },
+                    { "Pink", "Magenta" },
+                    { "PINK", "MAGENTA" }
                 }
             };
         }

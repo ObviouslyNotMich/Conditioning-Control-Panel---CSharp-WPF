@@ -25,6 +25,12 @@ namespace ConditioningControlPanel.Services
         private string? _currentEventType;
         private System.Threading.Timer? _pingTimer;
         private static readonly TimeSpan PingInterval = TimeSpan.FromSeconds(30);
+        // A single failed ping used to drop the device immediately, so one transient
+        // blip (Wi-Fi hiccup, Lovense-cloud latency, device momentarily busy) killed
+        // the connection until the user manually reconnected (#302). Require several
+        // consecutive failures (~90s at the 30s interval) before giving up.
+        private int _consecutivePingFailures;
+        private const int MaxConsecutivePingFailures = 3;
 
         public event EventHandler<bool>? ConnectionChanged;
         public event EventHandler<string>? DeviceDiscovered;
@@ -154,6 +160,7 @@ namespace ConditioningControlPanel.Services
 
         private void StartPingTimer()
         {
+            _consecutivePingFailures = 0;
             _pingTimer?.Dispose();
             _pingTimer = new System.Threading.Timer(_ => _ = PingTickAsync(), null, PingInterval, PingInterval);
         }
@@ -172,11 +179,25 @@ namespace ConditioningControlPanel.Services
                 if (provider == null || !provider.IsConnected) return;
 
                 var ok = await provider.PingAsync();
-                if (!ok && provider == _activeProvider)
+                if (provider != _activeProvider) return; // provider swapped during the await
+
+                if (ok)
                 {
-                    App.Logger?.Warning("Haptic ping failed - device unreachable (VPN routing change?), marking disconnected");
-                    await provider.DisconnectAsync();
+                    _consecutivePingFailures = 0;
+                    return;
                 }
+
+                _consecutivePingFailures++;
+                if (_consecutivePingFailures < MaxConsecutivePingFailures)
+                {
+                    App.Logger?.Warning("Haptic ping failed ({Count}/{Max}) — device briefly unreachable, will retry before disconnecting",
+                        _consecutivePingFailures, MaxConsecutivePingFailures);
+                    return;
+                }
+
+                App.Logger?.Warning("Haptic ping failed {Max}x consecutively — device unreachable, marking disconnected", MaxConsecutivePingFailures);
+                _consecutivePingFailures = 0;
+                await provider.DisconnectAsync();
             }
             catch (Exception ex)
             {

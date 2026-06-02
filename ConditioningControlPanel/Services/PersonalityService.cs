@@ -17,14 +17,69 @@ namespace ConditioningControlPanel.Services
         public event EventHandler<PersonalityPreset>? PersonalityChanged;
 
         /// <summary>
-        /// Gets all available presets (built-in + user-created).
+        /// The built-in preset set for the current context: the active mod's personalities
+        /// (converted from its ModManifest) when it defines any, otherwise the stock presets.
+        /// This is what makes a themed mod like Locked ship its own AI personalities instead
+        /// of the default Bambi ones. When no mod personalities exist, behavior is unchanged.
+        /// </summary>
+        private static List<PersonalityPreset> GetBuiltInPresetsForActiveMod()
+        {
+            var modPresets = GetActiveModPersonalities();
+            return (modPresets != null && modPresets.Count > 0)
+                ? modPresets
+                : PersonalityPresets.GetAllBuiltIn();
+        }
+
+        /// <summary>
+        /// Converts the active mod's ModManifest.Personalities into PersonalityPresets, or
+        /// returns null when the active mod defines none. The prompt text is carried in each
+        /// personality's PromptSettings dictionary (key "Personality", plus any optional
+        /// CompanionPromptSettings sections the mod chooses to set).
+        /// </summary>
+        private static List<PersonalityPreset>? GetActiveModPersonalities()
+        {
+            var manifest = App.Mods?.ActiveMod?.Manifest;
+            var defs = manifest?.Personalities;
+            if (defs == null || defs.Count == 0) return null;
+
+            var result = new List<PersonalityPreset>();
+            foreach (var d in defs)
+            {
+                if (string.IsNullOrWhiteSpace(d.Id) || string.IsNullOrWhiteSpace(d.Name)) continue;
+
+                var cps = new CompanionPromptSettings { UseCustomPrompt = true };
+                if (d.PromptSettings != null)
+                {
+                    if (d.PromptSettings.TryGetValue("Personality", out var p)) cps.Personality = p;
+                    if (d.PromptSettings.TryGetValue("ExplicitReaction", out var er)) cps.ExplicitReaction = er;
+                    if (d.PromptSettings.TryGetValue("SlutModePersonality", out var sm)) cps.SlutModePersonality = sm;
+                    if (d.PromptSettings.TryGetValue("KnowledgeBase", out var kb)) cps.KnowledgeBase = kb;
+                    if (d.PromptSettings.TryGetValue("ContextReactions", out var cr)) cps.ContextReactions = cr;
+                    if (d.PromptSettings.TryGetValue("OutputRules", out var or)) cps.OutputRules = or;
+                }
+
+                result.Add(new PersonalityPreset
+                {
+                    Id = d.Id,
+                    Name = d.Name,
+                    Description = d.Description ?? "",
+                    IsBuiltIn = true,
+                    RequiresPremium = false,
+                    PromptSettings = cps
+                });
+            }
+            return result.Count > 0 ? result : null;
+        }
+
+        /// <summary>
+        /// Gets all available presets (built-in/mod + user-created).
         /// </summary>
         public List<PersonalityPreset> GetAllPresets()
         {
             var presets = new List<PersonalityPreset>();
 
-            // Add built-in presets first
-            presets.AddRange(PersonalityPresets.GetAllBuiltIn());
+            // Built-in presets first (mod-supplied if the active mod defines personalities)
+            presets.AddRange(GetBuiltInPresetsForActiveMod());
 
             // Add user-created presets
             var userPresets = App.Settings?.Current?.UserPersonalityPresets;
@@ -43,8 +98,10 @@ namespace ConditioningControlPanel.Services
         {
             var activeId = App.Settings?.Current?.ActivePersonalityPresetId ?? PersonalityPresets.BambiSpriteId;
 
-            // Try to find in built-in presets
-            var builtIn = PersonalityPresets.GetBuiltInById(activeId);
+            // Try the active context's built-in set (mod personalities if the active mod
+            // defines any, else stock presets).
+            var builtInSet = GetBuiltInPresetsForActiveMod();
+            var builtIn = builtInSet.FirstOrDefault(p => p.Id == activeId);
             if (builtIn != null) return builtIn;
 
             // Try to find in user presets
@@ -52,7 +109,12 @@ namespace ConditioningControlPanel.Services
                 .FirstOrDefault(p => p.Id == activeId);
             if (userPreset != null) return userPreset;
 
-            // Fallback to BambiSprite
+            // The stored preset id isn't valid for the active mod (e.g. the default
+            // "bambisprite" while a themed mod is active). Fall back to the active set's
+            // first entry — the mod's intended default personality — so the AI speaks in
+            // the mod's voice instead of the stock Bambi prompt.
+            if (builtInSet.Count > 0) return builtInSet[0];
+
             return PersonalityPresets.GetBambiSprite();
         }
 
@@ -90,8 +152,8 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         public PersonalityPreset? GetPresetById(string presetId)
         {
-            // Check built-in first
-            var builtIn = PersonalityPresets.GetBuiltInById(presetId);
+            // Check the active context's built-in set first (mod-supplied or stock)
+            var builtIn = GetBuiltInPresetsForActiveMod().FirstOrDefault(p => p.Id == presetId);
             if (builtIn != null) return builtIn;
 
             // Check user presets
@@ -174,7 +236,10 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         public bool IsBuiltIn(string presetId)
         {
-            return PersonalityPresets.BuiltInIds.Contains(presetId);
+            if (PersonalityPresets.BuiltInIds.Contains(presetId)) return true;
+            // Mod-supplied personalities are also built-in (non-deletable, non-editable).
+            var modPresets = GetActiveModPersonalities();
+            return modPresets?.Any(p => p.Id == presetId) == true;
         }
 
         /// <summary>

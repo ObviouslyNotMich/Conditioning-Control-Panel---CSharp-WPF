@@ -52,9 +52,31 @@ DO NOT name old Bambi Sleep audio files (Bambi IQ Lock, Bambi Body Lock, Rapid I
 
 Creator to recommend: PlatinumPuppets";
             }
-            else
+
+            // Mod-aware video knowledge: a themed mod (e.g. Locked) that ships its own
+            // DefaultVideoLinks gets a blurb listing ITS curated titles, so the companion
+            // recommends the mod's content instead of falling into the legacy Bambi/Sissy
+            // branches below. The titles become clickable when the AI says them verbatim
+            // (KnownVideoLinks is reloaded from the active mod's links on switch).
+            var modVideoLinks = App.Mods?.GetVideoLinks();
+            if (modVideoLinks != null && modVideoLinks.Count > 0)
             {
-                // Sissy Hypno mode - check if user has configured custom SH video links
+                // List one title per line, quoted — the same format the legacy HYPNOTUBE
+                // section uses, which the models copy from reliably (so the titles match
+                // KnownVideoLinks and render as clickable links).
+                var titleLines = string.Join("\n", modVideoLinks.Keys
+                    .Where(k => !string.Equals(k, "Movies", System.StringComparison.OrdinalIgnoreCase))
+                    .Select(k => $"- \"{k}\""));
+                App.Logger?.Debug("BambiSprite: mod video-link block active with {Count} titles", modVideoLinks.Count);
+                return $@"
+--- VIDEO LINKS (the ONLY videos you may name) ---
+When you suggest a video, copy its title EXACTLY from this list, word for word, and say it naturally — the app turns it into a clickable link. Do NOT output URLs. NEVER invent a title or name anything not on this list. If nothing fits, don't name a video at all.
+{titleLines}";
+            }
+
+            {
+                // Sissy Hypno mode (legacy fallback for the Sissy mod and any mode without its
+                // own video link set) - check if user has configured custom SH video links
                 var hasUserSHLinks = !string.IsNullOrWhiteSpace(App.Settings?.Current?.HypnotubeLinksSissyHypno);
 
                 if (hasUserSHLinks)
@@ -506,9 +528,14 @@ Example responses with REAL video names:
                 sb.AppendLine();
             }
 
-            // Append hypnotube video links based on content mode
+            // Append hypnotube video links based on content mode — but ONLY for modes that do
+            // NOT ship their own DefaultVideoLinks. A themed mod (e.g. Locked) already has its
+            // curated titles listed via GetCoreMediaLinks above; skipping the legacy Bambi/Sissy
+            // link pools here stops off-theme (sissy) suggestions like "Ultimate Sissy Mindfuck"
+            // from leaking in through HypnotubeLinksSissyHypno.
             string hypnotubeLinks = "";
-            if (settings != null)
+            var modProvidesVideoLinks = (App.Mods?.GetVideoLinks()?.Count ?? 0) > 0;
+            if (settings != null && !modProvidesVideoLinks)
             {
                 if (App.Settings?.Current?.IsBambiMode == true)
                 {

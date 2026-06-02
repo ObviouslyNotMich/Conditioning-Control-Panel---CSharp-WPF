@@ -107,6 +107,12 @@ public class GamificationBridge : IDisposable
                 App.RemoteControl.CommandReceived += OnRemoteCommand;
             }
 
+            // Retroactive: best_friends only fires on the CompanionLevelUp *event*, so a
+            // user who already maxed their companion(s) before this achievement existed (or
+            // before the bridge subscribed) never re-triggers it (#308). Check current
+            // companion levels once at startup and unlock if the milestone is already met.
+            CheckExistingCompanionMilestone();
+
             App.Logger?.Information("GamificationBridge started — achievement subscriptions wired");
         }
         catch (Exception ex)
@@ -201,6 +207,30 @@ public class GamificationBridge : IDisposable
                 Ach?.TryUnlock("best_friends");
         }
         catch (Exception ex) { App.Logger?.Warning(ex, "GamificationBridge: companion level handler failed"); }
+    }
+
+    /// <summary>
+    /// Unlock best_friends retroactively if any companion already sits at/above the
+    /// milestone level. The CompanionLevelUp event only fires on a transition, so
+    /// companions maxed before this achievement (or before the bridge subscribed)
+    /// would otherwise never award it (#308). TryUnlock is idempotent.
+    /// </summary>
+    private void CheckExistingCompanionMilestone()
+    {
+        try
+        {
+            var data = App.Settings?.Current?.CompanionProgressData;
+            if (data == null) return;
+            foreach (var progress in data.Values)
+            {
+                if (progress != null && progress.Level >= BestFriendsCompanionLevel)
+                {
+                    Ach?.TryUnlock("best_friends");
+                    return;
+                }
+            }
+        }
+        catch (Exception ex) { App.Logger?.Warning(ex, "GamificationBridge: retroactive companion milestone check failed"); }
     }
 
     private void OnCompanionMessageSent(object? sender, EventArgs e)
