@@ -137,6 +137,10 @@ ConditioningControlPanel/DroneMod/*
 # bundled built-in mod (see ConditioningControlPanel.csproj + ModService.ExtractBundledBuiltInMods).
 !ConditioningControlPanel/DroneMod/drone-mode.ccpmod
 
+# ...and the Locked mode resources bundle, likewise shipped as a bundled
+# built-in mod (see ConditioningControlPanel.csproj + ModService.ExtractBundledResourceMods).
+!ConditioningControlPanel/LockedMod/locked-resources.ccpmod
+
 # MSBuild temp files
 *_wpftmp.csproj
 
