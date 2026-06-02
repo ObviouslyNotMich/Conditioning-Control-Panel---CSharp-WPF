@@ -362,21 +362,24 @@ namespace ConditioningControlPanel.Services
         private const int LeftEyeOuterIdx = 33,  LeftEyeInnerIdx = 133;
         private const int RightEyeOuterIdx = 263, RightEyeInnerIdx = 362;
 
-        // Hard ceiling on how long the camera open (VideoCapture ctor + probe
-        // frames) may block before we give up. Some drivers / virtual cameras
-        // wedge the ctor indefinitely, which used to hang Start() under the
-        // state lock forever and freeze the loading splash at "Opening camera…"
-        // (#311). When this elapses we declare CameraInUse and move on.
+        // Infinite-hang guard, NOT a UX timeout. The open (VideoCapture ctor +
+        // probe frames) runs on a worker; TryOpenCamera's Wait returns the
+        // instant that worker finishes, so this ceiling only matters for a
+        // driver that wedges the ctor *forever* — which used to hang Start()
+        // under the state lock and freeze the loading splash at "Opening
+        // camera…" (#311). A slow-but-successful open is adopted as soon as it
+        // completes, well before this elapses.
         //
-        // 12s was too tight: common UVC webcams (e.g. Logitech C920) take 13s+
-        // for their first MSMF init, especially with virtual-camera filters
-        // installed (NVIDIA Broadcast, OBS, VTubeStudio). The watchdog fired
-        // mid-open, declared CameraInUse, then disposed the handle the worker
-        // finished opening a beat later — surfacing as "camera in use" plus the
-        // camera light flicking on ~10s after the failure (#321). The open runs
-        // on a worker thread while the splash keeps animating, so a generous
-        // bound costs healthy cameras nothing.
-        private const int CameraOpenTimeoutSeconds = 30;
+        // History: 12s, then 30s, were both too tight. MSMF source activation
+        // is pathologically slow when several virtual-camera filters are
+        // registered (Snap, FilterOnMe, OBS, NVIDIA Broadcast, VTubeStudio) —
+        // it walks every one. Real opens were completing at ~30-40s, but the
+        // watchdog had already fired, set _openAbandoned, declared CameraInUse,
+        // and disposed the handle the worker opened a beat later: "camera in
+        // use" + the camera light flicking on ~10s after the failure
+        // (#321 C920, #323 GENERAL WEBCAM). 90s clears realistic slow opens
+        // with margin while still bounding a genuinely wedged driver.
+        private const int CameraOpenTimeoutSeconds = 90;
 
         // Set when a camera-open attempt times out so the worker that's still
         // blocked in the driver disposes whatever it eventually opens instead of
