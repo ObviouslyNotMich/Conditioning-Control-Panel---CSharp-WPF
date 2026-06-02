@@ -232,6 +232,24 @@ namespace ConditioningControlPanel.Services
                         ProfileLoaded?.Invoke(this, EventArgs.Empty);
                         return true;
                     }
+
+                    // V2 sync returned false. The most common benign cause is the
+                    // defaults guard inside SyncProfileAsync: when local progress looks
+                    // like fresh defaults (Level 1, <100 XP) it refuses to PUSH so a
+                    // settings reset can't zero the server — but that also skips the
+                    // only authoritative READ a V2 user gets (the sync response),
+                    // leaving them stuck at Level 1 until they grind 100 XP to release
+                    // the guard (#293). Heal with a READ-ONLY profile fetch (no upload,
+                    // so it cannot clobber the server) + take-higher apply. The V1
+                    // fallback below can't cover this: V2-native users have no record
+                    // in the V1 store, so it returns empty defaults and no-ops.
+                    if (await TryHealDefaultsFromServerAsync(unifiedId!))
+                    {
+                        _hasLoadedProfile = true;
+                        ProfileLoaded?.Invoke(this, EventArgs.Empty);
+                        return true;
+                    }
+
                     // V2 failed — fall through to V1 if OAuth is available
                     App.Logger?.Warning("V2 sync failed, attempting V1 fallback");
                 }
@@ -320,6 +338,48 @@ namespace ConditioningControlPanel.Services
             {
                 App.Logger?.Error(ex, "Failed to load cloud profile");
                 LastSyncError = ex.Message;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// When local progression looks like fresh defaults at boot (Level 1, &lt;100 XP),
+        /// the push-guard in <see cref="SyncProfileAsync"/> skips the round-trip, so a
+        /// settings reset / restore never pulls the real level back down (#293). This does
+        /// a READ-ONLY V2 profile fetch (GET, no upload — cannot clobber the server) and
+        /// adopts it via the take-higher <see cref="V2AuthService.ApplyUserDataToSettings"/>.
+        /// Returns true only if the server had real progress that was adopted. Safe to call
+        /// for any failure of the V2 sync — it no-ops when local already has progress or the
+        /// server record is itself empty.
+        /// </summary>
+        private async Task<bool> TryHealDefaultsFromServerAsync(string unifiedId)
+        {
+            var settings = App.Settings?.Current;
+            if (settings == null || string.IsNullOrEmpty(unifiedId)) return false;
+
+            // Only heal genuine-looking defaults; a real local profile needs no help.
+            var localTotalXp = App.Progression?.GetTotalXP(settings.PlayerLevel, settings.PlayerXP) ?? settings.PlayerXP;
+            if (settings.PlayerLevel > 1 || localTotalXp >= 100) return false;
+
+            try
+            {
+                var v2Auth = new V2AuthService();
+                var user = await v2Auth.GetUserProfileAsync(unifiedId);
+                if (user == null) return false;
+
+                // Server record is itself uninitialized — nothing to adopt (genuine new user).
+                if (user.Level <= 1 && user.Xp <= 0) return false;
+
+                App.Logger?.Warning("Boot heal (#293): local looked like defaults (Level {LL}, {LX} XP) but server has Level {SL}, {SX} XP — adopting server profile via read-only fetch (no upload).",
+                    settings.PlayerLevel, (int)localTotalXp, user.Level, user.Xp);
+
+                v2Auth.ApplyUserDataToSettings(user); // take-higher; cannot lower a legit local
+                App.Settings?.Save();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Boot heal (#293): read-only profile fetch failed");
                 return false;
             }
         }

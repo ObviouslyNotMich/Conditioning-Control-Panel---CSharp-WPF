@@ -362,6 +362,18 @@ namespace ConditioningControlPanel.Services
         private const int LeftEyeOuterIdx = 33,  LeftEyeInnerIdx = 133;
         private const int RightEyeOuterIdx = 263, RightEyeInnerIdx = 362;
 
+        // Hard ceiling on how long the camera open (VideoCapture ctor + probe
+        // frames) may block before we give up. Some drivers / virtual cameras
+        // wedge the ctor indefinitely, which used to hang Start() under the
+        // state lock forever and freeze the loading splash at "Opening camera…"
+        // (#311). When this elapses we declare CameraInUse and move on.
+        private const int CameraOpenTimeoutSeconds = 12;
+
+        // Set when a camera-open attempt times out so the worker that's still
+        // blocked in the driver disposes whatever it eventually opens instead of
+        // leaking a live capture handle behind our back.
+        private volatile bool _openAbandoned;
+
         // Capture-thread state
         private VideoCapture? _capture;
         private BlazeFaceDetector? _faceDetector;
@@ -750,6 +762,53 @@ namespace ConditioningControlPanel.Services
 
         private bool TryOpenCamera()
         {
+            _openAbandoned = false;
+
+            // The VideoCapture ctor and the probe reads below can block for an
+            // unbounded time on a wedged driver or a virtual camera that never
+            // produces a frame. Run them on a worker and bound the wait so Start()
+            // (which holds _stateLock) can't hang the whole engine + splash (#311).
+            VideoCapture? opened = null;
+            var openTask = Task.Run(() =>
+            {
+                var cap = OpenCaptureCore();
+                if (cap == null) return false;
+                // If we already timed out, the caller has moved on — don't publish
+                // a handle nobody will dispose.
+                if (_openAbandoned) { try { cap.Dispose(); } catch { } return false; }
+                opened = cap;
+                return true;
+            });
+
+            if (!openTask.Wait(TimeSpan.FromSeconds(CameraOpenTimeoutSeconds)))
+            {
+                _openAbandoned = true;
+                App.Logger?.Warning(
+                    "WebcamTrackingService: camera open timed out after {Seconds}s — driver may be hung or the device is held exclusively by another app",
+                    CameraOpenTimeoutSeconds);
+                SetState(WebcamTrackingState.CameraInUse);
+                return false;
+            }
+
+            if (!openTask.Result || opened == null)
+            {
+                // Core already set the appropriate failure state (CameraDenied /
+                // CameraInUse / Error), or the result was abandoned post-timeout.
+                return false;
+            }
+
+            _capture = opened;
+            return true;
+        }
+
+        /// <summary>
+        /// Blocking camera-open core. Returns an opened <see cref="VideoCapture"/>
+        /// on success, or null after setting the appropriate failure state. Does
+        /// NOT publish to <see cref="_capture"/> — the watchdog in TryOpenCamera
+        /// owns that so a post-timeout success can be safely disposed.
+        /// </summary>
+        private VideoCapture? OpenCaptureCore()
+        {
             try
             {
                 int configured = App.Settings?.Current?.WebcamDeviceIndex ?? -1;
@@ -799,7 +858,7 @@ namespace ConditioningControlPanel.Services
                             "WebcamTrackingService: VideoCapture.Open returned false on both MSMF and DSHOW for device index {Index} ('{Name}')",
                             deviceIndex, detectedName);
                         SetState(WebcamTrackingState.CameraDenied);
-                        return false;
+                        return null;
                     }
                 }
 
@@ -835,18 +894,17 @@ namespace ConditioningControlPanel.Services
                         "WebcamTrackingService: probe frame failed after {Attempts} attempts for device index {Index} ('{Name}') — camera may be held by antivirus webcam shielding, Windows camera privacy, or another app",
                         probeAttempts, deviceIndex, detectedName);
                     SetState(WebcamTrackingState.CameraInUse);
-                    return false;
+                    return null;
                 }
 
-                _capture = cap;
                 App.Logger?.Information("WebcamTrackingService: device {Index} ('{Name}') opened successfully", deviceIndex, detectedName);
-                return true;
+                return cap;
             }
             catch (Exception ex)
             {
-                App.Logger?.Warning(ex, "WebcamTrackingService: TryOpenCamera threw");
+                App.Logger?.Warning(ex, "WebcamTrackingService: OpenCaptureCore threw");
                 SetState(WebcamTrackingState.Error);
-                return false;
+                return null;
             }
         }
 

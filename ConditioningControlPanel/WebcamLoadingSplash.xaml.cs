@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace ConditioningControlPanel
 {
@@ -58,6 +59,30 @@ namespace ConditioningControlPanel
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
             };
             ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, animation);
+        }
+
+        /// <summary>
+        /// Show a failure message on the splash, then auto-close after a short
+        /// beat so the user can read WHY eye-tracking didn't start (camera in
+        /// use, OS-denied, engine error, or open timed out) instead of the bar
+        /// silently vanishing or hanging forever (#300, #311). Safe to call from
+        /// any thread; idempotent with CloseSplash.
+        /// </summary>
+        public void ShowErrorAndClose(string message)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => ShowErrorAndClose(message)));
+                return;
+            }
+            if (_closing) return;
+            StopPulse();
+            if (!string.IsNullOrEmpty(message)) TxtStatus.Text = message;
+            ProgressFill.Opacity = 1.0;
+
+            var hold = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2800) };
+            hold.Tick += (s, e) => { hold.Stop(); CloseSplash(); };
+            hold.Start();
         }
 
         /// <summary>

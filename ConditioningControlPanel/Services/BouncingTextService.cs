@@ -49,6 +49,43 @@ public class BouncingTextService : IDisposable
 
     public bool IsRunning => _isRunning;
 
+    /// <summary>
+    /// Current bounding rect of the bouncing text in PHYSICAL virtual-desktop
+    /// pixels, padded to absorb motion between OCR self-exclusion cache refreshes.
+    /// Consumed by <see cref="App.GetCcpWindowRectsCached"/> so the avatar's
+    /// awareness OCR doesn't read the app's own bouncing words (#287). The
+    /// full-screen overlay window itself is dropped from the exclusion set by the
+    /// per-monitor span filter, so this small moving rect has to be supplied
+    /// separately. A single global rect covers all per-screen windows since they
+    /// share one _posX/_posY in virtual-desktop DIP space.
+    ///
+    /// Caller must invoke on the UI thread (the animation timer mutates these
+    /// fields there). Returns empty when not running.
+    /// </summary>
+    public System.Drawing.Rectangle[] GetActiveTextScreenRects()
+    {
+        if (!_isRunning) return Array.Empty<System.Drawing.Rectangle>();
+        try
+        {
+            var dpiScale = GetDpiScale();
+            // Pad generously: the text drifts a few px/frame at ~30fps and the OCR
+            // rect cache is ~250ms stale, so a word could otherwise slip the rect
+            // between refreshes. Bouncing text is large and isolated, so modest
+            // over-exclusion costs nothing.
+            double padX = _textWidth * 0.5 + 60;
+            double padY = _textHeight * 0.5 + 60;
+            int left   = (int)Math.Floor((_posX - padX) * dpiScale);
+            int top    = (int)Math.Floor((_posY - padY) * dpiScale);
+            int right  = (int)Math.Ceiling((_posX + _textWidth + padX) * dpiScale);
+            int bottom = (int)Math.Ceiling((_posY + _textHeight + padY) * dpiScale);
+            return new[] { new System.Drawing.Rectangle(left, top, right - left, bottom - top) };
+        }
+        catch
+        {
+            return Array.Empty<System.Drawing.Rectangle>();
+        }
+    }
+
     public event EventHandler? OnBounce;
 
     public void Start(bool bypassLevelCheck = false, List<string>? pool = null)
@@ -147,6 +184,14 @@ public class BouncingTextService : IDisposable
         try
         {
             var typeface = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+            // MainWindow can be null during startup/shutdown; GetDpi(null) throws an
+            // NRE that the catch below swallows into a noisy [WRN] (#305). Resolve a
+            // DPI source that may be null and fall back to 1.0 PixelsPerDip.
+            var dpiSource = Application.Current?.MainWindow
+                            ?? _windows.FirstOrDefault();
+            double pixelsPerDip = dpiSource != null
+                ? VisualTreeHelper.GetDpi(dpiSource).PixelsPerDip
+                : 1.0;
             var formattedText = new FormattedText(
                 _currentText,
                 CultureInfo.CurrentCulture,
@@ -155,7 +200,7 @@ public class BouncingTextService : IDisposable
                 _currentFontSize,
                 Brushes.White,
                 new NumberSubstitution(),
-                VisualTreeHelper.GetDpi(Application.Current.MainWindow).PixelsPerDip);
+                pixelsPerDip);
             
             _textWidth = formattedText.Width;
             _textHeight = formattedText.Height;

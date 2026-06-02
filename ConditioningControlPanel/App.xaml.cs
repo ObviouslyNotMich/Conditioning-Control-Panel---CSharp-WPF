@@ -566,6 +566,7 @@ namespace ConditioningControlPanel
                     // outside the dispatcher lock — GetWindowRect is a thread-safe
                     // Win32 call and doesn't need dispatcher affinity.
                     var hwnds = new System.Collections.Generic.List<IntPtr>();
+                    System.Drawing.Rectangle[] bouncingRects = Array.Empty<System.Drawing.Rectangle>();
                     dispatcher.Invoke(() =>
                     {
                         foreach (var w in Current!.Windows.OfType<Window>())
@@ -580,17 +581,27 @@ namespace ConditioningControlPanel
                             }
                             catch { /* skip malformed window */ }
                         }
+
+                        // Bouncing text lives in a full-screen overlay window that
+                        // the per-monitor span filter below drops, so its small
+                        // moving text rect would otherwise be read back by the
+                        // awareness OCR (#287). Capture it here on the UI thread.
+                        bouncingRects = BouncingText?.GetActiveTextScreenRects()
+                                        ?? Array.Empty<System.Drawing.Rectangle>();
                     });
 
                     // Per-monitor span filter: any CCP window whose rect fully
                     // covers any single screen is a full-screen overlay
-                    // container (flash/gaze/bubble surfaces, blur overlays).
-                    // Those carry no readable text but spanned monitor-sized
+                    // container (flash/gaze/bubble surfaces, blur overlays,
+                    // and the BouncingText overlay). Those carry no readable
+                    // text at the window level but spanned monitor-sized
                     // exclusion rects were swallowing every OCR'd word in
                     // multi-monitor setups (#273). Sized windows like
-                    // AvatarTube, MantraWindow, BouncingText, LockCard,
-                    // subliminal popups, etc. fall well below per-monitor
-                    // bounds and stay in the exclusion list where they belong.
+                    // AvatarTube, MantraWindow, LockCard, subliminal popups,
+                    // etc. fall well below per-monitor bounds and stay in the
+                    // exclusion list where they belong. BouncingText IS
+                    // full-screen, so its actual text rect is added separately
+                    // below (#287) rather than excluding the whole monitor.
                     var screens = GetAllScreensCached();
 
                     foreach (var hwnd in hwnds)
@@ -605,6 +616,15 @@ namespace ConditioningControlPanel
                         if (SpansAnyMonitor(w, h, screens)) continue;
 
                         rects.Add(new System.Drawing.Rectangle(r.Left, r.Top, w, h));
+                    }
+
+                    // Add the bouncing-text rect (captured on the UI thread above).
+                    // It rode through the span filter as a full-screen window, so
+                    // only its small moving text region is excluded — not the
+                    // whole monitor (which would regress #273).
+                    foreach (var br in bouncingRects)
+                    {
+                        if (br.Width > 0 && br.Height > 0) rects.Add(br);
                     }
                 }
                 catch (Exception ex)

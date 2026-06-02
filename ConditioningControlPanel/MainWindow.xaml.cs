@@ -5025,13 +5025,26 @@ namespace ConditioningControlPanel
             _onWebcamStartupState = state =>
             {
                 if (_webcamLoadingSplash == null) return;
-                // Start() failed or was aborted before reaching 1.0 — dismiss.
-                if (state == WebcamTrackingState.Error
-                    || state == WebcamTrackingState.CameraInUse
-                    || state == WebcamTrackingState.CameraDenied
-                    || state == WebcamTrackingState.Stopped)
+                // Start() failed or was aborted before reaching 1.0. Surface WHY
+                // rather than letting the bar silently vanish (#300) or hang
+                // forever waiting on a wedged camera open (#311).
+                switch (state)
                 {
-                    _webcamLoadingSplash.CloseSplash();
+                    case WebcamTrackingState.CameraInUse:
+                        _webcamLoadingSplash.ShowErrorAndClose(
+                            "Camera unavailable — it may be in use by another app, or blocked by antivirus / Windows camera privacy.");
+                        break;
+                    case WebcamTrackingState.CameraDenied:
+                        _webcamLoadingSplash.ShowErrorAndClose(
+                            "Camera access denied — enable it in Windows Settings ▸ Privacy ▸ Camera, then try again.");
+                        break;
+                    case WebcamTrackingState.Error:
+                        _webcamLoadingSplash.ShowErrorAndClose(
+                            "Eye-tracking engine failed to start. See the webcam debug log for details.");
+                        break;
+                    case WebcamTrackingState.Stopped:
+                        _webcamLoadingSplash.CloseSplash();
+                        break;
                 }
             };
 
@@ -5765,7 +5778,13 @@ namespace ConditioningControlPanel
         private void BtnWebcamDeviceRefresh_Click(object sender, RoutedEventArgs e)
         {
             PopulateWebcamDeviceCombos();
-            AppendWebcamDebugLog($"Re-scanned cameras: {(CmbWebcamDevice?.Items.Count ?? 0)} found.");
+            // Report the count of actually-enumerated devices, NOT CmbWebcamDevice.Items.Count
+            // — when zero cameras are found the combo holds a single "(no cameras detected)"
+            // placeholder item, which made the message falsely say "1 found" (#291).
+            int found = App.Webcam?.EnumerateDevices().Count ?? 0;
+            AppendWebcamDebugLog(found == 0
+                ? "Re-scanned cameras: none detected."
+                : $"Re-scanned cameras: {found} found.");
         }
 
         // Re-entrancy guard so seeding the ComboBox doesn't trigger the save path.
