@@ -20,48 +20,47 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.0.3";
+        public const string AppVersion = "6.0.4";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.0.3 - Deeper Drop
+        public const string CurrentPatchNotes = @"v6.0.4 - Circe's Lock
 
 ✨ FEATURES
-- Enhance ANY video - the Deeper engine now binds to mandatory and asset
-  videos, not just bound enhancements (gated behind a default-off setting
-  with a new how-it-works bridge).
-- Calibration overhaul: 16-point grid, never-fail verify, and a 6-blink
-  stop-and-recalibrate gesture.
-- Gamification v2 - GamificationBridge plus 30 new achievements.
-- Season Recap card with mod-aware theming.
-- In-app tutorial video help system with interactive help popovers.
-- Dashboard: right-click any feature card to quick-toggle it.
-- Deeper editor: webcam loading splash, unified drag-and-drop, export QoL.
-- Smart nudge to enable enhancement/webcam on enhanced mandatory videos.
-
-🎨 UI/UX
-- Lab tab redesign - Mind/Eyes zones, hero headers, webcam engine bar.
-- Mod-sensitive Lab hero headers with drone-mode versions.
-- Wide banner hero art for Awareness, Remote Control, and Blink Trainer.
-- 58 new achievement icons (29 drone-styled + 29 neon) for gamification v2.
+- Say hello to Circe's Lock, our newest mod and the reason this release has
+  the name it does. Circe is a keyholder, warm and a little possessive,
+  dressed in hot magenta and black, and she keeps you as her pet. Pick this
+  mod and the whole app changes to match her: the bouncing text, the
+  subliminals, the video links, her voice, the lock cards. It all stays on
+  theme now, nothing from the other mods bleeds through.
+    - She comes with six moods. Her warm everyday self, a Gentle side, a
+      strict Mistress, a Tease who lives to deny you, a slow hypnotic Trance
+      Keeper, and Goon Mommy when she wants you gone.
+    - Whichever one you pick, she wants the same things: you edging, gooning,
+      and locked, key handed over and staying that way. ""Hush now. Circe has you.""
+    - Comes ready to play with the bundled locked-resources.ccpmod pack.
+- Remote: new play_hypnotube command (allowlisted, panic-safe).
+- UI: webcam controls now surfaced, scheduler and ramp panels merged, plus a
+  directory-listing confirmation step.
 
 🔧 BUG FIXES
-- Avatar tube and bubble now stay above the main window on foregrounding.
-- Auth: self-heal a divergent auth token on provider validate.
-- Season data-loss + video-bridge threading/leak fixes from pre-merge review.
-- Webcam: better low-light mouth detection + 1s gap between calibration
-  mouth opens.
-- Haptics: device pulses on each Blink Trainer blink.
-- Moderation: corrected policy URL domain + scoped Content Policy Notice
-  to user input.
-- Takeover: dropped phantom level-100 gate + added a how-it-works guide.
-- Autonomy toggle no longer desyncs on remote panic.
-- Achievements: parked unobtainable directors_cut + hardened
-  throw_away_the_key.
-- Deeper: correct gaze geometry, detect TimelineItems webcam rules, and
-  start the engine off the UI thread.";
+- Each mod keeps its own AttentionPool across switches and reboots.
+- Subliminal default top-up is now mod-aware.
+- Remote/haptics: engine restores when a controller leaves, looser ping
+  tolerance, emote watermark fix.
+- Webcam: falls back to WinRT/Media Foundation when DirectShow finds no devices.
+- Bug-triage batch: webcam start UX, OCR self-exclusion, localization,
+  sync healing.
+
+🌍 LOCALIZATION
+- Simplified Chinese (zh-CN) caught up. Huge thanks to 🈷️lin for the contribution!
+
+📦 OTHER
+- Updated Patreon tier 2 image.
+
+Season: Juicy June";
 
         private const string GitHubOwner = "CodeBambi";
         private const string GitHubRepo = "Conditioning-Control-Panel---CSharp-WPF";
