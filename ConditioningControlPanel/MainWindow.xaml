@@ -1699,7 +1699,12 @@
                                               Padding="{TemplateBinding Padding}"
                                               VerticalAlignment="Center"/>
                             </Border>
+                            <!-- Default Collapsed so the grey last-sent ghost doesn't sit on
+                                 top of text the user is typing (#289). The empty-text trigger
+                                 below re-shows it; a template-child attribute is lower
+                                 precedence than ControlTemplate.Triggers, so that still works. -->
                             <TextBlock x:Name="WatermarkText"
+                                       Visibility="Collapsed"
                                        Foreground="#5A5A75"
                                        FontStyle="Italic"
                                        IsHitTestVisible="False"
@@ -3642,25 +3647,28 @@
                     <ColumnDefinition Width="10"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" x:Name="VelvetBtnScheduler"
-                        Click="VelvetBtnScheduler_Click"
+                <!-- Webcam card — surfaced from the Lab for discoverability.
+                     Distinct Secondary (cyan) accent + tinted fill so it stands
+                     out from the two neutral cards beside it. -->
+                <Button Grid.Column="0" x:Name="VelvetBtnWebcam"
+                        Click="VelvetBtnWebcam_Click"
                         Cursor="Hand" FontSize="12" FontWeight="Bold">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="b"
-                                    Background="{DynamicResource ElevatedSurfaceBrush}"
-                                    BorderBrush="{DynamicResource GlassBorderBrush}"
-                                    BorderThickness="1"
+                                    Background="{DynamicResource AccentTintedBgBrush}"
+                                    BorderBrush="{DynamicResource SecondaryBrush}"
+                                    BorderThickness="1.5"
                                     CornerRadius="14">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Image Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0"
-                                           Source="{Binding Source='📅', Converter={StaticResource EmojiToImageSource}}"/>
-                                    <helpers:EmojiTextBlock Text="{loc:Str section_scheduler}" Foreground="White" VerticalAlignment="Center"/>
+                                           Source="{Binding Source='📷', Converter={StaticResource EmojiToImageSource}}"/>
+                                    <helpers:EmojiTextBlock Text="{loc:Str blink_trainer_section_webcam}" Foreground="White" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource SecondaryBrush}"/>
                                     <Setter TargetName="b" Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -3694,8 +3702,11 @@
                     </Button.Template>
                 </Button>
 
-                <Button Grid.Column="4" x:Name="VelvetBtnRamp"
-                        Click="VelvetBtnRamp_Click"
+                <!-- Combined Scheduler + Intensity Ramp card. Opens one popup
+                     holding both panels. Label is two live-localized strings
+                     joined by " + " so both halves stay translated. -->
+                <Button Grid.Column="4" x:Name="VelvetBtnSchedulerRamp"
+                        Click="VelvetBtnSchedulerRamp_Click"
                         Cursor="Hand" FontSize="12" FontWeight="Bold">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
@@ -3706,7 +3717,9 @@
                                     CornerRadius="14">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Image Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0"
-                                           Source="{Binding Source='📈', Converter={StaticResource EmojiToImageSource}}"/>
+                                           Source="{Binding Source='📅', Converter={StaticResource EmojiToImageSource}}"/>
+                                    <helpers:EmojiTextBlock Text="{loc:Str section_scheduler}" Foreground="White" VerticalAlignment="Center"/>
+                                    <TextBlock Text=" + " Foreground="White" VerticalAlignment="Center"/>
                                     <helpers:EmojiTextBlock Text="{loc:Str section_intensity_ramp}" Foreground="White" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
@@ -7729,8 +7742,10 @@
                         </Button>
                     </Grid>
 
-                    <!-- Engine bar — slim webcam tracking controls (reproportioned from the old card) -->
-                    <Border CornerRadius="16" Margin="9,4,9,12" Padding="16,14"
+                    <!-- Engine bar — slim webcam tracking controls (reproportioned from the old card).
+                         Named so VelvetBtnWebcam can borrow it into a popup (reparent on open,
+                         restore on close — same instance, all handlers stay valid). -->
+                    <Border x:Name="LabWebcamEngineBar" CornerRadius="16" Margin="9,4,9,12" Padding="16,14"
                             Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource PanelAccentHoverBrush}" BorderThickness="1">
                         <StackPanel>
                             <WrapPanel Orientation="Horizontal">

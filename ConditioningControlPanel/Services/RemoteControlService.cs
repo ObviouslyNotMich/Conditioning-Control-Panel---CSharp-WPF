@@ -483,8 +483,7 @@ namespace ConditioningControlPanel.Services
                         // Controller disconnected. By default we leave effects running
                         // so a new controller can see the current state and the sub
                         // isn't snapped to a halt mid-session. Opt-in setting stops them.
-                        if (App.Settings?.Current?.StopEffectsOnRemoteDisconnect == true)
-                            StopRemoteTriggeredEffects();
+                        HandleControllerDisconnectCleanup();
 
                         // Re-publish to the Available Subjects directory so the subject
                         // flips from "taken" back to available without restarting Remote
@@ -512,8 +511,7 @@ namespace ConditioningControlPanel.Services
                         App.Logger?.Information("[RemoteControl] Controller idle for {Seconds:F0}s — auto-disconnecting", idleDuration);
                         _controllerAutoDisconnected = true;
                         ControllerConnected = false;
-                        if (App.Settings?.Current?.StopEffectsOnRemoteDisconnect == true)
-                            StopRemoteTriggeredEffects();
+                        HandleControllerDisconnectCleanup();
                         // Same rationale as the explicit-disconnect branch above: flip the
                         // directory entry back to available so the subject isn't stuck as
                         // "taken" after an idle timeout.
@@ -851,6 +849,46 @@ namespace ConditioningControlPanel.Services
         /// Lighter cleanup for controller disconnect — stops remote-triggered effects
         /// but preserves the user's engine and autonomy state.
         /// </summary>
+        /// <summary>
+        /// Runs when the controller disconnects (explicit or idle timeout). With the
+        /// opt-in "stop effects on disconnect" setting we tear remote effects down;
+        /// otherwise (the default continuity mode) we restore the local engine that
+        /// was force-stopped when the controller took over, so the sub's flashing /
+        /// autonomy(takeover) / haptics resume instead of staying dead (#294).
+        /// </summary>
+        private void HandleControllerDisconnectCleanup()
+        {
+            if (App.Settings?.Current?.StopEffectsOnRemoteDisconnect == true)
+                StopRemoteTriggeredEffects();
+            else
+                RestoreEngineAfterControllerLeftIfNeeded();
+        }
+
+        /// <summary>
+        /// Restart the local engine iff WE stopped it when the controller took over
+        /// (<see cref="_engineStoppedForController"/>). Clearing the flag means a
+        /// later controller reconnect will correctly re-take-over the now-running
+        /// engine. Runs on the poll/UI thread, same context the connect path uses to
+        /// call StopEngine.
+        /// </summary>
+        private void RestoreEngineAfterControllerLeftIfNeeded()
+        {
+            if (!_engineStoppedForController) return;
+            _engineStoppedForController = false;
+            try
+            {
+                if (MainWindowRef != null && MainWindowRef.IsEngineRunning != true)
+                {
+                    App.Logger?.Information("[RemoteControl] Controller left — restoring the engine that was stopped on takeover (#294)");
+                    MainWindowRef.StartEngine();
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "[RemoteControl] Failed to restore engine after controller left");
+            }
+        }
+
         private void StopRemoteTriggeredEffects()
         {
             try
