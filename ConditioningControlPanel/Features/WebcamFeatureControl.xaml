@@ -1,0 +1,16 @@
+<UserControl x:Class="ConditioningControlPanel.Features.WebcamFeatureControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Localization">
+
+    <!-- Empty host. MainWindow reparents the Lab webcam engine bar
+         (LabWebcamEngineBar) into SettingsHost when this popup opens, and
+         puts it back when the popup closes. Borrowing the same control
+         instance means all its handlers and live tracker state stay valid. -->
+    <StackPanel>
+        <TextBlock Text="{loc:Str blink_trainer_section_webcam}"
+                   Foreground="{DynamicResource PinkBrush}"
+                   FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+        <StackPanel x:Name="SettingsHost"/>
+    </StackPanel>
+</UserControl>

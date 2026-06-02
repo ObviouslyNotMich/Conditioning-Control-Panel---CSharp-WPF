@@ -1769,26 +1769,47 @@
                     <TextBlock x:Name="TxtTitleBarVersion" Text="{loc:Str app_title}" Foreground="White" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Camera-active indicator — visible whenever WebcamTrackingService.IsRunning is true.
-                     Lives in the title bar so it's visible from every tab; click to stop tracking. -->
-                <Border x:Name="WebcamActivePill" Grid.Column="1"
-                        Visibility="Collapsed"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Background="#882B2B" CornerRadius="12" Padding="10,4"
-                        Margin="0,0,12,0"
-                        Cursor="Hand"
-                        MouseLeftButtonDown="WebcamActivePill_Click"
-                        ToolTip="Webcam tracking is active. Click to stop.">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Fill="#FF4444" Margin="0,0,6,0" VerticalAlignment="Center">
-                            <Ellipse.Effect>
-                                <DropShadowEffect Color="#FF4444" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
-                            </Ellipse.Effect>
-                        </Ellipse>
-                        <TextBlock Text="Camera active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
+                <!-- Title-bar status pills (right-aligned, visible from every tab):
+                     directory-listing status + camera-active indicator. -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+
+                    <!-- Directory listing status — Listed / Private only / Claimed.
+                         Visible only while a remote-control session is active. Text,
+                         dot colour and tooltip are set in UpdateDirectoryListingStatus(). -->
+                    <Border x:Name="DirectoryStatusPill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#2E2E48" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="DirectoryStatusDot" Width="8" Height="8"
+                                     Fill="#B47BFF" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtDirectoryStatus" Text="Private only"
+                                       Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Camera-active indicator — visible whenever WebcamTrackingService.IsRunning is true.
+                         Click to stop tracking. -->
+                    <Border x:Name="WebcamActivePill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#882B2B" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="WebcamActivePill_Click"
+                            ToolTip="Webcam tracking is active. Click to stop.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="#FF4444" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#FF4444" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Text="Camera active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <!-- Window Control Buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -10322,6 +10343,21 @@
                                         </StackPanel>
                                         <Border x:Name="RemoteLinkPanel" Visibility="Collapsed"/>
                                         <Border x:Name="RemoteCodePanel" Visibility="Collapsed"/>
+
+                                        <!-- Listing confirmation — shown once the directory opt-in
+                                             succeeds so the user gets feedback right here instead of
+                                             having to tab over to the Subjects directory to check. -->
+                                        <Border x:Name="ListedConfirmationPanel" Visibility="Collapsed"
+                                                Background="#1E2E1E" BorderBrush="{DynamicResource SuccessGreenBrush}"
+                                                BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,16,0,0">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="✓" Foreground="{DynamicResource SuccessGreenBrush}"
+                                                           FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="You're listed in the Subjects Directory"
+                                                           Foreground="White" FontSize="13" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
 
                                     <!-- Right: QR code with themed frame -->

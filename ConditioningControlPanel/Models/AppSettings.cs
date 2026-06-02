@@ -452,6 +452,24 @@ namespace ConditioningControlPanel.Models
 
         #endregion
 
+        #region Companion Greeting
+
+        private DateTime? _lastSeenUtc = null;
+        /// <summary>
+        /// Local-only UTC timestamp of when the app was last open. Used solely to vary the
+        /// companion's warm in-app welcome-back greeting by absence length (see
+        /// AvatarTubeWindow.ShowGreeting / BuildAbsenceGreeting). Persisted to the local
+        /// settings file only — it is never added to any server request, sync payload, or
+        /// telemetry.
+        /// </summary>
+        public DateTime? LastSeenUtc
+        {
+            get => _lastSeenUtc;
+            set { _lastSeenUtc = value; OnPropertyChanged(); }
+        }
+
+        #endregion
+
         #region Flash Images
 
         private bool _flashEnabled = true;

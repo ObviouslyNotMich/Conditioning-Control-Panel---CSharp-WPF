@@ -4856,9 +4856,142 @@ namespace ConditioningControlPanel
         /// <summary>
         /// Show a greeting when the app starts
         /// </summary>
+        // Ensures the warm welcome-back greeting fires at most once per launch, even if the
+        // avatar window is re-created (e.g. attach/detach). Process-lifetime.
+        private static bool _absenceGreetingShownThisLaunch = false;
+
         private void ShowGreeting()
         {
-            GiggleFromCategory("StartupGreeting");
+            // Subsequent avatar re-creations within the same launch keep the original
+            // startup-greeting behavior; only the first one gets the absence-aware welcome.
+            if (_absenceGreetingShownThisLaunch)
+            {
+                GiggleFromCategory("StartupGreeting");
+                return;
+            }
+            _absenceGreetingShownThisLaunch = true;
+
+            var settings = App.Settings?.Current;
+
+            // Snapshot the previous local "last seen" timestamp BEFORE refreshing it.
+            DateTime? lastSeen = settings?.LastSeenUtc;
+
+            // Refresh last-seen on app open (local only). We write on open rather than on
+            // close so the value is self-contained to this method and survives crashes /
+            // force-kills; the tiny imprecision (open-to-open vs. activity-to-open) is fine
+            // for a warm greeting. suppressCloudBackup keeps this purely on-device — the
+            // timestamp is never added to any server call, sync payload, or telemetry. (It is
+            // also listed in ProfileSyncService.ExcludedBackupProperties as defense in depth.)
+            if (settings != null)
+            {
+                settings.LastSeenUtc = DateTime.UtcNow;
+                App.Settings?.Save(suppressCloudBackup: true);
+            }
+
+            var greeting = BuildAbsenceGreeting(lastSeen);
+            if (greeting == null)
+            {
+                // No prior timestamp (first run) — keep the existing startup greeting.
+                GiggleFromCategory("StartupGreeting");
+                return;
+            }
+
+            Giggle(greeting);
+        }
+
+        /// <summary>
+        /// Builds a warm, in-character welcome-back line varied by how long the user has been
+        /// away, reusing the existing display name (<see cref="App.UserDisplayName"/>) if one is
+        /// set and a generic line otherwise. Returns null when there is no prior timestamp
+        /// (first run) so the caller can fall back to the normal startup greeting.
+        ///
+        /// Tone is welcoming only — never guilt, anxiety, or streak/loss pressure. A long
+        /// absence gets a happy "welcome back", never a reproach.
+        /// </summary>
+        private string? BuildAbsenceGreeting(DateTime? lastSeen)
+        {
+            if (lastSeen == null) return null;
+
+            // Guard against clock changes / future timestamps: treat as a quick return.
+            var elapsed = DateTime.UtcNow - lastSeen.Value;
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+
+            string[] templates;
+            if (elapsed < TimeSpan.FromHours(6))
+            {
+                templates = new[]
+                {
+                    "Back already? Hehe~ 💕",
+                    "Ooh, you're back so soon! ✨",
+                    "Couldn't stay away, {name}? 😘",
+                };
+            }
+            else if (elapsed < TimeSpan.FromHours(18))
+            {
+                templates = new[]
+                {
+                    "Welcome back, {name}! 💖",
+                    "Yay, you're here again! ✨",
+                    "Hi again, cutie~ 💕",
+                };
+            }
+            else if (elapsed < TimeSpan.FromDays(3))
+            {
+                templates = new[]
+                {
+                    "There you are! So good to see you~ 💕",
+                    "You're back, {name}! ✨",
+                    "Hehe, hi again! 💖",
+                };
+            }
+            else if (elapsed < TimeSpan.FromDays(7))
+            {
+                templates = new[]
+                {
+                    "Yay, you came back! 💕",
+                    "So happy you're here, {name}! ✨",
+                    "Hi hi! Let's have some fun~ 💖",
+                };
+            }
+            else if (elapsed < TimeSpan.FromDays(30))
+            {
+                templates = new[]
+                {
+                    "Look who's back! 💕",
+                    "So good to see you again, {name}! ✨",
+                    "Welcome back, gorgeous~ 💖",
+                };
+            }
+            else
+            {
+                templates = new[]
+                {
+                    "It's been ages — welcome back! 💕✨",
+                    "Yaaay, you're back, {name}! So happy to see you! 💖",
+                    "Welcome back! Let's pick up right where we left off~ ✨",
+                };
+            }
+
+            var template = templates[_random.Next(templates.Length)];
+            return FormatGreetingName(template, App.UserDisplayName);
+        }
+
+        /// <summary>
+        /// Substitutes the user's name into a greeting template. If no name is available the
+        /// "{name}" token (and a leading ", "/" " separator, if any) is removed cleanly so the
+        /// generic line still reads naturally.
+        /// </summary>
+        private static string FormatGreetingName(string template, string? name)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+                return template.Replace("{name}", name.Trim());
+
+            return template
+                .Replace(", {name}", "")
+                .Replace(" {name}", "")
+                .Replace("{name}", "")
+                .Replace("  ", " ")
+                .Trim();
         }
 
         /// <summary>

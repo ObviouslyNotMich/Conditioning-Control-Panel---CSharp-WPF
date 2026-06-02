@@ -2324,6 +2324,7 @@ namespace ConditioningControlPanel.Services
             nameof(AppSettings.AuthToken),
             nameof(AppSettings.CustomAssetsPath),
             nameof(AppSettings.DiscordWebhookUrl),
+            nameof(AppSettings.LastSeenUtc), // Local-only greeting timestamp — must never leave the device.
         };
 
         /// <summary>
