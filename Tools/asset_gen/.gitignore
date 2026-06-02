@@ -1,0 +1,10 @@
+# Asset-generation pipeline: commit the scripts, NOT the generated output.
+# Everything here is large, regenerable, and/or character-reference material.
+*
+
+# ...except the generator scripts and docs that make the pipeline reproducible.
+!.gitignore
+!*.py
+!*.md
+!*.txt
+!requirements*.txt

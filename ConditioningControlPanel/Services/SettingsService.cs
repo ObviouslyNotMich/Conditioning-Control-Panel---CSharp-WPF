@@ -182,7 +182,13 @@ namespace ConditioningControlPanel.Services
         {
             try
             {
-                var defaults = App.Mods?.GetDefaultSubliminalPool() ?? Models.BuiltInMods.BambiSleep.SubliminalPool ?? new Dictionary<string, bool>();
+                // Only top-up from the ACTIVE mod's defaults. This runs during settings load,
+                // which happens before ModService exists; when App.Mods is null we cannot know
+                // the active mod, so skip rather than fall back to a foreign mod's pool (the old
+                // BambiSleep fallback injected Bambi subliminals into e.g. the Locked pool every
+                // boot). The active mod's pools are seeded/restored by ModService.Initialize.
+                if (App.Mods == null) return;
+                var defaults = App.Mods.GetDefaultSubliminalPool();
                 var added = new List<string>();
 
                 foreach (var trigger in defaults.Keys)

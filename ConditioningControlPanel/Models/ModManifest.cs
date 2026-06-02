@@ -51,6 +51,9 @@ namespace ConditioningControlPanel.Models
         [JsonProperty("customTriggers")]
         public List<string>? CustomTriggers { get; set; }
 
+        [JsonProperty("bouncingTextPool")]
+        public Dictionary<string, bool>? BouncingTextPool { get; set; }
+
         [JsonProperty("triggers")]
         public ModTriggers? Triggers { get; set; }
 

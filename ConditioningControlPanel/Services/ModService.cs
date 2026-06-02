@@ -71,15 +71,22 @@ namespace ConditioningControlPanel.Services
             var bambiMod = new ModPackage(BuiltInMods.BambiSleep, null, isBuiltIn: true);
             var sissyMod = new ModPackage(BuiltInMods.SissyHypno, null, isBuiltIn: true);
             var droneMod = new ModPackage(BuiltInMods.Dronification, null, isBuiltIn: true);
+            var lockedMod = new ModPackage(BuiltInMods.Locked, null, isBuiltIn: true);
             _installedMods[_baseMod.Id] = _baseMod;
             _installedMods[bambiMod.Id] = bambiMod;
             _installedMods[sissyMod.Id] = sissyMod;
             _installedMods[droneMod.Id] = droneMod;
+            _installedMods[lockedMod.Id] = lockedMod;
 
             // Replace hardcoded built-ins with extracted .ccpmod packages where
             // available so their full asset set (avatars, sounds, resources)
             // resolves via InstalledPath instead of the neutral baseline.
             ExtractBundledBuiltInMods();
+
+            // Adopt bundled resources-only packages: keep the CODE manifest but
+            // give the built-in an InstalledPath so its art/voicelines resolve.
+            // (Locked ships this way — its manifest stays in CreateLocked().)
+            ExtractBundledResourceMods();
 
             // Load user-installed mods from disk
             LoadInstalledMods();
@@ -102,6 +109,12 @@ namespace ConditioningControlPanel.Services
                 _activeMod = _baseMod;
             }
             _log?.Information("ModService initialized — active mod: {ModId} ({ModName})", _activeMod.Id, _activeMod.Name);
+
+            // Re-derive the active mod's text pools from per-mod storage (or defaults) on every
+            // boot. The settings load runs before this service exists, so the active pools held
+            // in settings.json may be stale or contaminated by the legacy subliminal merge; this
+            // restores the correct per-mod pools (and prunes cross-mod contamination) at startup.
+            RestorePoolsFromSettings(_activeMod.Id);
         }
 
         #region Install / Uninstall / Activate
@@ -642,6 +655,9 @@ namespace ConditioningControlPanel.Services
         public List<string> GetDefaultCustomTriggers() =>
             GetValue(m => m.CustomTriggers, m => m.CustomTriggers!) ?? new List<string>();
 
+        public Dictionary<string, bool> GetDefaultBouncingTextPool() =>
+            GetValue(m => m.BouncingTextPool, m => m.BouncingTextPool!) ?? new Dictionary<string, bool>();
+
         // Triggers
         public string GetFreezeTriggerText() =>
             GetStringValue(m => m.Triggers?.Freeze, m => m.Triggers!.Freeze!);
@@ -1079,6 +1095,68 @@ namespace ConditioningControlPanel.Services
             }
         }
 
+        /// <summary>
+        /// Bundled RESOURCES-ONLY packages shipped with the app, paired with the
+        /// built-in ID they back and the in-code manifest that stays authoritative.
+        /// Unlike <see cref="_bundledBuiltInMods"/>, the .ccpmod here contains only a
+        /// resources/ tree (no mod.json) — we keep the code manifest and just adopt
+        /// the extracted folder as InstalledPath, so art/voicelines resolve from it
+        /// while phrases/theme/textReplacements continue to come from code. This lets
+        /// us tweak the manifest without ever repacking the (large) asset bundle.
+        /// </summary>
+        private static readonly (string RelativePath, string BuiltInId, ModManifest Manifest)[] _bundledResourceMods =
+        {
+            ("LockedMod/locked-resources.ccpmod", BuiltInMods.LockedId, BuiltInMods.Locked),
+        };
+
+        private void ExtractBundledResourceMods()
+        {
+            var builtInRoot = Path.Combine(App.UserDataPath, "builtin_mods");
+            Directory.CreateDirectory(builtInRoot);
+
+            foreach (var (relativePath, builtInId, manifest) in _bundledResourceMods)
+            {
+                try
+                {
+                    var bundledPath = Path.Combine(
+                        AppDomain.CurrentDomain.BaseDirectory,
+                        relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+                    if (!File.Exists(bundledPath))
+                    {
+                        _log?.Warning("Bundled resource mod missing on disk: {Path}", bundledPath);
+                        continue;
+                    }
+
+                    var extractDir = Path.Combine(builtInRoot, builtInId);
+                    var resourcesDir = Path.Combine(extractDir, "resources");
+
+                    // Re-extract if the resources tree is missing, or if the bundled
+                    // package is newer than our extracted copy (covers app updates
+                    // that ship refreshed assets).
+                    var needsExtract = !Directory.Exists(resourcesDir)
+                        || File.GetLastWriteTimeUtc(bundledPath) > Directory.GetLastWriteTimeUtc(extractDir);
+
+                    if (needsExtract)
+                    {
+                        if (Directory.Exists(extractDir))
+                            Directory.Delete(extractDir, recursive: true);
+                        Directory.CreateDirectory(extractDir);
+                        ZipFile.ExtractToDirectory(bundledPath, extractDir);
+                        _log?.Information("Extracted bundled resource mod {BuiltInId} from {Path}", builtInId, bundledPath);
+                    }
+
+                    // Keep the in-code manifest authoritative; only adopt the assets.
+                    _installedMods[builtInId] = new ModPackage(manifest, extractDir, isBuiltIn: true);
+                    _log?.Information("Registered resource mod {BuiltInId} with assets at {Path}", builtInId, extractDir);
+                }
+                catch (Exception ex)
+                {
+                    _log?.Error(ex, "Failed to extract bundled resource mod {BuiltInId} (falling back to baseline assets)", builtInId);
+                }
+            }
+        }
+
         private void LoadInstalledMods()
         {
             if (!Directory.Exists(_modsFolder)) return;
@@ -1121,6 +1199,7 @@ namespace ConditioningControlPanel.Services
             settings.AttentionPoolByMod ??= new Dictionary<string, Dictionary<string, bool>>();
             settings.LockCardPhrasesByMod ??= new Dictionary<string, Dictionary<string, bool>>();
             settings.CustomTriggersByMod ??= new Dictionary<string, List<string>>();
+            settings.BouncingTextPoolByMod ??= new Dictionary<string, Dictionary<string, bool>>();
 
             if (settings.SubliminalPool != null)
                 settings.SubliminalPoolByMod[modId] = new Dictionary<string, bool>(settings.SubliminalPool);
@@ -1130,6 +1209,8 @@ namespace ConditioningControlPanel.Services
                 settings.LockCardPhrasesByMod[modId] = new Dictionary<string, bool>(settings.LockCardPhrases);
             if (settings.CustomTriggers != null)
                 settings.CustomTriggersByMod[modId] = new List<string>(settings.CustomTriggers);
+            if (settings.BouncingTextPool != null)
+                settings.BouncingTextPoolByMod[modId] = new Dictionary<string, bool>(settings.BouncingTextPool);
         }
 
         private void RestorePoolsFromSettings(string modId)
@@ -1143,6 +1224,12 @@ namespace ConditioningControlPanel.Services
             else
                 settings.SubliminalPool = new Dictionary<string, bool>(GetDefaultSubliminalPool());
 
+            // Strip any cross-mod contamination from the subliminal pool. A legacy load-time
+            // merge (since fixed) could inject another mode's default subliminals into the
+            // active pool; remove keys that are some OTHER built-in mod's default and not the
+            // active mod's. User-added phrases (not any mod's default) are preserved.
+            PruneCrossModSubliminals(settings);
+
             // Clear removed-defaults tracking since we're loading a fresh pool for this mod
             settings.RemovedDefaultSubliminals.Clear();
 
@@ -1155,6 +1242,47 @@ namespace ConditioningControlPanel.Services
                 settings.CustomTriggers = new List<string>(savedTriggers);
             else
                 settings.CustomTriggers = new List<string>(GetDefaultCustomTriggers());
+
+            if (settings.BouncingTextPoolByMod?.TryGetValue(modId, out var savedBounce) == true)
+                settings.BouncingTextPool = new Dictionary<string, bool>(savedBounce);
+            else
+                settings.BouncingTextPool = new Dictionary<string, bool>(GetDefaultBouncingTextPool());
+        }
+
+        /// <summary>
+        /// Removes subliminal entries that belong to a DIFFERENT built-in mod's default pool
+        /// and are not part of the active mod's defaults. Keeps the active mod's defaults and
+        /// any genuinely user-added phrases (which match no built-in mod's defaults).
+        /// </summary>
+        private void PruneCrossModSubliminals(Models.AppSettings settings)
+        {
+            if (settings.SubliminalPool == null || settings.SubliminalPool.Count == 0) return;
+
+            var activeDefaults = new HashSet<string>(
+                GetDefaultSubliminalPool().Keys, StringComparer.OrdinalIgnoreCase);
+
+            var foreignDefaults = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var allBuiltIn = new[]
+            {
+                Models.BuiltInMods.CCPDefault, Models.BuiltInMods.BambiSleep,
+                Models.BuiltInMods.SissyHypno, Models.BuiltInMods.Dronification,
+                Models.BuiltInMods.Locked
+            };
+            foreach (var m in allBuiltIn)
+                if (m.SubliminalPool != null)
+                    foreach (var key in m.SubliminalPool.Keys)
+                        foreignDefaults.Add(key);
+
+            var toRemove = settings.SubliminalPool.Keys
+                .Where(k => foreignDefaults.Contains(k) && !activeDefaults.Contains(k))
+                .ToList();
+
+            foreach (var k in toRemove)
+                settings.SubliminalPool.Remove(k);
+
+            if (toRemove.Count > 0)
+                _log?.Information("Pruned {Count} cross-mod subliminal entries from the active pool: {Keys}",
+                    toRemove.Count, string.Join(", ", toRemove));
         }
 
         /// <summary>

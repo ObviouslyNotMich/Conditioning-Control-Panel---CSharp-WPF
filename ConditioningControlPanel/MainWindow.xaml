@@ -3230,6 +3230,43 @@
                                 </RadioButton>
                                 </StackPanel>
                             </Border>
+                            <!-- Reload / Home button - sits just right of the site toggle.
+                                 Reloads the current site's homepage; gives a way out of a
+                                 stuck/blank page (e.g. after a remote video is stopped), since
+                                 re-clicking an already-selected site radio won't reload. -->
+                            <Button Grid.Column="2" x:Name="BtnReloadBrowser"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Click="BtnReloadBrowser_Click"
+                                    ToolTip="{loc:Str tooltip_reload_browser}"
+                                    FontSize="11" Padding="6,3" Margin="8,0,0,0">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="#33FF69B4"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#55FF69B4"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                                <helpers:EmojiTextBlock Text="🔄"/>
+                            </Button>
                             <!-- Status indicator -->
                             <TextBlock Grid.Column="3" x:Name="TxtBrowserStatus" Text="{loc:Str label_loading}"
                                        Foreground="{DynamicResource PinkBrush}" FontSize="10"
@@ -9703,7 +9740,7 @@
                     <StackPanel Grid.Row="0">
                     <Border CornerRadius="14" Margin="0,0,0,18" ClipToBounds="True" MaxHeight="320"
                             HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
-                        <Image Source="pack://application:,,,/Resources/features/awareness.png"
+                        <Image x:Name="ImgAwarenessFeature" Source="pack://application:,,,/Resources/features/awareness.png"
                                Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
                     <Grid Margin="0,0,0,22">
@@ -10108,7 +10145,7 @@
                     <!-- Hero banner -->
                     <Border CornerRadius="14" Margin="0,0,0,20" ClipToBounds="True" MaxHeight="320"
                             HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
-                        <Image Source="pack://application:,,,/Resources/features/remote_control.png"
+                        <Image x:Name="ImgRemoteControlFeature" Source="pack://application:,,,/Resources/features/remote_control.png"
                                Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
 
@@ -11957,7 +11994,7 @@
                         <!-- Hero banner -->
                         <Border CornerRadius="14" Margin="0,0,0,24" ClipToBounds="True" MaxHeight="320"
                                 HorizontalAlignment="Center" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
-                            <Image Source="pack://application:,,,/Resources/features/blink_trainer.png"
+                            <Image x:Name="ImgBlinkTrainerFeature" Source="pack://application:,,,/Resources/features/blink_trainer.png"
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
                         </Border>
 

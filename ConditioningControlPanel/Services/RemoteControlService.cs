@@ -1104,7 +1104,7 @@ namespace ConditioningControlPanel.Services
                             }
                             App.Logger?.Information("[RemoteControl] play_hypnotube id={Id}",
                                 Helpers.HtUrlHelper.TryExtractHtVideoId(htUrl));
-                            MainWindowRef?.NavigateToUrlInBrowser(htUrl, autoPlayFullscreen: true);
+                            MainWindowRef?.PlayHypnotubeFromRemote(htUrl);
                             break;
 
                         case "trigger_haptic":

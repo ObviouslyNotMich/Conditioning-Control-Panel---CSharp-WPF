@@ -326,6 +326,14 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- Locked ships a resources-only bundle (no mod.json); its manifest stays in
+         code (BuiltInMods.CreateLocked). ModService.ExtractBundledResourceMods()
+         extracts it and adopts the folder as InstalledPath for assets only. -->
+    <Content Include="LockedMod\locked-resources.ccpmod">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

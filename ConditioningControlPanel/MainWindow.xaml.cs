@@ -1402,6 +1402,7 @@ namespace ConditioningControlPanel
                         BuiltInMods.BambiSleepId,
                         BuiltInMods.SissyHypnoId,
                         BuiltInMods.DronificationId,
+                        BuiltInMods.LockedId,
                     };
                     foreach (var id in stockOrder)
                     {
@@ -1523,6 +1524,11 @@ namespace ConditioningControlPanel
                     (takeoverPath, ImgBambiTakeoverDesc),
                     ("features/vibe.png", ImgHapticsVibeDesc),
                     ("features/vibe.png", ImgVideoHapticSync),
+                    // These three render via a hardcoded pack:// URI in XAML, so without a
+                    // code override they'd always show the base (embedded) art, never a mod's.
+                    ("features/awareness.png", ImgAwarenessFeature),
+                    ("features/remote_control.png", ImgRemoteControlFeature),
+                    ("features/blink_trainer.png", ImgBlinkTrainerFeature),
                 };
                 foreach (var (path, img) in descImageMap)
                 {
@@ -22483,29 +22489,86 @@ namespace ConditioningControlPanel
             }
         }
 
+        // True while a remote controller's "play_hypnotube" video is showing in the embedded
+        // browser. Gates StopBrowserVideoFromRemote so panic/session-end only touches the
+        // browser when the controller actually started a video here — never the page the user
+        // was browsing themselves.
+        private bool _remoteBrowserVideoActive;
+
         /// <summary>
-        /// Hard-stop any video playing in the embedded browser. Used by the remote-control
-        /// panic / session-end path (RemoteControlService.StopAllRemoteEffects): a controller
-        /// can start a HypnoTube video via the "play_hypnotube" command, and panic must reliably
-        /// stop it. Exits forced fullscreen, then navigates the browser to about:blank so the
-        /// page's &lt;video&gt; element is torn down and playback halts.
+        /// Play a controller-supplied HypnoTube URL in the embedded browser (remote-control
+        /// "play_hypnotube" command). Marks the browser video as remote-active so a later panic
+        /// / session-end can stop it. The URL has already been allowlist-validated by
+        /// RemoteControlService (HtUrlHelper.IsEligibleHtUrl).
+        /// </summary>
+        public void PlayHypnotubeFromRemote(string url)
+        {
+            _remoteBrowserVideoActive = true;
+            NavigateToUrlInBrowser(url, autoPlayFullscreen: true);
+        }
+
+        /// <summary>
+        /// Stop a video a remote controller started in the embedded browser (panic /
+        /// session-end / controller-disconnect path). Exits forced fullscreen and navigates
+        /// back to the currently-selected site's homepage — this tears down the playing
+        /// &lt;video&gt; (halting playback) while leaving the browser on a usable page, rather
+        /// than a dead-end about:blank. No-op unless a remote video was actually playing.
         /// </summary>
         public void StopBrowserVideoFromRemote()
         {
+            if (!_remoteBrowserVideoActive) return;
+            _remoteBrowserVideoActive = false;
             try
             {
                 if (_isBrowserFullscreen) ExitBrowserFullscreen();
-
-                if (_browser?.WebView?.CoreWebView2 != null)
-                {
-                    _browser.WebView.CoreWebView2.Navigate("about:blank");
-                    App.Logger?.Information("[RemoteControl] Stopped browser video (navigated to about:blank)");
-                }
+                NavigateBrowserToCurrentSiteHome();
+                App.Logger?.Information("[RemoteControl] Stopped remote browser video, restored site homepage");
             }
             catch (Exception ex)
             {
                 App.Logger?.Debug("StopBrowserVideoFromRemote failed: {Error}", ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Navigate the embedded browser to the homepage of whichever site (HypnoTube /
+        /// BambiCloud) is currently selected in the toggle. Shared by the remote video-stop
+        /// path and the toolbar Reload button — re-selecting an already-checked site radio
+        /// won't fire its Checked handler, so this gives a reliable way back to a live page.
+        /// </summary>
+        private void NavigateBrowserToCurrentSiteHome()
+        {
+            if (_browser?.WebView?.CoreWebView2 == null) return;
+            try
+            {
+                var isBambiCloud = RbBambiCloud?.IsChecked == true;
+                var url = isBambiCloud ? "https://bambicloud.com/" : "https://hypnotube.com/";
+                _browser.Navigate(url);
+                App.Logger?.Information("Browser navigated to current site home: {Url}", url);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("NavigateBrowserToCurrentSiteHome failed: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Toolbar Reload button: reload the browser onto the currently-selected site's
+        /// homepage (or lazy-init the browser if it was never opened). Gives the user a way
+        /// out of a stuck/blank page — e.g. after a remote video was stopped.
+        /// </summary>
+        private void BtnReloadBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_browserInitialized)
+            {
+                var initialUrl = RbHypnoTube?.IsChecked == true
+                    ? "https://hypnotube.com/"
+                    : "https://bambicloud.com/";
+                _ = InitializeBrowserAsync(initialUrl);
+                return;
+            }
+            if (App.Settings?.Current?.OfflineMode == true) return;
+            NavigateBrowserToCurrentSiteHome();
         }
 
         #endregion
@@ -24240,6 +24303,36 @@ namespace ConditioningControlPanel
 
             // Also refresh rank title
             UpdateLevelDisplay();
+
+            // Show/hide the Bimbo Journal sub-tab based on the active mod.
+            ApplyBimboJournalModVisibility();
+        }
+
+        /// <summary>
+        /// The Bimbo Journal is built around bimbofication photo tracks, so it only
+        /// fits the CCP Default, Bambi Sleep, and Sissy Hypno mods. For any other mod
+        /// (Dronification, Locked, community mods) we hide its sub-tab entry point —
+        /// and, if it happens to be open, fall back to the Daily/Weekly panel.
+        /// Re-run whenever the active mod changes (via ApplyModFeatureNames).
+        /// </summary>
+        private void ApplyBimboJournalModVisibility()
+        {
+            if (BtnQuestSubRoadmap == null) return;
+
+            var modId = App.Mods?.ActiveModId;
+            bool supported = modId == Models.BuiltInMods.CCPDefaultId
+                          || modId == Models.BuiltInMods.BambiSleepId
+                          || modId == Models.BuiltInMods.SissyHypnoId;
+
+            BtnQuestSubRoadmap.Visibility = supported ? Visibility.Visible : Visibility.Collapsed;
+
+            // If the journal is hidden out from under the user, snap back to Daily/Weekly.
+            if (!supported && RoadmapPanel?.Visibility == Visibility.Visible)
+            {
+                RoadmapPanel.Visibility = Visibility.Collapsed;
+                if (DailyWeeklyPanel != null) DailyWeeklyPanel.Visibility = Visibility.Visible;
+                if (BtnQuestSubDaily != null) BtnQuestSubDaily.Style = (Style)FindResource("TabButtonActive");
+            }
         }
 
         /// <summary>

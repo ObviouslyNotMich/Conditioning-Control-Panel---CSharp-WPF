@@ -344,6 +344,11 @@ namespace ConditioningControlPanel
             // Apply tube layout offsets for current mod
             ApplyTubeLayoutOffsets();
 
+            // Load the active mod's video links on startup (otherwise the known-video table
+            // keeps its hardcoded defaults until the user switches mods, so a themed mod's
+            // links wouldn't be clickable on a plain boot).
+            ReloadVideoLinks();
+
             // Subscribe to mod changes to refresh tube, avatars, and titles
             if (App.Mods != null)
             {
@@ -1142,6 +1147,13 @@ namespace ConditioningControlPanel
                 transformGroup.Children.Add(new ScaleTransform(1.12, 1.12));
                 transformGroup.Children.Add(new TranslateTransform(10, 0));
                 AvatarBorder.RenderTransform = transformGroup;
+                AvatarBorder.RenderTransformOrigin = new Point(0.5, 0.5);
+            }
+            else if (App.Mods?.ActiveModId == Models.BuiltInMods.LockedId)
+            {
+                // Locked's set 1 ("The Lure") art reads smaller than the other stages
+                // (which get the +12% above); nudge it 6% bigger to match.
+                AvatarBorder.RenderTransform = new ScaleTransform(1.06, 1.06);
                 AvatarBorder.RenderTransformOrigin = new Point(0.5, 0.5);
             }
             else
@@ -3813,6 +3825,10 @@ namespace ConditioningControlPanel
 
                 var text = App.CompanionPhrases?.GetVoiceLineDisplayText(filePath)
                     ?? System.IO.Path.GetFileNameWithoutExtension(filePath);
+                // Activity voicelines bake the "{0}" app placeholder into their
+                // filename ("target application"); swap it for the focused app so
+                // the bubble names what's actually on screen instead of the literal.
+                text = Services.CompanionPhraseService.ResolveVoiceLinePlaceholder(text);
                 if (string.IsNullOrWhiteSpace(text)) return;
 
                 // Clear the queue - voice line takes priority
@@ -5241,14 +5257,28 @@ namespace ConditioningControlPanel
             return phrases[_random.Next(phrases.Length)];
         }
 
+        // Matches a run of trailing dots/ellipsis at the end of the phrase, even when
+        // tucked just inside closing wrapper chars () [] * _ ~ / whitespace. Removing
+        // it (while leaving the wrappers themselves in place) is what stops the static
+        // dots in phrases like "(thinking...)" or "[PROCESSING...]" from doubling up
+        // with the thinking animation's own dots.
+        private static readonly Regex TrailingDotsInsideWrappersRegex =
+            new Regex(@"[.…]+(?=[)\]\s*_~]*$)", RegexOptions.Compiled);
+
         // Strips dots, ellipsis, whitespace, AND markdown emphasis chars (* _ ~) from
         // both ends of a thinking phrase so the animation's dots aren't duplicated and
         // wrapping characters like "*Poppin bubbles...*" don't render asterisks around
-        // the animated dots. Trims both ends because phrases come pre-wrapped in *...*.
+        // the animated dots. Also strips a trailing dot-run sitting just inside () or []
+        // wrappers (e.g. "(thinking...)" -> "(thinking)") while preserving those brackets,
+        // since paren/bracket-wrapped phrases would otherwise keep their static dots.
+        // Trims both ends because phrases come pre-wrapped in *...*.
         private static string StripTrailingDots(string phrase)
         {
             if (string.IsNullOrEmpty(phrase)) return phrase;
-            var trimmed = phrase.Trim('.', '…', '*', '_', '~', ' ', '\t');
+            // Drop the trailing dot-run first (handles dots tucked inside ) or ] so the
+            // brackets survive), then trim the outer wrapper decoration as before.
+            var withoutDots = TrailingDotsInsideWrappersRegex.Replace(phrase, "");
+            var trimmed = withoutDots.Trim('.', '…', '*', '_', '~', ' ', '\t');
             // If the phrase was nothing but decoration (e.g. "*~*"), keep the original
             // so we don't end up animating just bare dots.
             return string.IsNullOrEmpty(trimmed) ? phrase : trimmed;
@@ -6387,7 +6417,12 @@ namespace ConditioningControlPanel
                 if (App.Personality?.SetActivePreset(presetId) == true)
                 {
                     UpdateQuickMenuState();
-                    Giggle($"Now using {preset.Name}~ *giggles*");
+                    // Use the mod-aware display name (the menu header already does this via
+                    // GetPersonalityDisplayName) so the confirmation bubble shows e.g. "Circe"
+                    // instead of the raw base preset name "BambiSprite" under the Locked mod.
+                    var shownName = App.Mods?.GetPersonalityDisplayName(preset.Name) ?? preset.Name;
+                    var confirm = $"Now using {shownName}~ *giggles*";
+                    Giggle(App.Mods?.MakeModAware(confirm) ?? confirm);
                 }
             }
         }
