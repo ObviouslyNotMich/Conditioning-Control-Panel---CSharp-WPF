@@ -1220,18 +1220,39 @@ namespace ConditioningControlPanel.Services
 
             // Restore saved customizations, or fall back to mod defaults
             if (settings.SubliminalPoolByMod?.TryGetValue(modId, out var savedPool) == true)
+            {
                 settings.SubliminalPool = new Dictionary<string, bool>(savedPool);
+
+                // Top up with any NEW defaults the active mod has shipped since this pool was
+                // saved (e.g. an app update added default subliminals to the mod), enabled by
+                // default — but never re-add ones the user explicitly removed. This is the
+                // mod-aware replacement for the old load-time merge in SettingsService, which
+                // ran before ModService existed and so couldn't see the active mod.
+                var added = new List<string>();
+                foreach (var kvp in GetDefaultSubliminalPool())
+                {
+                    if (!settings.SubliminalPool.ContainsKey(kvp.Key) &&
+                        !settings.RemovedDefaultSubliminals.Contains(kvp.Key))
+                    {
+                        settings.SubliminalPool[kvp.Key] = true;
+                        added.Add(kvp.Key);
+                    }
+                }
+                if (added.Count > 0)
+                    _log?.Information("Topped up {Count} new default subliminal(s) for mod {ModId}: {Keys}",
+                        added.Count, modId, string.Join(", ", added));
+            }
             else
+            {
+                // No saved pool for this mod yet — seed the full default set.
                 settings.SubliminalPool = new Dictionary<string, bool>(GetDefaultSubliminalPool());
+            }
 
             // Strip any cross-mod contamination from the subliminal pool. A legacy load-time
-            // merge (since fixed) could inject another mode's default subliminals into the
+            // merge (since removed) could inject another mode's default subliminals into the
             // active pool; remove keys that are some OTHER built-in mod's default and not the
             // active mod's. User-added phrases (not any mod's default) are preserved.
             PruneCrossModSubliminals(settings);
-
-            // Clear removed-defaults tracking since we're loading a fresh pool for this mod
-            settings.RemovedDefaultSubliminals.Clear();
 
             // AttentionPool has no manifest/mod default, so only restore a saved per-mod
             // copy — never wipe it to empty when none exists (it's saved by

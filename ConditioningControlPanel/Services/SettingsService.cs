@@ -111,8 +111,11 @@ namespace ConditioningControlPanel.Services
                         // Migrate plaintext auth_token from settings.json to DPAPI-encrypted storage
                         MigrateAuthToken(json);
 
-                        // Merge any new default subliminal triggers that were added in updates
-                        MergeNewDefaultSubliminalTriggers(settings);
+                        // New-default subliminal top-up now happens in
+                        // ModService.RestorePoolsFromSettings (mod-aware, after ModService is
+                        // initialized). It used to run here, but settings load precedes
+                        // ModService, so it had no active mod and wrongly merged Bambi defaults
+                        // into every mode's pool.
 
                         // Synthesize Actions lists on any keyword triggers that predate the
                         // action-list refactor so the dispatcher can always iterate Actions.
@@ -171,49 +174,6 @@ namespace ConditioningControlPanel.Services
             catch (Exception ex)
             {
                 App.Logger?.Warning("Auth token migration failed: {Error}", ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Merges any new default subliminal triggers that were added in updates.
-        /// New triggers are added as disabled so users can opt-in.
-        /// </summary>
-        private void MergeNewDefaultSubliminalTriggers(AppSettings settings)
-        {
-            try
-            {
-                // Only top-up from the ACTIVE mod's defaults. This runs during settings load,
-                // which happens before ModService exists; when App.Mods is null we cannot know
-                // the active mod, so skip rather than fall back to a foreign mod's pool (the old
-                // BambiSleep fallback injected Bambi subliminals into e.g. the Locked pool every
-                // boot). The active mod's pools are seeded/restored by ModService.Initialize.
-                if (App.Mods == null) return;
-                var defaults = App.Mods.GetDefaultSubliminalPool();
-                var added = new List<string>();
-
-                foreach (var trigger in defaults.Keys)
-                {
-                    // Skip triggers the user explicitly removed
-                    if (settings.RemovedDefaultSubliminals.Contains(trigger))
-                        continue;
-
-                    if (!settings.SubliminalPool.ContainsKey(trigger))
-                    {
-                        // Add new triggers as enabled by default (matching default behavior)
-                        settings.SubliminalPool[trigger] = true;
-                        added.Add(trigger);
-                    }
-                }
-
-                if (added.Count > 0)
-                {
-                    App.Logger?.Information("Added {Count} new default subliminal triggers: {Triggers}",
-                        added.Count, string.Join(", ", added));
-                }
-            }
-            catch (Exception ex)
-            {
-                App.Logger?.Warning("Failed to merge new subliminal triggers: {Error}", ex.Message);
             }
         }
 
