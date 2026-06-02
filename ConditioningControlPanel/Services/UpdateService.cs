@@ -20,13 +20,21 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.0.4";
+        public const string AppVersion = "6.0.5";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.0.4 - Circe's Lock
+        public const string CurrentPatchNotes = @"v6.0.5 - Circe's Lock
+
+🩹 6.0.5 HOTFIX
+- Webcam: fixed real cameras (e.g. Logitech C920) being wrongly reported as
+  ""in use"" when starting eye tracking. The camera-open timeout was too short
+  for cameras that take a little longer to warm up — especially with
+  virtual-camera filters like NVIDIA Broadcast, OBS, or VTubeStudio installed —
+  so a perfectly good open got thrown away just as it finished. Raised the
+  timeout so these cameras start normally.
 
 ✨ FEATURES
 - Say hello to Circe's Lock, our newest mod and the reason this release has

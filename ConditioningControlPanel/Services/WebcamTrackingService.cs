@@ -367,7 +367,16 @@ namespace ConditioningControlPanel.Services
         // wedge the ctor indefinitely, which used to hang Start() under the
         // state lock forever and freeze the loading splash at "Opening camera…"
         // (#311). When this elapses we declare CameraInUse and move on.
-        private const int CameraOpenTimeoutSeconds = 12;
+        //
+        // 12s was too tight: common UVC webcams (e.g. Logitech C920) take 13s+
+        // for their first MSMF init, especially with virtual-camera filters
+        // installed (NVIDIA Broadcast, OBS, VTubeStudio). The watchdog fired
+        // mid-open, declared CameraInUse, then disposed the handle the worker
+        // finished opening a beat later — surfacing as "camera in use" plus the
+        // camera light flicking on ~10s after the failure (#321). The open runs
+        // on a worker thread while the splash keeps animating, so a generous
+        // bound costs healthy cameras nothing.
+        private const int CameraOpenTimeoutSeconds = 30;
 
         // Set when a camera-open attempt times out so the worker that's still
         // blocked in the driver disposes whatever it eventually opens instead of
