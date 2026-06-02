@@ -1233,6 +1233,12 @@ namespace ConditioningControlPanel.Services
             // Clear removed-defaults tracking since we're loading a fresh pool for this mod
             settings.RemovedDefaultSubliminals.Clear();
 
+            // AttentionPool has no manifest/mod default, so only restore a saved per-mod
+            // copy — never wipe it to empty when none exists (it's saved by
+            // SaveCurrentPoolsToSettings, so this just keeps it symmetric across switches).
+            if (settings.AttentionPoolByMod?.TryGetValue(modId, out var savedAttention) == true)
+                settings.AttentionPool = new Dictionary<string, bool>(savedAttention);
+
             if (settings.LockCardPhrasesByMod?.TryGetValue(modId, out var savedLock) == true)
                 settings.LockCardPhrases = new Dictionary<string, bool>(savedLock);
             else
