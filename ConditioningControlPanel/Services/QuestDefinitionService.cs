@@ -339,8 +339,15 @@ public class QuestDefinitionService : IDisposable
         if (_cache == null) return true;
         if (!_cache.FetchedAt.HasValue) return true;
 
-        var age = DateTime.UtcNow - _cache.FetchedAt.Value;
-        return age.TotalHours >= CacheExpiryHours;
+        var fetched = _cache.FetchedAt.Value;
+        var nowUtc = DateTime.UtcNow;
+
+        // Month rolled over since the cache was written — the season title (and
+        // seasonal quests) may have changed, so refetch promptly rather than
+        // waiting out the 24h TTL. Seasons rotate on the 1st of each month UTC.
+        if (fetched.Year != nowUtc.Year || fetched.Month != nowUtc.Month) return true;
+
+        return (nowUtc - fetched).TotalHours >= CacheExpiryHours;
     }
 
     /// <summary>
