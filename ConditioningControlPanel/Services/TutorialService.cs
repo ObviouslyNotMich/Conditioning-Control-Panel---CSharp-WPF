@@ -813,13 +813,14 @@ namespace ConditioningControlPanel.Services
                 {
                     Id = "comp_capabilities",
                     Icon = "💡",
-                    Title = "Capabilities",
-                    Description = "Two switches that decide what she's allowed to do:\n\n" +
-                                  "• AI Chat — turns on real AI replies in chat and bubbles.\n" +
+                    Title = "Behaviour & Triggers",
+                    Description = "Turning the provider above to Cloud or Local switches on her AI replies. " +
+                                  "Expand this Behaviour & Triggers section for the rest of her tuning:\n\n" +
+                                  "• Idle chatter, bubble duration and trigger phrases.\n" +
                                   "• Awareness Mode — she watches which window/program is active and reacts. " +
                                   "Flipping it on reveals a cooldown slider so she doesn't spam.",
                     RequiresTab = "companion",
-                    TargetElementName = "ChkAiChat",
+                    TargetElementName = "SectionBehaviour",
                     TextPosition = TutorialStepPosition.Right
                 });
                 steps.Add(new TutorialStep

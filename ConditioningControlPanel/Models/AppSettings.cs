@@ -2336,6 +2336,17 @@ namespace ConditioningControlPanel.Models
             set { _awarenessReactionCooldownSeconds = Math.Clamp(value, 10, 600); OnPropertyChanged(); }
         }
 
+        private Dictionary<string, bool> _companionSectionOpen = new();
+        /// <summary>
+        /// Remembered open/collapsed state of the Companion tab's accordion sections, keyed by
+        /// section name (Behaviour, Phrases, Content, Community). Absent key = collapsed (default).
+        /// </summary>
+        public Dictionary<string, bool> CompanionSectionOpen
+        {
+            get => _companionSectionOpen;
+            set { _companionSectionOpen = value ?? new(); OnPropertyChanged(); }
+        }
+
         #endregion
 
         #region Companion Leveling System (v5.3)

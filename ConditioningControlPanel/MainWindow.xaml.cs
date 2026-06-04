@@ -1751,14 +1751,41 @@ namespace ConditioningControlPanel
                 PersistVideoLinks();
                 UpdateNoVideoLinksPlaceholder();
             };
-            Grid.SetColumn(removeBtn, 3);
+            Grid.SetColumn(removeBtn, 4);
             row.Children.Add(removeBtn);
+
+            // Host validation: grey the row and flip the preview glyph to a warning when the URL is
+            // present but not a usable absolute http(s) link (such rows are dropped on save). The
+            // preview button doubles as the status indicator, so there's no extra column.
+            void UpdateRowValidity()
+            {
+                var u = urlBox.Text?.Trim() ?? "";
+                bool empty = string.IsNullOrWhiteSpace(u);
+                bool valid = !empty && Uri.TryCreate(u, UriKind.Absolute, out var uri)
+                             && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+                bool invalid = !empty && !valid;
+
+                row.Opacity = invalid ? 0.55 : 1.0;
+                urlBox.BorderBrush = invalid
+                    ? new SolidColorBrush(Color.FromRgb(0xFF, 0x8B, 0x5A))            // warning orange
+                    : new SolidColorBrush(Color.FromArgb(0x55, 0x80, 0x80, 0x80));    // default
+                openBtn.FontFamily = invalid ? new FontFamily("Segoe UI Symbol") : new FontFamily("Segoe MDL2 Assets");
+                openBtn.Content = invalid ? "⚠" : "";    // Warning sign U+26A0 : OpenInNewWindow U+E8A7
+                openBtn.Foreground = invalid
+                    ? new SolidColorBrush(Color.FromRgb(0xFF, 0x8B, 0x5A))
+                    : new SolidColorBrush(Color.FromRgb(120, 200, 255));
+                openBtn.ToolTip = invalid
+                    ? "Not a valid http(s) link — this row won't be saved."
+                    : Loc.Get("tooltip_preview_video_link");
+            }
+            urlBox.TextChanged += (_, _) => UpdateRowValidity();
 
             nameBox.LostFocus += (_, _) => PersistVideoLinks();
             urlBox.LostFocus += (_, _) => PersistVideoLinks();
 
             _videoLinkRows.Add(entry);
             VideoLinkPoolPanel.Children.Add(row);
+            UpdateRowValidity();
             return entry;
         }
 
@@ -11361,7 +11388,6 @@ namespace ConditioningControlPanel
             ChkAvatarEnabledCompanion.IsChecked = settings.AvatarEnabled;
             ChkMuteAvatarCompanion.IsChecked = settings.AvatarMuted;
             ChkMuteWhispersCompanion.IsChecked = !settings.SubAudioEnabled;
-            ChkAiChat.IsChecked = settings.AiChatEnabled;
             SliderIdleIntervalCompanion.Value = settings.IdleGiggleIntervalSeconds;
             TxtIdleIntervalCompanion.Text = $"{settings.IdleGiggleIntervalSeconds}s";
             SliderBubbleDurationCompanion.Value = settings.BubbleDurationSeconds;
@@ -11382,6 +11408,9 @@ namespace ConditioningControlPanel
             SliderTriggerIntervalCompanion.Value = settings.TriggerIntervalSeconds;
             TxtTriggerIntervalCompanion.Text = $"{settings.TriggerIntervalSeconds}s";
             TriggerSettingsPanelCompanion.Visibility = settings.TriggerModeEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+            // Restore the Companion accordion open/closed state (sections default to collapsed)
+            RestoreCompanionSectionStates();
 
             // Hide avatar if disabled
             if (!settings.AvatarEnabled)
@@ -11500,13 +11529,29 @@ namespace ConditioningControlPanel
             TxtPhraseCount.Text = $"{count} active";
         }
 
-        private void ChkAiChat_Changed(object sender, RoutedEventArgs e)
+        // Persist each Companion accordion's open/collapsed state so it survives a restart.
+        // The x:Name is "Section<Name>"; we store under just "<Name>".
+        private void CompanionSection_ExpandedChanged(object sender, RoutedEventArgs e)
         {
             if (_isLoading) return;
-
-            App.Settings.Current.AiChatEnabled = ChkAiChat.IsChecked == true;
+            if (sender is not Expander exp || string.IsNullOrEmpty(exp.Name)) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            var key = exp.Name.StartsWith("Section") ? exp.Name.Substring("Section".Length) : exp.Name;
+            s.CompanionSectionOpen[key] = exp.IsExpanded;
             App.Settings.Save();
-            UpdateAiBrainPills();
+        }
+
+        // Re-apply the remembered open/collapsed state. Runs while _isLoading is true so the
+        // Expanded/Collapsed handlers above no-op and we don't write back what we just read.
+        private void RestoreCompanionSectionStates()
+        {
+            var map = App.Settings?.Current?.CompanionSectionOpen;
+            if (map == null) return;
+            if (SectionBehaviour != null && map.TryGetValue("Behaviour", out var b)) SectionBehaviour.IsExpanded = b;
+            if (SectionPhrases   != null && map.TryGetValue("Phrases",   out var p)) SectionPhrases.IsExpanded   = p;
+            if (SectionContent   != null && map.TryGetValue("Content",   out var c)) SectionContent.IsExpanded   = c;
+            if (SectionCommunity != null && map.TryGetValue("Community", out var m)) SectionCommunity.IsExpanded  = m;
         }
 
         private void SliderIdleInterval_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -11685,7 +11730,6 @@ namespace ConditioningControlPanel
             var s = App.Settings?.Current;
             if (s == null) return;
             s.AiChatEnabled = false;
-            if (ChkAiChat != null) ChkAiChat.IsChecked = false;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
             // Drop any stale Live Actions — only local AI populates this feed.
@@ -11700,7 +11744,6 @@ namespace ConditioningControlPanel
             if (s?.CompanionPrompt == null) return;
             s.AiChatEnabled = true;
             s.CompanionPrompt.UseLocalAi = false;
-            if (ChkAiChat != null) ChkAiChat.IsChecked = true;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
             // Cloud can't trigger effects, so prior local-session entries would be misleading.
@@ -11715,7 +11758,6 @@ namespace ConditioningControlPanel
             if (s?.CompanionPrompt == null) return;
             s.AiChatEnabled = true;
             s.CompanionPrompt.UseLocalAi = true;
-            if (ChkAiChat != null) ChkAiChat.IsChecked = true;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Visible;
             UpdateAiBrainPills();
@@ -12026,7 +12068,7 @@ namespace ConditioningControlPanel
             if (TxtAiModel != null) TxtAiModel.Text = s.CompanionPrompt.AiModel ?? "";
             if (TxtAiHost != null)  TxtAiHost.Text  = s.CompanionPrompt.AiOllamaHost ?? "";
 
-            // Capability checkboxes (ChkAiChat / ChkAwarenessMode handled by their own sync paths)
+            // Capability checkboxes (ChkAwarenessMode handled by its own sync path; AiChatEnabled is driven solely by the provider radios)
             if (ChkCapEffects != null)
                 ChkCapEffects.IsChecked = s.CompanionPrompt.AllowAiToControlEffects;
             if (EffectPermsPanel != null)
