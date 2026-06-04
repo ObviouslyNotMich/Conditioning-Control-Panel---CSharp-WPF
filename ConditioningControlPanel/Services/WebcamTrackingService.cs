@@ -120,6 +120,58 @@ namespace ConditioningControlPanel.Services
         private const int MaxConsecutiveReadFails = 30;            // ~1s at 30fps
         private const int FaceLostFramesThreshold = 15;            // ~0.5s
 
+        // A solid-colour / black feed reads as a perfectly valid non-empty Mat but
+        // contains no detectable face — the failure mode behind BUG-F2XJE2E7X9
+        // (Elgato Facecam Neo over MSMF: 1240 frames read, zero faces). We reject a
+        // probe frame whose richest channel still has near-zero spatial variation
+        // so the backend loop falls through to the next API. The threshold is
+        // deliberately tiny: even a dim, grainy room scatters well above it, so this
+        // only catches genuinely degenerate feeds, never a legitimately dark one.
+        private const double MinProbeStdDev = 3.0;
+
+        // Second, independent way to accept a probe frame: temporal change. A
+        // genuinely dark room can read as low spatial contrast (below MinProbeStdDev)
+        // yet is still a LIVE feed — it changes frame-to-frame as the user moves. A
+        // dead / solid / frozen "garbage" feed (the Elgato BUG-F2XJE2E7X9 case the
+        // spatial floor exists to reject) does NOT change. So we ALSO adopt a feed
+        // whose mean absolute inter-frame difference clears this bar, which rescues a
+        // dim-but-real camera from a false CameraInUse WITHOUT lowering MinProbeStdDev
+        // (lowering it would re-admit the very solid feed the floor was added to reject).
+        // Set above the uniform sensor-noise flicker of a static feed (~<1 on 0-255)
+        // but below real scene motion. Spatial-clean frames still win first, so cameras
+        // that already work — and the Elgato flat+static feed — are completely unaffected.
+        private const double MinProbeTemporalDelta = 2.0;
+
+        // Per-attempt warm-up budget for the probe loop. Some UVC webcams (the Lovense
+        // Webcam 2 in BUG-6W469QGMHS) stream black for over a second after the handle
+        // opens before real frames arrive. A fixed 5-read window (~1s) rejected those as
+        // "degenerate" and fell through every backend, surfacing a false CameraInUse. We
+        // poll for up to this long instead so a slow-warming camera is adopted the moment
+        // it delivers a usable frame; a backend that's truly dead just costs this once
+        // before the loop tries the next one (still far under the 90s open watchdog).
+        private const int ProbeWarmupMs = 3000;
+        private const int ProbeReadIntervalMs = 200;
+
+        // Ordered open attempts: each tries one backend with one pixel-format
+        // request, accepting the first that delivers a usable frame.
+        //  • DSHOW shares WebcamDeviceEnumerator's DirectShow index space (so the
+        //    configured index resolves to the same physical device the dropdown
+        //    showed) and is the more reliable path for Elgato/UVC webcams; MSMF
+        //    stays as a fallback for the MF-only / 32-bit-only devices the WinRT
+        //    enumerator catches.
+        //  • The default (Fourcc == null) attempt runs FIRST per backend so cameras
+        //    that already work are untouched. MJPG is escalated to only when the
+        //    default feed is unusable — that's the Elgato Facecam Neo fix
+        //    (BUG-F2XJE2E7X9: default format reads non-empty but contains no face)
+        //    without risking YUY2-only cameras that don't support MJPG.
+        private static readonly (VideoCaptureAPIs Api, string Name, string? Fourcc)[] CaptureAttempts =
+        {
+            (VideoCaptureAPIs.DSHOW, "DSHOW", null),
+            (VideoCaptureAPIs.DSHOW, "DSHOW", "MJPG"),
+            (VideoCaptureAPIs.MSMF,  "MSMF",  null),
+            (VideoCaptureAPIs.MSMF,  "MSMF",  "MJPG"),
+        };
+
         // EAR-based blink detection. Standard 6-point EAR (Soukupová & Čech 2016)
         // averaged across both eyes (avoids per-eye asymmetry shrinking the
         // both-closed detection window to nothing). Rolling 90-frame max baseline.
@@ -868,66 +920,180 @@ namespace ConditioningControlPanel.Services
                     App.Logger?.Warning("WebcamTrackingService: no devices enumerated but settings remember index {Index} — opening anyway", configured);
                 }
 
-                App.Logger?.Information("WebcamTrackingService: opening device index {Index} ('{Name}') with MSMF", deviceIndex, detectedName);
-                var cap = new VideoCapture(deviceIndex, VideoCaptureAPIs.MSMF);
-                if (!cap.IsOpened())
+                // Try each attempt in turn, accepting the first that both opens AND
+                // delivers a usable (non-empty, non-degenerate) frame. An attempt that
+                // opens but only produces black/garbage — as the default format does for
+                // the Elgato Facecam Neo (BUG-F2XJE2E7X9) — is disposed so the loop falls
+                // through to the next one instead of locking in a feed that reads fine
+                // but contains no detectable face.
+                // Note on timing: each attempt gets its own ProbeWarmupMs budget, so a
+                // device that opens-but-never-streams on every backend can take up to
+                // (attempts × warm-up) before we conclude CameraInUse. We accept that
+                // worst case deliberately — the budget exists for slow-to-START cameras
+                // (the Lovense streams black >1s, #335), and that symptom is
+                // indistinguishable from a dead feed until the budget elapses, so it
+                // can't be safely shortened. A wedged native Read() can also exceed the
+                // budget (it's only checked between reads); the worker thread + 90s open
+                // watchdog bound that, and we do NOT dispose mid-Read (guaranteed native
+                // AV — see Stop()). What we CAN do is keep the user informed so the
+                // multi-second open doesn't read as a hang.
+                bool anyOpened = false;
+                for (int attemptIdx = 0; attemptIdx < CaptureAttempts.Length; attemptIdx++)
                 {
-                    cap.Dispose();
-                    App.Logger?.Information("WebcamTrackingService: MSMF open failed for index {Index}, retrying with DSHOW", deviceIndex);
-                    cap = new VideoCapture(deviceIndex, VideoCaptureAPIs.DSHOW);
-                    if (!cap.IsOpened())
+                    var attempt = CaptureAttempts[attemptIdx];
+                    ReportStartupProgress(
+                        0.25 + 0.20 * (attemptIdx / (double)CaptureAttempts.Length),
+                        attemptIdx == 0
+                            ? "Opening camera…"
+                            : $"Camera slow to respond — trying another method ({attemptIdx + 1}/{CaptureAttempts.Length})…");
+
+                    var cap = TryOpenWithBackend(deviceIndex, detectedName, attempt.Api, attempt.Name, attempt.Fourcc, ref anyOpened);
+                    if (cap != null)
                     {
-                        cap.Dispose();
-                        App.Logger?.Warning(
-                            "WebcamTrackingService: VideoCapture.Open returned false on both MSMF and DSHOW for device index {Index} ('{Name}')",
-                            deviceIndex, detectedName);
-                        SetState(WebcamTrackingState.CameraDenied);
-                        return null;
+                        App.Logger?.Information(
+                            "WebcamTrackingService: device {Index} ('{Name}') opened successfully via {Api}{Fourcc}",
+                            deviceIndex, detectedName, attempt.Name, attempt.Fourcc != null ? "/" + attempt.Fourcc : "");
+                        return cap;
                     }
+                    // Abandoned mid-open (post-timeout) — stop trying, the handle's owner has moved on.
+                    if (_openAbandoned) return null;
                 }
 
-                cap.Set(VideoCaptureProperties.FrameWidth, CaptureWidth);
-                cap.Set(VideoCaptureProperties.FrameHeight, CaptureHeight);
-                cap.Set(VideoCaptureProperties.Fps, TargetFps);
-                cap.Set(VideoCaptureProperties.BufferSize, 1);
-
-                // Slow drivers (especially USB UVC over a hub, or virtual cameras
-                // that lazy-init their pipeline) can return an empty first frame
-                // even though the device isn't actually held by another app.
-                // Retry a handful of times before declaring CameraInUse so that
-                // case warms up instead of being misdiagnosed.
-                bool probeOk = false;
-                int probeAttempts = 0;
-                using (var probe = new Mat())
+                if (anyOpened)
                 {
-                    for (int i = 0; i < 5; i++)
-                    {
-                        probeAttempts++;
-                        if (cap.Read(probe) && !probe.Empty())
-                        {
-                            probeOk = true;
-                            break;
-                        }
-                        System.Threading.Thread.Sleep(200);
-                    }
-                }
-                if (!probeOk)
-                {
-                    cap.Dispose();
+                    // A backend opened the device but no usable frame ever arrived — most
+                    // likely held by antivirus webcam shielding / Windows camera privacy,
+                    // or delivering a degenerate feed we deliberately rejected.
                     App.Logger?.Warning(
-                        "WebcamTrackingService: probe frame failed after {Attempts} attempts for device index {Index} ('{Name}') — camera may be held by antivirus webcam shielding, Windows camera privacy, or another app",
-                        probeAttempts, deviceIndex, detectedName);
+                        "WebcamTrackingService: device index {Index} ('{Name}') opened but produced no usable frame on any backend",
+                        deviceIndex, detectedName);
                     SetState(WebcamTrackingState.CameraInUse);
-                    return null;
                 }
-
-                App.Logger?.Information("WebcamTrackingService: device {Index} ('{Name}') opened successfully", deviceIndex, detectedName);
-                return cap;
+                else
+                {
+                    App.Logger?.Warning(
+                        "WebcamTrackingService: VideoCapture.Open returned false on all backends for device index {Index} ('{Name}')",
+                        deviceIndex, detectedName);
+                    SetState(WebcamTrackingState.CameraDenied);
+                }
+                return null;
             }
             catch (Exception ex)
             {
                 App.Logger?.Warning(ex, "WebcamTrackingService: OpenCaptureCore threw");
                 SetState(WebcamTrackingState.Error);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Opens <paramref name="deviceIndex"/> with a single backend / pixel-format
+        /// request and returns the capture only if it produces a usable probe frame;
+        /// otherwise disposes it and returns null so the caller can try the next
+        /// attempt. <paramref name="fourcc"/> is a 4-char FOURCC (e.g. "MJPG") to
+        /// request, or null to leave the driver's default format negotiation alone.
+        /// Sets <paramref name="anyOpened"/> to true if the device opened at all (even
+        /// if no usable frame arrived) so the caller can distinguish CameraDenied from
+        /// CameraInUse.
+        /// </summary>
+        private VideoCapture? TryOpenWithBackend(int deviceIndex, string detectedName, VideoCaptureAPIs api, string apiName, string? fourcc, ref bool anyOpened)
+        {
+            string label = fourcc != null ? apiName + "/" + fourcc : apiName;
+            App.Logger?.Information("WebcamTrackingService: opening device index {Index} ('{Name}') with {Api}", deviceIndex, detectedName, label);
+            VideoCapture? cap = null;
+            try
+            {
+                cap = new VideoCapture(deviceIndex, api);
+                if (!cap.IsOpened())
+                {
+                    App.Logger?.Information("WebcamTrackingService: {Api} open failed for index {Index}", label, deviceIndex);
+                    cap.Dispose();
+                    return null;
+                }
+                anyOpened = true;
+
+                // Request the explicit pixel format before resolution when one is
+                // given. Elgato Facecam Neo (and many UVC cams) hand OpenCV a
+                // non-empty-but-garbage feed under default format negotiation, which
+                // reads fine yet yields no detectable face; MJPG is broadly supported
+                // and decodes cleanly. Only escalated to after the default attempt
+                // fails, so cameras that already work keep their native format.
+                if (fourcc != null && fourcc.Length == 4)
+                {
+                    cap.Set(VideoCaptureProperties.FourCC, VideoWriter.FourCC(fourcc[0], fourcc[1], fourcc[2], fourcc[3]));
+                }
+                cap.Set(VideoCaptureProperties.FrameWidth, CaptureWidth);
+                cap.Set(VideoCaptureProperties.FrameHeight, CaptureHeight);
+                cap.Set(VideoCaptureProperties.Fps, TargetFps);
+                cap.Set(VideoCaptureProperties.BufferSize, 1);
+
+                // Slow drivers (USB UVC over a hub, virtual cameras that lazy-init
+                // their pipeline, the Lovense Webcam 2 that streams black for >1s) can
+                // return empty or degenerate frames right after the handle opens even
+                // though the device isn't held by another app — poll up to ProbeWarmupMs
+                // so that case warms up and is adopted instead of being misdiagnosed as
+                // CameraInUse (BUG-6W469QGMHS).
+                using var probe = new Mat();
+                using var prevProbe = new Mat();
+                using var diff = new Mat();
+                bool havePrev = false;
+                var probeDeadline = DateTime.UtcNow.AddMilliseconds(ProbeWarmupMs);
+                int probeReads = 0;
+                while (DateTime.UtcNow < probeDeadline)
+                {
+                    if (_openAbandoned) { cap.Dispose(); return null; }
+                    probeReads++;
+                    if (cap.Read(probe) && !probe.Empty())
+                    {
+                        Cv2.MeanStdDev(probe, out var mean, out var std);
+                        double maxStd = Math.Max(std.Val0, Math.Max(std.Val1, std.Val2));
+
+                        // Temporal change vs the previous (flat) frame. A dim-but-real
+                        // feed moves frame-to-frame even when its spatial contrast is
+                        // below MinProbeStdDev; a solid / frozen garbage feed does not.
+                        // This is a SECOND acceptance path so a dark room isn't rejected
+                        // into a false CameraInUse — spatial-clean still wins first, so
+                        // the Elgato flat+static feed is unaffected (BUG-F2XJE2E7X9).
+                        double temporalDelta = 0;
+                        if (havePrev && prevProbe.Size() == probe.Size() && prevProbe.Type() == probe.Type())
+                        {
+                            Cv2.Absdiff(probe, prevProbe, diff);
+                            var dmean = Cv2.Mean(diff);
+                            temporalDelta = Math.Max(dmean.Val0, Math.Max(dmean.Val1, dmean.Val2));
+                        }
+
+                        if (maxStd >= MinProbeStdDev || temporalDelta >= MinProbeTemporalDelta)
+                        {
+                            App.Logger?.Information(
+                                "WebcamTrackingService: device {Index} ('{Name}') via {Api} probe ok ({W}x{H}, mean={Mean:F1}, maxStdDev={Std:F1}, temporalDelta={Td:F1}, reads={Reads})",
+                                deviceIndex, detectedName, label, probe.Width, probe.Height, mean.Val0, maxStd, temporalDelta, probeReads);
+                            var result = cap;
+                            cap = null; // hand ownership to caller; keep the catch from disposing it
+                            return result;
+                        }
+
+                        // Non-empty but degenerate (solid colour / black, and not yet
+                        // changing) — remember it and keep probing within the warm-up
+                        // budget in case it's a slow-warming or dim-but-live feed.
+                        App.Logger?.Debug(
+                            "WebcamTrackingService: device {Index} via {Api} degenerate probe frame (maxStdDev={Std:F1} < {Min}, temporalDelta={Td:F1} < {MinTd})",
+                            deviceIndex, label, maxStd, MinProbeStdDev, temporalDelta, MinProbeTemporalDelta);
+                        probe.CopyTo(prevProbe);
+                        havePrev = true;
+                    }
+                    System.Threading.Thread.Sleep(ProbeReadIntervalMs);
+                }
+
+                App.Logger?.Warning(
+                    "WebcamTrackingService: device index {Index} ('{Name}') opened via {Api} but produced no usable frame in {Budget}ms ({Reads} reads) — trying next attempt",
+                    deviceIndex, detectedName, label, ProbeWarmupMs, probeReads);
+                cap.Dispose();
+                return null;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "WebcamTrackingService: TryOpenWithBackend({Api}) threw for index {Index}", label, deviceIndex);
+                try { cap?.Dispose(); } catch { }
                 return null;
             }
         }

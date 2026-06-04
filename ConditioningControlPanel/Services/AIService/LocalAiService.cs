@@ -622,6 +622,57 @@ namespace ConditioningControlPanel.Services.AIService
         }
 
         /// <summary>
+        /// One-shot, stateless multi-turn chat completion against the configured Ollama
+        /// host/model. For non-companion features (e.g. the Lab Quiz) that maintain their
+        /// own conversation and just need raw assistant text — no persona wrapper, no
+        /// persistent history, no command parsing. Returns the assistant content, or
+        /// <c>null</c> on any transport / HTTP / parse failure so the caller can fall back.
+        /// </summary>
+        public static async Task<string?> GetRawChatCompletionAsync(
+            IEnumerable<(string role, string content)> messages,
+            double temperature = 0.8)
+        {
+            var host = NormalizeHost(GetConfiguredHost());
+            var model = GetConfiguredModel();
+            if (string.IsNullOrWhiteSpace(model)) return null;
+
+            try
+            {
+                using var http = BuildHttpClient(host);
+                var payload = new
+                {
+                    model,
+                    messages = messages.Select(m => new { role = m.role, content = m.content ?? string.Empty }).ToArray(),
+                    stream = false,
+                    think = false,
+                    options = new { temperature }
+                };
+                var json = JsonSerializer.Serialize(payload);
+
+                using var req = new HttpRequestMessage(HttpMethod.Post, "api/chat")
+                {
+                    Content = new StringContent(json, Encoding.UTF8, "application/json")
+                };
+                using var resp = await http.SendAsync(req);
+                var body = await resp.Content.ReadAsStringAsync();
+                if (!resp.IsSuccessStatusCode)
+                {
+                    App.Logger?.Warning("LocalAiService.GetRawChatCompletionAsync: HTTP {Status} from {Host} (model={Model})",
+                        (int)resp.StatusCode, host, model);
+                    return null;
+                }
+
+                var content = ExtractContent(body);
+                return string.IsNullOrWhiteSpace(content) ? null : content;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "LocalAiService.GetRawChatCompletionAsync failed (host={Host}, model={Model})", host, model);
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Turn a chat-call exception into a user-facing line that points at the most likely
         /// cause. Generic "(Ollama call failed: ...)" leaves users guessing — connection
         /// refused almost always means Ollama isn't running, and a clear hint to start it

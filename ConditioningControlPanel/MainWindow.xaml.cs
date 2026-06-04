@@ -636,7 +636,10 @@ namespace ConditioningControlPanel
             {
                 UpdateCompanionCardsUI();
 
-                var companionName = Models.CompanionDefinition.GetById(args.Companion).Name;
+                // Mod-aware name so themed mods (e.g. Circe's Lock) don't surface the
+                // Bambi roster name in the level-up notification (#325 — BUG-GLMA287TET).
+                var rawCompanionName = Models.CompanionDefinition.GetById(args.Companion).Name;
+                var companionName = App.Mods?.MakeModAware(rawCompanionName) ?? rawCompanionName;
 
                 // Show notification for companion level up
                 if (args.NewLevel == Models.CompanionProgress.MaxLevel)
@@ -26466,7 +26469,7 @@ namespace ConditioningControlPanel
             {
                 // Play a random video
                 App.Logger?.Information("Playing random startup video");
-                App.Video.TriggerVideo();
+                App.Video.TriggerVideo(silentIfEmpty: true);
             }
         }
 

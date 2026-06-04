@@ -4792,8 +4792,12 @@ namespace ConditioningControlPanel
         {
             RefreshCompanionDisplay();
 
-            // Special level-up phrases based on companion
-            var companionName = Models.CompanionDefinition.GetById(args.Companion).Name;
+            // Special level-up phrases based on companion. Route the roster name through
+            // the active mod's terminology map so a themed mod (e.g. Circe's Lock) speaks
+            // its own name instead of the Bambi roster name like "Synthetic Blowdoll"
+            // (#325 — BUG-GLMA287TET). No-op for mod-agnostic modes.
+            var rawCompanionName = Models.CompanionDefinition.GetById(args.Companion).Name;
+            var companionName = App.Mods?.MakeModAware(rawCompanionName) ?? rawCompanionName;
             if (args.NewLevel == Models.CompanionProgress.MaxLevel)
             {
                 GigglePriority($"{companionName} reached MAX LEVEL! *sparkles*", aiGenerated: false);

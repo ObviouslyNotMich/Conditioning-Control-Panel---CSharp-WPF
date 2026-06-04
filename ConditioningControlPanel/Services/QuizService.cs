@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Services.AIService;
 using ConditioningControlPanel.Services.Moderation;
 using Newtonsoft.Json;
 
@@ -161,6 +162,15 @@ namespace ConditioningControlPanel.Services
         private int _totalScore;
         private bool _disposed;
 
+        // Distinct reference (not null, not interned) returned by CallAiAsync when OUTPUT
+        // moderation discarded the model's response. null means a transport/availability
+        // failure (network, daily limit, Ollama down) — that still surfaces the real
+        // error. A moderation block instead lets question-generation callers serve a
+        // deterministic canned question so the quiz keeps going, as documented in
+        // CallAiAsync. Before this, a block returned null too and aborted the quiz with a
+        // misleading "AI busy / daily limit" message (BUG-cloud-quiz HateSpeech, 2026-06).
+        private static readonly string OutputBlocked = new(" quiz-output-blocked ".ToCharArray());
+
         private const string ProxyBaseUrl = "https://codebambi-proxy.vercel.app";
         private const int QuestionMaxTokens = 400;
         private const int ResultMaxTokens = 500;
@@ -210,6 +220,17 @@ namespace ConditioningControlPanel.Services
             _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = "Start the quiz! Generate question 1." });
 
             var response = await CallAiAsync(QuestionMaxTokens);
+            if (ReferenceEquals(response, OutputBlocked))
+            {
+                // Output moderation discarded question 1 — keep the quiz alive with a
+                // canned question instead of aborting with a misleading transport error.
+                _questionNumber = 1;
+                var fallback = GetFallbackQuestion(1);
+                // Record the served question as the assistant turn so the transcript
+                // stays well-formed (user→assistant→user) for the next request.
+                _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = SerializeQuestionToWire(fallback) });
+                return fallback;
+            }
             if (response == null) return null;
 
             _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
@@ -237,6 +258,17 @@ namespace ConditioningControlPanel.Services
             _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = userMsg });
 
             var response = await CallAiAsync(QuestionMaxTokens);
+            if (ReferenceEquals(response, OutputBlocked))
+            {
+                // Output moderation discarded this question — advance and serve a canned
+                // one so the run continues rather than dying mid-quiz.
+                _questionNumber++;
+                var fallback = GetFallbackQuestion(_questionNumber);
+                // Record the served question as the assistant turn so the next request
+                // doesn't go out with two consecutive user messages (history desync).
+                _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = SerializeQuestionToWire(fallback) });
+                return fallback;
+            }
             if (response == null) return null;
 
             _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
@@ -287,8 +319,10 @@ namespace ConditioningControlPanel.Services
             _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = userMsg });
 
             var response = await CallAiAsync(ResultMaxTokens);
-            if (response == null)
+            if (response == null || ReferenceEquals(response, OutputBlocked))
             {
+                // Transport failure OR an output-moderation block — either way fall back
+                // to the deterministic profile (always correct for the score).
                 return new QuizResult
                 {
                     TotalScore = _totalScore,
@@ -607,13 +641,60 @@ Do NOT include any other text before or after the question format. Just the ques
             });
 
             var response = await CallAiAsync(QuestionMaxTokens);
-            if (response == null) return null;
+            // Sentinel (output blocked) or null (transport failure) → let the caller's
+            // `?? GetFallbackQuestion(...)` serve a canned question.
+            if (response == null || ReferenceEquals(response, OutputBlocked)) return null;
 
             _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
             return ParseQuestionResponse(response, questionNum);
         }
 
         private async Task<string?> CallAiAsync(int maxTokens)
+        {
+            // Trim conversation to last 30 messages + system prompt to stay under limits.
+            var messagesToSend = TrimConversation();
+
+            // Route to whichever provider the user has selected for the companion. The
+            // quiz used to be cloud-only, so switching to local Ollama left it stuck on
+            // "AI busy / daily limit" even though chat worked (BUG-XQRK4USW5X / #334).
+            bool useLocal = App.Settings?.Current?.CompanionPrompt?.UseLocalAi == true;
+            string? content = useLocal
+                ? await CallLocalAiAsync(messagesToSend)
+                : await CallCloudAiAsync(messagesToSend, maxTokens);
+
+            if (string.IsNullOrEmpty(content))
+                return null;
+
+            // OUTPUT MODERATION (Layer 1) — applies to BOTH providers. Discard
+            // AI-generated questions / result archetype text that trips the guard.
+            // Returning null lets the existing fallback path (deterministic archetype +
+            // canned question) take over so the quiz continues without leaking content.
+            var guard = App.ModerationGuard;
+            if (guard != null)
+            {
+                var modelHint = useLocal ? "local-quiz" : "cloud-quiz";
+                var outputCheck = guard.CheckOutput(content);
+                if (!outputCheck.Allow && outputCheck.Category.HasValue)
+                {
+                    App.ModerationLog?.Record(outputCheck.Category.Value, source: "output", modelHint: modelHint);
+                    // Quiz questions are AI-generated OUTPUT, never user-typed input, so
+                    // a hit is logged for the compliance record but does NOT escalate
+                    // the user-facing Content Policy Notice. The batch is still
+                    // discarded fail-closed (return null) so nothing prohibited leaks.
+                    App.Logger?.Information("QuizService: output blocked by ModerationGuard (category={Cat})", outputCheck.Category);
+                    return OutputBlocked;
+                }
+                if (outputCheck.Allow && outputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
+                {
+                    App.ModerationLog?.Record(ProhibitedCategory.ProfessionalAdvice, source: "output", modelHint: modelHint);
+                }
+            }
+
+            return content;
+        }
+
+        /// <summary>Cloud-proxy transport. Returns raw assistant text or null on failure.</summary>
+        private async Task<string?> CallCloudAiAsync(List<ProxyChatMessage> messagesToSend, int maxTokens)
         {
             try
             {
@@ -625,9 +706,6 @@ Do NOT include any other text before or after the question format. Just the ques
                     App.Logger?.Warning("QuizService: No unified ID available");
                     return null;
                 }
-
-                // Trim conversation to last 30 messages + system prompt to stay under limits
-                var messagesToSend = TrimConversation();
 
                 var request = new V2ChatRequest
                 {
@@ -665,30 +743,6 @@ Do NOT include any other text before or after the question format. Just the ques
                     return null;
                 }
 
-                // OUTPUT MODERATION (Layer 1). Discard AI-generated questions / result
-                // archetype text that trips the guard. Returning null lets the existing
-                // fallback path (deterministic archetype + canned question) take over so
-                // the quiz continues without leaking prohibited content.
-                var guard = App.ModerationGuard;
-                if (guard != null)
-                {
-                    var outputCheck = guard.CheckOutput(result.Content ?? string.Empty);
-                    if (!outputCheck.Allow && outputCheck.Category.HasValue)
-                    {
-                        App.ModerationLog?.Record(outputCheck.Category.Value, source: "output", modelHint: "cloud-quiz");
-                        // Quiz questions are AI-generated OUTPUT, never user-typed input, so
-                        // a hit is logged for the compliance record but does NOT escalate
-                        // the user-facing Content Policy Notice. The batch is still
-                        // discarded fail-closed (return null) so nothing prohibited leaks.
-                        App.Logger?.Information("QuizService: output blocked by ModerationGuard (category={Cat})", outputCheck.Category);
-                        return null;
-                    }
-                    if (outputCheck.Allow && outputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
-                    {
-                        App.ModerationLog?.Record(ProhibitedCategory.ProfessionalAdvice, source: "output", modelHint: "cloud-quiz");
-                    }
-                }
-
                 return result.Content;
             }
             catch (TaskCanceledException)
@@ -698,9 +752,20 @@ Do NOT include any other text before or after the question format. Just the ques
             }
             catch (Exception ex)
             {
-                App.Logger?.Error(ex, "QuizService: Unexpected error calling AI");
+                App.Logger?.Error(ex, "QuizService: Unexpected error calling cloud AI");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Local Ollama transport — mirrors the companion's local provider so the quiz
+        /// honours the same Companion → AI host/model settings. Returns raw assistant
+        /// text or null on failure (LocalAiService logs the specific cause).
+        /// </summary>
+        private async Task<string?> CallLocalAiAsync(List<ProxyChatMessage> messagesToSend)
+        {
+            var mapped = messagesToSend.Select(m => (role: m.Role ?? "user", content: m.Content ?? string.Empty));
+            return await LocalAiService.GetRawChatCompletionAsync(mapped, Temperature);
         }
 
         private List<ProxyChatMessage> TrimConversation()
@@ -711,6 +776,26 @@ Do NOT include any other text before or after the question format. Just the ques
             var trimmed = new List<ProxyChatMessage> { _conversationHistory[0] };
             trimmed.AddRange(_conversationHistory.Skip(_conversationHistory.Count - 30));
             return trimmed;
+        }
+
+        /// <summary>
+        /// Render a question back into the exact wire format the model emits
+        /// (Q: / A-D: text | points), so a canned fallback served after an output
+        /// block can be recorded as the assistant turn. Without it the blocked turn
+        /// leaves the history with two consecutive user messages, which desyncs — and
+        /// for strict providers can outright reject — every later question. Round-trips
+        /// through <see cref="ParseQuestionResponse"/>.
+        /// </summary>
+        internal static string SerializeQuestionToWire(QuizQuestion q)
+        {
+            var lines = new List<string> { $"Q: {q.QuestionText}" };
+            for (int i = 0; i < q.Answers.Length && i < 4; i++)
+            {
+                char letter = (char)('A' + i);
+                int pts = (q.Points != null && i < q.Points.Length) ? q.Points[i] : i + 1;
+                lines.Add($"{letter}: {q.Answers[i]} | {pts}");
+            }
+            return string.Join("\n", lines);
         }
 
         internal static QuizQuestion? ParseQuestionResponse(string text, int questionNum)
@@ -1004,7 +1089,9 @@ Make all phrases thematically consistent with the quiz category and the user's s
                 _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = prompt });
 
                 var response = await CallAiAsync(800);
-                if (response == null) return null;
+                // Session content is optional; on transport failure or a moderation block
+                // return null and let the caller fall back (no canned session text here).
+                if (response == null || ReferenceEquals(response, OutputBlocked)) return null;
 
                 _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
 

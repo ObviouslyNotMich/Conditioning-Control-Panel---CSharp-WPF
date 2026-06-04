@@ -595,7 +595,13 @@ namespace ConditioningControlPanel.Services
             }
         }
 
-        public void TriggerVideo()
+        /// <param name="silentIfEmpty">
+        /// When true, an empty videos folder is logged and ignored instead of popping the
+        /// "no videos found" dialog. Used for the auto-played startup video (#333) so a user
+        /// who simply hasn't added videos isn't greeted by a blocking prompt every launch.
+        /// User-initiated triggers leave this false so they still get the helpful guidance.
+        /// </param>
+        public void TriggerVideo(bool silentIfEmpty = false)
         {
             App.Logger?.Information("VideoService: TriggerVideo called");
 
@@ -616,7 +622,7 @@ namespace ConditioningControlPanel.Services
                     App.InteractionQueue.CurrentInteraction);
                 App.InteractionQueue.TryStart(
                     InteractionQueueService.InteractionType.Video,
-                    () => TriggerVideo(),
+                    () => TriggerVideo(silentIfEmpty),
                     queue: true);
                 return;
             }
@@ -647,6 +653,15 @@ namespace ConditioningControlPanel.Services
                 _triggerInProgress = false;
                 // No video to play - release the queue lock
                 App.InteractionQueue?.Complete(InteractionQueueService.InteractionType.Video);
+
+                // Startup auto-play: a user who hasn't added videos shouldn't get a blocking
+                // dialog on every launch (#333). Log and bail quietly — manual triggers still
+                // fall through to the guidance prompt below.
+                if (silentIfEmpty)
+                {
+                    App.Logger?.Information("VideoService: startup video skipped — no videos in {Path}", _videosPath);
+                    return;
+                }
 
                 // Build helpful error message
                 var activePackCount = App.ContentPacks?.GetActivePackIds()?.Count ?? 0;

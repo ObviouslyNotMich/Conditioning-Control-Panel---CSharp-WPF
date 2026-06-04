@@ -454,7 +454,56 @@ namespace ConditioningControlPanel
             // on webcam data (Hansen & Ji 2010, Zhang & Hornof 2014). 16
             // points × 5 candidates × 2 axes = ~160 small linear-system
             // solves at finalize time — milliseconds.
-            PolynomialFitData? polynomial = FitCerrolazaPolynomial(srcMeans, dstPoints);
+            PolynomialFitData? polynomial = FitCerrolazaPolynomial(srcMeans, dstPoints, out double polyRmsX, out double polyRmsY);
+
+            // Fit-quality gate (#335). The fit's own training residual tells us whether
+            // the polynomial can even reproduce the dots the user just looked at. A usable
+            // calibration lands within a few % of the screen; a residual this large means
+            // the iris signal was too noisy/degenerate to fit (poor light, lens glare, a
+            // high-res feed downscaled to mush, or head movement) and the result is
+            // unusable. Previously it was saved silently and the user was left with
+            // tracking that "completed" but was wildly off ("very badly inaccurate, not
+            // usable"). The ceiling is deliberately generous — 20% of the screen — so it
+            // only catches clearly-broken fits, never a merely-imperfect one. Warn and
+            // offer a redo instead of hard-blocking, so a user whose hardware genuinely
+            // can't do better can still keep what they've got.
+            if (polynomial != null)
+            {
+                const double MaxFitResidualFraction = 0.20;
+                double ceilX = ActualWidth * MaxFitResidualFraction;
+                double ceilY = ActualHeight * MaxFitResidualFraction;
+                if (polyRmsX > ceilX || polyRmsY > ceilY)
+                {
+                    App.Logger?.Warning(
+                        "WebcamCalibration: fit residual too high — rms_x={Rx:F0} (ceil {Cx:F0}), rms_y={Ry:F0} (ceil {Cy:F0}) DIPs; prompting redo",
+                        polyRmsX, ceilX, polyRmsY, ceilY);
+
+                    var choice = System.Windows.MessageBox.Show(
+                        this,
+                        "This calibration came out very inaccurate — the dots didn't line up, so eye tracking would be unreliable.\n\n" +
+                        "For a better result: good, even lighting; avoid glare on glasses (or try without them); keep your head still and look right at each dot.\n\n" +
+                        "Try the calibration again?",
+                        "Calibration inaccurate",
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Warning);
+
+                    if (choice == System.Windows.MessageBoxResult.Yes)
+                    {
+                        // Exactly what the Recalibrate button does: set WantsRecalibrate
+                        // so ShowDialogWithRecalibrate's loop RE-OPENS the dialog. Without
+                        // this flag the loop breaks and the user who clicked "try again"
+                        // is silently dropped to no calibration (the close alone only
+                        // cancels — it does not restart).
+                        WantsRecalibrate = true;
+                        DialogResult = false;
+                        Close();
+                        return;
+                    }
+
+                    // "No" = keep it anyway — fall through and persist as before.
+                    App.Logger?.Information("WebcamCalibration: user kept low-quality calibration despite high residual");
+                }
+            }
 
             // LeftRefVec / RightRefVec are the per-side averages of the
             // calibration grid's left and right columns — used by
@@ -1042,8 +1091,12 @@ namespace ConditioningControlPanel
         // diagnostic line with the chosen λ and per-axis training residuals
         // so a calibration that comes out compressed or wildly off is
         // observable in the logs.
-        private static PolynomialFitData? FitCerrolazaPolynomial(Point2d[] srcMeans, Point2d[] dstPoints)
+        private static PolynomialFitData? FitCerrolazaPolynomial(Point2d[] srcMeans, Point2d[] dstPoints, out double rmsX, out double rmsY)
         {
+            // Default to "unusable" so the fit-quality gate fails closed on any path
+            // that returns null (degenerate solve, exception) without a real residual.
+            rmsX = double.PositiveInfinity;
+            rmsY = double.PositiveInfinity;
             try
             {
                 int n = srcMeans.Length;
@@ -1113,9 +1166,11 @@ namespace ConditioningControlPanel
                     rowSummary = " | rows_y(mean/|abs|): " + rowParts;
                 }
 
+                rmsX = Math.Sqrt(ssX / n);
+                rmsY = Math.Sqrt(ssY / n);
                 App.Logger?.Information(
                     "WebcamCalibration: polynomial fit n={N} λ={L:E2} | rms_x={Rx:F1} rms_y={Ry:F1} | max_x={Mx:F1}@{Wx} max_y={My:F1}@{Wy}{Rows} (DIPs)",
-                    n, lambda, Math.Sqrt(ssX / n), Math.Sqrt(ssY / n), maxX, worstIdxX, maxY, worstIdxY, rowSummary);
+                    n, lambda, rmsX, rmsY, maxX, worstIdxX, maxY, worstIdxY, rowSummary);
 
                 return new PolynomialFitData { X = coeffsX, Y = coeffsY };
             }
