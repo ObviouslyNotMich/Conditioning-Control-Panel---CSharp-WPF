@@ -115,24 +115,47 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
-        /// Import all supported files from a folder (recursively), preserving subfolder structure.
+        /// Import all supported files from a folder (recursively), keeping the dropped
+        /// folder intact as a named pack.
         /// </summary>
+        /// <remarks>
+        /// Files are rooted under the dropped folder's OWN name, so dropping "Correct"
+        /// lands its images in <c>images/Correct/</c> (and any videos in
+        /// <c>videos/Correct/</c>) instead of being flattened into the images root and
+        /// merged with every other drop. That keeps each dropped set selectable as a
+        /// distinct pack — e.g. in the gaze minigame, which discovers sets by subfolder.
+        /// Flash/Video both scan AllDirectories, so the content still plays normally too.
+        ///
+        /// Mixed folders (images + videos together) split by content TYPE under the same
+        /// pack name — images go to <c>images/{name}</c>, videos to <c>videos/{name}</c>.
+        /// Both halves stay usable everywhere; the minigame simply sees them as an
+        /// image set and a video set sharing a name (it pairs same-type per round anyway).
+        ///
+        /// A folder literally named "images"/"videos" is treated as the type root itself
+        /// (no extra nesting), so dropping an existing assets folder still merges cleanly.
+        /// </remarks>
         private async Task ImportFolderAsync(string folderPath, ImportResult result, IProgress<ImportProgress>? progress)
         {
             var files = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories)
                 .Where(f => IsSupportedFile(Path.GetExtension(f)))
                 .ToList();
 
+            var packName = new DirectoryInfo(folderPath).Name;
+            if (IsKnownPrefix(packName)) packName = "";   // don't create images/images
+            if (!string.IsNullOrEmpty(packName)) result.PackName = packName;
+
             var total = files.Count;
             var current = 0;
 
             foreach (var file in files)
             {
-                // Calculate relative path from source folder to preserve structure
+                // Relative dir WITHIN the dropped folder, re-rooted under the pack name so
+                // the dropped folder's own name is preserved (the previous code dropped it).
                 var relativePath = Path.GetRelativePath(folderPath, file);
                 var relativeDir = Path.GetDirectoryName(relativePath) ?? "";
+                var subfolder = CombineSubfolder(packName, relativeDir);
 
-                ImportFileWithSubfolder(file, relativeDir, result);
+                ImportFileWithSubfolder(file, subfolder, result);
                 current++;
                 progress?.Report(new ImportProgress(current, total, Path.GetFileName(file)));
 
@@ -142,6 +165,14 @@ namespace ConditioningControlPanel.Services
                     await Task.Delay(1);
                 }
             }
+        }
+
+        /// <summary>Join a pack name and an inner relative dir, tolerating either being empty.</summary>
+        private static string CombineSubfolder(string packName, string relativeDir)
+        {
+            if (string.IsNullOrEmpty(packName)) return relativeDir;
+            if (string.IsNullOrEmpty(relativeDir)) return packName;
+            return Path.Combine(packName, relativeDir);
         }
 
         /// <summary>
