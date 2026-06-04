@@ -634,6 +634,28 @@ namespace ConditioningControlPanel.Services
                              "The AI uses these instructions to generate contextual responses."
             },
 
+            ["HypnotubeLinks"] = new HelpContent
+            {
+                SectionId = "HypnotubeLinks",
+                Icon = "🔗",
+                Title = "Hypnotube Links",
+                WhatItDoes = "The pool of videos your AI companion is allowed to suggest. Each entry is a " +
+                             "name and a link; when the companion recommends one, the name becomes a " +
+                             "clickable link in the chat that opens the video.",
+                Tips = new List<string>
+                {
+                    "Add a link with '+ Add a link to the pool', then paste the URL",
+                    "Leave the name blank and we'll name it from the link automatically",
+                    "Use the open icon to preview a link, the bin to remove it",
+                    "The pool is saved per-mod — each companion has its own list",
+                    "Paste the full hypnotube.com/video/... page URL, not a search page"
+                },
+                HowItWorks = "This list is given to the AI as the only videos it may name. When it says one " +
+                             "of these titles, the app turns it into a clickable link using the URL you saved. " +
+                             "Editing the list here creates your own copy for the current mod, so the built-in " +
+                             "list is never lost — clearing your entries restores the mod's defaults."
+            },
+
             ["CompanionSettings"] = new HelpContent
             {
                 SectionId = "CompanionSettings",

@@ -128,7 +128,31 @@ namespace ConditioningControlPanel.Models
                 {
                     DefaultUrl = "https://bambicloud.com/",
                     SiteName = "BambiCloud",
-                    ShowBambiCloudOption = true
+                    ShowBambiCloudOption = true,
+                    // Bambi Sleep HypnoTube video pool the companion may suggest.
+                    DefaultVideoLinks = new Dictionary<string, string>
+                    {
+                        { "Bambi TikTok 4", "https://hypnotube.com/video/bambi-tiktok-4-113594.html" },
+                        { "Day 4", "https://hypnotube.com/video/day-4-11179.html" },
+                        { "Tiktok Loop", "https://hypnotube.com/video/tiktok-loop-39245.html" },
+                        { "Overload", "https://hypnotube.com/video/overload-46422.html" },
+                        { "Overload 2", "https://hypnotube.com/video/overload-46754.html" },
+                        { "Bambi TikTok - In Beat", "https://hypnotube.com/video/bambi-tiktok-in-beat-52730.html" },
+                        { "Bambi Tik-Tok Mix 1 - 7 No Pauses", "https://hypnotube.com/video/bambi-tik-tok-mix-1-7-no-pauses-53860.html" },
+                        { "Bambi TikTok - In Beat - Longer Version", "https://hypnotube.com/video/bambi-tiktok-in-beat-longer-version-56194.html" },
+                        { "Toms Dangerous Tik Tok", "https://hypnotube.com/video/toms-dangerous-tik-tok-62552.html" },
+                        { "Bimbdoll Resistance Full", "https://hypnotube.com/video/bimbdoll-resistance-full-63079.html" },
+                        { "Bambi Tiktok - Good Girls Dont Cum", "https://hypnotube.com/video/bambi-tiktok-good-girls-dont-cum-68081.html" },
+                        { "Bambi Tiktok Good Girls Dont Cum - Censored Version", "https://hypnotube.com/video/bambi-tiktok-good-girls-dont-cum-censored-version-68082.html" },
+                        { "Bambi Loves Hentai - OneeKitsune", "https://hypnotube.com/video/bambi-loves-hentai-oneekitsune-78373.html" },
+                        { "Mindlocked Cock Zombie", "https://hypnotube.com/video/mindlocked-cock-zombie-87742.html" },
+                        { "Bambi Slay", "https://hypnotube.com/video/bambi-slay-99609.html" },
+                        { "Naughty Bambi", "https://hypnotube.com/video/naughty-bambi-109749.html" },
+                        { "Yes Brain Install - Girlcock Short Version", "https://hypnotube.com/video/yes-brain-install-girlcock-short-version-112952.html" },
+                        { "Dvdhurytwuios Bambi Files", "https://hypnotube.com/video/dvdhurytwuios-bambi-files-115068.html" },
+                        { "Bambi TikTok 1-8 - Nonstop Edit", "https://hypnotube.com/video/bambi-tiktok-1-8-nonstop-edit-117184.html" },
+                        { "BambiOS", "https://hypnotube.com/video/bambios-120814.html" }
+                    }
                 },
 
                 Phrases = new Dictionary<string, string[]>
@@ -542,7 +566,27 @@ namespace ConditioningControlPanel.Models
                 {
                     DefaultUrl = "https://hypnotube.com/",
                     SiteName = "HypnoTube",
-                    ShowBambiCloudOption = false
+                    ShowBambiCloudOption = false,
+                    // Sissy Hypno HypnoTube video pool the companion may suggest (non-VIP only).
+                    DefaultVideoLinks = new Dictionary<string, string>
+                    {
+                        { "DeepSlutPuppy Episode 8", "https://hypnotube.com/video/deepslutpuppy-episode-8-79.html" },
+                        { "Sissymaker 2", "https://hypnotube.com/video/sissymaker-2-95.html" },
+                        { "Femdom Enticed Sissy Cocklust", "https://hypnotube.com/video/femdom-enticed-sissy-cocklust-154.html" },
+                        { "Eat All The Cum", "https://hypnotube.com/video/eat-all-the-cum-338.html" },
+                        { "Sissy Dirty Talk Remix", "https://hypnotube.com/video/sissy-dirty-talk-remix-473.html" },
+                        { "Cock Suck Encouragement 1", "https://hypnotube.com/video/cock-suck-encouragement-1-515.html" },
+                        { "Sissy Dreams 3", "https://hypnotube.com/video/sissy-dreams-3-701.html" },
+                        { "Sissies Love Cock", "https://hypnotube.com/video/sissies-love-cock-720.html" },
+                        { "Sissymaker 5", "https://hypnotube.com/video/sissymaker-5-738.html" },
+                        { "Total Cum Devotion", "https://hypnotube.com/video/total-cum-devotion-750.html" },
+                        { "Fixation", "https://hypnotube.com/video/fixation-751.html" },
+                        { "Facial Fever", "https://hypnotube.com/video/facial-fever-1064.html" },
+                        { "Cock Worship", "https://hypnotube.com/video/cock-worship-1506.html" },
+                        { "I Am A Woman", "https://hypnotube.com/video/i-am-a-woman-1753.html" },
+                        { "Psychodelic Sissy 2", "https://hypnotube.com/video/psychodelic-sissy-2-1952.html" },
+                        { "Tranny Rides Again", "https://hypnotube.com/video/tranny-rides-again-2118.html" }
+                    }
                 },
 
                 Phrases = new Dictionary<string, string[]>
@@ -962,7 +1006,24 @@ namespace ConditioningControlPanel.Models
                 {
                     DefaultUrl = "https://hypnotube.com/",
                     SiteName = "HypnoTube",
-                    ShowBambiCloudOption = false
+                    ShowBambiCloudOption = false,
+                    // Baseline HypnoTube pool the Companion may suggest (non-VIP only).
+                    DefaultVideoLinks = new Dictionary<string, string>
+                    {
+                        { "Femboy World - TS PMV", "https://hypnotube.com/video/femboy-world-ts-pmv-132071.html" },
+                        { "Be A Whore For Ugly Old Men", "https://hypnotube.com/video/be-a-whore-for-ugly-old-men-43466.html" },
+                        { "Suck Cock For Her", "https://hypnotube.com/video/suck-cock-for-her-120099.html" },
+                        { "The ABC Of Transgirls", "https://hypnotube.com/video/the-abc-of-transgirls-47510.html" },
+                        { "KinkyAmySteele - Hypno Mix 1", "https://hypnotube.com/video/kinkyamysteele-hypno-mix-1-113420.html" },
+                        { "How To Achieve Plapgasm - Lesson 1 5", "https://hypnotube.com/video/how-to-achieve-plapgasm-lesson-1-5-130244.html" },
+                        { "Demolition - Straight To Gay PMV", "https://hypnotube.com/video/demolition-straight-to-gay-pmv-131891.html" },
+                        { "Sissy Steps 1", "https://hypnotube.com/video/sissy-steps-1-57601.html" },
+                        { "Your Friends Use You", "https://hypnotube.com/video/your-friends-use-you-97735.html" },
+                        { "Lover Of Cum", "https://hypnotube.com/video/lover-of-cum-132491.html" },
+                        { "Bambi TikTok 4", "https://hypnotube.com/video/bambi-tiktok-4-113594.html" },
+                        { "Cock Suck Encouragement 1", "https://hypnotube.com/video/cock-suck-encouragement-1-515.html" },
+                        { "To Be A Sissy Hypno Slut - Extended Loop", "https://hypnotube.com/video/to-be-a-sissy-hypno-slut-extended-loop-8520.html" }
+                    }
                 },
 
                 Phrases = new Dictionary<string, string[]>
@@ -1917,7 +1978,6 @@ namespace ConditioningControlPanel.Models
                     ShowBambiCloudOption = false,
                     DefaultVideoLinks = new Dictionary<string, string>
                     {
-                        { "Movies", "https://hypnotube.com/videos/" },
                         { "Your New Daily Routine Sissy", "https://hypnotube.com/video/your-new-daily-routine-sissy-132538.html" },
                         { "SHS Plapping To BBC", "https://hypnotube.com/video/shs-plapping-to-bbc-132537.html" },
                         { "Her Dark Desires By Cuckboiii", "https://hypnotube.com/video/her-dark-desires-by-cuckboiii-132539.html" },

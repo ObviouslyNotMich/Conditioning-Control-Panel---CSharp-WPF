@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace ConditioningControlPanel.Helpers;
@@ -49,6 +50,35 @@ public static class HtUrlHelper
 
         var path = uri.AbsolutePath;
         return HtPatternA.IsMatch(path) || HtPatternB.IsMatch(path);
+    }
+
+    // Derive a human-readable title from a HypnoTube (or any) video URL when the user
+    // didn't supply a name. Takes the last path segment, strips a trailing ".html" (even a
+    // doubled "...html.html"), drops the trailing "-<numeric_id>", and Title-Cases the rest.
+    // Falls back to "this video" when there's no usable slug (e.g. a bare listing URL like
+    // /videos/). Shared by the pool editor (blank name), the prompt builder, and the speech
+    // bubble renderer so all three agree on what an unnamed link is called.
+    public static string DeriveTitleFromUrl(string? url)
+    {
+        const string Fallback = "this video";
+        if (string.IsNullOrWhiteSpace(url)) return Fallback;
+
+        // Last path segment (ignore query/fragment), tolerant of trailing slashes/dots.
+        var core = url.Split('?', '#')[0].TrimEnd('/');
+        var slug = core.Split('/').LastOrDefault()?.Trim().Trim('.') ?? "";
+
+        // Strip one or more trailing ".html" suffixes (handles the "...95541.html.html" typo).
+        while (slug.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            slug = slug[..^5];
+
+        // Drop a trailing "-<id>" video id, then any leftover trailing punctuation.
+        slug = Regex.Replace(slug, @"-\d+$", "").Trim('-', '.', ' ');
+
+        if (string.IsNullOrWhiteSpace(slug)) return Fallback;
+
+        var title = System.Globalization.CultureInfo.CurrentCulture.TextInfo
+            .ToTitleCase(slug.Replace('-', ' ').Replace('_', ' '));
+        return string.IsNullOrWhiteSpace(title) ? Fallback : title;
     }
 
     // Extract the numeric HT video id from an eligible URL, or null if the URL

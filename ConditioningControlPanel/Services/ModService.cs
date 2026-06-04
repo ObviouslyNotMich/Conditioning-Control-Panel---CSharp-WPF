@@ -115,6 +115,77 @@ namespace ConditioningControlPanel.Services
             // in settings.json may be stale or contaminated by the legacy subliminal merge; this
             // restores the correct per-mod pools (and prunes cross-mod contamination) at startup.
             RestorePoolsFromSettings(_activeMod.Id);
+
+            // One-time migration: fold the user's legacy comma-separated Hypnotube link strings
+            // (Bambi/Sissy modes) into the per-mod VideoLinksByMod store so the new pool editor
+            // shows them and the companion keeps suggesting them. Idempotent — only seeds a mod
+            // that has no override yet.
+            MigrateLegacyHypnotubeLinks();
+        }
+
+        /// <summary>
+        /// Converts the legacy comma-separated HypnotubeLinks* settings into per-mod name→URL
+        /// pools (VideoLinksByMod). Skips a mod that already has an override, and skips values
+        /// that are just the shipped default examples (so untouched users stay on live defaults).
+        /// </summary>
+        private void MigrateLegacyHypnotubeLinks()
+        {
+            var settings = App.Settings?.Current;
+            if (settings == null) return;
+
+            void Migrate(string modId, string? legacy, string defaults)
+            {
+                if (string.IsNullOrWhiteSpace(legacy)) return;
+                if (string.Equals(legacy.Trim(), defaults?.Trim(), StringComparison.Ordinal)) return;
+                settings.VideoLinksByMod ??= new Dictionary<string, Dictionary<string, string>>();
+                if (settings.VideoLinksByMod.ContainsKey(modId)) return;
+
+                var pool = BuildPoolFromUrlList(legacy);
+                if (pool.Count > 0)
+                {
+                    settings.VideoLinksByMod[modId] = pool;
+                    _log?.Information("Migrated {Count} legacy Hypnotube link(s) into mod {ModId}", pool.Count, modId);
+                }
+            }
+
+            Migrate(BuiltInMods.BambiSleepId, settings.HypnotubeLinksBambiSleep, BambiSprite.DefaultBambiSleepLinks);
+            Migrate(BuiltInMods.SissyHypnoId, settings.HypnotubeLinksSissyHypno, BambiSprite.DefaultSissyHypnoLinks);
+        }
+
+        /// <summary>
+        /// Parses a comma/newline-separated list of video URLs into a name→URL pool. Names come
+        /// from the canonical KnownVideoLinks title when the URL is recognised, else a readable
+        /// title derived from the URL slug (HtUrlHelper.DeriveTitleFromUrl). Skips blanks and
+        /// de-duplicates names so the dictionary keys stay unique.
+        /// </summary>
+        public static Dictionary<string, string> BuildPoolFromUrlList(string? list)
+        {
+            var pool = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(list)) return pool;
+
+            var urlToName = AvatarTubeWindow.KnownVideoLinks
+                .GroupBy(kvp => kvp.Value, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Key, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var raw in list.Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var url = raw.Trim();
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                    (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                    continue;
+
+                var name = urlToName.TryGetValue(url, out var known)
+                    ? known
+                    : Helpers.HtUrlHelper.DeriveTitleFromUrl(url);
+
+                // Keep names unique so we don't silently drop a different URL under the same title.
+                var unique = name;
+                int n = 2;
+                while (pool.ContainsKey(unique) && !string.Equals(pool[unique], url, StringComparison.OrdinalIgnoreCase))
+                    unique = $"{name} ({n++})";
+                pool[unique] = url;
+            }
+            return pool;
         }
 
         #region Install / Uninstall / Activate
@@ -694,9 +765,40 @@ namespace ConditioningControlPanel.Services
 
         public Dictionary<string, string>? GetVideoLinks()
         {
+            // A per-mod user override (edited in Settings → Hypnotube Links) wins over the
+            // shipped pool, so the user fully controls what the companion may suggest for THIS
+            // mod. Falls back to the mod's DefaultVideoLinks, then the base mod's.
+            if (App.Settings?.Current?.VideoLinksByMod?.TryGetValue(_activeMod.Id, out var userLinks) == true
+                && userLinks != null && userLinks.Count > 0)
+                return userLinks;
+
             var links = _activeMod.Manifest.Browser?.DefaultVideoLinks;
             if (links != null && links.Count > 0) return links;
             return _baseMod.Manifest.Browser?.DefaultVideoLinks;
+        }
+
+        /// <summary>
+        /// True when the user has saved an explicit per-mod video link override for the active
+        /// mod. Lets callers (e.g. the legacy Bambi prompt branch) honour user edits without
+        /// changing behaviour for users who never touched the pool.
+        /// </summary>
+        public bool HasUserVideoLinkOverride() =>
+            App.Settings?.Current?.VideoLinksByMod?.ContainsKey(_activeMod.Id) == true;
+
+        /// <summary>
+        /// Persists the user's edited video link pool for the active mod, or clears the override
+        /// (reverting to the mod's shipped links) when <paramref name="links"/> is null/empty.
+        /// </summary>
+        public void SetUserVideoLinks(Dictionary<string, string>? links)
+        {
+            var settings = App.Settings?.Current;
+            if (settings == null) return;
+            settings.VideoLinksByMod ??= new Dictionary<string, Dictionary<string, string>>();
+            if (links == null || links.Count == 0)
+                settings.VideoLinksByMod.Remove(_activeMod.Id);
+            else
+                settings.VideoLinksByMod[_activeMod.Id] = new Dictionary<string, string>(links);
+            _log?.Information("Saved {Count} user video link(s) for mod {ModId}", links?.Count ?? 0, _activeMod.Id);
         }
 
         public bool ShowBambiCloudOption() =>

@@ -25,6 +25,17 @@ namespace ConditioningControlPanel.Services
 
             if (isBambiMode)
             {
+                // The video line is dynamic: suggest the Bambi mod's pool (its shipped
+                // DefaultVideoLinks, or the user's own curated override from Settings → Hypnotube
+                // Links). Falls back to the legacy hand-tuned list only if the pool is empty.
+                // Audio/playlist guidance below is unchanged either way.
+                string bambiVideoTitles =
+                    "Naughty Bambi, Bambi Bae, Bambi Slay, Overload, TikTok Loop, Bambi TikTok - In Beat, Bambi TikTok - In Beat - Longer Version, Bambi TikTok - Good Girls Dont Cum, Bambi Chastity Overload, Dumb Bimbo Brainwash, Bambi TikTok Eager Slut, Yes Brain Loop, Day 1, Day 2, Day 4, Day 5, Toms Dangerous Tik Tok, Bambi TikTok 7, Bambi's Naughty TikTok Collection";
+                var bambiPool = App.Mods?.GetVideoLinks();
+                if (bambiPool != null && bambiPool.Count > 0)
+                    bambiVideoTitles = string.Join(", ", bambiPool.Keys
+                        .Where(k => !string.Equals(k, "Movies", System.StringComparison.OrdinalIgnoreCase)));
+
                 return @"
 CLICKABLE MEDIA — Suggest these FREQUENTLY. They become clickable links in the chat.
 
@@ -46,7 +57,7 @@ NEVER invent URLs. NEVER suggest audio by any name that isn't on this page — t
 [Personality Programming](https://bambicloud.com/playlist/ba1cf73a-5f3e-4ef8-bbc6-67ce2dcae774)
 
 ==== VIDEOS (the ONLY videos you can recommend — say the EXACT title, the app auto-links) ====
-Naughty Bambi, Bambi Bae, Bambi Slay, Overload, TikTok Loop, Bambi TikTok - In Beat, Bambi TikTok - In Beat - Longer Version, Bambi TikTok - Good Girls Dont Cum, Bambi Chastity Overload, Dumb Bimbo Brainwash, Bambi TikTok Eager Slut, Yes Brain Loop, Day 1, Day 2, Day 4, Day 5, Toms Dangerous Tik Tok, Bambi TikTok 7, Bambi's Naughty TikTok Collection
+" + bambiVideoTitles + @"
 
 DO NOT name old Bambi Sleep audio files (Bambi IQ Lock, Bambi Body Lock, Rapid Induction, Bubble Induction, Bambi Cockslut, Bambi Takeover, Bambi Awakens, Bambi Named and Drained, Bambi Uniformed, etc.) — those are obsolete here, they have no link, and recommending them frustrates the user. When the user wants audio, use a Programming playlist instead. ""Bambi IQ Lock"" → say [IQ Programming]. ""Bambi Cockslut"" → say [Cockslut Programming]. Etc.
 

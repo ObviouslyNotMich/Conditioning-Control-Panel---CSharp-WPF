@@ -1075,6 +1075,13 @@ namespace ConditioningControlPanel.Models
         public Dictionary<string, List<string>>? CustomTriggersByMod { get; set; }
         [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
         public Dictionary<string, Dictionary<string, bool>>? BouncingTextPoolByMod { get; set; }
+        /// <summary>
+        /// Per-mod video link pool (name -> URL) so the user's curated/added links survive mod
+        /// switching. When set for a mod, this overrides the mod's shipped DefaultVideoLinks
+        /// (ModService.GetVideoLinks). Keyed by mod ID string.
+        /// </summary>
+        [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+        public Dictionary<string, Dictionary<string, string>>? VideoLinksByMod { get; set; }
 
         /// <summary>
         /// Migrate legacy ContentMode-based settings to mod-based settings.

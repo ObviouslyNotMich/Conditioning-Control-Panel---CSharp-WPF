@@ -3157,9 +3157,20 @@ namespace ConditioningControlPanel
                 // Get the actual text from the original (preserving case)
                 var actualText = text.Substring(start, length);
 
+                // A bare URL is ugly as link text. Replace it with the canonical pool title when
+                // the URL is known, else a readable title derived from the slug ("this video" if
+                // even that fails) — so a model that emits a URL still gets a clean clickable link.
+                var displayText = actualText;
+                if (actualText.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    var known = KnownVideoLinks.FirstOrDefault(kvp =>
+                        string.Equals(kvp.Value, url, StringComparison.OrdinalIgnoreCase)).Key;
+                    displayText = known ?? Helpers.HtUrlHelper.DeriveTitleFromUrl(url);
+                }
+
                 try
                 {
-                    var hyperlink = new Hyperlink(new Run(actualText))
+                    var hyperlink = new Hyperlink(new Run(displayText))
                     {
                         NavigateUri = new Uri(url),
                         Foreground = new SolidColorBrush(Color.FromRgb(255, 176, 224)), // Light pink
@@ -3167,11 +3178,11 @@ namespace ConditioningControlPanel
                     };
                     hyperlink.RequestNavigate += SpeechBubbleHyperlink_RequestNavigate;
                     target.Add(hyperlink);
-                    App.Logger?.Information("Auto-linked video: '{Name}' -> {Url}", actualText, url);
+                    App.Logger?.Information("Auto-linked video: '{Name}' -> {Url}", displayText, url);
                 }
                 catch
                 {
-                    target.Add(new Run(actualText));
+                    target.Add(new Run(displayText));
                 }
 
                 lastIndex = start + length;

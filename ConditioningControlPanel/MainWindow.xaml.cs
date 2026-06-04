@@ -1625,33 +1625,196 @@ namespace ConditioningControlPanel
             App.Logger?.Information("Mod changed to {ModId}", App.Mods.ActiveModId);
         }
 
+        // Live name+URL rows in the mod-aware video link pool editor.
+        private readonly List<(TextBox NameBox, TextBox UrlBox)> _videoLinkRows = new();
+
         private void RefreshHypnotubeLinksUI()
         {
             if (TxtHypnotubeModeLabel != null)
                 TxtHypnotubeModeLabel.Text = App.Settings?.Current?.ContentModeDisplay ?? "CCP Default";
 
-            if (TxtHypnotubeLinks != null)
-            {
-                var links = App.Settings?.Current?.ActiveHypnotubeLinks ?? "";
-                // Show default links when empty so users see examples of the expected format
-                if (string.IsNullOrWhiteSpace(links))
+            if (VideoLinkPoolPanel == null) return;
+
+            // Rebuild the rows from the active mod's pool (user override, else shipped links).
+            _videoLinkRows.Clear();
+            VideoLinkPoolPanel.Children.Clear();
+            if (TxtNoVideoLinks != null) VideoLinkPoolPanel.Children.Add(TxtNoVideoLinks);
+
+            var links = App.Mods?.GetVideoLinks();
+            if (links != null)
+                foreach (var kvp in links)
                 {
-                    links = App.Settings?.Current?.IsBambiMode == true
-                        ? Services.BambiSprite.DefaultBambiSleepLinks
-                        : Services.BambiSprite.DefaultSissyHypnoLinks;
-                    if (App.Settings?.Current != null)
-                        App.Settings.Current.ActiveHypnotubeLinks = links;
+                    // Drop non-video "browse" links (e.g. a stray /videos/ listing) — they're not
+                    // videos, so they don't belong in the pool and won't be re-saved.
+                    if (IsListingUrl(kvp.Value)) continue;
+                    AddVideoLinkRow(kvp.Key, kvp.Value);
                 }
-                TxtHypnotubeLinks.Text = links;
-            }
+
+            UpdateNoVideoLinksPlaceholder();
         }
 
-        private void TxtHypnotubeLinks_TextChanged(object sender, TextChangedEventArgs e)
+        /// <summary>
+        /// True for a HypnoTube browse/listing page (e.g. /videos/ or the site root) rather than a
+        /// specific video. Deliberately narrow: a /video/... page — even a typo'd one missing .html —
+        /// is still a video and stays editable.
+        /// </summary>
+        private static bool IsListingUrl(string? url)
         {
-            if (App.Settings?.Current != null && TxtHypnotubeLinks != null)
+            if (string.IsNullOrWhiteSpace(url)) return false;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+            var host = uri.Host.ToLowerInvariant();
+            if (host != "hypnotube.com" && !host.EndsWith(".hypnotube.com", StringComparison.Ordinal))
+                return false;
+            var path = uri.AbsolutePath.TrimEnd('/').ToLowerInvariant();
+            return path == "" || path == "/videos" || path == "/video";
+        }
+
+        private void BtnAddVideoLink_Click(object sender, RoutedEventArgs e)
+        {
+            var row = AddVideoLinkRow("", "");
+            UpdateNoVideoLinksPlaceholder();
+            // Drop the cursor straight into the URL field — paste-and-go is the common case.
+            row.UrlBox.Focus();
+        }
+
+        /// <summary>
+        /// Builds one editable name + URL row (with a bin button) and registers it. Edits persist
+        /// on focus loss; the bin removes just that row. Mirrors ModCreatorWindow.AddVideoLinkRow.
+        /// </summary>
+        private (TextBox NameBox, TextBox UrlBox) AddVideoLinkRow(string name, string url)
+        {
+            var row = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var nameBox = MakePoolTextBox(name, isUrl: false);
+            nameBox.ToolTip = Loc.Get("tooltip_video_link_name_optional");
+            Grid.SetColumn(nameBox, 0);
+            row.Children.Add(nameBox);
+
+            var urlBox = MakePoolTextBox(url, isUrl: true);
+            Grid.SetColumn(urlBox, 2);
+            row.Children.Add(urlBox);
+
+            // Preview: open the link externally so the user can check it (HTTPS only).
+            var openBtn = new Button
             {
-                App.Settings.Current.ActiveHypnotubeLinks = TxtHypnotubeLinks.Text;
+                Content = "", // Segoe MDL2 'OpenInNewWindow'
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 12,
+                Width = 28,
+                Height = 28,
+                Background = Brushes.Transparent,
+                Foreground = new SolidColorBrush(Color.FromRgb(120, 200, 255)),
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = Loc.Get("tooltip_preview_video_link")
+            };
+            openBtn.Content = ""; // Segoe MDL2 'OpenInNewWindow' (set via escape so the glyph can't be stripped)
+            openBtn.Click += (_, _) =>
+            {
+                var u = urlBox.Text?.Trim() ?? "";
+                if (Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
+                {
+                    try { Process.Start(new ProcessStartInfo(u) { UseShellExecute = true }); }
+                    catch (Exception ex) { App.Logger?.Warning(ex, "Failed to open video link preview: {Url}", u); }
+                }
+            };
+            Grid.SetColumn(openBtn, 3);
+            row.Children.Add(openBtn);
+
+            var removeBtn = new Button
+            {
+                Content = "", // Segoe MDL2 'Delete' (trash can)
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 13,
+                Width = 28,
+                Height = 28,
+                Background = Brushes.Transparent,
+                Foreground = new SolidColorBrush(Color.FromRgb(255, 100, 100)),
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = Loc.Get("tooltip_remove_video_link")
+            };
+            var entry = (NameBox: nameBox, UrlBox: urlBox);
+            removeBtn.Click += (_, _) =>
+            {
+                VideoLinkPoolPanel.Children.Remove(row);
+                _videoLinkRows.Remove(entry);
+                PersistVideoLinks();
+                UpdateNoVideoLinksPlaceholder();
+            };
+            Grid.SetColumn(removeBtn, 3);
+            row.Children.Add(removeBtn);
+
+            nameBox.LostFocus += (_, _) => PersistVideoLinks();
+            urlBox.LostFocus += (_, _) => PersistVideoLinks();
+
+            _videoLinkRows.Add(entry);
+            VideoLinkPoolPanel.Children.Add(row);
+            return entry;
+        }
+
+        private TextBox MakePoolTextBox(string text, bool isUrl)
+        {
+            return new TextBox
+            {
+                Text = text ?? "",
+                MaxLength = isUrl ? 500 : 200,
+                Background = new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x2E)),
+                Foreground = isUrl ? new SolidColorBrush(Color.FromRgb(120, 200, 255)) : Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0x80, 0x80, 0x80)),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(6, 4, 6, 4),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                FontSize = 12
+            };
+        }
+
+        /// <summary>
+        /// Collects the current rows into a name→URL pool and saves it as the active mod's
+        /// override. Blank names are auto-titled from the URL (HtUrlHelper.DeriveTitleFromUrl);
+        /// blank/invalid URLs are dropped; duplicate names are made unique.
+        /// </summary>
+        private void PersistVideoLinks()
+        {
+            var pool = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (nameBox, urlBox) in _videoLinkRows)
+            {
+                var url = urlBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(url)) continue; // a row with no URL isn't a link yet
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                    (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                    continue;
+
+                var name = nameBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(name))
+                    name = HtUrlHelper.DeriveTitleFromUrl(url);
+
+                var unique = name;
+                int n = 2;
+                while (pool.ContainsKey(unique) && !string.Equals(pool[unique], url, StringComparison.OrdinalIgnoreCase))
+                    unique = $"{name} ({n++})";
+                pool[unique] = url;
             }
+
+            App.Mods?.SetUserVideoLinks(pool);
+            App.Settings?.Save();
+            // Refresh the clickable-link lookup so the companion links these titles immediately.
+            AvatarTubeWindow.ReloadVideoLinks();
+        }
+
+        private void UpdateNoVideoLinksPlaceholder()
+        {
+            if (TxtNoVideoLinks != null)
+                TxtNoVideoLinks.Visibility = _videoLinkRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         /// <summary>
@@ -17635,6 +17798,7 @@ namespace ConditioningControlPanel
             SetHelpContent(HelpBtnAchievements, "Achievements");
             SetHelpContent(HelpBtnCompanions, "Companions");
             SetHelpContent(HelpBtnPrompts, "CommunityPrompts");
+            SetHelpContent(HelpBtnVideoLinks, "HypnotubeLinks");
             SetHelpContent(HelpBtnCompanionSettings, "CompanionSettings");
             SetHelpContent(HelpBtnQuickControls, "QuickControls");
             SetHelpContent(HelpBtnPatreon, "PatreonExclusives");
