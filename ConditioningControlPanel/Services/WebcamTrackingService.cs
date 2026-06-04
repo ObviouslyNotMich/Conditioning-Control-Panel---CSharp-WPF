@@ -129,6 +129,16 @@ namespace ConditioningControlPanel.Services
         // only catches genuinely degenerate feeds, never a legitimately dark one.
         private const double MinProbeStdDev = 3.0;
 
+        // Per-attempt warm-up budget for the probe loop. Some UVC webcams (the Lovense
+        // Webcam 2 in BUG-6W469QGMHS) stream black for over a second after the handle
+        // opens before real frames arrive. A fixed 5-read window (~1s) rejected those as
+        // "degenerate" and fell through every backend, surfacing a false CameraInUse. We
+        // poll for up to this long instead so a slow-warming camera is adopted the moment
+        // it delivers a usable frame; a backend that's truly dead just costs this once
+        // before the loop tries the next one (still far under the 90s open watchdog).
+        private const int ProbeWarmupMs = 3000;
+        private const int ProbeReadIntervalMs = 200;
+
         // Ordered open attempts: each tries one backend with one pixel-format
         // request, accepting the first that delivers a usable frame.
         //  • DSHOW shares WebcamDeviceEnumerator's DirectShow index space (so the
@@ -987,13 +997,18 @@ namespace ConditioningControlPanel.Services
                 cap.Set(VideoCaptureProperties.BufferSize, 1);
 
                 // Slow drivers (USB UVC over a hub, virtual cameras that lazy-init
-                // their pipeline) can return an empty first frame even though the
-                // device isn't held by another app — retry a handful of times before
-                // giving up so that case warms up instead of being misdiagnosed.
+                // their pipeline, the Lovense Webcam 2 that streams black for >1s) can
+                // return empty or degenerate frames right after the handle opens even
+                // though the device isn't held by another app — poll up to ProbeWarmupMs
+                // so that case warms up and is adopted instead of being misdiagnosed as
+                // CameraInUse (BUG-6W469QGMHS).
                 using var probe = new Mat();
-                for (int i = 0; i < 5; i++)
+                var probeDeadline = DateTime.UtcNow.AddMilliseconds(ProbeWarmupMs);
+                int probeReads = 0;
+                while (DateTime.UtcNow < probeDeadline)
                 {
                     if (_openAbandoned) { cap.Dispose(); return null; }
+                    probeReads++;
                     if (cap.Read(probe) && !probe.Empty())
                     {
                         Cv2.MeanStdDev(probe, out var mean, out var std);
@@ -1001,24 +1016,24 @@ namespace ConditioningControlPanel.Services
                         if (maxStd >= MinProbeStdDev)
                         {
                             App.Logger?.Information(
-                                "WebcamTrackingService: device {Index} ('{Name}') via {Api} probe ok ({W}x{H}, mean={Mean:F1}, maxStdDev={Std:F1})",
-                                deviceIndex, detectedName, label, probe.Width, probe.Height, mean.Val0, maxStd);
+                                "WebcamTrackingService: device {Index} ('{Name}') via {Api} probe ok ({W}x{H}, mean={Mean:F1}, maxStdDev={Std:F1}, reads={Reads})",
+                                deviceIndex, detectedName, label, probe.Width, probe.Height, mean.Val0, maxStd, probeReads);
                             var result = cap;
                             cap = null; // hand ownership to caller; keep the catch from disposing it
                             return result;
                         }
                         // Non-empty but degenerate (solid colour / black) — keep probing
-                        // briefly in case it's a one-off first frame, then reject.
+                        // within the warm-up budget in case it's a slow-warming feed.
                         App.Logger?.Debug(
                             "WebcamTrackingService: device {Index} via {Api} degenerate probe frame (maxStdDev={Std:F1} < {Min})",
                             deviceIndex, label, maxStd, MinProbeStdDev);
                     }
-                    System.Threading.Thread.Sleep(200);
+                    System.Threading.Thread.Sleep(ProbeReadIntervalMs);
                 }
 
                 App.Logger?.Warning(
-                    "WebcamTrackingService: device index {Index} ('{Name}') opened via {Api} but produced no usable frame — trying next attempt",
-                    deviceIndex, detectedName, label);
+                    "WebcamTrackingService: device index {Index} ('{Name}') opened via {Api} but produced no usable frame in {Budget}ms ({Reads} reads) — trying next attempt",
+                    deviceIndex, detectedName, label, ProbeWarmupMs, probeReads);
                 cap.Dispose();
                 return null;
             }
