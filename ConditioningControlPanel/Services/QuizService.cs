@@ -225,7 +225,11 @@ namespace ConditioningControlPanel.Services
                 // Output moderation discarded question 1 — keep the quiz alive with a
                 // canned question instead of aborting with a misleading transport error.
                 _questionNumber = 1;
-                return GetFallbackQuestion(1);
+                var fallback = GetFallbackQuestion(1);
+                // Record the served question as the assistant turn so the transcript
+                // stays well-formed (user→assistant→user) for the next request.
+                _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = SerializeQuestionToWire(fallback) });
+                return fallback;
             }
             if (response == null) return null;
 
@@ -259,7 +263,11 @@ namespace ConditioningControlPanel.Services
                 // Output moderation discarded this question — advance and serve a canned
                 // one so the run continues rather than dying mid-quiz.
                 _questionNumber++;
-                return GetFallbackQuestion(_questionNumber);
+                var fallback = GetFallbackQuestion(_questionNumber);
+                // Record the served question as the assistant turn so the next request
+                // doesn't go out with two consecutive user messages (history desync).
+                _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = SerializeQuestionToWire(fallback) });
+                return fallback;
             }
             if (response == null) return null;
 
@@ -768,6 +776,26 @@ Do NOT include any other text before or after the question format. Just the ques
             var trimmed = new List<ProxyChatMessage> { _conversationHistory[0] };
             trimmed.AddRange(_conversationHistory.Skip(_conversationHistory.Count - 30));
             return trimmed;
+        }
+
+        /// <summary>
+        /// Render a question back into the exact wire format the model emits
+        /// (Q: / A-D: text | points), so a canned fallback served after an output
+        /// block can be recorded as the assistant turn. Without it the blocked turn
+        /// leaves the history with two consecutive user messages, which desyncs — and
+        /// for strict providers can outright reject — every later question. Round-trips
+        /// through <see cref="ParseQuestionResponse"/>.
+        /// </summary>
+        internal static string SerializeQuestionToWire(QuizQuestion q)
+        {
+            var lines = new List<string> { $"Q: {q.QuestionText}" };
+            for (int i = 0; i < q.Answers.Length && i < 4; i++)
+            {
+                char letter = (char)('A' + i);
+                int pts = (q.Points != null && i < q.Points.Length) ? q.Points[i] : i + 1;
+                lines.Add($"{letter}: {q.Answers[i]} | {pts}");
+            }
+            return string.Join("\n", lines);
         }
 
         internal static QuizQuestion? ParseQuestionResponse(string text, int questionNum)
