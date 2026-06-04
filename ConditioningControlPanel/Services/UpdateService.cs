@@ -20,55 +20,51 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.0.5";
+        public const string AppVersion = "6.0.6";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.0.5 - Circe's Lock
-
-🩹 6.0.5 HOTFIX
-- Webcam: fixed real cameras (e.g. Logitech C920) being wrongly reported as
-  ""in use"" when starting eye tracking. The camera-open timeout was too short
-  for cameras that take a little longer to warm up — especially with
-  virtual-camera filters like NVIDIA Broadcast, OBS, or VTubeStudio installed —
-  so a perfectly good open got thrown away just as it finished. Raised the
-  timeout so these cameras start normally.
+        public const string CurrentPatchNotes = @"v6.0.6 - Circe's Lock
 
 ✨ FEATURES
-- Say hello to Circe's Lock, our newest mod and the reason this release has
-  the name it does. Circe is a keyholder, warm and a little possessive,
-  dressed in hot magenta and black, and she keeps you as her pet. Pick this
-  mod and the whole app changes to match her: the bouncing text, the
-  subliminals, the video links, her voice, the lock cards. It all stays on
-  theme now, nothing from the other mods bleeds through.
-    - She comes with six moods. Her warm everyday self, a Gentle side, a
-      strict Mistress, a Tease who lives to deny you, a slow hypnotic Trance
-      Keeper, and Goon Mommy when she wants you gone.
-    - Whichever one you pick, she wants the same things: you edging, gooning,
-      and locked, key handed over and staying that way. ""Hush now. Circe has you.""
-    - Comes ready to play with the bundled locked-resources.ccpmod pack.
-- Remote: new play_hypnotube command (allowlisted, panic-safe).
-- UI: webcam controls now surfaced, scheduler and ramp panels merged, plus a
-  directory-listing confirmation step.
+- Gaze Minigame, reimagined — choose your content by dragging sets into
+  ""Focus"" and ""Ignore."" Your selection and difficulty are remembered, sets are
+  auto-discovered from your folders with thumbnails, and there are Easy/Normal/
+  Hard presets.
+- The Lab Quiz now runs on Local AI (Ollama), not just the cloud.
+- New per-mod Hypnotube link editor for your companion — add, name, preview and
+  open video links; raw links now show as clean clickable titles.
+
+🎨 UI/UX
+- The Companion tab is now organized into collapsible sections, easier to scan.
+- Folders you drag in keep their names (e.g. ""Correct"" and ""Wrong"" stay
+  separate instead of merging) and are usable as distinct sets in the Gaze
+  Minigame.
 
 🔧 BUG FIXES
-- Each mod keeps its own AttentionPool across switches and reboots.
-- Subliminal default top-up is now mod-aware.
-- Remote/haptics: engine restores when a controller leaves, looser ping
-  tolerance, emote watermark fix.
-- Webcam: falls back to WinRT/Media Foundation when DirectShow finds no devices.
-- Bug-triage batch: webcam start UX, OCR self-exclusion, localization,
-  sync healing.
+- Major webcam reliability pass — fixed false ""camera in use"" errors on the
+  Elgato Facecam Neo, Lovense Webcam 2, and in dark rooms. Slow-to-start cameras
+  are given time to warm up, with on-screen progress so a slow open no longer
+  looks frozen.
+- Calibration now warns you and offers a redo when a result is too inaccurate to
+  use, instead of silently saving a bad one.
+- Themed mods (like Circe's Lock) no longer show the default roster name in
+  level-up announcements.
+- The startup video no longer pops a ""no videos found"" dialog when your videos
+  folder is empty.
+- Fixed the Lab Quiz aborting with a misleading ""AI is busy"" message when a
+  question was filtered out.
+
+🔒 SECURITY
+- Content moderation tuned so reclaimed in-group vocabulary no longer over-blocks
+  legitimate content, while genuine hate-speech coverage was widened.
 
 🌍 LOCALIZATION
-- Simplified Chinese (zh-CN) caught up. Huge thanks to 🈷️lin for the contribution!
+- Thanks again to 🈷️lin for the Simplified Chinese (zh-CN) localization! 💖
 
-📦 OTHER
-- Updated Patreon tier 2 image.
-
-Season: Juicy June";
+Season:";
 
         private const string GitHubOwner = "CodeBambi";
         private const string GitHubRepo = "Conditioning-Control-Panel---CSharp-WPF";
