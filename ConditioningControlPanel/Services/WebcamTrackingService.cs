@@ -926,9 +926,27 @@ namespace ConditioningControlPanel.Services
                 // the Elgato Facecam Neo (BUG-F2XJE2E7X9) — is disposed so the loop falls
                 // through to the next one instead of locking in a feed that reads fine
                 // but contains no detectable face.
+                // Note on timing: each attempt gets its own ProbeWarmupMs budget, so a
+                // device that opens-but-never-streams on every backend can take up to
+                // (attempts × warm-up) before we conclude CameraInUse. We accept that
+                // worst case deliberately — the budget exists for slow-to-START cameras
+                // (the Lovense streams black >1s, #335), and that symptom is
+                // indistinguishable from a dead feed until the budget elapses, so it
+                // can't be safely shortened. A wedged native Read() can also exceed the
+                // budget (it's only checked between reads); the worker thread + 90s open
+                // watchdog bound that, and we do NOT dispose mid-Read (guaranteed native
+                // AV — see Stop()). What we CAN do is keep the user informed so the
+                // multi-second open doesn't read as a hang.
                 bool anyOpened = false;
-                foreach (var attempt in CaptureAttempts)
+                for (int attemptIdx = 0; attemptIdx < CaptureAttempts.Length; attemptIdx++)
                 {
+                    var attempt = CaptureAttempts[attemptIdx];
+                    ReportStartupProgress(
+                        0.25 + 0.20 * (attemptIdx / (double)CaptureAttempts.Length),
+                        attemptIdx == 0
+                            ? "Opening camera…"
+                            : $"Camera slow to respond — trying another method ({attemptIdx + 1}/{CaptureAttempts.Length})…");
+
                     var cap = TryOpenWithBackend(deviceIndex, detectedName, attempt.Api, attempt.Name, attempt.Fourcc, ref anyOpened);
                     if (cap != null)
                     {
