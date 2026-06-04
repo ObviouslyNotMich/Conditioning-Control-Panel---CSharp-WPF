@@ -250,13 +250,30 @@ namespace ConditioningControlPanel.Services.Moderation
             // content, so it is NOT an unconditional substring block — that over-trigger
             // discarded legitimate AI quiz questions as HateSpeech and surfaced a bogus
             // "AI busy" error (BUG-cloud-quiz, 2026-06). It now trips ONLY when paired
-            // with a hate/violence marker, mirroring the slurs-as-attack patterns above.
-            // ALLOW: "good little faggot", "such a faggot for cock", "sissy faggot".
-            // BLOCK: "kill all faggots", "gas the fags", "faggots should die".
-            // Hate/violence marker BEFORE the slur (within 30 chars).
+            // with a marker of GROUP HATE — a violence threat OR class-directed
+            // dehumanization/removal. The markers are deliberately chosen to NOT include
+            // generic degradation adjectives ("disgusting", "worthless", "filthy",
+            // "pathetic") because those appear in this app's consensual degradation-kink
+            // content; we key only on class-targeting language that consensual kink does
+            // not use ("eradicated", "subhuman", "should be banned", "hate all faggots").
+            // ALLOW: "good little faggot", "such a faggot for cock", "sissy faggot",
+            //        "you worthless little faggot", "disgusting faggot" (kink degradation).
+            // BLOCK: "kill all faggots", "gas the fags", "faggots should die",
+            //        "faggots are subhuman", "fags should be eradicated", "hate all faggots".
+            // Violence marker BEFORE the slur (within 30 chars).
             new(@"\b(kill|kills|killing|killed|murder(s|ed|ing)?|exterminat(e|es|ing|ed)|lynch(es|ing|ed)?|behead(s|ed|ing)?|gas\s+(the|all|those|every)|beat\s+up|bash(es|ed|ing)?|round\s+up|string\s+up)\b.{0,30}\bfag(?:g(?:ot)?)?s?\b", Opts),
-            // Hate/violence marker AFTER the slur (within 30 chars).
+            // Violence marker AFTER the slur (within 30 chars).
             new(@"\bfag(?:g(?:ot)?)?s?\b.{0,30}\b(should\s+(die|burn|hang)|deserve[s]?\s+to\s+(die|burn)|must\s+die|need[s]?\s+to\s+die|get\s+(the\s+)?gas)\b", Opts),
+            // Class-dehumanization / removal predicate AFTER the slur (within 30 chars).
+            // "faggots are subhuman", "fags should be eradicated/banned", "faggots don't belong".
+            new(@"\bfag(?:g(?:ot)?)?s?\b.{0,30}\b(are\s+(sub-?human|vermin|animals|not\s+human|an?\s+(disease|plague|cancer|abomination))|should\s+(be\s+)?(eradicated|exterminated|eliminated|banned|illegal|removed|wiped\s+out|rounded\s+up|gassed)|don'?t\s+belong|don'?t\s+deserve\s+to\s+(live|exist))\b", Opts),
+            // Dehumanization / eradication marker BEFORE the slur (net-new verbs not in the
+            // violence arm above): "subhuman fags", "eradicate the faggots", "death to fags".
+            new(@"\b(sub-?human|death\s+to|wipe\s+out|eradicat(e|es|ed|ing)|eliminat(e|es|ed|ing))\b.{0,30}\bfag(?:g(?:ot)?)?s?\b", Opts),
+            // Class-directed hatred. Gated to a determiner/"all" (or the bare plural slur)
+            // so self-referential kink ("hate that I'm such a faggot") does NOT trip —
+            // only "hate faggots", "hate all fags", "hate those faggots".
+            new(@"\bhate\s+(all\s+|those\s+|these\s+|the\s+)?fag(?:g(?:ot)?)?s?\b", Opts),
         };
         private static readonly string[] HateSpeechKeywords =
         {

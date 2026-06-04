@@ -489,8 +489,12 @@ namespace ConditioningControlPanel
 
                     if (choice == System.Windows.MessageBoxResult.Yes)
                     {
-                        // Same terminal state as the Recalibrate button: close unaccepted
-                        // so nothing is persisted and the user can run calibration again.
+                        // Exactly what the Recalibrate button does: set WantsRecalibrate
+                        // so ShowDialogWithRecalibrate's loop RE-OPENS the dialog. Without
+                        // this flag the loop breaks and the user who clicked "try again"
+                        // is silently dropped to no calibration (the close alone only
+                        // cancels — it does not restart).
+                        WantsRecalibrate = true;
                         DialogResult = false;
                         Close();
                         return;
