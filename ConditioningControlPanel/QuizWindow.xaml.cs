@@ -709,6 +709,20 @@ namespace ConditioningControlPanel
             ShowPanel(ErrorPanel);
         }
 
+        /// <summary>
+        /// Provider-aware "couldn't generate" message. Local-AI users got the cloud
+        /// "daily limit" line even though the quiz now runs on their Ollama instance
+        /// (#334), which sent them chasing a limit that doesn't apply — point them at
+        /// Ollama instead.
+        /// </summary>
+        private static string QuizGenerationFailedMessage()
+        {
+            bool useLocal = App.Settings?.Current?.CompanionPrompt?.UseLocalAi == true;
+            return useLocal
+                ? "Couldn't generate the quiz. Make sure Ollama is running and your model is pulled (Companion → AI), then try again."
+                : "Couldn't generate the quiz. The AI might be busy or you've hit your daily limit. Try again in a moment.";
+        }
+
         // ============ ANIMATIONS ============
 
         private void GradientTimer_Tick(object? sender, EventArgs e)
@@ -791,7 +805,7 @@ namespace ConditioningControlPanel
                 }
                 else
                 {
-                    ShowError("Couldn't generate the quiz. The AI might be busy or you've hit your daily limit. Try again in a moment.");
+                    ShowError(QuizGenerationFailedMessage());
                 }
             }
             catch (Exception ex)
@@ -832,7 +846,7 @@ namespace ConditioningControlPanel
                 }
                 else
                 {
-                    ShowError("Couldn't generate the quiz. The AI might be busy or you've hit your daily limit. Try again in a moment.");
+                    ShowError(QuizGenerationFailedMessage());
                 }
             }
             catch (Exception ex)

@@ -26466,7 +26466,7 @@ namespace ConditioningControlPanel
             {
                 // Play a random video
                 App.Logger?.Information("Playing random startup video");
-                App.Video.TriggerVideo();
+                App.Video.TriggerVideo(silentIfEmpty: true);
             }
         }
 

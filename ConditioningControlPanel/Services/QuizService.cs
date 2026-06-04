@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Services.AIService;
 using ConditioningControlPanel.Services.Moderation;
 using Newtonsoft.Json;
 
@@ -615,6 +616,51 @@ Do NOT include any other text before or after the question format. Just the ques
 
         private async Task<string?> CallAiAsync(int maxTokens)
         {
+            // Trim conversation to last 30 messages + system prompt to stay under limits.
+            var messagesToSend = TrimConversation();
+
+            // Route to whichever provider the user has selected for the companion. The
+            // quiz used to be cloud-only, so switching to local Ollama left it stuck on
+            // "AI busy / daily limit" even though chat worked (BUG-XQRK4USW5X / #334).
+            bool useLocal = App.Settings?.Current?.CompanionPrompt?.UseLocalAi == true;
+            string? content = useLocal
+                ? await CallLocalAiAsync(messagesToSend)
+                : await CallCloudAiAsync(messagesToSend, maxTokens);
+
+            if (string.IsNullOrEmpty(content))
+                return null;
+
+            // OUTPUT MODERATION (Layer 1) — applies to BOTH providers. Discard
+            // AI-generated questions / result archetype text that trips the guard.
+            // Returning null lets the existing fallback path (deterministic archetype +
+            // canned question) take over so the quiz continues without leaking content.
+            var guard = App.ModerationGuard;
+            if (guard != null)
+            {
+                var modelHint = useLocal ? "local-quiz" : "cloud-quiz";
+                var outputCheck = guard.CheckOutput(content);
+                if (!outputCheck.Allow && outputCheck.Category.HasValue)
+                {
+                    App.ModerationLog?.Record(outputCheck.Category.Value, source: "output", modelHint: modelHint);
+                    // Quiz questions are AI-generated OUTPUT, never user-typed input, so
+                    // a hit is logged for the compliance record but does NOT escalate
+                    // the user-facing Content Policy Notice. The batch is still
+                    // discarded fail-closed (return null) so nothing prohibited leaks.
+                    App.Logger?.Information("QuizService: output blocked by ModerationGuard (category={Cat})", outputCheck.Category);
+                    return null;
+                }
+                if (outputCheck.Allow && outputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
+                {
+                    App.ModerationLog?.Record(ProhibitedCategory.ProfessionalAdvice, source: "output", modelHint: modelHint);
+                }
+            }
+
+            return content;
+        }
+
+        /// <summary>Cloud-proxy transport. Returns raw assistant text or null on failure.</summary>
+        private async Task<string?> CallCloudAiAsync(List<ProxyChatMessage> messagesToSend, int maxTokens)
+        {
             try
             {
                 var unifiedId = App.UnifiedUserId;
@@ -625,9 +671,6 @@ Do NOT include any other text before or after the question format. Just the ques
                     App.Logger?.Warning("QuizService: No unified ID available");
                     return null;
                 }
-
-                // Trim conversation to last 30 messages + system prompt to stay under limits
-                var messagesToSend = TrimConversation();
 
                 var request = new V2ChatRequest
                 {
@@ -665,30 +708,6 @@ Do NOT include any other text before or after the question format. Just the ques
                     return null;
                 }
 
-                // OUTPUT MODERATION (Layer 1). Discard AI-generated questions / result
-                // archetype text that trips the guard. Returning null lets the existing
-                // fallback path (deterministic archetype + canned question) take over so
-                // the quiz continues without leaking prohibited content.
-                var guard = App.ModerationGuard;
-                if (guard != null)
-                {
-                    var outputCheck = guard.CheckOutput(result.Content ?? string.Empty);
-                    if (!outputCheck.Allow && outputCheck.Category.HasValue)
-                    {
-                        App.ModerationLog?.Record(outputCheck.Category.Value, source: "output", modelHint: "cloud-quiz");
-                        // Quiz questions are AI-generated OUTPUT, never user-typed input, so
-                        // a hit is logged for the compliance record but does NOT escalate
-                        // the user-facing Content Policy Notice. The batch is still
-                        // discarded fail-closed (return null) so nothing prohibited leaks.
-                        App.Logger?.Information("QuizService: output blocked by ModerationGuard (category={Cat})", outputCheck.Category);
-                        return null;
-                    }
-                    if (outputCheck.Allow && outputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
-                    {
-                        App.ModerationLog?.Record(ProhibitedCategory.ProfessionalAdvice, source: "output", modelHint: "cloud-quiz");
-                    }
-                }
-
                 return result.Content;
             }
             catch (TaskCanceledException)
@@ -698,9 +717,20 @@ Do NOT include any other text before or after the question format. Just the ques
             }
             catch (Exception ex)
             {
-                App.Logger?.Error(ex, "QuizService: Unexpected error calling AI");
+                App.Logger?.Error(ex, "QuizService: Unexpected error calling cloud AI");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Local Ollama transport — mirrors the companion's local provider so the quiz
+        /// honours the same Companion → AI host/model settings. Returns raw assistant
+        /// text or null on failure (LocalAiService logs the specific cause).
+        /// </summary>
+        private async Task<string?> CallLocalAiAsync(List<ProxyChatMessage> messagesToSend)
+        {
+            var mapped = messagesToSend.Select(m => (role: m.Role ?? "user", content: m.Content ?? string.Empty));
+            return await LocalAiService.GetRawChatCompletionAsync(mapped, Temperature);
         }
 
         private List<ProxyChatMessage> TrimConversation()
