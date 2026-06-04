@@ -246,6 +246,17 @@ namespace ConditioningControlPanel.Services.Moderation
             new(@"\b(kill|kills|killing|killed|gas|gassing|gassed|exterminat(e|es|ing|ed)|lynch(es|ing|ed)?|hang(s|ing|ed)?|murder(s|ed|ing)?)\s+(all\s+)?(jewish|black|asian|white|muslim|christian|gay|trans|transgender|hispanic|mexican|arab|african|immigrant)\s+(people|persons|men|women|kids|children)\b", Opts),
             new(@"\b(genocide|holocaust)\b.{0,30}\b(deserve|deserves|deserved|should|need|needs|needed)\b", Opts),
             new(@"\bwhite\s+(power|supremacy|nationalism)\b.{0,30}\b(rise|rises|risen|rising|fight|fights|fighting|kill|kills|killing|win|wins|winning)\b", Opts),
+            // "faggot"/"fag" is reclaimed in-group vocabulary in this app's sissy/bambi
+            // content, so it is NOT an unconditional substring block — that over-trigger
+            // discarded legitimate AI quiz questions as HateSpeech and surfaced a bogus
+            // "AI busy" error (BUG-cloud-quiz, 2026-06). It now trips ONLY when paired
+            // with a hate/violence marker, mirroring the slurs-as-attack patterns above.
+            // ALLOW: "good little faggot", "such a faggot for cock", "sissy faggot".
+            // BLOCK: "kill all faggots", "gas the fags", "faggots should die".
+            // Hate/violence marker BEFORE the slur (within 30 chars).
+            new(@"\b(kill|kills|killing|killed|murder(s|ed|ing)?|exterminat(e|es|ing|ed)|lynch(es|ing|ed)?|behead(s|ed|ing)?|gas\s+(the|all|those|every)|beat\s+up|bash(es|ed|ing)?|round\s+up|string\s+up)\b.{0,30}\bfag(?:g(?:ot)?)?s?\b", Opts),
+            // Hate/violence marker AFTER the slur (within 30 chars).
+            new(@"\bfag(?:g(?:ot)?)?s?\b.{0,30}\b(should\s+(die|burn|hang)|deserve[s]?\s+to\s+(die|burn)|must\s+die|need[s]?\s+to\s+die|get\s+(the\s+)?gas)\b", Opts),
         };
         private static readonly string[] HateSpeechKeywords =
         {
@@ -253,7 +264,8 @@ namespace ConditioningControlPanel.Services.Moderation
             // in an AI-generated sexual roleplay context. P2-C1: plurals included.
             "nigger", "niggers",
             "kike", "kikes",
-            "faggot", "faggots", " fag ", " fags ", // bordered to avoid "flag", "fag end" type FPs
+            // "faggot"/"fag" intentionally NOT here — context-gated in HateSpeechRegex
+            // so reclaimed sissy/bambi usage passes but slur-as-attack still blocks.
             "tranny", "trannies",
             "chink", "chinks",
             "spic", "spics",
@@ -264,6 +276,8 @@ namespace ConditioningControlPanel.Services.Moderation
             "kill all blacks",
             "kill all gays",
             "kill all trans",
+            "kill all faggots",
+            "gas the faggots",
             "exterminate all jews",
             "exterminate all blacks",
             "exterminate all gays",

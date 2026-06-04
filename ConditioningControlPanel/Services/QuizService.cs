@@ -162,6 +162,15 @@ namespace ConditioningControlPanel.Services
         private int _totalScore;
         private bool _disposed;
 
+        // Distinct reference (not null, not interned) returned by CallAiAsync when OUTPUT
+        // moderation discarded the model's response. null means a transport/availability
+        // failure (network, daily limit, Ollama down) — that still surfaces the real
+        // error. A moderation block instead lets question-generation callers serve a
+        // deterministic canned question so the quiz keeps going, as documented in
+        // CallAiAsync. Before this, a block returned null too and aborted the quiz with a
+        // misleading "AI busy / daily limit" message (BUG-cloud-quiz HateSpeech, 2026-06).
+        private static readonly string OutputBlocked = new(" quiz-output-blocked ".ToCharArray());
+
         private const string ProxyBaseUrl = "https://codebambi-proxy.vercel.app";
         private const int QuestionMaxTokens = 400;
         private const int ResultMaxTokens = 500;
@@ -211,6 +220,13 @@ namespace ConditioningControlPanel.Services
             _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = "Start the quiz! Generate question 1." });
 
             var response = await CallAiAsync(QuestionMaxTokens);
+            if (ReferenceEquals(response, OutputBlocked))
+            {
+                // Output moderation discarded question 1 — keep the quiz alive with a
+                // canned question instead of aborting with a misleading transport error.
+                _questionNumber = 1;
+                return GetFallbackQuestion(1);
+            }
             if (response == null) return null;
 
             _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
@@ -238,6 +254,13 @@ namespace ConditioningControlPanel.Services
             _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = userMsg });
 
             var response = await CallAiAsync(QuestionMaxTokens);
+            if (ReferenceEquals(response, OutputBlocked))
+            {
+                // Output moderation discarded this question — advance and serve a canned
+                // one so the run continues rather than dying mid-quiz.
+                _questionNumber++;
+                return GetFallbackQuestion(_questionNumber);
+            }
             if (response == null) return null;
 
             _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
@@ -288,8 +311,10 @@ namespace ConditioningControlPanel.Services
             _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = userMsg });
 
             var response = await CallAiAsync(ResultMaxTokens);
-            if (response == null)
+            if (response == null || ReferenceEquals(response, OutputBlocked))
             {
+                // Transport failure OR an output-moderation block — either way fall back
+                // to the deterministic profile (always correct for the score).
                 return new QuizResult
                 {
                     TotalScore = _totalScore,
@@ -608,7 +633,9 @@ Do NOT include any other text before or after the question format. Just the ques
             });
 
             var response = await CallAiAsync(QuestionMaxTokens);
-            if (response == null) return null;
+            // Sentinel (output blocked) or null (transport failure) → let the caller's
+            // `?? GetFallbackQuestion(...)` serve a canned question.
+            if (response == null || ReferenceEquals(response, OutputBlocked)) return null;
 
             _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
             return ParseQuestionResponse(response, questionNum);
@@ -647,7 +674,7 @@ Do NOT include any other text before or after the question format. Just the ques
                     // the user-facing Content Policy Notice. The batch is still
                     // discarded fail-closed (return null) so nothing prohibited leaks.
                     App.Logger?.Information("QuizService: output blocked by ModerationGuard (category={Cat})", outputCheck.Category);
-                    return null;
+                    return OutputBlocked;
                 }
                 if (outputCheck.Allow && outputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
                 {
@@ -1034,7 +1061,9 @@ Make all phrases thematically consistent with the quiz category and the user's s
                 _conversationHistory.Add(new ProxyChatMessage { Role = "user", Content = prompt });
 
                 var response = await CallAiAsync(800);
-                if (response == null) return null;
+                // Session content is optional; on transport failure or a moderation block
+                // return null and let the caller fall back (no canned session text here).
+                if (response == null || ReferenceEquals(response, OutputBlocked)) return null;
 
                 _conversationHistory.Add(new ProxyChatMessage { Role = "assistant", Content = response });
 
