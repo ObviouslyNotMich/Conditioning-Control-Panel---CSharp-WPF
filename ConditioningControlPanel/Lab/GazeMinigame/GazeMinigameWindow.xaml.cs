@@ -18,6 +18,7 @@ using LibVLCSharp.WPF;
 using XamlAnimatedGif;
 using WpfPoint = System.Windows.Point;
 using VlcMediaPlayer = LibVLCSharp.Shared.MediaPlayer;
+using WinForms = System.Windows.Forms;
 
 namespace ConditioningControlPanel.Lab.GazeMinigame
 {
@@ -48,6 +49,20 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
 
         private readonly List<AssetPack> _packs = new();
         private GazeMinigameSettings _settings = new();
+
+        // ── Setup screen state ──
+        // Discovered + custom packs, keyed by full path, plus the user's current
+        // Focus/Ignore/Off assignment. _roles is the single source of truth the
+        // gallery renders from and that we persist into _settings.Packs.
+        private readonly List<AssetPack> _library = new();
+        private readonly Dictionary<string, GazePackRole> _roles = new(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _customPaths = new();
+        private const string DragFormat = "GazeAssetPackPath";
+        private WpfPoint _dragStart;
+        private bool _dragArmed;
+        // Guard so programmatic slider updates (difficulty presets / load) don't
+        // flip the chosen difficulty to "Custom".
+        private bool _applyingSliders;
 
         private List<RoundSpec> _rounds = new();
         private readonly List<RoundResult> _results = new();
@@ -94,6 +109,7 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
             InitializeComponent();
             _settings = GazeMinigameSettings.Load();
             ApplySettingsToSliders();
+            InitSetupScreen();
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -103,7 +119,6 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
         private void ShowScreen(Grid screen)
         {
             TitleScreen.Visibility = screen == TitleScreen ? Visibility.Visible : Visibility.Collapsed;
-            ReadyScreen.Visibility = screen == ReadyScreen ? Visibility.Visible : Visibility.Collapsed;
             CountdownScreen.Visibility = screen == CountdownScreen ? Visibility.Visible : Visibility.Collapsed;
             GameplayScreen.Visibility = screen == GameplayScreen ? Visibility.Visible : Visibility.Collapsed;
             ResultsScreen.Visibility = screen == ResultsScreen ? Visibility.Visible : Visibility.Collapsed;
@@ -113,36 +128,383 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
         //  Title screen
         // ─────────────────────────────────────────────────────────────────────
 
-        private void BtnSelectAssets_Click(object sender, RoutedEventArgs e)
+        // ─────────────────────────────────────────────────────────────────────
+        //  Setup screen — discovery, drag-and-drop pack assignment, difficulty
+        // ─────────────────────────────────────────────────────────────────────
+
+        private void InitSetupScreen()
         {
-            var dlg = new AssetPackSelectorDialog(_packs) { Owner = this };
-            if (dlg.ShowDialog() == true)
-            {
-                _packs.Clear();
-                _packs.AddRange(dlg.SelectedPacks);
-            }
-            UpdateTitleScreen();
+            // Restore remembered custom folders (those that live outside the assets
+            // tree) so they reappear in the library, then discover + apply roles.
+            _customPaths.Clear();
+            foreach (var p in _settings.Packs)
+                if (!string.IsNullOrWhiteSpace(p.Path)) _customPaths.Add(p.Path);
+
+            DiscoverLibrary();
+            UpdateDifficultyChips();
+
+            // Proactive calibration nudge so the user fixes it before staring at a
+            // Start button that would otherwise bounce them (the actual hard check
+            // still runs in BtnStartGame_Click).
+            if (App.Webcam?.Calibration == null)
+                ShowReadyBanner("Tip: run a 16-point gaze calibration before playing so the game can tell which side you're looking at.", showCalibrateAction: true);
         }
 
-        private void UpdateTitleScreen()
+        /// <summary>Rescan content folders, preserving the current role assignments.</summary>
+        private void DiscoverLibrary()
         {
-            if (_packs.Count >= 2)
+            _library.Clear();
+            _library.AddRange(GazePackLibrary.Discover(_customPaths));
+
+            // Apply saved roles by path; drop assignments whose folder vanished.
+            var saved = _settings.Packs.ToDictionary(p => NormPath(p.Path), p => p.Role, StringComparer.OrdinalIgnoreCase);
+            foreach (var pack in _library)
             {
-                BtnGoToReady.IsEnabled = true;
-                TxtTitleStatus.Text = $"{_packs.Count} packs loaded — first is correct, {_packs.Count - 1} noise.";
+                var key = NormPath(pack.Path);
+                if (!_roles.ContainsKey(key))
+                    _roles[key] = saved.TryGetValue(key, out var r) ? r : GazePackRole.Off;
+            }
+            // Forget roles for packs no longer present.
+            var live = new HashSet<string>(_library.Select(p => NormPath(p.Path)), StringComparer.OrdinalIgnoreCase);
+            foreach (var stale in _roles.Keys.Where(k => !live.Contains(k)).ToList())
+                _roles.Remove(stale);
+
+            RenderPacks();
+        }
+
+        private static string NormPath(string p)
+        {
+            try { return System.IO.Path.GetFullPath(p); } catch { return p ?? ""; }
+        }
+
+        private GazePackRole RoleOf(AssetPack pack)
+            => _roles.TryGetValue(NormPath(pack.Path), out var r) ? r : GazePackRole.Off;
+
+        private void RenderPacks()
+        {
+            LibraryPanel.Children.Clear();
+            FocusPanel.Children.Clear();
+            IgnorePanel.Children.Clear();
+
+            foreach (var pack in _library)
+            {
+                var role = RoleOf(pack);
+                var card = BuildPackCard(pack, role);
+                switch (role)
+                {
+                    case GazePackRole.Focus: FocusPanel.Children.Add(card); break;
+                    case GazePackRole.Ignore: IgnorePanel.Children.Add(card); break;
+                    default: LibraryPanel.Children.Add(card); break;
+                }
+            }
+
+            bool empty = _library.Count == 0;
+            LibraryEmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+            FocusPlaceholder.Visibility = FocusPanel.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            IgnorePlaceholder.Visibility = IgnorePanel.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            RefreshSetupState();
+        }
+
+        private Border BuildPackCard(AssetPack pack, GazePackRole role)
+        {
+            var accent = role switch
+            {
+                GazePackRole.Focus => Color.FromRgb(0xFF, 0x69, 0xB4),
+                GazePackRole.Ignore => Color.FromRgb(0xFF, 0x80, 0x80),
+                _ => Color.FromRgb(0x55, 0x55, 0x66),
+            };
+
+            var card = new Border
+            {
+                Width = 150,
+                Background = new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x2E)),
+                BorderBrush = new SolidColorBrush(accent),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 8, 8),
+                Padding = new Thickness(0),
+                Cursor = Cursors.Hand,
+                Tag = pack.Path,
+                ToolTip = pack.Path,
+            };
+
+            var stack = new StackPanel();
+
+            // Thumbnail (first image) or a glyph for video-only packs.
+            var thumbHost = new Border
+            {
+                Height = 80,
+                Background = new SolidColorBrush(Color.FromRgb(0x0A, 0x0A, 0x14)),
+                CornerRadius = new CornerRadius(6, 6, 0, 0),
+                ClipToBounds = true,
+            };
+            var thumbPath = GazePackLibrary.ThumbnailPath(pack);
+            if (thumbPath != null)
+            {
+                try
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.UriSource = new Uri(thumbPath);
+                    bmp.DecodePixelWidth = 150;
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    thumbHost.Child = new Image { Source = bmp, Stretch = Stretch.UniformToFill };
+                }
+                catch
+                {
+                    thumbHost.Child = GlyphBlock("🖼");
+                }
             }
             else
             {
-                BtnGoToReady.IsEnabled = false;
-                TxtTitleStatus.Text = "Pick at least 2 asset packs to begin.";
+                thumbHost.Child = GlyphBlock("🎬");
+            }
+            stack.Children.Add(thumbHost);
+
+            var body = new StackPanel { Margin = new Thickness(8, 6, 8, 8) };
+            body.Children.Add(new TextBlock
+            {
+                Text = pack.Name,
+                Foreground = Brushes.White,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 12,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+            body.Children.Add(new TextBlock
+            {
+                Text = $"{pack.ImageCount} img · {pack.VideoCount} vid",
+                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 10,
+                Margin = new Thickness(0, 2, 0, 0),
+            });
+            stack.Children.Add(body);
+
+            card.Child = stack;
+
+            // Drag to (re)assign.
+            card.PreviewMouseLeftButtonDown += Card_PreviewMouseLeftButtonDown;
+            card.PreviewMouseMove += Card_PreviewMouseMove;
+            return card;
+        }
+
+        private static TextBlock GlyphBlock(string glyph) => new()
+        {
+            Text = glyph,
+            FontSize = 30,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x66)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        // ── Drag source ──
+        private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _dragStart = e.GetPosition(null);
+            _dragArmed = true;
+        }
+
+        private void Card_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_dragArmed || e.LeftButton != MouseButtonState.Pressed) return;
+            var pos = e.GetPosition(null);
+            if (Math.Abs(pos.X - _dragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(pos.Y - _dragStart.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            if (sender is Border card && card.Tag is string path)
+            {
+                _dragArmed = false;
+                try
+                {
+                    DragDrop.DoDragDrop(card, new DataObject(DragFormat, path), DragDropEffects.Move);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning(ex, "GazeMinigame: drag failed");
+                }
             }
         }
 
-        private void BtnGoToReady_Click(object sender, RoutedEventArgs e)
+        // ── Drop targets ──
+        private void Zone_DragOver(object sender, DragEventArgs e)
         {
-            BuildReadyRecap();
+            bool ok = e.Data.GetDataPresent(DragFormat);
+            e.Effects = ok ? DragDropEffects.Move : DragDropEffects.None;
+            if (ok && sender is Border b) b.Opacity = 0.80;
+            e.Handled = true;
+        }
+
+        private void Zone_DragLeave(object sender, DragEventArgs e)
+        {
+            if (sender is Border b) b.Opacity = 1.0;
+        }
+
+        private void FocusZone_Drop(object sender, DragEventArgs e) => OnZoneDrop(sender, e, GazePackRole.Focus);
+        private void IgnoreZone_Drop(object sender, DragEventArgs e) => OnZoneDrop(sender, e, GazePackRole.Ignore);
+        private void LibraryZone_Drop(object sender, DragEventArgs e) => OnZoneDrop(sender, e, GazePackRole.Off);
+
+        private void OnZoneDrop(object sender, DragEventArgs e, GazePackRole role)
+        {
+            if (sender is Border b) b.Opacity = 1.0;
+            if (e.Data.GetData(DragFormat) is not string path) return;
+            AssignRole(path, role);
+            e.Handled = true;
+        }
+
+        private void AssignRole(string path, GazePackRole role)
+        {
+            var key = NormPath(path);
+            // Focus is single-select — demote the previous focus back to the library.
+            if (role == GazePackRole.Focus)
+            {
+                foreach (var k in _roles.Keys.Where(k => _roles[k] == GazePackRole.Focus && k != key).ToList())
+                    _roles[k] = GazePackRole.Off;
+            }
+            _roles[key] = role;
+            RenderPacks();
+            SaveSelection();
+        }
+
+        private void SaveSelection()
+        {
+            // Persist only assigned packs (Focus/Ignore); Off packs are rediscovered.
+            // Keep any remembered custom folder even when Off so it survives a restart.
+            var customSet = new HashSet<string>(_customPaths.Select(NormPath), StringComparer.OrdinalIgnoreCase);
+            _settings.Packs = _library
+                .Select(p => new { Key = NormPath(p.Path), Pack = p })
+                .Where(x => _roles.TryGetValue(x.Key, out var r) && r != GazePackRole.Off || customSet.Contains(x.Key))
+                .Select(x => new GazePackRef
+                {
+                    Path = x.Pack.Path,
+                    Role = _roles.TryGetValue(x.Key, out var r) ? r : GazePackRole.Off,
+                })
+                .ToList();
+            _settings.Save();
+        }
+
+        private void RefreshSetupState()
+        {
+            var focus = _library.FirstOrDefault(p => RoleOf(p) == GazePackRole.Focus);
+            var ignore = _library.Where(p => RoleOf(p) == GazePackRole.Ignore).ToList();
+
+            string? reason = null;
+            if (focus == null) reason = "Pick a Focus set and at least one Ignore set.";
+            else if (ignore.Count == 0) reason = "Add at least one Ignore set (the distractions).";
+            else
+            {
+                // Both buckets must be able to supply at least one shared content
+                // type, or the round builder dead-ends.
+                bool sharedImages = focus.ImageCount > 0 && ignore.Any(p => p.ImageCount > 0);
+                bool sharedVideos = focus.VideoCount > 0 && ignore.Any(p => p.VideoCount > 0);
+                if (!sharedImages && !sharedVideos)
+                    reason = "Focus and Ignore don't share a content type — pick sets that both have images, or both have videos.";
+            }
+
+            BtnStartGame.IsEnabled = reason == null;
+            if (reason == null)
+            {
+                var ignoreNames = string.Join(", ", ignore.Select(p => p.Name));
+                TxtSelectionSummary.Text = $"Focus: {focus!.Name}   ·   Ignore: {ignoreNames}";
+                TxtSelectionSummary.Foreground = new SolidColorBrush(Color.FromRgb(0xBB, 0xBB, 0xBB));
+            }
+            else
+            {
+                TxtSelectionSummary.Text = reason;
+                TxtSelectionSummary.Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+            }
+        }
+
+        private void BtnAddFolder_Click(object sender, RoutedEventArgs e)
+        {
+            using var dlg = new WinForms.FolderBrowserDialog
+            {
+                Description = "Pick a folder of images and/or videos",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = false,
+                SelectedPath = App.EffectiveAssetsPath,
+            };
+            if (dlg.ShowDialog() != WinForms.DialogResult.OK) return;
+            var folder = dlg.SelectedPath;
+            if (string.IsNullOrWhiteSpace(folder)) return;
+
+            var key = NormPath(folder);
+            if (_library.Any(p => NormPath(p.Path) == key))
+            {
+                ShowReadyBanner("That folder is already in your library.");
+                return;
+            }
+            var pack = AssetPack.FromFolder(folder);
+            if (pack == null)
+            {
+                ShowReadyBanner("No images or videos found in that folder.");
+                return;
+            }
+            if (!_customPaths.Any(p => NormPath(p) == key)) _customPaths.Add(folder);
             HideReadyBanner();
-            ShowScreen(ReadyScreen);
+            DiscoverLibrary();
+        }
+
+        private void BtnRescan_Click(object sender, RoutedEventArgs e)
+        {
+            HideReadyBanner();
+            DiscoverLibrary();
+        }
+
+        private void BtnOpenAssets_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var path = App.EffectiveAssetsPath;
+                System.IO.Directory.CreateDirectory(path);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "GazeMinigame: open assets folder failed");
+            }
+        }
+
+        private void BtnDifficulty_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string name) return;
+            _settings.ApplyDifficulty(name);
+            _applyingSliders = true;
+            ApplySettingsToSliders();
+            _applyingSliders = false;
+            UpdateDifficultyChips();
+            _settings.Save();
+        }
+
+        private void UpdateDifficultyChips()
+        {
+            void Set(Button b, bool on)
+            {
+                b.Background = new SolidColorBrush(on ? Color.FromRgb(0xFF, 0x69, 0xB4) : Color.FromRgb(0x22, 0x22, 0x2E));
+                b.Foreground = on ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
+                b.BorderBrush = new SolidColorBrush(on ? Color.FromRgb(0xFF, 0x69, 0xB4) : Color.FromRgb(0x44, 0x44, 0x4F));
+            }
+            Set(BtnDiffEasy, _settings.Difficulty == "Easy");
+            Set(BtnDiffNormal, _settings.Difficulty == "Normal");
+            Set(BtnDiffHard, _settings.Difficulty == "Hard");
+        }
+
+        private void MarkDifficultyCustom()
+        {
+            if (_applyingSliders) return;
+            if (_settings.Difficulty != "Custom")
+            {
+                _settings.Difficulty = "Custom";
+                UpdateDifficultyChips();
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -150,6 +512,14 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
         // ─────────────────────────────────────────────────────────────────────
 
         private void ApplySettingsToSliders()
+        {
+            bool prev = _applyingSliders;
+            _applyingSliders = true;
+            ApplySettingsToSlidersCore();
+            _applyingSliders = prev;
+        }
+
+        private void ApplySettingsToSlidersCore()
         {
             SliderImageCount.Value = _settings.ImageCount;
             SliderVideoCount.Value = _settings.VideoCount;
@@ -245,15 +615,15 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
         }
 
         private void SliderImageCount_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        { _settings.ImageCount = (int)e.NewValue; if (TxtImageCountVal != null) TxtImageCountVal.Text = _settings.ImageCount.ToString(); }
+        { _settings.ImageCount = (int)e.NewValue; if (TxtImageCountVal != null) TxtImageCountVal.Text = _settings.ImageCount.ToString(); MarkDifficultyCustom(); }
         private void SliderVideoCount_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        { _settings.VideoCount = (int)e.NewValue; if (TxtVideoCountVal != null) TxtVideoCountVal.Text = _settings.VideoCount.ToString(); }
+        { _settings.VideoCount = (int)e.NewValue; if (TxtVideoCountVal != null) TxtVideoCountVal.Text = _settings.VideoCount.ToString(); MarkDifficultyCustom(); }
         private void SliderImageDur_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        { _settings.ImageDurationSec = (int)e.NewValue; if (TxtImageDurVal != null) TxtImageDurVal.Text = _settings.ImageDurationSec.ToString(); UpdatePassTimeWarning(); }
+        { _settings.ImageDurationSec = (int)e.NewValue; if (TxtImageDurVal != null) TxtImageDurVal.Text = _settings.ImageDurationSec.ToString(); UpdatePassTimeWarning(); MarkDifficultyCustom(); }
         private void SliderVideoDur_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        { _settings.VideoMaxDurationSec = (int)e.NewValue; if (TxtVideoDurVal != null) TxtVideoDurVal.Text = _settings.VideoMaxDurationSec.ToString(); UpdatePassTimeWarning(); }
+        { _settings.VideoMaxDurationSec = (int)e.NewValue; if (TxtVideoDurVal != null) TxtVideoDurVal.Text = _settings.VideoMaxDurationSec.ToString(); UpdatePassTimeWarning(); MarkDifficultyCustom(); }
         private void SliderPassTime_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        { _settings.PassTimeSec = (int)e.NewValue; if (TxtPassTimeVal != null) TxtPassTimeVal.Text = _settings.PassTimeSec.ToString(); UpdatePassTimeWarning(); }
+        { _settings.PassTimeSec = (int)e.NewValue; if (TxtPassTimeVal != null) TxtPassTimeVal.Text = _settings.PassTimeSec.ToString(); UpdatePassTimeWarning(); MarkDifficultyCustom(); }
 
         private void UpdatePassTimeWarning()
         {
@@ -277,57 +647,6 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
             }
         }
 
-        private void BuildReadyRecap()
-        {
-            ReadyPackRecap.Children.Clear();
-            for (int i = 0; i < _packs.Count; i++)
-            {
-                var p = _packs[i];
-                var isCorrect = i == 0;
-                var roleColor = isCorrect ? Color.FromRgb(0xFF, 0x69, 0xB4) : Color.FromRgb(0xFF, 0x80, 0x80);
-
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
-                row.Children.Add(new Border
-                {
-                    Background = new SolidColorBrush(Color.FromArgb(0x40, roleColor.R, roleColor.G, roleColor.B)),
-                    CornerRadius = new CornerRadius(3),
-                    Padding = new Thickness(5, 1, 5, 1),
-                    Margin = new Thickness(0, 0, 6, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Child = new TextBlock
-                    {
-                        Text = isCorrect ? "CORRECT" : "noise",
-                        Foreground = new SolidColorBrush(roleColor),
-                        FontSize = 9,
-                        FontWeight = FontWeights.Bold,
-                    },
-                });
-                row.Children.Add(new TextBlock
-                {
-                    Text = p.Name,
-                    Foreground = Brushes.White,
-                    FontSize = 12,
-                    FontWeight = FontWeights.SemiBold,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 8, 0),
-                });
-                row.Children.Add(new TextBlock
-                {
-                    Text = $"{p.ImageCount} img · {p.VideoCount} vid",
-                    Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
-                    FontFamily = new FontFamily("Consolas"),
-                    FontSize = 11,
-                    VerticalAlignment = VerticalAlignment.Center,
-                });
-                ReadyPackRecap.Children.Add(row);
-            }
-        }
-
-        private void BtnReadyBack_Click(object sender, RoutedEventArgs e)
-        {
-            ShowScreen(TitleScreen);
-        }
-
         private void ShowReadyBanner(string text, bool showCalibrateAction = false)
         {
             TxtReadyBanner.Text = text;
@@ -345,13 +664,32 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
         {
             // Currently the only banner action is "open calibration".
             WebcamCalibrationWindow.ShowDialogWithRecalibrate(this);
-            HideReadyBanner();
+            if (App.Webcam?.Calibration == null)
+                ShowReadyBanner("Still not calibrated — run a 16-point gaze calibration so the game can read which side you're looking at.", showCalibrateAction: true);
+            else
+                HideReadyBanner();
         }
 
         private async void BtnStartGame_Click(object sender, RoutedEventArgs e)
         {
-            // Webcam preconditions, in order. Each failure stays on Ready with
-            // a friendly banner — no modal interruption mid-flow.
+            // Materialise the gaze packs from the Focus/Ignore assignment: the round
+            // builder consumes _packs[0] as the correct target and the rest as noise,
+            // so Focus goes first. RefreshSetupState already gated Start on a valid
+            // 1-focus + ≥1-ignore + shared-content-type selection, but re-check
+            // defensively in case state drifted.
+            var focusPack = _library.FirstOrDefault(p => RoleOf(p) == GazePackRole.Focus);
+            var ignorePacks = _library.Where(p => RoleOf(p) == GazePackRole.Ignore).ToList();
+            if (focusPack == null || ignorePacks.Count == 0)
+            {
+                ShowReadyBanner("Pick one Focus set and at least one Ignore set first.");
+                return;
+            }
+            _packs.Clear();
+            _packs.Add(focusPack);
+            _packs.AddRange(ignorePacks);
+
+            // Webcam preconditions, in order. Each failure stays on the setup screen
+            // with a friendly banner — no modal interruption mid-flow.
             if (!WebcamTrackingService.IsConsentCurrent())
             {
                 var dlg = new WebcamConsentDialog { Owner = this };
@@ -435,27 +773,26 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
             var noise = _packs.Skip(1).ToList();
             var rng = Random.Shared;
 
-            // Validate per-type availability up front so we can give a precise
-            // banner message instead of failing mid-round.
-            if (_settings.ImageCount > 0)
-            {
-                if (correct.ImageCount == 0)
-                    throw new InvalidOperationException("The correct pack has no images. Pick a pack with images, or set Image count to 0.");
-                if (noise.All(p => p.ImageCount == 0))
-                    throw new InvalidOperationException("None of the noise packs have images. Add a noise pack with images, or set Image count to 0.");
-            }
-            if (_settings.VideoCount > 0)
-            {
-                if (correct.VideoCount == 0)
-                    throw new InvalidOperationException("The correct pack has no videos. Pick a pack with videos, or set Video count to 0.");
-                if (noise.All(p => p.VideoCount == 0))
-                    throw new InvalidOperationException("None of the noise packs have videos. Add a noise pack with videos, or set Video count to 0.");
-            }
+            // Auto-clamp the requested counts to what the chosen sets can actually
+            // supply. With auto-discovered single-type packs, a difficulty preset that
+            // asks for both images and videos shouldn't dead-end just because the user
+            // picked images-only sets — we simply run the type(s) that work. Only when
+            // NEITHER type is viable do we surface a clear error.
+            if (_settings.ImageCount == 0 && _settings.VideoCount == 0)
+                throw new InvalidOperationException("Both round counts are 0. Set at least one image or video round in Advanced settings (or pick a difficulty).");
+
+            bool imagesViable = correct.ImageCount > 0 && noise.Any(p => p.ImageCount > 0);
+            bool videosViable = correct.VideoCount > 0 && noise.Any(p => p.VideoCount > 0);
+            int imageRounds = imagesViable ? _settings.ImageCount : 0;
+            int videoRounds = videosViable ? _settings.VideoCount : 0;
+
+            if (imageRounds == 0 && videoRounds == 0)
+                throw new InvalidOperationException("The Focus and Ignore sets don't share any usable content. Pick sets that both have images, or both have videos.");
 
             var specs = new List<RoundSpec>();
-            for (int i = 0; i < _settings.ImageCount; i++)
+            for (int i = 0; i < imageRounds; i++)
                 specs.Add(BuildSpec(AssetType.Image, correct, noise, rng));
-            for (int i = 0; i < _settings.VideoCount; i++)
+            for (int i = 0; i < videoRounds; i++)
                 specs.Add(BuildSpec(AssetType.Video, correct, noise, rng));
 
             // Shuffle so videos and images are interleaved.
@@ -1264,7 +1601,10 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
         {
             _results.Clear();
             _currentRoundIdx = -1;
-            ShowScreen(ReadyScreen);   // back to settings, not all the way to title
+            // Back to the single setup screen; the prior Focus/Ignore selection and
+            // settings are still in place, so the user can just hit Start again.
+            HideReadyBanner();
+            ShowScreen(TitleScreen);
         }
 
         // ─────────────────────────────────────────────────────────────────────

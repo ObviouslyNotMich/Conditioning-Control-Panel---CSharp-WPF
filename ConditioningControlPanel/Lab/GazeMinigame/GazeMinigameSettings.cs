@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -15,6 +16,25 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
     /// Mirrors the small effect set used by the keyword-trigger system.
     /// </summary>
     public enum GazeRewardEffect { None, Flashes, Bubbles, Audio, MindWipe, OverlayPulse }
+
+    /// <summary>
+    /// Role a discovered pack plays in the minigame. Focus = the target the user
+    /// trains to hold gaze on (exactly one). Ignore = a distractor (any number).
+    /// Off = present in the library but not used this session.
+    /// </summary>
+    public enum GazePackRole { Off, Focus, Ignore }
+
+    /// <summary>
+    /// A remembered pack assignment: an absolute folder path plus the role the
+    /// user dropped it into. Re-resolved against the live library on load so a
+    /// pack whose folder vanished is simply dropped rather than erroring.
+    /// </summary>
+    public sealed class GazePackRef
+    {
+        [JsonProperty] public string Path { get; set; } = "";
+        [JsonProperty][JsonConverter(typeof(StringEnumConverter))]
+        public GazePackRole Role { get; set; } = GazePackRole.Off;
+    }
 
     /// <summary>
     /// Per-user persisted settings for the gaze minigame. Stored separately
@@ -48,6 +68,51 @@ namespace ConditioningControlPanel.Lab.GazeMinigame
         // File name only (resolved at runtime to Resources/AwarenessPresets/audio/).
         // Limited to bundled audios so the dropdown stays in sync with what ships.
         [JsonProperty] public string RewardAudioFile { get; set; } = "bell.wav";
+
+        // Remembered pack assignments (path + Focus/Ignore/Off). Re-applied to the
+        // freshly-discovered library on launch so a returning user just presses Start.
+        // Custom folders added via "+ Add folder" that live outside the assets tree
+        // are remembered here too and re-scanned on load.
+        [JsonProperty] public List<GazePackRef> Packs { get; set; } = new();
+
+        // Last-chosen difficulty preset name (one of Difficulties, or "Custom" once a
+        // slider is touched). Drives the simple Easy/Normal/Hard chips; the sliders
+        // under Advanced remain the source of truth and override the preset.
+        [JsonProperty] public string Difficulty { get; set; } = "Normal";
+
+        public static readonly string[] Difficulties = { "Easy", "Normal", "Hard", "Custom" };
+
+        /// <summary>
+        /// Apply a named difficulty preset to the round knobs. "Custom" is a no-op
+        /// (the user's own slider values stand). Content counts are intentionally
+        /// modest so a small library still fills a session. Caller persists + reflects
+        /// the new values into the sliders afterwards.
+        /// </summary>
+        public void ApplyDifficulty(string name)
+        {
+            switch (name)
+            {
+                case "Easy":
+                    PassTimeSec = 3; ImageDurationSec = 6; VideoMaxDurationSec = 30;
+                    WrongHoldMs = 600; ImageCount = 6; VideoCount = 1;
+                    Difficulty = "Easy";
+                    break;
+                case "Normal":
+                    PassTimeSec = 3; ImageDurationSec = 5; VideoMaxDurationSec = 30;
+                    WrongHoldMs = 200; ImageCount = 8; VideoCount = 2;
+                    Difficulty = "Normal";
+                    break;
+                case "Hard":
+                    PassTimeSec = 5; ImageDurationSec = 4; VideoMaxDurationSec = 20;
+                    WrongHoldMs = 0; ImageCount = 10; VideoCount = 3;
+                    Difficulty = "Hard";
+                    break;
+                default:
+                    Difficulty = "Custom";
+                    break;
+            }
+            Clamp();
+        }
 
         public static readonly string[] BundledAudioFiles =
         {

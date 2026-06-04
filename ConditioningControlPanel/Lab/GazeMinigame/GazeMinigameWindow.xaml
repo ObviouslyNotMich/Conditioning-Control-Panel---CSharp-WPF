@@ -32,208 +32,293 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+        <!-- Small toolbar button (Add folder / Rescan). -->
+        <Style x:Key="ToolBtn" TargetType="Button">
+            <Setter Property="Background" Value="#22222E"/>
+            <Setter Property="Foreground" Value="#DDDDDD"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderBrush" Value="#44444F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </Style>
+        <!-- Difficulty chip. Selected state toggled from code-behind via Tag="on". -->
+        <Style x:Key="DiffChip" TargetType="Button">
+            <Setter Property="Background" Value="#22222E"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="18,7"/>
+            <Setter Property="BorderBrush" Value="#44444F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
     </Window.Resources>
 
     <Grid>
-        <!-- ─── Title screen ─── -->
+        <!-- ─── Setup screen (named TitleScreen so ShowScreen + other screens are unchanged) ─── -->
         <Grid x:Name="TitleScreen" Background="{StaticResource TitleBg}">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Image Width="130" Height="130"
-                       HorizontalAlignment="Center" Margin="0,0,0,8"
-                       Source="{Binding Source='👁', Converter={StaticResource EmojiToImageSource}}"/>
-                <TextBlock Text="Gaze Minigame" Foreground="White" FontSize="48"
-                           FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="Train your eyes to focus on the right thing."
-                           Foreground="#AAAAAA" FontSize="16" Margin="0,8,0,40"
-                           HorizontalAlignment="Center"/>
-
-                <Button x:Name="BtnSelectAssets" Content="Select assets"
-                        Style="{StaticResource SecondaryBtn}"
-                        HorizontalAlignment="Center" Margin="0,0,0,12"
-                        Click="BtnSelectAssets_Click"/>
-                <Button x:Name="BtnGoToReady" Content="Continue →"
-                        Style="{StaticResource PrimaryBtn}"
-                        HorizontalAlignment="Center" IsEnabled="False"
-                        Click="BtnGoToReady_Click"/>
-
-                <TextBlock x:Name="TxtTitleStatus" Text="Pick at least 2 asset packs to begin."
-                           Foreground="#888888" FontSize="12" Margin="0,16,0,0"
-                           HorizontalAlignment="Center" FontStyle="Italic"/>
-            </StackPanel>
-        </Grid>
-
-        <!-- ─── Ready screen ─── -->
-        <Grid x:Name="ReadyScreen" Background="{StaticResource TitleBg}" Visibility="Collapsed">
-            <Grid Margin="40">
+            <Grid Margin="28,22,28,22">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>   <!-- header -->
+                    <RowDefinition Height="Auto"/>   <!-- content toolbar -->
+                    <RowDefinition Height="Auto"/>   <!-- library strip -->
+                    <RowDefinition Height="*"/>      <!-- focus/ignore zones -->
+                    <RowDefinition Height="Auto"/>   <!-- difficulty + advanced -->
+                    <RowDefinition Height="Auto"/>   <!-- banner -->
+                    <RowDefinition Height="Auto"/>   <!-- start row -->
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="Ready to get conditioned?"
-                           Foreground="White" FontSize="32" FontWeight="Bold"
-                           HorizontalAlignment="Center"/>
-                <TextBlock Grid.Row="1" Text="Hold your gaze on the correct content. Look away too long and we'll let you know."
-                           Foreground="#AAAAAA" FontSize="14" Margin="0,8,0,24"
-                           HorizontalAlignment="Center"/>
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
+                    <Image Width="46" Height="46" Margin="0,0,12,0"
+                           Source="{Binding Source='👁', Converter={StaticResource EmojiToImageSource}}"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Gaze Training" Foreground="White" FontSize="26" FontWeight="Bold"/>
+                        <TextBlock Text="Drag a set into Focus and one or more into Ignore, then hold your eyes on the focus content to win."
+                                   Foreground="#AAAAAA" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
 
-                <Grid Grid.Row="2">
+                <!-- Content toolbar -->
+                <Grid Grid.Row="1" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="YOUR CONTENT" Foreground="#888888" FontSize="11" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" x:Name="BtnAddFolder" Content="+ Add folder"
+                            Style="{StaticResource ToolBtn}" Click="BtnAddFolder_Click"/>
+                    <Button Grid.Column="2" x:Name="BtnRescan" Content="⟳ Rescan"
+                            Style="{StaticResource ToolBtn}" Click="BtnRescan_Click"/>
+                </Grid>
+
+                <!-- Library strip (drop here to un-assign a pack) -->
+                <Border Grid.Row="2" x:Name="LibraryZone" Background="#0F0F1A" BorderBrush="#33333A"
+                        BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,12"
+                        AllowDrop="True" Drop="LibraryZone_Drop" DragOver="Zone_DragOver" DragLeave="Zone_DragLeave">
+                    <Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto"
+                                      MaxHeight="158">
+                            <WrapPanel x:Name="LibraryPanel" Orientation="Horizontal"/>
+                        </ScrollViewer>
+                        <StackPanel x:Name="LibraryEmptyState" Visibility="Collapsed"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                            <TextBlock Text="No content sets found"
+                                       Foreground="#CCCCCC" FontSize="14" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock TextWrapping="Wrap" TextAlignment="Center" MaxWidth="560" Margin="0,6,0,10"
+                                       Foreground="#888888" FontSize="12"
+                                       Text="Make at least two folders of images (or videos) — one to focus on, one or more to ignore — inside your assets folder, then Rescan. You can also use “+ Add folder” to point anywhere."/>
+                            <Button x:Name="BtnOpenAssets" Content="Open assets folder"
+                                    Style="{StaticResource ToolBtn}" Margin="0"
+                                    HorizontalAlignment="Center" Click="BtnOpenAssets_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Focus / Ignore drop zones -->
+                <Grid Grid.Row="3">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Pack recap -->
-                    <Border Grid.Column="0" Background="#0F0F1A" BorderBrush="#33333A"
-                            BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,8,0">
-                        <Grid>
+                    <Border Grid.Column="0" x:Name="FocusZone" Margin="0,0,6,0"
+                            Background="#170F1A" BorderBrush="#FF69B4" BorderThickness="1.5" CornerRadius="8"
+                            AllowDrop="True" Drop="FocusZone_Drop" DragOver="Zone_DragOver" DragLeave="Zone_DragLeave">
+                        <Grid Margin="10">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Loaded packs"
-                                       Foreground="White" FontSize="14" FontWeight="Bold"
-                                       Margin="0,0,0,8"/>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="👁 FOCUS ON" Foreground="#FF69B4" FontWeight="Bold" FontSize="13"/>
+                                <TextBlock Text="   the one set to stare at" Foreground="#9A7488" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                <StackPanel x:Name="ReadyPackRecap"/>
+                                <Grid>
+                                    <WrapPanel x:Name="FocusPanel"/>
+                                    <TextBlock x:Name="FocusPlaceholder" Text="Drag one set here"
+                                               Foreground="#664A59" FontStyle="Italic" FontSize="13"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Margin="0,24,0,0" IsHitTestVisible="False"/>
+                                </Grid>
                             </ScrollViewer>
                         </Grid>
                     </Border>
 
-                    <!-- Settings sliders -->
-                    <Border Grid.Column="1" Background="#0F0F1A" BorderBrush="#33333A"
-                            BorderThickness="1" CornerRadius="6" Padding="14" Margin="8,0,0,0">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel>
-                            <TextBlock Text="Session settings"
-                                       Foreground="White" FontSize="14" FontWeight="Bold"
-                                       Margin="0,0,0,12"/>
-
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Image count" Foreground="#CCCCCC" FontSize="12"/>
-                                <TextBlock Grid.Column="1" x:Name="TxtImageCountVal" Text="8"
-                                           Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
-                            </Grid>
-                            <Slider x:Name="SliderImageCount" Minimum="0" Maximum="20" Value="8"
-                                    TickFrequency="1" IsSnapToTickEnabled="True"
-                                    ValueChanged="SliderImageCount_ValueChanged" Margin="0,0,0,16"/>
-
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Video count" Foreground="#CCCCCC" FontSize="12"/>
-                                <TextBlock Grid.Column="1" x:Name="TxtVideoCountVal" Text="2"
-                                           Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
-                            </Grid>
-                            <Slider x:Name="SliderVideoCount" Minimum="0" Maximum="10" Value="2"
-                                    TickFrequency="1" IsSnapToTickEnabled="True"
-                                    ValueChanged="SliderVideoCount_ValueChanged" Margin="0,0,0,16"/>
-
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Image duration (sec)" Foreground="#CCCCCC" FontSize="12"/>
-                                <TextBlock Grid.Column="1" x:Name="TxtImageDurVal" Text="5"
-                                           Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
-                            </Grid>
-                            <Slider x:Name="SliderImageDur" Minimum="2" Maximum="10" Value="5"
-                                    TickFrequency="1" IsSnapToTickEnabled="True"
-                                    ValueChanged="SliderImageDur_ValueChanged" Margin="0,0,0,16"/>
-
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Video max duration (sec)" Foreground="#CCCCCC" FontSize="12"/>
-                                <TextBlock Grid.Column="1" x:Name="TxtVideoDurVal" Text="30"
-                                           Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
-                            </Grid>
-                            <Slider x:Name="SliderVideoDur" Minimum="10" Maximum="120" Value="30"
-                                    TickFrequency="5" IsSnapToTickEnabled="True"
-                                    ValueChanged="SliderVideoDur_ValueChanged" Margin="0,0,0,16"/>
-
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Pass time (sec)" Foreground="#CCCCCC" FontSize="12"/>
-                                <TextBlock Grid.Column="1" x:Name="TxtPassTimeVal" Text="3"
-                                           Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
-                            </Grid>
-                            <Slider x:Name="SliderPassTime" Minimum="3" Maximum="30" Value="3"
-                                    TickFrequency="1" IsSnapToTickEnabled="True"
-                                    ValueChanged="SliderPassTime_ValueChanged"/>
-                            <TextBlock x:Name="TxtPassTimeWarn" Text=""
-                                       Foreground="#FFB347" FontSize="11" FontStyle="Italic"
-                                       Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
-
-                            <Rectangle Height="1" Fill="#33333A" Margin="0,16,0,12"/>
-
-                            <TextBlock Text="Vibration"
-                                       Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,4"/>
-                            <ComboBox x:Name="CboVibration"
-                                      Background="White" Foreground="Black" BorderBrush="#33333A"
-                                      Padding="6,4" Margin="0,0,0,4"
-                                      SelectionChanged="CboVibration_SelectionChanged">
-                                <ComboBoxItem Content="None" Tag="None" Foreground="Black"/>
-                                <ComboBoxItem Content="On correct (reward)" Tag="OnCorrect" Foreground="Black"/>
-                                <ComboBoxItem Content="On wrong (punishment)" Tag="OnWrong" Foreground="Black"/>
-                            </ComboBox>
-                            <TextBlock x:Name="TxtVibrationStatus" Text=""
-                                       Foreground="#888888" FontSize="10" FontStyle="Italic"
-                                       Margin="0,0,0,12"/>
-
-                            <TextBlock Text="Reward effect (on correct)"
-                                       Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,4"/>
-                            <ComboBox x:Name="CboReward"
-                                      Background="White" Foreground="Black" BorderBrush="#33333A"
-                                      Padding="6,4" Margin="0,0,0,8"
-                                      SelectionChanged="CboReward_SelectionChanged">
-                                <ComboBoxItem Content="None" Tag="None" Foreground="Black"/>
-                                <ComboBoxItem Content="Flashes (small burst)" Tag="Flashes" Foreground="Black"/>
-                                <ComboBoxItem Content="Bubbles (4–5)" Tag="Bubbles" Foreground="Black"/>
-                                <ComboBoxItem Content="Audio clip" Tag="Audio" Foreground="Black"/>
-                                <ComboBoxItem Content="Mind wipe" Tag="MindWipe" Foreground="Black"/>
-                                <ComboBoxItem Content="Overlay pulse" Tag="OverlayPulse" Foreground="Black"/>
-                            </ComboBox>
-
-                            <Grid x:Name="RewardAudioRow" Visibility="Collapsed">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Audio clip:" Foreground="#CCCCCC"
-                                           FontSize="11" VerticalAlignment="Center" Margin="6,0,8,0"/>
-                                <ComboBox Grid.Column="1" x:Name="CboRewardAudio"
-                                          Background="White" Foreground="Black" BorderBrush="#33333A"
-                                          Padding="6,4"
-                                          SelectionChanged="CboRewardAudio_SelectionChanged"/>
-                            </Grid>
-
-                            <TextBlock Text="Press F11 to toggle fullscreen during the game."
-                                       Foreground="#666666" FontSize="10" FontStyle="Italic"
-                                       Margin="0,16,0,0"/>
-                        </StackPanel>
-                        </ScrollViewer>
+                    <Border Grid.Column="1" x:Name="IgnoreZone" Margin="6,0,0,0"
+                            Background="#1A1014" BorderBrush="#FF8080" BorderThickness="1.5" CornerRadius="8"
+                            AllowDrop="True" Drop="IgnoreZone_Drop" DragOver="Zone_DragOver" DragLeave="Zone_DragLeave">
+                        <Grid Margin="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="🚫 IGNORE" Foreground="#FF8080" FontWeight="Bold" FontSize="13"/>
+                                <TextBlock Text="   distractions to look away from" Foreground="#9A7070" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <Grid>
+                                    <WrapPanel x:Name="IgnorePanel"/>
+                                    <TextBlock x:Name="IgnorePlaceholder" Text="Drag one or more sets here"
+                                               Foreground="#664A4A" FontStyle="Italic" FontSize="13"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Margin="0,24,0,0" IsHitTestVisible="False"/>
+                                </Grid>
+                            </ScrollViewer>
+                        </Grid>
                     </Border>
                 </Grid>
 
-                <Border Grid.Row="3" x:Name="ReadyBanner" Visibility="Collapsed"
+                <!-- Difficulty + advanced settings -->
+                <StackPanel Grid.Row="4" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Difficulty" Foreground="#CCCCCC" FontSize="12"
+                                   VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Button x:Name="BtnDiffEasy" Content="Easy" Style="{StaticResource DiffChip}" Tag="Easy" Click="BtnDifficulty_Click"/>
+                        <Button x:Name="BtnDiffNormal" Content="Normal" Style="{StaticResource DiffChip}" Tag="Normal" Click="BtnDifficulty_Click"/>
+                        <Button x:Name="BtnDiffHard" Content="Hard" Style="{StaticResource DiffChip}" Tag="Hard" Click="BtnDifficulty_Click"/>
+                    </StackPanel>
+
+                    <Expander x:Name="AdvancedExpander" Header="Advanced settings"
+                              Foreground="#AAAAAA" FontSize="12" Margin="0,8,0,0">
+                        <Border Background="#0F0F1A" BorderBrush="#33333A" BorderThickness="1"
+                                CornerRadius="6" Padding="14" Margin="0,6,0,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                          MaxHeight="240">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Image count" Foreground="#CCCCCC" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" x:Name="TxtImageCountVal" Text="8"
+                                                   Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
+                                    </Grid>
+                                    <Slider x:Name="SliderImageCount" Minimum="0" Maximum="20" Value="8"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            ValueChanged="SliderImageCount_ValueChanged" Margin="0,0,0,16"/>
+
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Video count" Foreground="#CCCCCC" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" x:Name="TxtVideoCountVal" Text="2"
+                                                   Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
+                                    </Grid>
+                                    <Slider x:Name="SliderVideoCount" Minimum="0" Maximum="10" Value="2"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            ValueChanged="SliderVideoCount_ValueChanged" Margin="0,0,0,16"/>
+
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Image duration (sec)" Foreground="#CCCCCC" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" x:Name="TxtImageDurVal" Text="5"
+                                                   Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
+                                    </Grid>
+                                    <Slider x:Name="SliderImageDur" Minimum="2" Maximum="10" Value="5"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            ValueChanged="SliderImageDur_ValueChanged" Margin="0,0,0,16"/>
+
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Video max duration (sec)" Foreground="#CCCCCC" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" x:Name="TxtVideoDurVal" Text="30"
+                                                   Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
+                                    </Grid>
+                                    <Slider x:Name="SliderVideoDur" Minimum="10" Maximum="120" Value="30"
+                                            TickFrequency="5" IsSnapToTickEnabled="True"
+                                            ValueChanged="SliderVideoDur_ValueChanged" Margin="0,0,0,16"/>
+
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Pass time (sec)" Foreground="#CCCCCC" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" x:Name="TxtPassTimeVal" Text="3"
+                                                   Foreground="#FF69B4" FontFamily="Consolas" FontSize="12"/>
+                                    </Grid>
+                                    <Slider x:Name="SliderPassTime" Minimum="3" Maximum="30" Value="3"
+                                            TickFrequency="1" IsSnapToTickEnabled="True"
+                                            ValueChanged="SliderPassTime_ValueChanged"/>
+                                    <TextBlock x:Name="TxtPassTimeWarn" Text=""
+                                               Foreground="#FFB347" FontSize="11" FontStyle="Italic"
+                                               Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+
+                                    <Rectangle Height="1" Fill="#33333A" Margin="0,16,0,12"/>
+
+                                    <TextBlock Text="Vibration"
+                                               Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="CboVibration"
+                                              Background="White" Foreground="Black" BorderBrush="#33333A"
+                                              Padding="6,4" Margin="0,0,0,4"
+                                              SelectionChanged="CboVibration_SelectionChanged">
+                                        <ComboBoxItem Content="None" Tag="None" Foreground="Black"/>
+                                        <ComboBoxItem Content="On correct (reward)" Tag="OnCorrect" Foreground="Black"/>
+                                        <ComboBoxItem Content="On wrong (punishment)" Tag="OnWrong" Foreground="Black"/>
+                                    </ComboBox>
+                                    <TextBlock x:Name="TxtVibrationStatus" Text=""
+                                               Foreground="#888888" FontSize="10" FontStyle="Italic"
+                                               Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Reward effect (on correct)"
+                                               Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="CboReward"
+                                              Background="White" Foreground="Black" BorderBrush="#33333A"
+                                              Padding="6,4" Margin="0,0,0,8"
+                                              SelectionChanged="CboReward_SelectionChanged">
+                                        <ComboBoxItem Content="None" Tag="None" Foreground="Black"/>
+                                        <ComboBoxItem Content="Flashes (small burst)" Tag="Flashes" Foreground="Black"/>
+                                        <ComboBoxItem Content="Bubbles (4–5)" Tag="Bubbles" Foreground="Black"/>
+                                        <ComboBoxItem Content="Audio clip" Tag="Audio" Foreground="Black"/>
+                                        <ComboBoxItem Content="Mind wipe" Tag="MindWipe" Foreground="Black"/>
+                                        <ComboBoxItem Content="Overlay pulse" Tag="OverlayPulse" Foreground="Black"/>
+                                    </ComboBox>
+
+                                    <Grid x:Name="RewardAudioRow" Visibility="Collapsed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Audio clip:" Foreground="#CCCCCC"
+                                                   FontSize="11" VerticalAlignment="Center" Margin="6,0,8,0"/>
+                                        <ComboBox Grid.Column="1" x:Name="CboRewardAudio"
+                                                  Background="White" Foreground="Black" BorderBrush="#33333A"
+                                                  Padding="6,4"
+                                                  SelectionChanged="CboRewardAudio_SelectionChanged"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Press F11 to toggle fullscreen during the game."
+                                               Foreground="#666666" FontSize="10" FontStyle="Italic"
+                                               Margin="0,16,0,0"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Expander>
+                </StackPanel>
+
+                <!-- Status / precondition banner -->
+                <Border Grid.Row="5" x:Name="ReadyBanner" Visibility="Collapsed"
                         Background="#3A1A1A" BorderBrush="#FF8080" BorderThickness="1"
-                        CornerRadius="4" Padding="12" Margin="0,16,0,0">
+                        CornerRadius="4" Padding="12" Margin="0,12,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -248,19 +333,18 @@
                     </Grid>
                 </Border>
 
-                <Grid Grid.Row="4" Margin="0,16,0,0">
+                <!-- Start row -->
+                <Grid Grid.Row="6" Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Content="← Back"
-                            Style="{StaticResource SecondaryBtn}"
-                            Click="BtnReadyBack_Click"/>
-                    <Button Grid.Column="2" x:Name="BtnStartGame" Content="Start"
-                            Style="{StaticResource PrimaryBtn}"
-                            Padding="40,12" FontSize="16"
-                            Click="BtnStartGame_Click"/>
+                    <TextBlock Grid.Column="0" x:Name="TxtSelectionSummary" VerticalAlignment="Center"
+                               Foreground="#888888" FontSize="12" TextWrapping="Wrap" Margin="0,0,16,0"
+                               Text="Pick a Focus set and at least one Ignore set."/>
+                    <Button Grid.Column="1" x:Name="BtnStartGame" Content="Start ▶"
+                            Style="{StaticResource PrimaryBtn}" Padding="40,12" FontSize="16"
+                            IsEnabled="False" Click="BtnStartGame_Click"/>
                 </Grid>
             </Grid>
         </Grid>
