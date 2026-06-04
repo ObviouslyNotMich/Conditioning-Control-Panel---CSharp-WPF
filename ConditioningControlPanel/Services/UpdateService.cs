@@ -20,16 +20,17 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.0.7";
+        public const string AppVersion = "6.0.8";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.0.7 - Circe's Lock
+        public const string CurrentPatchNotes = @"v6.0.8 - Circe's Lock
 
-🩹 6.0.7 HOTFIX
+🩹 6.0.8 HOTFIX
 - Touched up the Circe's Lock ""Trigger Awareness"" feature artwork.
+- Fixed ""Open with CCP"" not opening the file when the app was already running in the tray.
 
 ✨ FEATURES
 - Gaze Minigame, reimagined — choose your content by dragging sets into

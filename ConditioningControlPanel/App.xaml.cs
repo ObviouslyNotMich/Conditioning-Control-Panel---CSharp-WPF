@@ -780,7 +780,11 @@ namespace ConditioningControlPanel
                         {
                             Dispatcher.BeginInvoke(() =>
                             {
-                                var mainWin = MainWindow as MainWindow;
+                                // Use the stable static ref: Application.Current.MainWindow
+                                // is null while the app is minimized to the tray, which is
+                                // exactly when "Open with CCP" needs to wake it — using the
+                                // instance property there silently dropped the file handoff.
+                                var mainWin = MainWindowRef ?? (MainWindow as MainWindow);
                                 if (mainWin != null)
                                 {
                                     mainWin.ShowFromTray();
@@ -1285,14 +1289,15 @@ namespace ConditioningControlPanel
                 var path = _pendingFileOpenPath;
                 _pendingFileOpenAction = null;
                 _pendingFileOpenPath = null;
-                mainWindow.Loaded += (_, _) =>
+                // Window was Show()n above; if its Loaded already fired, hooking it now
+                // would never run — dispatch immediately in that case, else wait for load.
+                Action dispatch = () => Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        try { mainWindow.HandlePendingFileOpen(action, path); }
-                        catch (Exception ex) { Logger?.Warning(ex, "HandlePendingFileOpen failed"); }
-                    }), System.Windows.Threading.DispatcherPriority.Background);
-                };
+                    try { mainWindow.HandlePendingFileOpen(action, path); }
+                    catch (Exception ex) { Logger?.Warning(ex, "HandlePendingFileOpen failed"); }
+                }), System.Windows.Threading.DispatcherPriority.Background);
+                if (mainWindow.IsLoaded) dispatch();
+                else mainWindow.Loaded += (_, _) => dispatch();
             }
 
             // Close splash screen with fade animation
