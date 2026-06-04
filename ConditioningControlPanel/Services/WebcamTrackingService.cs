@@ -129,6 +129,19 @@ namespace ConditioningControlPanel.Services
         // only catches genuinely degenerate feeds, never a legitimately dark one.
         private const double MinProbeStdDev = 3.0;
 
+        // Second, independent way to accept a probe frame: temporal change. A
+        // genuinely dark room can read as low spatial contrast (below MinProbeStdDev)
+        // yet is still a LIVE feed — it changes frame-to-frame as the user moves. A
+        // dead / solid / frozen "garbage" feed (the Elgato BUG-F2XJE2E7X9 case the
+        // spatial floor exists to reject) does NOT change. So we ALSO adopt a feed
+        // whose mean absolute inter-frame difference clears this bar, which rescues a
+        // dim-but-real camera from a false CameraInUse WITHOUT lowering MinProbeStdDev
+        // (lowering it would re-admit the very solid feed the floor was added to reject).
+        // Set above the uniform sensor-noise flicker of a static feed (~<1 on 0-255)
+        // but below real scene motion. Spatial-clean frames still win first, so cameras
+        // that already work — and the Elgato flat+static feed — are completely unaffected.
+        private const double MinProbeTemporalDelta = 2.0;
+
         // Per-attempt warm-up budget for the probe loop. Some UVC webcams (the Lovense
         // Webcam 2 in BUG-6W469QGMHS) stream black for over a second after the handle
         // opens before real frames arrive. A fixed 5-read window (~1s) rejected those as
@@ -1003,6 +1016,9 @@ namespace ConditioningControlPanel.Services
                 // so that case warms up and is adopted instead of being misdiagnosed as
                 // CameraInUse (BUG-6W469QGMHS).
                 using var probe = new Mat();
+                using var prevProbe = new Mat();
+                using var diff = new Mat();
+                bool havePrev = false;
                 var probeDeadline = DateTime.UtcNow.AddMilliseconds(ProbeWarmupMs);
                 int probeReads = 0;
                 while (DateTime.UtcNow < probeDeadline)
@@ -1013,20 +1029,39 @@ namespace ConditioningControlPanel.Services
                     {
                         Cv2.MeanStdDev(probe, out var mean, out var std);
                         double maxStd = Math.Max(std.Val0, Math.Max(std.Val1, std.Val2));
-                        if (maxStd >= MinProbeStdDev)
+
+                        // Temporal change vs the previous (flat) frame. A dim-but-real
+                        // feed moves frame-to-frame even when its spatial contrast is
+                        // below MinProbeStdDev; a solid / frozen garbage feed does not.
+                        // This is a SECOND acceptance path so a dark room isn't rejected
+                        // into a false CameraInUse — spatial-clean still wins first, so
+                        // the Elgato flat+static feed is unaffected (BUG-F2XJE2E7X9).
+                        double temporalDelta = 0;
+                        if (havePrev && prevProbe.Size() == probe.Size() && prevProbe.Type() == probe.Type())
+                        {
+                            Cv2.Absdiff(probe, prevProbe, diff);
+                            var dmean = Cv2.Mean(diff);
+                            temporalDelta = Math.Max(dmean.Val0, Math.Max(dmean.Val1, dmean.Val2));
+                        }
+
+                        if (maxStd >= MinProbeStdDev || temporalDelta >= MinProbeTemporalDelta)
                         {
                             App.Logger?.Information(
-                                "WebcamTrackingService: device {Index} ('{Name}') via {Api} probe ok ({W}x{H}, mean={Mean:F1}, maxStdDev={Std:F1}, reads={Reads})",
-                                deviceIndex, detectedName, label, probe.Width, probe.Height, mean.Val0, maxStd, probeReads);
+                                "WebcamTrackingService: device {Index} ('{Name}') via {Api} probe ok ({W}x{H}, mean={Mean:F1}, maxStdDev={Std:F1}, temporalDelta={Td:F1}, reads={Reads})",
+                                deviceIndex, detectedName, label, probe.Width, probe.Height, mean.Val0, maxStd, temporalDelta, probeReads);
                             var result = cap;
                             cap = null; // hand ownership to caller; keep the catch from disposing it
                             return result;
                         }
-                        // Non-empty but degenerate (solid colour / black) — keep probing
-                        // within the warm-up budget in case it's a slow-warming feed.
+
+                        // Non-empty but degenerate (solid colour / black, and not yet
+                        // changing) — remember it and keep probing within the warm-up
+                        // budget in case it's a slow-warming or dim-but-live feed.
                         App.Logger?.Debug(
-                            "WebcamTrackingService: device {Index} via {Api} degenerate probe frame (maxStdDev={Std:F1} < {Min})",
-                            deviceIndex, label, maxStd, MinProbeStdDev);
+                            "WebcamTrackingService: device {Index} via {Api} degenerate probe frame (maxStdDev={Std:F1} < {Min}, temporalDelta={Td:F1} < {MinTd})",
+                            deviceIndex, label, maxStd, MinProbeStdDev, temporalDelta, MinProbeTemporalDelta);
+                        probe.CopyTo(prevProbe);
+                        havePrev = true;
                     }
                     System.Threading.Thread.Sleep(ProbeReadIntervalMs);
                 }
