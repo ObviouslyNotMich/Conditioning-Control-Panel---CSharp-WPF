@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Services.AIService;
@@ -19,6 +20,26 @@ namespace ConditioningControlPanel.Services.AIService
     /// </summary>
     public sealed class OpenAiCompatibleService : IAiService
     {
+        public enum DiagnosticCategory
+        {
+            Success,
+            MissingConfiguration,
+            Endpoint,
+            Authentication,
+            Model,
+            Timeout,
+            Connection,
+            Http,
+            Unknown
+        }
+
+        public sealed record ConnectionDiagnosticResult(
+            bool Success,
+            DiagnosticCategory Category,
+            string Message,
+            int? HttpStatusCode = null,
+            long? ElapsedMs = null);
+
         private readonly HttpClient _httpClient;
         private readonly BambiSprite _bambiSprite;
 
@@ -71,26 +92,53 @@ namespace ConditioningControlPanel.Services.AIService
             _lastResetDate = DateTime.Today;
             _dailyRequestCount = 0;
 
-            var baseUrl = GetConfiguredEndpoint();
-
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri(baseUrl),
                 Timeout = TimeSpan.FromSeconds(60)
             };
         }
 
-        private static string GetConfiguredEndpoint()
+        private static Uri GetConfiguredEndpointBaseUri()
         {
-            var endpoint = Settings?.OpenAiCompatibleEndpoint?.Trim();
-            if (string.IsNullOrEmpty(endpoint))
+            var raw = Settings?.OpenAiCompatibleEndpoint?.Trim();
+            if (string.IsNullOrWhiteSpace(raw))
             {
                 // Fallback: standard OpenAI base, though without a key it will not be available.
-                return "https://api.openai.com/v1";
+                return new Uri("https://api.openai.com/v1/");
             }
 
-            // Ensure no trailing spaces; HttpClient will validate the URI format.
-            return endpoint;
+            if (!Uri.TryCreate(raw, UriKind.Absolute, out var parsed))
+            {
+                App.Logger?.Warning("OpenAiCompatibleService: invalid endpoint '{Endpoint}', falling back to OpenAI base", raw);
+                return new Uri("https://api.openai.com/v1/");
+            }
+
+            // Some users paste the full chat-completions URL. Normalize to its base so
+            // both ".../api/v1" and ".../api/v1/" (and full endpoint forms) work.
+            var path = parsed.AbsolutePath.TrimEnd('/');
+            if (path.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+            {
+                path = path.Substring(0, path.Length - "/chat/completions".Length);
+            }
+
+            if (string.IsNullOrEmpty(path))
+            {
+                path = "/";
+            }
+
+            if (!path.EndsWith("/", StringComparison.Ordinal))
+            {
+                path += "/";
+            }
+
+            var builder = new UriBuilder(parsed)
+            {
+                Path = path,
+                Query = string.Empty,
+                Fragment = string.Empty
+            };
+
+            return builder.Uri;
         }
 
         private static string GetConfiguredModel()
@@ -119,6 +167,149 @@ namespace ConditioningControlPanel.Services.AIService
             {
                 App.Logger?.Warning(ex, "OpenAiCompatibleService: failed to decrypt API key");
                 return null;
+            }
+        }
+
+        public async Task<ConnectionDiagnosticResult> TestEndpointAsync(CancellationToken cancellationToken = default)
+        {
+            var endpointRaw = Settings?.OpenAiCompatibleEndpoint?.Trim();
+            if (string.IsNullOrWhiteSpace(endpointRaw))
+            {
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.MissingConfiguration,
+                    Message: "Endpoint is missing");
+            }
+
+            var model = GetConfiguredModel();
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.MissingConfiguration,
+                    Message: "Model is missing");
+            }
+
+            var apiKey = GetApiKey();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.Authentication,
+                    Message: "API key is missing or could not be decrypted");
+            }
+
+            if (!Uri.TryCreate(endpointRaw, UriKind.Absolute, out _))
+            {
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.Endpoint,
+                    Message: "Endpoint URL is invalid");
+            }
+
+            var baseUri = GetConfiguredEndpointBaseUri();
+            var endpointUri = new Uri(baseUri, "chat/completions");
+
+            var payload = new
+            {
+                model = model,
+                max_tokens = 1,
+                temperature = 0,
+                messages = new[]
+                {
+                    new { role = "user", content = "ping" }
+                }
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpointUri)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                sw.Stop();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return new ConnectionDiagnosticResult(
+                        Success: true,
+                        Category: DiagnosticCategory.Success,
+                        Message: "Connected",
+                        HttpStatusCode: (int)response.StatusCode,
+                        ElapsedMs: sw.ElapsedMilliseconds);
+                }
+
+                var status = (int)response.StatusCode;
+                var bodyLower = body?.ToLowerInvariant() ?? string.Empty;
+
+                if (status == 401 || status == 403)
+                {
+                    return new ConnectionDiagnosticResult(
+                        Success: false,
+                        Category: DiagnosticCategory.Authentication,
+                        Message: "Authentication failed (invalid API key or unauthorized endpoint)",
+                        HttpStatusCode: status,
+                        ElapsedMs: sw.ElapsedMilliseconds);
+                }
+
+                if (status == 404)
+                {
+                    return new ConnectionDiagnosticResult(
+                        Success: false,
+                        Category: DiagnosticCategory.Endpoint,
+                        Message: "Endpoint not found (check base URL path, e.g. /api/v1)",
+                        HttpStatusCode: status,
+                        ElapsedMs: sw.ElapsedMilliseconds);
+                }
+
+                if (status == 400 && (bodyLower.Contains("model") || bodyLower.Contains("unknown_model") || bodyLower.Contains("not found")))
+                {
+                    return new ConnectionDiagnosticResult(
+                        Success: false,
+                        Category: DiagnosticCategory.Model,
+                        Message: "Model is invalid or unavailable on this endpoint",
+                        HttpStatusCode: status,
+                        ElapsedMs: sw.ElapsedMilliseconds);
+                }
+
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.Http,
+                    Message: $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}",
+                    HttpStatusCode: status,
+                    ElapsedMs: sw.ElapsedMilliseconds);
+            }
+            catch (TaskCanceledException)
+            {
+                sw.Stop();
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.Timeout,
+                    Message: "Request timed out",
+                    ElapsedMs: sw.ElapsedMilliseconds);
+            }
+            catch (HttpRequestException ex)
+            {
+                sw.Stop();
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.Connection,
+                    Message: $"Connection failed: {ex.Message}",
+                    ElapsedMs: sw.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                return new ConnectionDiagnosticResult(
+                    Success: false,
+                    Category: DiagnosticCategory.Unknown,
+                    Message: $"Unexpected error: {ex.GetType().Name}",
+                    ElapsedMs: sw.ElapsedMilliseconds);
             }
         }
 
@@ -172,70 +363,79 @@ namespace ConditioningControlPanel.Services.AIService
                 }
             };
 
-            var baseUri = _httpClient.BaseAddress ?? new Uri("https://api.openai.com/v1/");
+            var baseUri = GetConfiguredEndpointBaseUri();
+            var endpointUri = new Uri(baseUri, "chat/completions");
 
-            // Ensure the base URI is treated as a directory, not a file, so that
-            // a path like "/api/v1" is preserved when appending additional segments.
-            Uri effectiveBaseUri;
-            if (!baseUri.AbsoluteUri.EndsWith("/"))
+            BumpDailyCounter();
+
+            for (var attempt = 0; attempt < 2; attempt++)
             {
-                effectiveBaseUri = new Uri(baseUri.AbsoluteUri + "/");
-            }
-            else
-            {
-                effectiveBaseUri = baseUri;
-            }
-
-            var endpointUri = new Uri(effectiveBaseUri, "chat/completions");
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpointUri)
-            {
-                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
-            };
-
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-
-            try
-            {
-                BumpDailyCounter();
-
-                App.Logger?.Debug("OpenAiCompatibleService: request to {Url}", request.RequestUri);
-
-                using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
-                var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                if (!response.IsSuccessStatusCode)
+                try
                 {
-                    App.Logger?.Warning("OpenAiCompatibleService: HTTP {Status} from {Endpoint}: {Body}",
-                        (int)response.StatusCode,
-                        _httpClient.BaseAddress,
-                        json);
+                    using var request = new HttpRequestMessage(HttpMethod.Post, endpointUri)
+                    {
+                        Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+                    };
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+                    App.Logger?.Debug("OpenAiCompatibleService: request to {Url} (attempt {Attempt})", request.RequestUri, attempt + 1);
+
+                    using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+                    var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var status = (int)response.StatusCode;
+                        var retryableStatus = status == 429 || status >= 500;
+
+                        if (attempt == 0 && retryableStatus)
+                        {
+                            await Task.Delay(1200).ConfigureAwait(false);
+                            continue;
+                        }
+
+                        App.Logger?.Warning("OpenAiCompatibleService: HTTP {Status} from {Endpoint}: {Body}",
+                            status,
+                            endpointUri,
+                            json);
+                        return null;
+                    }
+
+                    using var doc = JsonDocument.Parse(json);
+                    if (!doc.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+                    {
+                        App.Logger?.Warning("OpenAiCompatibleService: response has no choices");
+                        return null;
+                    }
+
+                    var first = choices[0];
+                    if (!first.TryGetProperty("message", out var message) ||
+                        !message.TryGetProperty("content", out var contentElement))
+                    {
+                        App.Logger?.Warning("OpenAiCompatibleService: response missing message.content");
+                        return null;
+                    }
+
+                    var content = contentElement.GetString();
+                    return string.IsNullOrWhiteSpace(content) ? null : content;
+                }
+                catch (HttpRequestException) when (attempt == 0)
+                {
+                    await Task.Delay(1200).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException) when (attempt == 0)
+                {
+                    await Task.Delay(1200).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning(ex, "OpenAiCompatibleService: request failed");
                     return null;
                 }
-
-                using var doc = JsonDocument.Parse(json);
-                if (!doc.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
-                {
-                    App.Logger?.Warning("OpenAiCompatibleService: response has no choices");
-                    return null;
-                }
-
-                var first = choices[0];
-                if (!first.TryGetProperty("message", out var message) ||
-                    !message.TryGetProperty("content", out var contentElement))
-                {
-                    App.Logger?.Warning("OpenAiCompatibleService: response missing message.content");
-                    return null;
-                }
-
-                var content = contentElement.GetString();
-                return string.IsNullOrWhiteSpace(content) ? null : content;
             }
-            catch (Exception ex)
-            {
-                App.Logger?.Warning(ex, "OpenAiCompatibleService: request failed");
-                return null;
-            }
+
+            App.Logger?.Warning("OpenAiCompatibleService: request failed after retry");
+            return null;
         }
 
         private static string GetFallbackResponse()

@@ -256,7 +256,7 @@ namespace ConditioningControlPanel
         public static SessionLogService SessionLog { get; private set; } = null!;
         public static ProgressionService Progression { get; private set; } = null!;
         public static SubliminalService Subliminal { get; private set; } = null!;
-        public static OverlayService Overlay { get; private set; } = null!;
+        public static IOverlayService Overlay { get; private set; } = null!;
         public static ScreenShakeService ScreenShake { get; private set; } = null!;
         public static BubbleService Bubbles { get; private set; } = null!;
         public static LockCardService LockCard { get; private set; } = null!;
@@ -1024,7 +1024,7 @@ namespace ConditioningControlPanel
             Personality.MigrateFromLegacy(Settings.Current);
 
             Subliminal = new SubliminalService();
-            Overlay = new OverlayService();
+            Overlay = OverlayBackendFactory.Create();
             ScreenShake = new ScreenShakeService();
             Bubbles = new BubbleService();
             InteractionQueue = new InteractionQueueService();

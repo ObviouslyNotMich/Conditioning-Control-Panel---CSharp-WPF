@@ -11836,6 +11836,7 @@ namespace ConditioningControlPanel
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
             if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Visible;
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Visible;
             SyncAiBrainUI();
         }
 
@@ -11859,7 +11860,14 @@ namespace ConditioningControlPanel
                 if (RadioAiOff != null) RadioAiOff.IsChecked = true;
                 if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
                 if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
+                if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Collapsed;
                 App.AiLiveActions?.Clear();
+            }
+            else if (DailyLimitPanel != null)
+            {
+                DailyLimitPanel.Visibility = s.CompanionPrompt.AiProvider == AiProviderType.OpenAiCompatible
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
             }
 
             App.Settings.Save();
@@ -12047,22 +12055,20 @@ namespace ConditioningControlPanel
 
             try
             {
-                // Use a minimal prompt to validate connectivity and auth.
-                var service = new Services.AIService.OpenAiCompatibleService();
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                var reply = await service.GetBambiReplyAsync("Say OK", isUserMessage: true);
-                sw.Stop();
-                service.Dispose();
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                using var service = new Services.AIService.OpenAiCompatibleService();
+                var diag = await service.TestEndpointAsync(cts.Token);
 
-                if (string.IsNullOrWhiteSpace(reply))
+                if (diag.Success)
                 {
-                    TxtOpenAiHealthStatus.Text = Loc.Get("label_status_failed");
-                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_connected")} · {diag.ElapsedMs ?? 0}ms";
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78));
                 }
                 else
                 {
-                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_connected")} · {sw.ElapsedMilliseconds}ms";
-                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78));
+                    var codePart = diag.HttpStatusCode.HasValue ? $" (HTTP {diag.HttpStatusCode.Value})" : string.Empty;
+                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_failed")} · {diag.Message}{codePart}";
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
                 }
             }
             catch (Exception ex)
@@ -22599,11 +22605,12 @@ namespace ConditioningControlPanel
                 _browserPopoutWindow = new Window
                 {
                     Title = Loc.Get("title_browser_window"),
+                    Owner = this,
                     Width = 1024,
                     Height = 768,
                     MinWidth = 400,
                     MinHeight = 300,
-                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1A, 0x1A, 0x2E)),
                     Content = _browser.WebView
                 };
@@ -22739,13 +22746,13 @@ namespace ConditioningControlPanel
                     _browserPopoutWindow.ResizeMode = ResizeMode.NoResize;
                     _browserPopoutWindow.Topmost = true;
                     _browserPopoutWindow.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
-                    _browserPopoutWindow.WindowState = WindowState.Maximized;
+                    ApplyWindowToVirtualFullscreen(_browserPopoutWindow);
                 }
                 else
                 {
                     // === EMBEDDED MODE: create fullscreen window directly ===
-                    // Same approach as the mandatory video windows which work correctly:
-                    // Create Window with WindowStyle.None from the start, Show, then Maximize.
+                    // Create a borderless topmost host spanning the full virtual desktop
+                    // so fullscreen covers all monitors in multi-display setups.
                     _browserFullscreenWasPopout = false;
 
                     // Remove WebView from embedded container
@@ -22756,10 +22763,6 @@ namespace ConditioningControlPanel
                     BrowserLoadingText.Text = "\ud83c\udf10 Browser in fullscreen";
                     BrowserLoadingText.Visibility = Visibility.Visible;
 
-                    var screen = System.Windows.Forms.Screen.FromHandle(
-                        new System.Windows.Interop.WindowInteropHelper(this).Handle);
-
-                    // Create window with fullscreen properties from the start (like video windows)
                     _browserPopoutWindow = new Window
                     {
                         WindowStyle = WindowStyle.None,
@@ -22768,10 +22771,10 @@ namespace ConditioningControlPanel
                         Topmost = true,
                         Background = System.Windows.Media.Brushes.Black,
                         WindowStartupLocation = WindowStartupLocation.Manual,
-                        Left = screen.Bounds.X + 100,
-                        Top = screen.Bounds.Y + 100,
-                        Width = 400,
-                        Height = 300,
+                        Left = SystemParameters.VirtualScreenLeft,
+                        Top = SystemParameters.VirtualScreenTop,
+                        Width = SystemParameters.VirtualScreenWidth,
+                        Height = SystemParameters.VirtualScreenHeight,
                         Content = _browser.WebView
                     };
 
@@ -22797,10 +22800,9 @@ namespace ConditioningControlPanel
                         _browserPopoutWindow = null;
                     };
 
-                    // Show small first, pump render queue, then maximize — exactly like video windows
                     _browserPopoutWindow.Show();
                     _browserPopoutWindow.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
-                    _browserPopoutWindow.WindowState = WindowState.Maximized;
+                    ApplyWindowToVirtualFullscreen(_browserPopoutWindow);
                 }
 
                 // (Removed: ReRequestVideoFullscreenAsync.) That stacked a
@@ -22826,6 +22828,17 @@ namespace ConditioningControlPanel
                 App.Logger?.Error(ex, "Failed to enter browser fullscreen");
                 ExitBrowserFullscreen();
             }
+        }
+
+        private static void ApplyWindowToVirtualFullscreen(Window window)
+        {
+            if (window == null) return;
+
+            window.WindowState = WindowState.Normal;
+            window.Left = SystemParameters.VirtualScreenLeft;
+            window.Top = SystemParameters.VirtualScreenTop;
+            window.Width = SystemParameters.VirtualScreenWidth;
+            window.Height = SystemParameters.VirtualScreenHeight;
         }
 
         private void ExitBrowserFullscreen()

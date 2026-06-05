@@ -496,15 +496,8 @@ namespace ConditioningControlPanel.Services
                     }
                     else
                     {
-                        // Load static image
-                        using var bitmap = new System.Drawing.Bitmap(path);
-                        var bitmapSource = ConvertToBitmapSource(bitmap);
-                        bitmapSource.Freeze();
-
-                        data.Frames.Add(bitmapSource);
-                        data.Width = bitmap.Width;
-                        data.Height = bitmap.Height;
-                        data.FrameDelay = TimeSpan.FromMilliseconds(100);
+                        if (!TryLoadStaticImage(path, data))
+                            return null;
                     }
 
                     if (data.Frames.Count == 0) return null;
@@ -570,6 +563,31 @@ namespace ConditioningControlPanel.Services
             };
             clone.Frames.AddRange(source.Frames);
             return clone;
+        }
+
+        private bool TryLoadStaticImage(string path, LoadedImageData data)
+        {
+            try
+            {
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+                bitmap.UriSource = new Uri(path, UriKind.Absolute);
+                bitmap.EndInit();
+                bitmap.Freeze();
+
+                data.Frames.Add(bitmap);
+                data.Width = bitmap.PixelWidth;
+                data.Height = bitmap.PixelHeight;
+                data.FrameDelay = TimeSpan.FromMilliseconds(100);
+                return data.Width > 0 && data.Height > 0;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Could not load static image {Path}: {Error}", path, ex.Message);
+                return false;
+            }
         }
 
         private void LoadGifFrames(string path, LoadedImageData data)
