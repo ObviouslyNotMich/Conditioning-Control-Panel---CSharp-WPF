@@ -79,6 +79,7 @@ namespace ConditioningControlPanel
         private bool _skipSiteToggleNavigation = false;
         private Window? _browserPopoutWindow = null;
         private bool _isDualMonitorPlaybackActive = false;
+        private bool _isBrowserSecondaryMirrorActive = false;
         private bool _isBrowserFullscreen = false;
         private bool _browserFullscreenWasPopout = false;
         private double _browserPreFullscreenZoom = 1.0;
@@ -20660,6 +20661,61 @@ namespace ConditioningControlPanel
 
         #region Browser
 
+        private string GetBambiCloudHomeUrl()
+        {
+            var configured = App.Settings?.Current?.BambiCloudUrl?.Trim();
+            if (!string.IsNullOrWhiteSpace(configured) &&
+                Uri.TryCreate(configured, UriKind.Absolute, out var configuredUri) &&
+                configuredUri.Scheme == Uri.UriSchemeHttps)
+            {
+                return configuredUri.AbsoluteUri;
+            }
+
+            return "https://bambicloud.com/";
+        }
+
+        private bool IsBambiCloudUrl(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url) ||
+                !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            var host = uri.Host;
+            if (string.IsNullOrWhiteSpace(host)) return false;
+
+            if (host.Equals("bambicloud.com", StringComparison.OrdinalIgnoreCase) ||
+                host.EndsWith(".bambicloud.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (Uri.TryCreate(GetBambiCloudHomeUrl(), UriKind.Absolute, out var configuredUri))
+            {
+                var configuredHost = configuredUri.Host;
+                if (!string.IsNullOrWhiteSpace(configuredHost) &&
+                    (host.Equals(configuredHost, StringComparison.OrdinalIgnoreCase) ||
+                     host.EndsWith('.' + configuredHost, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsBambiCloudPlaylistUrl(string? url)
+        {
+            if (!IsBambiCloudUrl(url) ||
+                !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            return uri.AbsolutePath.Contains("/playlist/", StringComparison.OrdinalIgnoreCase);
+        }
+
         private async System.Threading.Tasks.Task InitializeBrowserAsync(string? overrideStartUrl = null)
         {
             if (_browserInitialized) return;
@@ -20788,7 +20844,7 @@ namespace ConditioningControlPanel
                 // navigates to once CoreWebView2 finishes initializing — if we don't pass
                 // the user's URL here, a subsequent Navigate would race the default-URL
                 // load and get silently dropped.
-                var startUrl = overrideStartUrl ?? App.Mods?.GetDefaultBrowserUrl() ?? "https://bambicloud.com/";
+                var startUrl = overrideStartUrl ?? App.Mods?.GetDefaultBrowserUrl() ?? GetBambiCloudHomeUrl();
                 var webView = await _browser.CreateBrowserAsync(startUrl);
 
                 if (webView != null)
@@ -20864,7 +20920,7 @@ namespace ConditioningControlPanel
             // matches the page. Suppress the toggle handler's homepage navigation since
             // the WebView2 is already on its way to the right URL.
             var lowerUrl = url.ToLowerInvariant();
-            if (lowerUrl.Contains("bambicloud.com"))
+            if (IsBambiCloudUrl(lowerUrl))
             {
                 _skipSiteToggleNavigation = true;
                 RbBambiCloud.IsChecked = true;
@@ -20890,7 +20946,7 @@ namespace ConditioningControlPanel
             // first-ever click on a playlist link auto-plays just like subsequent ones.
             if (autoPlayFullscreen)
             {
-                var isBambiCloudPlaylist = lowerUrl.Contains("bambicloud.com/playlist/");
+                var isBambiCloudPlaylist = IsBambiCloudPlaylistUrl(lowerUrl);
                 void OnNavCompleted(object? s, string completedUrl)
                 {
                     _browser.NavigationCompleted -= OnNavCompleted;
@@ -20921,7 +20977,7 @@ namespace ConditioningControlPanel
             {
                 var initialUrl = RbHypnoTube?.IsChecked == true
                     ? "https://hypnotube.com/"
-                    : "https://bambicloud.com/";
+                    : GetBambiCloudHomeUrl();
                 await InitializeBrowserAsync(initialUrl);
                 return;
             }
@@ -20939,7 +20995,7 @@ namespace ConditioningControlPanel
 
             var isBambiCloud = RbBambiCloud.IsChecked == true;
             var url = isBambiCloud
-                ? "https://bambicloud.com/"
+                ? GetBambiCloudHomeUrl()
                 : "https://hypnotube.com/";
 
             // Any property/method touching the WebView2 throws InvalidOperationException
@@ -21001,7 +21057,7 @@ namespace ConditioningControlPanel
 
                 // Switch to correct site tab based on URL
                 // Set flag to skip the homepage navigation in the toggle handler
-                if (lowerUrl.Contains("bambicloud.com") && RbBambiCloud.IsChecked != true)
+                if (IsBambiCloudUrl(lowerUrl) && RbBambiCloud.IsChecked != true)
                 {
                     _skipSiteToggleNavigation = true;
                     RbBambiCloud.IsChecked = true;
@@ -21011,7 +21067,7 @@ namespace ConditioningControlPanel
                     _skipSiteToggleNavigation = true;
                     RbHypnoTube.IsChecked = true;
                 }
-                else if (!lowerUrl.Contains("bambicloud.com") && !lowerUrl.Contains("hypnotube.com"))
+                else if (!IsBambiCloudUrl(lowerUrl) && !lowerUrl.Contains("hypnotube.com"))
                 {
                     // External URL — deselect both radio buttons so clicking either one
                     // fires a Checked event to navigate back (RadioButton.Checked only fires
@@ -21027,7 +21083,7 @@ namespace ConditioningControlPanel
                 // different injection that clicks the playlist's main play button.
                 if (autoPlayFullscreen && _browser.WebView?.CoreWebView2 != null)
                 {
-                    var isBambiCloudPlaylist = lowerUrl.Contains("bambicloud.com/playlist/");
+                    var isBambiCloudPlaylist = IsBambiCloudPlaylistUrl(lowerUrl);
 
                     void OnNavigationCompleted(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs e)
                     {
@@ -21049,7 +21105,7 @@ namespace ConditioningControlPanel
                 _browser.Navigate(url);
 
                 App.Logger?.Information("Speech link navigated to: {Url} (Site: {Site}, AutoPlay: {AutoPlay})",
-                    url, lowerUrl.Contains("bambicloud") ? "BambiCloud" : "HypnoTube", autoPlayFullscreen);
+                    url, IsBambiCloudUrl(lowerUrl) ? "BambiCloud" : "HypnoTube", autoPlayFullscreen);
 
                 return true;
             }
@@ -22680,15 +22736,30 @@ namespace ConditioningControlPanel
             {
                 var screens = App.GetAllScreensCached();
                 var useDualMonitor = App.Settings.Current.DualMonitorEnabled && screens.Length > 1;
+                var mixedOrientation = HasMixedMonitorOrientation(screens);
 
                 if (useDualMonitor)
                 {
-                    _isDualMonitorPlaybackActive = App.ScreenMirror.EnableMirror();
-                    if (_isDualMonitorPlaybackActive)
+                    if (!mixedOrientation)
                     {
-                        App.Logger?.Information("Screen mirroring enabled for fullscreen video");
+                        _isDualMonitorPlaybackActive = App.ScreenMirror.EnableMirror();
+                        if (_isDualMonitorPlaybackActive)
+                        {
+                            App.Logger?.Information("Screen mirroring enabled for fullscreen video");
+                        }
+                    }
+                    else
+                    {
+                        App.Logger?.Information(
+                            "Mixed orientation detected: using mandatory-video-style secondary monitor mirror fallback");
+                        _ = TryStartBrowserSecondaryMirrorAsync();
                     }
                 }
+
+                // In mixed-orientation fallback mode we mirror direct media to
+                // secondary monitors via VideoService; keep the browser host on
+                // the primary monitor to avoid a giant virtual-desktop window.
+                var spanVirtualDesktop = !(useDualMonitor && mixedOrientation);
 
                 // Always reparent — single-monitor users still need real
                 // full-monitor fullscreen, otherwise HT's HTML5 fullscreen
@@ -22696,7 +22767,7 @@ namespace ConditioningControlPanel
                 // works via the JS click-pair detector + ccp_exit_fullscreen
                 // WebMessage path (window._ccpForcedFs flag covers the case
                 // where the page lost HTML5 fullscreen during reparent).
-                EnterBrowserFullscreen();
+                EnterBrowserFullscreen(spanVirtualDesktop);
             }
             else
             {
@@ -22707,11 +22778,80 @@ namespace ConditioningControlPanel
                     App.Logger?.Information("Screen mirroring disabled");
                 }
 
+                if (_isBrowserSecondaryMirrorActive)
+                {
+                    App.Video?.ForceCleanup();
+                    _isBrowserSecondaryMirrorActive = false;
+                    App.Logger?.Information("Browser secondary monitor mirror stopped");
+                }
+
                 ExitBrowserFullscreen();
             }
         }
 
-        public void EnterBrowserFullscreen()
+        private static bool HasMixedMonitorOrientation(System.Windows.Forms.Screen[] screens)
+        {
+            if (screens == null || screens.Length < 2) return false;
+
+            var primary = System.Windows.Forms.Screen.PrimaryScreen ?? screens[0];
+            bool primaryLandscape = primary.Bounds.Width >= primary.Bounds.Height;
+            return screens.Any(s => (s.Bounds.Width >= s.Bounds.Height) != primaryLandscape);
+        }
+
+        private static string? DecodeWebView2StringResult(string? scriptResult)
+        {
+            if (string.IsNullOrWhiteSpace(scriptResult) ||
+                scriptResult.Equals("null", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            try
+            {
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<string>(scriptResult);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task TryStartBrowserSecondaryMirrorAsync()
+        {
+            if (_isBrowserSecondaryMirrorActive) return;
+            if (_browser?.WebView?.CoreWebView2 == null) return;
+
+            try
+            {
+                // Ask the page for the active media URL. If not available (e.g. audio-only
+                // wrappers), we keep normal browser fullscreen without secondary duplication.
+                var raw = await _browser.WebView.CoreWebView2.ExecuteScriptAsync(
+                    "(() => { const v = document.querySelector('video'); return v ? (v.currentSrc || v.src || '') : ''; })()");
+                var mediaUrl = DecodeWebView2StringResult(raw)?.Trim();
+
+                if (string.IsNullOrWhiteSpace(mediaUrl) ||
+                    !Uri.TryCreate(mediaUrl, UriKind.Absolute, out var parsed) ||
+                    (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+                {
+                    App.Logger?.Information("Browser secondary mirror fallback skipped - no direct media URL available");
+                    return;
+                }
+
+                App.Video?.PlayUrl(mediaUrl, includePrimaryScreen: false);
+                _isBrowserSecondaryMirrorActive = App.Video?.IsPlaying == true;
+
+                if (_isBrowserSecondaryMirrorActive)
+                {
+                    App.Logger?.Information("Browser secondary monitor mirror started via VideoService: {Url}", mediaUrl);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Browser secondary mirror fallback failed: {Error}", ex.Message);
+            }
+        }
+
+        public void EnterBrowserFullscreen(bool spanVirtualDesktop = true)
         {
             if (_browser?.WebView == null || _isBrowserFullscreen) return;
 
@@ -22746,7 +22886,7 @@ namespace ConditioningControlPanel
                     _browserPopoutWindow.ResizeMode = ResizeMode.NoResize;
                     _browserPopoutWindow.Topmost = true;
                     _browserPopoutWindow.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
-                    ApplyWindowToVirtualFullscreen(_browserPopoutWindow);
+                    ApplyWindowToFullscreenBounds(_browserPopoutWindow, spanVirtualDesktop);
                 }
                 else
                 {
@@ -22763,6 +22903,8 @@ namespace ConditioningControlPanel
                     BrowserLoadingText.Text = "\ud83c\udf10 Browser in fullscreen";
                     BrowserLoadingText.Visibility = Visibility.Visible;
 
+                    var (left, top, width, height) = GetFullscreenBounds(spanVirtualDesktop);
+
                     _browserPopoutWindow = new Window
                     {
                         WindowStyle = WindowStyle.None,
@@ -22771,10 +22913,10 @@ namespace ConditioningControlPanel
                         Topmost = true,
                         Background = System.Windows.Media.Brushes.Black,
                         WindowStartupLocation = WindowStartupLocation.Manual,
-                        Left = SystemParameters.VirtualScreenLeft,
-                        Top = SystemParameters.VirtualScreenTop,
-                        Width = SystemParameters.VirtualScreenWidth,
-                        Height = SystemParameters.VirtualScreenHeight,
+                        Left = left,
+                        Top = top,
+                        Width = width,
+                        Height = height,
                         Content = _browser.WebView
                     };
 
@@ -22802,7 +22944,7 @@ namespace ConditioningControlPanel
 
                     _browserPopoutWindow.Show();
                     _browserPopoutWindow.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
-                    ApplyWindowToVirtualFullscreen(_browserPopoutWindow);
+                    ApplyWindowToFullscreenBounds(_browserPopoutWindow, spanVirtualDesktop);
                 }
 
                 // (Removed: ReRequestVideoFullscreenAsync.) That stacked a
@@ -22830,15 +22972,45 @@ namespace ConditioningControlPanel
             }
         }
 
-        private static void ApplyWindowToVirtualFullscreen(Window window)
+        private static (double Left, double Top, double Width, double Height) GetFullscreenBounds(bool spanVirtualDesktop)
+        {
+            if (spanVirtualDesktop)
+            {
+                return (
+                    SystemParameters.VirtualScreenLeft,
+                    SystemParameters.VirtualScreenTop,
+                    SystemParameters.VirtualScreenWidth,
+                    SystemParameters.VirtualScreenHeight);
+            }
+
+            var primary = System.Windows.Forms.Screen.PrimaryScreen;
+            if (primary != null)
+            {
+                return (
+                    primary.Bounds.Left,
+                    primary.Bounds.Top,
+                    primary.Bounds.Width,
+                    primary.Bounds.Height);
+            }
+
+            return (
+                SystemParameters.VirtualScreenLeft,
+                SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth,
+                SystemParameters.VirtualScreenHeight);
+        }
+
+        private static void ApplyWindowToFullscreenBounds(Window window, bool spanVirtualDesktop)
         {
             if (window == null) return;
 
+            var (left, top, width, height) = GetFullscreenBounds(spanVirtualDesktop);
+
             window.WindowState = WindowState.Normal;
-            window.Left = SystemParameters.VirtualScreenLeft;
-            window.Top = SystemParameters.VirtualScreenTop;
-            window.Width = SystemParameters.VirtualScreenWidth;
-            window.Height = SystemParameters.VirtualScreenHeight;
+            window.Left = left;
+            window.Top = top;
+            window.Width = width;
+            window.Height = height;
         }
 
         private void ExitBrowserFullscreen()
@@ -22949,7 +23121,7 @@ namespace ConditioningControlPanel
             try
             {
                 var isBambiCloud = RbBambiCloud?.IsChecked == true;
-                var url = isBambiCloud ? "https://bambicloud.com/" : "https://hypnotube.com/";
+                var url = isBambiCloud ? GetBambiCloudHomeUrl() : "https://hypnotube.com/";
                 _browser.Navigate(url);
                 App.Logger?.Information("Browser navigated to current site home: {Url}", url);
             }
@@ -22970,7 +23142,7 @@ namespace ConditioningControlPanel
             {
                 var initialUrl = RbHypnoTube?.IsChecked == true
                     ? "https://hypnotube.com/"
-                    : "https://bambicloud.com/";
+                    : GetBambiCloudHomeUrl();
                 _ = InitializeBrowserAsync(initialUrl);
                 return;
             }
@@ -29623,7 +29795,7 @@ namespace ConditioningControlPanel
                         {
                             var isBambiCloud = RbBambiCloud?.IsChecked == true;
                             var url = isBambiCloud
-                                ? "https://bambicloud.com/"
+                                ? GetBambiCloudHomeUrl()
                                 : "https://hypnotube.com/";
                             _browser.Navigate(url);
                             App.Logger?.Information("Browser reloaded after exiting offline mode: {Url}", url);

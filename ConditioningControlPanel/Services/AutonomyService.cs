@@ -95,7 +95,7 @@ namespace ConditioningControlPanel.Services
         private bool _pinkFilterPulseActive = false;
         private bool _bubblesPulseActive = false;
         private bool _bouncingTextPulseActive = false;
-        private bool _webVideoActive = false; // Blocks all actions while web video plays fullscreen
+        private bool _webVideoActive = false; // Tracks active web-video session and gates only web-video-specific actions
         private int _webVideoWatchdogGeneration = 0; // Invalidates stale watchdog callbacks
         private HashSet<string> _shownWebVideos = new(); // Track shown videos to avoid repeats
         // Separate generation counters for each pulse type to avoid cross-invalidation
@@ -745,13 +745,6 @@ namespace ConditioningControlPanel.Services
                 return false;
             }
 
-            // Don't take actions while web video is playing fullscreen
-            if (_webVideoActive)
-            {
-                App.Logger?.Debug("AutonomyService: CanTakeAction=false - web video playing fullscreen");
-                return false;
-            }
-
             // Don't interrupt active fullscreen interaction (video, bubble count, lock card)
             if (App.InteractionQueue?.IsBusy == true)
             {
@@ -1272,7 +1265,7 @@ namespace ConditioningControlPanel.Services
             if (!_webVideoActive)
             {
                 _webVideoActive = true;
-                App.Logger?.Information("AutonomyService: Web video started (external trigger), blocking autonomy actions");
+                App.Logger?.Information("AutonomyService: Web video started (external trigger)");
             }
             else
             {

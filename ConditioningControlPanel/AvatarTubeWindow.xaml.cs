@@ -3074,11 +3074,10 @@ namespace ConditioningControlPanel
             text = Regex.Replace(text, @"\[([^\]]+)\]\(([^)]+)\)", m =>
             {
                 var linkText = m.Groups[1].Value;
-                var url = m.Groups[2].Value.Trim();
-                if (Uri.TryCreate(url, UriKind.Absolute, out var u) &&
-                    (u.Scheme == "https" || u.Scheme == "http"))
+                var normalized = NormalizeUrlCandidate(m.Groups[2].Value);
+                if (!string.IsNullOrWhiteSpace(normalized))
                 {
-                    mdLinks.Add((linkText, url));
+                    mdLinks.Add((linkText, normalized));
                 }
                 return linkText; // collapse to plain text in the working buffer
             });
@@ -3124,13 +3123,47 @@ namespace ConditioningControlPanel
             var urlRegex = new Regex(@"https?://[^\s,""'<>]+", RegexOptions.IgnoreCase);
             foreach (Match match in urlRegex.Matches(text))
             {
+                var normalized = NormalizeUrlCandidate(match.Value);
+                if (string.IsNullOrWhiteSpace(normalized))
+                    continue;
+
                 bool overlaps = linkPositions.Any(lp =>
                     (match.Index >= lp.start && match.Index < lp.start + lp.length) ||
                     (match.Index + match.Length > lp.start && match.Index + match.Length <= lp.start + lp.length));
 
                 if (!overlaps)
                 {
-                    linkPositions.Add((match.Index, match.Length, match.Value, match.Value));
+                    linkPositions.Add((match.Index, match.Length, match.Value, normalized));
+                }
+            }
+
+            // Also detect bare domains (e.g. bambicloud.com/playlist/..., www.example.com/path)
+            // and normalize them to https://... so they're clickable.
+            var bareDomainRegex = new Regex(@"\b(?<!@)(?:www\.)?[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:/[^\s,""'<>]*)?", RegexOptions.IgnoreCase);
+            foreach (Match match in bareDomainRegex.Matches(text))
+            {
+                // Skip if this token is already part of an explicit scheme URL.
+                if (match.Index >= 8)
+                {
+                    var prefix = text.Substring(Math.Max(0, match.Index - 8), Math.Min(8, match.Index));
+                    if (prefix.EndsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                        prefix.EndsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
+                var normalized = NormalizeUrlCandidate(match.Value);
+                if (string.IsNullOrWhiteSpace(normalized))
+                    continue;
+
+                bool overlaps = linkPositions.Any(lp =>
+                    (match.Index >= lp.start && match.Index < lp.start + lp.length) ||
+                    (match.Index + match.Length > lp.start && match.Index + match.Length <= lp.start + lp.length));
+
+                if (!overlaps)
+                {
+                    linkPositions.Add((match.Index, match.Length, match.Value, normalized));
                 }
             }
 
@@ -3195,6 +3228,31 @@ namespace ConditioningControlPanel
             }
         }
 
+        private static string? NormalizeUrlCandidate(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return null;
+
+            var candidate = raw.Trim();
+            candidate = candidate.TrimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}');
+
+            if (candidate.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
+                candidate = "https://" + candidate;
+            else if (!candidate.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                     !candidate.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+                     candidate.Contains('.') &&
+                     !candidate.Contains(' '))
+                candidate = "https://" + candidate;
+
+            if (Uri.TryCreate(candidate, UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                return uri.AbsoluteUri;
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Loaded handler for chat history TextBlocks. Pulls the message text from Tag
         /// (we can't bind to Text because then we couldn't write Inlines) and renders it
@@ -3239,11 +3297,12 @@ namespace ConditioningControlPanel
                 }
                 else
                 {
-                    // Fallback: open in external browser (HTTPS only for safety)
-                    if (Uri.TryCreate(url, UriKind.Absolute, out var fallbackUri) && fallbackUri.Scheme == "https")
+                    // Fallback: open in external browser for any valid http(s) URL.
+                    if (Uri.TryCreate(url, UriKind.Absolute, out var fallbackUri) &&
+                        (fallbackUri.Scheme == Uri.UriSchemeHttps || fallbackUri.Scheme == Uri.UriSchemeHttp))
                     {
                         App.Logger?.Warning("Embedded browser unavailable, opening externally: {Url}", url);
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(fallbackUri.AbsoluteUri) { UseShellExecute = true });
                     }
                 }
 

@@ -57,9 +57,11 @@ namespace ConditioningControlPanel.Services
                     return false;
                 }
 
-                // Windows clone topology cannot preserve mixed portrait/landscape layouts.
-                // When orientations differ, cloning forces one mode and rotates/scales one
-                // of the displays incorrectly. Keep extend mode in that case.
+                // Preserve monitor orientation quality: clone mode on mixed
+                // portrait/landscape layouts forces one orientation and can
+                // visibly stretch/rotate one display. Mandatory-video style
+                // per-monitor windows avoid this, but browser fullscreen still
+                // relies on topology clone when true duplication is requested.
                 var primary = System.Windows.Forms.Screen.PrimaryScreen;
                 if (primary != null)
                 {
@@ -67,8 +69,7 @@ namespace ConditioningControlPanel.Services
                     bool mixedOrientation = screens.Any(s => (s.Bounds.Width >= s.Bounds.Height) != primaryLandscape);
                     if (mixedOrientation)
                     {
-                        App.Logger?.Warning(
-                            "ScreenMirror: mixed orientations detected; skipping clone to preserve monitor orientation");
+                        App.Logger?.Warning("ScreenMirror: mixed orientations detected; skipping clone to preserve orientation");
                         return false;
                     }
                 }

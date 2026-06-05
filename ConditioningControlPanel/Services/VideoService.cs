@@ -830,10 +830,12 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
-        /// Play a video URL on all screens (used for browser fullscreen with dual monitor)
-        /// No attention checks, no strict mode - just playback
+        /// Play a video URL on fullscreen monitor windows (used by browser fullscreen helpers).
+        /// No attention checks, no strict mode - just playback.
         /// </summary>
-        public void PlayUrl(string url)
+        /// <param name="url">Direct media URL playable by LibVLC.</param>
+        /// <param name="includePrimaryScreen">When false, only secondary screens are used (muted).</param>
+        public void PlayUrl(string url, bool includePrimaryScreen = true)
         {
             if (string.IsNullOrEmpty(url)) return;
             if (_videoPlaying) return;
@@ -857,21 +859,31 @@ namespace ConditioningControlPanel.Services
                 var primary = allScreens.FirstOrDefault(s => s.Primary) ?? allScreens[0];
                 var secondaries = allScreens.Where(s => !s.Primary).ToList();
 
-                // Create primary window with audio
-                var primaryWin = CreateLibVLCUrlWindow(url, primary, withAudio: true);
-                _windows.Add(primaryWin);
+                var targetScreens = includePrimaryScreen
+                    ? allScreens
+                    : secondaries;
 
-                // Create secondary windows (muted)
-                if (App.Settings.Current.DualMonitorEnabled)
+                if (targetScreens.Count == 0)
                 {
-                    foreach (var screen in secondaries)
-                    {
-                        var win = CreateLibVLCUrlWindow(url, screen, withAudio: false);
-                        _windows.Add(win);
-                    }
+                    App.Logger?.Warning("PlayUrl requested with includePrimaryScreen=false but no secondary screens are active");
+                    _videoPlaying = false;
+                    return;
                 }
 
-                App.Logger?.Information("Playing URL via LibVLC on {Count} screen(s): {Url}", _windows.Count, url);
+                bool audioAssigned = false;
+                foreach (var screen in targetScreens)
+                {
+                    var withAudio = includePrimaryScreen && !audioAssigned && screen.DeviceName == primary.DeviceName;
+                    if (withAudio) audioAssigned = true;
+                    var win = CreateLibVLCUrlWindow(url, screen, withAudio: withAudio);
+                    _windows.Add(win);
+                }
+
+                App.Logger?.Information(
+                    "Playing URL via LibVLC on {Count} screen(s), includePrimary={IncludePrimary}: {Url}",
+                    _windows.Count,
+                    includePrimaryScreen,
+                    url);
             });
         }
 
