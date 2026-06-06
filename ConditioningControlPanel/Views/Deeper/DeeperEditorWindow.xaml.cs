@@ -1763,10 +1763,11 @@ namespace ConditioningControlPanel.Views.Deeper
             var leftX = (lo / _totalSeconds) * w;
             var rightX = (hi / _totalSeconds) * w;
 
+            var (regionTop, regionH) = LaneBandInset(TimelineLane.Regions, h);
             _dragCreatePreview.Width = Math.Max(0, rightX - leftX);
-            _dragCreatePreview.Height = h / 2.0;
+            _dragCreatePreview.Height = regionH;
             Canvas.SetLeft(_dragCreatePreview, leftX);
-            Canvas.SetTop(_dragCreatePreview, 0);
+            Canvas.SetTop(_dragCreatePreview, regionTop);
         }
 
         private void FinishDragCreate(double endSec)
@@ -2032,7 +2033,7 @@ namespace ConditioningControlPanel.Views.Deeper
             var h = TimelineCanvas.ActualHeight;
             if (w <= 0 || _totalSeconds <= 0) return null;
 
-            var laneH = h / 2.0;
+            var (laneTop, laneH) = LaneBandInset(TimelineLane.Regions, h);
             var startX = Math.Max(0, (region.Start / _totalSeconds) * w);
             var endX = Math.Min(w, (region.End / _totalSeconds) * w);
             // Floor at MinBandVisualWidthPx so a region whose duration would
@@ -2056,7 +2057,7 @@ namespace ConditioningControlPanel.Views.Deeper
                 ToolTip = string.IsNullOrEmpty(region.Label) ? region.Id : $"{region.Id} — {region.Label}"
             };
             Canvas.SetLeft(rect, startX);
-            Canvas.SetTop(rect, 0);
+            Canvas.SetTop(rect, laneTop);
             rect.MouseLeftButtonDown += RegionRect_MouseLeftButtonDown;
             rect.MouseMove += RegionRect_MouseMove;
             return rect;
@@ -2216,8 +2217,7 @@ namespace ConditioningControlPanel.Views.Deeper
             var h = TimelineCanvas.ActualHeight;
             if (w <= 0 || _totalSeconds <= 0) return null;
 
-            var laneTop = h / 2.0 + 2;
-            var laneH = Math.Max(0, h / 2.0 - 4);
+            var (laneTop, laneH) = LaneBandInset(TimelineLane.Haptics, h);
             var startX = Math.Max(0, (ev.Start / _totalSeconds) * w);
             var endX = Math.Min(w, ((ev.Start + ev.Duration) / _totalSeconds) * w);
             // Floor at MinBandVisualWidthPx so very short haptics stay clickable.

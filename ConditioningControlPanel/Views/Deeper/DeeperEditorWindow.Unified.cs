@@ -391,7 +391,8 @@ namespace ConditioningControlPanel.Views.Deeper
                 ToolTip = $"{item.EffectType} @ {item.Start:0.##}s"
             };
             double x = (item.Start / _totalSeconds) * canvasWidth - 6;
-            double y = canvasHeight - 18;
+            var (eTop, eH) = LaneBand(TimelineLane.Effects, canvasHeight);
+            double y = eTop + eH / 2.0 - 6; // center the 12px dot in the Effects lane
             Canvas.SetLeft(dot, x);
             Canvas.SetTop(dot, y);
             Panel.SetZIndex(dot, 10);
@@ -430,8 +431,9 @@ namespace ConditioningControlPanel.Views.Deeper
             double startX = Math.Max(0, (item.Start / _totalSeconds) * canvasWidth);
             double endX = Math.Min(canvasWidth, ((item.Start + Math.Max(0, item.Duration)) / _totalSeconds) * canvasWidth);
             double width = Math.Max(8, endX - startX);
-            double y = canvasHeight - 22;          // dedicated effect lane near the bottom
-            double height = 18;
+            var (eTop, eH) = LaneBand(TimelineLane.Effects, canvasHeight);
+            double height = Math.Min(18, Math.Max(0, eH - 2 * LaneInset));
+            double y = eTop + (eH - height) / 2.0; // center the segment in the Effects lane
 
             var rect = new System.Windows.Shapes.Rectangle
             {

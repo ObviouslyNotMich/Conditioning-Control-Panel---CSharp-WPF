@@ -643,12 +643,11 @@
                                        Text="{loc:Str deeper_editor_scrub_hint}"/>
                         </DockPanel>
 
-                        <!-- Mission 1 commit 4 — lane chrome.
-                             4 named lane headers stack down the left column (96 px) so
-                             tutorial steps can target them by x:Name. Rendering still
-                             goes to the single TimelineCanvas (current y-band layout
-                             preserved); a follow-up mission will split into separate
-                             per-lane canvases with independent collapse + resize. -->
+                        <!-- Three equal lane headers stack down the left column (96 px):
+                             Regions / Effects / Haptics, aligned with the canvas's three
+                             equal Y bands (see LaneBand in LaneChrome.cs). Rules are not a
+                             lane — they render as full-height pins across all three. The
+                             x:Names are tutorial targets. -->
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="96"/>
@@ -660,30 +659,9 @@
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
-                                <Border x:Name="TimelineRulesLaneHeader" Grid.Row="0"
-                                        Background="{DynamicResource DeeperLaneHeaderBrush}"
-                                        BorderBrush="{DynamicResource DeeperLaneSeparatorBrush}"
-                                        BorderThickness="0,0,1,1" Padding="6,2"
-                                        ToolTip="{loc:Str deeper_editor_tt_lane_rules}">
-                                    <DockPanel LastChildFill="True">
-                                        <Image DockPanel.Dock="Left" Width="13" Height="13"
-                                               VerticalAlignment="Center" Margin="0,0,4,0"
-                                               Source="{Binding Source='🎯', Converter={StaticResource EmojiToImageSource}}"/>
-                                        <TextBlock x:Name="TxtRulesLaneCount" DockPanel.Dock="Right"
-                                                   Foreground="{DynamicResource TextDimBrush}"
-                                                   FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Str deeper_editor_lane_rules}"
-                                                   Foreground="{DynamicResource TextLightBrush}"
-                                                   FontSize="11" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </DockPanel>
-                                </Border>
-
-                                <Border x:Name="TimelineRegionsLaneHeader" Grid.Row="1"
+                                <Border x:Name="TimelineRegionsLaneHeader" Grid.Row="0"
                                         Background="{DynamicResource DeeperLaneHeaderBrush}"
                                         BorderBrush="{DynamicResource DeeperLaneSeparatorBrush}"
                                         BorderThickness="0,0,1,1" Padding="6,2"
@@ -703,30 +681,10 @@
                                     </DockPanel>
                                 </Border>
 
-                                <Border x:Name="TimelineHapticsLaneHeader" Grid.Row="2"
+                                <Border x:Name="TimelineEffectsLaneHeader" Grid.Row="1"
                                         Background="{DynamicResource DeeperLaneHeaderBrush}"
                                         BorderBrush="{DynamicResource DeeperLaneSeparatorBrush}"
                                         BorderThickness="0,0,1,1" Padding="6,2"
-                                        ToolTip="{loc:Str deeper_editor_tt_lane_haptics}">
-                                    <DockPanel LastChildFill="True">
-                                        <Image DockPanel.Dock="Left" Width="13" Height="13"
-                                               VerticalAlignment="Center" Margin="0,0,4,0"
-                                               Source="{Binding Source='📳', Converter={StaticResource EmojiToImageSource}}"/>
-                                        <TextBlock x:Name="TxtHapticsLaneCount" DockPanel.Dock="Right"
-                                                   Foreground="{DynamicResource TextDimBrush}"
-                                                   FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Str deeper_editor_lane_haptics}"
-                                                   Foreground="{DynamicResource TextLightBrush}"
-                                                   FontSize="11" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </DockPanel>
-                                </Border>
-
-                                <Border x:Name="TimelineEffectsLaneHeader" Grid.Row="3"
-                                        Background="{DynamicResource DeeperLaneHeaderBrush}"
-                                        BorderBrush="{DynamicResource DeeperLaneSeparatorBrush}"
-                                        BorderThickness="0,0,1,0" Padding="6,2"
                                         ToolTip="{loc:Str deeper_editor_tt_lane_effects}">
                                     <DockPanel LastChildFill="True">
                                         <Image DockPanel.Dock="Left" Width="13" Height="13"
@@ -736,6 +694,26 @@
                                                    Foreground="{DynamicResource TextDimBrush}"
                                                    FontSize="10" VerticalAlignment="Center"/>
                                         <TextBlock Text="{loc:Str deeper_editor_lane_effects}"
+                                                   Foreground="{DynamicResource TextLightBrush}"
+                                                   FontSize="11" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
+                                </Border>
+
+                                <Border x:Name="TimelineHapticsLaneHeader" Grid.Row="2"
+                                        Background="{DynamicResource DeeperLaneHeaderBrush}"
+                                        BorderBrush="{DynamicResource DeeperLaneSeparatorBrush}"
+                                        BorderThickness="0,0,1,0" Padding="6,2"
+                                        ToolTip="{loc:Str deeper_editor_tt_lane_haptics}">
+                                    <DockPanel LastChildFill="True">
+                                        <Image DockPanel.Dock="Left" Width="13" Height="13"
+                                               VerticalAlignment="Center" Margin="0,0,4,0"
+                                               Source="{Binding Source='📳', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <TextBlock x:Name="TxtHapticsLaneCount" DockPanel.Dock="Right"
+                                                   Foreground="{DynamicResource TextDimBrush}"
+                                                   FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Str deeper_editor_lane_haptics}"
                                                    Foreground="{DynamicResource TextLightBrush}"
                                                    FontSize="11" FontWeight="SemiBold"
                                                    VerticalAlignment="Center"
