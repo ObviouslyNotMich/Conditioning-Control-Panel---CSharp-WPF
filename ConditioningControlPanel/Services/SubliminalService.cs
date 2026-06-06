@@ -177,14 +177,14 @@ namespace ConditioningControlPanel.Services
         /// this single flash — used by Deeper effects so the segment width on
         /// the timeline drives how long the text stays on screen.
         /// </summary>
-        public void FlashSubliminalCustom(string text, int? opacity = null, int? overrideDurationMs = null)
+        public void FlashSubliminalCustom(string text, int? opacity = null, int? overrideDurationMs = null, bool suppressHaptic = false)
         {
             if (string.IsNullOrWhiteSpace(text)) return;
             text = text.Trim();
             if (text.Length > 200) text = text.Substring(0, 200);
             text = System.Text.RegularExpressions.Regex.Replace(text, "<[^>]*>", "");
             _oneShotActive = true; // Allow display even when service not running (remote control)
-            TriggerSubliminalWithHapticPattern(text, opacity, overrideDurationMs);
+            TriggerSubliminalWithHapticPattern(text, opacity, overrideDurationMs, suppressHaptic);
             App.Progression?.AddXP(10, XPSource.Subliminal);
         }
 
@@ -500,18 +500,22 @@ namespace ConditioningControlPanel.Services
         /// Pattern depends on the trigger text (Cum/Collapse = long, Freeze = short sharp, Sleep = decay, etc.)
         /// Buttplug.io has ~1.3s latency so we trigger haptics earlier for that provider
         /// </summary>
-        private async void TriggerSubliminalWithHapticPattern(string text, int? opacity = null, int? overrideDurationMs = null)
+        private async void TriggerSubliminalWithHapticPattern(string text, int? opacity = null, int? overrideDurationMs = null, bool suppressHaptic = false)
         {
             try
             {
-                // Get anticipation delay from haptic service (Buttplug needs ~1.3s, Lovense ~250ms)
-                var anticipationMs = App.Haptics?.SubliminalAnticipationMs ?? 250;
+                // Get anticipation delay from haptic service (Buttplug needs ~1.3s, Lovense ~250ms).
+                // When the haptic is suppressed (per-effect opt-out), there's nothing to anticipate,
+                // so show the visual immediately.
+                var anticipationMs = suppressHaptic ? 0 : (App.Haptics?.SubliminalAnticipationMs ?? 250);
 
-                // Trigger haptic pattern first (pattern depends on text)
-                _ = App.Haptics?.TriggerSubliminalPatternAsync(text);
+                // Trigger haptic pattern first (pattern depends on text), unless suppressed.
+                if (!suppressHaptic)
+                    _ = App.Haptics?.TriggerSubliminalPatternAsync(text);
 
                 // Wait for anticipation delay before showing visual
-                await Task.Delay(anticipationMs);
+                if (anticipationMs > 0)
+                    await Task.Delay(anticipationMs);
 
                 // Now show on UI thread
                 Application.Current?.Dispatcher?.Invoke(() => ShowSubliminalVisuals(text, opacity, overrideDurationMs));

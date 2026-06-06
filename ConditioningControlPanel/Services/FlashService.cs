@@ -232,7 +232,7 @@ namespace ConditioningControlPanel.Services
         /// Trigger a one-shot flash that works even when service is not running.
         /// Used by Autonomy Mode to trigger flashes independently of engine state.
         /// </summary>
-        public void TriggerFlashOnce(int? amount = null, int? duration = null, int? size = null)
+        public void TriggerFlashOnce(int? amount = null, int? duration = null, int? size = null, bool suppressHaptic = false)
         {
             if (_isBusy)
             {
@@ -255,7 +255,7 @@ namespace ConditioningControlPanel.Services
             // Start heartbeat timer for animation and fade management
             _heartbeatTimer?.Start();
 
-            Task.Run(() => LoadAndShowImages(amount, duration, size));
+            Task.Run(() => LoadAndShowImages(amount, duration, size, suppressHaptic));
         }
 
         /// <summary>
@@ -265,7 +265,7 @@ namespace ConditioningControlPanel.Services
         /// absolute or rooted under <c>App.EffectiveAssetsPath/images</c>; passing
         /// null or empty falls back to <see cref="TriggerFlashOnce"/> behavior.
         /// </summary>
-        public void TriggerFlashOnceWithImage(string? imagePath, int durationMs, bool playSound)
+        public void TriggerFlashOnceWithImage(string? imagePath, int durationMs, bool playSound, bool suppressHaptic = false)
         {
             if (_isBusy)
             {
@@ -275,7 +275,7 @@ namespace ConditioningControlPanel.Services
 
             if (string.IsNullOrWhiteSpace(imagePath))
             {
-                TriggerFlashOnce(amount: 1, duration: durationMs);
+                TriggerFlashOnce(amount: 1, duration: durationMs, suppressHaptic: suppressHaptic);
                 return;
             }
 
@@ -297,10 +297,10 @@ namespace ConditioningControlPanel.Services
             _soundPlayingForCurrentFlash = false;
             _heartbeatTimer?.Start();
 
-            Task.Run(() => LoadAndShowSpecificImage(resolved, durationMs, playSound));
+            Task.Run(() => LoadAndShowSpecificImage(resolved, durationMs, playSound, suppressHaptic));
         }
 
-        private async void LoadAndShowSpecificImage(string imagePath, int durationMs, bool playSound)
+        private async void LoadAndShowSpecificImage(string imagePath, int durationMs, bool playSound, bool suppressHaptic = false)
         {
             try
             {
@@ -322,7 +322,7 @@ namespace ConditioningControlPanel.Services
 
                 await DispatcherHelper.RunOnUIAsync(() =>
                 {
-                    ShowImages(new List<LoadedImageData> { data }, soundPath, false, customDuration: durationMs);
+                    ShowImages(new List<LoadedImageData> { data }, soundPath, false, customDuration: durationMs, suppressHaptic: suppressHaptic);
                 });
             }
             catch (Exception ex)
@@ -403,7 +403,7 @@ namespace ConditioningControlPanel.Services
 
         #region Image Loading
 
-        private async void LoadAndShowImages(int? amount = null, int? duration = null, int? size = null)
+        private async void LoadAndShowImages(int? amount = null, int? duration = null, int? size = null, bool suppressHaptic = false)
         {
             try
             {
@@ -461,7 +461,7 @@ namespace ConditioningControlPanel.Services
                 // Show on UI thread - pass sound path only ONCE
                 await DispatcherHelper.RunOnUIAsync(() =>
                 {
-                    ShowImages(loadedImages, soundPath, false, customDuration: duration);
+                    ShowImages(loadedImages, soundPath, false, customDuration: duration, suppressHaptic: suppressHaptic);
                 });
             }
             catch (Exception ex)
@@ -706,7 +706,7 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         /// <param name="overrideLifetimeMs">If provided, overrides the calculated lifetime (used for hydra linked timing)~ 🔗</param>
         /// <param name="hydraGeneration">How many hydra hops deep these spawns are (0 = original flash)~ 🐙</param>
-        private void ShowImages(List<LoadedImageData> images, string? soundPath, bool isMultiplication, int? overrideLifetimeMs = null, int hydraGeneration = 0, int? customDuration = null)
+        private void ShowImages(List<LoadedImageData> images, string? soundPath, bool isMultiplication, int? overrideLifetimeMs = null, int hydraGeneration = 0, int? customDuration = null, bool suppressHaptic = false)
         {
             if (!_isRunning && !_oneShotActive)
             {
@@ -802,13 +802,14 @@ namespace ConditioningControlPanel.Services
                 
                 if (delayMs == 0)
                 {
-                    SpawnFlashWindow(imageData, settings, lifetimeMs, hydraGeneration);
+                    SpawnFlashWindow(imageData, settings, lifetimeMs, hydraGeneration, suppressHaptic);
                 }
                 else
                 {
                     var capturedData = imageData;
                     var capturedLifetime = lifetimeMs;
                     var capturedGeneration = hydraGeneration;
+                    var capturedSuppressHaptic = suppressHaptic;
                     var spawnToken = _cancellationSource?.Token ?? CancellationToken.None;
                     Task.Delay(delayMs, spawnToken).ContinueWith(_ =>
                     {
@@ -817,7 +818,7 @@ namespace ConditioningControlPanel.Services
                             System.Windows.Application.Current?.Dispatcher?.BeginInvoke(() =>
                             {
                                 if (_isRunning || _oneShotActive)
-                                    SpawnFlashWindow(capturedData, settings, capturedLifetime, capturedGeneration);
+                                    SpawnFlashWindow(capturedData, settings, capturedLifetime, capturedGeneration, capturedSuppressHaptic);
                             });
                         }
                         catch { }
@@ -848,7 +849,7 @@ namespace ConditioningControlPanel.Services
         /// CopilotNotes: Each window gets a CTS that fires after lifetimeMs, triggering independent fade-out.
         /// When hydraGeneration > 0 and independent timing is active, XP is reduced by 25% per generation (floor 10%).
         /// </summary>
-        private void SpawnFlashWindow(LoadedImageData imageData, AppSettings settings, int lifetimeMs, int hydraGeneration = 0)
+        private void SpawnFlashWindow(LoadedImageData imageData, AppSettings settings, int lifetimeMs, int hydraGeneration = 0, bool suppressHaptic = false)
         {
             if (!_isRunning && !_oneShotActive) return;
 
@@ -1071,7 +1072,8 @@ namespace ConditioningControlPanel.Services
                 HideFromAltTab(window);
 
                 window.Show();
-                _ = App.Haptics?.FlashDecayVibeAsync();
+                if (!suppressHaptic)
+                    _ = App.Haptics?.FlashDecayVibeAsync();
 
                 // Force topmost even over fullscreen apps
                 ForceTopmost(window);

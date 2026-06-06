@@ -154,6 +154,10 @@ namespace ConditioningControlPanel.Models.Deeper
         [JsonProperty("play_sound")]
         public bool PlaySound { get; set; } = true;
 
+        // Per-instance opt-out of the auto-haptic buzz on flash/subliminal pop.
+        [JsonProperty("suppress_haptic")]
+        public bool SuppressHaptic { get; set; } = false;
+
         // Subliminal.
         [JsonProperty("text", NullValueHandling = NullValueHandling.Ignore)]
         public string? Text { get; set; }

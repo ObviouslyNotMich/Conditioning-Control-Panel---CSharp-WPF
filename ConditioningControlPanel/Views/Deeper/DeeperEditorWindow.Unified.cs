@@ -547,6 +547,7 @@ namespace ConditioningControlPanel.Views.Deeper
                     case EffectTypes.Flash:
                         FlashEffectEditor.Visibility = Visibility.Visible;
                         TxtFlashDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
+                        ChkFlashSuppressHaptic.IsChecked = _selectedEffect.EffectSuppressHaptic;
                         break;
                     case EffectTypes.Bubble:
                         BubbleEffectEditor.Visibility = Visibility.Visible;
@@ -557,6 +558,7 @@ namespace ConditioningControlPanel.Views.Deeper
                         SubliminalEffectEditor.Visibility = Visibility.Visible;
                         TxtSubliminalText.Text = _selectedEffect.EffectText ?? "";
                         TxtSubliminalDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
+                        ChkSubliminalSuppressHaptic.IsChecked = _selectedEffect.EffectSuppressHaptic;
                         break;
                     case EffectTypes.Overlay:
                         OverlayEffectEditor.Visibility = Visibility.Visible;
@@ -632,6 +634,14 @@ namespace ConditioningControlPanel.Views.Deeper
         {
             if (_suppressEffectFieldSync || _selectedEffect == null) return;
             _selectedEffect.EffectIntensity = Math.Clamp(e.NewValue, 0, 1);
+            MarkDirty();
+        }
+
+        // Shared by the flash + subliminal "Don't buzz on pop" checkboxes.
+        private void ChkEffectSuppressHaptic_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            _selectedEffect.EffectSuppressHaptic = (sender as CheckBox)?.IsChecked ?? false;
             MarkDirty();
         }
 

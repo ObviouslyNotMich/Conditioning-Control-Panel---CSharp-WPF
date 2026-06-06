@@ -1347,6 +1347,12 @@
                             <TextBox x:Name="TxtFlashDuration" Style="{StaticResource EditorTextBox}"
                                      ToolTip="{loc:Str deeper_editor_tip_flash_duration}"
                                      TextChanged="EffectField_TextChanged"/>
+                            <CheckBox x:Name="ChkFlashSuppressHaptic"
+                                      Content="Don't buzz on pop"
+                                      ToolTip="Skip the automatic haptic buzz that normally fires when this flash appears."
+                                      Click="ChkEffectSuppressHaptic_Changed"
+                                      Foreground="{DynamicResource TextLightBrush}"
+                                      Margin="0,4,0,4"/>
                             <Button Content="Delete" Click="BtnDeleteEffect_Click"
                                     ToolTip="{loc:Str deeper_editor_tip_effect_delete}"
                                     Background="{DynamicResource DangerBrush}" Foreground="White"
@@ -1386,6 +1392,12 @@
                             <TextBox x:Name="TxtSubliminalDuration" Style="{StaticResource EditorTextBox}"
                                      ToolTip="{loc:Str deeper_editor_tip_subliminal_duration}"
                                      TextChanged="EffectField_TextChanged"/>
+                            <CheckBox x:Name="ChkSubliminalSuppressHaptic"
+                                      Content="Don't buzz on pop"
+                                      ToolTip="Skip the automatic haptic buzz that normally fires when this subliminal appears."
+                                      Click="ChkEffectSuppressHaptic_Changed"
+                                      Foreground="{DynamicResource TextLightBrush}"
+                                      Margin="0,4,0,4"/>
                             <Button Content="Delete" Click="BtnDeleteEffect_Click"
                                     ToolTip="{loc:Str deeper_editor_tip_effect_delete}"
                                     Background="{DynamicResource DangerBrush}" Foreground="White"

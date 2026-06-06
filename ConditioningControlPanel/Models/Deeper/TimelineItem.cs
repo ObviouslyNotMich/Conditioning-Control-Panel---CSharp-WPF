@@ -130,6 +130,12 @@ namespace ConditioningControlPanel.Models.Deeper
         [JsonProperty("effect_play_sound")]
         public bool EffectPlaySound { get; set; } = true;
 
+        // Per-instance opt-out of the auto-haptic buzz that flash and subliminal
+        // effects fire when they pop. Absent in old files => false => unchanged
+        // (haptic still fires). Only meaningful for flash/subliminal effects.
+        [JsonProperty("effect_suppress_haptic")]
+        public bool EffectSuppressHaptic { get; set; } = false;
+
         // Subliminal-specific.
         [JsonProperty("effect_text", NullValueHandling = NullValueHandling.Ignore)]
         public string? EffectText { get; set; }

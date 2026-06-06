@@ -332,7 +332,7 @@ namespace ConditioningControlPanel.Services.Deeper
                         // sound, scale, opacity all come from FlashService's
                         // normal random-image path (passing null path = random).
                         var flashSound = App.Settings?.Current?.FlashAudioEnabled ?? true;
-                        App.Flash?.TriggerFlashOnceWithImage(null, effect.DurationMs, flashSound);
+                        App.Flash?.TriggerFlashOnceWithImage(null, effect.DurationMs, flashSound, effect.SuppressHaptic);
                         break;
 
                     case EffectTypes.Bubble:
@@ -343,7 +343,7 @@ namespace ConditioningControlPanel.Services.Deeper
 
                     case EffectTypes.Subliminal:
                         if (!string.IsNullOrWhiteSpace(effect.Text))
-                            App.Subliminal?.FlashSubliminalCustom(effect.Text!, overrideDurationMs: effect.DurationMs);
+                            App.Subliminal?.FlashSubliminalCustom(effect.Text!, overrideDurationMs: effect.DurationMs, suppressHaptic: effect.SuppressHaptic);
                         break;
 
                     case EffectTypes.Overlay:

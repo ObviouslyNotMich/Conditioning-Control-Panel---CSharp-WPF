@@ -298,6 +298,7 @@ namespace ConditioningControlPanel.Services.Deeper
                     // probe at flash dispatch time.
                     ImagePath = IsSafeImagePath(item.EffectImagePath) ? item.EffectImagePath : null,
                     PlaySound = item.EffectPlaySound,
+                    SuppressHaptic = item.EffectSuppressHaptic,
                     DurationMs = durationMs,
                     Intensity = item.EffectIntensity
                 },
@@ -312,6 +313,7 @@ namespace ConditioningControlPanel.Services.Deeper
                 {
                     EffectType = EffectTypes.Subliminal,
                     Text = item.EffectText,
+                    SuppressHaptic = item.EffectSuppressHaptic,
                     DurationMs = durationMs,
                     Intensity = item.EffectIntensity
                 },
