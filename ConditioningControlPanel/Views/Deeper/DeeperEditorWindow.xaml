@@ -1398,12 +1398,26 @@
                             <TextBox x:Name="TxtOverlayDuration" Style="{StaticResource EditorTextBox}"
                                      ToolTip="{loc:Str deeper_editor_tip_overlay_duration}"
                                      TextChanged="EffectField_TextChanged"/>
-                            <TextBlock Text="Opacity" Style="{StaticResource EditorLabel}"/>
+                            <TextBlock x:Name="LblOverlayOpacity" Text="Opacity" Style="{StaticResource EditorLabel}"/>
                             <Slider x:Name="SliderOverlayOpacity" Minimum="0" Maximum="1"
                                     SmallChange="0.05" LargeChange="0.1" Margin="0,0,0,8"
                                     ToolTip="{loc:Str deeper_editor_tip_overlay_opacity}"
                                     Foreground="{DynamicResource DeeperAccentBrush}"
                                     ValueChanged="SliderOverlayOpacity_ValueChanged"/>
+                            <CheckBox x:Name="ChkOverlayRamp"
+                                      Content="Ramp opacity over the region"
+                                      ToolTip="Fade the overlay from a start opacity to an end opacity across this region's duration (pink filter + spiral)."
+                                      Click="ChkOverlayRamp_Changed"
+                                      Foreground="{DynamicResource TextLightBrush}"
+                                      Margin="0,0,0,6"/>
+                            <TextBlock x:Name="LblOverlayOpacityEnd" Text="End opacity"
+                                       Style="{StaticResource EditorLabel}" Visibility="Collapsed"/>
+                            <Slider x:Name="SliderOverlayOpacityEnd" Minimum="0" Maximum="1"
+                                    SmallChange="0.05" LargeChange="0.1" Margin="0,0,0,8"
+                                    Visibility="Collapsed"
+                                    ToolTip="Opacity at the end of the region."
+                                    Foreground="{DynamicResource DeeperAccentBrush}"
+                                    ValueChanged="SliderOverlayOpacityEnd_ValueChanged"/>
                             <Button Content="Delete" Click="BtnDeleteEffect_Click"
                                     ToolTip="{loc:Str deeper_editor_tip_effect_delete}"
                                     Background="{DynamicResource DangerBrush}" Foreground="White"

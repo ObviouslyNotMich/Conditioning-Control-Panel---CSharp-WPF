@@ -147,6 +147,15 @@ namespace ConditioningControlPanel.Models.Deeper
         [JsonProperty("effect_opacity")]
         public double EffectOpacity { get; set; } = 0.5;
 
+        // Optional opacity ramp for overlay effects: interpolate opacity from
+        // start→end across the item's duration (pink_filter + spiral). Both absent
+        // (old files) => flat EffectOpacity, no ramp. Additive; no schema bump.
+        [JsonProperty("effect_opacity_start", NullValueHandling = NullValueHandling.Ignore)]
+        public double? EffectOpacityStart { get; set; }
+
+        [JsonProperty("effect_opacity_end", NullValueHandling = NullValueHandling.Ignore)]
+        public double? EffectOpacityEnd { get; set; }
+
         // Bubble-specific.
         [JsonProperty("effect_max_bubbles")]
         public int EffectMaxBubbles { get; set; } = 3;

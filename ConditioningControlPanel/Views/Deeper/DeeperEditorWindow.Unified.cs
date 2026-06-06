@@ -566,7 +566,12 @@ namespace ConditioningControlPanel.Views.Deeper
                         OverlayEffectEditor.Visibility = Visibility.Visible;
                         SelectOverlayKindCombo(_selectedEffect.EffectOverlayKind);
                         TxtOverlayDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
-                        SliderOverlayOpacity.Value = _selectedEffect.EffectOpacity;
+                        bool ramp = _selectedEffect.EffectOpacityStart.HasValue && _selectedEffect.EffectOpacityEnd.HasValue;
+                        ChkOverlayRamp.IsChecked = ramp;
+                        // When ramping, the main slider is the START opacity.
+                        SliderOverlayOpacity.Value = ramp ? _selectedEffect.EffectOpacityStart!.Value : _selectedEffect.EffectOpacity;
+                        SliderOverlayOpacityEnd.Value = ramp ? _selectedEffect.EffectOpacityEnd!.Value : _selectedEffect.EffectOpacity;
+                        ApplyOverlayRampVisibility(ramp);
                         break;
                     default:
                         if (SelectedPlaceholder != null) SelectedPlaceholder.Visibility = Visibility.Visible;
@@ -650,8 +655,48 @@ namespace ConditioningControlPanel.Views.Deeper
         private void SliderOverlayOpacity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (_suppressEffectFieldSync || _selectedEffect == null) return;
-            _selectedEffect.EffectOpacity = Math.Clamp(e.NewValue, 0, 1);
+            var v = Math.Clamp(e.NewValue, 0, 1);
+            // Flat opacity always tracks this slider; when ramping it's also the start.
+            _selectedEffect.EffectOpacity = v;
+            if (ChkOverlayRamp.IsChecked == true)
+                _selectedEffect.EffectOpacityStart = v;
             MarkDirty();
+        }
+
+        private void SliderOverlayOpacityEnd_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            if (ChkOverlayRamp.IsChecked == true)
+                _selectedEffect.EffectOpacityEnd = Math.Clamp(e.NewValue, 0, 1);
+            MarkDirty();
+        }
+
+        private void ChkOverlayRamp_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            bool ramp = ChkOverlayRamp.IsChecked == true;
+            if (ramp)
+            {
+                // Seed start = current flat opacity, end = current end-slider value.
+                _selectedEffect.EffectOpacityStart = Math.Clamp(SliderOverlayOpacity.Value, 0, 1);
+                _selectedEffect.EffectOpacityEnd = Math.Clamp(SliderOverlayOpacityEnd.Value, 0, 1);
+            }
+            else
+            {
+                // Drop the ramp → fall back to flat EffectOpacity.
+                _selectedEffect.EffectOpacityStart = null;
+                _selectedEffect.EffectOpacityEnd = null;
+            }
+            ApplyOverlayRampVisibility(ramp);
+            MarkDirty();
+        }
+
+        private void ApplyOverlayRampVisibility(bool ramp)
+        {
+            var vis = ramp ? Visibility.Visible : Visibility.Collapsed;
+            LblOverlayOpacityEnd.Visibility = vis;
+            SliderOverlayOpacityEnd.Visibility = vis;
+            LblOverlayOpacity.Text = ramp ? "Start opacity" : "Opacity";
         }
 
         private void CmbOverlayKind_SelectionChanged(object sender, SelectionChangedEventArgs e)

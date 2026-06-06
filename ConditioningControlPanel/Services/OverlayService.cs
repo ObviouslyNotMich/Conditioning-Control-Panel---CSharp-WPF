@@ -40,6 +40,12 @@ public class OverlayService : IDisposable
     private Dictionary<MediaElement, DateTime> _mediaStartTimes = new();
     private double _lastAppliedPinkOpacity = -1;
     private double _lastAppliedSpiralOpacity = -1;
+    // Deeper opacity-ramp override. When set, a Deeper enhancement owns this
+    // overlay's opacity for a ramped band; the 500ms settings-sync
+    // (UpdatePinkFilterOpacity / UpdateSpiralOpacity) must not stomp it.
+    // Normalized 0..1 (spiral applies its own ×0.1 reduction on top).
+    private double? _rampPinkOpacity;
+    private double? _rampSpiralOpacity;
     private int _consecutiveTopmostLossCount;
     // Tick counter for periodic topmost-layer "kick". The 500ms timer drives this;
     // every ~5s (10 ticks) we re-issue HWND_TOPMOST even if the WS_EX_TOPMOST flag
@@ -534,6 +540,63 @@ public class OverlayService : IDisposable
         else dispatcher.Invoke(runHide);
     }
 
+    /// <summary>
+    /// Live-updates the opacity of an overlay shown via <see cref="ShowOverlaySustained"/>.
+    /// Used by Deeper enhancement opacity ramps to interpolate a sustained overlay's
+    /// opacity across a region. <paramref name="opacity"/> is normalized 0..1 (spiral
+    /// applies its own ×0.1 reduction, matching the global spiral path). While a ramp
+    /// is active the 500ms settings-sync leaves this overlay alone so it isn't stomped.
+    /// Only pink_filter and spiral support ramping; other kinds are ignored.
+    /// </summary>
+    public void SetSustainedOverlayOpacity(string kind, double opacity)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        opacity = Math.Clamp(opacity, 0, 1);
+
+        Action apply = () =>
+        {
+            try
+            {
+                switch (kind)
+                {
+                    case "pink_filter":
+                        _rampPinkOpacity = opacity;
+                        ApplyPinkOpacityDirect(opacity);
+                        break;
+                    case "spiral":
+                        _rampSpiralOpacity = opacity;
+                        ApplySpiralOpacityDirect(opacity);
+                        break;
+                    // braindrain uses blur-intensity, not opacity — no ramp support.
+                }
+            }
+            catch (Exception ex) { App.Logger?.Debug("SetSustainedOverlayOpacity: {E}", ex.Message); }
+        };
+        if (dispatcher.CheckAccess()) apply();
+        else dispatcher.Invoke(apply);
+    }
+
+    private void ApplyPinkOpacityDirect(double opacity)
+    {
+        var (fr, fg, fb) = GetFilterRgb();
+        byte a = (byte)Math.Clamp(opacity * 255, 0, 255);
+        foreach (var window in _pinkFilterWindows)
+            if (window.Content is Border border &&
+                border.Background is System.Windows.Media.SolidColorBrush brush)
+                brush.Color = System.Windows.Media.Color.FromArgb(a, fr, fg, fb);
+        // Force the next post-ramp settings-sync to re-apply from settings.
+        _lastAppliedPinkOpacity = -1;
+    }
+
+    private void ApplySpiralOpacityDirect(double opacity)
+    {
+        var scaled = opacity * 0.1; // 90% reduction, matching CreateSpiralGifWindow / UpdateSpiralOpacity
+        foreach (var image in _spiralGifImages) image.Opacity = scaled;
+        foreach (var media in _spiralMediaElements) media.Opacity = scaled;
+        _lastAppliedSpiralOpacity = -1;
+    }
+
     private void ShowPinkFilterAdHoc(int opacityPercent)
     {
         if (_pinkFilterWindows.Count > 0) return;
@@ -684,12 +747,14 @@ public class OverlayService : IDisposable
             }
         }
         _lastAppliedPinkOpacity = -1;
+        _rampPinkOpacity = null;
         _pinkFilterWindows.Clear();
         App.Logger?.Debug("Pink filter stopped");
     }
 
     private void UpdatePinkFilterOpacity()
     {
+        if (_rampPinkOpacity.HasValue) return; // a Deeper ramp owns this overlay's opacity
         var actualOpacity = App.Settings.Current.PinkFilterOpacity / 100.0;
         if (actualOpacity == _lastAppliedPinkOpacity) return;
         _lastAppliedPinkOpacity = actualOpacity;
@@ -1177,12 +1242,14 @@ public class OverlayService : IDisposable
             }
         }
         _lastAppliedSpiralOpacity = -1;
+        _rampSpiralOpacity = null;
         _spiralWindows.Clear();
         App.Logger?.Debug("Spiral stopped");
     }
 
     private void UpdateSpiralOpacity()
     {
+        if (_rampSpiralOpacity.HasValue) return; // a Deeper ramp owns this overlay's opacity
         // Very subtle opacity - 90% reduction
         var opacity = (App.Settings.Current.SpiralOpacity / 100.0) * 0.1;
         if (opacity == _lastAppliedSpiralOpacity) return;

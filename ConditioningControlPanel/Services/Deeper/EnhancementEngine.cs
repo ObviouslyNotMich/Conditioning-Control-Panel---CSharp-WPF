@@ -322,6 +322,8 @@ namespace ConditioningControlPanel.Services.Deeper
                     EffectType = EffectTypes.Overlay,
                     OverlayKind = item.EffectOverlayKind,
                     Opacity = item.EffectOpacity,
+                    OpacityStart = item.EffectOpacityStart,
+                    OpacityEnd = item.EffectOpacityEnd,
                     DurationMs = durationMs,
                     Intensity = item.EffectIntensity
                 },
@@ -620,6 +622,11 @@ namespace ConditioningControlPanel.Services.Deeper
                     DispatchSafely(band.BuildStartAction(remainingMs), t);
                     _activeBandIds.Add(band.EffectId);
                 }
+
+                // Opacity ramp: per-tick live update for active overlay bands. Driven
+                // by the playhead so it stays correct across loops, seeks and scrubs.
+                if (band.HasOpacityRamp)
+                    DispatchSafely(band.BuildUpdateAction(band.OpacityAt(t)), t);
             }
         }
 
@@ -967,6 +974,16 @@ namespace ConditioningControlPanel.Services.Deeper
             // Overlay payload.
             public string? OverlayKind;
             public double Opacity = 0.5;
+            // Optional opacity ramp (overlay only): interpolate start→end across the band.
+            public double? OpacityStart;
+            public double? OpacityEnd;
+            public bool HasOpacityRamp => OpacityStart.HasValue && OpacityEnd.HasValue;
+            public double OpacityAt(double t)
+            {
+                if (!HasOpacityRamp) return Opacity;
+                double frac = Duration > 0 ? System.Math.Clamp((t - Start) / Duration, 0, 1) : 1.0;
+                return OpacityStart!.Value + (OpacityEnd!.Value - OpacityStart!.Value) * frac;
+            }
             // Haptic payload.
             public string? PatternName;
             public List<double[]>? CustomPattern;
@@ -983,7 +1000,9 @@ namespace ConditioningControlPanel.Services.Deeper
                         Duration = item.Duration,
                         IsHaptic = false,
                         OverlayKind = item.EffectOverlayKind ?? OverlayKinds.PinkFilter,
-                        Opacity = item.EffectOpacity
+                        Opacity = item.EffectOpacity,
+                        OpacityStart = item.EffectOpacityStart,
+                        OpacityEnd = item.EffectOpacityEnd
                     };
                 }
                 if (item.EffectType == EffectTypes.Haptic)
@@ -1023,6 +1042,17 @@ namespace ConditioningControlPanel.Services.Deeper
             public EnhancementAction BuildStopAction()                 => BuildAction(EffectPhase.Stop, 0);
             public EnhancementAction BuildRestartAction(int remainingMs) => BuildAction(EffectPhase.Restart, remainingMs);
 
+            // Per-tick overlay opacity update (ramp). Carries the freshly-interpolated
+            // value; the dispatcher routes it to OverlayService.SetSustainedOverlayOpacity.
+            public EnhancementAction BuildUpdateAction(double opacity) => new TriggerEffectAction
+            {
+                EffectType = EffectTypes.Overlay,
+                OverlayKind = OverlayKind,
+                Opacity = opacity,
+                Phase = EffectPhase.Update,
+                EffectId = EffectId
+            };
+
             private EnhancementAction BuildAction(EffectPhase phase, int durationMs)
             {
                 if (IsHaptic)
@@ -1041,7 +1071,9 @@ namespace ConditioningControlPanel.Services.Deeper
                 {
                     EffectType = EffectTypes.Overlay,
                     OverlayKind = OverlayKind,
-                    Opacity = Opacity,
+                    // On Start/Restart a ramped band begins at its start-opacity; the
+                    // per-tick Update dispatched right after corrects it to OpacityAt(t).
+                    Opacity = HasOpacityRamp ? OpacityStart!.Value : Opacity,
                     DurationMs = Math.Max(50, durationMs),
                     Phase = phase,
                     EffectId = EffectId

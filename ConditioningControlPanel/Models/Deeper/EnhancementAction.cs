@@ -36,7 +36,10 @@ namespace ConditioningControlPanel.Models.Deeper
         OneShot,
         Start,
         Stop,
-        Restart
+        Restart,
+        // Per-tick live update of an already-active band effect (overlay opacity
+        // ramp). Carries the freshly-interpolated value; never starts/stops state.
+        Update
     }
 
     [JsonConverter(typeof(EnhancementActionConverter))]
@@ -168,6 +171,14 @@ namespace ConditioningControlPanel.Models.Deeper
 
         [JsonProperty("opacity")]
         public double Opacity { get; set; } = 0.5;
+
+        // Optional overlay opacity ramp: interpolate Opacity from start→end across
+        // the band's duration. Both null => flat Opacity (no ramp).
+        [JsonProperty("opacity_start", NullValueHandling = NullValueHandling.Ignore)]
+        public double? OpacityStart { get; set; }
+
+        [JsonProperty("opacity_end", NullValueHandling = NullValueHandling.Ignore)]
+        public double? OpacityEnd { get; set; }
 
         // Bubble.
         [JsonProperty("max_bubbles")]
