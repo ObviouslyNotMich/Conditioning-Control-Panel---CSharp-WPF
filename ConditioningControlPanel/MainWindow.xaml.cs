@@ -29206,7 +29206,12 @@ namespace ConditioningControlPanel
 
         private void BtnRefreshAssets_Click(object sender, RoutedEventArgs e)
         {
-            App.Flash.LoadAssets();
+            // Rescan every asset consumer so newly added/removed files are picked up without a restart
+            // (#336 — BUG-BWJ7EGRTUP: the Assets help tip referenced a Refresh button that didn't exist).
+            App.Flash?.RefreshImagesPath();
+            App.Video?.RefreshVideosPath();
+            App.BubbleCount?.RefreshVideosPath();
+            RefreshAssetTree();
             MessageBox.Show(Loc.Get("msg_assets_refreshed"), Loc.Get("title_success"));
         }
 

@@ -8457,6 +8457,9 @@
                             Click="BtnDeleteDownloadedPacks_Click"
                             ToolTip="{loc:Str tooltip_delete_all_downloaded_content_packs_your_loca}"
                             Visibility="Collapsed"/>
+                    <Button x:Name="BtnRefreshAssets" Content="{loc:Str btn_refresh_2}"
+                            Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Padding="12,6"
+                            Click="BtnRefreshAssets_Click" ToolTip="{loc:Str tooltip_refresh_assets}"/>
                     <Button x:Name="BtnGetPacks" Content="{loc:Str btn_get_packs}"
                             Style="{StaticResource OutlineButton}" Margin="0,0,8,0" Padding="12,6"
                             Click="BtnGetPacks_Click" ToolTip="{loc:Str tooltip_get_packs}"/>
