@@ -38,6 +38,55 @@ namespace ConditioningControlPanel
         private int _maxUnlockedSet = 1; // Highest avatar set unlocked based on level
         private bool _useAnimatedAvatar = false; // Whether to use animated GIF
 
+        // ── Emotive portrait avatar (mod-agnostic) ───────────────────────────────────────
+        // Active only when the active mod ships an avatar_manifest.json (Sissy first). When on, the
+        // skins ARE the avatar-set selector's choices — each the same 20-emotion portrait collection
+        // in a different outfit; barks drive a per-line emotion (pose A → linger → pose B), with
+        // continuous breathing/wobble/pink-mist. Mods without a manifest keep the legacy 4-pose path.
+        private Services.AvatarPortraitSet? _portraitSet;
+        private bool _portraitMode = false;
+        private int _skinIndex = 0;
+        private string _currentEmotion = "neutral";
+        private int _emotionPoseIndex = 0;
+        private System.Windows.Controls.Image? _activeImg;   // portrait layer currently shown
+        private System.Windows.Controls.Image? _idleImg;     // the hidden layer we crossfade INTO
+        private bool _crossfadeInFlight = false;
+        private DispatcherTimer? _emotionReturnTimer;        // (legacy) created but no longer scheduled
+        private DispatcherTimer? _poseSeqTimer;              // drives the speak pose sequence (1s steps, last 2s)
+        private int[] _seqOrder = System.Array.Empty<int>(); // bucket-index order for the current spoken line
+        private int _seqStep = 0;                            // index into _seqOrder of the pose now showing
+        private int _seqStepMs = 1000;                       // per-sequence step/last timing (scaled by line length)
+        private int _seqLastMs = 2000;
+        private readonly Dictionary<string, double> _audioDurCache = new(); // mp3 length per path (poses ∝ length)
+        private double _breathPhase = 0, _wobblePhase = 0, _mistPhase = 0;
+        private const double BreathAmplitude = 0.01;     // ±1% scale (breathing)
+        private const double WobbleAmplitudeDeg = 0.4;   // ±0.4° rotation (wobble)
+        // Speak-time pose sequence: NO idle rotation. On speech we cycle 2–5 poses of the line's emotion,
+        // each PoseStepMs, with the LAST held LastPoseLingerMs, then settle on a still idle pose. Pose count
+        // scales with line length (longer line → more poses).
+        private const int PoseStepMs = 1000;             // each non-final pose shows ~1s
+        private const int LastPoseLingerMs = 2000;       // the final pose lingers ~2s before idle
+        private const int MinSpeakPoses = 2;
+        private const int MaxSpeakPoses = 5;
+        // Short lines (≈4–5 words) finish before the 1s/2s cadence does, so their poses flip ~2x faster
+        // and keep pace with the brief audio instead of stalling on the first/second pose.
+        private const double ShortLineSec = 3.5;
+        private const double ShortSpeedFactor = 0.5;
+        // Extra "she's talking" motion + mist, applied ONLY while a spoken clip is playing. Kept subtle and
+        // INTERMITTENT (a slow envelope gates the fast carrier) so it's a barely-there occasional shimmer.
+        private double _speakPhase = 0;       // fast vibration carrier
+        private double _speakEnvPhase = 0;    // slow envelope → bursts separated by calm
+        private const double SpeakWobbleDeg = 0.35;  // extra rotation at the peak of a burst (tiny)
+        private const double SpeakShakePx = 0.5;     // horizontal jitter at the peak of a burst (tiny)
+        private const double PortraitSizeScale = 0.88;   // portrait size vs legacy poses (0.70 → +15% → +10% per feedback)
+        private const double PortraitRaisePx = 30;       // shift the portrait avatar UP by this many px (100→50→30 per feedback)
+        private const double PortraitShiftX = 10;        // shift the portrait avatar RIGHT by this many px
+        private const double LegacyAvatarMaxHeight = 306; // XAML defaults for ImgAvatar/ImgAvatarB
+        private const double LegacyAvatarMaxWidth = 198;
+        private System.Windows.Media.Effects.Effect? _savedEffectA; // original pink DropShadow (restored for legacy)
+        private System.Windows.Media.Effects.Effect? _savedEffectB;
+        private bool _avatarEffectsSaved = false;
+
         // Avatar set titles (localization keys)
         private static readonly string[] AvatarTitleKeys = new[]
         {
@@ -51,7 +100,10 @@ namespace ConditioningControlPanel
         };
 
         // Companion speech and chat
-        private readonly Queue<(string text, SpeechSource source)> _speechQueue = new();
+        // emotionLineId (bark audio-filename stem) rides along so a QUEUED bark still drives the
+        // portrait emotion when its bubble finally renders, not when it was enqueued. Null for
+        // non-bark speech (AI/triggers/canned) → no emotion change.
+        private readonly Queue<(string text, SpeechSource source, string? emotionLineId)> _speechQueue = new();
         private bool _isGiggling = false;
         private bool _isWaitingForAi = false; // Blocks other giggles while waiting for AI
         private DispatcherTimer? _speechTimer;
@@ -138,8 +190,13 @@ namespace ConditioningControlPanel
         // Voice lines from flash audio folder (used for idle comments and 50% of triggers)
         private List<string> _voiceLineFiles = new();
         private string _voiceLinesPath = Services.CompanionPhraseService.VoiceLineFolder;
-        private NAudio.Wave.WaveOutEvent? _voiceLinePlayer;
-        private NAudio.Wave.AudioFileReader? _voiceLineAudio;
+
+        // Unified "spoken audio" channel — ALL companion voice (barks, event lines, idle voicelines) plays
+        // through one stoppable player so a new line cuts off the previous one instead of overlapping.
+        private readonly object _spokenLock = new();
+        private NAudio.Wave.WaveOutEvent? _spokenPlayer;
+        private NAudio.Wave.AudioFileReader? _spokenReader;
+        private volatile bool _isSpeakingAudio = false;   // true only while a spoken clip is actually playing
 
         // ============================================================
         // POSITIONING & SCALING - ADJUST THESE VALUES AS NEEDED
@@ -319,6 +376,10 @@ namespace ConditioningControlPanel
             _poseTimer.Tick += PoseTimer_Tick;
             if (!_useAnimatedAvatar && _avatarPoses.Length > 1)
                 _poseTimer.Start();
+
+            // Emotive portrait avatar: if the active mod ships avatar_manifest.json, take over the
+            // avatar with the 79-pose emotive system. No-op (keeps the legacy 4-pose path) otherwise.
+            TryEnterPortraitMode();
 
             // Subscribe to parent window events
             _parentWindow.LocationChanged += ParentWindow_PositionChanged;
@@ -721,6 +782,9 @@ namespace ConditioningControlPanel
         {
             try
             {
+                // An animated set always wins over the emotive-portrait system.
+                LeavePortraitMode();
+
                 // Naming pattern: animated1_1.gif, animated2_1.gif, etc.
                 var gifUri = new Uri(Services.ModResourceResolver.ResolveUri($"animated{setNumber}_1.gif"), UriKind.Absolute);
 
@@ -828,20 +892,39 @@ namespace ConditioningControlPanel
             // Set 4: Level 50 → Companion 0 (Perfect Fuckpuppet)
             // Set 5: Level 125 → Companion 2 (Brainwashed Slavedoll)
             // Set 6: Level 150 → Companion 3 (Platinum Puppet)
-            var companionId = GetCompanionForAvatarSet(setNumber);
-            if (companionId.HasValue && App.Companion != null)
+            // In portrait mode the "set" picks a SKIN (outfit), not a companion — skip the coupling.
+            if (!UsePortraitSystem())
             {
-                App.Companion.SwitchCompanion(companionId.Value);
+                var companionId = GetCompanionForAvatarSet(setNumber);
+                if (companionId.HasValue && App.Companion != null)
+                {
+                    App.Companion.SwitchCompanion(companionId.Value);
+                }
             }
 
             Action switchAction = () =>
             {
-                if (_useAnimatedAvatar)
+                if (UsePortraitSystem())
+                {
+                    // Portrait mode: the selector picks the SKIN. Repoint and reload the buckets.
+                    if (_portraitSet == null)
+                    {
+                        TryEnterPortraitMode();
+                    }
+                    else
+                    {
+                        _skinIndex = _portraitSet.ClampSkin(setNumber - 1);
+                        ReloadPortraitSkin();
+                    }
+                }
+                else if (_useAnimatedAvatar)
                 {
                     LoadAnimatedAvatar(setNumber);
                 }
                 else
                 {
+                    LeavePortraitMode();
+
                     // Hide animated, show static
                     ImgAvatarAnimated.Visibility = Visibility.Collapsed;
                     AnimationBehavior.SetSourceUri(ImgAvatarAnimated, null);
@@ -854,8 +937,8 @@ namespace ConditioningControlPanel
                         ImgAvatar.Source = _avatarPoses[0];
                     }
 
-                    // Restart pose timer for static avatars
-                    _poseTimer.Start();
+                    // Restart pose timer for static avatars (never in portrait mode — no idle rotation there)
+                    if (!_portraitMode) _poseTimer.Start();
                 }
 
                 // Update UI
@@ -925,6 +1008,18 @@ namespace ConditioningControlPanel
         /// </summary>
         private void UpdateTitleDisplay(int level)
         {
+            // Portrait mode: the avatar-set selector picks a skin (outfit) — title from the manifest skin.
+            if (_portraitMode && _portraitSet != null && _portraitSet.SkinCount > 0)
+            {
+                int si = _portraitSet.ClampSkin(_skinIndex);
+                var skin = _portraitSet.Skins[si];
+                var skinTitle = string.IsNullOrWhiteSpace(skin.Title) ? skin.Id : skin.Title;
+                skinTitle = App.Mods?.MakeModAware(skinTitle) ?? skinTitle;
+                TxtAvatarTitle.Text = (skinTitle ?? "").ToUpperInvariant();
+                TxtAvatarLevel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
             // v5.3: Show companion name based on current avatar set
             var companionId = GetCompanionForAvatarSet(_currentAvatarSet);
 
@@ -1013,13 +1108,20 @@ namespace ConditioningControlPanel
                 // Check if the new mod has an animated version for this set
                 _useAnimatedAvatar = HasAnimatedAvatar(_currentAvatarSet);
 
-                // Reload avatar poses from new mod
-                if (_useAnimatedAvatar)
+                // Reload avatar from new mod. If the new mod ships a portrait manifest, switch into the
+                // emotive-portrait system; otherwise tear it down and use the legacy poses/animated path.
+                if (UsePortraitSystem())
+                {
+                    TryEnterPortraitMode();
+                }
+                else if (_useAnimatedAvatar)
                 {
                     LoadAnimatedAvatar(_currentAvatarSet);
                 }
                 else
                 {
+                    LeavePortraitMode();
+
                     // Hide animated, show static
                     ImgAvatarAnimated.Visibility = Visibility.Collapsed;
                     AnimationBehavior.SetSourceUri(ImgAvatarAnimated, null);
@@ -1031,9 +1133,10 @@ namespace ConditioningControlPanel
                     {
                         ImgAvatar.Source = _avatarPoses[0];
                     }
+
+                    if (_avatarPoses.Length > 1 && !_portraitMode)
+                        _poseTimer.Start();
                 }
-                if (!_useAnimatedAvatar && _avatarPoses.Length > 1)
-                    _poseTimer.Start();
 
                 // Update navigation arrows for supported sets
                 ApplyAvatarTransform(_currentAvatarSet);
@@ -1123,10 +1226,24 @@ namespace ConditioningControlPanel
         /// <summary>
         /// Update navigation arrow visibility based on unlocked avatars
         /// </summary>
+        /// <summary>
+        /// The avatar sets the selector should cycle through. In portrait mode these are the manifest
+        /// skins (1..SkinCount); otherwise the mod-supported unlocked sets.
+        /// </summary>
+        private int[] EffectiveAvatarSets()
+        {
+            if (_portraitMode && _portraitSet != null && _portraitSet.SkinCount > 0)
+            {
+                var arr = new int[_portraitSet.SkinCount];
+                for (int i = 0; i < arr.Length; i++) arr[i] = i + 1;
+                return arr;
+            }
+            return GetUnlockedAvatarSets(App.Settings?.Current?.PlayerLevel ?? 1);
+        }
+
         private void UpdateNavigationArrows()
         {
-            int playerLevel = App.Settings?.Current?.PlayerLevel ?? 1;
-            var unlockedSets = GetUnlockedAvatarSets(playerLevel);
+            var unlockedSets = EffectiveAvatarSets();
             bool hasMultiple = unlockedSets.Length > 1;
             int currentIndex = System.Array.IndexOf(unlockedSets, _currentAvatarSet);
 
@@ -1145,6 +1262,15 @@ namespace ConditioningControlPanel
         /// </summary>
         private void ApplyAvatarTransform(int setNumber)
         {
+            // Portrait mode: all skins render at the same (already-reduced) size — skip the per-set
+            // +12% border zoom so base/lingerie/beach/fishnet stay consistent, and raise the avatar.
+            if (_portraitMode)
+            {
+                AvatarBorder.RenderTransform = new System.Windows.Media.TranslateTransform(PortraitShiftX, -PortraitRaisePx);
+                AvatarBorder.RenderTransformOrigin = new Point(0.5, 0.5);
+                return;
+            }
+
             if (setNumber > 1)
             {
                 // Sets 2, 3, 4: 12% bigger, 10px to the right
@@ -1173,8 +1299,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void BtnPrevAvatar_Click(object sender, MouseButtonEventArgs e)
         {
-            int playerLevel = App.Settings?.Current?.PlayerLevel ?? 1;
-            var unlockedSets = GetUnlockedAvatarSets(playerLevel);
+            var unlockedSets = EffectiveAvatarSets();
             int currentIndex = System.Array.IndexOf(unlockedSets, _currentAvatarSet);
             if (currentIndex > 0)
             {
@@ -1187,8 +1312,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void BtnNextAvatar_Click(object sender, MouseButtonEventArgs e)
         {
-            int playerLevel = App.Settings?.Current?.PlayerLevel ?? 1;
-            var unlockedSets = GetUnlockedAvatarSets(playerLevel);
+            var unlockedSets = EffectiveAvatarSets();
             int currentIndex = System.Array.IndexOf(unlockedSets, _currentAvatarSet);
             if (currentIndex >= 0 && currentIndex < unlockedSets.Length - 1)
             {
@@ -1612,10 +1736,58 @@ namespace ConditioningControlPanel
             };
             _floatTimer.Tick += (s, e) =>
             {
-                // Sine wave oscillation
+                // Sine wave oscillation (the existing gentle vertical bob)
                 _floatPhase += 0.05; // Speed of oscillation
                 var y = Math.Sin(_floatPhase) * FloatDistance;
                 AvatarTranslate.Y = y;
+
+                // Portrait mode adds breathing (subtle scale), wobble (subtle rotation), and a drifting
+                // pink mist. Written every tick to BOTH portrait layers so the incoming crossfade image
+                // isn't snapped back to neutral mid-pulse. Crossfade lives on Opacity (orthogonal to these
+                // transform DPs), so nothing fights the 60fps writes. Legacy mods skip this block entirely.
+                if (_portraitMode)
+                {
+                    _breathPhase += 0.013;
+                    _wobblePhase += 0.017;
+                    _mistPhase += 0.009;
+
+                    double scale = 1.0 + Math.Sin(_breathPhase) * BreathAmplitude;
+                    double angle = Math.Sin(_wobblePhase) * WobbleAmplitudeDeg;
+                    double xJit = 0.0;
+
+                    // While a clip is actually playing: add a faster vibration + a tiny horizontal jitter,
+                    // so she visibly "talks". Stops the instant the audio ends (_isSpeakingAudio flips false).
+                    bool speaking = _isSpeakingAudio;
+                    if (speaking)
+                    {
+                        _speakPhase += 0.45;       // fast carrier
+                        _speakEnvPhase += 0.035;   // slow envelope (~3s) → intermittent bursts
+                        // env is ~0 most of the time and briefly swells toward 1 → occasional, barely-there shimmer.
+                        double env = Math.Pow(Math.Max(0.0, Math.Sin(_speakEnvPhase)), 3);
+                        double vib = Math.Sin(_speakPhase) * env;
+                        angle += vib * SpeakWobbleDeg;
+                        xJit = vib * SpeakShakePx;
+                    }
+
+                    AvatarScale.ScaleX = AvatarScale.ScaleY = scale;
+                    AvatarRotate.Angle = angle;
+                    AvatarTranslate.X = xJit;
+                    AvatarScaleB.ScaleX = AvatarScaleB.ScaleY = scale;
+                    AvatarRotateB.Angle = angle;
+                    AvatarTranslateB.X = xJit;
+                    AvatarTranslateB.Y = y; // layer B bobs in lockstep with layer A
+
+                    if (MistOverlay.Visibility == Visibility.Visible)
+                    {
+                        // Pink mist drifts over the avatar; thicker + livelier while she's speaking.
+                        double mistBase = speaking ? 0.26 : 0.15;
+                        double mistAmp = speaking ? 0.10 : 0.06;
+                        double driftSpeed = speaking ? 1.0 : 0.7;
+                        MistOverlay.Opacity = mistBase + (Math.Sin(_mistPhase) + 1.0) * 0.5 * mistAmp;
+                        double mistScale = 1.0 + (Math.Sin(_mistPhase * driftSpeed) + 1.0) * 0.5 * (speaking ? 0.06 : 0.04);
+                        MistScale.ScaleX = MistScale.ScaleY = mistScale;
+                    }
+                }
             };
             _floatTimer.Start();
         }
@@ -1625,6 +1797,390 @@ namespace ConditioningControlPanel
             _floatTimer?.Stop();
             _floatTimer = null;
             AvatarTranslate.Y = 0;
+            // Reset portrait-mode transforms so a stopped avatar isn't frozen mid-breath/wobble.
+            if (_portraitMode)
+            {
+                AvatarScale.ScaleX = AvatarScale.ScaleY = 1.0;
+                AvatarRotate.Angle = 0;
+                AvatarScaleB.ScaleX = AvatarScaleB.ScaleY = 1.0;
+                AvatarRotateB.Angle = 0;
+                AvatarTranslateB.Y = 0;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        //  EMOTIVE PORTRAIT AVATAR (mod-agnostic; on only when the active mod ships a manifest)
+        // ════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// True when the active mod ships an avatar_manifest.json. A portrait manifest WINS over the
+        /// legacy animated GIF — a mod that ships emotive portraits wants them, not the generic GIF —
+        /// so this intentionally does not check <see cref="_useAnimatedAvatar"/>.
+        /// </summary>
+        private bool UsePortraitSystem()
+        {
+            return Services.AvatarPortraitLoader.HasManifestForActiveMod();
+        }
+
+        /// <summary>
+        /// Switch the avatar into the emotive-portrait system if the active mod ships a manifest;
+        /// otherwise leave the legacy 4-pose path untouched. Idempotent — safe to call on ctor,
+        /// mod-change, and set-switch.
+        /// </summary>
+        private void TryEnterPortraitMode()
+        {
+            try
+            {
+                var set = Services.AvatarPortraitLoader.Load();
+                if (set == null) { LeavePortraitMode(); return; }
+
+                _portraitSet = set;
+                _portraitMode = true;
+                _useAnimatedAvatar = false; // portraits replace the legacy animated GIF for this mod
+
+                if (_poseSeqTimer == null)
+                {
+                    _poseSeqTimer = new DispatcherTimer();
+                    _poseSeqTimer.Tick += PoseSeqTimer_Tick;
+                }
+                if (_emotionReturnTimer == null)
+                {
+                    _emotionReturnTimer = new DispatcherTimer();
+                    _emotionReturnTimer.Tick += EmotionReturnTimer_Tick;
+                }
+
+                _activeImg = ImgAvatar;
+                _idleImg = ImgAvatarB;
+                _skinIndex = _portraitSet.ClampSkin(_selectedAvatarSet - 1);
+                _currentEmotion = _portraitSet.IdleEmotion;
+                _emotionPoseIndex = 0;
+
+                // Both portrait layers visible; A opaque, B transparent. Animated hidden.
+                ImgAvatarAnimated.Visibility = Visibility.Collapsed;
+                AnimationBehavior.SetSourceUri(ImgAvatarAnimated, null);
+                ImgAvatar.Visibility = Visibility.Visible;
+                ImgAvatarB.Visibility = Visibility.Visible;
+                CancelCrossfade();
+                ImgAvatar.Opacity = 1.0;
+                ImgAvatarB.Opacity = 0.0;
+                MistOverlay.Visibility = Visibility.Visible;
+                ApplyPortraitChrome();
+
+                var bucket = _portraitSet.GetBucket(_skinIndex, _currentEmotion);
+                if (bucket.Length > 0) _activeImg.Source = bucket[0];
+
+                // No idle rotation: the avatar holds a still pose until it speaks.
+                _poseTimer.Stop();
+
+                // Refresh title (skin name) + nav arrows now that portrait mode is active — the ctor ran
+                // UpdateTitleDisplay before this, so without this they'd show the stale legacy set title.
+                UpdateTitleDisplay(App.Settings?.Current?.PlayerLevel ?? 1);
+                UpdateNavigationArrows();
+
+                App.Logger?.Information("Avatar portrait mode ON (skin {Skin}/{Count}, emotion '{Emo}')",
+                    _skinIndex, _portraitSet.SkinCount, _currentEmotion);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "TryEnterPortraitMode failed; falling back to legacy avatar");
+                LeavePortraitMode();
+            }
+        }
+
+        /// <summary>
+        /// Portrait-mode chrome: shrink the avatar to <see cref="PortraitSizeScale"/> and drop the pink
+        /// DropShadow glow (the deliberate mist overlay already supplies pink atmosphere; the glow read as
+        /// an unwanted aura on the detailed portraits). Saves the original effects once for restore. Idempotent.
+        /// </summary>
+        private void ApplyPortraitChrome()
+        {
+            if (!_avatarEffectsSaved)
+            {
+                _savedEffectA = ImgAvatar.Effect;
+                _savedEffectB = ImgAvatarB.Effect;
+                _avatarEffectsSaved = true;
+            }
+            ImgAvatar.Effect = null;
+            ImgAvatarB.Effect = null;
+            ImgAvatar.MaxHeight = ImgAvatarB.MaxHeight = LegacyAvatarMaxHeight * PortraitSizeScale;
+            ImgAvatar.MaxWidth = ImgAvatarB.MaxWidth = LegacyAvatarMaxWidth * PortraitSizeScale;
+            // Uniform size across skins (no per-set zoom) + nudge the portrait up/right in the tube.
+            AvatarBorder.RenderTransform = new System.Windows.Media.TranslateTransform(PortraitShiftX, -PortraitRaisePx);
+            AvatarBorder.RenderTransformOrigin = new Point(0.5, 0.5);
+        }
+
+        /// <summary>Tear down the portrait system and restore the legacy single-image avatar. Idempotent.</summary>
+        private void LeavePortraitMode()
+        {
+            _portraitMode = false;
+            _portraitSet = null;
+            _poseSeqTimer?.Stop();
+            _emotionReturnTimer?.Stop();
+            CancelCrossfade();
+            try
+            {
+                if (ImgAvatarB != null)
+                {
+                    ImgAvatarB.BeginAnimation(OpacityProperty, null);
+                    ImgAvatarB.Visibility = Visibility.Collapsed;
+                    ImgAvatarB.Opacity = 0.0;
+                    ImgAvatarB.Source = null;
+                }
+                if (MistOverlay != null) MistOverlay.Visibility = Visibility.Collapsed;
+                if (AvatarScale != null) { AvatarScale.ScaleX = AvatarScale.ScaleY = 1.0; }
+                if (AvatarRotate != null) AvatarRotate.Angle = 0;
+                if (ImgAvatar != null) { ImgAvatar.BeginAnimation(OpacityProperty, null); ImgAvatar.Opacity = 1.0; }
+
+                // Restore legacy chrome: original pink glow + full size.
+                if (_avatarEffectsSaved)
+                {
+                    if (ImgAvatar != null) ImgAvatar.Effect = _savedEffectA;
+                    if (ImgAvatarB != null) ImgAvatarB.Effect = _savedEffectB;
+                }
+                if (ImgAvatar != null) { ImgAvatar.MaxHeight = LegacyAvatarMaxHeight; ImgAvatar.MaxWidth = LegacyAvatarMaxWidth; }
+                if (ImgAvatarB != null) { ImgAvatarB.MaxHeight = LegacyAvatarMaxHeight; ImgAvatarB.MaxWidth = LegacyAvatarMaxWidth; }
+            }
+            catch { /* closing/teardown — non-fatal */ }
+            _activeImg = null;
+            _idleImg = null;
+        }
+
+        /// <summary>Repoint the current skin (after the selector changes set) without re-parsing the manifest.</summary>
+        private void ReloadPortraitSkin()
+        {
+            if (_portraitSet == null) return;
+            CancelCrossfade();
+            _activeImg = ImgAvatar;
+            _idleImg = ImgAvatarB;
+            ImgAvatar.Visibility = Visibility.Visible;
+            ImgAvatarB.Visibility = Visibility.Visible;
+            MistOverlay.Visibility = Visibility.Visible;
+            ImgAvatar.Opacity = 1.0;
+            ImgAvatarB.Opacity = 0.0;
+            ApplyPortraitChrome();
+            var bucket = _portraitSet.GetBucket(_skinIndex, _currentEmotion);
+            if (bucket.Length > 0)
+            {
+                if (_emotionPoseIndex >= bucket.Length) _emotionPoseIndex = 0;
+                _activeImg.Source = bucket[_emotionPoseIndex];
+            }
+        }
+
+        /// <summary>Cancel any in-flight image crossfade animation and clear the guard.</summary>
+        private void CancelCrossfade()
+        {
+            try
+            {
+                ImgAvatar?.BeginAnimation(OpacityProperty, null);
+                ImgAvatarB?.BeginAnimation(OpacityProperty, null);
+            }
+            catch { }
+            _crossfadeInFlight = false;
+        }
+
+        /// <summary>
+        /// Crossfade the visible portrait to <paramref name="next"/> by fading layer A out and layer B in
+        /// (then swapping their roles). Idle ticks no-op while a fade is in flight; an event with
+        /// <paramref name="preempt"/> cancels the in-flight fade and switches cleanly.
+        /// </summary>
+        private void CrossfadeTo(BitmapImage? next, bool preempt = false)
+        {
+            if (next == null || _activeImg == null || _idleImg == null) return;
+
+            if (_crossfadeInFlight)
+            {
+                if (!preempt) return;
+                _activeImg.BeginAnimation(OpacityProperty, null);
+                _idleImg.BeginAnimation(OpacityProperty, null);
+                _activeImg.Opacity = 0.0;
+                _idleImg.Opacity = 1.0;
+                var swap = _activeImg; _activeImg = _idleImg; _idleImg = swap;
+                _crossfadeInFlight = false;
+            }
+
+            if (ReferenceEquals(_activeImg.Source, next)) return; // already showing it
+
+            var inImg = _idleImg;
+            var outImg = _activeImg;
+            inImg.Source = next;
+            inImg.Opacity = 0.0;
+            _crossfadeInFlight = true;
+
+            int frames = _portraitSet?.Director.CrossfadeFrames ?? 4;
+            var dur = TimeSpan.FromMilliseconds(Math.Max(60, frames * 38)); // 4 frames ≈ 150ms
+
+            var fadeOut = new DoubleAnimation(1, 0, dur) { FillBehavior = FillBehavior.Stop };
+            var fadeIn = new DoubleAnimation(0, 1, dur) { FillBehavior = FillBehavior.Stop };
+            fadeIn.Completed += (s, e) =>
+            {
+                inImg.Opacity = 1.0;
+                outImg.Opacity = 0.0;
+                _activeImg = inImg;
+                _idleImg = outImg;
+                _crossfadeInFlight = false;
+            };
+            outImg.BeginAnimation(OpacityProperty, fadeOut);
+            inImg.BeginAnimation(OpacityProperty, fadeIn);
+        }
+
+        /// <summary>
+        /// A line is being spoken → drive the portrait through a short pose sequence of that line's emotion.
+        /// Mapped bark lines use their manifest emotion; our event + idle affirmation lines (unmapped) get a
+        /// seductive mix (mostly alluring, plus entrancing/dreamy/teasing). The number of poses scales with
+        /// the line's length. No-op when the portrait system is off.
+        /// </summary>
+        private void PlayEmotionForLine(string? emotionLineId, string? audioPath, string? text)
+        {
+            if (!_portraitMode || _portraitSet == null) return;
+            var emotion = _portraitSet.EmotionForLine(emotionLineId);
+            if (string.IsNullOrEmpty(emotion))
+                emotion = PickAffirmationEmotion();
+            double durationSec = audioPath != null ? AudioDurationSec(audioPath) : EstimateDurationSec(text);
+            SetEmotionSequence(emotion!, PoseCountForDuration(durationSec), durationSec);
+        }
+
+        // Unmapped lines (our ~138 event + idle affirmation lines) read as affirmations: lean alluring,
+        // mixed with entrancing/dreamy/teasing. GetBucket falls back if a mod lacks one of these.
+        private static readonly string[] AffirmationEmotions =
+            { "alluring", "alluring", "alluring", "entrancing", "dreamy", "teasing" };
+        private string PickAffirmationEmotion() => AffirmationEmotions[_random.Next(AffirmationEmotions.Length)];
+
+        /// <summary>Poses ∝ line length: ~1s each + a ~2s final hold should span the line. 4s ≈ 3 poses.</summary>
+        private int PoseCountForDuration(double sec)
+        {
+            if (sec <= 0) return MinSpeakPoses;
+            int n = (int)Math.Round(sec) - 1; // (n-1)*1s + 2s ≈ sec
+            return Math.Clamp(n, MinSpeakPoses, MaxSpeakPoses);
+        }
+
+        /// <summary>Cached spoken-line length in seconds (NAudio), used to size the pose sequence.</summary>
+        private double AudioDurationSec(string? path)
+        {
+            if (string.IsNullOrEmpty(path)) return 0;
+            if (_audioDurCache.TryGetValue(path!, out var cached)) return cached;
+            double sec = 0;
+            try
+            {
+                if (System.IO.File.Exists(path))
+                    using (var r = new NAudio.Wave.AudioFileReader(path)) sec = r.TotalTime.TotalSeconds;
+            }
+            catch { sec = 0; }
+            _audioDurCache[path!] = sec;
+            return sec;
+        }
+
+        /// <summary>Rough spoken length for text-only lines (no audio): slow, pause-heavy bimbo read.</summary>
+        private double EstimateDurationSec(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return 2.5;
+            int words = text!.Split(new[] { ' ', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+            return Math.Clamp(0.45 * words + 0.8, 2.0, 7.0);
+        }
+
+        /// <summary>
+        /// Start the spoken pose sequence for <paramref name="emotion"/>: show the first pose now, then advance
+        /// every <see cref="PoseStepMs"/> through <paramref name="poseCount"/> poses (drawn from this emotion's
+        /// bucket), holding the last for <see cref="LastPoseLingerMs"/> before returning to a still idle pose.
+        /// </summary>
+        private void SetEmotionSequence(string emotion, int poseCount, double durationSec)
+        {
+            if (_portraitSet == null) return;
+            var bucket = _portraitSet.GetBucket(_skinIndex, emotion);
+            if (bucket.Length == 0) return;
+
+            _currentEmotion = emotion;
+            poseCount = Math.Clamp(poseCount, MinSpeakPoses, MaxSpeakPoses);
+            _seqOrder = BuildPoseOrder(bucket.Length, poseCount);
+            _seqStep = 0;
+
+            // Short lines flip ~2x faster so the poses keep pace with the brief audio.
+            bool shortLine = durationSec > 0 && durationSec < ShortLineSec;
+            _seqStepMs = shortLine ? (int)(PoseStepMs * ShortSpeedFactor) : PoseStepMs;
+            _seqLastMs = shortLine ? (int)(LastPoseLingerMs * ShortSpeedFactor) : LastPoseLingerMs;
+
+            if (_poseSeqTimer == null)
+            {
+                _poseSeqTimer = new DispatcherTimer();
+                _poseSeqTimer.Tick += PoseSeqTimer_Tick;
+            }
+            _poseSeqTimer.Stop();
+            _emotionReturnTimer?.Stop();
+            _poseTimer.Stop(); // belt-and-suspenders: never idle-rotate during a spoken sequence
+
+            int first = _seqOrder.Length > 0 ? _seqOrder[0] : 0;
+            _emotionPoseIndex = first;
+            CrossfadeTo(bucket[first], preempt: true); // preempt so rapid lines switch cleanly
+
+            bool firstIsLast = _seqOrder.Length <= 1;
+            _poseSeqTimer.Interval = TimeSpan.FromMilliseconds(firstIsLast ? _seqLastMs : _seqStepMs);
+            _poseSeqTimer.Start();
+        }
+
+        /// <summary>N-long order of bucket indices: shuffled, avoiding immediate repeats; cycles if N &gt; bucket size.</summary>
+        private int[] BuildPoseOrder(int bucketLen, int n)
+        {
+            if (bucketLen <= 0) return System.Array.Empty<int>();
+            var order = new List<int>(n);
+            var pool = new List<int>();
+            int last = -1;
+            while (order.Count < n)
+            {
+                if (pool.Count == 0)
+                {
+                    for (int i = 0; i < bucketLen; i++) pool.Add(i);
+                    for (int i = pool.Count - 1; i > 0; i--) { int j = _random.Next(i + 1); (pool[i], pool[j]) = (pool[j], pool[i]); }
+                    if (bucketLen > 1 && pool[0] == last) { (pool[0], pool[1]) = (pool[1], pool[0]); }
+                }
+                last = pool[0];
+                order.Add(pool[0]);
+                pool.RemoveAt(0);
+            }
+            return order.ToArray();
+        }
+
+        private void PoseSeqTimer_Tick(object? sender, EventArgs e)
+        {
+            _poseSeqTimer?.Stop();
+            if (!_portraitMode || _portraitSet == null) return;
+
+            _seqStep++;
+            if (_seqStep >= _seqOrder.Length)
+            {
+                ReturnToIdleEmotion(); // last pose's hold elapsed
+                return;
+            }
+
+            var bucket = _portraitSet.GetBucket(_skinIndex, _currentEmotion);
+            if (bucket.Length == 0) { ReturnToIdleEmotion(); return; }
+
+            int idx = _seqOrder[_seqStep] % bucket.Length;
+            _emotionPoseIndex = idx;
+            CrossfadeTo(bucket[idx], preempt: true);
+
+            bool isLast = _seqStep == _seqOrder.Length - 1;
+            _poseSeqTimer!.Interval = TimeSpan.FromMilliseconds(isLast ? _seqLastMs : _seqStepMs);
+            _poseSeqTimer.Start();
+        }
+
+        private void EmotionReturnTimer_Tick(object? sender, EventArgs e)
+        {
+            _emotionReturnTimer?.Stop();
+            ReturnToIdleEmotion();
+        }
+
+        /// <summary>Settle on a still idle pose (one crossfade, then NO further rotation until the next line).</summary>
+        private void ReturnToIdleEmotion()
+        {
+            if (!_portraitMode || _portraitSet == null) return;
+            _poseSeqTimer?.Stop();
+            _currentEmotion = _portraitSet.IdleEmotion;
+            var bucket = _portraitSet.GetBucket(_skinIndex, _currentEmotion);
+            if (bucket.Length > 0)
+            {
+                int idx = _random.Next(bucket.Length); // tiny variety per return; not a continuous rotation
+                _emotionPoseIndex = idx;
+                CrossfadeTo(bucket[idx], preempt: true);
+            }
         }
 
         /// <summary>
@@ -1713,6 +2269,8 @@ namespace ConditioningControlPanel
 
         private void PoseTimer_Tick(object? sender, EventArgs e)
         {
+            if (_portraitMode) return; // portrait mode never rotates on idle (poses change only while speaking)
+
             if (_avatarPoses.Length == 0) return;
 
             _currentPoseIndex = (_currentPoseIndex + 1) % _avatarPoses.Length;
@@ -2447,7 +3005,7 @@ namespace ConditioningControlPanel
                 return;
             }
 
-            var (nextText, source) = _speechQueue.Dequeue();
+            var (nextText, source, nextEmotionLineId) = _speechQueue.Dequeue();
             App.Logger?.Debug("Dequeued speech ({Source}): {Text}", source, nextText);
 
             // Calculate how long since last speech ended (delay based on PREVIOUS speech properties)
@@ -2463,7 +3021,7 @@ namespace ConditioningControlPanel
                 _speechDelayTimer.Tick += (s, e) =>
                 {
                     _speechDelayTimer.Stop();
-                    ShowSpeechBySource(nextText, source);
+                    ShowSpeechBySource(nextText, source, nextEmotionLineId);
                 };
                 _speechDelayTimer.Start();
                 App.Logger?.Debug("Delaying speech by {Delay:F1}s", remainingDelay);
@@ -2471,14 +3029,14 @@ namespace ConditioningControlPanel
             else
             {
                 // Show immediately
-                ShowSpeechBySource(nextText, source);
+                ShowSpeechBySource(nextText, source, nextEmotionLineId);
             }
         }
 
         /// <summary>
         /// Shows speech based on its source (triggers play audio, others don't)
         /// </summary>
-        private void ShowSpeechBySource(string text, SpeechSource source)
+        private void ShowSpeechBySource(string text, SpeechSource source, string? emotionLineId = null)
         {
             if (source == SpeechSource.Trigger)
             {
@@ -2489,7 +3047,7 @@ namespace ConditioningControlPanel
             {
                 // Determine sound: always for AI, 1 in 5 for presets
                 bool playSound = source == SpeechSource.AI || (source == SpeechSource.Preset && ++_presetGiggleCounter % 5 == 0);
-                ShowGiggle(text, playSound, source);
+                ShowGiggle(text, playSound, source, emotionLineId: emotionLineId);
             }
         }
 
@@ -2516,6 +3074,12 @@ namespace ConditioningControlPanel
                 return;
             }
 
+            // A bark voiceline carries its audio path; its filename stem is the manifest lineId that
+            // drives the portrait emotion. Derive it once so both the queued and immediate paths agree.
+            string? emotionLineId = phraseAudioPath != null
+                ? System.IO.Path.GetFileNameWithoutExtension(phraseAudioPath)
+                : null;
+
             // Use BeginInvoke for non-blocking UI update
             DispatcherHelper.RunOnUI(() =>
             {
@@ -2528,7 +3092,7 @@ namespace ConditioningControlPanel
 
                 if (_isGiggling)
                 {
-                    _speechQueue.Enqueue((text, SpeechSource.Preset));
+                    _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId));
                     App.Logger?.Debug("Queued preset speech: {Text}", text);
                     return;
                 }
@@ -2539,11 +3103,10 @@ namespace ConditioningControlPanel
 
                 if (timeSinceLastSpeech < requiredDelay)
                 {
-                    // Queue it and let the delay system handle it. NOTE: the queue tuple carries
-                    // text only, so a queued bark voiceline plays text-only. In practice barks
-                    // fire idle (global min-gap + chat-suppression), so this immediate path is the
-                    // common case; widening the queue to carry audio is a future refinement.
-                    _speechQueue.Enqueue((text, SpeechSource.Preset));
+                    // Queue it and let the delay system handle it. The queue now carries emotionLineId so
+                    // the portrait emotion still fires when the bubble renders; audio is still text-only on
+                    // this delayed path (barks normally fire idle, so the immediate path below is the norm).
+                    _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId));
                     _isGiggling = true;
                     ProcessNextSpeech();
                 }
@@ -2554,7 +3117,8 @@ namespace ConditioningControlPanel
                     // sound is suppressed automatically.
                     _presetGiggleCounter++;
                     bool playSound = _presetGiggleCounter % 5 == 0;
-                    ShowGiggle(text, playSound, SpeechSource.Preset, phraseAudioPath, barkVoice: barkVoice);
+                    ShowGiggle(text, playSound, SpeechSource.Preset, phraseAudioPath, barkVoice: barkVoice,
+                        emotionLineId: emotionLineId);
                 }
             });
         }
@@ -2662,6 +3226,9 @@ namespace ConditioningControlPanel
         public void GigglePriority(string text, bool playSound = true, bool aiGenerated = true, string? phraseAudioPath = null, bool barkVoice = false)
         {
             if (_isPlayingUninterruptibleClip) return; // an uninterruptible clip is speaking
+            string? emotionLineId = phraseAudioPath != null
+                ? System.IO.Path.GetFileNameWithoutExtension(phraseAudioPath)
+                : null;
             DispatcherHelper.RunOnUI(() =>
             {
                 // Only genuine AI replies anchor the chat-suppression window; bark output
@@ -2691,7 +3258,7 @@ namespace ConditioningControlPanel
                 // through GigglePriority are AI replies, but the awareness keyword path can fall back
                 // to canned phrases when the AI is unavailable — those callers pass false.
                 ShowGiggle(text, playSound: playSound, source: SpeechSource.AI, aiGenerated: aiGenerated,
-                    phraseAudioPath: phraseAudioPath, barkVoice: barkVoice);
+                    phraseAudioPath: phraseAudioPath, barkVoice: barkVoice, emotionLineId: emotionLineId);
 
                 App.Logger?.Debug("Priority speech (queue cleared): {Text}", text);
             });
@@ -2747,7 +3314,7 @@ namespace ConditioningControlPanel
         /// <param name="text">The text to display</param>
         /// <param name="playSound">Whether to play a giggle sound</param>
         /// <param name="source">The source of the speech (for delay calculation)</param>
-        private void ShowGiggle(string text, bool playSound = false, SpeechSource source = SpeechSource.Preset, string? phraseAudioPath = null, bool aiGenerated = false, bool bypassClipLock = false, bool barkVoice = false)
+        private void ShowGiggle(string text, bool playSound = false, SpeechSource source = SpeechSource.Preset, string? phraseAudioPath = null, bool aiGenerated = false, bool bypassClipLock = false, bool barkVoice = false, string? emotionLineId = null)
         {
             // An uninterruptible recorded clip owns the bubble — only its own (bypassing) call may render.
             if (_isPlayingUninterruptibleClip && !bypassClipLock) return;
@@ -2787,6 +3354,18 @@ namespace ConditioningControlPanel
 
             _isGiggling = true;
             _isShowingAiBubble = (source == SpeechSource.AI);
+
+            // Drive the emotive portrait to this line's emotion (pose A → linger → pose B → idle after
+            // the dwell). lineId is the explicit arg or the bark audio filename stem. No-ops when the
+            // portrait system is off, the line is unknown, or there's no audio (canned/AI/trigger text).
+            PlayEmotionForLine(
+                emotionLineId ?? (phraseAudioPath != null
+                    ? System.IO.Path.GetFileNameWithoutExtension(phraseAudioPath) : null),
+                phraseAudioPath, text);
+
+            // Any new bubble cuts off the previous spoken line (covers the giggle-sound/fallback branches
+            // below, which otherwise wouldn't stop an in-flight voiceline → overlap).
+            StopSpokenAudio();
 
             // Play sound for the speech bubble
             if (phraseAudioPath != null)
@@ -3831,45 +4410,83 @@ namespace ConditioningControlPanel
         /// </summary>
         private void PlayVoiceLineAudio(string filePath)
         {
-            try
-            {
-                // Stop any currently playing voice line
-                StopVoiceLineAudio();
-
-                if (!System.IO.File.Exists(filePath)) return;
-                if (App.Settings?.Current?.SubAudioEnabled != true) return;
-
-                var masterVolume = (App.Settings?.Current?.MasterVolume ?? 100) / 100f;
-                var volume = (float)Math.Pow(masterVolume, 1.5);
-
-                _voiceLineAudio = new NAudio.Wave.AudioFileReader(filePath);
-                _voiceLineAudio.Volume = volume;
-                _voiceLinePlayer = new NAudio.Wave.WaveOutEvent();
-                _voiceLinePlayer.Init(_voiceLineAudio);
-                _voiceLinePlayer.Play();
-
-                App.Logger?.Debug("VoiceLines: Playing {File}", System.IO.Path.GetFileName(filePath));
-            }
-            catch (Exception ex)
-            {
-                App.Logger?.Debug("VoiceLines: Failed to play - {Error}", ex.Message);
-            }
+            if (App.Settings?.Current?.SubAudioEnabled != true) return;
+            var masterVolume = (App.Settings?.Current?.MasterVolume ?? 100) / 100f;
+            if (masterVolume <= 0f) return;
+            // Idle voicelines were full-volume (×1.0); -20% so today's hotter v3 lines sit under the barks.
+            var volume = (float)Math.Pow(masterVolume, 1.5) * 0.8f;
+            PlaySpokenAudio(filePath, volume);
         }
 
+        /// <summary>Stops any currently playing spoken line (kept for external callers).</summary>
+        public void StopVoiceLineAudio() => StopSpokenAudio();
+
         /// <summary>
-        /// Stops any currently playing voice line
+        /// The single companion-voice channel. Cuts off whatever is currently speaking, then plays
+        /// <paramref name="filePath"/>. Drives <see cref="_isSpeakingAudio"/> for the speaking wobble/mist,
+        /// for exactly the clip's duration. All voice paths (bark / event / idle) route through here so two
+        /// lines never overlap.
         /// </summary>
-        public void StopVoiceLineAudio()
+        private void PlaySpokenAudio(string filePath, float volume)
         {
             try
             {
-                _voiceLinePlayer?.Stop();
-                _voiceLinePlayer?.Dispose();
-                _voiceLineAudio?.Dispose();
+                if (!System.IO.File.Exists(filePath)) return;
+                StopSpokenAudio(); // cut off the previous line → no overlap
+
+                NAudio.Wave.AudioFileReader reader;
+                NAudio.Wave.WaveOutEvent player;
+                try
+                {
+                    reader = new NAudio.Wave.AudioFileReader(filePath) { Volume = volume };
+                    player = new NAudio.Wave.WaveOutEvent();
+                    player.Init(reader);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("PlaySpokenAudio: init failed - {Error}", ex.Message);
+                    return;
+                }
+
+                lock (_spokenLock) { _spokenReader = reader; _spokenPlayer = player; _isSpeakingAudio = true; }
+
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        player.Play();
+                        while (player.PlaybackState == NAudio.Wave.PlaybackState.Playing)
+                            System.Threading.Thread.Sleep(40);
+                    }
+                    catch { /* ignore audio errors */ }
+                    finally
+                    {
+                        lock (_spokenLock)
+                        {
+                            if (ReferenceEquals(_spokenPlayer, player)) // not already replaced by a newer line
+                            {
+                                _spokenPlayer = null;
+                                _spokenReader = null;
+                                _isSpeakingAudio = false; // stops the speaking wobble/mist exactly at clip end
+                            }
+                        }
+                        try { player.Dispose(); } catch { }
+                        try { reader.Dispose(); } catch { }
+                    }
+                });
             }
-            catch { }
-            _voiceLinePlayer = null;
-            _voiceLineAudio = null;
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("PlaySpokenAudio failed - {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>Stop the current spoken line immediately (its play-loop sees Stopped and disposes).</summary>
+        public void StopSpokenAudio()
+        {
+            NAudio.Wave.WaveOutEvent? p;
+            lock (_spokenLock) { p = _spokenPlayer; }
+            try { p?.Stop(); } catch { }
         }
 
         /// <summary>
@@ -3912,6 +4529,10 @@ namespace ConditioningControlPanel
 
                 // Play the voice line audio in sync with the bubble
                 PlayVoiceLineAudio(filePath);
+
+                // Drive the portrait emotion: idle affirmations are unmapped → seductive mix
+                // (alluring/dreamy/entrancing/teasing), pose count scaled to the line's audio length.
+                PlayEmotionForLine(System.IO.Path.GetFileNameWithoutExtension(filePath), filePath, text);
 
                 App.Logger?.Information("VoiceLine: Displayed '{Text}'", text);
 
@@ -4000,7 +4621,7 @@ namespace ConditioningControlPanel
                 if (_isGiggling || timeSinceLastSpeech < requiredDelay)
                 {
                     // Queue the trigger and let delay system handle it
-                    _speechQueue.Enqueue((trigger, SpeechSource.Trigger));
+                    _speechQueue.Enqueue((trigger, SpeechSource.Trigger, null));
                     App.Logger?.Debug("Queued trigger speech: {Trigger}", trigger);
                     if (!_isGiggling)
                     {
@@ -4195,6 +4816,10 @@ namespace ConditioningControlPanel
                 if (audioFile != null)
                     audioPath = System.IO.Path.Combine(Services.CompanionPhraseService.CompanionAudioFolder, audioFile);
             }
+
+            // No manual override? Fall back to a mod-shipped event-audio file keyed by the line text.
+            // Sissy voices these; mods without an event_audio folder resolve to null and stay text-only.
+            audioPath ??= Services.CompanionPhraseService.ResolveEventAudio(text);
 
             Giggle(text, audioPath);
         }
@@ -4570,21 +5195,7 @@ namespace ConditioningControlPanel
                 var masterVolume = (App.Settings?.Current?.MasterVolume ?? 0) / 100f;
                 if (masterVolume <= 0f) return; // muted
                 var volume = (float)Math.Pow(masterVolume, 1.5) * 0.85f;
-
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        using var audioFile = new NAudio.Wave.AudioFileReader(audioPath);
-                        audioFile.Volume = volume;
-                        using var outputDevice = new NAudio.Wave.WaveOutEvent();
-                        outputDevice.Init(audioFile);
-                        outputDevice.Play();
-                        while (outputDevice.PlaybackState == NAudio.Wave.PlaybackState.Playing)
-                            System.Threading.Thread.Sleep(50);
-                    }
-                    catch { /* Ignore audio errors */ }
-                });
+                PlaySpokenAudio(audioPath, volume); // unified channel → no overlap
             }
             catch (Exception ex)
             {
@@ -4600,24 +5211,10 @@ namespace ConditioningControlPanel
                 if (App.Settings?.Current?.SubAudioEnabled != true) return;
 
                 var masterVolume = (App.Settings?.Current?.MasterVolume ?? 100) / 100f;
-                var volume = (float)Math.Pow(masterVolume, 1.5) * 0.7f;
-
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        using var audioFile = new NAudio.Wave.AudioFileReader(audioPath);
-                        audioFile.Volume = volume;
-                        using var outputDevice = new NAudio.Wave.WaveOutEvent();
-                        outputDevice.Init(audioFile);
-                        outputDevice.Play();
-                        while (outputDevice.PlaybackState == NAudio.Wave.PlaybackState.Playing)
-                        {
-                            System.Threading.Thread.Sleep(50);
-                        }
-                    }
-                    catch { /* Ignore audio errors */ }
-                });
+                if (masterVolume <= 0f) return;
+                // Event lines were ×0.7; -20% (→ ×0.56) so today's hotter v3 lines sit under the barks.
+                var volume = (float)Math.Pow(masterVolume, 1.5) * 0.56f;
+                PlaySpokenAudio(audioPath, volume); // unified channel → no overlap
             }
             catch (Exception ex)
             {
@@ -4760,7 +5357,8 @@ namespace ConditioningControlPanel
 
         private void OnVideoAboutToStart(object? sender, EventArgs e)
         {
-            Giggle("Ooh! Pretty spir-rals...");
+            const string line = "Ooh! Pretty spir-rals...";
+            Giggle(line, Services.CompanionPhraseService.ResolveEventAudio(line));
         }
 
         private async void OnVideoEnded(object? sender, EventArgs e)

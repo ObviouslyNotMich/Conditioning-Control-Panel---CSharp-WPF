@@ -1620,7 +1620,10 @@ namespace ConditioningControlPanel.Services
 
             var phrase = phrases[_random.Next(phrases.Length)];
 
-            App.AvatarWindow?.GigglePriority(phrase, false, aiGenerated: false);
+            // Voice the announcement when the active mod ships matching event audio (Sissy does);
+            // otherwise it stays text-only as before. playSound mirrors whether audio was found.
+            var audioPath = CompanionPhraseService.ResolveEventAudio(phrase);
+            App.AvatarWindow?.GigglePriority(phrase, audioPath != null, aiGenerated: false, phraseAudioPath: audioPath);
             AnnouncementMade?.Invoke(this, phrase);
         }
 
