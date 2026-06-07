@@ -306,6 +306,54 @@ namespace ConditioningControlPanel.Models
             set { _dailyQuestStreak = Math.Max(0, value); OnPropertyChanged(); }
         }
 
+        #region Bark system
+
+        private int _barkChatSuppressionMs = 10000;
+        /// <summary>
+        /// How long (ms) to suppress non-safety barks after the companion is busy / a chat
+        /// exchange, so barks don't talk over an active conversation. (Bark system, Fork E.)
+        /// </summary>
+        public int BarkChatSuppressionMs
+        {
+            get => _barkChatSuppressionMs;
+            set { _barkChatSuppressionMs = Math.Max(0, value); OnPropertyChanged(); }
+        }
+
+        private bool _newYearNoteReactionSeen = false;
+        /// <summary>Once-ever latch for the New Year note companion reaction (egg PR uses this).</summary>
+        public bool NewYearNoteReactionSeen
+        {
+            get => _newYearNoteReactionSeen;
+            set { _newYearNoteReactionSeen = value; OnPropertyChanged(); }
+        }
+
+        private List<string> _barkLifetimeFired = new();
+        /// <summary>
+        /// Persisted one-shot latches for barks scoped lifetime/tier. Lifetime keys are the
+        /// rule id; tier keys are "id@Tier" so a tier change naturally re-arms the bark.
+        /// Session-scope one-shots stay in-memory and are NOT stored here.
+        /// </summary>
+        public List<string> BarkLifetimeFired
+        {
+            get => _barkLifetimeFired;
+            set { _barkLifetimeFired = value ?? new(); OnPropertyChanged(); }
+        }
+
+        /// <summary>Record a lifetime/tier bark latch key; returns false if already present. Persists on change.</summary>
+        public bool MarkBarkFired(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return false;
+            if (_barkLifetimeFired.Contains(key)) return false;
+            _barkLifetimeFired.Add(key);
+            OnPropertyChanged(nameof(BarkLifetimeFired));
+            return true;
+        }
+
+        public bool IsBarkFired(string key) =>
+            !string.IsNullOrEmpty(key) && _barkLifetimeFired.Contains(key);
+
+        #endregion
+
         private DateTime? _lastDailyQuestDate = null;
         /// <summary>
         /// Last date a daily quest was completed (UTC date only).
@@ -2217,6 +2265,16 @@ namespace ConditioningControlPanel.Models
         {
             get => _mindWipeLoop;
             set { _mindWipeLoop = value; OnPropertyChanged(); }
+        }
+
+        // Custom mind-wipe audio clip. When set to an existing file, it overrides the
+        // built-in Resources/sounds/mindwipe folder (a short ~2s clip works best).
+        // Empty => fall back to the built-in audio folder.
+        private string _mindWipeAudioPath = "";
+        public string MindWipeAudioPath
+        {
+            get => _mindWipeAudioPath;
+            set { _mindWipeAudioPath = value ?? ""; OnPropertyChanged(); }
         }
 
         #endregion

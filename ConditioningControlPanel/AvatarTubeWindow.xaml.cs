@@ -79,6 +79,10 @@ namespace ConditioningControlPanel
         private bool _isMuted = false; // Mute avatar speech and sounds
         private bool _isMouseOverSpeechBubble = false; // Track mouse over speech bubble to keep it open
         private bool _isShowingAiBubble = false; // Track when AI bubble is visible (presets get discarded)
+        // While true a real recorded clip (e.g. the New Year note) owns the bubble — nothing may
+        // preempt it. The clip's own bubble renders via ShowGiggle(..., bypassClipLock: true).
+        private bool _isPlayingUninterruptibleClip = false;
+        private const string NoteClipCaption = "♡"; // ♡ — placeholder caption while the clip plays; replace with real content
         private readonly DateTime _startupTime = DateTime.Now; // Track startup to prevent race conditions
         private const double StartupCooldownSeconds = 3.0; // Don't allow non-greeting speech for 3 seconds
 
@@ -379,8 +383,9 @@ namespace ConditioningControlPanel
                 App.Video.VideoEnded += OnVideoEnded;
             }
 
-            if (App.LockCard != null)
-                App.LockCard.LockCardCompleted += OnLockCardCompleted;
+            // Lock-card reaction is now owned by BarkService (Fork D 50/50 coin flip): it is the
+            // sole subscriber to LockCardCompleted and invokes PlayLockCardAiReactionAsync on heads.
+            // This window no longer self-subscribes.
 
             // Wire up game completion events
             if (App.BubbleCount != null)
@@ -2022,8 +2027,7 @@ namespace ConditioningControlPanel
                     App.Video.VideoEnded -= OnVideoEnded;
                 }
 
-                if (App.LockCard != null)
-                    App.LockCard.LockCardCompleted -= OnLockCardCompleted;
+                // LockCardCompleted is owned by BarkService now (no self-subscription to remove).
 
                 // Unsubscribe from game events
                 if (App.BubbleCount != null)
@@ -2494,8 +2498,10 @@ namespace ConditioningControlPanel
         /// Blocked while waiting for AI response or while AI bubble is visible.
         /// Plays giggle sound 1 in 5 times for preset phrases.
         /// </summary>
-        public void Giggle(string text, string? phraseAudioPath = null)
+        public void Giggle(string text, string? phraseAudioPath = null, bool barkVoice = false)
         {
+            if (_isPlayingUninterruptibleClip) return; // an uninterruptible clip is speaking
+
             // Block if waiting for AI response
             if (_isWaitingForAi)
             {
@@ -2533,17 +2539,22 @@ namespace ConditioningControlPanel
 
                 if (timeSinceLastSpeech < requiredDelay)
                 {
-                    // Queue it and let the delay system handle it
+                    // Queue it and let the delay system handle it. NOTE: the queue tuple carries
+                    // text only, so a queued bark voiceline plays text-only. In practice barks
+                    // fire idle (global min-gap + chat-suppression), so this immediate path is the
+                    // common case; widening the queue to carry audio is a future refinement.
                     _speechQueue.Enqueue((text, SpeechSource.Preset));
                     _isGiggling = true;
                     ProcessNextSpeech();
                 }
                 else
                 {
-                    // Determine if we should play giggle sound (1 in 5 for presets)
+                    // Determine if we should play giggle sound (1 in 5 for presets). A bark voiceline
+                    // (barkVoice + phraseAudioPath) takes the audio path in ShowGiggle, so the giggle
+                    // sound is suppressed automatically.
                     _presetGiggleCounter++;
                     bool playSound = _presetGiggleCounter % 5 == 0;
-                    ShowGiggle(text, playSound, SpeechSource.Preset, phraseAudioPath);
+                    ShowGiggle(text, playSound, SpeechSource.Preset, phraseAudioPath, barkVoice: barkVoice);
                 }
             });
         }
@@ -2625,10 +2636,38 @@ namespace ConditioningControlPanel
             StopZOrderRefreshTimer();
         }
 
-        public void GigglePriority(string text, bool playSound = true, bool aiGenerated = true)
+        // Timestamp of the last genuine AI reply bubble (not bark output). Lets the bark
+        // system suppress barks for a window after a chat exchange. See IsCompanionBusy.
+        private DateTime _lastAiBubbleUtc = DateTime.MinValue;
+
+        /// <summary>
+        /// True while the companion is mid-chat: an AI request is in flight, an AI bubble is
+        /// on screen, or a genuine AI reply occurred within <paramref name="windowMs"/>.
+        /// The bark system checks this to avoid talking over a conversation (Fork E).
+        /// </summary>
+        public bool IsCompanionBusy(int windowMs)
         {
+            if (_isWaitingForAi || _isShowingAiBubble) return true;
+            return windowMs > 0 && (DateTime.UtcNow - _lastAiBubbleUtc).TotalMilliseconds < windowMs;
+        }
+
+        /// <summary>
+        /// True while ANY speech bubble (AI or ordinary "Preset" bark/chatter) is currently being
+        /// displayed. Unlike <see cref="IsCompanionBusy"/> this also covers non-AI bubbles, so the bark
+        /// system can avoid stacking ordinary barks behind one that's already on screen — otherwise they
+        /// queue and, by the time the queue drains, comment on something that happened seconds ago.
+        /// </summary>
+        public bool IsSpeaking => _isGiggling;
+
+        public void GigglePriority(string text, bool playSound = true, bool aiGenerated = true, string? phraseAudioPath = null, bool barkVoice = false)
+        {
+            if (_isPlayingUninterruptibleClip) return; // an uninterruptible clip is speaking
             DispatcherHelper.RunOnUI(() =>
             {
+                // Only genuine AI replies anchor the chat-suppression window; bark output
+                // (aiGenerated: false) must not suppress subsequent barks via this path.
+                if (aiGenerated) _lastAiBubbleUtc = DateTime.UtcNow;
+
                 // Stop any in-flight thinking animation before showing the reply.
                 StopThinkingAnimation();
 
@@ -2651,7 +2690,8 @@ namespace ConditioningControlPanel
                 // aiGenerated: when true, the bubble shows the "AI" badge. Most call sites that route
                 // through GigglePriority are AI replies, but the awareness keyword path can fall back
                 // to canned phrases when the AI is unavailable — those callers pass false.
-                ShowGiggle(text, playSound: playSound, source: SpeechSource.AI, aiGenerated: aiGenerated);
+                ShowGiggle(text, playSound: playSound, source: SpeechSource.AI, aiGenerated: aiGenerated,
+                    phraseAudioPath: phraseAudioPath, barkVoice: barkVoice);
 
                 App.Logger?.Debug("Priority speech (queue cleared): {Text}", text);
             });
@@ -2707,8 +2747,11 @@ namespace ConditioningControlPanel
         /// <param name="text">The text to display</param>
         /// <param name="playSound">Whether to play a giggle sound</param>
         /// <param name="source">The source of the speech (for delay calculation)</param>
-        private void ShowGiggle(string text, bool playSound = false, SpeechSource source = SpeechSource.Preset, string? phraseAudioPath = null, bool aiGenerated = false)
+        private void ShowGiggle(string text, bool playSound = false, SpeechSource source = SpeechSource.Preset, string? phraseAudioPath = null, bool aiGenerated = false, bool bypassClipLock = false, bool barkVoice = false)
         {
+            // An uninterruptible recorded clip owns the bubble — only its own (bypassing) call may render.
+            if (_isPlayingUninterruptibleClip && !bypassClipLock) return;
+
             // CCBill AI Addendum: show the "AI" badge only when this bubble's text actually came from
             // an AI inference. Canned/preset phrases (including AI-path fallbacks) leave it hidden.
             // The POLICY badge is mutually exclusive — only ShowModerationRefusalBubble shows it.
@@ -2748,8 +2791,12 @@ namespace ConditioningControlPanel
             // Play sound for the speech bubble
             if (phraseAudioPath != null)
             {
-                // Custom phrase audio overrides default sounds
-                PlayPhraseAudio(phraseAudioPath);
+                // Custom phrase audio overrides default sounds. Bark voicelines play through the
+                // companion-voice path (MasterVolume-gated), not the SubAudio-gated phrase path.
+                if (barkVoice)
+                    PlayBarkVoice(phraseAudioPath);
+                else
+                    PlayPhraseAudio(phraseAudioPath);
             }
             else if (playSound)
             {
@@ -4508,6 +4555,102 @@ namespace ConditioningControlPanel
         /// Suppressed when "Mute Whispers" is on so the phrase bubble still
         /// appears but the attached audio doesn't play.
         /// </summary>
+        /// <summary>
+        /// Play a real recorded clip (e.g. the New Year note) uninterruptibly: no giggle sound, no
+        /// dom voice, just the file. Holds <c>_isPlayingUninterruptibleClip</c> so nothing preempts
+        /// it and shows a silent priority bubble for the clip's duration. No-ops gracefully (returns
+        /// false) if the file is missing, so it can be wired before the recording ships. Returns true
+        /// only if a real clip actually started — callers latch their once-ever flag on true.
+        /// </summary>
+        public bool PlayNoteClip(string clipPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(clipPath) || !System.IO.File.Exists(clipPath))
+                {
+                    App.Logger?.Information("PlayNoteClip: no clip at {Path} — skipping gracefully", clipPath);
+                    return false;
+                }
+
+                DispatcherHelper.RunOnUI(() =>
+                {
+                    _isPlayingUninterruptibleClip = true;
+                    // Silent, top-priority bubble for the clip's duration. Source=AI suppresses the
+                    // fallback pop; playSound:false means no giggle; bypassClipLock renders past the latch.
+                    ShowGiggle(NoteClipCaption, playSound: false, source: SpeechSource.AI,
+                        phraseAudioPath: null, aiGenerated: false, bypassClipLock: true);
+                });
+
+                var masterVolume = (App.Settings?.Current?.MasterVolume ?? 100) / 100f;
+                var volume = (float)Math.Pow(masterVolume, 1.5) * 0.9f; // a touch louder — it's a once-ever moment
+
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        using var audioFile = new NAudio.Wave.AudioFileReader(clipPath);
+                        audioFile.Volume = volume;
+                        using var outputDevice = new NAudio.Wave.WaveOutEvent();
+                        outputDevice.Init(audioFile);
+                        outputDevice.Play();
+                        while (outputDevice.PlaybackState == NAudio.Wave.PlaybackState.Playing)
+                            System.Threading.Thread.Sleep(50);
+                    }
+                    catch (Exception ex) { App.Logger?.Warning(ex, "PlayNoteClip: playback failed"); }
+                    finally
+                    {
+                        DispatcherHelper.RunOnUI(() => _isPlayingUninterruptibleClip = false);
+                    }
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "PlayNoteClip failed");
+                _isPlayingUninterruptibleClip = false;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Play a companion bark voiceline. Gated on BOTH MasterVolume (master/mute control) and
+        /// SubAudioEnabled — bark voicelines are "whispers", so the Mute Whispers toggle silences them
+        /// too. When whispers are muted the bubble still shows; it just has no voiceline audio.
+        /// </summary>
+        private void PlayBarkVoice(string audioPath)
+        {
+            try
+            {
+                if (!System.IO.File.Exists(audioPath)) return;
+
+                // Mute Whispers (SubAudioEnabled == false) silences spoken barks, same as subliminal whispers.
+                if (App.Settings?.Current?.SubAudioEnabled != true) return;
+
+                var masterVolume = (App.Settings?.Current?.MasterVolume ?? 0) / 100f;
+                if (masterVolume <= 0f) return; // muted
+                var volume = (float)Math.Pow(masterVolume, 1.5) * 0.85f;
+
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        using var audioFile = new NAudio.Wave.AudioFileReader(audioPath);
+                        audioFile.Volume = volume;
+                        using var outputDevice = new NAudio.Wave.WaveOutEvent();
+                        outputDevice.Init(audioFile);
+                        outputDevice.Play();
+                        while (outputDevice.PlaybackState == NAudio.Wave.PlaybackState.Playing)
+                            System.Threading.Thread.Sleep(50);
+                    }
+                    catch { /* Ignore audio errors */ }
+                });
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Failed to play bark voice: {Error}", ex.Message);
+            }
+        }
+
         private void PlayPhraseAudio(string audioPath)
         {
             try
@@ -4560,6 +4703,9 @@ namespace ConditioningControlPanel
                     var masterVolume = (App.Settings?.Current?.MasterVolume ?? 100) / 100f;
                     // Apply volume curve, cap at 70% of master to not be too loud
                     var volume = (float)Math.Pow(masterVolume, 1.5) * 0.7f;
+
+                    // Mute egg / silenced audio (Fork F): MasterVolume == 0 means don't attempt audio.
+                    if (masterVolume <= 0f) return;
 
                     // Use NAudio for async playback
                     Task.Run(() =>
@@ -4717,20 +4863,31 @@ namespace ConditioningControlPanel
             Giggle("Good girl! So smart!");
         }
 
-        private async void OnLockCardCompleted(object? sender, Services.LockCardCompletedEventArgs e)
+        /// <summary>
+        /// Play the AI-generated lock-screen reaction for a completed lock card. Invoked by
+        /// BarkService (the sole LockCardCompleted subscriber) on a "heads" coin flip. Returns
+        /// true if it actually spoke, so the caller can fall through to a pool bark when the AI
+        /// produced nothing — guaranteeing exactly one reaction fires (Fork D).
+        /// </summary>
+        public async Task<bool> PlayLockCardAiReactionAsync(Services.LockCardCompletedEventArgs e)
         {
             if (App.Settings?.Current?.AiChatEnabled != true || App.Ai?.IsAvailable != true)
-                return;
+                return false;
 
             try
             {
                 var reaction = await App.Ai.GetLockScreenReaction(e.Phrase, e.Mistakes, e.Repeats);
                 if (!string.IsNullOrWhiteSpace(reaction))
+                {
                     GigglePriority(reaction);
+                    return true;
+                }
+                return false;
             }
             catch (Exception ex)
             {
                 App.Logger?.Warning(ex, "Failed to get AI lock-screen reaction");
+                return false;
             }
         }
 
@@ -6666,6 +6823,20 @@ namespace ConditioningControlPanel
                 MenuItemMuteWhispers.Foreground = lockedBrush;
                 MenuItemPauseBrowser.IsEnabled = false;
                 MenuItemPauseBrowser.Foreground = lockedBrush;
+            }
+            else
+            {
+                // Remote controller disconnected: re-enable everything the lock block disables.
+                // Without this the items stay stuck un-clickable after exiting remote control, because
+                // the normal section above only refreshes their Header/Foreground, never IsEnabled.
+                // (Foreground is already restored above; Takeover stays gated on Patreon access.)
+                MenuItemEngine.IsEnabled = true;
+                MenuItemTriggerMode.IsEnabled = true;
+                MenuItemBambiTakeover.IsEnabled = takeoverAvailable;
+                MenuItemPersonality.IsEnabled = true;
+                MenuItemMute.IsEnabled = true;
+                MenuItemMuteWhispers.IsEnabled = true;
+                MenuItemPauseBrowser.IsEnabled = true;
             }
         }
 
