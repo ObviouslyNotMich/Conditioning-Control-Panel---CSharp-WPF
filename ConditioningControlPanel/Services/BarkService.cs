@@ -54,6 +54,7 @@ namespace ConditioningControlPanel.Services
         private const int SafetyHoldMs = 6000;
 
         private static readonly TimeSpan RapidModSwitchWindow = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan RapidClickWindow = TimeSpan.FromSeconds(60);
 
         // Coin flip is varied per call; not security-sensitive.
         private readonly Random _rng = new();
@@ -126,6 +127,87 @@ namespace ConditioningControlPanel.Services
         /// safety-class "Panic" bark, which bypasses the gate and holds the floor.
         /// </summary>
         public void NotifyPanic() => Raise("Panic");
+
+        /// <summary>A dashboard feature popup was opened (feature = control type name w/o "FeatureControl", e.g. "Flash").</summary>
+        public void NotifyFeatureOpened(string? feature)
+        {
+            if (string.IsNullOrEmpty(feature)) return;
+            Raise("FeatureOpened", c => c.Set("feature", feature!));
+        }
+
+        /// <summary>The user navigated to a tab (tab = ShowTab key, e.g. "leaderboard").</summary>
+        public void NotifyTabNavigated(string? tab)
+        {
+            if (string.IsNullOrEmpty(tab)) return;
+            Raise("TabNavigated", c => c.Set("tab", tab!));
+        }
+
+        /// <summary>A numeric/bool setting changed. Non-numeric props are ignored; value is bool→0/1, enum→int.</summary>
+        public void NotifySettingChanged(string? setting)
+        {
+            if (string.IsNullOrEmpty(setting)) return;
+            if (!TryGetSettingNumber(setting!, out var value)) return;
+            Raise("SettingChanged", c => c.Set("setting", setting!).Set("value", value));
+        }
+
+        /// <summary>The avatar was clicked. Stamps a rolling 60s click count for the escalation eggs.</summary>
+        public void NotifyAvatarClicked()
+        {
+            _state.RegisterAvatarClick();
+            Raise("AvatarClicked", c => c.Set("clicks_60s", (double)_state.AvatarClicksWithin(RapidClickWindow)));
+        }
+
+        /// <summary>An enhancement was applied to the current browser page (id = enhancement name — no slug field exists).</summary>
+        public void NotifyEnhancementApplied(string? enhancementId)
+        {
+            if (string.IsNullOrEmpty(enhancementId)) return;
+            Raise("EnhancementApplied", c => c.Set("enhancement_id", enhancementId!));
+        }
+
+        /// <summary>A generic UI action the user took (action = stable key, e.g. "test_video", "reroll_daily", "minimize").</summary>
+        public void NotifyUiAction(string? action)
+        {
+            if (string.IsNullOrEmpty(action)) return;
+            Raise("UiAction", c => c.Set("action", action!));
+        }
+
+        /// <summary>The user opened/refreshed the leaderboard. rank/total let rules react to standing (rank 0 = unranked).</summary>
+        public void NotifyLeaderboardViewed(int rank, int total)
+        {
+            Raise("LeaderboardViewed", c => c.Set("rank", (double)rank).Set("total", (double)total));
+        }
+
+        // Reflection cache so a numeric-setting read on every PropertyChanged stays cheap.
+        private static readonly Dictionary<string, System.Reflection.PropertyInfo?> _settingPropCache = new(StringComparer.Ordinal);
+        /// <summary>Read a setting's current value as a double (bool→0/1, enum→int). False for non-numeric/missing props.</summary>
+        private bool TryGetSettingNumber(string name, out double value)
+        {
+            value = 0;
+            var cur = App.Settings?.Current;
+            if (cur == null) return false;
+            System.Reflection.PropertyInfo? pi;
+            lock (_settingPropCache)
+            {
+                if (!_settingPropCache.TryGetValue(name, out pi))
+                {
+                    pi = cur.GetType().GetProperty(name);
+                    _settingPropCache[name] = pi;
+                }
+            }
+            if (pi == null) return false;
+            object? raw;
+            try { raw = pi.GetValue(cur); } catch { return false; }
+            switch (raw)
+            {
+                case bool b: value = b ? 1 : 0; return true;
+                case int i: value = i; return true;
+                case long l: value = l; return true;
+                case double d: value = d; return true;
+                case float f: value = f; return true;
+                case Enum en: value = Convert.ToDouble(en); return true;
+                default: return false;
+            }
+        }
 
         /// <summary>
         /// Reload rules from disk (e.g. after a mod switch so the new mod's manifest applies).
@@ -657,6 +739,7 @@ namespace ConditioningControlPanel.Services
                 case "blink_count": return (double)_state.BlinkCount;
                 case "face_lost_sec": return _state.FaceLostSeconds;
                 case "mod_switches_60s": return _state.ModSwitchesWithin(RapidModSwitchWindow);
+                case "clicks_60s": return _state.AvatarClicksWithin(RapidClickWindow);
                 case "days_away": return _state.DaysAwayAtLaunch;
                 case "instant_relaunch": return _state.InstantRelaunch;
                 case "master_volume": return (double)(App.Settings?.Current?.MasterVolume ?? 0);
@@ -823,6 +906,11 @@ namespace ConditioningControlPanel.Services
                     if (sinceRule < rule.CooldownMs)
                         return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = $"cooldown ({sinceRule:F0}/{rule.CooldownMs}ms)" };
                 }
+
+                // Probability roll — last gate before variant selection. Lets a high-frequency
+                // reactive rule fire only ~Chance of the time (e.g. 0.2 = "~1 in 5").
+                if (rule.Chance < 1.0 && _rng.NextDouble() >= rule.Chance)
+                    return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = $"chance ({rule.Chance:0.##})" };
             }
 
             // Variant selection:

@@ -70,6 +70,31 @@ namespace ConditioningControlPanel.Services.Bark
             return n;
         }
 
+        // --- rapid avatar-click window (AvatarTube/MainWindow click handler) ---
+        private readonly List<DateTime> _avatarClicks = new();
+        public void RegisterAvatarClick()
+        {
+            lock (_lock)
+            {
+                _avatarClicks.Add(DateTime.UtcNow);
+                if (_avatarClicks.Count > 256) _avatarClicks.RemoveRange(0, _avatarClicks.Count - 256);
+            }
+        }
+        public int AvatarClicksWithin(TimeSpan window)
+        {
+            var cutoff = DateTime.UtcNow - window;
+            int n = 0;
+            lock (_lock)
+            {
+                for (int i = _avatarClicks.Count - 1; i >= 0; i--)
+                {
+                    if (_avatarClicks[i] >= cutoff) n++;
+                    else break;
+                }
+            }
+            return n;
+        }
+
         // --- days-away / instant-relaunch, computed once from AppSettings.LastSeenUtc ---
         public double DaysAwayAtLaunch { get; private set; }
         public bool InstantRelaunch { get; private set; }

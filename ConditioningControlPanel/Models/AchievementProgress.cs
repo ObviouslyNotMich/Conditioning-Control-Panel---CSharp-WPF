@@ -114,6 +114,12 @@ public class AchievementProgress
     
     /// <summary>Time of first avatar click in current rapid sequence</summary>
     public DateTime? AvatarClickStartTime { get; set; }
+
+    /// <summary>Click count toward the "needy doll" easter egg (150 clicks in 60 seconds)</summary>
+    public int NeedyDollClickCount { get; set; }
+
+    /// <summary>Start of the current needy-doll click window</summary>
+    public DateTime? NeedyDollClickStartTime { get; set; }
     
     // ========== SESSION COMPLETION TRACKING ==========
     public HashSet<string> CompletedSessions { get; set; } = new();
@@ -336,5 +342,24 @@ public class AchievementProgress
         
         // Check if 20 clicks in 10 seconds
         return AvatarClickCount >= 20;
+    }
+
+    /// <summary>
+    /// Track avatar click for the "needy doll" easter egg (150 clicks in 60 seconds).
+    /// Independent window from the 20-in-10s neon-obsession tracker.
+    /// </summary>
+    public bool TrackNeedyDollClick()
+    {
+        var now = DateTime.Now;
+        if (NeedyDollClickStartTime == null || (now - NeedyDollClickStartTime.Value).TotalSeconds > 60)
+        {
+            NeedyDollClickStartTime = now;
+            NeedyDollClickCount = 1;
+        }
+        else
+        {
+            NeedyDollClickCount++;
+        }
+        return NeedyDollClickCount >= 150;
     }
 }

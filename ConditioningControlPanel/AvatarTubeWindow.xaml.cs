@@ -2697,6 +2697,9 @@ namespace ConditioningControlPanel
             // Track for Neon Obsession achievement (20 rapid clicks)
             App.Achievements?.TrackAvatarClick();
 
+            // Bark hook: rolling 60s click count drives the click-escalation eggs.
+            try { App.Bark?.NotifyAvatarClicked(); } catch { }
+
             // 1 in 25 chance to play a pop sound
             if (_random.Next(25) == 0)
             {

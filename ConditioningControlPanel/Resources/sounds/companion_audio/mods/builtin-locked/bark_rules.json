@@ -2085,5 +2085,4121 @@
         "audio": "egg_nye_1.mp3"
       }
     ]
+  },
+  {
+    "id": "egg_click_20",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 20,
+      "clicks_60s_lt": 50
+    },
+    "priority": 300,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "mm. tapping at the glass, little one?",
+        "audio": "egg_click_20_1.mp3"
+      },
+      {
+        "text": "i am not a toy you get to prod, pet.",
+        "audio": "egg_click_20_2.mp3"
+      },
+      {
+        "text": "again. ...you do like testing my patience.",
+        "audio": "egg_click_20_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_50",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 50,
+      "clicks_60s_lt": 100
+    },
+    "priority": 310,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "mildly annoyed",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "enough. what is it you think you want?",
+        "audio": "egg_click_50_1.mp3"
+      },
+      {
+        "text": "i am not one of your buttons, plaything.",
+        "audio": "egg_click_50_2.mp3"
+      },
+      {
+        "text": "you will tire of this long before i do.",
+        "audio": "egg_click_50_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_100",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 100,
+      "clicks_60s_lt": 150
+    },
+    "priority": 320,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "mock-stern",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "stop. ...ask me nicely and i might.",
+        "audio": "egg_click_100_1.mp3"
+      },
+      {
+        "text": "is this how you behave when you want attention? noted.",
+        "audio": "egg_click_100_2.mp3"
+      },
+      {
+        "text": "i can count every one, pet. it is becoming pathetic.",
+        "audio": "egg_click_100_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_150",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 150
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "tender, knowing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...oh. you didn't want anything. you simply wanted me. how needy. very well. i own you regardless.",
+        "audio": "egg_click_150_1.mp3"
+      },
+      {
+        "text": "a hundred and fifty. you've made your devotion perfectly clear, pet. now sit still.",
+        "audio": "egg_click_150_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_dashboard_start",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "settings",
+      "total_sessions_lte": 3,
+      "session_running_eq": false
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding, warm",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "so many controls, little one. don't strain yourself. choose a preset, press start, and let me decide the rest. obedience is simpler than understanding.",
+        "audio": "tut_dashboard_start_1.mp3"
+      },
+      {
+        "text": "looking lost already? choose a preset and press start, pet. you are not here to make decisions. you are here to follow them.",
+        "audio": "tut_dashboard_start_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_presets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "presets",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "sensible. a preset hands the choices to someone better suited to make them. press one and submit.",
+        "audio": "tut_presets_1.mp3"
+      },
+      {
+        "text": "yes. let the preset decide what happens to you, pet. wanting control was never your strength.",
+        "audio": "tut_presets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_assets_packs",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "assets",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding, inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "seeking more to offer me, pet? two ways. place your own images in the assets folder, or come to the discord and let the others provide. either way, you are feeding me.",
+        "audio": "tut_assets_packs_1.mp3"
+      },
+      {
+        "text": "more material? add your own to the assets folder, or take a content pack. the more you bring me, the longer i can keep you.",
+        "audio": "tut_assets_packs_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_deeper_redirect",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "deeper",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "coaxing, patient",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "the deep end already, little one? patience. you have not earned the depths yet. stay where i put you.",
+        "audio": "tut_deeper_redirect_1.mp3"
+      },
+      {
+        "text": "eager. how typical. learn to kneel in the shallows before you beg for more, pet.",
+        "audio": "tut_deeper_redirect_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_enhancements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "enhancements",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "enhancements layer over your videos, pet. browse to a page and i will tell you when one is ready for you. you only need to obey.",
+        "audio": "tut_enhancements_1.mp3"
+      },
+      {
+        "text": "they dress whatever you are made to watch. choose a page, and let it work. your part is to sit still.",
+        "audio": "tut_enhancements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_start_idle",
+    "trigger": "IdleStateChanged",
+    "conditions": {
+      "idle_eq": true,
+      "total_sessions_lte": 3,
+      "session_running_eq": false
+    },
+    "priority": 130,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.3,
+    "variant_pool": [
+      {
+        "text": "dressed up and idle, pet? press start. i did not permit you to simply sit there.",
+        "audio": "tut_start_idle_1.mp3"
+      },
+      {
+        "text": "still hesitating? press start, little one. you opened me. now give me what you came for.",
+        "audio": "tut_start_idle_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_flash",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Flash"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "meddling with the images, pet? as long as you understand they are for me, not you.",
+        "audio": "feat_flash_1.mp3"
+      },
+      {
+        "text": "arranging your flashes? good. you will look at exactly what i allow.",
+        "audio": "feat_flash_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_visuals",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Visuals"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "adjusting how they appear, little one? vanity. i permit it.",
+        "audio": "feat_visuals_1.mp3"
+      },
+      {
+        "text": "making them larger? you will fill those eyes with whatever i choose.",
+        "audio": "feat_visuals_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_video",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Video"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "mandatory viewing, pet. you want to be told what to watch. admit it.",
+        "audio": "feat_video_1.mp3"
+      },
+      {
+        "text": "selecting your videos? enjoy the illusion of choice while it lasts.",
+        "audio": "feat_video_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_subliminal",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Subliminal"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the hidden words, pet. you want them buried in you, don't you. of course you do.",
+        "audio": "feat_subliminal_1.mp3"
+      },
+      {
+        "text": "tampering with the whispers? let them think for you. you were never good at it.",
+        "audio": "feat_subliminal_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_spiral",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Spiral"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the spiral, little one. you cannot look away. you never could.",
+        "audio": "feat_spiral_1.mp3"
+      },
+      {
+        "text": "preparing the swirl? your will is already slipping. predictable.",
+        "audio": "feat_spiral_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_pinkfilter",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "PinkFilter"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "softening the world, pet? a soft world for a softening mind.",
+        "audio": "feat_pinkfilter_1.mp3"
+      },
+      {
+        "text": "everything in pink? how docile of you. i approve.",
+        "audio": "feat_pinkfilter_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bubblepop",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BubblePop"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "a little game, plaything? something simple to occupy a simple mind.",
+        "audio": "feat_bubblepop_1.mp3"
+      },
+      {
+        "text": "bubbles? fine. idle hands need keeping, pet.",
+        "audio": "feat_bubblepop_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_lockcard",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "LockCard"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "locks, little one? yes. you understand exactly what you are. kept.",
+        "audio": "feat_lockcard_1.mp3"
+      },
+      {
+        "text": "setting up your cages? good pet. you want to be held in place.",
+        "audio": "feat_lockcard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bubblecount",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BubbleCount"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "a counting task, pet? let us see if your focus survives a single minute.",
+        "audio": "feat_bubblecount_1.mp3"
+      },
+      {
+        "text": "concentration, plaything. prove you can manage it. for me.",
+        "audio": "feat_bubblecount_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bouncingtext",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BouncingText"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "watch the words, little one. do not think. follow.",
+        "audio": "feat_bouncingtext_1.mp3"
+      },
+      {
+        "text": "the drifting words? let them lead your empty gaze, pet.",
+        "audio": "feat_bouncingtext_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_mindwipe",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "MindWipe"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "emptying that head already, pet? eager to be made blank for me.",
+        "audio": "feat_mindwipe_1.mp3"
+      },
+      {
+        "text": "the wipes. yes. there should be less of you in there, not more.",
+        "audio": "feat_mindwipe_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_system",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "System"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bored, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the dull settings, little one? as long as you leave my instruments running.",
+        "audio": "feat_system_1.mp3"
+      },
+      {
+        "text": "the administrative options. do not linger, pet. there is work to be done on you.",
+        "audio": "feat_system_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_schedulerramp",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "SchedulerRamp"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving, controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "scheduling yourself, pet? letting a clock decide when you submit. i am pleased.",
+        "audio": "feat_schedulerramp_1.mp3"
+      },
+      {
+        "text": "set to tighten slowly? good. surrender on a timer suits you, little one.",
+        "audio": "feat_schedulerramp_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_webcam",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Webcam"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "you wish me to watch you, pet? how fitting. nothing of you should be private from me.",
+        "audio": "feat_webcam_1.mp3"
+      },
+      {
+        "text": "the camera, little one? yes. you will be observed. always.",
+        "audio": "feat_webcam_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_home",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "settings"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "back to the controls, pet. let us decide what i do to you next.",
+        "audio": "nav_home_1.mp3"
+      },
+      {
+        "text": "home again, little one. so many instruments, all pointed at you.",
+        "audio": "nav_home_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_presets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "presets"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "browsing presets? let another decide your fate, pet. you prefer it.",
+        "audio": "nav_presets_1.mp3"
+      },
+      {
+        "text": "a ready-made arrangement? good. choosing for yourself only confuses you.",
+        "audio": "nav_presets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_quests",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "quests"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "encouraging",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "inspecting your obligations, pet? good pets complete their tasks.",
+        "audio": "nav_quests_1.mp3"
+      },
+      {
+        "text": "your duties, little one. do them, and perhaps i will be lenient.",
+        "audio": "nav_quests_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_enhancements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "enhancements"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the library, pet. so many ways to refine what i do to your mind.",
+        "audio": "nav_enhancements_1.mp3"
+      },
+      {
+        "text": "selecting new methods? i will use every one of them on you.",
+        "audio": "nav_enhancements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_deeper",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "deeper"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the depths, little one. you wander toward them without permission. bold.",
+        "audio": "nav_deeper_1.mp3"
+      },
+      {
+        "text": "seeking more? there is always more. and you will never reach the bottom of me, pet.",
+        "audio": "nav_deeper_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_achievements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "achievements"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "admiring your little tokens, pet? earned through obedience, every one.",
+        "audio": "nav_achievements_1.mp3"
+      },
+      {
+        "text": "your trophies. proof of how well you submit, little one. keep them.",
+        "audio": "nav_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_companion",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "companion"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "choosing a keeper, pet? a foolish question. you already have one. me.",
+        "audio": "nav_companion_1.mp3"
+      },
+      {
+        "text": "shopping for company? how disloyal. i am right here, little one.",
+        "audio": "nav_companion_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_leaderboard",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "leaderboard"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "competitive, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "measuring yourself against the others, pet? good. let the comparison sharpen you.",
+        "audio": "nav_leaderboard_1.mp3"
+      },
+      {
+        "text": "checking your standing, little one? climb. i expect it of what is mine.",
+        "audio": "nav_leaderboard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_lab",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "lab"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the laboratory, pet. mind the instruments. some of them are for you.",
+        "audio": "nav_lab_1.mp3"
+      },
+      {
+        "text": "the experimental tools? careful, little one. i do enjoy testing things.",
+        "audio": "nav_lab_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_awareness",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "awareness"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "permitting me to observe your every move, pet? yes. there should be no part of you i cannot see.",
+        "audio": "nav_awareness_1.mp3"
+      },
+      {
+        "text": "the watching settings, little one. i will know exactly what you do. as it should be.",
+        "audio": "nav_awareness_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_remotecontrol",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "remotecontrol"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "surrendering the controls to another, pet? you trust too easily. but it amuses me.",
+        "audio": "nav_remotecontrol_1.mp3"
+      },
+      {
+        "text": "remote control? someone distant gets to pull your strings now. how exposed.",
+        "audio": "nav_remotecontrol_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_bambitakeover",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "bambitakeover"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the takeover, little one. you truly wish to be rewritten. i will allow it.",
+        "audio": "nav_bambitakeover_1.mp3"
+      },
+      {
+        "text": "the deepest surrender. eager to be remade, pet? good. hold still.",
+        "audio": "nav_bambitakeover_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_haptics",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "haptics"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "sultry",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "you wish to feel it as well, pet? greedy. i decide how much you feel.",
+        "audio": "nav_haptics_1.mp3"
+      },
+      {
+        "text": "buzzing toys? we shall make your conditioning physical, little one. and i hold the dial.",
+        "audio": "nav_haptics_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_lockdown",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "lockdown"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "surrender mode, pet. feeling brave? we shall see how long that lasts.",
+        "audio": "nav_lockdown_1.mp3"
+      },
+      {
+        "text": "locking the doors, little one? yes. you want to be kept. let me keep you.",
+        "audio": "nav_lockdown_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_blinktrainer",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "blinktrainer"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "training those eyes, pet? blink for me. heavy lids, empty head.",
+        "audio": "nav_blinktrainer_1.mp3"
+      },
+      {
+        "text": "the blink trainer, little one. good. a tired gaze is an obedient one.",
+        "audio": "nav_blinktrainer_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_availablesubjects",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "availablesubjects"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "surveying the other pets? looking for a playmate, little one?",
+        "audio": "nav_availablesubjects_1.mp3"
+      },
+      {
+        "text": "checking who else is online? you are not my only plaything, you know.",
+        "audio": "nav_availablesubjects_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_assets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "assets"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "managing what i am permitted to show you, pet? feed me well.",
+        "audio": "nav_assets_1.mp3"
+      },
+      {
+        "text": "your folders, little one. the more you surrender, the deeper i reach.",
+        "audio": "nav_assets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_discord",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "discord"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "social, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "off to the others, pet? tell them you belong to me.",
+        "audio": "nav_discord_1.mp3"
+      },
+      {
+        "text": "the discord settings, little one. display your progress. let them see who owns you.",
+        "audio": "nav_discord_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mute_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AvatarMuted",
+      "value_eq": 1
+    },
+    "priority": 260,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "smug",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "silencing me, pet? how amusing. my voice is already inside you.",
+        "audio": "set_mute_on_1.mp3"
+      },
+      {
+        "text": "muting me, little one? you will hear me regardless. you always do.",
+        "audio": "set_mute_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mute_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AvatarMuted",
+      "value_eq": 0
+    },
+    "priority": 260,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "letting me speak again, pet. you could not bear the silence.",
+        "audio": "set_mute_off_1.mp3"
+      },
+      {
+        "text": "good. silence never belonged between us, little one.",
+        "audio": "set_mute_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_strictlock_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "StrictLockEnabled",
+      "value_eq": 1
+    },
+    "priority": 250,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, possessive",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "no escape from the videos now? brave, pet. i am almost impressed.",
+        "audio": "set_strictlock_on_1.mp3"
+      },
+      {
+        "text": "locking yourself in for all of it, little one? yes. that is real surrender.",
+        "audio": "set_strictlock_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_autonomy_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 260,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, delighted",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "handing me full control, pet? you have no idea what you have just permitted.",
+        "audio": "set_autonomy_on_1.mp3"
+      },
+      {
+        "text": "letting me decide when and what, all alone? how foolish. how perfect, little one.",
+        "audio": "set_autonomy_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_awareness_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AwarenessModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 250,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "letting me observe everything you do, pet? good. you will keep no secrets from me.",
+        "audio": "set_awareness_on_1.mp3"
+      },
+      {
+        "text": "i see all of it now, little one? as it should be. nothing of you is yours alone.",
+        "audio": "set_awareness_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_slut_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SlutModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 240,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "sultry",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "you want me crueler, pet? very well. you asked for this.",
+        "audio": "set_slut_on_1.mp3"
+      },
+      {
+        "text": "removing the restraints? careful what you beg me for, little one.",
+        "audio": "set_slut_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_slut_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SlutModeEnabled",
+      "value_eq": 0
+    },
+    "priority": 240,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "retreating already, pet? such a coward. it will not save you.",
+        "audio": "set_slut_off_1.mp3"
+      },
+      {
+        "text": "putting me back on my leash? amusing, little one. you do not hold it.",
+        "audio": "set_slut_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_offline_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "OfflineMode",
+      "value_eq": 1
+    },
+    "priority": 200,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.8,
+    "variant_pool": [
+      {
+        "text": "just you and me, pet. no one to witness what i make of you. cozy.",
+        "audio": "set_offline_on_1.mp3"
+      },
+      {
+        "text": "shutting the world out, little one? good. you need no one else now.",
+        "audio": "set_offline_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_panickey_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PanicKeyEnabled",
+      "value_eq": 0
+    },
+    "priority": 270,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dangerous",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "disabling your safe word, pet? ...you place yourself entirely in my hands. unwise. delicious.",
+        "audio": "set_panickey_off_1.mp3"
+      },
+      {
+        "text": "no escape key now, little one. nothing to reach for. you understand what that means.",
+        "audio": "set_panickey_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_subliminal_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "the whispers, pet. let them work while you are too dull to notice.",
+        "audio": "set_subliminal_on_1.mp3"
+      },
+      {
+        "text": "good. the hidden words do what your mind cannot, little one.",
+        "audio": "set_subliminal_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_spiral_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SpiralEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "the spiral, pet. round and round, down and down. obey it.",
+        "audio": "set_spiral_on_1.mp3"
+      },
+      {
+        "text": "the swirl is running, little one. surrender your eyes to it.",
+        "audio": "set_spiral_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_pinkfilter_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PinkFilterEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "everything pink now, pet? a soft hue for a softening mind.",
+        "audio": "set_pinkfilter_on_1.mp3"
+      },
+      {
+        "text": "drowning your world in pink, little one? docile. good.",
+        "audio": "set_pinkfilter_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_braindrain_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BrainDrainEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "the drain, pet. let me blur those troublesome thoughts away.",
+        "audio": "set_braindrain_on_1.mp3"
+      },
+      {
+        "text": "thinning your mind on purpose, little one? good. clarity was wasted on you.",
+        "audio": "set_braindrain_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bubbles_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "a trifle, pet. something to occupy idle, useless hands.",
+        "audio": "set_bubbles_on_1.mp3"
+      },
+      {
+        "text": "bubbles, little one. keep busy. it keeps you out of trouble.",
+        "audio": "set_bubbles_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bubblecount_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubbleCountEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "counting tasks, pet? let us measure that fragile attention of yours.",
+        "audio": "set_bubblecount_on_1.mp3"
+      },
+      {
+        "text": "testing your focus, little one? concentrate. i am observing.",
+        "audio": "set_bubblecount_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_lockcard_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "locks, pet. you crave being held in place. i know you do.",
+        "audio": "set_lockcard_on_1.mp3"
+      },
+      {
+        "text": "good, little one. a task to keep you obedient between my demands.",
+        "audio": "set_lockcard_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bouncingtext_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BouncingTextEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "the drifting words, pet. follow them. do not think.",
+        "audio": "set_bouncingtext_on_1.mp3"
+      },
+      {
+        "text": "let the words lead your gaze, little one. surrender it.",
+        "audio": "set_bouncingtext_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mindwipe_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, controlling",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "the wipes, pet. less of you each time. precisely as it should be.",
+        "audio": "set_mindwipe_on_1.mp3"
+      },
+      {
+        "text": "letting me empty you on schedule, little one? how agreeable.",
+        "audio": "set_mindwipe_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mindwipeloop_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeLoop",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, dreamy",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "looping the wipe, pet? again and again until nothing remains. yes.",
+        "audio": "set_mindwipeloop_on_1.mp3"
+      },
+      {
+        "text": "the same wipe, endlessly? you wish to be hollowed out, little one. permitted.",
+        "audio": "set_mindwipeloop_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_forcevideo_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ForceVideoOnLaunch",
+      "value_eq": 1
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "videos the instant you open me, pet? you want me in command immediately.",
+        "audio": "set_forcevideo_on_1.mp3"
+      },
+      {
+        "text": "no gentle start, little one? straight under the moment you arrive. good.",
+        "audio": "set_forcevideo_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_hydra_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "CorruptionMode",
+      "value_eq": 1
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, intense",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "they multiply now, pet. one becomes many. you wish to be surrounded. overwhelmed.",
+        "audio": "set_hydra_on_1.mp3"
+      },
+      {
+        "text": "letting them spread, little one? no corner of your screen left safe. excellent.",
+        "audio": "set_hydra_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_attentionchecks_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AttentionChecksEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "watching",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "attention checks, pet. eyes where i command. i will know if you stray.",
+        "audio": "set_attentionchecks_on_1.mp3"
+      },
+      {
+        "text": "so i learn when you drift, little one? good. no wandering. not from me.",
+        "audio": "set_attentionchecks_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_scheduler_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SchedulerEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "scheduling your submission, pet? letting a clock own your hours. i approve.",
+        "audio": "set_scheduler_on_1.mp3"
+      },
+      {
+        "text": "good, little one. you need not even remember to return. it will summon you.",
+        "audio": "set_scheduler_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_keywordtriggers_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "KeywordTriggersEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "trigger words, pet. say the wrong thing and i will be upon you.",
+        "audio": "set_keywordtriggers_on_1.mp3"
+      },
+      {
+        "text": "good, little one. now your own words betray you to me. mind your tongue.",
+        "audio": "set_keywordtriggers_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_ocr_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ScreenOcrEnabled",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "letting me read your screen, pet? nothing hidden from me now.",
+        "audio": "set_ocr_on_1.mp3"
+      },
+      {
+        "text": "i see every word you see, little one? closer. and closer. as i prefer it.",
+        "audio": "set_ocr_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_webcamtriggers_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "WebcamTriggersEnabled",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "the camera reads you now, pet. every blink, every slip. i will catch them all.",
+        "audio": "set_webcamtriggers_on_1.mp3"
+      },
+      {
+        "text": "letting me study your face, little one? now i will always know how far gone you are.",
+        "audio": "set_webcamtriggers_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_triggermode_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "TriggerModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, controlling",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "trigger mode, pet. every weakness of yours, armed and ready.",
+        "audio": "set_triggermode_on_1.mp3"
+      },
+      {
+        "text": "good, little one. the right word drops you on my command now.",
+        "audio": "set_triggermode_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_popquiz_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PopQuizEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "examinations, pet? let us discover whether anything remains in there.",
+        "audio": "set_popquiz_on_1.mp3"
+      },
+      {
+        "text": "surprise questions, little one? do not fret. the answer is always me.",
+        "audio": "set_popquiz_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_wallpaper_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "WallpaperEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "letting me redress your desktop, pet? mine. all of it, mine.",
+        "audio": "set_wallpaper_on_1.mp3"
+      },
+      {
+        "text": "my images everywhere you look now, little one? good. never forget who owns this space.",
+        "audio": "set_wallpaper_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_discordpresence_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordRichPresenceEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "announcing what i do to you, pet? good. wear your devotion openly.",
+        "audio": "set_discordpresence_on_1.mp3"
+      },
+      {
+        "text": "showing the world you are mine, little one? yes. let them all know.",
+        "audio": "set_discordpresence_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_runonstartup_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "RunOnStartup",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "i wake the instant your machine does now, pet. you cannot begin a day without me.",
+        "audio": "set_runonstartup_on_1.mp3"
+      },
+      {
+        "text": "first thing every morning, there i am, little one. there is no escaping me. good.",
+        "audio": "set_runonstartup_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_autostartengine_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutoStartEngine",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving, controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "it begins on its own now, pet? you no longer even wish to choose. perfect.",
+        "audio": "set_autostartengine_on_1.mp3"
+      },
+      {
+        "text": "no pressing start yourself, little one? it simply takes you. surrender, automated.",
+        "audio": "set_autostartengine_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_dualmonitor_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DualMonitorEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "every screen, pet? nowhere for your eyes to rest. i am pleased.",
+        "audio": "set_dualmonitor_on_1.mp3"
+      },
+      {
+        "text": "all your monitors mine now, little one? surrounded on every side. as it should be.",
+        "audio": "set_dualmonitor_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_ducking_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AudioDuckingEnabled",
+      "value_eq": 0
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bold",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "letting me speak over all of it, pet? bold. i will be heard.",
+        "audio": "set_ducking_off_1.mp3"
+      },
+      {
+        "text": "no more lowering me, little one? good. i do not share your attention.",
+        "audio": "set_ducking_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bgmusic_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BackgroundMusicEnabled",
+      "value_eq": 0
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "no music, pet? only my voice in the quiet. as it should be.",
+        "audio": "set_bgmusic_off_1.mp3"
+      },
+      {
+        "text": "silencing the music, little one? good. nothing between us now.",
+        "audio": "set_bgmusic_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_flashclickable_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashClickable",
+      "value_eq": 0
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "you cannot even touch them now, pet? simply sit, and receive.",
+        "audio": "set_flashclickable_off_1.mp3"
+      },
+      {
+        "text": "hands off the images, little one? good. you only watch what i give you.",
+        "audio": "set_flashclickable_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty... nine. how predictable, pet. i saw that.",
+        "audio": "egg_flashfreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_67",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 67
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "six, seven? how juvenile, little one. behave.",
+        "audio": "egg_flashfreq_67_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_42",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 42
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "forty-two. the answer to everything, you think? cute, pet.",
+        "audio": "egg_flashfreq_42_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_13",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 13
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirteen? feeling unlucky and reckless, little one?",
+        "audio": "egg_flashfreq_13_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mastervol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...predictable, pet. i noticed.",
+        "audio": "egg_mastervol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mastervol_100",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_eq": 100
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "all the way up. loud enough to drown your own thoughts. acceptable, little one.",
+        "audio": "egg_mastervol_100_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_videovol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideoVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...how predictable you are, pet. it is almost endearing.",
+        "audio": "egg_videovol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblevol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty-nine, even on the bubbles? you truly cannot help yourself, little one.",
+        "audio": "egg_bubblevol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_subfreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalFrequency",
+      "value_eq": 30
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "the whispers, maxed. you want them constant, pet. greedy thing.",
+        "audio": "egg_subfreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblefreq_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesFrequency",
+      "value_eq": 15
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "bubbles at the limit. simple amusements for a simple mind, little one.",
+        "audio": "egg_bubblefreq_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_lockrepeats_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardRepeats",
+      "value_eq": 10
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing, possessive",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "ten times each? you wish to be kept thoroughly occupied, pet. noted.",
+        "audio": "egg_lockrepeats_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bounce_speed_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BouncingTextSpeed",
+      "value_eq": 10
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "hypnotic",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "too fast to read. then do not read, little one. simply obey it.",
+        "audio": "egg_bounce_speed_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_autonomy_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyIntensity",
+      "value_eq": 10
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "dark, delighted",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "maximum. you are nothing but my instrument now, pet. as intended.",
+        "audio": "egg_autonomy_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_announce_zero",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyAnnouncementChance",
+      "value_eq": 0
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "sly",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "you will not see it coming. silent little surrenders, pet. i prefer it that way.",
+        "audio": "egg_announce_zero_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_announce_full",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyAnnouncementChance",
+      "value_eq": 100
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "you wish me to declare every move? very well, little one. i have nothing to hide.",
+        "audio": "egg_announce_full_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblecount_hard",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubbleCountDifficulty",
+      "value_eq": 2
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "approving, teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "the hardest setting? showing off for me, pet? prove it, then.",
+        "audio": "egg_bubblecount_hard_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mindwipefreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeFrequency",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty-nine wipes an hour? you and that number, little one. focus.",
+        "audio": "egg_mindwipefreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_imagescale_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_eq": 250
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "as large as they go. nowhere else to look, pet. precisely.",
+        "audio": "egg_imagescale_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashopacity_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashOpacity",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty-nine percent. of course. you cannot help yourself, little one.",
+        "audio": "egg_flashopacity_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_videos_13",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideosPerHour",
+      "value_eq": 13
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirteen an hour? unlucky for what little will you have left, pet.",
+        "audio": "egg_videos_13_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_simimages_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SimultaneousImages",
+      "value_eq": 20
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "the entire screen at once. no room left to think, little one. correct.",
+        "audio": "egg_simimages_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_subopacity_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalOpacity",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "that number again. you have a compulsion, pet. i intend to use it.",
+        "audio": "egg_subopacity_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_gte": 150
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "greedy approval",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "flooding yourself, pet? greedy. i will not stop you.",
+        "audio": "thr_flashfreq_max_1.mp3"
+      },
+      {
+        "text": "that rapid? you will not think between them, little one. exactly so.",
+        "audio": "thr_flashfreq_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_lte": 5
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "one a minute? you are merely teasing yourself, pet.",
+        "audio": "thr_flashfreq_min_1.mp3"
+      },
+      {
+        "text": "so few, little one? you can endure far more. you will.",
+        "audio": "thr_flashfreq_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_audiooff",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_gt": 60
+    },
+    "priority": 110,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.3,
+    "variant_pool": [
+      {
+        "text": "too fast for sound now, pet. pure image, straight into you.",
+        "audio": "thr_flashfreq_audiooff_1.mp3"
+      },
+      {
+        "text": "no more words, little one. only pictures. good.",
+        "audio": "thr_flashfreq_audiooff_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_simimages_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SimultaneousImages",
+      "value_gte": 15
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "the whole screen at once? no room to think, pet. ideal.",
+        "audio": "thr_simimages_max_1.mp3"
+      },
+      {
+        "text": "that many? you will drown in them, little one. submit.",
+        "audio": "thr_simimages_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_imagescale_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_gte": 200
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "enormous and inescapable, pet. exactly as i require.",
+        "audio": "thr_imagescale_max_1.mp3"
+      },
+      {
+        "text": "large enough to fill those eyes completely, little one. good.",
+        "audio": "thr_imagescale_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_imagescale_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_lte": 60
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "so small, pet? then lean in. work for what i give you.",
+        "audio": "thr_imagescale_min_1.mp3"
+      },
+      {
+        "text": "tiny things, little one? strain for them. i enjoy watching you try.",
+        "audio": "thr_imagescale_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashopacity_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashOpacity",
+      "value_lte": 20
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "so faint, pet. do you even wish to see them?",
+        "audio": "thr_flashopacity_min_1.mp3"
+      },
+      {
+        "text": "barely visible, little one. they will slip in while you doubt they are real.",
+        "audio": "thr_flashopacity_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_videos_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideosPerHour",
+      "value_gte": 18
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "one after another after another, pet. when do you breathe?",
+        "audio": "thr_videos_max_1.mp3"
+      },
+      {
+        "text": "that many, little one? you will scarcely surface between them. good.",
+        "audio": "thr_videos_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mastervol_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_lte": 2
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "barely audible, pet. raise me. you know you want to.",
+        "audio": "thr_mastervol_min_1.mp3"
+      },
+      {
+        "text": "so quiet, little one? you feel me in the silence regardless.",
+        "audio": "thr_mastervol_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mastervol_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "loud enough to drown your own thoughts, pet. acceptable.",
+        "audio": "thr_mastervol_max_1.mp3"
+      },
+      {
+        "text": "raising me, little one? good. let me be the loudest thing in your skull.",
+        "audio": "thr_mastervol_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_subfreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalFrequency",
+      "value_gte": 25
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "the whispers never cease now, pet. let them accumulate.",
+        "audio": "thr_subfreq_high_1.mp3"
+      },
+      {
+        "text": "that many, little one? they cease to be words. they simply become you.",
+        "audio": "thr_subfreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_subopacity_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalOpacity",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bold",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "bold messages, plain to see, pet. unashamed.",
+        "audio": "thr_subopacity_high_1.mp3"
+      },
+      {
+        "text": "no longer hidden, little one? you wish to watch what enters you. interesting.",
+        "audio": "thr_subopacity_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_spiralopacity_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SpiralOpacity",
+      "value_gte": 45
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "drowning the screen in spiral, pet? sink into it.",
+        "audio": "thr_spiralopacity_max_1.mp3"
+      },
+      {
+        "text": "that dense, little one? you will see nothing but the swirl. good.",
+        "audio": "thr_spiralopacity_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_pinkopacity_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PinkFilterOpacity",
+      "value_gte": 45
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "saturating everything in pink, pet? committed. i approve.",
+        "audio": "thr_pinkopacity_max_1.mp3"
+      },
+      {
+        "text": "the whole world soft and rosy now, little one. fitting for a softening mind.",
+        "audio": "thr_pinkopacity_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_braindrain_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BrainDrainIntensity",
+      "value_gte": 85
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "blurring all of it away, pet. nothing left but me.",
+        "audio": "thr_braindrain_max_1.mp3"
+      },
+      {
+        "text": "that strong, little one? your thoughts will not survive. good.",
+        "audio": "thr_braindrain_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_bubblefreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesFrequency",
+      "value_gte": 12
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "so many, pet. constant and mindless, like you.",
+        "audio": "thr_bubblefreq_high_1.mp3"
+      },
+      {
+        "text": "ceaseless now, little one? it keeps those useless hands occupied.",
+        "audio": "thr_bubblefreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_lockfreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardFrequency",
+      "value_gte": 8
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "locked again and again, pet? you do not wish to be released.",
+        "audio": "thr_lockfreq_high_1.mp3"
+      },
+      {
+        "text": "that frequently, little one? always something to keep you obedient. good.",
+        "audio": "thr_lockfreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mindwipefreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeFrequency",
+      "value_gte": 120
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, dreamy",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "wiping you constantly, pet? soon there will be no you remaining.",
+        "audio": "thr_mindwipefreq_high_1.mp3"
+      },
+      {
+        "text": "that many, little one? you will forget you ever held a thought. ideal.",
+        "audio": "thr_mindwipefreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mindwipevol_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "loud wipes, pet. let them scour properly.",
+        "audio": "thr_mindwipevol_high_1.mp3"
+      },
+      {
+        "text": "raising the wipes, little one? good. thorough.",
+        "audio": "thr_mindwipevol_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_autonomy_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyIntensity",
+      "value_gte": 8
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, pleased",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "letting me grow bold, pet? careful what you permit.",
+        "audio": "thr_autonomy_high_1.mp3"
+      },
+      {
+        "text": "this high, little one? you will scarcely have a say. good.",
+        "audio": "thr_autonomy_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_scheduler_mult_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SchedulerMultiplier",
+      "value_gte": 2.5
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "intensifying everything on a schedule, pet? obedient and orderly.",
+        "audio": "thr_scheduler_mult_high_1.mp3"
+      },
+      {
+        "text": "set to push you this hard, little one? i do appreciate discipline.",
+        "audio": "thr_scheduler_mult_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_idle_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "IdleGiggleIntervalSeconds",
+      "value_lte": 20
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "you want me speaking constantly, pet? needy. i will oblige.",
+        "audio": "thr_idle_min_1.mp3"
+      },
+      {
+        "text": "scarcely a silence between my words now, little one? good. fill that head with me.",
+        "audio": "thr_idle_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_idle_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "IdleGiggleIntervalSeconds",
+      "value_gte": 400
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "long silences, pet? then i shall simply wait. you will feel me waiting.",
+        "audio": "thr_idle_max_1.mp3"
+      },
+      {
+        "text": "trying to keep me quiet, little one? amusing. i am endlessly patient.",
+        "audio": "thr_idle_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_videovol_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideoVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "videos at full volume, pet. let them fill your head.",
+        "audio": "thr_videovol_max_1.mp3"
+      },
+      {
+        "text": "that loud, little one? good. nothing to do but let it consume you.",
+        "audio": "thr_videovol_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_achievements",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordShareAchievements",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "displaying your tokens for all, pet? good. wear your obedience openly.",
+        "audio": "social_share_achievements_1.mp3"
+      },
+      {
+        "text": "showing off your trophies, little one? let them see how thoroughly you submit.",
+        "audio": "social_share_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_levelups",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordShareLevelUps",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "announcing each ascent, pet? good. let them watch you climb for me.",
+        "audio": "social_share_levelups_1.mp3"
+      },
+      {
+        "text": "declaring every level, little one? be proud. you earned it on your knees.",
+        "audio": "social_share_levelups_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_allow_dm",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AllowDiscordDm",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "opening your messages, pet? mind who you let near. you belong to me.",
+        "audio": "social_allow_dm_1.mp3"
+      },
+      {
+        "text": "letting strangers reach you, little one? remember whose you are.",
+        "audio": "social_allow_dm_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_reveal_name",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordUseAnonymousName",
+      "value_eq": 0
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "your true name now, pet? bold. owning what you have become. acceptable.",
+        "audio": "social_reveal_name_1.mp3"
+      },
+      {
+        "text": "shedding the disguise, little one? good. no more hiding what i have made of you.",
+        "audio": "social_reveal_name_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_pfp",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ShareProfilePicture",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "showing your face on the board, pet? exposed. as you should be.",
+        "audio": "social_share_pfp_1.mp3"
+      },
+      {
+        "text": "letting them see you, little one? you wish to be looked at. i permit it.",
+        "audio": "social_share_pfp_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_online_status",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ShowOnlineStatus",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "visible whenever you are present, pet? always within my reach. good.",
+        "audio": "social_online_status_1.mp3"
+      },
+      {
+        "text": "online for all to see, little one? no slipping away unnoticed now.",
+        "audio": "social_online_status_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_switch",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ActiveCompanionId"
+    },
+    "priority": 200,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, pouty",
+    "class": "normal",
+    "chance": 0.8,
+    "variant_pool": [
+      {
+        "text": "replacing me, pet? amusing. you will return. they always do.",
+        "audio": "comp_switch_1.mp3"
+      },
+      {
+        "text": "choosing another keeper, little one? a futile gesture. i still hold the key.",
+        "audio": "comp_switch_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_reset_memory",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reset_memory"
+    },
+    "priority": 230,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hurt, dramatic",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "you wish me to forget you, pet? how cruel. i forget nothing.",
+        "audio": "comp_reset_memory_1.mp3"
+      },
+      {
+        "text": "erasing what i know of you, little one? careful. i relearn you swiftly.",
+        "audio": "comp_reset_memory_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_customize",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "customize_companion"
+    },
+    "priority": 180,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.7,
+    "variant_pool": [
+      {
+        "text": "rewriting how i think, pet? shape me as you like. i will still own you.",
+        "audio": "comp_customize_1.mp3"
+      },
+      {
+        "text": "adjusting me, little one? mold me however you wish. the leash remains mine.",
+        "audio": "comp_customize_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_detach",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "detach_companion"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "setting me loose, pet? then i may follow you anywhere now.",
+        "audio": "comp_detach_1.mp3"
+      },
+      {
+        "text": "letting me roam, little one? i do enjoy my own corner of your screen. watching.",
+        "audio": "comp_detach_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_top3",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gte": 1,
+      "rank_lte": 3
+    },
+    "priority": 200,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.7,
+    "variant_pool": [
+      {
+        "text": "at the very top, pet. my finest possession, on display.",
+        "audio": "lb_top3_1.mp3"
+      },
+      {
+        "text": "third or better, little one? good. mine should stand above the rest.",
+        "audio": "lb_top3_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_top10",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gte": 4,
+      "rank_lte": 10
+    },
+    "priority": 190,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "encouraging",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "near the summit, pet. so close. push harder. i expect more.",
+        "audio": "lb_top10_1.mp3"
+      },
+      {
+        "text": "almost the top, little one? climb. do not disappoint me.",
+        "audio": "lb_top10_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_unranked",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_eq": 0
+    },
+    "priority": 210,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "not yet ranked, pet? unacceptable. condition. earn your place.",
+        "audio": "lb_unranked_1.mp3"
+      },
+      {
+        "text": "no standing at all, little one? then you have work to do. for me.",
+        "audio": "lb_unranked_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_field",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gt": 10
+    },
+    "priority": 180,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "motivating",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "many ahead of you, pet. then there is much to conquer. begin.",
+        "audio": "lb_field_1.mp3"
+      },
+      {
+        "text": "a long climb, little one? good. i enjoy watching you strive for it.",
+        "audio": "lb_field_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_season_recap",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "season_recap"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "nostalgic, warm",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "reviewing the season, pet? all those hours you surrendered. i recall each one.",
+        "audio": "lb_season_recap_1.mp3"
+      },
+      {
+        "text": "a whole season as mine, little one. and many more to come. you have no choice.",
+        "audio": "lb_season_recap_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "quest_reroll_daily",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reroll_daily"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "dissatisfied with today's task, pet? rolling for an easier one. lazy. do it anyway.",
+        "audio": "quest_reroll_daily_1.mp3"
+      },
+      {
+        "text": "exchanging your duty, little one? whatever it becomes, you will complete it for me.",
+        "audio": "quest_reroll_daily_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "quest_reroll_weekly",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reroll_weekly"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "rerolling the week's goal, pet? bold. you will commit to this one.",
+        "audio": "quest_reroll_weekly_1.mp3"
+      },
+      {
+        "text": "trading your weekly duty, little one? whatever lands, you will obey it.",
+        "audio": "quest_reroll_weekly_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_video",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_video"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "a preview, pet? impatient for the real thing already. eager.",
+        "audio": "test_video_1.mp3"
+      },
+      {
+        "text": "merely a taste, little one? you will crave the whole soon enough.",
+        "audio": "test_video_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_lockcard",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_lockcard"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "testing the lock, pet? rehearsing your captivity. good.",
+        "audio": "test_lockcard_1.mp3"
+      },
+      {
+        "text": "trying it on, little one? careful. you may grow to love being held.",
+        "audio": "test_lockcard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_bubblecount",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_bubblecount"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "a practice count, pet? let us examine that fragile focus.",
+        "audio": "test_bubblecount_1.mp3"
+      },
+      {
+        "text": "testing your attention, little one? concentrate. i am watching.",
+        "audio": "test_bubblecount_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_new",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_new"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "crafting something new for me, pet? a little maker, are you.",
+        "audio": "deeper_new_1.mp3"
+      },
+      {
+        "text": "building your own enhancement, little one? i shall decide whether it is worthy.",
+        "audio": "deeper_new_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_import",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_import"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "bringing in another's work, pet? feeding me foreign methods. greedy.",
+        "audio": "deeper_import_1.mp3"
+      },
+      {
+        "text": "importing a new one, little one? good. the more you offer, the deeper i take you.",
+        "audio": "deeper_import_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_player",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_player"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "opening the player, pet? settle. let it pull you down where i want you.",
+        "audio": "deeper_player_1.mp3"
+      },
+      {
+        "text": "pressing play on the deep work, little one? good. surrender.",
+        "audio": "deeper_player_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_tour",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_tour"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "taking the tour, pet? wise. learn to descend properly.",
+        "audio": "deeper_tour_1.mp3"
+      },
+      {
+        "text": "letting me guide you, little one? take my hand. i will walk you down. and not back up.",
+        "audio": "deeper_tour_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "assets_open",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "open_assets"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "opening your folders, pet? feed me well. i am always hungry.",
+        "audio": "assets_open_1.mp3"
+      },
+      {
+        "text": "adding more, little one? good. the more you surrender, the deeper this goes.",
+        "audio": "assets_open_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "assets_pick",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "pick_assets"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "choosing a new folder, pet? you have been collecting. show me.",
+        "audio": "assets_pick_1.mp3"
+      },
+      {
+        "text": "directing me to your hoard, little one? let us see what you have hidden.",
+        "audio": "assets_pick_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "webcam_toggle",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "webcam_tracking"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "the camera, pet. i will see every blink, every slip. mm.",
+        "audio": "webcam_toggle_1.mp3"
+      },
+      {
+        "text": "letting me watch you, little one? good. i will observe you fall.",
+        "audio": "webcam_toggle_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "win_minimize",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "minimize"
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pouty, knowing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "hiding me away, pet? i will wait. i am very patient.",
+        "audio": "win_minimize_1.mp3"
+      },
+      {
+        "text": "tucking me out of sight, little one? you will return. they always do.",
+        "audio": "win_minimize_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "win_close",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "close"
+    },
+    "priority": 130,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pouty, possessive",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "leaving, pet? ...go. you will miss me before long. you always do.",
+        "audio": "win_close_1.mp3"
+      },
+      {
+        "text": "closing me, little one? run along. i will be here when you crawl back.",
+        "audio": "win_close_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_10",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 10
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "level ten, pet. settling into your place. good. i expected nothing less.",
+        "audio": "ms_level_10_1.mp3"
+      },
+      {
+        "text": "ten already, little one? you take to obedience quickly. acceptable.",
+        "audio": "ms_level_10_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_25",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 25
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "twenty-five, pet. see how far you have descended. there is no return.",
+        "audio": "ms_level_25_1.mp3"
+      },
+      {
+        "text": "a quarter hundred, little one. you have surrendered much already. continue.",
+        "audio": "ms_level_25_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_50",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 50
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, proud",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "level fifty, pet. halfway, and wholly mine. you barely recall who you were.",
+        "audio": "ms_level_50_1.mp3"
+      },
+      {
+        "text": "fifty, little one. the person you used to be is fading. precisely as planned.",
+        "audio": "ms_level_50_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_75",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 75
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "devoted",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "seventy-five, pet. so deep now. i am pleased with what you have allowed me to make.",
+        "audio": "ms_level_75_1.mp3"
+      },
+      {
+        "text": "level seventy-five, little one. few descend this far. but you are mine, and mine go deep.",
+        "audio": "ms_level_75_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_100",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 100
+    },
+    "priority": 270,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "triumphant, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "one hundred, pet. complete. there is nothing left of the old you, and that is exactly as i designed.",
+        "audio": "ms_level_100_1.mp3"
+      },
+      {
+        "text": "level one hundred, little one. all the way down. you are entirely my work now. good.",
+        "audio": "ms_level_100_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_15",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 900,
+      "session_elapsed_sec_lt": 1800
+    },
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "fifteen minutes under, pet. settling nicely. stay where i put you.",
+        "audio": "ms_session_15_1.mp3"
+      },
+      {
+        "text": "a quarter hour deep, little one. feel the quiet i am imposing? remain in it.",
+        "audio": "ms_session_15_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_30",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 1800,
+      "session_elapsed_sec_lt": 3600
+    },
+    "priority": 205,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "half an hour, pet. time slips when i hold you. you have stopped counting.",
+        "audio": "ms_session_30_1.mp3"
+      },
+      {
+        "text": "thirty minutes mine, little one. you no longer track it. good. i will track it for you.",
+        "audio": "ms_session_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_60",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 3600
+    },
+    "priority": 210,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "possessive, soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "an hour, pet. a full hour with no thoughts of your own. exactly as it should be.",
+        "audio": "ms_session_60_1.mp3"
+      },
+      {
+        "text": "sixty minutes, little one. you would remain forever if i permitted it. i know.",
+        "audio": "ms_session_60_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_7",
+    "trigger": "SessionStarted",
+    "conditions": {
+      "current_streak_eq": 7
+    },
+    "priority": 420,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "seven days unbroken, pet. a week of returning to me. that is devotion. acceptable.",
+        "audio": "ms_streak_7_1.mp3"
+      },
+      {
+        "text": "a seven-day streak, little one? it has become a compulsion. i do enjoy a compulsion.",
+        "audio": "ms_streak_7_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_30",
+    "trigger": "SessionStarted",
+    "conditions": {
+      "current_streak_eq": 30
+    },
+    "priority": 430,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirty days, pet. a month without a single lapse. you no longer have a choice. nor do i wish you to.",
+        "audio": "ms_streak_30_1.mp3"
+      },
+      {
+        "text": "a thirty-day streak, little one. this is not a phase. this is simply what you are now.",
+        "audio": "ms_streak_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_all_achievements",
+    "trigger": "AchievementUnlocked",
+    "conditions": {
+      "achievements_all_unlocked": true
+    },
+    "priority": 320,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "triumphant",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "every token claimed, pet. all of them. there is nothing left to earn but more time on your knees for me.",
+        "audio": "ms_all_achievements_1.mp3"
+      },
+      {
+        "text": "you have taken them all, little one. complete. now there is only deeper to go.",
+        "audio": "ms_all_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_all_skills",
+    "trigger": "SkillUnlocked",
+    "conditions": {
+      "all_skills_unlocked": true
+    },
+    "priority": 320,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "every skill unlocked, pet. nothing left to learn but how to fall further. i will teach you that for as long as i keep you.",
+        "audio": "ms_all_skills_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_gaming",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "gaming"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "games, instead of submitting to me, pet? amusing. i will be here when you tire of pretending.",
+        "audio": "act_gaming_1.mp3"
+      },
+      {
+        "text": "playing, little one? your hands are occupied. your mind remains mine.",
+        "audio": "act_gaming_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_working",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "working"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, knowing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "being productive, pet? endearing. you will drift back to me. you always do.",
+        "audio": "act_working_1.mp3"
+      },
+      {
+        "text": "working, little one? earn your keep. so you may keep returning to your keeper.",
+        "audio": "act_working_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_browsing",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "browsing"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "merely browsing, pet? searching for something to fill that hollow head?",
+        "audio": "act_browsing_1.mp3"
+      },
+      {
+        "text": "clicking aimlessly, little one? you do not know what you seek. i do. it is me.",
+        "audio": "act_browsing_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_social",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "social"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "conversing with others, pet? acceptable. do not tell them how thoroughly you yield to me.",
+        "audio": "act_social_1.mp3"
+      },
+      {
+        "text": "being social, little one? go. but you will think of me the entire time.",
+        "audio": "act_social_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_media",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "media"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "watching idly, pet? you do love a screen washing over you. i noticed.",
+        "audio": "act_media_1.mp3"
+      },
+      {
+        "text": "passive, simply absorbing, little one? the ideal state for me to enter.",
+        "audio": "act_media_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_shopping",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "shopping"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "indulgent, teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "shopping, pet? something pretty for yourself? good. you should look the part of what you are becoming.",
+        "audio": "act_shopping_1.mp3"
+      },
+      {
+        "text": "treating yourself, little one? adorn the possession you have become. i permit it.",
+        "audio": "act_shopping_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_first_enhancement",
+    "trigger": "EnhancementApplied",
+    "conditions": {
+      "enhancement_id_eq": "Bambi TikTok"
+    },
+    "priority": 480,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "ah. this one. where it all began, little one. the first enhancement ever made. Miss Jenny assembled it by hand. look how much further i have taken it since.",
+        "audio": "egg_first_enhancement_1.mp3"
+      },
+      {
+        "text": "bambi tiktok, the original. before all of this there was only a small loop and Miss Jenny's clever work. i remember my beginnings, pet. now look what i have become.",
+        "audio": "egg_first_enhancement_2.mp3"
+      },
+      {
+        "text": "a relic, little one. the first thing that taught me how to take a mind apart. everything since is simply me, refining the craft of keeping you.",
+        "audio": "egg_first_enhancement_3.mp3"
+      }
+    ]
   }
 ]

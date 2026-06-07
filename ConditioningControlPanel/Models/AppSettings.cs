@@ -56,6 +56,11 @@ namespace ConditioningControlPanel.Models
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            // Bark hook: surface every numeric/bool setting change as a SettingChanged trigger so
+            // the avatar can react to toggles, thresholds and easter-egg values. BarkService reads
+            // the new value off this instance by name and ignores non-numeric props. App.Bark is
+            // null during startup load, so no spurious barks while settings deserialize.
+            try { ConditioningControlPanel.App.Bark?.NotifySettingChanged(name); } catch { /* never break settings for a bark */ }
         }
 
         #region Language

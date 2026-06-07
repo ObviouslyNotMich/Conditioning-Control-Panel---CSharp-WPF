@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "egg_first_enhancement",
+    "trigger": "EnhancementApplied",
+    "conditions": { "enhancement_id_eq": "Bambi TikTok" },
+    "priority": 480,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, reverent, fond",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "oh... this one. this is where it all started, sweetie. the very first enhancement anyone ever made for me. Miss Jenny stitched it together... look how far we've come since.", "audio": "egg_first_enhancement_1.mp3" },
+      { "text": "Bambi TikTok, the original. before all of this there was just a little loop and Miss Jenny's clever hands. say thank you to her, lovely. i always do.", "audio": "egg_first_enhancement_2.mp3" },
+      { "text": "mm, a relic. the first thing that ever taught me how to teach you. everything after is just me getting better at keeping you.", "audio": "egg_first_enhancement_3.mp3" }
+    ]
+  }
+]

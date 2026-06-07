@@ -1978,6 +1978,7 @@ namespace ConditioningControlPanel
 
         private void BtnMinimize_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("minimize"); } catch { }
             // Hide avatar tube BEFORE minimizing to prevent visual artifacts
             HideAvatarTube();
             WindowState = WindowState.Minimized;
@@ -2013,6 +2014,7 @@ namespace ConditioningControlPanel
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("close"); } catch { }
             Close();
         }
 
@@ -2675,6 +2677,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperWelcomeTour_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_tour"); } catch { }
             DismissDeeperWelcomeCard();
             StartDeeperTabTutorial();
         }
@@ -2787,6 +2790,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperNewEnhancement_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_new"); } catch { }
             var dialog = new Views.Deeper.NewEnhancementDialog { Owner = this };
             if (dialog.ShowDialog() != true) return;
 
@@ -2798,6 +2802,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperOpenPlayer_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_player"); } catch { }
             try
             {
                 var win = new Views.Deeper.EnhancementPlayerWindow(App.DeeperPlayer, App.DeeperHost) { Owner = this };
@@ -2885,6 +2890,7 @@ namespace ConditioningControlPanel
 
         private async void BtnWebcamTracking_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("webcam_tracking"); } catch { }
             var svc = App.Webcam;
             if (svc == null) return;
 
@@ -3298,6 +3304,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperImport_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_import"); } catch { }
             var dlg = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Import enhancement",
@@ -3770,6 +3777,7 @@ namespace ConditioningControlPanel
 
         private void BtnRerollDaily_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("reroll_daily"); } catch { }
             if (App.Quests?.RerollDailyQuest() == true)
             {
                 RefreshQuestUI();
@@ -3786,6 +3794,7 @@ namespace ConditioningControlPanel
 
         private void BtnRerollWeekly_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("reroll_weekly"); } catch { }
             if (App.Quests?.RerollWeeklyQuest() == true)
             {
                 RefreshQuestUI();
@@ -4853,6 +4862,7 @@ namespace ConditioningControlPanel
         /// <summary>Re-view the most recent season's recap card from its persisted snapshot.</summary>
         private void BtnViewSeasonRecap_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("season_recap"); } catch { }
             try
             {
                 var snapshot = Services.SeasonRecapService.LoadLatest();
@@ -7101,6 +7111,9 @@ namespace ConditioningControlPanel
                 ShowAppInfoPopup();
                 return;
             }
+
+            // Bark hook: announce navigation (gated/chanced in the rules so it isn't spammy).
+            try { App.Bark?.NotifyTabNavigated(tab); } catch { }
 
             // Stop animations on tabs we're leaving to reduce idle CPU
             StopSeasonTitleShimmer();
@@ -9778,6 +9791,9 @@ namespace ConditioningControlPanel
                     UpdateTrophyCaseColumns();
                     // Show/hide Seasons column based on mode
                     UpdateSeasonsColumn();
+
+                    // Bark hook: react to the user's standing when the board loads.
+                    try { App.Bark?.NotifyLeaderboardViewed(App.Leaderboard.YourRank ?? 0, App.Leaderboard.TotalUsers); } catch { }
                 }
                 else
                 {
@@ -11449,6 +11465,7 @@ namespace ConditioningControlPanel
 
         private void BtnDetachCompanion_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("detach_companion"); } catch { }
             if (_avatarTubeWindow == null) return;
 
             _avatarTubeWindow.ToggleDetached();
@@ -11468,6 +11485,7 @@ namespace ConditioningControlPanel
 
         private void BtnCustomizeCompanion_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("customize_companion"); } catch { }
             var dialog = new CompanionPromptEditorDialog
             {
                 Owner = this
@@ -11480,6 +11498,7 @@ namespace ConditioningControlPanel
 
         private void BtnResetCompanionMemory_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("reset_memory"); } catch { }
             var confirm = System.Windows.MessageBox.Show(
                 this,
                 "Wipe the companion's chat memory?\n\nThis clears the AI's conversation history both in memory and on disk, plus the chat log shown in the avatar bubble. " +
@@ -18579,6 +18598,17 @@ namespace ConditioningControlPanel
             };
             _activeFeaturePopup = popup;
             popup.Show(); // Non-modal so bubbles and other interactions keep working
+
+            // Bark hook: identify the feature by control type (locale-independent), e.g.
+            // FlashFeatureControl -> "Flash". Gated/chanced in the rules so it isn't spammy.
+            try
+            {
+                var feat = content.GetType().Name;
+                const string suffix = "FeatureControl";
+                if (feat.EndsWith(suffix)) feat = feat.Substring(0, feat.Length - suffix.Length);
+                App.Bark?.NotifyFeatureOpened(feat);
+            }
+            catch { }
         }
 
         private void CardFlash_Click(object sender, RoutedEventArgs e) =>
@@ -25687,6 +25717,7 @@ namespace ConditioningControlPanel
 
         private void BtnTestBubbleCount_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("test_bubblecount"); } catch { }
             App.BubbleCount.TriggerGame(forceTest: true);
         }
 
@@ -26196,6 +26227,9 @@ namespace ConditioningControlPanel
             // Track for Neon Obsession achievement (20 rapid clicks on the avatar/logo)
             App.Achievements?.TrackAvatarClick();
 
+            // Bark hook: rolling 60s click count drives the click-escalation eggs.
+            try { App.Bark?.NotifyAvatarClicked(); } catch { }
+
             // Log click count for debugging
             var clickCount = App.Achievements?.Progress.AvatarClickCount ?? 0;
             App.Logger?.Debug("Logo/Avatar clicked! Count: {Count}/20", clickCount);
@@ -26628,6 +26662,7 @@ namespace ConditioningControlPanel
 
         private void BtnTestVideo_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("test_video"); } catch { }
             try
             {
                 // Check if video is already playing - offer force reset if stuck
@@ -26799,6 +26834,7 @@ namespace ConditioningControlPanel
 
         private void BtnTestLockCard_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("test_lockcard"); } catch { }
             var phrases = App.Settings.Current.LockCardPhrases;
             var enabledPhrases = phrases.Where(p => p.Value).Select(p => p.Key).ToList();
             
@@ -26901,6 +26937,7 @@ namespace ConditioningControlPanel
 
         private void BtnOpenAssetsFolder_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("open_assets"); } catch { }
             var assetsPath = App.EffectiveAssetsPath;
             Directory.CreateDirectory(Path.Combine(assetsPath, "images"));
             Directory.CreateDirectory(Path.Combine(assetsPath, "videos"));
@@ -28921,6 +28958,7 @@ namespace ConditioningControlPanel
 
         private void BtnPickAssetsFolder_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("pick_assets"); } catch { }
             var dialog = new System.Windows.Forms.FolderBrowserDialog
             {
                 Description = "Select a folder for your custom assets (images and videos).\nTwo subfolders 'images' and 'videos' will be created.",

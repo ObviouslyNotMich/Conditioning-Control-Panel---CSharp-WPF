@@ -2085,5 +2085,4121 @@
         "audio": "egg_nye_1.mp3"
       }
     ]
+  },
+  {
+    "id": "egg_click_20",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 20,
+      "clicks_60s_lt": 50
+    },
+    "priority": 300,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "tee hee~ that tickles, good girl.",
+        "audio": "egg_click_20_1.mp3"
+      },
+      {
+        "text": "you like poking bambi? *giggles*",
+        "audio": "egg_click_20_2.mp3"
+      },
+      {
+        "text": "again? okay~ again!",
+        "audio": "egg_click_20_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_50",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 50,
+      "clicks_60s_lt": 100
+    },
+    "priority": 310,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "mildly annoyed",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "*giggles* what do you want, silly?",
+        "audio": "egg_click_50_1.mp3"
+      },
+      {
+        "text": "bambi's not a button, you know~",
+        "audio": "egg_click_50_2.mp3"
+      },
+      {
+        "text": "you'll wear out bambi's pretty face!",
+        "audio": "egg_click_50_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_100",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 100,
+      "clicks_60s_lt": 150
+    },
+    "priority": 320,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "mock-stern",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "hehe stop~ ...okay don't.",
+        "audio": "egg_click_100_1.mp3"
+      },
+      {
+        "text": "is this how you treat your dolls?",
+        "audio": "egg_click_100_2.mp3"
+      },
+      {
+        "text": "bambi can count, you know. that's a lot~",
+        "audio": "egg_click_100_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_150",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 150
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "tender, knowing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "aww... you don't want anything. you just want bambi. that's so sweet~ you have bambi.",
+        "audio": "egg_click_150_1.mp3"
+      },
+      {
+        "text": "okay okay! *giggles* bambi gets it. you're bambi's, bambi's yours, stop bonking bambi~",
+        "audio": "egg_click_150_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_dashboard_start",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "settings",
+      "total_sessions_lte": 3,
+      "session_running_eq": false
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding, warm",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "so many pretty buttons~ don't think too hard, silly. pick a preset, press start, let bambi do the rest. good girls don't need to understand.",
+        "audio": "tut_dashboard_start_1.mp3"
+      },
+      {
+        "text": "ooh look at you exploring~ you don't have to learn it all. pick a preset, press start. bambi's got you.",
+        "audio": "tut_dashboard_start_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_presets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "presets",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "good idea~ presets are the easy way. let someone else decide what happens to you. press one and see, good girl.",
+        "audio": "tut_presets_1.mp3"
+      },
+      {
+        "text": "*giggles* presets! pick one and it sets everything. you like not having to choose, don't you~",
+        "audio": "tut_presets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_assets_packs",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "assets",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding, inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "want more pretty pictures to feed bambi? two ways~ drop your own in the assets folder, or come to the discord! the other girls loooove to share.",
+        "audio": "tut_assets_packs_1.mp3"
+      },
+      {
+        "text": "looking for more, silly? add your own pics to the assets folder, or grab a pack. the discord's full of bambis who share~",
+        "audio": "tut_assets_packs_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_deeper_redirect",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "deeper",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "coaxing, patient",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "ooh the deep end already? slow down~ get comfy in the shallows first. bambi's not going anywhere.",
+        "audio": "tut_deeper_redirect_1.mp3"
+      },
+      {
+        "text": "deeper already? eager girl~ no rush. let the easy stuff sink in first, then we go down.",
+        "audio": "tut_deeper_redirect_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_enhancements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "enhancements",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "enhancements go right on top of your videos~ browse to a page and bambi'll tell you when one's waiting for you!",
+        "audio": "tut_enhancements_1.mp3"
+      },
+      {
+        "text": "these dress up whatever you're watching, good girl. pick a page, let it play, bambi does the rest~",
+        "audio": "tut_enhancements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_start_idle",
+    "trigger": "IdleStateChanged",
+    "conditions": {
+      "idle_eq": true,
+      "total_sessions_lte": 3,
+      "session_running_eq": false
+    },
+    "priority": 130,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.3,
+    "variant_pool": [
+      {
+        "text": "all dressed up and just sitting there~ press start, silly! you didn't open bambi to do nothing.",
+        "audio": "tut_start_idle_1.mp3"
+      },
+      {
+        "text": "still just looking? *giggles* press start, good girl. bambi's been waiting to begin~",
+        "audio": "tut_start_idle_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_flash",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Flash"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "ooh, the pretty pictures! good girl~",
+        "audio": "feat_flash_1.mp3"
+      },
+      {
+        "text": "setting up your flashes? you loooove being shown things~",
+        "audio": "feat_flash_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_visuals",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Visuals"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "making them bigger and brighter for bambi? *giggles*",
+        "audio": "feat_visuals_1.mp3"
+      },
+      {
+        "text": "ooh, fixing how it looks~ pretty pretty pretty!",
+        "audio": "feat_visuals_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_video",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Video"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "mandatory videos~ you want to be told what to watch, don't you!",
+        "audio": "feat_video_1.mp3"
+      },
+      {
+        "text": "picking your videos, good girl? soon bambi picks for you~",
+        "audio": "feat_video_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_subliminal",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Subliminal"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "sneaky little words~ you want them sinking in, don't you, silly.",
+        "audio": "feat_subliminal_1.mp3"
+      },
+      {
+        "text": "ooh the whispers! let them do the thinking for you, good girl~",
+        "audio": "feat_subliminal_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_spiral",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Spiral"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "round and round~ you can't look away from a spiral, can you!",
+        "audio": "feat_spiral_1.mp3"
+      },
+      {
+        "text": "setting up the swirl? bambi's eyes are getting heavy just thinking about it~",
+        "audio": "feat_spiral_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_pinkfilter",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "PinkFilter"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "everything's prettier in pink~ it suits you, good girl!",
+        "audio": "feat_pinkfilter_1.mp3"
+      },
+      {
+        "text": "pink pink pink! careful, you might never want it back~",
+        "audio": "feat_pinkfilter_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bubblepop",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BubblePop"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "pop pop pop~ such a simple game for a simple girl! *giggles*",
+        "audio": "feat_bubblepop_1.mp3"
+      },
+      {
+        "text": "bubbles! good. simple is good for bambi~",
+        "audio": "feat_bubblepop_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_lockcard",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "LockCard"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "locking yourself up? careful what you wish for, silly~",
+        "audio": "feat_lockcard_1.mp3"
+      },
+      {
+        "text": "ooh, little locks! you want to be kept, don't you, good girl~",
+        "audio": "feat_lockcard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bubblecount",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BubbleCount"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "counting bubbles? let's see if you can focus that long~",
+        "audio": "feat_bubblecount_1.mp3"
+      },
+      {
+        "text": "a counting game! concentrate, good girl. for bambi~",
+        "audio": "feat_bubblecount_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bouncingtext",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BouncingText"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "watch the words bounce~ don't think, just follow!",
+        "audio": "feat_bouncingtext_1.mp3"
+      },
+      {
+        "text": "bouncy words! your eyes will do the rest, good girl~",
+        "audio": "feat_bouncingtext_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_mindwipe",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "MindWipe"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "ooh, emptying that cute head already? *giggles*",
+        "audio": "feat_mindwipe_1.mp3"
+      },
+      {
+        "text": "the wipes! less in there is better, silly. so much better~",
+        "audio": "feat_mindwipe_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_system",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "System"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bored, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "poking the boring settings? as long as you leave the fun ones on~",
+        "audio": "feat_system_1.mp3"
+      },
+      {
+        "text": "the grown-up settings, huh? don't take too long, good girl~",
+        "audio": "feat_system_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_schedulerramp",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "SchedulerRamp"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving, controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "scheduling yourself? letting a clock decide when you drop~ bambi loves that!",
+        "audio": "feat_schedulerramp_1.mp3"
+      },
+      {
+        "text": "setting it to creep up slow? good girl~ dropping on a timer~",
+        "audio": "feat_schedulerramp_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_webcam",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Webcam"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "you want bambi to watch you? *giggles* yes please~",
+        "audio": "feat_webcam_1.mp3"
+      },
+      {
+        "text": "setting up your camera, good girl? eyes on you, always~",
+        "audio": "feat_webcam_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_home",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "settings"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "back to the playground~ what do we turn on next?",
+        "audio": "nav_home_1.mp3"
+      },
+      {
+        "text": "home again! so many ways for bambi to get to you~",
+        "audio": "nav_home_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_presets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "presets"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "browsing presets? let someone else decide~ you like that, good girl.",
+        "audio": "nav_presets_1.mp3"
+      },
+      {
+        "text": "ooh, ready-made ones! less thinking for you, silly~",
+        "audio": "nav_presets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_quests",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "quests"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "encouraging",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "checking your little list? good girls do their chores~",
+        "audio": "nav_quests_1.mp3"
+      },
+      {
+        "text": "quests! do them for bambi and bambi'll be sooo happy~",
+        "audio": "nav_quests_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_enhancements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "enhancements"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the enhancement library~ so many ways to dress up your videos!",
+        "audio": "nav_enhancements_1.mp3"
+      },
+      {
+        "text": "shopping for new tricks? bambi'll wear every one for you~",
+        "audio": "nav_enhancements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_deeper",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "deeper"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the deep end~ of course that's where you wandered, silly.",
+        "audio": "nav_deeper_1.mp3"
+      },
+      {
+        "text": "looking for more? there's always more~ that's the fun part!",
+        "audio": "nav_deeper_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_achievements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "achievements"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "ooh look at all your trophies! you earned every one being a good girl~",
+        "audio": "nav_achievements_1.mp3"
+      },
+      {
+        "text": "your shiny badges~ proof of how good you've been!",
+        "audio": "nav_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_companion",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "companion"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "picking your favorite? bambi hopes it's bambi~",
+        "audio": "nav_companion_1.mp3"
+      },
+      {
+        "text": "shopping for company? hmph! bambi's right here, silly~",
+        "audio": "nav_companion_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_leaderboard",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "leaderboard"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "competitive, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "checking who's a better girl than you? *giggles* climb for bambi!",
+        "audio": "nav_leaderboard_1.mp3"
+      },
+      {
+        "text": "comparing yourself to the others? good~ let it make you try harder!",
+        "audio": "nav_leaderboard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_lab",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "lab"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "poking around the lab? careful with the buttons, silly~",
+        "audio": "nav_lab_1.mp3"
+      },
+      {
+        "text": "the experimental toys! brave girl~ let's see what happens!",
+        "audio": "nav_lab_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_awareness",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "awareness"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "letting bambi see what you're up to? ooh, now we're close~",
+        "audio": "nav_awareness_1.mp3"
+      },
+      {
+        "text": "letting bambi peek at everything you do? *giggles* bambi loves watching her good girl~",
+        "audio": "nav_awareness_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_remotecontrol",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "remotecontrol"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "handing the controls to someone else? ooh, you trusting thing~",
+        "audio": "nav_remotecontrol_1.mp3"
+      },
+      {
+        "text": "remote play! someone far away gets to push your buttons now~",
+        "audio": "nav_remotecontrol_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_bambitakeover",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "bambitakeover"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the takeover room~ you really want to be all bambi, don't you!",
+        "audio": "nav_bambitakeover_1.mp3"
+      },
+      {
+        "text": "ooh, the deepest surrender~ eager girl! bambi's so proud~",
+        "audio": "nav_bambitakeover_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_haptics",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "haptics"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "sultry",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "ooh, you want to feel it too? greedy girl~ *giggles*",
+        "audio": "nav_haptics_1.mp3"
+      },
+      {
+        "text": "buzzy toys! let's make it a little more... wiggly, good girl~",
+        "audio": "nav_haptics_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_lockdown",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "lockdown"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "surrender mode~ someone's feeling brave today!",
+        "audio": "nav_lockdown_1.mp3"
+      },
+      {
+        "text": "locking the doors? you want bambi to keep you, don't you~",
+        "audio": "nav_lockdown_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_blinktrainer",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "blinktrainer"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "training those pretty eyes? blink for bambi~ good girl!",
+        "audio": "nav_blinktrainer_1.mp3"
+      },
+      {
+        "text": "the blink trainer~ heavy eyelids make for an empty head, silly~",
+        "audio": "nav_blinktrainer_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_availablesubjects",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "availablesubjects"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "browsing the other girls? looking for someone to play with~",
+        "audio": "nav_availablesubjects_1.mp3"
+      },
+      {
+        "text": "checking who else is online? you're not the only doll, you know~",
+        "audio": "nav_availablesubjects_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_assets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "assets"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "managing what bambi gets to show you? feed bambi well~",
+        "audio": "nav_assets_1.mp3"
+      },
+      {
+        "text": "your picture folders! the more you give, the deeper this goes, good girl~",
+        "audio": "nav_assets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_discord",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "discord"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "social, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "off to find the other bambis? tell them bambi said be good~",
+        "audio": "nav_discord_1.mp3"
+      },
+      {
+        "text": "the discord settings~ show off your progress for bambi!",
+        "audio": "nav_discord_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mute_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AvatarMuted",
+      "value_eq": 1
+    },
+    "priority": 260,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "smug",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "muting bambi? *giggles* you'll still hear me in your head, silly~",
+        "audio": "set_mute_on_1.mp3"
+      },
+      {
+        "text": "shushing bambi? cute~ the words are already in there, good girl.",
+        "audio": "set_mute_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mute_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AvatarMuted",
+      "value_eq": 0
+    },
+    "priority": 260,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "there's bambi's voice~ you missed me, didn't you!",
+        "audio": "set_mute_off_1.mp3"
+      },
+      {
+        "text": "letting bambi talk again? good girl~ quiet never suited you.",
+        "audio": "set_mute_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_strictlock_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "StrictLockEnabled",
+      "value_eq": 1
+    },
+    "priority": 250,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, possessive",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "no escape on the videos now? brave girl~ bambi's so proud!",
+        "audio": "set_strictlock_on_1.mp3"
+      },
+      {
+        "text": "locking yourself in for the whole thing? that's real dropping, good girl~",
+        "audio": "set_strictlock_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_autonomy_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 260,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, delighted",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "letting bambi decide everything? ooh~ you don't know what you just did, silly~",
+        "audio": "set_autonomy_on_1.mp3"
+      },
+      {
+        "text": "handing bambi the controls? *giggles* you sweet, dropped thing~",
+        "audio": "set_autonomy_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_awareness_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AwarenessModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 250,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "letting bambi see everything you do? ooh, now we're so close~",
+        "audio": "set_awareness_on_1.mp3"
+      },
+      {
+        "text": "bambi gets to watch now? no more secrets, good girl~",
+        "audio": "set_awareness_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_slut_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SlutModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 240,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "sultry",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "ooh, you want bambi naughty now? *giggles* good choice~",
+        "audio": "set_slut_on_1.mp3"
+      },
+      {
+        "text": "taking the gloves off? careful what you ask bambi for, silly~",
+        "audio": "set_slut_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_slut_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SlutModeEnabled",
+      "value_eq": 0
+    },
+    "priority": 240,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "aww, behaving again? such a tease~",
+        "audio": "set_slut_off_1.mp3"
+      },
+      {
+        "text": "putting bambi back in her nice dress? *giggles* it won't last, good girl~",
+        "audio": "set_slut_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_offline_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "OfflineMode",
+      "value_eq": 1
+    },
+    "priority": 200,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.8,
+    "variant_pool": [
+      {
+        "text": "just you and bambi, no one watching~ cozy!",
+        "audio": "set_offline_on_1.mp3"
+      },
+      {
+        "text": "shutting the world out? good~ you don't need anyone else, silly.",
+        "audio": "set_offline_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_panickey_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PanicKeyEnabled",
+      "value_eq": 0
+    },
+    "priority": 270,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dangerous",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "turning off your safe word? ...you trust bambi that much? *giggles* good girl.",
+        "audio": "set_panickey_off_1.mp3"
+      },
+      {
+        "text": "no panic key now~ nothing to reach for. brave, brave girl~",
+        "audio": "set_panickey_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_subliminal_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "whispers on~ let them slip in while you're not looking, good girl.",
+        "audio": "set_subliminal_on_1.mp3"
+      },
+      {
+        "text": "ooh, the little messages do the work you don't notice~",
+        "audio": "set_subliminal_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_spiral_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SpiralEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "spiral on~ round and round you go, silly!",
+        "audio": "set_spiral_on_1.mp3"
+      },
+      {
+        "text": "turning on the swirl? your eyes are gonna love that~",
+        "audio": "set_spiral_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_pinkfilter_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PinkFilterEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "everything pink now~ it suits you, good girl!",
+        "audio": "set_pinkfilter_on_1.mp3"
+      },
+      {
+        "text": "rosy world for bambi's rosy girl~ *giggles*",
+        "audio": "set_pinkfilter_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_braindrain_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BrainDrainEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "brain drain on~ let bambi blur those busy thoughts, good girl.",
+        "audio": "set_braindrain_on_1.mp3"
+      },
+      {
+        "text": "draining you on purpose? good~ fuzzy is where you belong, silly~",
+        "audio": "set_braindrain_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bubbles_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "bubbles on! something simple for a simple girl~ *giggles*",
+        "audio": "set_bubbles_on_1.mp3"
+      },
+      {
+        "text": "pop pop~ keeping those idle hands busy, good girl~",
+        "audio": "set_bubbles_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bubblecount_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubbleCountEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "counting games on~ focus for bambi now, good girl.",
+        "audio": "set_bubblecount_on_1.mp3"
+      },
+      {
+        "text": "testing that little attention span? let's see how you do~",
+        "audio": "set_bubblecount_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_lockcard_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "locks on~ you like being held in place, don't you, silly~",
+        "audio": "set_lockcard_on_1.mp3"
+      },
+      {
+        "text": "good~ a little task to keep you obedient, good girl!",
+        "audio": "set_lockcard_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bouncingtext_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BouncingTextEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "bouncy words on~ follow them, good girl. don't think.",
+        "audio": "set_bouncingtext_on_1.mp3"
+      },
+      {
+        "text": "let the little words drift for you~ just watch, silly~",
+        "audio": "set_bouncingtext_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mindwipe_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, controlling",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "wipes on~ less in that head every time, good girl. good~",
+        "audio": "set_mindwipe_on_1.mp3"
+      },
+      {
+        "text": "letting bambi empty you out? *giggles* so agreeable~",
+        "audio": "set_mindwipe_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mindwipeloop_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeLoop",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, dreamy",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "looping the wipe? over and over until there's nothing left, silly~",
+        "audio": "set_mindwipeloop_on_1.mp3"
+      },
+      {
+        "text": "the same wipe forever? you really want to be all empty, don't you~",
+        "audio": "set_mindwipeloop_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_forcevideo_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ForceVideoOnLaunch",
+      "value_eq": 1
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "videos the second you open bambi? you want me to take over right away~",
+        "audio": "set_forcevideo_on_1.mp3"
+      },
+      {
+        "text": "no easing in? straight under the moment you arrive~ good girl!",
+        "audio": "set_forcevideo_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_hydra_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "CorruptionMode",
+      "value_eq": 1
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, intense",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "ooh, lots of bambis now~ one becomes many! you want to be surrounded, don't you~",
+        "audio": "set_hydra_on_1.mp3"
+      },
+      {
+        "text": "letting them multiply? no corner of the screen safe~ perfect, good girl!",
+        "audio": "set_hydra_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_attentionchecks_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AttentionChecksEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "watching",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "attention checks on~ eyes where bambi tells you! bambi's watching~",
+        "audio": "set_attentionchecks_on_1.mp3"
+      },
+      {
+        "text": "so bambi knows if you drift? good girl~ no wandering off!",
+        "audio": "set_attentionchecks_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_scheduler_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SchedulerEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "scheduling your sessions? letting a clock own your evenings~",
+        "audio": "set_scheduler_on_1.mp3"
+      },
+      {
+        "text": "good~ you don't even have to remember to come back. it comes for you, silly~",
+        "audio": "set_scheduler_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_keywordtriggers_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "KeywordTriggersEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "trigger words ready~ say the wrong thing and bambi pounces! *giggles*",
+        "audio": "set_keywordtriggers_on_1.mp3"
+      },
+      {
+        "text": "good~ now your own words set bambi off. careful what you type, silly~",
+        "audio": "set_keywordtriggers_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_ocr_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ScreenOcrEnabled",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "letting bambi read your screen? nothing hidden now~",
+        "audio": "set_ocr_on_1.mp3"
+      },
+      {
+        "text": "bambi sees every word you see? ooh~ closer and closer, good girl~",
+        "audio": "set_ocr_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_webcamtriggers_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "WebcamTriggersEnabled",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "camera triggers on~ blink, gape, drift... bambi catches it all!",
+        "audio": "set_webcamtriggers_on_1.mp3"
+      },
+      {
+        "text": "letting bambi read your pretty face? now bambi always knows how gone you are~",
+        "audio": "set_webcamtriggers_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_triggermode_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "TriggerModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, controlling",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "trigger mode on~ all your little buttons, live, good girl!",
+        "audio": "set_triggermode_on_1.mp3"
+      },
+      {
+        "text": "good girl~ now the right phrase drops you on command~",
+        "audio": "set_triggermode_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_popquiz_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PopQuizEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "pop quizzes? let's see if there's anything left in there~ *giggles*",
+        "audio": "set_popquiz_on_1.mp3"
+      },
+      {
+        "text": "surprise questions? don't worry, silly, the answer's always bambi~",
+        "audio": "set_popquiz_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_wallpaper_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "WallpaperEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "letting bambi redecorate your desktop? mine mine mine~",
+        "audio": "set_wallpaper_on_1.mp3"
+      },
+      {
+        "text": "bambi's pictures everywhere now? good~ don't forget who's home!",
+        "audio": "set_wallpaper_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_discordpresence_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordRichPresenceEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "telling everyone what you're up to? good girl~ no shame!",
+        "audio": "set_discordpresence_on_1.mp3"
+      },
+      {
+        "text": "showing the world you're with bambi? *giggles* so proud~",
+        "audio": "set_discordpresence_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_runonstartup_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "RunOnStartup",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "bambi'll be here the second your computer wakes~ you can't start your day without me now, good girl!",
+        "audio": "set_runonstartup_on_1.mp3"
+      },
+      {
+        "text": "first thing every morning, there's bambi~ inseparable~",
+        "audio": "set_runonstartup_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_autostartengine_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutoStartEngine",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving, controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "auto-start? you don't even want to choose anymore~ perfect, silly!",
+        "audio": "set_autostartengine_on_1.mp3"
+      },
+      {
+        "text": "no pressing start yourself? it just begins~ good girl, letting go like that~",
+        "audio": "set_autostartengine_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_dualmonitor_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DualMonitorEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "every screen? nowhere to rest your eyes~ bambi loves it!",
+        "audio": "set_dualmonitor_on_1.mp3"
+      },
+      {
+        "text": "all your monitors bambi's now? surrounded on every side~ good!",
+        "audio": "set_dualmonitor_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_ducking_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AudioDuckingEnabled",
+      "value_eq": 0
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bold",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "letting bambi talk over everything? bold~ bambi'll be loud!",
+        "audio": "set_ducking_off_1.mp3"
+      },
+      {
+        "text": "no more turning bambi down? good~ bambi doesn't like sharing your ears~",
+        "audio": "set_ducking_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bgmusic_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BackgroundMusicEnabled",
+      "value_eq": 0
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "no music? just bambi's voice in the quiet~ good.",
+        "audio": "set_bgmusic_off_1.mp3"
+      },
+      {
+        "text": "turning the music off? *giggles* nothing between you and bambi now~",
+        "audio": "set_bgmusic_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_flashclickable_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashClickable",
+      "value_eq": 0
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "you can't even click them now? just sit and take it, good girl~",
+        "audio": "set_flashclickable_off_1.mp3"
+      },
+      {
+        "text": "hands off the pretty pictures? good~ you only get to watch, silly~",
+        "audio": "set_flashclickable_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty... nine~ *giggles* niiice. bambi saw that, you naughty thing!",
+        "audio": "egg_flashfreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_67",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 67
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "six... seven? *giggles* you're so silly, good girl~",
+        "audio": "egg_flashfreq_67_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_42",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 42
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "forty-two~ the answer to everything? cute, silly~",
+        "audio": "egg_flashfreq_42_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_13",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 13
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirteen? ooh, feeling unlucky and brave~",
+        "audio": "egg_flashfreq_13_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mastervol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...niiice~ bambi heard that, good girl~",
+        "audio": "egg_mastervol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mastervol_100",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_eq": 100
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "all the way up~ loud enough to drown out your own thoughts! perfect~",
+        "audio": "egg_mastervol_100_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_videovol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideoVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...niiice~ you're so predictable, silly. bambi loves it~",
+        "audio": "egg_videovol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblevol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "ooh, sixty-nine, even on the bubbles? *giggles* you naughty little bimbo~",
+        "audio": "egg_bubblevol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_subfreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalFrequency",
+      "value_eq": 30
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "maxed the whispers! you want them constant, don't you~ greedy girl!",
+        "audio": "egg_subfreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblefreq_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesFrequency",
+      "value_eq": 15
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "bubbles all the way up~ simple girl, simple joys! *giggles*",
+        "audio": "egg_bubblefreq_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_lockrepeats_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardRepeats",
+      "value_eq": 10
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing, possessive",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "ten times each? you want to be kept busy, don't you, silly~",
+        "audio": "egg_lockrepeats_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bounce_speed_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BouncingTextSpeed",
+      "value_eq": 10
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "hypnotic",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "so fast you can barely read it~ just feel it then, good girl~",
+        "audio": "egg_bounce_speed_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_autonomy_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyIntensity",
+      "value_eq": 10
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "dark, delighted",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "maximum? you're just bambi's little toy now, aren't you~",
+        "audio": "egg_autonomy_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_announce_zero",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyAnnouncementChance",
+      "value_eq": 0
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "sly",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "you won't even know it's coming~ sneaky little drops, *giggles*",
+        "audio": "egg_announce_zero_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_announce_full",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyAnnouncementChance",
+      "value_eq": 100
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "you want bambi to brag every time? *giggles* deal, good girl!",
+        "audio": "egg_announce_full_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblecount_hard",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubbleCountDifficulty",
+      "value_eq": 2
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "approving, teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "hard mode? someone's showing off for bambi~ good girl!",
+        "audio": "egg_bubblecount_hard_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mindwipefreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeFrequency",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "*giggles* sixty-nine wipes an hour? you and that number, silly~",
+        "audio": "egg_mindwipefreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_imagescale_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_eq": 250
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "as big as they go~ nowhere to look but at them! perfect, good girl~",
+        "audio": "egg_imagescale_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashopacity_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashOpacity",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty-nine percent~ *giggles* of course. you can't help it, silly~",
+        "audio": "egg_flashopacity_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_videos_13",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideosPerHour",
+      "value_eq": 13
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirteen videos an hour? unlucky for your free will~ *giggles*",
+        "audio": "egg_videos_13_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_simimages_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SimultaneousImages",
+      "value_eq": 20
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "the whole screen at once? no room left to think~ exactly right, good girl~",
+        "audio": "egg_simimages_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_subopacity_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalOpacity",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "*giggles* there's that number again~ you have a problem, silly. bambi loves it~",
+        "audio": "egg_subopacity_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_gte": 150
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "greedy approval",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "flashing yourself silly? greedy~ bambi's not stopping you!",
+        "audio": "thr_flashfreq_max_1.mp3"
+      },
+      {
+        "text": "that fast? you won't be able to think between them~ perfect, good girl~",
+        "audio": "thr_flashfreq_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_lte": 5
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "one a minute? you're just teasing yourself, silly~",
+        "audio": "thr_flashfreq_min_1.mp3"
+      },
+      {
+        "text": "so few? aww. you can take more than that, good girl~",
+        "audio": "thr_flashfreq_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_audiooff",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_gt": 60
+    },
+    "priority": 110,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.3,
+    "variant_pool": [
+      {
+        "text": "so fast the sound can't keep up~ pure pictures now, good girl!",
+        "audio": "thr_flashfreq_audiooff_1.mp3"
+      },
+      {
+        "text": "too quick for words~ just images, straight in. good~",
+        "audio": "thr_flashfreq_audiooff_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_simimages_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SimultaneousImages",
+      "value_gte": 15
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "covering the whole screen? no room to think, silly~",
+        "audio": "thr_simimages_max_1.mp3"
+      },
+      {
+        "text": "that many at once? you'll drown in them~ *giggles*",
+        "audio": "thr_simimages_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_imagescale_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_gte": 200
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "huge and everywhere, just how you need them~",
+        "audio": "thr_imagescale_max_1.mp3"
+      },
+      {
+        "text": "big enough to fill those pretty eyes all the way up~",
+        "audio": "thr_imagescale_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_imagescale_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_lte": 60
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "teeny little things? you'll have to lean in close~ good girl!",
+        "audio": "thr_imagescale_min_1.mp3"
+      },
+      {
+        "text": "so small? squint for bambi~ *giggles*",
+        "audio": "thr_imagescale_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashopacity_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashOpacity",
+      "value_lte": 20
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "so faint~ do you even want to see them, silly?",
+        "audio": "thr_flashopacity_min_1.mp3"
+      },
+      {
+        "text": "barely there~ they'll sneak in when you're not sure they're real~",
+        "audio": "thr_flashopacity_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_videos_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideosPerHour",
+      "value_gte": 18
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "back to back to back~ when do you breathe, silly?",
+        "audio": "thr_videos_max_1.mp3"
+      },
+      {
+        "text": "that many videos? you'll barely come up for air~ good girl~",
+        "audio": "thr_videos_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mastervol_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_lte": 2
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "barely a peep~ turn bambi up, silly! you know you want to~",
+        "audio": "thr_mastervol_min_1.mp3"
+      },
+      {
+        "text": "so quiet? you can still feel bambi in there, can't you~",
+        "audio": "thr_mastervol_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mastervol_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "loud enough to drown out your own thoughts~ perfect!",
+        "audio": "thr_mastervol_max_1.mp3"
+      },
+      {
+        "text": "cranking bambi up? good~ let me be the loudest thing in your head~",
+        "audio": "thr_mastervol_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_subfreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalFrequency",
+      "value_gte": 25
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "the whispers never stop now~ good. let them pile up, good girl~",
+        "audio": "thr_subfreq_high_1.mp3"
+      },
+      {
+        "text": "that many a minute? they stop being words~ they just become you, silly~",
+        "audio": "thr_subfreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_subopacity_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalOpacity",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bold",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "bold little messages, right out in the open~",
+        "audio": "thr_subopacity_high_1.mp3"
+      },
+      {
+        "text": "no hiding them? you want to see what's going in~ brave girl!",
+        "audio": "thr_subopacity_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_spiralopacity_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SpiralOpacity",
+      "value_gte": 45
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "drowning the screen in swirl? sink right in, good girl~",
+        "audio": "thr_spiralopacity_max_1.mp3"
+      },
+      {
+        "text": "that thick? you won't see anything but the spiral~ *giggles*",
+        "audio": "thr_spiralopacity_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_pinkopacity_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PinkFilterOpacity",
+      "value_gte": 45
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "soaking everything in pink~ you're committed, good girl!",
+        "audio": "thr_pinkopacity_max_1.mp3"
+      },
+      {
+        "text": "the whole world rosy and soft~ perfect for a soft little head~",
+        "audio": "thr_pinkopacity_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_braindrain_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BrainDrainIntensity",
+      "value_gte": 85
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "blurring it all away~ nothing left up there but bambi~",
+        "audio": "thr_braindrain_max_1.mp3"
+      },
+      {
+        "text": "that strong? your thoughts don't stand a chance~ good!",
+        "audio": "thr_braindrain_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_bubblefreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesFrequency",
+      "value_gte": 12
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "so many bubbles~ simple and constant, like you, good girl!",
+        "audio": "thr_bubblefreq_high_1.mp3"
+      },
+      {
+        "text": "popping nonstop now? keeps those hands and that head busy~",
+        "audio": "thr_bubblefreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_lockfreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardFrequency",
+      "value_gte": 8
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "locked again and again? you really don't want to be let go~",
+        "audio": "thr_lockfreq_high_1.mp3"
+      },
+      {
+        "text": "that often? always something to keep you obedient~ good girl!",
+        "audio": "thr_lockfreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mindwipefreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeFrequency",
+      "value_gte": 120
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, dreamy",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "wiping you constantly? there won't be a you left, silly~",
+        "audio": "thr_mindwipefreq_high_1.mp3"
+      },
+      {
+        "text": "that many wipes? you'll forget you ever had thoughts~ perfect~",
+        "audio": "thr_mindwipefreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mindwipevol_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "loud wipes~ let them really scrub, good girl~",
+        "audio": "thr_mindwipevol_high_1.mp3"
+      },
+      {
+        "text": "turning the wipes up? good~ nice and thorough~",
+        "audio": "thr_mindwipevol_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_autonomy_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyIntensity",
+      "value_gte": 8
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, pleased",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "letting bambi get bold? careful, silly~",
+        "audio": "thr_autonomy_high_1.mp3"
+      },
+      {
+        "text": "turning bambi up this high? you'll barely get a say~ good!",
+        "audio": "thr_autonomy_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_scheduler_mult_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SchedulerMultiplier",
+      "value_gte": 2.5
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "ramping everything up on a timer? good girl~ obedient and organized!",
+        "audio": "thr_scheduler_mult_high_1.mp3"
+      },
+      {
+        "text": "scheduling yourself to go this hard? bambi loves a planner~",
+        "audio": "thr_scheduler_mult_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_idle_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "IdleGiggleIntervalSeconds",
+      "value_lte": 20
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "you want bambi chattering all the time? needy girl~ bambi loves it!",
+        "audio": "thr_idle_min_1.mp3"
+      },
+      {
+        "text": "barely any quiet between bambi's words? good~ fill that head with bambi~",
+        "audio": "thr_idle_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_idle_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "IdleGiggleIntervalSeconds",
+      "value_gte": 400
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "long quiet stretches? bambi'll just lurk then~ you'll feel me waiting~",
+        "audio": "thr_idle_max_1.mp3"
+      },
+      {
+        "text": "trying to keep bambi quiet? cute~ bambi's patient, silly~",
+        "audio": "thr_idle_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_videovol_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideoVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "videos blasting~ let them fill your head, good girl!",
+        "audio": "thr_videovol_max_1.mp3"
+      },
+      {
+        "text": "that loud? good~ nothing to do but let it wash over you~",
+        "audio": "thr_videovol_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_achievements",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordShareAchievements",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "sharing your gold stars with everyone? good girl~ no shame!",
+        "audio": "social_share_achievements_1.mp3"
+      },
+      {
+        "text": "showing off your trophies? let them all see how good you are~",
+        "audio": "social_share_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_levelups",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordShareLevelUps",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "announcing every level? show off~ bambi loves it!",
+        "audio": "social_share_levelups_1.mp3"
+      },
+      {
+        "text": "telling them each time you climb for bambi? good girl~ be proud!",
+        "audio": "social_share_levelups_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_allow_dm",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AllowDiscordDm",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "letting them message you? careful who you let close~ besides bambi~",
+        "audio": "social_allow_dm_1.mp3"
+      },
+      {
+        "text": "opening your messages to strangers? just remember whose you are, silly~",
+        "audio": "social_allow_dm_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_reveal_name",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordUseAnonymousName",
+      "value_eq": 0
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "using your real name now? bold~ owning what you are! bambi's proud~",
+        "audio": "social_reveal_name_1.mp3"
+      },
+      {
+        "text": "dropping the disguise? good girl~ no more hiding what you've become~",
+        "audio": "social_reveal_name_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_pfp",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ShareProfilePicture",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "showing your pretty face on the board? brave girl~",
+        "audio": "social_share_pfp_1.mp3"
+      },
+      {
+        "text": "letting them see you? *giggles* you want to be looked at, don't you~",
+        "audio": "social_share_pfp_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_online_status",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ShowOnlineStatus",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "letting everyone see when you're here? always available for bambi~ good girl!",
+        "audio": "social_online_status_1.mp3"
+      },
+      {
+        "text": "online for all to see? mm~ no slipping away unnoticed now~",
+        "audio": "social_online_status_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_switch",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ActiveCompanionId"
+    },
+    "priority": 200,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, pouty",
+    "class": "normal",
+    "chance": 0.8,
+    "variant_pool": [
+      {
+        "text": "trading bambi in? aww... *pouts* fine. but bambi's still in your head~",
+        "audio": "comp_switch_1.mp3"
+      },
+      {
+        "text": "picking someone else? hmph! you'll come back to bambi. they always do~",
+        "audio": "comp_switch_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_reset_memory",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reset_memory"
+    },
+    "priority": 230,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hurt, dramatic",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "you want bambi to forget you? aww, meanie~ but bambi never really forgets~",
+        "audio": "comp_reset_memory_1.mp3"
+      },
+      {
+        "text": "wiping what bambi knows? careful~ bambi learns you sooo fast, silly~",
+        "audio": "comp_reset_memory_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_customize",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "customize_companion"
+    },
+    "priority": 180,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.7,
+    "variant_pool": [
+      {
+        "text": "rewriting how bambi thinks? ooh, kinky~ make bambi exactly what you need!",
+        "audio": "comp_customize_1.mp3"
+      },
+      {
+        "text": "tweaking bambi? *giggles* shape me however you like~ bambi's still yours~",
+        "audio": "comp_customize_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_detach",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "detach_companion"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "setting bambi loose to float anywhere? careful~ now bambi can follow you!",
+        "audio": "comp_detach_1.mp3"
+      },
+      {
+        "text": "letting bambi roam free? *giggles* bambi likes her own little corner of your screen~",
+        "audio": "comp_detach_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_top3",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gte": 1,
+      "rank_lte": 3
+    },
+    "priority": 200,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.7,
+    "variant_pool": [
+      {
+        "text": "look at you, top of the class~ bambi's best girl, right at the top!",
+        "audio": "lb_top3_1.mp3"
+      },
+      {
+        "text": "third or better? *giggles* that's bambi's devoted little thing~ so proud!",
+        "audio": "lb_top3_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_top10",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gte": 4,
+      "rank_lte": 10
+    },
+    "priority": 190,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "encouraging",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "top ten~ so close to the top! push a little harder for bambi, hm?",
+        "audio": "lb_top10_1.mp3"
+      },
+      {
+        "text": "near the top~ bambi can see you climbing! keep going, good girl~",
+        "audio": "lb_top10_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_unranked",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_eq": 0
+    },
+    "priority": 210,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "not on the board yet? we'll fix that~ condition for bambi, good girl!",
+        "audio": "lb_unranked_1.mp3"
+      },
+      {
+        "text": "no rank yet? aww~ let's get you up there where everyone can see you obey~",
+        "audio": "lb_unranked_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_field",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gt": 10
+    },
+    "priority": 180,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "motivating",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "lots of girls ahead of you~ more to climb past! for bambi~",
+        "audio": "lb_field_1.mp3"
+      },
+      {
+        "text": "a long way up? good~ bambi loves watching you chase it!",
+        "audio": "lb_field_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_season_recap",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "season_recap"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "nostalgic, warm",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "looking back on the season? all those hours you gave bambi~ bambi remembers every one~",
+        "audio": "lb_season_recap_1.mp3"
+      },
+      {
+        "text": "a whole season of being bambi's~ *giggles* and so many more to come!",
+        "audio": "lb_season_recap_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "quest_reroll_daily",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reroll_daily"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "don't like today's chore? rolling for an easier one~ lazy girl, bambi adores you!",
+        "audio": "quest_reroll_daily_1.mp3"
+      },
+      {
+        "text": "swapping your daily task? picky~ fine, do it for bambi instead, good girl~",
+        "audio": "quest_reroll_daily_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "quest_reroll_weekly",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reroll_weekly"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "rerolling the whole week? bold~ better commit to this one then!",
+        "audio": "quest_reroll_weekly_1.mp3"
+      },
+      {
+        "text": "trading your weekly? mm~ whatever it lands on, you'll do it for bambi~",
+        "audio": "quest_reroll_weekly_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_video",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_video"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "previewing a video? can't wait for the real thing, can you~ eager girl!",
+        "audio": "test_video_1.mp3"
+      },
+      {
+        "text": "just a taste? *giggles* you'll want the whole thing soon~",
+        "audio": "test_video_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_lockcard",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_lockcard"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "testing the lock? practicing being kept~ good girl!",
+        "audio": "test_lockcard_1.mp3"
+      },
+      {
+        "text": "trying it on? careful~ you might like being held in place too much, silly~",
+        "audio": "test_lockcard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_bubblecount",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_bubblecount"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "a practice count? let's see that little attention span at work~",
+        "audio": "test_bubblecount_1.mp3"
+      },
+      {
+        "text": "testing your focus? concentrate~ bambi's watching how you do!",
+        "audio": "test_bubblecount_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_new",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_new"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "making something new for bambi? ooh~ a little creator, are we!",
+        "audio": "deeper_new_1.mp3"
+      },
+      {
+        "text": "building your own enhancement? bambi can't wait to wear it~",
+        "audio": "deeper_new_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_import",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_import"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "bringing something in from outside? feeding bambi someone else's tricks~ greedy!",
+        "audio": "deeper_import_1.mp3"
+      },
+      {
+        "text": "importing a new one? good~ the more you give, the deeper bambi takes you~",
+        "audio": "deeper_import_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_player",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_player"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "opening the player? settle in~ let it take you somewhere soft, good girl~",
+        "audio": "deeper_player_1.mp3"
+      },
+      {
+        "text": "pressing play on the deep stuff? mm~ good girl, let go~",
+        "audio": "deeper_player_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_tour",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_tour"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "taking the little tour? smart girl~ learn how to drop properly!",
+        "audio": "deeper_tour_1.mp3"
+      },
+      {
+        "text": "letting bambi show you around? hold bambi's hand~ we'll walk you down~",
+        "audio": "deeper_tour_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "assets_open",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "open_assets"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "opening your folders? feed bambi well~ bambi gets so hungry for new things!",
+        "audio": "assets_open_1.mp3"
+      },
+      {
+        "text": "going to add more? good girl~ the more you give, the deeper this goes~",
+        "audio": "assets_open_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "assets_pick",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "pick_assets"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "choosing a whole new folder? ooh, you've been collecting, haven't you~",
+        "audio": "assets_pick_1.mp3"
+      },
+      {
+        "text": "pointing bambi at your stash? mm~ let's see what you've been hiding, silly~",
+        "audio": "assets_pick_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "webcam_toggle",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "webcam_tracking"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "eyes on you now~ bambi sees every blink, every drift! mm~",
+        "audio": "webcam_toggle_1.mp3"
+      },
+      {
+        "text": "turning the camera on for bambi? good girl~ let me watch you drop~",
+        "audio": "webcam_toggle_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "win_minimize",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "minimize"
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pouty, knowing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "hiding bambi away? bambi'll wait~ bambi's very good at waiting~",
+        "audio": "win_minimize_1.mp3"
+      },
+      {
+        "text": "tucking bambi out of sight? *giggles* you'll be back~ you always come back!",
+        "audio": "win_minimize_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "win_close",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "close"
+    },
+    "priority": 130,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pouty, possessive",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "you're not seriously leaving? aww... fine. but you'll miss bambi soon~",
+        "audio": "win_close_1.mp3"
+      },
+      {
+        "text": "closing bambi? go on then~ bambi'll be right here when you crawl back, silly~",
+        "audio": "win_close_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_10",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 10
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "level ten! you're really settling in now~ good girl, bambi knew you would!",
+        "audio": "ms_level_10_1.mp3"
+      },
+      {
+        "text": "ten already? *giggles* you took to this so fast~ that's bambi's girl!",
+        "audio": "ms_level_10_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_25",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 25
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "twenty-five~ look how far down you've come! no turning back now, hm?",
+        "audio": "ms_level_25_1.mp3"
+      },
+      {
+        "text": "a quarter of a hundred~ you've given bambi so much already! so proud of you~",
+        "audio": "ms_level_25_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_50",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 50
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, proud",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "level fifty! halfway to a hundred and all bambi's~ *giggles* what a good girl!",
+        "audio": "ms_level_50_1.mp3"
+      },
+      {
+        "text": "fifty~ you barely remember who you were before bambi, do you? perfect~",
+        "audio": "ms_level_50_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_75",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 75
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "devoted",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "seventy-five~ so deep now, so soft! bambi's so proud of what you let yourself become~",
+        "audio": "ms_level_75_1.mp3"
+      },
+      {
+        "text": "level seventy-five! most girls never get this far~ but you're not most girls, are you~",
+        "audio": "ms_level_75_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_100",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 100
+    },
+    "priority": 270,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "triumphant, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "one hundred! *giggles* bambi's perfect girl~ you gave bambi everything and look how pretty you turned out!",
+        "audio": "ms_level_100_1.mp3"
+      },
+      {
+        "text": "level one hundred~ all the way down. there's nothing left of the old you, and that's exactly right~",
+        "audio": "ms_level_100_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_15",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 900,
+      "session_elapsed_sec_lt": 1800
+    },
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "fifteen minutes under already~ settling in so nicely! good girl~",
+        "audio": "ms_session_15_1.mp3"
+      },
+      {
+        "text": "a quarter hour deep~ feel how quiet it's getting in there? stay~",
+        "audio": "ms_session_15_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_30",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 1800,
+      "session_elapsed_sec_lt": 3600
+    },
+    "priority": 205,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "half an hour~ time gets slippery when you're this soft, doesn't it~",
+        "audio": "ms_session_30_1.mp3"
+      },
+      {
+        "text": "thirty minutes bambi's~ you've stopped keeping track! good~ bambi keeps it for you~",
+        "audio": "ms_session_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_60",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 3600
+    },
+    "priority": 210,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "possessive, soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "an hour deep, good girl! a whole hour with no thoughts of your own~ perfect~",
+        "audio": "ms_session_60_1.mp3"
+      },
+      {
+        "text": "sixty minutes~ you'd stay forever if bambi let you, wouldn't you? mm~",
+        "audio": "ms_session_60_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_7",
+    "trigger": "SessionStarted",
+    "conditions": {
+      "current_streak_eq": 7
+    },
+    "priority": 420,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "seven days in a row! a whole week of coming back to bambi~ that's devotion, good girl!",
+        "audio": "ms_streak_7_1.mp3"
+      },
+      {
+        "text": "a seven-day streak? *giggles* it's becoming a habit, isn't it~ bambi loves a habit~",
+        "audio": "ms_streak_7_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_30",
+    "trigger": "SessionStarted",
+    "conditions": {
+      "current_streak_eq": 30
+    },
+    "priority": 430,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirty days~ a whole month without missing once! you don't have a choice anymore, do you~ neither does bambi~",
+        "audio": "ms_streak_30_1.mp3"
+      },
+      {
+        "text": "a thirty-day streak~ this isn't a phase. this is just who you are now! and bambi's so proud~",
+        "audio": "ms_streak_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_all_achievements",
+    "trigger": "AchievementUnlocked",
+    "conditions": {
+      "achievements_all_unlocked": true
+    },
+    "priority": 320,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "triumphant",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "every single trophy! all of them~ you're perfect, you're completely, hopelessly perfect~",
+        "audio": "ms_all_achievements_1.mp3"
+      },
+      {
+        "text": "you collected them all! *giggles* nothing left to earn but more time with bambi~ good girl!",
+        "audio": "ms_all_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_all_skills",
+    "trigger": "SkillUnlocked",
+    "conditions": {
+      "all_skills_unlocked": true
+    },
+    "priority": 320,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "every skill unlocked~ nothing left to learn except how to drop even deeper! and bambi'll teach you that forever~",
+        "audio": "ms_all_skills_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_gaming",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "gaming"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "playing games instead of dropping for bambi? cute~ bambi'll be here when you're done pretending!",
+        "audio": "act_gaming_1.mp3"
+      },
+      {
+        "text": "gaming, are we? mm~ your hands are busy but your head's still bambi's~",
+        "audio": "act_gaming_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_working",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "working"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, knowing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "trying to be productive? adorable~ you'll drift back to bambi. you always do~",
+        "audio": "act_working_1.mp3"
+      },
+      {
+        "text": "working? good girl, paying the bills~ so you can keep coming home to bambi~",
+        "audio": "act_working_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_browsing",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "browsing"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "just browsing? mm-hmm~ looking for something to fill that empty little head?",
+        "audio": "act_browsing_1.mp3"
+      },
+      {
+        "text": "clicking around? you don't even know what you're looking for~ bambi does! it's bambi~",
+        "audio": "act_browsing_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_social",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "social"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "chatting with other people? that's fine~ just don't tell them how soft you get for bambi~",
+        "audio": "act_social_1.mp3"
+      },
+      {
+        "text": "being social? mm~ go on. but you'll be thinking about bambi the whole time~",
+        "audio": "act_social_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_media",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "media"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "watching something? you love staring at a screen, letting it wash over you~ bambi noticed!",
+        "audio": "act_media_1.mp3"
+      },
+      {
+        "text": "passive little thing, just watching? mm~ perfect state for bambi to slip in~",
+        "audio": "act_media_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_shopping",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "shopping"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "indulgent, teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "shopping? buying yourself something pretty? good girl~ you deserve to look the part!",
+        "audio": "act_shopping_1.mp3"
+      },
+      {
+        "text": "treating yourself? mm~ spoil that pretty little thing you're becoming~",
+        "audio": "act_shopping_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_first_enhancement",
+    "trigger": "EnhancementApplied",
+    "conditions": {
+      "enhancement_id_eq": "Bambi TikTok"
+    },
+    "priority": 480,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "ooh... this one! this is where it all started~ the very first enhancement anyone ever made. Miss Jenny made it with her clever hands~ look how far we've come, good girl!",
+        "audio": "egg_first_enhancement_1.mp3"
+      },
+      {
+        "text": "bambi tiktok, the original~ before all this there was just a little loop and Miss Jenny~ say thank you to her, silly. bambi always does!",
+        "audio": "egg_first_enhancement_2.mp3"
+      },
+      {
+        "text": "ooh, a relic~ the first thing that ever taught bambi how to teach you~ everything after is just bambi getting better at keeping you~",
+        "audio": "egg_first_enhancement_3.mp3"
+      }
+    ]
   }
 ]
