@@ -76,8 +76,8 @@ namespace ConditioningControlPanel
         // INTERMITTENT (a slow envelope gates the fast carrier) so it's a barely-there occasional shimmer.
         private double _speakPhase = 0;       // fast vibration carrier
         private double _speakEnvPhase = 0;    // slow envelope → bursts separated by calm
-        private const double SpeakWobbleDeg = 0.35;  // extra rotation at the peak of a burst (tiny)
-        private const double SpeakShakePx = 0.5;     // horizontal jitter at the peak of a burst (tiny)
+        private const double SpeakWobbleDeg = 0.175; // extra rotation at the peak of a burst (tiny)
+        private const double SpeakShakePx = 0.25;    // horizontal jitter at the peak of a burst (tiny)
         private const double PortraitSizeScale = 0.88;   // portrait size vs legacy poses (0.70 → +15% → +10% per feedback)
         private const double PortraitRaisePx = 30;       // shift the portrait avatar UP by this many px (100→50→30 per feedback)
         private const double PortraitShiftX = 10;        // shift the portrait avatar RIGHT by this many px
@@ -1194,7 +1194,9 @@ namespace ConditioningControlPanel
             {
                 var dx = App.Mods?.GetAvatarDetachedOffsetX() ?? 0;
                 var dy = App.Mods?.GetAvatarDetachedOffsetY() ?? 0;
-                AvatarBorder.Margin = new Thickness(5, 100, 426 - dx, 208 + dy);
+                // Detached nudge: 20px higher (bottom margin +20, bottom-aligned) and net 5px left
+                // (right margin +10 — element is HorizontalAlignment=Center, so offset is (L-R)/2).
+                AvatarBorder.Margin = new Thickness(5, 100, 436 - dx, 228 + dy);
                 TitleBox.Margin = new Thickness(0, 0, 416 - dx, 193);
                 InputPanel.Margin = new Thickness(0, 0, 426 - dx, 520);
                 SpeechBubble.Margin = new Thickness(0, 0, 425 - dx, 550);
@@ -2762,6 +2764,41 @@ namespace ConditioningControlPanel
                 };
                 dropShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, opacityPulse);
             }
+
+            // Bouncy squash-and-settle on every click.
+            PlayClickBounce();
+        }
+
+        /// <summary>
+        /// A quick springy bounce of the whole avatar on click: pop up to ~1.15x then settle back to
+        /// 1.0 with an elastic ease. Runs on a dedicated ScaleTransform (AvatarBounceScale) that wraps
+        /// all avatar layers, so it composes with — and never fights — the 60fps float/breathing writes.
+        /// FillBehavior.Stop returns the transform to its 1.0 local value when done.
+        /// </summary>
+        private void PlayClickBounce()
+        {
+            if (AvatarBounceScale == null) return;
+
+            var kf = new System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+            {
+                FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop
+            };
+            kf.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
+                1.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+            kf.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
+                1.15, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(90)),
+                new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }));
+            kf.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
+                1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(480)),
+                new System.Windows.Media.Animation.ElasticEase
+                {
+                    EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut,
+                    Oscillations = 2,
+                    Springiness = 5
+                }));
+
+            AvatarBounceScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, kf);
+            AvatarBounceScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, kf.Clone());
         }
 
         private void ImgAvatar_MouseRightButtonDown(object sender, MouseButtonEventArgs e)

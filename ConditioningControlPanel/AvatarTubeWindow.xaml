@@ -446,7 +446,14 @@
                         <MenuItem x:Name="MenuItemPauseBrowser" Header="{loc:Str section_pause_browser}" Click="MenuItemPauseBrowser_Click"/>
                     </ContextMenu>
                 </Border.ContextMenu>
-                <Grid>
+                <Grid x:Name="AvatarBounceHost" RenderTransformOrigin="0.5,1.0">
+                    <!-- Click-bounce layer: scales ALL avatar images together. Composes on top of the
+                         per-image float transforms (breathing/wobble/bob) and the AvatarBorder shift,
+                         so a click squash never fights the 60fps writes. Origin at bottom-centre so she
+                         bounces up from her feet. -->
+                    <Grid.RenderTransform>
+                        <ScaleTransform x:Name="AvatarBounceScale"/>
+                    </Grid.RenderTransform>
                     <!-- Static PNG avatar (default) / emotive-portrait crossfade layer A.
                          RenderTransform is a group: Scale (breathing) + Rotate (wobble) + Translate (bob),
                          all written by the 60fps float timer in portrait mode. Translate stays LAST so the
