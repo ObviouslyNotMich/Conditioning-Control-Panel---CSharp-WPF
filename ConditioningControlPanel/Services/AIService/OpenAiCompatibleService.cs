@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -7,7 +8,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Models.AiEnrichment;
 using ConditioningControlPanel.Services.AIService;
+using ConditioningControlPanel.Services.AIService.Enrichment;
 using ConditioningControlPanel.Services.Moderation;
 
 namespace ConditioningControlPanel.Services.AIService
@@ -42,6 +45,9 @@ namespace ConditioningControlPanel.Services.AIService
 
         private readonly HttpClient _httpClient;
         private readonly BambiSprite _bambiSprite;
+        private readonly IAiResponseParser _parser;
+        private readonly KnowledgeService _knowledgeService;
+        private readonly IPromptService _promptService;
 
         private int _dailyRequestCount;
         private DateTime _lastResetDate;
@@ -96,6 +102,16 @@ namespace ConditioningControlPanel.Services.AIService
             {
                 Timeout = TimeSpan.FromSeconds(60)
             };
+
+            // Mirrors LocalAiService: parse replies for the { response, effects } shape
+            // and reuse the same enrichment prompt the local provider injects when the
+            // Beta Lab AI-effects master toggle is on. This is the only path that turns
+            // the OpenAI-compatible provider into an effects-capable companion; awareness
+            // / lockscreen / keyword paths below continue to use the plain SendChatAsync
+            // overload because they don't carry user intent to trigger effects.
+            _parser = new AiResponseParser(GetFallbackResponse);
+            _knowledgeService = new KnowledgeService();
+            _promptService = new PromptService();
         }
 
         private static Uri GetConfiguredEndpointBaseUri()
@@ -330,6 +346,29 @@ namespace ConditioningControlPanel.Services.AIService
 
         private async Task<string?> SendChatAsync(string systemPrompt, string userInput)
         {
+            // Legacy two-message path used by awareness / lockscreen / keyword / video
+            // reactions. The effects-aware chat path uses <see cref="SendChatWithMessagesAsync"/>
+            // so it can include the enrichment block from PromptService and parse the
+            // { response, effects } reply shape.
+            var messages = new List<MessageDto>
+            {
+                new("system", systemPrompt),
+                new("user", userInput ?? string.Empty)
+            };
+            return await SendChatWithMessagesAsync(messages).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends a multi-turn chat to the configured OpenAI-compatible endpoint. Used by
+        /// <see cref="GetBambiReplyExAsync"/> when the Beta Lab AI-effects master toggle
+        /// is on, so we can prepend the same <c>[CONTEXT BLOCK — NOT DIALOGUE]</c>
+        /// enrichment message the local provider uses (via
+        /// <see cref="IPromptService.BuildEnrichmentMessage"/>). Returns the raw assistant
+        /// content, or <c>null</c> on transport / HTTP / parse failure. Caller is
+        /// responsible for moderation, command parsing, and command dispatch.
+        /// </summary>
+        private async Task<string?> SendChatWithMessagesAsync(IList<MessageDto> messages)
+        {
             if (App.Settings?.Current?.OfflineMode == true)
             {
                 App.Logger?.Debug("OpenAiCompatibleService: Offline mode enabled, skipping AI request");
@@ -356,11 +395,7 @@ namespace ConditioningControlPanel.Services.AIService
             var payload = new
             {
                 model = model,
-                messages = new[]
-                {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = userInput }
-                }
+                messages = messages.Select(m => new { role = m.Role, content = m.Content ?? string.Empty }).ToArray()
             };
 
             var baseUri = GetConfiguredEndpointBaseUri();
@@ -378,7 +413,8 @@ namespace ConditioningControlPanel.Services.AIService
                     };
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-                    App.Logger?.Debug("OpenAiCompatibleService: request to {Url} (attempt {Attempt})", request.RequestUri, attempt + 1);
+                    App.Logger?.Debug("OpenAiCompatibleService: request to {Url} (attempt {Attempt}, msgs={MsgCount})",
+                        request.RequestUri, attempt + 1, messages.Count);
 
                     using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
                     var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -464,12 +500,106 @@ namespace ConditioningControlPanel.Services.AIService
             if (App.Settings?.Current?.OfflineMode == true)
                 return new AiReplyResult(GetFallbackResponse(), IsAiGenerated: false, Refusal: null);
 
+            // INPUT MODERATION (Layer 1 — code-side, prompt cannot bypass). Same
+            // semantics as the local provider: hard categories block before the HTTP
+            // call; refusal sentinel surfaces only when the caller is the chat UI.
+            var guard = App.ModerationGuard;
+            var modelName = GetConfiguredModel();
+            var modelHint = "openai-compatible:" + (string.IsNullOrWhiteSpace(modelName) ? "unknown" : modelName);
+            if (guard != null)
+            {
+                var inputCheck = guard.CheckInput(userInput ?? string.Empty);
+                if (!inputCheck.Allow && inputCheck.Category.HasValue)
+                {
+                    App.ModerationLog?.Record(inputCheck.Category.Value, source: "input", modelHint: modelHint);
+                    App.ModerationCounter?.RecordHit(inputCheck.Category.Value, "input:openai-compatible");
+                    App.Logger?.Information("OpenAiCompatibleService: input blocked by ModerationGuard (category={Cat})",
+                        inputCheck.Category);
+                    return new AiReplyResult(
+                        string.Empty,
+                        IsAiGenerated: false,
+                        Refusal: new ModerationRefusalInfo(Category: inputCheck.Category, Source: ModerationSource.Input));
+                }
+                if (inputCheck.Allow && inputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
+                {
+                    App.ModerationLog?.Record(ProhibitedCategory.ProfessionalAdvice, source: "input", modelHint: modelHint);
+                }
+            }
+
+            // Build the messages list. Mirrors LocalAiService: system prompt at index 0,
+            // optional enrichment at index 1 (only when effects are on), then the user
+            // turn. The OpenAI-compatible provider is stateless across calls, so we don't
+            // carry any prior user/assistant turns here — each request is independent.
+            var effectsEnabled = App.Settings?.Current?.CompanionPrompt?.AllowAiToControlEffects == true;
             var prompt = _bambiSprite.GetSystemPrompt();
-            var reply = await SendChatAsync(prompt, userInput).ConfigureAwait(false);
+
+            var messages = new List<MessageDto>
+            {
+                new("system", prompt)
+            };
+
+            if (effectsEnabled)
+            {
+                var currentTime = DateTime.Now.ToString("yyyy-M-dd dddd h:mm:ss tt");
+                var facts = _knowledgeService.GetKnowledge("");
+                var factsJson = JsonSerializer.Serialize(facts);
+                var enrichment = _promptService.BuildEnrichmentMessage(factsJson, currentTime);
+                messages.Add(new MessageDto("user", enrichment.Content));
+            }
+
+            messages.Add(new MessageDto("user", userInput ?? string.Empty));
+
+            var reply = await SendChatWithMessagesAsync(messages).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(reply))
                 return new AiReplyResult(GetFallbackResponse(), IsAiGenerated: false, Refusal: null);
 
-            return new AiReplyResult(reply, IsAiGenerated: true, Refusal: null);
+            // Parse the { response, effects } shape. When the model returns plain text
+            // (the fallback case the plan explicitly calls out) the parser leaves
+            // CleanText as the original reply and Commands empty — that's the
+            // supported degradation path. We do NOT dispatch commands before the
+            // output moderation check below.
+            var parsed = _parser.Parse(reply);
+            var commands = parsed.Commands;
+
+            if (effectsEnabled)
+            {
+                App.Logger?.Information("OpenAiCompatibleService: parsed {Count} command(s) from response", commands.Count);
+            }
+
+            // OUTPUT MODERATION (Layer 1). Scan the user-visible text — the JSON
+            // effects wrapper is already stripped by the parser. If the model produced
+            // prohibited content we discard the whole turn (no commands executed, no
+            // text displayed). Matches LocalAiService ordering so effects cannot fire
+            // from a reply that would otherwise be rejected.
+            if (guard != null)
+            {
+                var outputCheck = guard.CheckOutput(parsed.CleanText ?? string.Empty);
+                if (!outputCheck.Allow && outputCheck.Category.HasValue)
+                {
+                    App.ModerationLog?.Record(outputCheck.Category.Value, source: "output", modelHint: modelHint);
+                    App.Logger?.Information("OpenAiCompatibleService: output blocked by ModerationGuard (category={Cat})",
+                        outputCheck.Category);
+                    return new AiReplyResult(
+                        string.Empty,
+                        IsAiGenerated: false,
+                        Refusal: new ModerationRefusalInfo(Category: outputCheck.Category, Source: ModerationSource.Output));
+                }
+                if (outputCheck.Allow && outputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
+                {
+                    App.ModerationLog?.Record(ProhibitedCategory.ProfessionalAdvice, source: "output", modelHint: modelHint);
+                }
+            }
+
+            // Dispatch any parsed effects commands. Per-effect gating, master toggle,
+            // and the per-response cap are all enforced inside AiCommandService — the
+            // provider must NOT re-implement them.
+            if (commands.Count > 0 && App.Commands != null)
+            {
+                App.Commands.BeginBatch();
+                foreach (var cmd in commands) App.Commands.ExecuteCommand(cmd);
+            }
+
+            return new AiReplyResult(parsed.CleanText, IsAiGenerated: true, Refusal: null);
         }
 
         public async Task<string?> GetAwarenessReactionAsync(string detectedName, string category, string serviceName = "", string pageTitle = "")
