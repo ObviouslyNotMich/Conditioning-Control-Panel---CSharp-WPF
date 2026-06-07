@@ -6492,8 +6492,11 @@ namespace ConditioningControlPanel
             Topmost = true;
             ReassertTopmost(); // Use Win32 to ensure topmost is applied immediately
 
-            // Enable dragging from anywhere on the window
-            Cursor = Cursors.SizeAll;
+            // Show the move cursor only over the draggable avatar visuals (not the transparent
+            // dead-zones — see Window_MouseLeftButtonDown, #346). Window cursor stays default.
+            AvatarBorder.Cursor = Cursors.SizeAll;
+            SpeechBubble.Cursor = Cursors.SizeAll;
+            TitleBox.Cursor = Cursors.SizeAll;
             MouseLeftButtonDown += Window_MouseLeftButtonDown;
 
             // Update context menu visibility
@@ -6532,6 +6535,9 @@ namespace ConditioningControlPanel
 
             // Disable dragging
             Cursor = Cursors.Arrow;
+            AvatarBorder.Cursor = Cursors.Arrow;
+            SpeechBubble.Cursor = Cursors.Arrow;
+            TitleBox.Cursor = Cursors.Arrow;
             MouseLeftButtonDown -= Window_MouseLeftButtonDown;
 
             // Reset scale BEFORE updating position - otherwise position is calculated
@@ -6708,9 +6714,19 @@ namespace ConditioningControlPanel
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Allow dragging the window from anywhere when detached
+            // Allow dragging the window when detached — but only when the click actually lands on a
+            // visible part of the avatar (art, speech bubble, or name tag). The window is sized to its
+            // content with large transparent margins around the corner-positioned avatar; without this
+            // guard those invisible dead-zones to the top/bottom-right were draggable, which felt like
+            // a phantom hitbox (#346 — BUG-7KHMJW9CH7).
             if (!_isAttached)
             {
+                var hit = e.OriginalSource as DependencyObject;
+                bool onAvatar = IsDescendantOf(hit, AvatarBorder)
+                                || IsDescendantOf(hit, SpeechBubble)
+                                || IsDescendantOf(hit, TitleBox);
+                if (!onAvatar) return;
+
                 _isDragging = true;
                 _dragStartPoint = PointToScreen(e.GetPosition(this));
                 _dragStartLeft = Left;
