@@ -145,6 +145,16 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- Chaos art (bubble sprites etc.), resolved at runtime by Services/Chaos/ChaosArt.cs
+         from AppContext.BaseDirectory\Assets\Chaos\{kind}\{id}.png. Staging candidates are
+         excluded so only the promoted finals ship. Remove from the default None glob first
+         so the no-copy None item doesn't suppress this Content copy. -->
+    <None Remove="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" />
+    <Content Include="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" Exclude="assets\Chaos\**\_staging\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
   </ItemGroup>
 
   <!-- WebView2Loader.dll must be on disk - the WebView2 SDK loads it outside .NET's single-file extraction -->

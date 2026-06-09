@@ -40,6 +40,13 @@ public abstract class EffectPayload
     /// <summary>0..100, scaled from bubble size at spawn. Drives effect intensity.</summary>
     public int Strength { get; set; }
 
+    /// <summary>
+    /// Global multiplier on time-based payload durations (flashes/overlays linger). Set &gt;1 by
+    /// the darter slow-mo power-up so "images last longer" while time is slowed; restored to 1
+    /// when it ends. 1.0 = normal.
+    /// </summary>
+    public static double GlobalDurationMult { get; set; } = 1.0;
+
     /// <summary>Run the wrapped one-shot effect, scaled by <see cref="Strength"/>.</summary>
     public abstract void Fire();
 
@@ -62,7 +69,7 @@ public sealed class FlashPayload : EffectPayload
         try
         {
             int amount = Scale(1, 3);
-            int duration = Scale(250, 700);
+            int duration = (int)(Scale(250, 700) * GlobalDurationMult);
             int size = Scale(45, 95);
             App.Flash?.TriggerFlashOnce(amount, duration, size, suppressHaptic: false);
         }
@@ -96,11 +103,17 @@ public sealed class OverlayPayload : EffectPayload
     {
         try
         {
-            int duration = Scale(1500, 4500);
-            // braindrain interprets opacity*100 as an intensity 1..200 (blur = intensity*0.4);
-            // pink_filter / spiral take a plain 0..1 opacity.
-            double opacity = _kind == "braindrain" ? ScaleD(0.30, 1.40) : ScaleD(0.25, 0.70);
-            App.Overlay?.ShowOverlayTimed(_kind, duration, opacity);
+            int duration = (int)(Scale(1500, 4500) * GlobalDurationMult);
+            if (_kind == "braindrain")
+            {
+                // braindrain = a faint full-screen wash of a random flash-pool image (~10s @ 10%).
+                ChaosFlashOverlay.Show();
+            }
+            else
+            {
+                double opacity = ScaleD(0.25, 0.70);   // pink_filter / spiral take a plain 0..1 opacity
+                App.Overlay?.ShowOverlayTimed(_kind, duration, opacity);
+            }
         }
         catch (Exception ex) { App.Logger?.Debug("OverlayPayload: {E}", ex.Message); }
     }

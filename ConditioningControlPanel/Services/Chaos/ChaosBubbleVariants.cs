@@ -33,6 +33,9 @@ public sealed class EffectBubbleSpec
     public int FuseMs { get; init; }
     public ChaosMotion Motion { get; init; } = ChaosMotion.FloatUp;
 
+    /// <summary>True for the freeze bubble: a good pickup — catching it freezes the whole field.</summary>
+    public bool IsFreeze { get; init; }
+
     // ---- darter (bouncing-flash catch target) ----
     /// <summary>True for a darter: small, fast, telegraphed, self-expiring benign reward target.</summary>
     public bool IsDarter { get; init; }
@@ -77,10 +80,11 @@ public static class ChaosBubbleVariants
     public const double SizeMaxGlobal = 320;
 
     // ---- Darter tuning (bouncing-flash catch target) ----
-    public const int    DARTER_LIFETIME_MS    = 1800;  // active flight time before it vanishes
+    public const int    DARTER_LIFETIME_MS    = 8000;  // safety backstop; despawn is driven by the 3-bounce-then-exit
     public const int    DARTER_QUICK_WINDOW_MS = 500;  // catch this fast after going active = bonus
     public const int    DARTER_TELEGRAPH_MS   = 400;   // flare-at-origin before it starts moving
-    public const double DARTER_SPEED          = 7.0;   // DIPs/frame (~2.5x a RoamBounce bubble)
+    public const double DARTER_SPEED          = 9.0;   // DIPs/frame — a speedy orb
+    public const int    DARTER_MAX_BOUNCES    = 3;     // bounces this many times, then flies off-screen
     public const double DARTER_SIZE_MIN       = 72;
     public const double DARTER_SIZE_MAX       = 96;
     public const int    DARTER_BASE_POINTS    = 120;
@@ -132,8 +136,8 @@ public static class ChaosBubbleVariants
         "subliminal"  => "A benign treat. Pop it to flash a subliminal from the active pool.",
         "pink"        => "Live. Defuse before the fuse runs out, or it snaps a pink filter over the screen.",
         "spiral"      => "Live. Roams and bounces. Defuse it or it drops a spiral overlay.",
-        "braindrain"  => "Live and large. Slow but heavy. Detonates into a braindrain blur.",
-        "bambifreeze" => "Live. Defuse it or it triggers a Bambi Freeze.",
+        "braindrain"  => "Live and large. Slow but heavy. Detonates into a creeping mind-mist.",
+        "bambifreeze" => "A good pickup. Catch it to freeze the whole field — bubbles hold in place and fuses pause for a few seconds.",
         "video"       => "Live and rare. A long fuse, but it opens a mandatory video if it goes off.",
         "htlink"      => "Live and rare. Detonates into a HypnoTube link, fullscreen.",
         "darter"      => "A fast, bouncing flash target. Catch it for points and a micro flash. Harmless if missed.",
@@ -166,8 +170,10 @@ public static class ChaosBubbleVariants
             true,  180, 240, ChaosMotion.RoamBounce, Color.FromRgb(0x40,0xD0,0xC0), "◎",  2.0, 0.15, 3500, 5000),
         new("braindrain", "BrainDrain",  EffectBubblePayloadKind.Overlay,    "braindrain",
             true,  240, 320, ChaosMotion.RoamBounce, Color.FromRgb(0x40,0x60,0xC0), "☁",  1.4, 0.25, 4500, 6500),
-        new("bambifreeze","Bambi Freeze",EffectBubblePayloadKind.BambiFreeze,null,
-            true,  180, 240, ChaosMotion.RoamBounce, Color.FromRgb(0x8A,0xE6,0xFF), "❄",  1.0, 0.35, 4000, 5500),
+        // freeze — a GOOD pickup (no fuse): catch it to freeze the whole field for a few seconds.
+        // FloatUp so an uncaught one drifts off-screen harmlessly (benign bubbles have no fuse/despawn).
+        new("bambifreeze","Freeze",       EffectBubblePayloadKind.BambiFreeze,null,
+            false, 190, 250, ChaosMotion.FloatUp,    Color.FromRgb(0x8A,0xE6,0xFF), "❄",  1.0, 0.15, 0, 0),
         new("video",      "Video",       EffectBubblePayloadKind.Video,      null,
             true,  240, 300, ChaosMotion.RainDown,   Color.FromRgb(0xE0,0x40,0x4D), "▶",  0.5, 0.50, 5000, 7000),
         new("htlink",     "HT Link",     EffectBubblePayloadKind.HtLink,     null,
@@ -215,6 +221,12 @@ public static class ChaosBubbleVariants
             : EffectPayloadFactory.Build(variant.PayloadKind);
         payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
 
+        // The freeze bubble has no fuse, so it must use a motion that exits the screen (RoamBounce
+        // never leaves → an uncaught one would live forever). Force FloatUp if an override picked roam.
+        var motion = motionOverride ?? variant.Motion;
+        bool isFreezeVariant = variant.PayloadKind == EffectBubblePayloadKind.BambiFreeze;
+        if (isFreezeVariant && motion == ChaosMotion.RoamBounce) motion = ChaosMotion.FloatUp;
+
         int fuse = 0;
         if (variant.IsLive)
         {
@@ -231,8 +243,9 @@ public static class ChaosBubbleVariants
             Tint = variant.Tint,
             Label = variant.Label,
             IsLive = variant.IsLive,
+            IsFreeze = isFreezeVariant,
             FuseMs = fuse,
-            Motion = motionOverride ?? variant.Motion,
+            Motion = motion,
         };
     }
 }

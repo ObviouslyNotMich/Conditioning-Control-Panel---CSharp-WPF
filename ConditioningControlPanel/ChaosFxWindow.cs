@@ -20,6 +20,7 @@ namespace ConditioningControlPanel;
 public sealed class ChaosFxWindow : Window
 {
     private readonly Border _vignette;
+    private readonly Border _edge;   // sustained edge-glow (held while a power-up window is active)
 
     public ChaosFxWindow()
     {
@@ -38,9 +39,74 @@ public sealed class ChaosFxWindow : Window
         Width = SystemParameters.PrimaryScreenWidth;
         Height = SystemParameters.PrimaryScreenHeight;
 
+        _edge = new Border { Opacity = 0, IsHitTestVisible = false };
         _vignette = new Border { Opacity = 0, IsHitTestVisible = false };
-        Content = _vignette;
+        var root = new Grid { IsHitTestVisible = false };
+        root.Children.Add(_edge);       // held glow sits under the impact pulses
+        root.Children.Add(_vignette);
+        Content = root;
         SourceInitialized += (_, _) => ApplyExStyles();
+    }
+
+    /// <summary>Bring up a sustained coloured edge-glow and hold it (e.g. the icy white-blue
+    /// freeze cue) until <see cref="EndEdgeHold"/>. <paramref name="strength"/> 0..1 scales peak opacity.</summary>
+    public void BeginEdgeHold(Color color, double strength)
+    {
+        try
+        {
+            double peak = Math.Clamp(0.25 + strength * 0.45, 0.2, 0.7);
+
+            var brush = new RadialGradientBrush
+            {
+                GradientOrigin = new Point(0.5, 0.5),
+                Center = new Point(0.5, 0.5),
+                RadiusX = 0.95,
+                RadiusY = 1.05
+            };
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, color.R, color.G, color.B), 0.0));
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, color.R, color.G, color.B), 0.55));
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(255, color.R, color.G, color.B), 1.0));
+            brush.Freeze();
+            _edge.Background = brush;
+
+            _edge.BeginAnimation(OpacityProperty, new DoubleAnimation(peak, TimeSpan.FromMilliseconds(180)));
+        }
+        catch { }
+    }
+
+    /// <summary>Fade out the sustained edge-glow started by <see cref="BeginEdgeHold"/>.</summary>
+    public void EndEdgeHold()
+    {
+        try { _edge.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(450))); }
+        catch { }
+    }
+
+    /// <summary>A quick icy full-screen frost-flash — the "ice hit" as a freeze lands. Snaps in
+    /// (~50ms) over the whole screen then melts out (~600ms). Uses the pulse layer (the held edge
+    /// glow rides on a separate layer, so the two don't fight).</summary>
+    public void FreezeBurst(Color color)
+    {
+        try
+        {
+            var brush = new RadialGradientBrush
+            {
+                GradientOrigin = new Point(0.5, 0.5),
+                Center = new Point(0.5, 0.5),
+                RadiusX = 1.1,
+                RadiusY = 1.2
+            };
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(235, 255, 255, 255), 0.0));   // frosty white core
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(170, color.R, color.G, color.B), 0.45));
+            brush.GradientStops.Add(new GradientStop(Color.FromArgb(90, color.R, color.G, color.B), 1.0));
+            brush.Freeze();
+            _vignette.Background = brush;
+
+            var anim = new DoubleAnimationUsingKeyFrames();
+            anim.KeyFrames.Add(new LinearDoubleKeyFrame(0.6, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(50))));
+            anim.KeyFrames.Add(new LinearDoubleKeyFrame(0.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(650))));
+            _vignette.BeginAnimation(OpacityProperty, anim);
+        }
+        catch { }
     }
 
     /// <summary>Flash a coloured edge-vignette. <paramref name="strength"/> 0..1 scales peak opacity.</summary>

@@ -21,9 +21,21 @@ namespace ConditioningControlPanel;
 public partial class ChaosOverlayWindow : Window
 {
     private Action<ChaosBoon?>? _onBoonPick;
-    private DispatcherTimer? _draftCountdown;
-    private int _draftSecsLeft;
     private bool _clickThrough = true;
+
+    // ---- boon draft reveal/selection state ----
+    private sealed class DraftCard
+    {
+        public Border Card = null!;
+        public Button Pick = null!;
+        public ScaleTransform Scale = null!;
+        public ChaosBoon Boon = null!;
+    }
+    private readonly System.Collections.Generic.List<DraftCard> _draftCards = new();
+    private DispatcherTimer? _revealTimer;
+    private int _revealIndex;
+    private ChaosBoon? _selectedBoon;
+    private bool _selectionMade;
 
     public Action? OnRunAgain;
     public Action? OnDismissed;
@@ -85,6 +97,8 @@ public partial class ChaosOverlayWindow : Window
     public void ShowBoonDraft(int waveJustCleared, List<ChaosBoon> options, Action<ChaosBoon?> onPick)
     {
         _onBoonPick = onPick;
+        _selectedBoon = null;
+        _selectionMade = false;
         SetClickThrough(false);
         CountdownBox.Visibility = Visibility.Collapsed;
         ResultsPanel.Visibility = Visibility.Collapsed;
@@ -93,32 +107,68 @@ public partial class ChaosOverlayWindow : Window
         BringToFront();
 
         DraftTitle.Text = $"WAVE {waveJustCleared} CLEARED · CHOOSE A BOON";
-        BoonCardHost.Children.Clear();
-        foreach (var boon in options)
-            BoonCardHost.Children.Add(BuildBoonCard(boon));
+        DraftCountdown.Text = "";
+        BtnSkipBoon.Visibility = Visibility.Visible;
+        BtnContinue.Visibility = Visibility.Collapsed;
+        BtnContinue.Opacity = 0;
 
-        _draftSecsLeft = 12;
-        DraftCountdown.Text = $"auto-skip 0:{_draftSecsLeft:00}";
-        _draftCountdown = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _draftCountdown.Tick += (_, _) =>
+        // Build every card hidden, then reveal them one at a time (each with a per-rarity cue:
+        // a bright "dling" for rare, a dull "thud" otherwise). Picks are disabled until revealed.
+        BoonCardHost.Children.Clear();
+        _draftCards.Clear();
+        foreach (var boon in options)
         {
-            _draftSecsLeft--;
-            DraftCountdown.Text = $"auto-skip 0:{Math.Max(0, _draftSecsLeft):00}";
-            if (_draftSecsLeft <= 0) ChooseBoon(null);
+            var dc = BuildBoonCard(boon);
+            dc.Card.Opacity = 0;
+            dc.Scale.ScaleX = dc.Scale.ScaleY = 0.7;
+            dc.Pick.IsEnabled = false;
+            _draftCards.Add(dc);
+            BoonCardHost.Children.Add(dc.Card);
+        }
+
+        _revealTimer?.Stop();
+        _revealTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+        _revealTimer.Tick += (_, _) =>
+        {
+            if (_revealIndex >= _draftCards.Count)
+            {
+                _revealTimer?.Stop();
+                if (!_selectionMade) DraftCountdown.Text = "field frozen — take your time";
+                return;
+            }
+            RevealCard(_draftCards[_revealIndex]);
+            _revealIndex++;
         };
-        _draftCountdown.Start();
+        // First card lands immediately; the rest follow on the timer.
+        _revealIndex = 0;
+        if (_draftCards.Count > 0) { RevealCard(_draftCards[0]); _revealIndex = 1; }
+        _revealTimer.Start();
+    }
+
+    private void RevealCard(DraftCard dc)
+    {
+        dc.Pick.IsEnabled = true;
+        dc.Card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
+        var pop = new DoubleAnimation(0.7, 1.0, TimeSpan.FromMilliseconds(300))
+        { EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut } };
+        dc.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        dc.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        ChaosSfx.PlayBoonReveal(dc.Boon.Rarity == ChaosRarity.Rare);
     }
 
     private void HideDraft()
     {
-        _draftCountdown?.Stop();
-        _draftCountdown = null;
+        _revealTimer?.Stop();
+        _revealTimer = null;
+        _draftCards.Clear();
+        _selectedBoon = null;
+        _selectionMade = false;
         DraftPanel.Visibility = Visibility.Collapsed;
         Backdrop.Visibility = Visibility.Collapsed;
         SetClickThrough(true);
     }
 
-    private Border BuildBoonCard(ChaosBoon boon)
+    private DraftCard BuildBoonCard(ChaosBoon boon)
     {
         var accent = boon.IsCurse ? Color.FromRgb(255, 120, 120) : Color.FromRgb(156, 232, 160);
         var accentBrush = new SolidColorBrush(accent);
@@ -141,23 +191,30 @@ public partial class ChaosOverlayWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontSize = 11,
             Margin = new Thickness(0, 0, 0, 10)
         });
+        var pickScale = new ScaleTransform(1, 1);
         var pick = new Button
         {
             Content = boon.IsCurse ? "RISK" : "PICK",
             Padding = new Thickness(0, 8, 0, 8), Background = accentBrush, Foreground = Brushes.Black,
             FontWeight = FontWeights.Bold, BorderThickness = new Thickness(0),
-            Cursor = System.Windows.Input.Cursors.Hand
+            Cursor = System.Windows.Input.Cursors.Hand,
+            RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = pickScale
         };
-        pick.Click += (_, _) => ChooseBoon(boon);
         panel.Children.Add(pick);
 
-        return new Border
+        var scale = new ScaleTransform(1, 1);
+        var card = new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
             BorderBrush = accentBrush, BorderThickness = new Thickness(1.5),
             CornerRadius = new CornerRadius(12), Padding = new Thickness(16),
-            Margin = new Thickness(8), Child = panel
+            Margin = new Thickness(8), Child = panel,
+            RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = scale
         };
+
+        var dc = new DraftCard { Card = card, Pick = pick, Scale = scale, Boon = boon };
+        pick.Click += (_, _) => SelectBoon(dc);
+        return dc;
     }
 
     private static string RarityDots(ChaosRarity r) => r switch
@@ -167,6 +224,55 @@ public partial class ChaosOverlayWindow : Window
         ChaosRarity.Rare => "◆◆◆",
         _ => "◆"
     };
+
+    /// <summary>A card was picked: dissolve the others, highlight + bounce this one, reveal Continue.</summary>
+    private void SelectBoon(DraftCard chosen)
+    {
+        if (_selectionMade) return;
+        _selectionMade = true;
+        _selectedBoon = chosen.Boon;
+        _revealTimer?.Stop();
+        ChaosSfx.PlayBoonPicked();
+
+        foreach (var dc in _draftCards)
+        {
+            dc.Pick.IsEnabled = false;
+            if (dc == chosen) continue;
+            // Dissolve the unchosen cards (already-invisible unrevealed ones just stay gone).
+            dc.Card.BeginAnimation(OpacityProperty, new DoubleAnimation(dc.Card.Opacity, 0.0, TimeSpan.FromMilliseconds(260)));
+            var shrink = new DoubleAnimation(0.8, TimeSpan.FromMilliseconds(260)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
+            dc.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
+            dc.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, shrink);
+        }
+
+        // Snap the chosen card to fully shown, then brighten its border + add a glow.
+        chosen.Card.BeginAnimation(OpacityProperty, null);
+        chosen.Card.Opacity = 1;
+        chosen.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        chosen.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        chosen.Scale.ScaleX = chosen.Scale.ScaleY = 1;
+        var hi = chosen.Boon.IsCurse ? Color.FromRgb(255, 150, 150) : Color.FromRgb(120, 255, 170);
+        chosen.Card.BorderBrush = new SolidColorBrush(hi);
+        chosen.Card.BorderThickness = new Thickness(3);
+        chosen.Card.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = hi, BlurRadius = 28, ShadowDepth = 0, Opacity = 0.9 };
+
+        // Slight bounce on the chosen button.
+        if (chosen.Pick.RenderTransform is ScaleTransform ps)
+        {
+            var bounce = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(360)) { From = 1.15, EasingFunction = new BackEase { Amplitude = 0.6, EasingMode = EasingMode.EaseOut } };
+            ps.BeginAnimation(ScaleTransform.ScaleXProperty, bounce);
+            ps.BeginAnimation(ScaleTransform.ScaleYProperty, bounce);
+        }
+        chosen.Pick.Content = "✓ CHOSEN";
+
+        // Swap skip → Continue.
+        BtnSkipBoon.Visibility = Visibility.Collapsed;
+        DraftCountdown.Text = "";
+        BtnContinue.Visibility = Visibility.Visible;
+        BtnContinue.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
+    }
+
+    private void BtnContinue_Click(object sender, RoutedEventArgs e) => ChooseBoon(_selectedBoon);
 
     private void ChooseBoon(ChaosBoon? boon)
     {

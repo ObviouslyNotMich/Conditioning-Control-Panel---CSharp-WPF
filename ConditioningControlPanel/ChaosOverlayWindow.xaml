@@ -43,6 +43,11 @@
                             HorizontalAlignment="Left" Padding="12,6" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
                     <TextBlock x:Name="DraftCountdown" Foreground="{StaticResource TextDim}" FontSize="13"
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    <!-- Appears after a pick: commits the boon and closes the draft. -->
+                    <Button x:Name="BtnContinue" Content="Continue ▸" Click="BtnContinue_Click"
+                            Visibility="Collapsed" Opacity="0" HorizontalAlignment="Right" Padding="20,8"
+                            Background="{StaticResource Pink}" Foreground="White" FontWeight="Bold" BorderThickness="0"
+                            RenderTransformOrigin="0.5,0.5"/>
                 </Grid>
             </StackPanel>
         </Border>

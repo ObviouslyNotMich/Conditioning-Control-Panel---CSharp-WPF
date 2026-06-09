@@ -91,9 +91,11 @@ public sealed class ChaosModeService
     {
         if (!_active || _state == null) return;
 
-        App.Bubbles?.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated, OnDarterCaught);
+        App.Bubbles?.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated, OnDarterCaught, OnFreezeCaught);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("⚡ run started");
+        EndSlowMo(); EndFreeze();   // clean power-up state for the new run (no leak across runs)
+        App.Overlay?.WarmSpiralCache();   // pre-decode the spiral off-thread so its first show doesn't hitch
 
         // Loadout: a pre-equipped start boon enters the run already active (before wave 1).
         var equipped = ChaosMeta.State.EquippedStartBoon;
@@ -126,6 +128,18 @@ public sealed class ChaosModeService
         _state.ElapsedSec = elapsed;
         _state.Heat = Math.Max(0, _state.Heat - 0.0015);
 
+        // Power-ups run on the real clock (so they don't extend the run length).
+        if (_slowMoRemainingSec > 0)
+        {
+            _slowMoRemainingSec -= dt;
+            if (_slowMoRemainingSec <= 0) EndSlowMo();
+        }
+        if (_freezeRemainingSec > 0)
+        {
+            _freezeRemainingSec -= dt;
+            if (_freezeRemainingSec <= 0) EndFreeze();
+        }
+
         if (elapsed >= _state.RunDurationSec) { EndRun(); return; }
 
         double waveLen = (double)_state.RunDurationSec / _state.WaveCount;
@@ -138,6 +152,7 @@ public sealed class ChaosModeService
     private void SpawnTick(object? sender, EventArgs e)
     {
         if (!_spawning || _state == null || _paused || _manualPaused) return;
+        if (_freezeRemainingSec > 0) return;   // time is frozen: hold the field, spawn nothing new
 
         var cfg = _state.Config;
         double intensity = _state.RunIntensity;
@@ -161,6 +176,7 @@ public sealed class ChaosModeService
         }
 
         double interval = (1300 - intensity * 850) / diffFactor;
+        if (_slowMoRemainingSec > 0) interval /= SLOWMO_FACTOR;   // slow-mo stretches the spawn cadence
         _spawnTimer!.Interval = TimeSpan.FromMilliseconds(Math.Max(280, interval));
     }
 
@@ -182,8 +198,10 @@ public sealed class ChaosModeService
 
         _paused = true;
         _spawnTimer?.Stop();
-        // Clear the field so live fuses don't tick (and detonate) behind the draft overlay.
+        // Clear the field so live fuses don't tick (and detonate) behind the draft overlay,
+        // with a single burst cue as everything pops.
         App.Bubbles?.PopAllBubbles();
+        ChaosSfx.PlayWaveClear();
 
         // Clear the finished wave's transient (next-wave) flags before drafting.
         _state.AllLiveNextWave = false;
@@ -307,12 +325,77 @@ public sealed class ChaosModeService
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
         App.Achievements?.TrackBubblePopped();
-        // The darter IS the micro-conditioning: fire its brief low-strength flash on catch.
-        spec.Payload.Fire();
-        _state.EffectsFired++;
-        Pulse(Color.FromRgb(255, 90, 200), quick ? 0.22 : 0.14);   // flash-pink confirm
-        _state.PushEvent(quick ? "⚡ quick catch!" : "✦ darter caught");
+        // The darter is a utility pickup: catching it slows time (no conditioning jolt).
+        ActivateSlowMo();
+        Pulse(Color.FromRgb(120, 200, 255), quick ? 0.32 : 0.24);   // icy slow-mo flash
+        _state.PushEvent(quick ? "⚡ quick catch — time slows!" : "⏳ darter caught — time slows!");
         CheckComboMilestone();
+    }
+
+    /// <summary>Catching a Freeze bubble is a GOOD pickup: it freezes the whole field — every bubble
+    /// shudders then holds in place, live fuses pause, spawns halt — and plays an icy "freeze" burst
+    /// with a held white-blue edge glow and per-bubble blue auras. Refreshes on each catch.</summary>
+    private void OnFreezeCaught(EffectBubbleSpec spec)
+    {
+        if (_state == null || _paused) return;
+        _state.Score += FREEZE_BASE_POINTS * _state.TotalMult;
+        _state.Combo++;
+        _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
+        App.Achievements?.TrackBubblePopped();
+        ActivateFreeze();
+        _state.PushEvent("❄ frozen — the field holds!");
+        CheckComboMilestone();
+    }
+
+    // ---- darter slow-mo power-up ----
+    private const double SLOWMO_FACTOR = 0.20;        // chaos motion/fuse speed while active (lower = stronger slow)
+    private const double SLOWMO_DURATION_SEC = 5.0;   // real-time length of the slow-mo
+    private double _slowMoRemainingSec;
+
+    /// <summary>Catching a darter slows the whole field: bubbles drift slower, live fuses last
+    /// longer, spawns stretch out, and flash/overlay payloads linger. Refreshes on each catch.</summary>
+    private void ActivateSlowMo()
+    {
+        _slowMoRemainingSec = SLOWMO_DURATION_SEC;
+        App.Bubbles?.SetChaosTimeScale(SLOWMO_FACTOR);
+        EffectPayload.GlobalDurationMult = 1.0 / SLOWMO_FACTOR;
+    }
+
+    private void EndSlowMo()
+    {
+        _slowMoRemainingSec = 0;
+        App.Bubbles?.SetChaosTimeScale(1.0);
+        if (_freezeRemainingSec <= 0) EffectPayload.GlobalDurationMult = 1.0;   // don't clobber an active freeze
+    }
+
+    // ---- freeze-bubble power-up ----
+    private const double FREEZE_DURATION_SEC = 3.5;   // real-time length of the freeze
+    private const double FREEZE_DURATION_MULT = 2.5;  // flash/overlay payloads linger this much longer while frozen
+    private const int    FREEZE_VIBRATE_MS    = 200;  // whole-field shudder as the freeze lands
+    private const int    FREEZE_BASE_POINTS   = 140;
+    private static readonly Color FREEZE_EDGE = Color.FromRgb(150, 210, 255);   // icy white-blue
+    private double _freezeRemainingSec;
+
+    private void ActivateFreeze()
+    {
+        _freezeRemainingSec = FREEZE_DURATION_SEC;
+        App.Bubbles?.SetChaosFrozen(true);
+        App.Bubbles?.VibrateAllForFreeze(FREEZE_VIBRATE_MS);
+        EffectPayload.GlobalDurationMult = FREEZE_DURATION_MULT;
+        if (_state?.Config?.ColorFlashesEnabled == true)
+        {
+            _fx?.FreezeBurst(FREEZE_EDGE);        // icy "ice hit" flash
+            _fx?.BeginEdgeHold(FREEZE_EDGE, 0.5); // sustained white-blue edges for the frozen window
+        }
+        Shake(0.3, FREEZE_VIBRATE_MS);
+    }
+
+    private void EndFreeze()
+    {
+        _freezeRemainingSec = 0;
+        App.Bubbles?.SetChaosFrozen(false);
+        if (_slowMoRemainingSec <= 0) EffectPayload.GlobalDurationMult = 1.0;   // don't clobber an active slow-mo
+        _fx?.EndEdgeHold();
     }
 
     private void CheckComboMilestone()
@@ -348,6 +431,8 @@ public sealed class ChaosModeService
         _spawnTimer?.Stop();
         try { App.Bubbles?.EndChaosMode(); } catch { }
         try { App.Bubbles?.Resume(); } catch { }
+        EndSlowMo(); EndFreeze();
+        try { ChaosFlashOverlay.CloseActive(); } catch { }
         try { _fx?.Close(); } catch { }
         if (_overlay != null)
         {
@@ -366,6 +451,8 @@ public sealed class ChaosModeService
         _runTimer?.Stop();
         _spawnTimer?.Stop();
         App.Bubbles?.EndChaosMode();
+        EndSlowMo(); EndFreeze();
+        try { ChaosFlashOverlay.CloseActive(); } catch { }
         try { _fx?.Close(); } catch { }
         _fx = null;
 

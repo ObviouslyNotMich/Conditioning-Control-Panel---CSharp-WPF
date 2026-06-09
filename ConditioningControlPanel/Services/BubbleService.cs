@@ -58,8 +58,11 @@ public class BubbleService : IDisposable
     private Action<EffectBubbleSpec>? _chaosOnDefuse;
     private Action<EffectBubbleSpec>? _chaosOnDetonate;
     private Action<EffectBubbleSpec, bool>? _chaosOnDarterCaught;
+    private Action<EffectBubbleSpec>? _chaosOnFreezeCaught;
     private bool _chaosActive;
-    private bool _chaosFrozen;   // pause / freeze power-up: halts all bubble motion + fuses
+    private bool _chaosFrozen;   // freeze-bubble power-up: holds all bubble motion + fuses in place
+    private double _freezeVibrateRemainingMs;   // brief shudder applied to every bubble as the freeze lands
+    private double _chaosTimeScale = 1.0;   // darter slow-mo power-up: <1 slows motion + fuses
 
     public event Action? OnBubblePopped;
     public event Action? OnBubbleMissed;
@@ -104,12 +107,22 @@ public class BubbleService : IDisposable
         App.Logger?.Information("BubbleService started - {Freq} bubbles/min", settings.BubblesFrequency);
     }
 
-    /// <summary>Freeze/unfreeze all chaos bubble motion + fuse countdowns (pause / time-freeze power-up).</summary>
+    /// <summary>Freeze/unfreeze all chaos bubble motion + fuse countdowns (the freeze-bubble power-up).
+    /// Bubbles still render (their blue freeze aura pulses) — only their motion + fuses are held.</summary>
     public void SetChaosFrozen(bool frozen) => _chaosFrozen = frozen;
+
+    /// <summary>Kick off a brief whole-field shudder (used as the freeze lands). Duration in ms.</summary>
+    public void VibrateAllForFreeze(int ms) => _freezeVibrateRemainingMs = Math.Max(0, ms);
+
+    /// <summary>Time-scale for chaos bubble motion + fuses (the darter slow-mo power-up). 1 = normal, &lt;1 = slow.</summary>
+    public void SetChaosTimeScale(double scale) => _chaosTimeScale = Math.Clamp(scale, 0.05, 1.0);
 
     private void AnimateAllBubbles(object? sender, EventArgs e)
     {
-        if (_chaosFrozen) return;   // time is frozen: hold every bubble in place, fuses paused
+        // NOTE: a freeze does NOT skip this loop — bubbles must keep rendering so the freeze aura
+        // pulses, the shudder plays, and any in-flight pop finishes. Each bubble holds its own
+        // motion/fuse while frozen (see Bubble.AnimateFrame).
+        if (_freezeVibrateRemainingMs > 0) _freezeVibrateRemainingMs -= 32;
         if (_bubbles.Count == 0) return;
 
         // Animate all bubbles in a single pass - iterate by index to avoid allocation
@@ -356,12 +369,13 @@ public class BubbleService : IDisposable
 
     /// <summary>Enter chaos mode: install effect callbacks + ensure the shared animation timer runs.</summary>
     public void BeginChaosMode(Action<EffectBubbleSpec> onBenignPop, Action<EffectBubbleSpec> onDefuse, Action<EffectBubbleSpec> onDetonate,
-                               Action<EffectBubbleSpec, bool>? onDarterCaught = null)
+                               Action<EffectBubbleSpec, bool>? onDarterCaught = null, Action<EffectBubbleSpec>? onFreezeCaught = null)
     {
         _chaosOnBenignPop = onBenignPop;
         _chaosOnDefuse = onDefuse;
         _chaosOnDetonate = onDetonate;
         _chaosOnDarterCaught = onDarterCaught;
+        _chaosOnFreezeCaught = onFreezeCaught;
         _chaosActive = true;
         DispatcherHelper.RunOnUI(() =>
         {
@@ -393,7 +407,10 @@ public class BubbleService : IDisposable
                     onDefuse:    b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec); },
                     onDetonate:  b => { if (b.Spec != null) _chaosOnDetonate?.Invoke(b.Spec); },
                     onDarterCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); },
-                    isChaosFrozen: () => _chaosFrozen);
+                    onFreezeCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnFreezeCaught?.Invoke(b.Spec); },
+                    isChaosFrozen: () => _chaosFrozen,
+                    timeScale: () => _chaosTimeScale,
+                    freezeVibrateMs: () => _freezeVibrateRemainingMs);
                 _bubbles.Add(bubble);
             }
             catch (Exception ex)
@@ -408,8 +425,11 @@ public class BubbleService : IDisposable
     {
         _chaosActive = false;
         _chaosFrozen = false;
+        _freezeVibrateRemainingMs = 0;
+        _chaosTimeScale = 1.0;
         _chaosOnBenignPop = _chaosOnDefuse = _chaosOnDetonate = null;
         _chaosOnDarterCaught = null;
+        _chaosOnFreezeCaught = null;
         PopAllBubbles();
         DispatcherHelper.RunOnUI(StopAnimationTimerIfIdle);
     }
@@ -657,7 +677,16 @@ internal class Bubble
     private readonly Action<Bubble>? _onDefuse;
     private readonly Action<Bubble>? _onDetonate;
     private readonly Action<Bubble>? _onDarterCaught;
-    private readonly Func<bool>? _isChaosFrozen;   // true while the field is frozen (pause / time-freeze)
+    private readonly Action<Bubble>? _onFreezeCaught;
+    private readonly Func<bool>? _isChaosFrozen;   // true while the field is frozen (freeze-bubble power-up)
+    private readonly Func<double>? _timeScaleFn;   // <1 = slow-mo (darter power-up); 1 = normal speed
+    private readonly Func<double>? _freezeVibrateMsFn;   // >0 = whole-field shudder remaining (freeze impact)
+    private double TimeScale => _spec != null ? Math.Max(0.0, _timeScaleFn?.Invoke() ?? 1.0) : 1.0;
+
+    // ---- freeze-bubble state ----
+    private readonly bool _isFreeze;               // this bubble is the "good" freeze pickup
+    private System.Windows.Shapes.Ellipse? _freezeAura;   // blue halo, pulsed while the field is frozen
+    private double _freezePulsePhase;              // aura pulse oscillator
     private double _fuseTotalMs;
     private double _fuseRemainingMs;
     private System.Windows.Shapes.Ellipse? _fuseRing;
@@ -676,6 +705,10 @@ internal class Bubble
     private double _darterLifeRemainingMs;
     private System.Windows.Shapes.Ellipse? _telegraphRing;
     private bool _wasQuickCatch;
+    private int _darterBounces;            // wall hits so far; after DARTER_MAX_BOUNCES it stops bouncing
+    private bool _darterEscaping;          // past its bounces → flying off-screen to despawn
+    private double _darterThrobPhase;      // continuous throb oscillator
+    private double _darterThrobPunch;      // transient scale bump injected on each wall bounce (decays)
 
     /// <summary>The chaos spec this bubble carries (null for ambient pop-game bubbles).</summary>
     public EffectBubbleSpec? Spec => _spec;
@@ -695,7 +728,9 @@ internal class Bubble
                   Action<Bubble>? onPop, Action<Bubble>? onMiss, Action<Bubble>? onDestroy, bool isClickable = true,
                   EffectBubbleSpec? spec = null,
                   Action<Bubble>? onBenignPop = null, Action<Bubble>? onDefuse = null, Action<Bubble>? onDetonate = null,
-                  Action<Bubble>? onDarterCaught = null, Func<bool>? isChaosFrozen = null)
+                  Action<Bubble>? onDarterCaught = null, Func<bool>? isChaosFrozen = null,
+                  Func<double>? timeScale = null, Action<Bubble>? onFreezeCaught = null,
+                  Func<double>? freezeVibrateMs = null)
     {
         _random = random;
         _onPop = onPop;
@@ -707,8 +742,12 @@ internal class Bubble
         _onDefuse = onDefuse;
         _onDetonate = onDetonate;
         _onDarterCaught = onDarterCaught;
+        _onFreezeCaught = onFreezeCaught;
         _isChaosFrozen = isChaosFrozen;
+        _timeScaleFn = timeScale;
+        _freezeVibrateMsFn = freezeVibrateMs;
         _isDarter = spec?.IsDarter == true;
+        _isFreeze = spec?.IsFreeze == true;
 
         // Random properties (size/motion overridden for chaos effect bubbles)
         _size = spec != null ? Math.Max(60, (int)Math.Round(spec.SizePx)) : random.Next(150, 250);
@@ -903,12 +942,25 @@ internal class Bubble
         // Early exit checks - must be first to avoid any work on destroyed bubbles
         if (!_isAlive || _isDestroyed) return;
 
+        // Frozen field (freeze-bubble power-up): a chaos bubble that isn't mid-pop holds its
+        // position + fuse, but still falls through to the visual block so its aura keeps pulsing.
+        bool frozen = _spec != null && !_isPopping && _isChaosFrozen?.Invoke() == true;
+
         if (_isPopping)
         {
-            // Pop animation - expand and fade (scaled for 30fps)
-            _scale += 0.04;
-            _fadeAlpha -= _isLucky ? 0.044 : 0.066; // Lucky pops linger ~50% longer
-            _angle += 2;
+            if (_isDarter)
+            {
+                // Darter explosion: enlarge slowly, then dissipate (slower + bigger than a normal pop).
+                _scale += 0.07;
+                _fadeAlpha -= 0.030;
+            }
+            else
+            {
+                // Pop animation - expand and fade (scaled for 30fps)
+                _scale += 0.04;
+                _fadeAlpha -= _isLucky ? 0.044 : 0.066; // Lucky pops linger ~50% longer
+                _angle += 2;
+            }
 
             // Animate sparkle particles outward
             if (_sparkles != null)
@@ -942,10 +994,25 @@ internal class Bubble
                 return;
             }
         }
+        else if (frozen)
+        {
+            // Held in place — no motion, no fuse tick. The visual block below still runs so the
+            // blue freeze aura pulses and the impact shudder plays.
+        }
         else if (_isDarter)
         {
-            // Darter: flare in place during the telegraph, then dart with a fast edge-bounce.
+            // Darter: a speedy glowing orb. Flares in place during the telegraph, then bolts and
+            // bounces a few times before running off-screen. It throbs the whole time, with an
+            // extra punch on every wall bounce. Slowed by the time-scale (e.g. another darter's slow-mo).
             _timeAlive += 0.02;
+            double ts = TimeScale;
+
+            // Continuous throb + decaying bounce-punch, written into _scale (the shared visual block
+            // skips its own wobble for darters so this isn't doubled).
+            _darterThrobPhase += 0.5 * Math.Max(ts, 0.4);
+            if (_darterThrobPunch > 0) _darterThrobPunch = Math.Max(0, _darterThrobPunch - 0.05);
+            _scale = 1.0 + 0.10 * Math.Sin(_darterThrobPhase) + _darterThrobPunch;
+
             if (_telegraphRemainingMs > 0)
             {
                 _telegraphRemainingMs -= 32;
@@ -962,22 +1029,44 @@ internal class Bubble
             else
             {
                 _darterActiveMs += 32;
-                _posX += _vx;
-                _posY += _vy;
-                if (_posX < _screenLeft) { _posX = _screenLeft; _vx = Math.Abs(_vx); }
-                else if (_posX > _screenRight) { _posX = _screenRight; _vx = -Math.Abs(_vx); }
+                _posX += _vx * ts;
+                _posY += _vy * ts;
                 double topB = _screenTop + _size + 50, botB = _screenBottom - _size - 50;
-                if (_posY < topB) { _posY = topB; _vy = Math.Abs(_vy); }
-                else if (_posY > botB) { _posY = botB; _vy = -Math.Abs(_vy); }
+
+                if (!_darterEscaping)
+                {
+                    // Reflect off the edges, up to DARTER_MAX_BOUNCES; each hit fires a throb punch.
+                    bool hit = false;
+                    if (_posX < _screenLeft) { _posX = _screenLeft; _vx = Math.Abs(_vx); hit = true; }
+                    else if (_posX > _screenRight) { _posX = _screenRight; _vx = -Math.Abs(_vx); hit = true; }
+                    if (_posY < topB) { _posY = topB; _vy = Math.Abs(_vy); hit = true; }
+                    else if (_posY > botB) { _posY = botB; _vy = -Math.Abs(_vy); hit = true; }
+                    if (hit)
+                    {
+                        _darterBounces++;
+                        _darterThrobPunch = 0.22;   // visible squash-pulse on impact
+                        if (_darterBounces >= ChaosBubbleVariants.DARTER_MAX_BOUNCES)
+                            _darterEscaping = true; // out of bounces → next edge it just leaves
+                    }
+                }
+                else
+                {
+                    // Escaping: no more reflection. Despawn once fully past an edge.
+                    double pad = _size + 80;
+                    if (_posX < _screenLeft - pad || _posX > _screenRight + pad
+                        || _posY < topB - pad || _posY > botB + pad)
+                    { Destroy(); return; }
+                }
             }
             _darterLifeRemainingMs -= 32;
-            if (_darterLifeRemainingMs <= 0) { Destroy(); return; }   // vanish harmlessly, no combo break
+            if (_darterLifeRemainingMs <= 0) { Destroy(); return; }   // safety backstop only
         }
         else
         {
             // Normal travel animation (scaled for 30fps)
             _timeAlive += 0.02;
             var motion = _spec?.Motion ?? ChaosMotion.FloatUp;
+            double ts = TimeScale;   // 1 normally; <1 during a darter slow-mo (chaos bubbles only)
 
             // Horizontal wobble shared by Float/Rain (gives the lively drift)
             double offset = 0;
@@ -993,13 +1082,13 @@ internal class Bubble
             switch (motion)
             {
                 case ChaosMotion.RainDown:
-                    _posY += _speed;
+                    _posY += _speed * ts;
                     _posX = _startX + offset;
                     if (_posY > _screenBottom) exited = true;
                     break;
                 case ChaosMotion.RoamBounce:
-                    _posX += _vx;
-                    _posY += _vy;
+                    _posX += _vx * ts;
+                    _posY += _vy * ts;
                     if (_posX < _screenLeft) { _posX = _screenLeft; _vx = Math.Abs(_vx); }
                     else if (_posX > _screenRight) { _posX = _screenRight; _vx = -Math.Abs(_vx); }
                     double topB = _screenTop + _size + 50, botB = _screenBottom - _size - 50;
@@ -1007,7 +1096,7 @@ internal class Bubble
                     else if (_posY > botB) { _posY = botB; _vy = -Math.Abs(_vy); }
                     break;
                 default: // FloatUp
-                    _posY -= _speed;
+                    _posY -= _speed * ts;
                     _posX = _startX + offset;
                     if (_posY < _screenTop) exited = true;
                     break;
@@ -1016,7 +1105,7 @@ internal class Bubble
             // Fuse countdown for live chaos bubbles.
             if (_spec != null && _spec.IsLive && _fuseRemainingMs > 0)
             {
-                _fuseRemainingMs -= 32;
+                _fuseRemainingMs -= 32 * ts;   // slow-mo makes live fuses last longer
                 double frac = Math.Clamp(_fuseRemainingMs / Math.Max(1, _fuseTotalMs), 0, 1);
                 if (_fuseRing?.RenderTransform is ScaleTransform fst)
                 {
@@ -1044,8 +1133,9 @@ internal class Bubble
             // Double-check we're still alive after calculations
             if (_isDestroyed || !_isAlive) return;
 
-            // Update scale wobble (scaled for 30fps)
-            var wobble = 0.06 * Math.Sin(_timeAlive * 7.5 + _wobbleOffset);
+            // Update scale wobble (scaled for 30fps). Darters drive their own throb into _scale,
+            // so skip the ambient wobble for them to avoid doubling it.
+            var wobble = _isDarter ? 0.0 : 0.06 * Math.Sin(_timeAlive * 7.5 + _wobbleOffset);
             var currentScale = (_scale + wobble) * _gazeDwellScale;
 
             if (_bubbleImage.RenderTransform is TransformGroup tg && tg.Children.Count >= 2)
@@ -1061,9 +1151,28 @@ internal class Bubble
                 }
             }
 
+            // Freeze aura: pulse a blue halo while the field is frozen, hide it otherwise.
+            if (_freezeAura != null)
+            {
+                if (_spec != null && _isChaosFrozen?.Invoke() == true)
+                {
+                    _freezePulsePhase += 0.18;
+                    _freezeAura.Opacity = 0.45 + 0.35 * Math.Sin(_freezePulsePhase);
+                }
+                else if (_freezeAura.Opacity > 0) _freezeAura.Opacity = 0;
+            }
+
+            // Freeze-impact shudder: jitter the whole window for ~0.2s as the freeze lands.
+            double jx = 0, jy = 0;
+            if (_spec != null && (_freezeVibrateMsFn?.Invoke() ?? 0) > 0)
+            {
+                jx = (_random.NextDouble() - 0.5) * 8;
+                jy = (_random.NextDouble() - 0.5) * 8;
+            }
+
             _window.Opacity = _fadeAlpha;
-            _window.Left = _posX - 20;
-            _window.Top = _posY - 20;
+            _window.Left = _posX - 20 + jx;
+            _window.Top = _posY - 20 + jy;
         }
         catch (Exception ex)
         {
@@ -1159,6 +1268,7 @@ internal class Bubble
                 _wasQuickCatch = _telegraphRemainingMs <= 0 && _darterActiveMs <= _spec.QuickWindowMs;
                 _onDarterCaught?.Invoke(this);
             }
+            else if (_isFreeze) _onFreezeCaught?.Invoke(this);   // good pickup → fires the freeze power-up
             else if (_spec.IsLive) _onDefuse?.Invoke(this);
             else _onBenignPop?.Invoke(this);
         }
@@ -1183,6 +1293,24 @@ internal class Bubble
     {
         if (_spec == null) return;
 
+        // Freeze aura — a soft blue halo behind the bubble, hidden (opacity 0) until the field is
+        // frozen, then pulsed in AnimateFrame. Every chaos bubble carries one so the whole field
+        // glows icy-blue during a freeze. Sits just above the (invisible) hit area, under the art.
+        var auraColor = Color.FromRgb(150, 210, 255);
+        double auraSize = _size + 24;
+        var auraBrush = new RadialGradientBrush { GradientOrigin = new Point(0.5, 0.5), Center = new Point(0.5, 0.5) };
+        auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0,   auraColor.R, auraColor.G, auraColor.B), 0.30));
+        auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(190, auraColor.R, auraColor.G, auraColor.B), 0.66));
+        auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0,   auraColor.R, auraColor.G, auraColor.B), 1.0));
+        _freezeAura = new System.Windows.Shapes.Ellipse
+        {
+            Width = auraSize, Height = auraSize,
+            Fill = auraBrush,
+            IsHitTestVisible = false,
+            Opacity = 0
+        };
+        _grid.Children.Insert(1, _freezeAura);   // index 0 = hit area; image is index 2 after this
+
         // Tint overlay — radial so the bubble's highlight still reads through. Skipped when a
         // per-variant sprite is supplying its own art.
         if (!_hasVariantSprite)
@@ -1201,8 +1329,10 @@ internal class Bubble
             });
         }
 
-        // Label / emoji
-        if (!string.IsNullOrEmpty(_spec.Label))
+        // Label / emoji — skipped when a per-variant sprite is present (the sprite carries its
+        // own glyph, so drawing the label too would double the icon). Absent a sprite the bubble
+        // falls back to bubble.png + tint + this glyph, so the variant stays readable either way.
+        if (!_hasVariantSprite && !string.IsNullOrEmpty(_spec.Label))
         {
             _grid.Children.Add(new TextBlock
             {
