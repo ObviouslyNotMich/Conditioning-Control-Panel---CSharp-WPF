@@ -112,6 +112,8 @@ namespace ConditioningControlPanel
         private DispatcherTimer? _triggerTimer; // Random trigger phrases
         private DispatcherTimer? _randomBubbleTimer; // Random bubble spawning
         private DispatcherTimer? _zOrderRefreshTimer; // Keep speech bubble on top
+        private bool _chaosRunActive;       // A Chaos run owns the screen (see SetChaosRunActive)
+        private bool _reattachAfterChaos;   // we auto-detached for the run and should re-attach when it ends
         private DateTime _lastClickTime = DateTime.MinValue;
         private DateTime _lastSpeechEndTime = DateTime.MinValue; // Track when last speech ended
         private SpeechSource _lastSpeechSource = SpeechSource.Preset; // Track last speech source for delay calc
@@ -4138,6 +4140,39 @@ namespace ConditioningControlPanel
         }
 
         /// <summary>
+        /// Called by <see cref="Services.Chaos.ChaosModeService"/> around a run. A chaos run blankets the
+        /// screen with TOPMOST windows (the FX vignette, payload washes, effect bubbles); an ATTACHED tube
+        /// lives in the non-topmost band, so its speech bubbles get buried under that layer. Rather than
+        /// fight the z-order, we simply auto-detach for the run — detached mode is a self-contained topmost
+        /// widget that stays visible on top — and re-attach when the run ends. Only auto-restores if WE
+        /// detached it (an already-detached avatar is left as the user set it).
+        /// </summary>
+        public void SetChaosRunActive(bool active)
+        {
+            if (_chaosRunActive == active) return;
+            _chaosRunActive = active;
+            try
+            {
+                if (active)
+                {
+                    // Detach so the companion floats above the run as a topmost widget. Remember to
+                    // re-attach afterwards only if it was attached to begin with.
+                    if (_isAttached)
+                    {
+                        _reattachAfterChaos = true;
+                        Detach(silent: true);
+                    }
+                }
+                else if (_reattachAfterChaos)
+                {
+                    _reattachAfterChaos = false;
+                    Attach(silent: true);
+                }
+            }
+            catch { /* window may be tearing down */ }
+        }
+
+        /// <summary>
         /// Reassert topmost status when detached - ensures avatar stays on top as a widget
         /// </summary>
         private void ReassertTopmost()
@@ -6514,9 +6549,11 @@ namespace ConditioningControlPanel
         }
 
         /// <summary>
-        /// Detach the avatar tube from the main window, making it a free-floating draggable widget
+        /// Detach the avatar tube from the main window, making it a free-floating draggable widget.
+        /// <paramref name="silent"/> suppresses the "I'm free!" giggle for automatic detaches (e.g. the
+        /// auto-detach when a chaos run starts), where a spoken line would be intrusive.
         /// </summary>
-        public void Detach()
+        public void Detach(bool silent = false)
         {
             if (!_isAttached) return;
 
@@ -6553,13 +6590,14 @@ namespace ConditioningControlPanel
             UpdateContextMenuForState();
 
             App.Logger?.Information("Avatar tube detached - now floating independently");
-            Giggle("I'm free! Ctrl+scroll to resize!");
+            if (!silent) Giggle("I'm free! Ctrl+scroll to resize!");
         }
 
         /// <summary>
-        /// Attach the avatar tube back to the main window
+        /// Attach the avatar tube back to the main window. <paramref name="silent"/> suppresses the
+        /// "Back home~" giggle for automatic re-attaches (e.g. when a chaos run ends).
         /// </summary>
-        public void Attach()
+        public void Attach(bool silent = false)
         {
             if (_isAttached) return;
 
@@ -6616,7 +6654,7 @@ namespace ConditioningControlPanel
             UpdateContextMenuForState();
 
             App.Logger?.Information("Avatar tube attached - anchored to main window");
-            Giggle("Back home~");
+            if (!silent) Giggle("Back home~");
         }
 
         /// <summary>

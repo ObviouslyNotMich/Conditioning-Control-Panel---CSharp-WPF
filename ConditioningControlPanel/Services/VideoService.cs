@@ -1162,7 +1162,10 @@ namespace ConditioningControlPanel.Services
                         App.Logger?.Information("VideoService: Created {Count} video windows (DualMonitor={Enabled})",
                             _windows.Count, App.Settings.Current.DualMonitorEnabled);
 
-                        // Pause bubbles during mandatory video to prevent z-order conflicts and click interference
+                        // Ambient bubble game: pause + clear so it doesn't fight the video for
+                        // clicks / z-order (no-op during a chaos run, which isn't "running").
+                        // A chaos run keeps its bubbles + HUD alive and lifts them back above the
+                        // video itself — see ChaosModeService's VideoStarted handler.
                         App.Bubbles?.PauseAndClear();
 
                         if (App.Settings.Current.AttentionChecksEnabled)

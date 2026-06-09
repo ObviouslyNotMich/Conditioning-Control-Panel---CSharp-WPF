@@ -59,6 +59,7 @@ public class BubbleService : IDisposable
     private Action<EffectBubbleSpec>? _chaosOnDetonate;
     private Action<EffectBubbleSpec, bool>? _chaosOnDarterCaught;
     private Action<EffectBubbleSpec>? _chaosOnFreezeCaught;
+    private Func<double>? _chaosChainReach;   // Chain Reaction boon: burst reach as a box-multiple (<=1 = off)
     private bool _chaosActive;
     private bool _chaosFrozen;   // freeze-bubble power-up: holds all bubble motion + fuses in place
     private double _freezeVibrateRemainingMs;   // brief shudder applied to every bubble as the freeze lands
@@ -369,8 +370,10 @@ public class BubbleService : IDisposable
 
     /// <summary>Enter chaos mode: install effect callbacks + ensure the shared animation timer runs.</summary>
     public void BeginChaosMode(Action<EffectBubbleSpec> onBenignPop, Action<EffectBubbleSpec> onDefuse, Action<EffectBubbleSpec> onDetonate,
-                               Action<EffectBubbleSpec, bool>? onDarterCaught = null, Action<EffectBubbleSpec>? onFreezeCaught = null)
+                               Action<EffectBubbleSpec, bool>? onDarterCaught = null, Action<EffectBubbleSpec>? onFreezeCaught = null,
+                               Func<double>? chainReach = null)
     {
+        _chaosChainReach = chainReach;
         _chaosOnBenignPop = onBenignPop;
         _chaosOnDefuse = onDefuse;
         _chaosOnDetonate = onDetonate;
@@ -410,13 +413,65 @@ public class BubbleService : IDisposable
                     onFreezeCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnFreezeCaught?.Invoke(b.Spec); },
                     isChaosFrozen: () => _chaosFrozen,
                     timeScale: () => _chaosTimeScale,
-                    freezeVibrateMs: () => _freezeVibrateRemainingMs);
+                    freezeVibrateMs: () => _freezeVibrateRemainingMs,
+                    onChainTrigger: ChainPopNeighbors);
                 _bubbles.Add(bubble);
             }
             catch (Exception ex)
             {
                 App.Logger?.Error("SpawnChaosBubble failed: {Error}", ex.Message);
             }
+        });
+    }
+
+    /// <summary>Stagger between chain hops (ms) so a cluster ripples outward instead of vanishing in one frame.</summary>
+    private const int ChainHopMs = 80;
+
+    /// <summary>
+    /// Chain Reaction boon: when a chaos bubble pops, its expanding burst pops any neighbour whose
+    /// box overlaps the burst, rippling through a cluster. Each chained pop re-enters here (via the
+    /// same <c>onChainTrigger</c> hook), so the cascade is self-propagating; the per-bubble
+    /// <c>_isPopping</c> guard stops anything popping twice and ends the chain at the cluster edge.
+    /// Darters (a precision catch power-up) neither seed nor are swept by chains. The reach is the
+    /// boon's level-driven box-multiple (<=1 = off). Runs on the UI thread (from <see cref="Bubble.Pop"/>).
+    /// </summary>
+    private void ChainPopNeighbors(Bubble source)
+    {
+        try
+        {
+            double reachMult = _chaosChainReach?.Invoke() ?? 0;
+            if (reachMult <= 1.0) return;
+            if (source.Spec == null || source.Spec.IsDarter) return;
+            var reach = source.ChainReach(reachMult);
+            foreach (var b in _bubbles.ToArray())
+            {
+                if (ReferenceEquals(b, source) || !b.IsChainable) continue;
+                if (!reach.IntersectsWith(b.BoundingBox)) continue;
+                var target = b;
+                var hop = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ChainHopMs) };
+                hop.Tick += (_, _) =>
+                {
+                    hop.Stop();
+                    try { if (target.IsAlive) target.Pop(); } catch { }
+                };
+                hop.Start();
+            }
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChainPopNeighbors: {E}", ex.Message); }
+    }
+
+    /// <summary>
+    /// Lift every live bubble back to the top of the topmost band (focus-stealing free).
+    /// Called when a fullscreen window — the mandatory chaos video — is raised mid-run so the
+    /// player keeps popping bubbles ABOVE the video instead of having them buried under it.
+    /// No-op when no bubbles are present (e.g. the ambient game was paused-and-cleared).
+    /// </summary>
+    public void BringAllToFront()
+    {
+        DispatcherHelper.RunOnUI(() =>
+        {
+            foreach (var b in _bubbles.ToArray())
+                b.BringToFront();
         });
     }
 
@@ -430,6 +485,7 @@ public class BubbleService : IDisposable
         _chaosOnBenignPop = _chaosOnDefuse = _chaosOnDetonate = null;
         _chaosOnDarterCaught = null;
         _chaosOnFreezeCaught = null;
+        _chaosChainReach = null;
         PopAllBubbles();
         DispatcherHelper.RunOnUI(StopAnimationTimerIfIdle);
     }
@@ -678,6 +734,7 @@ internal class Bubble
     private readonly Action<Bubble>? _onDetonate;
     private readonly Action<Bubble>? _onDarterCaught;
     private readonly Action<Bubble>? _onFreezeCaught;
+    private readonly Action<Bubble>? _onChainTrigger;   // Chain Reaction boon: fired on pop so the service can sweep neighbours
     private readonly Func<bool>? _isChaosFrozen;   // true while the field is frozen (freeze-bubble power-up)
     private readonly Func<double>? _timeScaleFn;   // <1 = slow-mo (darter power-up); 1 = normal speed
     private readonly Func<double>? _freezeVibrateMsFn;   // >0 = whole-field shudder remaining (freeze impact)
@@ -720,6 +777,19 @@ internal class Bubble
     /// <summary>The chaos spec this bubble carries (null for ambient pop-game bubbles).</summary>
     public EffectBubbleSpec? Spec => _spec;
 
+    /// <summary>Eligible to be swept up by a Chain Reaction pop: a live, un-popped, non-darter chaos bubble.</summary>
+    public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null && !_isDarter;
+
+    /// <summary>This bubble's on-screen box in DIPs (the bubble.png footprint, sans window pad).</summary>
+    public Rect BoundingBox => new Rect(_posX, _posY, _size, _size);
+
+    /// <summary>The box grown by <paramref name="expand"/> about its centre — the reach of its pop burst.</summary>
+    public Rect ChainReach(double expand)
+    {
+        double grow = _size * (expand - 1.0);
+        return new Rect(_posX - grow / 2, _posY - grow / 2, _size + grow, _size + grow);
+    }
+
     /// <summary>True if this darter was caught within its quick-catch window. Valid after Pop().</summary>
     public bool WasQuickCatch => _wasQuickCatch;
 
@@ -737,7 +807,7 @@ internal class Bubble
                   Action<Bubble>? onBenignPop = null, Action<Bubble>? onDefuse = null, Action<Bubble>? onDetonate = null,
                   Action<Bubble>? onDarterCaught = null, Func<bool>? isChaosFrozen = null,
                   Func<double>? timeScale = null, Action<Bubble>? onFreezeCaught = null,
-                  Func<double>? freezeVibrateMs = null)
+                  Func<double>? freezeVibrateMs = null, Action<Bubble>? onChainTrigger = null)
     {
         _random = random;
         _onPop = onPop;
@@ -750,6 +820,7 @@ internal class Bubble
         _onDetonate = onDetonate;
         _onDarterCaught = onDarterCaught;
         _onFreezeCaught = onFreezeCaught;
+        _onChainTrigger = onChainTrigger;
         _isChaosFrozen = isChaosFrozen;
         _timeScaleFn = timeScale;
         _freezeVibrateMsFn = freezeVibrateMs;
@@ -1311,6 +1382,7 @@ internal class Bubble
             else if (_isFreeze) { ShowChaosEffectLabel(); _onFreezeCaught?.Invoke(this); }   // good pickup → fires the freeze power-up
             else if (_spec.IsLive) { ShowChaosLabel("SNAP", SnapColor); _onDefuse?.Invoke(this); }  // snapped in time → no effect, but confirm the catch
             else { ShowChaosEffectLabel(); _onBenignPop?.Invoke(this); }                      // treat → its effect fires
+            _onChainTrigger?.Invoke(this);   // Chain Reaction boon: let the burst sweep overlapping neighbours
         }
         else
         {
@@ -1508,6 +1580,24 @@ internal class Bubble
         try { _onDestroy?.Invoke(this); } catch { }
     }
 
+    /// <summary>
+    /// Re-assert this bubble's window to the very top of the topmost band without stealing
+    /// focus. Used when a fullscreen window (e.g. the mandatory chaos video) is raised mid-run
+    /// so the player keeps popping bubbles that sit ABOVE the video. Mirrors the HWND_TOPMOST
+    /// "kick" pattern used by OverlayService / the video attention targets.
+    /// </summary>
+    public void BringToFront()
+    {
+        if (!_isAlive || _isDestroyed || _window == null) return;
+        try
+        {
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(_window).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        catch { }
+    }
+
     #region Win32
 
     private static double GetDpiForScreen(System.Windows.Forms.Screen screen)
@@ -1570,6 +1660,15 @@ internal class Bubble
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOACTIVATE = 0x0010;
 
     #endregion
 }

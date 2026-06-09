@@ -110,6 +110,10 @@ public sealed class ChaosModeService
             _overlay.OnDismissed = OnOverlayClosed;
             _overlay.Show();
             _overlay.ShowCountdown(BeginRun, shortFlash: isRestart);   // 1s flash on RunAgain
+
+            // The run's topmost windows (overlay/FX/payload washes/bubbles) would otherwise bury an
+            // ATTACHED avatar's speech bubble in the non-topmost band — keep it topmost for the run.
+            App.AvatarWindow?.SetChaosRunActive(true);
         }
         catch (Exception ex)
         {
@@ -125,7 +129,8 @@ public sealed class ChaosModeService
     {
         if (!_active || _state == null) return;
 
-        App.Bubbles?.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated, OnDarterCaught, OnFreezeCaught);
+        App.Bubbles?.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated, OnDarterCaught, OnFreezeCaught,
+            chainReach: () => _state?.ChainReactionReach ?? 0);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("⚡ run started");
         _runDetonations = 0;
@@ -142,6 +147,12 @@ public sealed class ChaosModeService
             var boon = ChaosBoonPool.All.FirstOrDefault(b => b.Id == equipped);
             if (boon != null) { _state.ApplyBoon(boon); ChaosMeta.MarkDiscovered("boon:" + boon.Id); }
         }
+
+        // Lifetime boons (Skills/Accessories/Utility): apply active ones at their level, then
+        // mirror them into the HUD strip as icons.
+        ChaosMeta.ApplyLifetimeBoons(_state);
+        BuildSidebarBoons();
+
         _spawning = true;
 
         try { _fx = new ChaosFxWindow(); _fx.Show(); } catch (Exception ex) { App.Logger?.Debug("Chaos FX init: {E}", ex.Message); }
@@ -156,6 +167,24 @@ public sealed class ChaosModeService
         _spawnTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _spawnTimer.Tick += SpawnTick;
         _spawnTimer.Start();
+    }
+
+    /// <summary>Populate the HUD strip's active-lifetime-boon icons (art if present, else the boon's glyph).</summary>
+    private void BuildSidebarBoons()
+    {
+        if (_state == null) return;
+        _state.ActiveSidebarBoons.Clear();
+        foreach (var b in ChaosLifetimeBoons.All)
+        {
+            if (!ChaosMeta.IsBoonActive(b.Id)) continue;
+            _state.ActiveSidebarBoons.Add(new ChaosSidebarBoon
+            {
+                Icon = ChaosArt.Resolve("boons", b.Id),
+                Glyph = b.Glyph,
+                Name = b.Name,
+                Level = ChaosMeta.BoonLevel(b.Id),
+            });
+        }
     }
 
     /// <summary>
@@ -705,6 +734,7 @@ public sealed class ChaosModeService
     private void CleanupAfterRun()
     {
         if (App.Video != null) App.Video.VideoStarted -= OnVideoStartedDuringRun;   // belt-and-suspenders (mid-run close)
+        App.AvatarWindow?.SetChaosRunActive(false);   // restore the avatar's normal attached z-order
         _runTimer = null;
         _spawnTimer = null;
         _hud = null;
