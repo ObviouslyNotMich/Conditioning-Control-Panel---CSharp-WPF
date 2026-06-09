@@ -117,6 +117,17 @@ public static class ChaosMeta
         Save();
     }
 
+    /// <summary>Mark a Codex entry encountered. Persists only on the first sighting (bounded writes).</summary>
+    public static void MarkDiscovered(string codexId)
+    {
+        if (string.IsNullOrEmpty(codexId)) return;
+        State.DiscoveredCodexIds ??= new();
+        if (State.DiscoveredCodexIds.Add(codexId)) Save();
+    }
+
+    public static bool IsDiscovered(string codexId) =>
+        State.DiscoveredCodexIds != null && State.DiscoveredCodexIds.Contains(codexId);
+
     public static bool IsOwned(string id) => State.PurchasedUpgrades.Contains(id);
 
     public static bool CanAfford(string id)

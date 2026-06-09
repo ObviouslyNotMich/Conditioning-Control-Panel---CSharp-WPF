@@ -120,6 +120,7 @@
 
             <!-- top bar -->
             <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent" Margin="0,0,0,14">
+                <Image x:Name="BannerImage" Stretch="UniformToFill" Opacity="0.30" Visibility="Collapsed"/>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="⚡ CHAOS MODE" Foreground="White" FontSize="22" FontWeight="Bold">
                         <TextBlock.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/></TextBlock.Effect>

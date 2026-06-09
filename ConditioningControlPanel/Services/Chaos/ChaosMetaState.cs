@@ -19,6 +19,9 @@ public sealed class ChaosMetaState
     /// <summary>Boon id pre-equipped to apply at run start (Loadout tab). Null = none.</summary>
     public string? EquippedStartBoon { get; set; } = null;
 
+    /// <summary>Codex entries the player has encountered (prefixed: "bubble:{id}" / "boon:{id}").</summary>
+    public HashSet<string> DiscoveredCodexIds { get; set; } = new();
+
     // lifetime stats (consumed by the Stats tab in a later session)
     public int RunsCompleted { get; set; } = 0;
     public long BestScore { get; set; } = 0;

@@ -125,6 +125,21 @@ public static class ChaosBubbleVariants
     /// <summary>All variant ids, in table order.</summary>
     public static List<string> AllIds() => All.Select(v => v.Id).ToList();
 
+    /// <summary>Codex blurb for a bubble variant (plain, understated). Empty for unknown ids.</summary>
+    public static string DescriptionFor(string id) => id switch
+    {
+        "flash"       => "A benign treat. Pop it for a quick flash burst and a little score.",
+        "subliminal"  => "A benign treat. Pop it to flash a subliminal from the active pool.",
+        "pink"        => "Live. Defuse before the fuse runs out, or it snaps a pink filter over the screen.",
+        "spiral"      => "Live. Roams and bounces. Defuse it or it drops a spiral overlay.",
+        "braindrain"  => "Live and large. Slow but heavy. Detonates into a braindrain blur.",
+        "bambifreeze" => "Live. Defuse it or it triggers a Bambi Freeze.",
+        "video"       => "Live and rare. A long fuse, but it opens a mandatory video if it goes off.",
+        "htlink"      => "Live and rare. Detonates into a HypnoTube link, fullscreen.",
+        "darter"      => "A fast, bouncing flash target. Catch it for points and a micro flash. Harmless if missed.",
+        _             => ""
+    };
+
     /// <summary>Curated one-click bubble-pool mixes for the setup window.</summary>
     public sealed record ChaosPreset(string Name, List<string> VariantIds, double LiveShare);
 

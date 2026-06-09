@@ -87,7 +87,7 @@ public sealed class ChaosModeService
         if (!string.IsNullOrEmpty(equipped))
         {
             var boon = ChaosBoonPool.All.FirstOrDefault(b => b.Id == equipped);
-            if (boon != null) _state.ApplyBoon(boon);
+            if (boon != null) { _state.ApplyBoon(boon); ChaosMeta.MarkDiscovered("boon:" + boon.Id); }
         }
         _spawning = true;
 
@@ -137,6 +137,7 @@ public sealed class ChaosModeService
         {
             var spec = ChaosBubbleVariants.Pick(effIntensity, _state.FuseTimeMult,
                 cfg.MotionOverride, cfg.EnabledVariants, cfg.EffectIntensity);
+            ChaosMeta.MarkDiscovered("bubble:" + spec.VariantId);
             App.Bubbles?.SpawnChaosBubble(spec);
         }
 
@@ -144,7 +145,7 @@ public sealed class ChaosModeService
         if (cfg.DartersEnabled)
         {
             var darter = ChaosBubbleVariants.RollDarter(effIntensity);
-            if (darter != null) App.Bubbles?.SpawnChaosBubble(darter);
+            if (darter != null) { ChaosMeta.MarkDiscovered("bubble:darter"); App.Bubbles?.SpawnChaosBubble(darter); }
         }
 
         double interval = (1300 - intensity * 850) / diffFactor;
@@ -181,6 +182,7 @@ public sealed class ChaosModeService
         App.Bark?.NotifyChaosWaveEscalated(newWave);
 
         var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices);
+        foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
         _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen);
     }
 

@@ -53,6 +53,17 @@ public static class ChaosArt
         return null;
     }
 
+    /// <summary>The hero banner at <c>Assets/Chaos/banner.png</c>, or null when absent.</summary>
+    public static ImageSource? ResolveBanner()
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "Assets", "Chaos", "banner.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
     /// <summary>The first existing convention path for a kind/id, or null. Used by callers that need the path itself.</summary>
     public static string? PathFor(string kind, string id)
     {

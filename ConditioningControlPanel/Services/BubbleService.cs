@@ -652,8 +652,13 @@ internal class Bubble
     private double _fuseTotalMs;
     private double _fuseRemainingMs;
     private System.Windows.Shapes.Ellipse? _fuseRing;
+    // Mutable (unfrozen) brush reused for the fuse ring so its colour can be tweaked every
+    // frame without allocating a new SolidColorBrush per tick (GC pressure at 30fps).
+    private SolidColorBrush? _fuseStrokeBrush;
     private double _vx, _vy;                                   // RoamBounce velocity (DIPs/frame)
     private double _screenBottom, _screenLeft, _screenRight;   // motion bounds (DIPs)
+
+    private bool _hasVariantSprite;   // a per-variant sprite replaced the tinted bubble.png
 
     // ---- darter state (only when _spec.IsDarter) ----
     private readonly bool _isDarter;
@@ -759,8 +764,18 @@ internal class Bubble
             Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow,
             IsHitTestVisible = false
         };
+        RenderOptions.SetBitmapScalingMode(_bubbleImage, PerformanceProfile.ScalingMode(PerformanceProfile.CurrentTier));
 
-        if (image != null)
+        // Chaos: a per-variant sprite at Assets/Chaos/bubbles/{variant}.png replaces the
+        // tinted bubble.png when present (the tint overlay is then skipped). Falls back to
+        // the shared bubble image otherwise.
+        var variantSprite = spec != null ? ChaosArt.Resolve("bubbles", spec.VariantId) : null;
+        if (variantSprite != null)
+        {
+            _bubbleImage.Source = variantSprite;
+            _hasVariantSprite = true;
+        }
+        else if (image != null)
         {
             _bubbleImage.Source = image;
         }
@@ -998,7 +1013,7 @@ internal class Bubble
                     double rs = 0.45 + 0.55 * frac;
                     fst.ScaleX = rs; fst.ScaleY = rs;
                     byte gb = (byte)(70 + 120 * frac);
-                    _fuseRing.Stroke = new SolidColorBrush(Color.FromRgb(255, gb, gb));
+                    if (_fuseStrokeBrush != null) _fuseStrokeBrush.Color = Color.FromRgb(255, gb, gb);
                 }
                 if (_fuseRemainingMs <= 0) { Detonate(); return; }
             }
@@ -1051,15 +1066,17 @@ internal class Bubble
     {
         _isLucky = isLucky;
 
-        // Apply golden glow for lucky pops
-        if (isLucky)
+        // Apply golden glow for lucky pops (skip the expensive blur under the Performance tier;
+        // cap the radius otherwise so a burst of lucky pops doesn't stack many 50px blurs).
+        var perfTier = PerformanceProfile.CurrentTier;
+        if (isLucky && PerformanceProfile.AllowGlow(perfTier))
         {
             try
             {
                 _window.Effect = new DropShadowEffect
                 {
                     Color = System.Windows.Media.Color.FromRgb(0xFF, 0xD7, 0x00),
-                    BlurRadius = 50,
+                    BlurRadius = Math.Min(50, PerformanceProfile.MaxGlowBlurRadius(perfTier)),
                     ShadowDepth = 0,
                     Opacity = 0.8
                 };
@@ -1155,19 +1172,23 @@ internal class Bubble
     {
         if (_spec == null) return;
 
-        // Tint overlay — radial so the bubble's highlight still reads through.
-        var t = _spec.Tint;
-        var tintBrush = new RadialGradientBrush(
-            Color.FromArgb(150, t.R, t.G, t.B),
-            Color.FromArgb(90, t.R, t.G, t.B))
-        { GradientOrigin = new Point(0.35, 0.3) };
-        _grid.Children.Add(new System.Windows.Shapes.Ellipse
+        // Tint overlay — radial so the bubble's highlight still reads through. Skipped when a
+        // per-variant sprite is supplying its own art.
+        if (!_hasVariantSprite)
         {
-            Width = _size, Height = _size,
-            Fill = tintBrush,
-            IsHitTestVisible = false,
-            Opacity = 0.55
-        });
+            var t = _spec.Tint;
+            var tintBrush = new RadialGradientBrush(
+                Color.FromArgb(150, t.R, t.G, t.B),
+                Color.FromArgb(90, t.R, t.G, t.B))
+            { GradientOrigin = new Point(0.35, 0.3) };
+            _grid.Children.Add(new System.Windows.Shapes.Ellipse
+            {
+                Width = _size, Height = _size,
+                Fill = tintBrush,
+                IsHitTestVisible = false,
+                Opacity = 0.55
+            });
+        }
 
         // Label / emoji
         if (!string.IsNullOrEmpty(_spec.Label))
@@ -1188,10 +1209,11 @@ internal class Bubble
         // Fuse ring (live only) — shrinks + reddens as the fuse runs down.
         if (_spec.IsLive)
         {
+            _fuseStrokeBrush = new SolidColorBrush(Color.FromRgb(255, 190, 190));
             _fuseRing = new System.Windows.Shapes.Ellipse
             {
                 Width = _size, Height = _size,
-                Stroke = new SolidColorBrush(Color.FromRgb(255, 190, 190)),
+                Stroke = _fuseStrokeBrush,
                 StrokeThickness = 5,
                 IsHitTestVisible = false,
                 RenderTransformOrigin = new Point(0.5, 0.5),

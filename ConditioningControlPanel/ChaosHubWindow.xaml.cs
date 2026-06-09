@@ -31,11 +31,19 @@ public partial class ChaosHubWindow : Window
         LoadFromSettings();
         BuildUpgrades();
         BuildLoadout();
+        BuildCodex();
         RefreshTopBar();
         RefreshStats();
         ApplyUnlocks();
         LoadCrests();
+        LoadBanner();
         ShowTab(DefaultTab());
+    }
+
+    private void LoadBanner()
+    {
+        var src = ChaosArt.ResolveBanner();
+        if (src != null) { BannerImage.Source = src; BannerImage.Visibility = Visibility.Visible; }
     }
 
     // ============================ tabs / gating ============================
@@ -271,6 +279,85 @@ public partial class ChaosHubWindow : Window
             BuildLoadout();
         };
         return card;
+    }
+
+    // ============================ codex tab ============================
+
+    private void BuildCodex()
+    {
+        CodexPanel.Children.Clear();
+        CodexPanel.Children.Add(new TextBlock { Text = "CODEX", Style = (Style)FindResource("SectionHdr") });
+        CodexPanel.Children.Add(new TextBlock
+        {
+            Text = "Entries fill in as you encounter bubbles and boons during a run.",
+            Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 12,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10)
+        });
+
+        CodexPanel.Children.Add(SubHeader("BUBBLES"));
+        foreach (var v in ChaosBubbleVariants.All)
+            CodexPanel.Children.Add(CodexRow("bubble:" + v.Id, v.Name, ChaosBubbleVariants.DescriptionFor(v.Id),
+                ChaosArt.Resolve("bubbles", v.Id), "●", Color.FromRgb(v.Tint.R, v.Tint.G, v.Tint.B)));
+        // Darter is not part of the weighted pool table; list it explicitly.
+        CodexPanel.Children.Add(CodexRow("bubble:darter", "Darter", ChaosBubbleVariants.DescriptionFor("darter"),
+            ChaosArt.Resolve("bubbles", "darter"), "✦", Color.FromRgb(0xFF, 0x4D, 0xC4)));
+
+        CodexPanel.Children.Add(SubHeader("BOONS & CURSES"));
+        foreach (var b in ChaosBoonPool.All)
+            CodexRow_Add(b);
+    }
+
+    private void CodexRow_Add(ChaosBoon b)
+    {
+        var accent = b.IsCurse ? Color.FromRgb(0xFF, 0x8A, 0x8A) : Color.FromRgb(0x9C, 0xE8, 0xA0);
+        CodexPanel.Children.Add(CodexRow("boon:" + b.Id, b.Name, b.Desc, ChaosArt.Resolve("boons", b.Id),
+            b.IsCurse ? "☠" : "◈", accent));
+    }
+
+    private TextBlock SubHeader(string text) => new()
+    {
+        Text = text, Foreground = new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)),
+        FontFamily = new FontFamily("Consolas"), FontWeight = FontWeights.Bold, FontSize = 11,
+        Margin = new Thickness(0, 12, 0, 6)
+    };
+
+    private Border CodexRow(string codexId, string name, string desc, ImageSource? iconSrc, string glyph, Color accent)
+    {
+        bool seen = ChaosMeta.IsDiscovered(codexId);
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+
+        // icon / silhouette
+        FrameworkElement icon;
+        if (seen && iconSrc != null)
+            icon = new Image { Source = iconSrc, Width = 26, Height = 26 };
+        else
+            icon = new Border
+            {
+                Width = 26, Height = 26, CornerRadius = new CornerRadius(6),
+                Background = new SolidColorBrush(seen ? Color.FromArgb(60, accent.R, accent.G, accent.B) : Color.FromArgb(40, 120, 120, 140)),
+                BorderBrush = new SolidColorBrush(seen ? accent : Color.FromRgb(90, 90, 110)), BorderThickness = new Thickness(1),
+                Child = new TextBlock { Text = seen ? glyph : "?", Foreground = new SolidColorBrush(seen ? accent : Color.FromRgb(0x88, 0x88, 0xA0)), FontSize = 13, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+            };
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        icon.Margin = new Thickness(0, 0, 12, 0);
+        row.Children.Add(icon);
+
+        var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 700 };
+        mid.Children.Add(new TextBlock { Text = seen ? name : "???", Foreground = seen ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90)), FontSize = 12, FontWeight = FontWeights.SemiBold });
+        mid.Children.Add(new TextBlock { Text = seen ? desc : "Locked — encounter it in a run to reveal.", Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
+        row.Children.Add(mid);
+
+        return new Border
+        {
+            Child = row,
+            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(seen ? (byte)70 : (byte)25, accent.R, accent.G, accent.B)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 0, 0, 6)
+        };
     }
 
     // ============================ run-setup load / save ============================
