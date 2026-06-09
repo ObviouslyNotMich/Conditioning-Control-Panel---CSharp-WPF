@@ -1470,11 +1470,17 @@ namespace ConditioningControlPanel
                     }
                     else if (!isOtherAppFullscreen && _hiddenForFullscreen)
                     {
-                        // Fullscreen app closed - restore the avatar
-                        _hiddenForFullscreen = false;
+                        // Fullscreen app closed - restore the avatar.
+                        // IMPORTANT: only clear the flag once we actually Show(). If the parent
+                        // is momentarily minimized/hidden during the fullscreen-exit transition
+                        // (common when leaving an exclusive-fullscreen game), clearing the flag
+                        // here without showing would leave the avatar stuck hidden forever - the
+                        // hide-branch can't re-fire (no fullscreen) and this branch can't re-fire
+                        // (flag cleared). Keeping the flag set lets us retry on the next tick.
                         if (_parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized
                             && App.Settings?.Current?.AvatarEnabled == true)
                         {
+                            _hiddenForFullscreen = false;
                             Show();
                             if (_wasAttachedBeforeFullscreen && _isAttached)
                             {
@@ -2514,6 +2520,12 @@ namespace ConditioningControlPanel
         {
             try
             {
+                // Manual/explicit show (checkbox toggle, tray "Wake Bambi Up", session events)
+                // is a deliberate user/system request to make the avatar visible, so clear the
+                // fullscreen-hidden flag. Otherwise IsAvatarVisibleOnScreen and the fullscreen
+                // timer would still think we're hidden and could fight this show.
+                _hiddenForFullscreen = false;
+
                 // When attached, only show if our process owns the foreground window
                 if (_isAttached && _parentWindow != null)
                 {
