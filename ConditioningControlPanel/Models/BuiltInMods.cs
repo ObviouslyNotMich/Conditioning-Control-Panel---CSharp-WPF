@@ -2002,16 +2002,16 @@ namespace ConditioningControlPanel.Models
 
                 SupportedAvatarSets = new List<int> { 1, 2, 3, 4, 5 },
 
-                // Locked's avatar art reads larger in the tube than the base set. Scale 0.684
-                // (shared by attached + detached). Attached: lift 70px and nudge 15px right so
-                // it seats in the pod. Detached: lift 40px and shift 330px right.
+                // Locked's avatar art reads larger in the tube than the base set. Scale 0.864
+                // (shared by attached + detached; tuned for the animated emote set). Attached:
+                // lift 45px and seat at offsetX 10. Detached: lift 40px and shift 320px right.
                 TubeLayout = new ModTubeLayout
                 {
-                    AvatarScale = 0.683,
-                    AvatarOffsetX = -10,
-                    AvatarOffsetY = 70,
-                    AvatarDetachedOffsetY = 40,
-                    AvatarDetachedOffsetX = 320
+                    AvatarScale = 0.864,
+                    AvatarOffsetX = 10,
+                    AvatarOffsetY = 45,
+                    AvatarDetachedOffsetY = 15,
+                    AvatarDetachedOffsetX = 330
                 },
 
                 EnhancementOverrides = new ModEnhancementOverrides

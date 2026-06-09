@@ -36,6 +36,10 @@ namespace ConditioningControlPanel
         private readonly List<CountBubble> _activeBubbles = new();
         private DispatcherTimer? _bubbleSpawnTimer;
         private DispatcherTimer? _safetyTimer;
+        // Single shared animation timer for ALL count bubbles, replacing the previous
+        // two-DispatcherTimers-per-bubble model (up to ~24 concurrent timers).
+        private DispatcherTimer? _bubbleAnimTimer;
+        private const double BubbleAnimTickMs = 30;
 
         private int _bubbleCount = 0;
         private int _targetBubbleCount = 0;
@@ -719,8 +723,9 @@ namespace ConditioningControlPanel
 
                 // Bubble is now a separate window (doesn't block video rendering)
                 var bubble = new CountBubble(_bubbleImage, size, screenX, screenY, _random,
-                    PlayPopSound, OnBubblePopped);
+                    PlayPopSound);
                 _activeBubbles.Add(bubble);
+                EnsureBubbleAnimTimer();
             }
             catch (Exception ex)
             {
@@ -728,10 +733,39 @@ namespace ConditioningControlPanel
             }
         }
 
-        private void OnBubblePopped(CountBubble bubble)
+        /// <summary>Lazily start the shared animation timer once there are bubbles to animate.</summary>
+        private void EnsureBubbleAnimTimer()
         {
-            _activeBubbles.Remove(bubble);
-            bubble.Dispose(); // Close the bubble window
+            if (_bubbleAnimTimer != null) return;
+            _bubbleAnimTimer = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(BubbleAnimTickMs)
+            };
+            _bubbleAnimTimer.Tick += AnimateAllCountBubbles;
+            _bubbleAnimTimer.Start();
+        }
+
+        /// <summary>Advances every active count bubble and reaps finished ones. Stops the timer
+        /// when no bubbles remain (it restarts on the next spawn).</summary>
+        private void AnimateAllCountBubbles(object? sender, EventArgs e)
+        {
+            for (int i = _activeBubbles.Count - 1; i >= 0; i--)
+            {
+                if (i >= _activeBubbles.Count) continue;
+                var bubble = _activeBubbles[i];
+                bubble.Tick(BubbleAnimTickMs);
+                if (bubble.IsFinished)
+                {
+                    _activeBubbles.RemoveAt(i);
+                    bubble.Dispose();
+                }
+            }
+
+            if (_activeBubbles.Count == 0)
+            {
+                _bubbleAnimTimer?.Stop();
+                _bubbleAnimTimer = null;
+            }
         }
 
         private void PlayPopSound()
@@ -783,14 +817,18 @@ namespace ConditioningControlPanel
                 window._bubbleSpawnTimer?.Stop();
             }
 
-            // Clear remaining bubbles on all windows (bubbles are separate windows now)
+            // Clear remaining bubbles on all windows (bubbles are separate windows now).
+            // Dispose directly: the shared animation timer that would otherwise finish their
+            // pop-out is about to stop, so close them now to avoid orphaned windows.
             foreach (var window in _allWindows.ToList())
             {
                 foreach (var bubble in window._activeBubbles.ToArray())
                 {
-                    bubble.ForcePop();
+                    bubble.Dispose();
                 }
                 window._activeBubbles.Clear();
+                window._bubbleAnimTimer?.Stop();
+                window._bubbleAnimTimer = null;
             }
 
             // Track video watch time
@@ -911,6 +949,8 @@ namespace ConditioningControlPanel
         {
             _safetyTimer?.Stop();
             _bubbleSpawnTimer?.Stop();
+            _bubbleAnimTimer?.Stop();
+            _bubbleAnimTimer = null;
 
             foreach (var bubble in _activeBubbles)
             {
@@ -994,10 +1034,7 @@ namespace ConditioningControlPanel
         private readonly Window _window;
         private readonly Image _imageElement;
 
-        private readonly DispatcherTimer _lifeTimer;
-        private readonly DispatcherTimer _animTimer;
         private readonly Action? _playSound;
-        private readonly Action<CountBubble> _onPopped;
 
         private double _scale = 0.1;
         private double _targetScale = 1.0;
@@ -1005,7 +1042,12 @@ namespace ConditioningControlPanel
         private double _rotation = 0;
         private bool _isPopping = false;
         private bool _isDisposed = false;
+        private double _lifeRemainingMs;
         private readonly int _size;
+
+        /// <summary>True once the pop animation has fully faded out; the owning window
+        /// removes and disposes finished bubbles on its shared animation tick.</summary>
+        public bool IsFinished { get; private set; }
 
         // Win32 for topmost
         private const uint SWP_NOMOVE = 0x0002;
@@ -1017,10 +1059,9 @@ namespace ConditioningControlPanel
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         public CountBubble(BitmapImage? image, int size, double screenX, double screenY,
-            Random random, Action? playSound, Action<CountBubble> onPopped)
+            Random random, Action? playSound)
         {
             _playSound = playSound;
-            _onPopped = onPopped;
             _rotation = random.Next(360);
             _size = size;
 
@@ -1079,28 +1120,28 @@ namespace ConditioningControlPanel
             }
             catch { }
 
-            // Animation timer - use background priority
-            _animTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(30) };
-            _animTimer.Tick += Animate;
-            _animTimer.Start();
-
-            // Life timer - bubble stays for 1-1.5 seconds then pops
-            var lifespan = 1000 + random.Next(500);
-            _lifeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(lifespan) };
-            _lifeTimer.Tick += (s, e) =>
-            {
-                _lifeTimer.Stop();
-                StartPopping();
-            };
-            _lifeTimer.Start();
+            // Lifespan - bubble stays for 1-1.5 seconds then pops. Driven by the owning
+            // window's single shared animation timer (see BubbleCountWindow.AnimateAllCountBubbles)
+            // rather than per-bubble timers, which previously meant ~2 DispatcherTimers per bubble.
+            _lifeRemainingMs = 1000 + random.Next(500);
         }
 
-        private void Animate(object? sender, EventArgs e)
+        /// <summary>
+        /// Advance this bubble one frame. Called by the owning window's shared timer with the
+        /// elapsed milliseconds since the last tick. Sets <see cref="IsFinished"/> when done.
+        /// </summary>
+        public void Tick(double dtMs)
         {
             if (_isDisposed) return;
 
             try
             {
+                if (!_isPopping)
+                {
+                    _lifeRemainingMs -= dtMs;
+                    if (_lifeRemainingMs <= 0) StartPopping();
+                }
+
                 if (_isPopping)
                 {
                     _scale += 0.08;
@@ -1109,8 +1150,7 @@ namespace ConditioningControlPanel
 
                     if (_opacity <= 0)
                     {
-                        _animTimer.Stop();
-                        _onPopped?.Invoke(this);
+                        IsFinished = true;
                         return;
                     }
                 }
@@ -1151,7 +1191,6 @@ namespace ConditioningControlPanel
         public void ForcePop()
         {
             if (_isDisposed) return;
-            _lifeTimer.Stop();
             StartPopping();
         }
 
@@ -1159,8 +1198,6 @@ namespace ConditioningControlPanel
         {
             if (_isDisposed) return;
             _isDisposed = true;
-            _lifeTimer.Stop();
-            _animTimer.Stop();
             try { _window.Close(); } catch { }
         }
     }

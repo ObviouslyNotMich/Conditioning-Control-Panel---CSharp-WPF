@@ -223,6 +223,24 @@ public class AchievementProgress
         var today = DateTime.Today;
         var lastDate = LastLaunchDate.Date;
 
+        // No recorded launch history (LastLaunchDate == default/MinValue). This is either a
+        // genuine first run OR a fresh/reset achievements.json after a reinstall, failed update
+        // migration, or logout that cleared local data. We cannot tell the two apart here, and
+        // the cloud profile hasn't loaded yet — so DON'T break the streak. Stamp today and defer
+        // to LoadProfileAsync's take-higher restore (ProfileSyncService.cs:1096/1602), which pulls
+        // the real ConsecutiveDays back from the server. A true new user simply starts at 1.
+        // Without this guard the gap math sees a ~739771-day gap and resets the streak to 1,
+        // which then risks being synced UP over the real cloud value (#344, #345, #331).
+        if (lastDate == default)
+        {
+            App.Logger?.Information("Login streak: no local launch history (fresh/reset install) — deferring to cloud restore, not breaking streak");
+            if (ConsecutiveDays < 1) ConsecutiveDays = 1;
+            LastLaunchDate = today;
+            SyncCurrentStreak();
+            SeasonRecapService.TrackStreakPeak(ConsecutiveDays);
+            return;
+        }
+
         if (lastDate == today)
         {
             // Already launched today, no change
