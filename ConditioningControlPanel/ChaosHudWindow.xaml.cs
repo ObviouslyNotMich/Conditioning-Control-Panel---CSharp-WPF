@@ -29,7 +29,19 @@ public partial class ChaosHudWindow : Window
         Left = 0;
         Top = 0;
         Height = SystemParameters.PrimaryScreenHeight;
+        LoadPortrait();
         SourceInitialized += (_, _) => ApplyExStyles();
+    }
+
+    /// <summary>
+    /// Sidebar portrait slot. Resolves art by convention (phase 5 wires mood swapping);
+    /// with no art file present the host falls back to its tinted placeholder.
+    /// </summary>
+    private void LoadPortrait()
+    {
+        var src = ChaosArt.Resolve("portraits", "neutral");
+        Portrait.Source = src;
+        if (src == null) PortraitHost.Visibility = Visibility.Collapsed;
     }
 
     private void Hud_MouseEnter(object sender, MouseEventArgs e)

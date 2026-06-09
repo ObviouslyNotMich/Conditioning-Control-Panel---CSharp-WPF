@@ -55,10 +55,18 @@
                 <!-- header -->
                 <StackPanel Grid.Row="0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⚡ CHAOS" Foreground="{StaticResource Pink}" FontWeight="Bold" FontSize="18"/>
-                        <TextBlock Text="{Binding ActWaveText}" Foreground="White" FontSize="11" VerticalAlignment="Bottom" Margin="8,0,0,2"/>
+                        <Border x:Name="PortraitHost" Width="44" Height="44" Margin="0,0,10,0" CornerRadius="10" VerticalAlignment="Center"
+                                Background="#33FF69B4" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1">
+                            <Image x:Name="Portrait" Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚡ CHAOS" Foreground="{StaticResource Pink}" FontWeight="Bold" FontSize="18"/>
+                                <TextBlock Text="{Binding ActWaveText}" Foreground="White" FontSize="11" VerticalAlignment="Bottom" Margin="8,0,0,2"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding RunTimeText}" Foreground="{StaticResource TextDim}" FontSize="11" Margin="0,2,0,0"/>
+                        </StackPanel>
                     </StackPanel>
-                    <TextBlock Text="{Binding RunTimeText}" Foreground="{StaticResource TextDim}" FontSize="11" Margin="0,2,0,0"/>
                     <ProgressBar Minimum="0" Maximum="1" Value="{Binding RunProgress, Mode=OneWay}" Height="5" Margin="0,4,0,0"
                                  Foreground="#FF8A7DBD" Background="#33000000" BorderThickness="0"/>
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
@@ -80,18 +88,6 @@
 
                     <TextBlock Text="SHIELDS" Style="{StaticResource Hdr}"/>
                     <TextBlock Text="{Binding ShieldText}" Foreground="#FFFF6EC7" FontSize="18"/>
-
-                    <TextBlock Text="BOONS" Style="{StaticResource Hdr}"/>
-                    <ItemsControl ItemsSource="{Binding ActiveBoons}">
-                        <ItemsControl.ItemTemplate><DataTemplate>
-                            <TextBlock Text="{Binding Name, StringFormat=◈ {0}}" Foreground="#FF9CE8A0" FontSize="11" Margin="0,1"/>
-                        </DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <ItemsControl ItemsSource="{Binding ActiveCurses}">
-                        <ItemsControl.ItemTemplate><DataTemplate>
-                            <TextBlock Text="{Binding Name, StringFormat=☠ {0}}" Foreground="#FFFF8A8A" FontSize="11" Margin="0,1"/>
-                        </DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
 
                     <TextBlock Text="FEED" Style="{StaticResource Hdr}"/>
                     <ItemsControl ItemsSource="{Binding RecentEvents}">

@@ -1,0 +1,87 @@
+<Window x:Class="ConditioningControlPanel.ChaosBottomBarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Chaos Build Bar"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False"
+        ResizeMode="NoResize" WindowStartupLocation="Manual" FontFamily="Segoe UI"
+        Width="660" Height="180">
+    <Window.Resources>
+        <SolidColorBrush x:Key="Pink" Color="#FF69B4"/>
+        <SolidColorBrush x:Key="StripBg" Color="#E6121026"/>
+        <SolidColorBrush x:Key="PanelBg" Color="#F2151226"/>
+        <SolidColorBrush x:Key="PanelBorder" Color="#55FF69B4"/>
+        <SolidColorBrush x:Key="TextDim" Color="#AAB8B8D0"/>
+        <Style x:Key="MeterHdr" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+    </Window.Resources>
+
+    <!-- Root has NO background → unpainted area is alpha-0 and click-through. -->
+    <Grid>
+        <!-- COLLAPSED STRIP (always visible, bottom-left) -->
+        <Border x:Name="Strip" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="660" Height="34"
+                Background="{StaticResource StripBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1,1,0,0"
+                CornerRadius="0,8,0,0" MouseEnter="Bar_MouseEnter">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                <TextBlock Text="◈ BUILD" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock x:Name="StripBoons" Text="0 boons" Foreground="{StaticResource TextDim}" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <TextBlock Text="combo" Style="{StaticResource MeterHdr}" VerticalAlignment="Center" Margin="18,0,5,0"/>
+                <TextBlock Text="{Binding Combo, StringFormat=x{0}}" Foreground="White" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Text="heat" Style="{StaticResource MeterHdr}" VerticalAlignment="Center" Margin="18,0,5,0"/>
+                <ProgressBar Minimum="0" Maximum="1" Value="{Binding Heat, Mode=OneWay}" Width="80" Height="6" VerticalAlignment="Center"
+                             Foreground="#FFFF7A3D" Background="#33000000" BorderThickness="0"/>
+                <TextBlock Text="▴ hover" Foreground="#66B8B8D0" FontSize="10" VerticalAlignment="Center" Margin="18,0,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- EXPANDED PANEL (shown on hover) -->
+        <Border x:Name="Panel" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="660" Height="172" Visibility="Collapsed"
+                Background="{StaticResource PanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1,1,0,0"
+                CornerRadius="0,10,0,0" MouseLeave="Bar_MouseLeave">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="PanelSlide" Y="172"/>
+            </Border.RenderTransform>
+            <Grid Margin="16,12,16,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- meters -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="HEAT" Style="{StaticResource MeterHdr}"/>
+                            <TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="#FFFF7A3D" FontWeight="Bold" FontSize="11" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <ProgressBar Minimum="0" Maximum="1" Value="{Binding Heat, Mode=OneWay}" Height="8" Margin="0,4,0,0"
+                                     Foreground="#FFFF7A3D" Background="#33000000" BorderThickness="0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="COMBO" Style="{StaticResource MeterHdr}"/>
+                            <TextBlock Text="{Binding Combo, StringFormat=x{0}}" Foreground="White" FontWeight="Bold" FontSize="11" Margin="8,0,0,0"/>
+                            <TextBlock Text="{Binding ComboMult, StringFormat=(x{0:0.0})}" Foreground="#FFD24DFF" FontSize="11" Margin="6,0,0,0"/>
+                        </StackPanel>
+                        <ProgressBar Minimum="1" Maximum="6" Value="{Binding ComboMult, Mode=OneWay}" Height="8" Margin="0,4,0,0"
+                                     Foreground="#FFD24DFF" Background="#33000000" BorderThickness="0"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- boon chips -->
+                <StackPanel Grid.Row="1" Margin="0,12,0,0">
+                    <TextBlock Text="BOONS" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,0,0,6"/>
+                    <WrapPanel x:Name="BoonStrip"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
