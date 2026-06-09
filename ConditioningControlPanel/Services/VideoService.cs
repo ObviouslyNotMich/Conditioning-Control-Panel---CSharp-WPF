@@ -1228,6 +1228,11 @@ namespace ConditioningControlPanel.Services
 
                 // Create media player for this video
                 mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC!);
+                // Use GPU (DXVA) hardware decoding, matching the app's other players
+                // (InlineLoopVideo / HelpVideoWindow / MiniPlayerWindow). LibVLC falls back to
+                // software automatically if the GPU path is unavailable; the user setting is an
+                // escape hatch for the rare systems with broken hardware decoders.
+                mediaPlayer.EnableHardwareDecoding = App.Settings?.Current?.VideoHardwareDecoding ?? true;
                 lock (_mediaPlayersLock)
                 {
                     _mediaPlayers.Add(mediaPlayer);

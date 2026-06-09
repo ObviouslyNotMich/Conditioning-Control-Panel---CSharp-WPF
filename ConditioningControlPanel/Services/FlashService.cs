@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
@@ -90,6 +91,12 @@ namespace ConditioningControlPanel.Services
         /// Whether the flash service is currently running
         /// </summary>
         public bool IsRunning => _isRunning;
+
+        /// <summary>
+        /// Number of flash windows currently on screen. Used as a live-load signal for
+        /// automatic performance-tier escalation (see Services/PerformanceProfile.cs).
+        /// </summary>
+        public int ActiveWindowCount => _activeWindows.Count;
 
         /// <summary>
         /// File paths of images shown by the most recent FlashDisplayed event.
@@ -475,12 +482,20 @@ namespace ConditioningControlPanel.Services
         {
             try
             {
+                // Decode images at (roughly) display resolution instead of full source
+                // resolution — a 4K image shown at ~300-1000px wastes memory + GPU fill-rate.
+                // Cap scales with the active performance tier and the user's ImageScale.
+                int decodeMax = ComputeDecodeMaxDim();
+                // Cache key includes the decode cap so the same file cached at one size isn't
+                // reused at another (only a handful of distinct caps ever occur).
+                string cacheKey = path + "|" + decodeMax;
+
                 // Check decode cache first (frozen BitmapSources are thread-safe)
                 lock (_imageDecodeCache)
                 {
-                    if (_imageDecodeCache.TryGetValue(path, out var cached))
+                    if (_imageDecodeCache.TryGetValue(cacheKey, out var cached))
                     {
-                        _imageDecodeCache[path] = (cached.data, DateTime.UtcNow);
+                        _imageDecodeCache[cacheKey] = (cached.data, DateTime.UtcNow);
                         return CloneImageData(cached.data);
                     }
                 }
@@ -492,18 +507,28 @@ namespace ConditioningControlPanel.Services
 
                     if (extension == ".gif")
                     {
-                        LoadGifFrames(path, data);
+                        LoadGifFrames(path, data, decodeMax);
                     }
                     else
                     {
-                        // Load static image
+                        // Load static image, downscaling to the decode cap if larger.
                         using var bitmap = new System.Drawing.Bitmap(path);
-                        var bitmapSource = ConvertToBitmapSource(bitmap);
+                        var (tw, th) = ScaledSize(bitmap.Width, bitmap.Height, decodeMax);
+                        BitmapSource bitmapSource;
+                        if (tw != bitmap.Width || th != bitmap.Height)
+                        {
+                            using var scaled = DownscaleBitmap(bitmap, tw, th);
+                            bitmapSource = ConvertToBitmapSource(scaled);
+                        }
+                        else
+                        {
+                            bitmapSource = ConvertToBitmapSource(bitmap);
+                        }
                         bitmapSource.Freeze();
 
                         data.Frames.Add(bitmapSource);
-                        data.Width = bitmap.Width;
-                        data.Height = bitmap.Height;
+                        data.Width = tw;
+                        data.Height = th;
                         data.FrameDelay = TimeSpan.FromMilliseconds(100);
                     }
 
@@ -540,7 +565,7 @@ namespace ConditioningControlPanel.Services
                             else break;
                         }
 
-                        _imageDecodeCache[path] = (data, DateTime.UtcNow);
+                        _imageDecodeCache[cacheKey] = (data, DateTime.UtcNow);
                         _imageCacheBytes += entryBytes;
                     }
 
@@ -572,13 +597,16 @@ namespace ConditioningControlPanel.Services
             return clone;
         }
 
-        private void LoadGifFrames(string path, LoadedImageData data)
+        private void LoadGifFrames(string path, LoadedImageData data, int decodeMax)
         {
             try
             {
                 using var gif = System.Drawing.Image.FromFile(path);
                 var dimension = new FrameDimension(gif.FrameDimensionsList[0]);
                 var frameCount = gif.GetFrameCount(dimension);
+
+                // Target (possibly downscaled) frame size — decode once, never upscale.
+                var (frameW, frameH) = ScaledSize(gif.Width, gif.Height, decodeMax);
 
                 // Get frame delay from metadata
                 var frameDelay = 100; // Default 100ms
@@ -593,8 +621,8 @@ namespace ConditioningControlPanel.Services
                 }
                 catch { }
 
-                // Limit frames based on image size to keep memory reasonable
-                var pixelsPerFrame = gif.Width * gif.Height * 4L; // BGRA32
+                // Limit frames based on (decoded) image size to keep memory reasonable
+                var pixelsPerFrame = (long)frameW * frameH * 4L; // BGRA32
                 var estimatedMemoryMB = (pixelsPerFrame * frameCount) / (1024.0 * 1024.0);
 
                 const double MAX_MEMORY_MB = 30.0;
@@ -612,10 +640,12 @@ namespace ConditioningControlPanel.Services
                 {
                     gif.SelectActiveFrame(dimension, i);
 
-                    using var frameBitmap = new System.Drawing.Bitmap(gif.Width, gif.Height);
+                    using var frameBitmap = new System.Drawing.Bitmap(frameW, frameH);
                     using (var g = Graphics.FromImage(frameBitmap))
                     {
-                        g.DrawImage(gif, 0, 0, gif.Width, gif.Height);
+                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                        g.DrawImage(gif, 0, 0, frameW, frameH);
                     }
 
                     var bitmapSource = ConvertToBitmapSource(frameBitmap);
@@ -623,28 +653,82 @@ namespace ConditioningControlPanel.Services
                     data.Frames.Add(bitmapSource);
                 }
 
-                data.Width = gif.Width;
-                data.Height = gif.Height;
+                data.Width = frameW;
+                data.Height = frameH;
                 data.FrameDelay = TimeSpan.FromMilliseconds(step > 1 ? frameDelay * step : frameDelay);
             }
             catch (Exception ex)
             {
                 App.Logger.Debug("Could not load GIF frames: {Error}", ex.Message);
 
-                // Fallback: load as static image
+                // Fallback: load as static image (still honoring the decode cap)
                 try
                 {
                     using var bitmap = new System.Drawing.Bitmap(path);
-                    var bitmapSource = ConvertToBitmapSource(bitmap);
+                    var (tw, th) = ScaledSize(bitmap.Width, bitmap.Height, decodeMax);
+                    BitmapSource bitmapSource;
+                    if (tw != bitmap.Width || th != bitmap.Height)
+                    {
+                        using var scaled = DownscaleBitmap(bitmap, tw, th);
+                        bitmapSource = ConvertToBitmapSource(scaled);
+                    }
+                    else
+                    {
+                        bitmapSource = ConvertToBitmapSource(bitmap);
+                    }
                     bitmapSource.Freeze();
 
                     data.Frames.Add(bitmapSource);
-                    data.Width = bitmap.Width;
-                    data.Height = bitmap.Height;
+                    data.Width = tw;
+                    data.Height = th;
                     data.FrameDelay = TimeSpan.FromMilliseconds(100);
                 }
                 catch { }
             }
+        }
+
+        /// <summary>
+        /// Largest pixel dimension to decode a flash image/GIF frame at. Scales with the active
+        /// performance tier and the user's ImageScale, clamped to a sane range. Keeping decoded
+        /// frames near display size (rather than full source res) is the single biggest memory
+        /// and GPU-fill-rate win when many flashes are on screen.
+        /// </summary>
+        private static int ComputeDecodeMaxDim()
+        {
+            int baseCap = PerformanceProfile.MaxDecodeDimension(PerformanceProfile.CurrentTier);
+            int scale = App.Settings?.Current?.ImageScale ?? 100;
+            int dim = (int)(baseCap * (scale / 100.0));
+            return Math.Clamp(dim, 256, 2048);
+        }
+
+        /// <summary>
+        /// Aspect-preserving target size so the longest edge is at most <paramref name="maxDim"/>.
+        /// Never upscales (returns the source size if already within the cap).
+        /// </summary>
+        private static (int w, int h) ScaledSize(int srcW, int srcH, int maxDim)
+        {
+            if (srcW <= 0 || srcH <= 0) return (srcW, srcH);
+            int longest = Math.Max(srcW, srcH);
+            if (longest <= maxDim) return (srcW, srcH);
+            double ratio = (double)maxDim / longest;
+            return (Math.Max(1, (int)Math.Round(srcW * ratio)),
+                    Math.Max(1, (int)Math.Round(srcH * ratio)));
+        }
+
+        /// <summary>
+        /// Produces a downscaled 32bpp copy of <paramref name="src"/> at the given size using
+        /// high-quality bicubic resampling. Caller owns (and must dispose) the returned bitmap.
+        /// </summary>
+        private static System.Drawing.Bitmap DownscaleBitmap(System.Drawing.Bitmap src, int w, int h)
+        {
+            var scaled = new System.Drawing.Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(scaled))
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.Half;
+                g.DrawImage(src, 0, 0, w, h);
+            }
+            return scaled;
         }
 
         private BitmapSource ConvertToBitmapSource(System.Drawing.Bitmap bitmap)
@@ -939,11 +1023,16 @@ namespace ConditioningControlPanel.Services
                 };
 
                 // Create image control
+                var perfTier = PerformanceProfile.CurrentTier;
                 var image = new Image
                 {
                     Stretch = Stretch.Uniform,
                     Source = imageData.Frames[0]
                 };
+                // Cheaper resampling — after decode-at-display-size there is little residual
+                // scaling, so the quality difference is imperceptible while saving GPU fill cost.
+                RenderOptions.SetBitmapScalingMode(image, PerformanceProfile.ScalingMode(perfTier));
+                RenderOptions.SetEdgeMode(image, EdgeMode.Aliased);
 
                 window.ImageControl = image;
 
@@ -973,9 +1062,14 @@ namespace ConditioningControlPanel.Services
                     PlayLuckyFlashSound();
                 }
 
-                // Apply glow effect based on sparkle boost tier or lucky proc
+                // Apply glow effect based on sparkle boost tier or lucky proc.
+                // Glow is a DropShadow blur (expensive at scale) — gate it behind the global
+                // glow toggle AND the performance tier (disabled entirely under Performance),
+                // and cap the blur radius so 25+ simultaneous flashes don't each run a 60px blur.
                 var sparkleBoostTier = App.SkillTree?.GetSparkleBoostTier() ?? 0;
-                if (isLucky || (sparkleBoostTier > 0 && (App.Settings?.Current?.FlashGlowEnabled ?? true)))
+                bool glowEnabled = (App.Settings?.Current?.FlashGlowEnabled ?? true)
+                                   && PerformanceProfile.AllowGlow(perfTier);
+                if (glowEnabled && (isLucky || sparkleBoostTier > 0))
                 {
                     var glowColor = isLucky
                         ? System.Windows.Media.Color.FromRgb(0xFF, 0xD7, 0x00) // Gold
@@ -992,6 +1086,9 @@ namespace ConditioningControlPanel.Services
                         blurRadius = sparkleBoostTier switch { 1 => 25, 2 => 35, _ => 45 };
                         glowOpacity = sparkleBoostTier switch { 1 => 0.5, 2 => 0.6, _ => 0.7 };
                     }
+
+                    // Cap the blur radius per tier (Quality ~24, Balanced ~18).
+                    blurRadius = Math.Min(blurRadius, PerformanceProfile.MaxGlowBlurRadius(perfTier));
 
                     var glowEffect = new DropShadowEffect
                     {
@@ -1031,7 +1128,8 @@ namespace ConditioningControlPanel.Services
                     // Pulsing golden animation for lucky procs
                     if (isLucky)
                     {
-                        var blurAnim = new DoubleAnimation(60, 100, TimeSpan.FromMilliseconds(400))
+                        // Pulse relative to the (capped) base radius so the cap is respected.
+                        var blurAnim = new DoubleAnimation(blurRadius, blurRadius * 1.6, TimeSpan.FromMilliseconds(400))
                         {
                             AutoReverse = true,
                             RepeatBehavior = RepeatBehavior.Forever
