@@ -117,6 +117,19 @@ public class BubbleService : IDisposable
     /// <summary>Time-scale for chaos bubble motion + fuses (the darter slow-mo power-up). 1 = normal, &lt;1 = slow.</summary>
     public void SetChaosTimeScale(double scale) => _chaosTimeScale = Math.Clamp(scale, 0.05, 1.0);
 
+    /// <summary>Smallest remaining fuse (ms) across all currently-armed live chaos bubbles, or null when
+    /// none are live. Read-only; used by the chaos near-miss danger telegraph.</summary>
+    public double? MinLiveFuseRemainingMs()
+    {
+        double? min = null;
+        for (int i = 0; i < _bubbles.Count; i++)
+        {
+            var f = _bubbles[i].LiveFuseRemainingMs;
+            if (f.HasValue && (min == null || f.Value < min.Value)) min = f.Value;
+        }
+        return min;
+    }
+
     private void AnimateAllBubbles(object? sender, EventArgs e)
     {
         // NOTE: a freeze does NOT skip this loop — bubbles must keep rendering so the freeze aura
@@ -713,6 +726,11 @@ internal class Bubble
     /// <summary>The chaos spec this bubble carries (null for ambient pop-game bubbles).</summary>
     public EffectBubbleSpec? Spec => _spec;
 
+    /// <summary>Remaining fuse (ms) if this is an armed live chaos bubble, else null. Read-only — for the
+    /// near-miss danger telegraph. Returns null while frozen-out or not live.</summary>
+    public double? LiveFuseRemainingMs =>
+        (_spec != null && _spec.IsLive && _fuseRemainingMs > 0) ? _fuseRemainingMs : (double?)null;
+
     /// <summary>True if this darter was caught within its quick-catch window. Valid after Pop().</summary>
     public bool WasQuickCatch => _wasQuickCatch;
 
@@ -1257,7 +1275,8 @@ internal class Bubble
     public void Pop()
     {
         if (!_isAlive || _isPopping) return;
-        if (_isChaosFrozen?.Invoke() == true) return;   // field is frozen (paused): ignore clicks
+        // NOTE: frozen bubbles ARE poppable — the freeze is a reward (a calm window to pop/defuse
+        // for free while fuses are paused). The pop animation runs even while the field is frozen.
         _isPopping = true;
         if (_spec != null)
         {
@@ -1387,7 +1406,7 @@ internal class Bubble
     /// Whether this bubble can currently be popped via Focus Gaze.
     /// False once popping has started or the bubble has been destroyed.
     /// </summary>
-    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable && !(_isChaosFrozen?.Invoke() ?? false);
+    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable;
 
     /// <summary>
     /// Bubble window bounds in WPF DIPs (matches the coordinate space of

@@ -32,6 +32,11 @@ public static class ChaosSfx
     public static void PlayBoonPicked() =>
         PlayFirstAvailable(new[] { "chaos/boon_pick.mp3", "chime2.mp3" }, 0.7f);
 
+    /// <summary>Escalating danger tick in the last ~800ms before a live bubble detonates.
+    /// Quiet on purpose (it can fire a few times in quick succession).</summary>
+    public static void PlayNearMissTick() =>
+        PlayFirstAvailable(new[] { "chaos/near_miss.mp3", "bubbles/Pop2.mp3" }, 0.4f);
+
     /// <summary>Resolve the first candidate that exists on disk and play it once.</summary>
     private static void PlayFirstAvailable(string[] candidates, float scale)
     {

@@ -9046,6 +9046,26 @@ namespace ConditioningControlPanel
             }
         }
 
+        /// <summary>
+        /// Quick Start: launch a Chaos run with the saved settings, bypassing the modal hub.
+        /// Mirrors what BEGIN CHAOS does after SaveToSettings (StartRun reads ChaosRunConfig.FromSettings),
+        /// just without the dialog.
+        /// </summary>
+        private void BtnQuickStartChaos_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (App.Chaos == null || App.Chaos.IsRunning) return;
+                App.Chaos.StartRun();
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "BtnQuickStartChaos_Click failed");
+                MessageBox.Show("Couldn't start Chaos Mode:\n\n" + ex.Message, "Chaos Mode",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
         private void RefreshPastQuizzes()
         {
             try

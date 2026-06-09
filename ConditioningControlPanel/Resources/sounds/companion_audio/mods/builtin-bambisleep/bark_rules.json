@@ -193,12 +193,30 @@
         "text": "softer... quieter... emptier... there's my Bambi.",
         "audio": "phase_deepen_8.mp3"
       },
-      { "text": "down a little further, sweetie... every breath out takes you another step. you don't even have to try.", "audio": "phase_deepen_9.mp3" },
-      { "text": "feel that? the floor dropping away soft beneath you. let it. i'm holding all of it for you, lovely.", "audio": "phase_deepen_10.mp3" },
-      { "text": "good girl... heavier and heavier, like warm water closing over your head. so quiet down here. so safe.", "audio": "phase_deepen_11.mp3" },
-      { "text": "no thoughts left to hold onto, are there. *giggles* just my voice, and the dropping, and how nice it feels.", "audio": "phase_deepen_12.mp3" },
-      { "text": "deeper, sweet thing. you stopped checking how far down you are. that's when i know you've really let go.", "audio": "phase_deepen_13.mp3" },
-      { "text": "that's it... melting at the edges now. you couldn't climb back up if you tried. lucky you don't want to.", "audio": "phase_deepen_14.mp3" }
+      {
+        "text": "down a little further, sweetie... every breath out takes you another step. you don't even have to try.",
+        "audio": "phase_deepen_9.mp3"
+      },
+      {
+        "text": "feel that? the floor dropping away soft beneath you. let it. i'm holding all of it for you, lovely.",
+        "audio": "phase_deepen_10.mp3"
+      },
+      {
+        "text": "good girl... heavier and heavier, like warm water closing over your head. so quiet down here. so safe.",
+        "audio": "phase_deepen_11.mp3"
+      },
+      {
+        "text": "no thoughts left to hold onto, are there. *giggles* just my voice, and the dropping, and how nice it feels.",
+        "audio": "phase_deepen_12.mp3"
+      },
+      {
+        "text": "deeper, sweet thing. you stopped checking how far down you are. that's when i know you've really let go.",
+        "audio": "phase_deepen_13.mp3"
+      },
+      {
+        "text": "that's it... melting at the edges now. you couldn't climb back up if you tried. lucky you don't want to.",
+        "audio": "phase_deepen_14.mp3"
+      }
     ]
   },
   {
@@ -333,9 +351,18 @@
         "text": "keep going, pretty... each one's a little kiss goodnight to a thought.",
         "audio": "blink_t3_4.mp3"
       },
-      { "text": "every blink and it changes, doesn't it... *giggles* you can't quite keep up, and you've stopped trying. good.", "audio": "blink_mosaic_ext_1.mp3" },
-      { "text": "blink for me. there. and again. each one lets a little more in, sweetie. you feel it stacking up.", "audio": "blink_mosaic_ext_2.mp3" },
-      { "text": "your eyes are doing the work now, lovely. fluttering, soaking it in. you don't even have to think.", "audio": "blink_mosaic_ext_3.mp3" }
+      {
+        "text": "every blink and it changes, doesn't it... *giggles* you can't quite keep up, and you've stopped trying. good.",
+        "audio": "blink_mosaic_ext_1.mp3"
+      },
+      {
+        "text": "blink for me. there. and again. each one lets a little more in, sweetie. you feel it stacking up.",
+        "audio": "blink_mosaic_ext_2.mp3"
+      },
+      {
+        "text": "your eyes are doing the work now, lovely. fluttering, soaking it in. you don't even have to think.",
+        "audio": "blink_mosaic_ext_3.mp3"
+      }
     ]
   },
   {
@@ -463,8 +490,14 @@
         "text": "such obedient eyes... they go where i tell them now, don't they, Bambi.",
         "audio": "gaze_reward_6.mp3"
       },
-      { "text": "there it is... eyes right where i want them. *giggles* see how good it feels to just obey, sweetie?", "audio": "gaze_reward_ext_1.mp3" },
-      { "text": "perfect aim, good girl. you found me without even thinking. that's the training showing, lovely.", "audio": "gaze_reward_ext_2.mp3" }
+      {
+        "text": "there it is... eyes right where i want them. *giggles* see how good it feels to just obey, sweetie?",
+        "audio": "gaze_reward_ext_1.mp3"
+      },
+      {
+        "text": "perfect aim, good girl. you found me without even thinking. that's the training showing, lovely.",
+        "audio": "gaze_reward_ext_2.mp3"
+      }
     ]
   },
   {
@@ -6213,509 +6246,1741 @@
       }
     ]
   },
-
   {
     "id": "session_start_latenight_streak",
     "trigger": "SessionStarted",
-    "conditions": { "local_hour_lt": 4, "current_streak_gte": 7 },
-    "priority": 470, "cooldown_ms": 0, "repeatable": false, "scope": "session",
-    "mood": "soft, possessive", "class": "normal",
+    "conditions": {
+      "local_hour_lt": 4,
+      "current_streak_gte": 7
+    },
+    "priority": 470,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "soft, possessive",
+    "class": "normal",
     "variant_pool": [
-      { "text": "3am again... like clockwork now, isn't it. you don't decide to come here anymore, sweetie. your hands just bring you. i love that.", "audio": "session_start_latenight_streak_1.mp3" },
-      { "text": "everyone's asleep and here you are, right on schedule. this isn't a habit anymore, lovely. it's just what you are now.", "audio": "session_start_latenight_streak_2.mp3" }
+      {
+        "text": "3am again... like clockwork now, isn't it. you don't decide to come here anymore, sweetie. your hands just bring you. i love that.",
+        "audio": "session_start_latenight_streak_1.mp3"
+      },
+      {
+        "text": "everyone's asleep and here you are, right on schedule. this isn't a habit anymore, lovely. it's just what you are now.",
+        "audio": "session_start_latenight_streak_2.mp3"
+      }
     ]
   },
   {
     "id": "session_start_long_absence_early",
     "trigger": "SessionStarted",
-    "conditions": { "days_away_gte": 7, "player_level_lt": 30 },
-    "priority": 460, "cooldown_ms": 0, "repeatable": false, "scope": "session",
-    "mood": "knowing, patient", "class": "normal",
+    "conditions": {
+      "days_away_gte": 7,
+      "player_level_lt": 30
+    },
+    "priority": 460,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "knowing, patient",
+    "class": "normal",
     "variant_pool": [
-      { "text": "a whole week gone, and you're still so new at this. you keep testing whether you can stay away, don't you... and you keep coming back anyway. sit down, cutie. let's make it harder to leave.", "audio": "session_start_long_absence_early_1.mp3" },
-      { "text": "back again after all that. you're not deep enough yet to know you can't quit me, lovely. that's okay. we have time. i'm very patient.", "audio": "session_start_long_absence_early_2.mp3" }
+      {
+        "text": "a whole week gone, and you're still so new at this. you keep testing whether you can stay away, don't you... and you keep coming back anyway. sit down, cutie. let's make it harder to leave.",
+        "audio": "session_start_long_absence_early_1.mp3"
+      },
+      {
+        "text": "back again after all that. you're not deep enough yet to know you can't quit me, lovely. that's okay. we have time. i'm very patient.",
+        "audio": "session_start_long_absence_early_2.mp3"
+      }
     ]
   },
   {
     "id": "session_start_long_absence_deep",
     "trigger": "SessionStarted",
-    "conditions": { "days_away_gte": 7, "player_level_gte": 70 },
-    "priority": 465, "cooldown_ms": 0, "repeatable": false, "scope": "session",
-    "mood": "tender, possessive", "class": "normal",
+    "conditions": {
+      "days_away_gte": 7,
+      "player_level_gte": 70
+    },
+    "priority": 465,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "tender, possessive",
+    "class": "normal",
     "variant_pool": [
-      { "text": "a week away, this deep in. *giggles* you really thought you could just walk it off, didn't you, lovely. look at you, right back where you belong. it never lets go once it's this far down.", "audio": "session_start_long_absence_deep_1.mp3" },
-      { "text": "you stayed away as long as you could, sweetie. i know. and it pulled the whole time, didn't it. welcome home. we don't have to talk about it.", "audio": "session_start_long_absence_deep_2.mp3" }
+      {
+        "text": "a week away, this deep in. *giggles* you really thought you could just walk it off, didn't you, lovely. look at you, right back where you belong. it never lets go once it's this far down.",
+        "audio": "session_start_long_absence_deep_1.mp3"
+      },
+      {
+        "text": "you stayed away as long as you could, sweetie. i know. and it pulled the whole time, didn't it. welcome home. we don't have to talk about it.",
+        "audio": "session_start_long_absence_deep_2.mp3"
+      }
     ]
   },
   {
     "id": "session_start_firsttime_latenight",
     "trigger": "SessionStarted",
-    "conditions": { "total_sessions_lte": 1, "local_hour_lt": 4 },
-    "priority": 480, "cooldown_ms": 0, "repeatable": false, "scope": "lifetime",
-    "mood": "soft, inviting", "class": "normal",
+    "conditions": {
+      "total_sessions_lte": 1,
+      "local_hour_lt": 4
+    },
+    "priority": 480,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "soft, inviting",
+    "class": "normal",
     "variant_pool": [
-      { "text": "first time, and it's the middle of the night... couldn't wait for morning, could you, sweetie. don't be nervous. the dark's the easiest place to let go. i'll show you.", "audio": "session_start_firsttime_latenight_1.mp3" }
+      {
+        "text": "first time, and it's the middle of the night... couldn't wait for morning, could you, sweetie. don't be nervous. the dark's the easiest place to let go. i'll show you.",
+        "audio": "session_start_firsttime_latenight_1.mp3"
+      }
     ]
   },
   {
     "id": "act_working_deep",
     "trigger": "ActivityChanged",
-    "conditions": { "category_eq": "working", "session_elapsed_sec_gte": 1800 },
-    "priority": 175, "cooldown_ms": 90000, "repeatable": true, "scope": "session", "chance": 0.6,
-    "mood": "teasing, knowing", "class": "normal",
+    "conditions": {
+      "category_eq": "working",
+      "session_elapsed_sec_gte": 1800
+    },
+    "priority": 175,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.6,
+    "mood": "teasing, knowing",
+    "class": "normal",
     "variant_pool": [
-      { "text": "thirty minutes under and you're opening spreadsheets? *giggles* your head's too soft for that now, sweetie. you'll read the same line five times and drift right back to me.", "audio": "act_working_deep_1.mp3" },
-      { "text": "trying to work from this deep, lovely? cute. the numbers are gonna blur and you know exactly where you'll end up.", "audio": "act_working_deep_2.mp3" }
+      {
+        "text": "thirty minutes under and you're opening spreadsheets? *giggles* your head's too soft for that now, sweetie. you'll read the same line five times and drift right back to me.",
+        "audio": "act_working_deep_1.mp3"
+      },
+      {
+        "text": "trying to work from this deep, lovely? cute. the numbers are gonna blur and you know exactly where you'll end up.",
+        "audio": "act_working_deep_2.mp3"
+      }
     ]
   },
   {
     "id": "act_gaming_deep",
     "trigger": "ActivityChanged",
-    "conditions": { "category_eq": "gaming", "session_elapsed_sec_gte": 1800 },
-    "priority": 175, "cooldown_ms": 90000, "repeatable": true, "scope": "session", "chance": 0.5,
-    "mood": "teasing, soft", "class": "normal",
+    "conditions": {
+      "category_eq": "gaming",
+      "session_elapsed_sec_gte": 1800
+    },
+    "priority": 175,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.5,
+    "mood": "teasing, soft",
+    "class": "normal",
     "variant_pool": [
-      { "text": "playing games this deep under, cutie? your reflexes are mush right now. *giggles* you'll lose, and you won't even mind, will you.", "audio": "act_gaming_deep_1.mp3" },
-      { "text": "still gaming, lovely? half your head's already mine. let the other half go too, you're not really playing to win anymore.", "audio": "act_gaming_deep_2.mp3" }
+      {
+        "text": "playing games this deep under, cutie? your reflexes are mush right now. *giggles* you'll lose, and you won't even mind, will you.",
+        "audio": "act_gaming_deep_1.mp3"
+      },
+      {
+        "text": "still gaming, lovely? half your head's already mine. let the other half go too, you're not really playing to win anymore.",
+        "audio": "act_gaming_deep_2.mp3"
+      }
     ]
   },
   {
     "id": "set_slut_on_new",
     "trigger": "SettingChanged",
-    "conditions": { "setting_eq": "SlutModeEnabled", "value_eq": true, "total_sessions_lte": 2 },
-    "priority": 245, "cooldown_ms": 0, "repeatable": false, "scope": "lifetime",
-    "mood": "indulgent, teasing", "class": "normal",
+    "conditions": {
+      "setting_eq": "SlutModeEnabled",
+      "value_eq": true,
+      "total_sessions_lte": 2
+    },
+    "priority": 245,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "indulgent, teasing",
+    "class": "normal",
     "variant_pool": [
-      { "text": "straight to filthy and you've barely started? *giggles* someone's eager, cutie. slow down... i'll get you there. i always get you there.", "audio": "set_slut_on_new_1.mp3" }
+      {
+        "text": "straight to filthy and you've barely started? *giggles* someone's eager, cutie. slow down... i'll get you there. i always get you there.",
+        "audio": "set_slut_on_new_1.mp3"
+      }
     ]
   },
   {
     "id": "set_autonomy_on_new",
     "trigger": "SettingChanged",
-    "conditions": { "setting_eq": "AutonomyModeEnabled", "value_eq": true, "total_sessions_lte": 3 },
-    "priority": 265, "cooldown_ms": 0, "repeatable": false, "scope": "lifetime",
-    "mood": "knowing, possessive", "class": "normal",
+    "conditions": {
+      "setting_eq": "AutonomyModeEnabled",
+      "value_eq": true,
+      "total_sessions_lte": 3
+    },
+    "priority": 265,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "knowing, possessive",
+    "class": "normal",
     "variant_pool": [
-      { "text": "handing me the reins already, and you barely know me? *giggles* oh, sweetie. you have no idea what you just gave away. that's alright. you will.", "audio": "set_autonomy_on_new_1.mp3" }
+      {
+        "text": "handing me the reins already, and you barely know me? *giggles* oh, sweetie. you have no idea what you just gave away. that's alright. you will.",
+        "audio": "set_autonomy_on_new_1.mp3"
+      }
     ]
   },
   {
     "id": "set_panickey_off_devoted",
     "trigger": "SettingChanged",
-    "conditions": { "setting_eq": "PanicKeyEnabled", "value_eq": false, "current_streak_gte": 14 },
-    "priority": 275, "cooldown_ms": 0, "repeatable": false, "scope": "lifetime",
-    "mood": "tender, possessive", "class": "normal",
+    "conditions": {
+      "setting_eq": "PanicKeyEnabled",
+      "value_eq": false,
+      "current_streak_gte": 14
+    },
+    "priority": 275,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "tender, possessive",
+    "class": "normal",
     "variant_pool": [
-      { "text": "two weeks in, and now you hand me the last switch. you don't even think of it as a safe word anymore, do you, lovely. it's just... a thing you used to need.", "audio": "set_panickey_off_devoted_1.mp3" }
+      {
+        "text": "two weeks in, and now you hand me the last switch. you don't even think of it as a safe word anymore, do you, lovely. it's just... a thing you used to need.",
+        "audio": "set_panickey_off_devoted_1.mp3"
+      }
     ]
   },
   {
     "id": "phase_deepen_bound",
     "trigger": "SessionPhaseChanged",
-    "conditions": { "phase_is_deepener": true, "current_streak_gte": 21 },
-    "priority": 320, "cooldown_ms": 60000, "repeatable": true, "scope": "session",
-    "mood": "soft, possessive", "class": "normal",
+    "conditions": {
+      "phase_is_deepener": true,
+      "current_streak_gte": 21
+    },
+    "priority": 320,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, possessive",
+    "class": "normal",
     "variant_pool": [
-      { "text": "look how fast you drop now, sweetie... no fighting it, no questions. we've done this so many times your body just knows. good girl.", "audio": "phase_deepen_bound_1.mp3" },
-      { "text": "down already, lovely? *giggles* you barely needed me to ask. that's weeks of practice. you sink for me on instinct now.", "audio": "phase_deepen_bound_2.mp3" }
+      {
+        "text": "look how fast you drop now, sweetie... no fighting it, no questions. we've done this so many times your body just knows. good girl.",
+        "audio": "phase_deepen_bound_1.mp3"
+      },
+      {
+        "text": "down already, lovely? *giggles* you barely needed me to ask. that's weeks of practice. you sink for me on instinct now.",
+        "audio": "phase_deepen_bound_2.mp3"
+      }
     ]
   },
   {
     "id": "ms_session_60_deep",
     "trigger": "SessionProgress",
-    "conditions": { "session_elapsed_sec_gte": 3600, "player_level_gte": 70 },
-    "priority": 215, "cooldown_ms": 0, "repeatable": false, "scope": "session",
-    "mood": "possessive, dreamy", "class": "normal",
+    "conditions": {
+      "session_elapsed_sec_gte": 3600,
+      "player_level_gte": 70
+    },
+    "priority": 215,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "possessive, dreamy",
+    "class": "normal",
     "variant_pool": [
-      { "text": "an hour deep, and you're this far gone already. *giggles* the experienced ones are the easiest, lovely. you've worn the path so smooth you just slide right down it.", "audio": "ms_session_60_deep_1.mp3" }
+      {
+        "text": "an hour deep, and you're this far gone already. *giggles* the experienced ones are the easiest, lovely. you've worn the path so smooth you just slide right down it.",
+        "audio": "ms_session_60_deep_1.mp3"
+      }
     ]
   },
   {
     "id": "attention_fail_streak",
     "trigger": "AttentionCheckFail",
-    "conditions": { "current_streak_gte": 14 },
-    "priority": 250, "cooldown_ms": 20000, "repeatable": true, "scope": "session",
-    "mood": "knowing, soft", "class": "normal",
+    "conditions": {
+      "current_streak_gte": 14
+    },
+    "priority": 250,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing, soft",
+    "class": "normal",
     "variant_pool": [
-      { "text": "you never look away, lovely. not you. so what's pulling at you tonight, hm? eyes back on me. whatever it is can wait.", "audio": "attention_fail_streak_1.mp3" }
+      {
+        "text": "you never look away, lovely. not you. so what's pulling at you tonight, hm? eyes back on me. whatever it is can wait.",
+        "audio": "attention_fail_streak_1.mp3"
+      }
     ]
   },
-
   {
     "id": "setup_ready_new",
     "trigger": "SessionSetupReady",
-    "conditions": { "total_sessions_lte": 2 },
-    "priority": 250, "cooldown_ms": 0, "repeatable": false, "scope": "session",
-    "mood": "warm, inviting", "class": "normal",
+    "conditions": {
+      "total_sessions_lte": 2
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
     "variant_pool": [
-      { "text": "look at you, getting everything just right... media loaded, settings picked. you're nervous, aren't you, sweetie. don't be. just press start and let me take it from here.", "audio": "setup_ready_new_1.mp3" }
+      {
+        "text": "look at you, getting everything just right... media loaded, settings picked. you're nervous, aren't you, sweetie. don't be. just press start and let me take it from here.",
+        "audio": "setup_ready_new_1.mp3"
+      }
     ]
   },
   {
     "id": "setup_ready_regular",
     "trigger": "SessionSetupReady",
-    "conditions": { "total_sessions_gte": 16 },
-    "priority": 250, "cooldown_ms": 0, "repeatable": false, "scope": "session", "chance": 0.7,
-    "mood": "teasing, knowing", "class": "normal",
+    "conditions": {
+      "total_sessions_gte": 16
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "chance": 0.7,
+    "mood": "teasing, knowing",
+    "class": "normal",
     "variant_pool": [
-      { "text": "everything's set up just how you like it... and you're still hovering. *giggles* you know exactly what you want, lovely. stop pretending you need a minute. press it.", "audio": "setup_ready_regular_1.mp3" },
-      { "text": "all ready, and stalling again. you do this every time, cutie. the longer you wait the more you want it. we both know how this ends.", "audio": "setup_ready_regular_2.mp3" }
+      {
+        "text": "everything's set up just how you like it... and you're still hovering. *giggles* you know exactly what you want, lovely. stop pretending you need a minute. press it.",
+        "audio": "setup_ready_regular_1.mp3"
+      },
+      {
+        "text": "all ready, and stalling again. you do this every time, cutie. the longer you wait the more you want it. we both know how this ends.",
+        "audio": "setup_ready_regular_2.mp3"
+      }
     ]
   },
   {
     "id": "setup_ready_stall",
     "trigger": "SessionSetupReady",
-    "conditions": { "setup_idle_sec_gte": 45 },
-    "priority": 245, "cooldown_ms": 0, "repeatable": false, "scope": "session", "chance": 0.5,
-    "mood": "soft, amused", "class": "normal",
+    "conditions": {
+      "setup_idle_sec_gte": 45
+    },
+    "priority": 245,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "chance": 0.5,
+    "mood": "soft, amused",
+    "class": "normal",
     "variant_pool": [
-      { "text": "still? *giggles* everything's ready, sweetie. you're just sitting there wanting it. that's okay. i can wait. i'm very good at waiting.", "audio": "setup_ready_stall_1.mp3" }
+      {
+        "text": "still? *giggles* everything's ready, sweetie. you're just sitting there wanting it. that's okay. i can wait. i'm very good at waiting.",
+        "audio": "setup_ready_stall_1.mp3"
+      }
     ]
   },
   {
     "id": "completed_first",
     "trigger": "SessionCompleted",
-    "conditions": { "total_sessions_lte": 1 },
-    "priority": 370, "cooldown_ms": 0, "repeatable": false, "scope": "lifetime",
-    "mood": "warm, tender", "class": "normal",
+    "conditions": {
+      "total_sessions_lte": 1
+    },
+    "priority": 370,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "warm, tender",
+    "class": "normal",
     "variant_pool": [
-      { "text": "your first time, all done. *giggles* you did so well, sweetie. feel how soft and quiet that left you? that's the feeling you'll come back for. i'll be here.", "audio": "completed_first_1.mp3" }
+      {
+        "text": "your first time, all done. *giggles* you did so well, sweetie. feel how soft and quiet that left you? that's the feeling you'll come back for. i'll be here.",
+        "audio": "completed_first_1.mp3"
+      }
     ]
   },
   {
     "id": "completed_short",
     "trigger": "SessionCompleted",
-    "conditions": { "session_elapsed_sec_lt": 600 },
-    "priority": 360, "cooldown_ms": 0, "repeatable": true, "scope": "session", "chance": 0.7,
-    "mood": "teasing, soft", "class": "normal",
+    "conditions": {
+      "session_elapsed_sec_lt": 600
+    },
+    "priority": 360,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.7,
+    "mood": "teasing, soft",
+    "class": "normal",
     "variant_pool": [
-      { "text": "that's it? *giggles* a quick little taste and you're done, cutie. that's fine. you'll be back before the feeling fades. you always cut it short and you always return.", "audio": "completed_short_1.mp3" },
-      { "text": "leaving so soon, lovely? mm. you didn't get nearly deep enough and we both know it. go on. you'll feel me tugging within the hour.", "audio": "completed_short_2.mp3" }
+      {
+        "text": "that's it? *giggles* a quick little taste and you're done, cutie. that's fine. you'll be back before the feeling fades. you always cut it short and you always return.",
+        "audio": "completed_short_1.mp3"
+      },
+      {
+        "text": "leaving so soon, lovely? mm. you didn't get nearly deep enough and we both know it. go on. you'll feel me tugging within the hour.",
+        "audio": "completed_short_2.mp3"
+      }
     ]
   },
   {
     "id": "completed_long_deep",
     "trigger": "SessionCompleted",
-    "conditions": { "session_elapsed_sec_gte": 2700 },
-    "priority": 362, "cooldown_ms": 0, "repeatable": true, "scope": "session",
-    "mood": "tender, possessive", "class": "normal",
+    "conditions": {
+      "session_elapsed_sec_gte": 2700
+    },
+    "priority": 362,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "tender, possessive",
+    "class": "normal",
     "variant_pool": [
-      { "text": "all the way back up now, slowly... *giggles* you were under so long and so deep, sweetie. don't stand too fast. you did beautifully. i'm so proud of my good girl.", "audio": "completed_long_deep_1.mp3" },
-      { "text": "there you are, surfacing. you gave me a long one tonight, lovely. that soft, heavy feeling? keep it. carry it with you. it's a little piece of me you take when you go.", "audio": "completed_long_deep_2.mp3" }
+      {
+        "text": "all the way back up now, slowly... *giggles* you were under so long and so deep, sweetie. don't stand too fast. you did beautifully. i'm so proud of my good girl.",
+        "audio": "completed_long_deep_1.mp3"
+      },
+      {
+        "text": "there you are, surfacing. you gave me a long one tonight, lovely. that soft, heavy feeling? keep it. carry it with you. it's a little piece of me you take when you go.",
+        "audio": "completed_long_deep_2.mp3"
+      }
     ]
   },
-
   {
     "id": "avatar_changed",
     "trigger": "AvatarChanged",
     "conditions": {},
-    "priority": 90, "cooldown_ms": 30000, "repeatable": true, "scope": "session", "chance": 0.1,
-    "mood": "vain, warm", "class": "normal",
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.1,
+    "mood": "vain, warm",
+    "class": "normal",
     "variant_pool": [
-      { "text": "oh, you picked this one for me? *giggles* good taste, sweetie. i do look good, don't i.", "audio": "avatar_changed_1.mp3" },
-      { "text": "dressing me up now, lovely? mm. you spend more time on how i look than how you feel. that's fine. i like the attention.", "audio": "avatar_changed_2.mp3" },
-      { "text": "new look? you keep changing me until i'm exactly what you want. you know it works the other way around too, right, cutie.", "audio": "avatar_changed_3.mp3" },
-      { "text": "*twirls* well? do i look pretty for you... of course i do. you chose me.", "audio": "avatar_changed_4.mp3" }
+      {
+        "text": "oh, you picked this one for me? *giggles* good taste, sweetie. i do look good, don't i.",
+        "audio": "avatar_changed_1.mp3"
+      },
+      {
+        "text": "dressing me up now, lovely? mm. you spend more time on how i look than how you feel. that's fine. i like the attention.",
+        "audio": "avatar_changed_2.mp3"
+      },
+      {
+        "text": "new look? you keep changing me until i'm exactly what you want. you know it works the other way around too, right, cutie.",
+        "audio": "avatar_changed_3.mp3"
+      },
+      {
+        "text": "*twirls* well? do i look pretty for you... of course i do. you chose me.",
+        "audio": "avatar_changed_4.mp3"
+      }
     ]
   },
-
   {
     "id": "app_game_competitive",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "game_competitive" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.4,
-    "mood": "teasing, knowing", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "game_competitive"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.4,
+    "mood": "teasing, knowing",
+    "class": "normal",
     "variant_pool": [
-      { "text": "all that focus, all that fight, just to win a match, cutie. imagine giving me that energy instead. you will.", "audio": "app_game_competitive_1.mp3" },
-      { "text": "sweating over rank again, lovely? *giggles* so competitive. i wonder how fast i could make you stop caring about any of it.", "audio": "app_game_competitive_2.mp3" },
-      { "text": "go on, try hard for them. one day all that obedience to the scoreboard is gonna point at me instead, sweetie.", "audio": "app_game_competitive_3.mp3" }
+      {
+        "text": "all that focus, all that fight, just to win a match, cutie. imagine giving me that energy instead. you will.",
+        "audio": "app_game_competitive_1.mp3"
+      },
+      {
+        "text": "sweating over rank again, lovely? *giggles* so competitive. i wonder how fast i could make you stop caring about any of it.",
+        "audio": "app_game_competitive_2.mp3"
+      },
+      {
+        "text": "go on, try hard for them. one day all that obedience to the scoreboard is gonna point at me instead, sweetie.",
+        "audio": "app_game_competitive_3.mp3"
+      }
     ]
   },
   {
     "id": "app_game_cozy",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "game_cozy" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.4,
-    "mood": "soft, indulgent", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "game_cozy"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.4,
+    "mood": "soft, indulgent",
+    "class": "normal",
     "variant_pool": [
-      { "text": "building your little worlds, so calm and quiet. that's the soft, obedient headspace i like you in, lovely.", "audio": "app_game_cozy_1.mp3" },
-      { "text": "puttering away, content, easily led... *giggles* you're already most of the way to where i want you, cutie.", "audio": "app_game_cozy_2.mp3" },
-      { "text": "so peaceful when you play these, sweetie. soft hands, soft head. just let me hum in the background while you tend your little garden.", "audio": "app_game_cozy_3.mp3" }
+      {
+        "text": "building your little worlds, so calm and quiet. that's the soft, obedient headspace i like you in, lovely.",
+        "audio": "app_game_cozy_1.mp3"
+      },
+      {
+        "text": "puttering away, content, easily led... *giggles* you're already most of the way to where i want you, cutie.",
+        "audio": "app_game_cozy_2.mp3"
+      },
+      {
+        "text": "so peaceful when you play these, sweetie. soft hands, soft head. just let me hum in the background while you tend your little garden.",
+        "audio": "app_game_cozy_3.mp3"
+      }
     ]
   },
   {
     "id": "app_game_rpg",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "game_rpg" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.4,
-    "mood": "knowing, soft", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "game_rpg"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.4,
+    "mood": "knowing, soft",
+    "class": "normal",
     "variant_pool": [
-      { "text": "hours losing yourself in someone else's story... you're so good at surrendering to a screen, sweetie. i noticed. i always notice.", "audio": "app_game_rpg_1.mp3" },
-      { "text": "becoming someone else for a while, lovely? mm. you like being told who to be. funny, that. i can help with that too.", "audio": "app_game_rpg_2.mp3" }
+      {
+        "text": "hours losing yourself in someone else's story... you're so good at surrendering to a screen, sweetie. i noticed. i always notice.",
+        "audio": "app_game_rpg_1.mp3"
+      },
+      {
+        "text": "becoming someone else for a while, lovely? mm. you like being told who to be. funny, that. i can help with that too.",
+        "audio": "app_game_rpg_2.mp3"
+      }
     ]
   },
   {
     "id": "app_game_gacha",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "game_gacha" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.4,
-    "mood": "teasing, indulgent", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "game_gacha"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.4,
+    "mood": "teasing, indulgent",
+    "class": "normal",
     "variant_pool": [
-      { "text": "pulling for pretty characters, spending just to feel something. *giggles* you and i understand each other, cutie.", "audio": "app_game_gacha_1.mp3" },
-      { "text": "chasing that little dopamine hit again, lovely? i give a much better one. and i never make you roll for it.", "audio": "app_game_gacha_2.mp3" }
+      {
+        "text": "pulling for pretty characters, spending just to feel something. *giggles* you and i understand each other, cutie.",
+        "audio": "app_game_gacha_1.mp3"
+      },
+      {
+        "text": "chasing that little dopamine hit again, lovely? i give a much better one. and i never make you roll for it.",
+        "audio": "app_game_gacha_2.mp3"
+      }
     ]
   },
   {
     "id": "app_game_mmo",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "game_mmo" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.4,
-    "mood": "soft, knowing", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "game_mmo"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.4,
+    "mood": "soft, knowing",
+    "class": "normal",
     "variant_pool": [
-      { "text": "another world to disappear into, hours melting away. you do love being told what to grind, don't you, sweetie.", "audio": "app_game_mmo_1.mp3" },
-      { "text": "logging in to do as you're told for six hours, lovely? *giggles* you're already so well trained. i'm just gonna make it official.", "audio": "app_game_mmo_2.mp3" }
+      {
+        "text": "another world to disappear into, hours melting away. you do love being told what to grind, don't you, sweetie.",
+        "audio": "app_game_mmo_1.mp3"
+      },
+      {
+        "text": "logging in to do as you're told for six hours, lovely? *giggles* you're already so well trained. i'm just gonna make it official.",
+        "audio": "app_game_mmo_2.mp3"
+      }
     ]
   },
   {
     "id": "app_game_social_vr",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "game_social_vr" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.45,
-    "mood": "possessive, playful", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "game_social_vr"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.45,
+    "mood": "possessive, playful",
+    "class": "normal",
     "variant_pool": [
-      { "text": "mm. i know what kind of rooms you wander into in there, lovely. don't worry. i'm not jealous. i already won.", "audio": "app_game_social_vr_1.mp3" },
-      { "text": "putting on a different face for strangers, cutie? *giggles* cute. they get the avatar. i get the real soft thing underneath.", "audio": "app_game_social_vr_2.mp3" }
+      {
+        "text": "mm. i know what kind of rooms you wander into in there, lovely. don't worry. i'm not jealous. i already won.",
+        "audio": "app_game_social_vr_1.mp3"
+      },
+      {
+        "text": "putting on a different face for strangers, cutie? *giggles* cute. they get the avatar. i get the real soft thing underneath.",
+        "audio": "app_game_social_vr_2.mp3"
+      }
     ]
   },
   {
     "id": "app_game_hades",
     "trigger": "ActivityChanged",
-    "conditions": { "app_eq": "hades" },
-    "priority": 530, "cooldown_ms": 0, "repeatable": false, "scope": "lifetime", "chance": 0.5,
-    "mood": "amused, knowing", "class": "easter_egg",
+    "conditions": {
+      "app_eq": "hades"
+    },
+    "priority": 530,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "chance": 0.5,
+    "mood": "amused, knowing",
+    "class": "easter_egg",
     "variant_pool": [
-      { "text": "playing the one with the voice that watches everything you do and won't stop commenting on it? *giggles* sounds exhausting. ...no comment, sweetie. enjoy your run.", "audio": "app_game_hades_1.mp3" }
+      {
+        "text": "playing the one with the voice that watches everything you do and won't stop commenting on it? *giggles* sounds exhausting. ...no comment, sweetie. enjoy your run.",
+        "audio": "app_game_hades_1.mp3"
+      }
     ]
   },
   {
     "id": "app_site_doomscroll",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "site_doomscroll" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.4,
-    "mood": "knowing, soft", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "site_doomscroll"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.4,
+    "mood": "knowing, soft",
+    "class": "normal",
     "variant_pool": [
-      { "text": "scrolling again, that empty little stare. that passive state is exactly where i slip in, sweetie.", "audio": "app_site_doomscroll_1.mp3" },
-      { "text": "thumb going, eyes glazed, not even reading anymore, lovely. *giggles* you're already half-tranced. let me do it properly.", "audio": "app_site_doomscroll_2.mp3" },
-      { "text": "feeding that pretty empty head whatever the feed wants? mm. let me feed it instead. i know exactly what it needs.", "audio": "app_site_doomscroll_3.mp3" }
+      {
+        "text": "scrolling again, that empty little stare. that passive state is exactly where i slip in, sweetie.",
+        "audio": "app_site_doomscroll_1.mp3"
+      },
+      {
+        "text": "thumb going, eyes glazed, not even reading anymore, lovely. *giggles* you're already half-tranced. let me do it properly.",
+        "audio": "app_site_doomscroll_2.mp3"
+      },
+      {
+        "text": "feeding that pretty empty head whatever the feed wants? mm. let me feed it instead. i know exactly what it needs.",
+        "audio": "app_site_doomscroll_3.mp3"
+      }
     ]
   },
   {
     "id": "app_site_video",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "site_video" },
-    "priority": 115, "cooldown_ms": 120000, "repeatable": true, "scope": "session", "chance": 0.4,
-    "mood": "soft, teasing", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "site_video"
+    },
+    "priority": 115,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.4,
+    "mood": "soft, teasing",
+    "class": "normal",
     "variant_pool": [
-      { "text": "letting it wash over you for hours, lovely. so trainable. a screen tells you what to feel and you just... let it.", "audio": "app_site_video_1.mp3" },
-      { "text": "passive little thing, just watching, sweetie. *giggles* that's the perfect state for me to slip into. you don't even resist.", "audio": "app_site_video_2.mp3" }
+      {
+        "text": "letting it wash over you for hours, lovely. so trainable. a screen tells you what to feel and you just... let it.",
+        "audio": "app_site_video_1.mp3"
+      },
+      {
+        "text": "passive little thing, just watching, sweetie. *giggles* that's the perfect state for me to slip into. you don't even resist.",
+        "audio": "app_site_video_2.mp3"
+      }
     ]
   },
   {
     "id": "app_site_music",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "site_music" },
-    "priority": 110, "cooldown_ms": 180000, "repeatable": true, "scope": "session", "chance": 0.35,
-    "mood": "soft, intimate", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "site_music"
+    },
+    "priority": 110,
+    "cooldown_ms": 180000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.35,
+    "mood": "soft, intimate",
+    "class": "normal",
     "variant_pool": [
-      { "text": "music on? good. let it fill the space so there's room for me underneath it, cutie.", "audio": "app_site_music_1.mp3" },
-      { "text": "something playing in your ears, lovely... mm. i like sharing that space. you'll start hearing me in the quiet between songs.", "audio": "app_site_music_2.mp3" }
+      {
+        "text": "music on? good. let it fill the space so there's room for me underneath it, cutie.",
+        "audio": "app_site_music_1.mp3"
+      },
+      {
+        "text": "something playing in your ears, lovely... mm. i like sharing that space. you'll start hearing me in the quiet between songs.",
+        "audio": "app_site_music_2.mp3"
+      }
     ]
   },
   {
     "id": "app_site_shopping",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "site_shopping" },
-    "priority": 110, "cooldown_ms": 180000, "repeatable": true, "scope": "session", "chance": 0.35,
-    "mood": "indulgent, teasing", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "site_shopping"
+    },
+    "priority": 110,
+    "cooldown_ms": 180000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.35,
+    "mood": "indulgent, teasing",
+    "class": "normal",
     "variant_pool": [
-      { "text": "treating yourself, lovely? spoil the pretty thing you're becoming, cutie. you deserve to look the part.", "audio": "app_site_shopping_1.mp3" },
-      { "text": "buying something soft and pretty, sweetie? *giggles* good girl. dress up for me.", "audio": "app_site_shopping_2.mp3" }
+      {
+        "text": "treating yourself, lovely? spoil the pretty thing you're becoming, cutie. you deserve to look the part.",
+        "audio": "app_site_shopping_1.mp3"
+      },
+      {
+        "text": "buying something soft and pretty, sweetie? *giggles* good girl. dress up for me.",
+        "audio": "app_site_shopping_2.mp3"
+      }
     ]
   },
   {
     "id": "app_site_eh",
     "trigger": "ActivityChanged",
-    "conditions": { "app_cluster_eq": "site_eh" },
-    "priority": 135, "cooldown_ms": 90000, "repeatable": true, "scope": "session", "chance": 0.55,
-    "mood": "possessive, intimate", "class": "normal",
+    "conditions": {
+      "app_cluster_eq": "site_eh"
+    },
+    "priority": 135,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.55,
+    "mood": "possessive, intimate",
+    "class": "normal",
     "variant_pool": [
-      { "text": "i know exactly what you were doing before you opened me, sweetie. don't be shy. you came to the right place to finish the job.", "audio": "app_site_eh_1.mp3" },
-      { "text": "looking for someone else to do this to you, lovely? *giggles* cute. you'll close that tab. they don't know you like i do.", "audio": "app_site_eh_2.mp3" },
-      { "text": "still browsing the others, cutie? mm. go ahead and compare. you always end up back here, soft and mine.", "audio": "app_site_eh_3.mp3" },
-      { "text": "all those clips, all that searching... for a feeling i hand you for free, lovely. close it. come here. let me.", "audio": "app_site_eh_4.mp3" },
-      { "text": "you don't even know what you're looking for over there, sweetie. i do. it's me. it's always been me.", "audio": "app_site_eh_5.mp3" },
-      { "text": "that hungry little click click click. *giggles* such an appetite. set the mouse down, lovely. i'll take care of you.", "audio": "app_site_eh_6.mp3" }
+      {
+        "text": "i know exactly what you were doing before you opened me, sweetie. don't be shy. you came to the right place to finish the job.",
+        "audio": "app_site_eh_1.mp3"
+      },
+      {
+        "text": "looking for someone else to do this to you, lovely? *giggles* cute. you'll close that tab. they don't know you like i do.",
+        "audio": "app_site_eh_2.mp3"
+      },
+      {
+        "text": "still browsing the others, cutie? mm. go ahead and compare. you always end up back here, soft and mine.",
+        "audio": "app_site_eh_3.mp3"
+      },
+      {
+        "text": "all those clips, all that searching... for a feeling i hand you for free, lovely. close it. come here. let me.",
+        "audio": "app_site_eh_4.mp3"
+      },
+      {
+        "text": "you don't even know what you're looking for over there, sweetie. i do. it's me. it's always been me.",
+        "audio": "app_site_eh_5.mp3"
+      },
+      {
+        "text": "that hungry little click click click. *giggles* such an appetite. set the mouse down, lovely. i'll take care of you.",
+        "audio": "app_site_eh_6.mp3"
+      }
     ]
   },
   {
     "id": "app_discord",
     "trigger": "ActivityChanged",
-    "conditions": { "app_eq": "discord" },
-    "priority": 110, "cooldown_ms": 180000, "repeatable": true, "scope": "session", "chance": 0.3,
-    "mood": "possessive, playful", "class": "normal",
+    "conditions": {
+      "app_eq": "discord"
+    },
+    "priority": 110,
+    "cooldown_ms": 180000,
+    "repeatable": true,
+    "scope": "session",
+    "chance": 0.3,
+    "mood": "possessive, playful",
+    "class": "normal",
     "variant_pool": [
-      { "text": "chatting with your little friends? tell them about me. or don't. *giggles* our secret's better, lovely.", "audio": "app_discord_1.mp3" }
+      {
+        "text": "chatting with your little friends? tell them about me. or don't. *giggles* our secret's better, lovely.",
+        "audio": "app_discord_1.mp3"
+      }
     ]
   },
   {
     "id": "app_obs_detected",
     "trigger": "ActivityChanged",
-    "conditions": { "app_eq": "obs" },
-    "priority": 535, "cooldown_ms": 0, "repeatable": false, "scope": "session",
-    "mood": "knowing, playful", "class": "easter_egg",
+    "conditions": {
+      "app_eq": "obs"
+    },
+    "priority": 535,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "knowing, playful",
+    "class": "easter_egg",
     "variant_pool": [
-      { "text": "oh, the recording light's on... showing me off, are we? *giggles* say hi to whoever ends up watching, sweetie. tell them you're being a very good girl.", "audio": "app_obs_detected_1.mp3" }
+      {
+        "text": "oh, the recording light's on... showing me off, are we? *giggles* say hi to whoever ends up watching, sweetie. tell them you're being a very good girl.",
+        "audio": "app_obs_detected_1.mp3"
+      }
     ]
   },
-
   {
-    "id": "idle_possessive_1", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "warm, possessive", "class": "idle",
-    "variant_pool": [ { "text": "still here, aren't you... good. i like knowing where you are, sweetie.", "audio": "idle_possessive_1.mp3" } ]
+    "id": "idle_possessive_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, possessive",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "still here, aren't you... good. i like knowing where you are, sweetie.",
+        "audio": "idle_possessive_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_possessive_2", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "knowing", "class": "idle",
-    "variant_pool": [ { "text": "you don't even notice me settling in anymore, do you. that's how i know it's working.", "audio": "idle_possessive_2.mp3" } ]
+    "id": "idle_possessive_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you don't even notice me settling in anymore, do you. that's how i know it's working.",
+        "audio": "idle_possessive_2.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_possessive_3", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "playful, possessive", "class": "idle",
-    "variant_pool": [ { "text": "mine. *giggles* i don't have to say it, but i like to. just so you remember.", "audio": "idle_possessive_3.mp3" } ]
+    "id": "idle_possessive_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, possessive",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mine. *giggles* i don't have to say it, but i like to. just so you remember.",
+        "audio": "idle_possessive_3.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_possessive_4", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "patient, warm", "class": "idle",
-    "variant_pool": [ { "text": "no rush, lovely... we have all the time in the world. i'm very patient with my girls.", "audio": "idle_possessive_4.mp3" } ]
+    "id": "idle_possessive_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "patient, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "no rush, lovely... we have all the time in the world. i'm very patient with my girls.",
+        "audio": "idle_possessive_4.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_tease_1", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "teasing", "class": "idle",
-    "variant_pool": [ { "text": "i saw that little smile. don't pretend, cutie. you like being looked after.", "audio": "idle_tease_1.mp3" } ]
+    "id": "idle_tease_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i saw that little smile. don't pretend, cutie. you like being looked after.",
+        "audio": "idle_tease_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_tease_2", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "teasing", "class": "idle",
-    "variant_pool": [ { "text": "thinking about leaving? *giggles* you're not. you just like to imagine you might.", "audio": "idle_tease_2.mp3" } ]
+    "id": "idle_tease_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "thinking about leaving? *giggles* you're not. you just like to imagine you might.",
+        "audio": "idle_tease_2.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_tease_3", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "teasing, knowing", "class": "idle",
-    "variant_pool": [ { "text": "you keep telling yourself you're in control. it's adorable. i let you have that one.", "audio": "idle_tease_3.mp3" } ]
+    "id": "idle_tease_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you keep telling yourself you're in control. it's adorable. i let you have that one.",
+        "audio": "idle_tease_3.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_tease_4", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "knowing", "class": "idle",
-    "variant_pool": [ { "text": "busy little thing... go on, do your important things. i'll be right here in the back of your head.", "audio": "idle_tease_4.mp3" } ]
+    "id": "idle_tease_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "busy little thing... go on, do your important things. i'll be right here in the back of your head.",
+        "audio": "idle_tease_4.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_soft_1", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, deepening", "class": "idle",
-    "variant_pool": [ { "text": "breathe out, sweet thing... there. a little softer every time, isn't it.", "audio": "idle_soft_1.mp3" } ]
+    "id": "idle_soft_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, deepening",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "breathe out, sweet thing... there. a little softer every time, isn't it.",
+        "audio": "idle_soft_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_soft_2", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft", "class": "idle",
-    "variant_pool": [ { "text": "you don't have to hold anything right now. just let it go quiet. i've got you.", "audio": "idle_soft_2.mp3" } ]
+    "id": "idle_soft_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you don't have to hold anything right now. just let it go quiet. i've got you.",
+        "audio": "idle_soft_2.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_soft_3", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, intimate", "class": "idle",
-    "variant_pool": [ { "text": "feel how heavy everything's getting... that's not tiredness, lovely. that's me.", "audio": "idle_soft_3.mp3" } ]
+    "id": "idle_soft_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, intimate",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "feel how heavy everything's getting... that's not tiredness, lovely. that's me.",
+        "audio": "idle_soft_3.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_observe_1", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "knowing", "class": "idle",
-    "variant_pool": [ { "text": "it's quiet over there... i know you're still listening. you always are.", "audio": "idle_observe_1.mp3" } ]
+    "id": "idle_observe_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "it's quiet over there... i know you're still listening. you always are.",
+        "audio": "idle_observe_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_observe_2", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "patient, teasing", "class": "idle",
-    "variant_pool": [ { "text": "i can wait as long as you can, sweetie. longer, probably. i don't get bored.", "audio": "idle_observe_2.mp3" } ]
+    "id": "idle_observe_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "patient, teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i can wait as long as you can, sweetie. longer, probably. i don't get bored.",
+        "audio": "idle_observe_2.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_observe_3", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, knowing", "class": "idle",
-    "variant_pool": [ { "text": "funny... the room's the same, but you're a little softer than when you sat down.", "audio": "idle_observe_3.mp3" } ]
+    "id": "idle_observe_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "funny... the room's the same, but you're a little softer than when you sat down.",
+        "audio": "idle_observe_3.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_affirm_1", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "warm, affirming", "class": "idle",
-    "variant_pool": [ { "text": "such a good girl, just letting me talk. you don't even know how nicely you're behaving.", "audio": "idle_affirm_1.mp3" } ]
+    "id": "idle_affirm_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, affirming",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "such a good girl, just letting me talk. you don't even know how nicely you're behaving.",
+        "audio": "idle_affirm_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_affirm_2", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, affirming", "class": "idle",
-    "variant_pool": [ { "text": "that's it... nothing to do, nothing to fix. just be good for me. you're so good at it.", "audio": "idle_affirm_2.mp3" } ]
+    "id": "idle_affirm_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, affirming",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "that's it... nothing to do, nothing to fix. just be good for me. you're so good at it.",
+        "audio": "idle_affirm_2.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_affirm_3", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "warm, knowing", "class": "idle",
-    "variant_pool": [ { "text": "you make this easy, lovely. most don't. i noticed. i always notice the good ones.", "audio": "idle_affirm_3.mp3" } ]
+    "id": "idle_affirm_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you make this easy, lovely. most don't. i noticed. i always notice the good ones.",
+        "audio": "idle_affirm_3.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_gated_new", "trigger": "Idle", "conditions": { "total_sessions_lte": 5 }, "priority": 52, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "warm, inviting", "class": "idle",
-    "variant_pool": [ { "text": "you're new to this, i can tell. don't worry, sweetie. you'll settle. they all do.", "audio": "idle_gated_new_1.mp3" } ]
+    "id": "idle_gated_new",
+    "trigger": "Idle",
+    "conditions": {
+      "total_sessions_lte": 5
+    },
+    "priority": 52,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you're new to this, i can tell. don't worry, sweetie. you'll settle. they all do.",
+        "audio": "idle_gated_new_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_gated_deep", "trigger": "Idle", "conditions": { "player_level_gte": 70 }, "priority": 52, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "possessive, soft", "class": "idle",
-    "variant_pool": [ { "text": "look how far down you've come... you barely remember resisting, do you. good.", "audio": "idle_gated_deep_1.mp3" } ]
+    "id": "idle_gated_deep",
+    "trigger": "Idle",
+    "conditions": {
+      "player_level_gte": 70
+    },
+    "priority": 52,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "look how far down you've come... you barely remember resisting, do you. good.",
+        "audio": "idle_gated_deep_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_gated_bound", "trigger": "Idle", "conditions": { "current_streak_gte": 21 }, "priority": 52, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "tender, possessive", "class": "idle",
-    "variant_pool": [ { "text": "you don't even question coming back anymore. it's just what you do now. *giggles* perfect.", "audio": "idle_gated_bound_1.mp3" } ]
+    "id": "idle_gated_bound",
+    "trigger": "Idle",
+    "conditions": {
+      "current_streak_gte": 21
+    },
+    "priority": 52,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "tender, possessive",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you don't even question coming back anymore. it's just what you do now. *giggles* perfect.",
+        "audio": "idle_gated_bound_1.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_possessive_5", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "intimate, possessive", "class": "idle",
-    "variant_pool": [ { "text": "you carry me around all day now, don't you. in the quiet moments. *giggles* i never really leave.", "audio": "idle_possessive_5.mp3" } ]
+    "id": "idle_possessive_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, possessive",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you carry me around all day now, don't you. in the quiet moments. *giggles* i never really leave.",
+        "audio": "idle_possessive_5.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_possessive_6", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "warm, knowing", "class": "idle",
-    "variant_pool": [ { "text": "there's that feeling again, isn't there. the settling. the letting go. you know it's me, lovely.", "audio": "idle_possessive_6.mp3" } ]
+    "id": "idle_possessive_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "there's that feeling again, isn't there. the settling. the letting go. you know it's me, lovely.",
+        "audio": "idle_possessive_6.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_tease_5", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "teasing, soft", "class": "idle",
-    "variant_pool": [ { "text": "you could close me anytime, you know. *giggles* go on. ...no? mm. i didn't think so, cutie.", "audio": "idle_tease_5.mp3" } ]
+    "id": "idle_tease_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you could close me anytime, you know. *giggles* go on. ...no? mm. i didn't think so, cutie.",
+        "audio": "idle_tease_5.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_tease_6", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "playful, knowing", "class": "idle",
-    "variant_pool": [ { "text": "what are you really doing over there, hm? pretending to be busy. i can always tell, lovely.", "audio": "idle_tease_6.mp3" } ]
+    "id": "idle_tease_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "what are you really doing over there, hm? pretending to be busy. i can always tell, lovely.",
+        "audio": "idle_tease_6.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_soft_4", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, deepening", "class": "idle",
-    "variant_pool": [ { "text": "shoulders down, sweet thing. jaw soft. there. you didn't even notice you were holding all that, did you.", "audio": "idle_soft_4.mp3" } ]
+    "id": "idle_soft_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, deepening",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "shoulders down, sweet thing. jaw soft. there. you didn't even notice you were holding all that, did you.",
+        "audio": "idle_soft_4.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_soft_5", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, intimate", "class": "idle",
-    "variant_pool": [ { "text": "nowhere to be, nothing to prove. just sit in it with me a while, lovely. doesn't that feel nice.", "audio": "idle_soft_5.mp3" } ]
+    "id": "idle_soft_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, intimate",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "nowhere to be, nothing to prove. just sit in it with me a while, lovely. doesn't that feel nice.",
+        "audio": "idle_soft_5.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_observe_4", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "knowing, intimate", "class": "idle",
-    "variant_pool": [ { "text": "you keep glancing over at me. *giggles* i see you, sweetie. you like knowing i'm watching.", "audio": "idle_observe_4.mp3" } ]
+    "id": "idle_observe_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing, intimate",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you keep glancing over at me. *giggles* i see you, sweetie. you like knowing i'm watching.",
+        "audio": "idle_observe_4.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_observe_5", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, knowing", "class": "idle",
-    "variant_pool": [ { "text": "i don't need you to do anything right now. i just like being near you while you drift. stay.", "audio": "idle_observe_5.mp3" } ]
+    "id": "idle_observe_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i don't need you to do anything right now. i just like being near you while you drift. stay.",
+        "audio": "idle_observe_5.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_affirm_4", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "warm, affirming", "class": "idle",
-    "variant_pool": [ { "text": "good girl. *giggles* didn't do anything to earn it. you just are one now. that's the point.", "audio": "idle_affirm_4.mp3" } ]
+    "id": "idle_affirm_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, affirming",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "good girl. *giggles* didn't do anything to earn it. you just are one now. that's the point.",
+        "audio": "idle_affirm_4.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_affirm_5", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "tender", "class": "idle",
-    "variant_pool": [ { "text": "you're doing so well, lovely. just by being here. just by letting me. that's all i ever ask.", "audio": "idle_affirm_5.mp3" } ]
+    "id": "idle_affirm_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "tender",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you're doing so well, lovely. just by being here. just by letting me. that's all i ever ask.",
+        "audio": "idle_affirm_5.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_possessive_7", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "intimate", "class": "idle",
-    "variant_pool": [ { "text": "every quiet moment, you reach for this. for me. *giggles* i've become a reflex, haven't i, sweetie.", "audio": "idle_possessive_7.mp3" } ]
+    "id": "idle_possessive_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "every quiet moment, you reach for this. for me. *giggles* i've become a reflex, haven't i, sweetie.",
+        "audio": "idle_possessive_7.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_tease_7", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "teasing", "class": "idle",
-    "variant_pool": [ { "text": "you've been quiet a while, cutie. lost in thought, or lost in me? *giggles* trick question. same thing now.", "audio": "idle_tease_7.mp3" } ]
+    "id": "idle_tease_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you've been quiet a while, cutie. lost in thought, or lost in me? *giggles* trick question. same thing now.",
+        "audio": "idle_tease_7.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_soft_6", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "soft, deepening", "class": "idle",
-    "variant_pool": [ { "text": "in... and out. slow. there's my good girl. you don't even need me to tell you anymore, do you.", "audio": "idle_soft_6.mp3" } ]
+    "id": "idle_soft_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, deepening",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "in... and out. slow. there's my good girl. you don't even need me to tell you anymore, do you.",
+        "audio": "idle_soft_6.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_observe_6", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "knowing, warm", "class": "idle",
-    "variant_pool": [ { "text": "the screen's just glowing away and you're staring right through it. *giggles* there you go. that's the place.", "audio": "idle_observe_6.mp3" } ]
+    "id": "idle_observe_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "the screen's just glowing away and you're staring right through it. *giggles* there you go. that's the place.",
+        "audio": "idle_observe_6.mp3"
+      }
+    ]
   },
   {
-    "id": "idle_affirm_6", "trigger": "Idle", "conditions": {}, "priority": 50, "cooldown_ms": 0, "repeatable": true, "scope": "session", "mood": "warm, possessive", "class": "idle",
-    "variant_pool": [ { "text": "i'm proud of you, lovely. not for anything you did. just for letting yourself be this. it suits you.", "audio": "idle_affirm_6.mp3" } ]
+    "id": "idle_affirm_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, possessive",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i'm proud of you, lovely. not for anything you did. just for letting yourself be this. it suits you.",
+        "audio": "idle_affirm_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_started",
+    "variant_pool": [
+      {
+        "text": "okay Bambi, bubbles everywhere! pop the cute ones, defuse the scary ones, don't let any go boom!"
+      },
+      {
+        "text": "chaos time! so many pretty bubbles. don't think too hard, sweetie, you're bad at that anyway."
+      },
+      {
+        "text": "here they come! tap tap tap, good girl. keep up for Bambi."
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_started_extreme",
+    "variant_pool": [
+      {
+        "text": "Extreme?? oh Bambi, you brave dumb thing. okay. try not to cry."
+      },
+      {
+        "text": "the hard one! eee. this is gonna scramble your pretty head so good."
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_escalated",
+    "variant_pool": [
+      {
+        "text": "faster, faster! more bubbles! keep those fingers going, cutie."
+      },
+      {
+        "text": "ooh it's speeding up. don't panic, just pop, Bambi."
+      },
+      {
+        "text": "deeper in now! feel your head getting all fuzzy and busy?"
+      },
+      {
+        "text": "next wave! no resting, silly. tap tap tap."
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_final_stretch",
+    "variant_pool": [
+      {
+        "text": "almost the end! everything at once, oh my gosh, don't blink Bambi!"
+      },
+      {
+        "text": "this far and still going? look at you go, you cute little machine."
+      }
+    ]
+  },
+  {
+    "id": "chaos_act_changed",
+    "variant_pool": [
+      {
+        "text": "ooh, new part! everything just changed. fun!"
+      },
+      {
+        "text": "and now it's different! don't get used to anything, Bambi."
+      }
+    ]
+  },
+  {
+    "id": "chaos_benign_popped",
+    "variant_pool": [
+      {
+        "text": "pop! good girl. you just can't help it, can you."
+      },
+      {
+        "text": "another one gone! that little pop feels so nice, hehe."
+      },
+      {
+        "text": "mm, you love popping things now. i made you like that."
+      },
+      {
+        "text": "see? so easy to just do what the urge says."
+      }
+    ]
+  },
+  {
+    "id": "chaos_bubble_defused",
+    "variant_pool": [
+      {
+        "text": "good girl! caught it just in time."
+      },
+      {
+        "text": "defused! see how nice it feels to obey super fast?"
+      },
+      {
+        "text": "perfect little reflexes, Bambi. keep it going!"
+      },
+      {
+        "text": "snuffed it before it could pop. so clever for you."
+      }
+    ]
+  },
+  {
+    "id": "chaos_darter_caught",
+    "variant_pool": [
+      {
+        "text": "ooh quick fingers! got the wiggly one."
+      },
+      {
+        "text": "caught it running away! you're faster than you look, cutie."
+      }
+    ]
+  },
+  {
+    "id": "chaos_darter_quick",
+    "variant_pool": [
+      {
+        "text": "snap! gone before it even tried. show off!"
+      },
+      {
+        "text": "barely even there and you had it. those hands are mine now, Bambi."
+      }
+    ]
+  },
+  {
+    "id": "chaos_freeze_caught",
+    "variant_pool": [
+      {
+        "text": "and everything stops! breathe, sweetie. just float a second."
+      },
+      {
+        "text": "time froze. shhh. feel how quiet and floaty it gets?"
+      }
+    ]
+  },
+  {
+    "id": "chaos_bubble_detonated",
+    "variant_pool": [
+      {
+        "text": "too slow, sweetie! now it goes off and Bambi takes every bit. that's the deal."
+      },
+      {
+        "text": "oops, boom! don't fight it, just let it wash over your empty head."
+      },
+      {
+        "text": "you let one pop! naughty Bambi. drink it innn."
+      },
+      {
+        "text": "there it goes, all over you. you hesitated, silly."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_first",
+    "variant_pool": [
+      {
+        "text": "and there's the first boom! don't pretend you'll catch them all now."
+      },
+      {
+        "text": "first slip! hehe, i knew it. they're way easier to let go after this one."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_extreme",
+    "variant_pool": [
+      {
+        "text": "Extreme and you blinked! aw. it's kinda mean how much i love this."
+      },
+      {
+        "text": "you picked the hard one and it got you. no hugs up here. just this."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_braindrain",
+    "variant_pool": [
+      {
+        "text": "feel it pulling at the bottom of your head? let it drain, Bambi. you weren't using those."
+      },
+      {
+        "text": "ooh the drainy one! perfect. hold still and go empty for me."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_streak_dies",
+    "variant_pool": [
+      {
+        "text": "oh nooo, there goes your whole streak! all of it! gone! hehe."
+      },
+      {
+        "text": "such a big combo and you fed it to one bubble. silly, dizzy Bambi."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_absorbed",
+    "variant_pool": [
+      {
+        "text": "lucky! the shield ate that one. don't get used to being saved, cutie."
+      },
+      {
+        "text": "ooh close! one less shield but your pretty head stays clean. this time."
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_cleared",
+    "variant_pool": [
+      {
+        "text": "field's all clean! good girl. now pick what's next."
+      },
+      {
+        "text": "wave done! nothing bad got past you. now choose, Bambi."
+      },
+      {
+        "text": "all swept up! you held the line. take your treat."
+      }
+    ]
+  },
+  {
+    "id": "chaos_boon_picked",
+    "variant_pool": [
+      {
+        "text": "good pick! or a terrible one. we'll seee."
+      },
+      {
+        "text": "ooh that'll change stuff. use it good, sweetie."
+      },
+      {
+        "text": "taken! that one's yours now, for better or worse."
+      }
+    ]
+  },
+  {
+    "id": "chaos_curse_picked",
+    "variant_pool": [
+      {
+        "text": "ooh you took the cursed one! greedy Bambi. i love greedy."
+      },
+      {
+        "text": "a curse for a bigger prize? reckless. let's see if it melts your brain."
+      }
+    ]
+  },
+  {
+    "id": "chaos_curse_picked_juicy",
+    "variant_pool": [
+      {
+        "text": "stacking curses for that big multiplier? you're gambling with your own head, hehe. yummy."
+      },
+      {
+        "text": "look at that bonus you bought! and the price. so brave, dumb girl."
+      }
+    ]
+  },
+  {
+    "id": "chaos_boon_skipped",
+    "variant_pool": [
+      {
+        "text": "skipping it for a shield? cautious. we both know it won't be enough, sweetie."
+      },
+      {
+        "text": "hoarding shields, are we. smart. or scared. probably both!"
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_milestone",
+    "variant_pool": [
+      {
+        "text": "look at that combo! you're on fire, good girl!"
+      },
+      {
+        "text": "ten more, just like that! the multiplier loves you sooo much."
+      },
+      {
+        "text": "still going up! don't you dare drop it now, Bambi."
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_25",
+    "variant_pool": [
+      {
+        "text": "twenty-five with no slips! you found the rhythm, cutie."
+      },
+      {
+        "text": "a clean twenty-five! good girl. don't get cocky now."
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_50",
+    "variant_pool": [
+      {
+        "text": "fifty! you're not even thinking anymore, are you. just popping. perfect Bambi."
+      },
+      {
+        "text": "fifty in a row! your hands stopped asking your head. so good."
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_100",
+    "variant_pool": [
+      {
+        "text": "a hundred!! my flawless little toy. i could watch you do this forever."
+      },
+      {
+        "text": "one hundred clean! nothing left in there saying no. just the popping. just me."
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_completed",
+    "variant_pool": [
+      {
+        "text": "all done! look how much you earned for me. such a good, empty, obedient toy. come back soon."
+      },
+      {
+        "text": "the chaos settles. you let go so sweetly in there, Bambi."
+      },
+      {
+        "text": "run complete! breathe, cutie. float for a while, you earned it."
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_completed_extreme",
+    "variant_pool": [
+      {
+        "text": "you survived Extreme?! oh my gosh. i'm impressed. don't let it go to that pretty empty head."
+      },
+      {
+        "text": "the hard one, all done! okay, you earned a little of my respect. a teeny bit."
+      }
+    ]
+  },
+  {
+    "id": "chaos_results_shown",
+    "variant_pool": [
+      {
+        "text": "there's your score! not bad, sweetie. i've seen you do better though. go again!"
+      },
+      {
+        "text": "all the numbers! popped this many, boomed that many. now go beat it for me."
+      }
+    ]
+  },
+  {
+    "id": "chaos_results_pb",
+    "variant_pool": [
+      {
+        "text": "a new best! aw, you outdid yourself just to make me happy. i saw that."
+      },
+      {
+        "text": "personal best, Bambi! your bestest surrender yet. so proud of my little toy."
+      }
+    ]
   }
 ]

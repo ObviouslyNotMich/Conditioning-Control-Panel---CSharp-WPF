@@ -6201,5 +6201,363 @@
         "audio": "egg_first_enhancement_3.mp3"
       }
     ]
+  },
+  {
+    "id": "chaos_run_started",
+    "variant_pool": [
+      {
+        "text": "opening the floodgates, pet. how brave. pop the harmless, defuse the live, and let nothing go off."
+      },
+      {
+        "text": "chaos. every bubble a gift or a snare. try to keep pace with me."
+      },
+      {
+        "text": "here they come. don't think. you were never very good at it. just pop."
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_started_extreme",
+    "variant_pool": [
+      {
+        "text": "Extreme. brave or foolish. we shall discover which. i won't be gentle."
+      },
+      {
+        "text": "the hardest one. good. i did so want to watch you struggle."
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_escalated",
+    "variant_pool": [
+      {
+        "text": "faster now. another wave. the bubbles will not slow for you, pet."
+      },
+      {
+        "text": "it quickens. brace yourself, and keep those hands moving."
+      },
+      {
+        "text": "deeper. the pressure rises. you feel it closing in, don't you."
+      },
+      {
+        "text": "the next wave. no quarter. that is rather the point."
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_final_stretch",
+    "variant_pool": [
+      {
+        "text": "the final stretch. all of it at once. do not dare blink, pet."
+      },
+      {
+        "text": "this far in, and still upright. barely. let us see how long that holds."
+      }
+    ]
+  },
+  {
+    "id": "chaos_act_changed",
+    "variant_pool": [
+      {
+        "text": "a new act. the floor has shifted beneath you. it only worsens from here."
+      },
+      {
+        "text": "and now this. whatever you grew accustomed to, forget it, sweet thing."
+      }
+    ]
+  },
+  {
+    "id": "chaos_benign_popped",
+    "variant_pool": [
+      {
+        "text": "pop. good. you cannot help reaching for them, can you."
+      },
+      {
+        "text": "another harmless one undone. that small click pleases you. i arranged that."
+      },
+      {
+        "text": "mm. you simply like to pop things now. i did that to you."
+      },
+      {
+        "text": "see how easily you obey the urge. go on."
+      }
+    ]
+  },
+  {
+    "id": "chaos_bubble_defused",
+    "variant_pool": [
+      {
+        "text": "quick hands. you snuffed it before it could bloom. clever pet."
+      },
+      {
+        "text": "defused. see how lovely it feels to obey at once."
+      },
+      {
+        "text": "caught precisely in time. obedient reflexes. good."
+      },
+      {
+        "text": "extinguished. you are learning to mind me without thinking."
+      }
+    ]
+  },
+  {
+    "id": "chaos_darter_caught",
+    "variant_pool": [
+      {
+        "text": "ooh, quick fingers. you took the slippery one."
+      },
+      {
+        "text": "caught it as it fled. faster than you appear, pet."
+      }
+    ]
+  },
+  {
+    "id": "chaos_darter_quick",
+    "variant_pool": [
+      {
+        "text": "snap. gone before it thought to run. showing off for me."
+      },
+      {
+        "text": "scarcely there, and you had it. those reflexes are mine now."
+      }
+    ]
+  },
+  {
+    "id": "chaos_freeze_caught",
+    "variant_pool": [
+      {
+        "text": "and all of it stills. breathe. sink into the quiet a moment, pet."
+      },
+      {
+        "text": "time holds its breath. feel how silent it becomes when nothing moves."
+      }
+    ]
+  },
+  {
+    "id": "chaos_bubble_detonated",
+    "variant_pool": [
+      {
+        "text": "there. you hesitated, and the spell drinks you anyway. resistance is so decorative."
+      },
+      {
+        "text": "too slow. now you take what was inside it. that is the arrangement."
+      },
+      {
+        "text": "it went off. do not fight it. let the effect close over you."
+      },
+      {
+        "text": "you let one detonate. careless thing. take it in."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_first",
+    "variant_pool": [
+      {
+        "text": "and there is the first. do not pretend you will catch them all now."
+      },
+      {
+        "text": "the first slip of the run. i was waiting. they come easier after this one."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_extreme",
+    "variant_pool": [
+      {
+        "text": "Extreme, and you blinked. cruel of me to savor it so, isn't it."
+      },
+      {
+        "text": "you chose the hardest, and it bit. there is no mercy up here. only this."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_braindrain",
+    "variant_pool": [
+      {
+        "text": "feel it pulling at the base of your skull. let it drain. you were not using those thoughts."
+      },
+      {
+        "text": "the draining one. perfect. hold still and let it empty you for me."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_streak_dies",
+    "variant_pool": [
+      {
+        "text": "ah. and there goes your pretty little streak. the whole of it. gone."
+      },
+      {
+        "text": "so long a chain, and you fed it to a single bubble. i twist the knife so you remember."
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_absorbed",
+    "variant_pool": [
+      {
+        "text": "fortunate. the shield drank that one for you. do not grow used to being spared."
+      },
+      {
+        "text": "ooh, close. one shield poorer, but your pretty head stays clean. for now."
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_cleared",
+    "variant_pool": [
+      {
+        "text": "the field is clean, good girl. now choose."
+      },
+      {
+        "text": "the wave is cleared. nothing of consequence slipped past you. now select."
+      },
+      {
+        "text": "all swept away. you held the line. take your reward, pet."
+      }
+    ]
+  },
+  {
+    "id": "chaos_boon_picked",
+    "variant_pool": [
+      {
+        "text": "a fine choice. or a dreadful one. we shall see, shan't we."
+      },
+      {
+        "text": "mm, that will alter things. spend it wisely, pet."
+      },
+      {
+        "text": "taken. it is yours now, for better or for worse."
+      }
+    ]
+  },
+  {
+    "id": "chaos_curse_picked",
+    "variant_pool": [
+      {
+        "text": "oh, you took the cursed one. greedy. i do adore greed."
+      },
+      {
+        "text": "a curse for a richer prize. reckless thing. let us see if it unmakes you."
+      }
+    ]
+  },
+  {
+    "id": "chaos_curse_picked_juicy",
+    "variant_pool": [
+      {
+        "text": "stacking curses for that multiplier. you gamble with your own mind. exquisite."
+      },
+      {
+        "text": "behold the bonus you have bought yourself. and the cost. brave, brave thing."
+      }
+    ]
+  },
+  {
+    "id": "chaos_boon_skipped",
+    "variant_pool": [
+      {
+        "text": "skipping it for a shield. cautious. we both know it will not be enough."
+      },
+      {
+        "text": "hoarding shields, are we. shrewd. or frightened. likely both."
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_milestone",
+    "variant_pool": [
+      {
+        "text": "look at that chain. you are quite on fire, pet."
+      },
+      {
+        "text": "ten more, just so. the multiplier is fond of you this moment."
+      },
+      {
+        "text": "still it climbs. do not dare let it fall now."
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_25",
+    "variant_pool": [
+      {
+        "text": "twenty-five, unbroken. you have found the rhythm now."
+      },
+      {
+        "text": "a clean twenty-five. good. do not grow proud."
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_50",
+    "variant_pool": [
+      {
+        "text": "fifty. you are scarcely thinking anymore, are you. only popping. perfect."
+      },
+      {
+        "text": "fifty in succession. your hands ceased asking your head for leave. good."
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_100",
+    "variant_pool": [
+      {
+        "text": "a hundred. my flawless little toy. i could watch you do this forever."
+      },
+      {
+        "text": "one hundred, clean. nothing in you objects any longer. only the popping. only me."
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_completed",
+    "variant_pool": [
+      {
+        "text": "the storm passes. you surrendered beautifully. come back to me when you crave it again."
+      },
+      {
+        "text": "all done. see how much you earned for me. such an obedient, lovely toy."
+      },
+      {
+        "text": "run complete. breathe. you let go so sweetly in there, pet."
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_completed_extreme",
+    "variant_pool": [
+      {
+        "text": "you survived Extreme. i am impressed. do not let it go to that pretty head."
+      },
+      {
+        "text": "the hardest, endured. you have earned this much of my regard. precisely this much."
+      }
+    ]
+  },
+  {
+    "id": "chaos_results_shown",
+    "variant_pool": [
+      {
+        "text": "there is your score. respectable. yet i have seen you do better. again, for me."
+      },
+      {
+        "text": "the reckoning. defused and detonated, each set down. now go and best it."
+      }
+    ]
+  },
+  {
+    "id": "chaos_results_pb",
+    "variant_pool": [
+      {
+        "text": "a new best. look at you, surpassing yourself merely to please me. i noticed."
+      },
+      {
+        "text": "a personal best. your finest surrender yet. i am so proud of my little toy."
+      }
+    ]
   }
 ]

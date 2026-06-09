@@ -12,7 +12,7 @@ namespace ConditioningControlPanel.Services.Chaos;
 /// placeholder". The game is fully playable with zero art files.
 ///
 /// The path convention (resolved in phase 5) lives here as <see cref="PathFor"/>:
-///   Assets/Chaos/{kind}/{id}.png  under <see cref="App.UserAssetsPath"/> first,
+///   assets/Chaos/{kind}/{id}.png  under <see cref="App.UserAssetsPath"/> first,
 ///   then the app's bundled Assets folder.
 /// </summary>
 public static class ChaosArt
@@ -38,7 +38,7 @@ public static class ChaosArt
     }
 
     /// <summary>
-    /// Resolve a Chaos art file by convention: <c>Assets/Chaos/{kind}/{id}.png</c>,
+    /// Resolve a Chaos art file by convention: <c>assets/Chaos/{kind}/{id}.png</c>,
     /// checked under the user assets folder first then the bundled app folder.
     /// Returns the loaded image or null when no file is present.
     /// </summary>
@@ -46,7 +46,7 @@ public static class ChaosArt
     {
         foreach (var root in Roots())
         {
-            var p = Path.Combine(root, "Assets", "Chaos", kind, id + ".png");
+            var p = Path.Combine(root, "assets", "Chaos", kind, id + ".png");
             var img = TryLoad(p);
             if (img != null) return img;
         }
@@ -58,7 +58,7 @@ public static class ChaosArt
     {
         foreach (var root in Roots())
         {
-            var img = TryLoad(Path.Combine(root, "Assets", "Chaos", "banner.png"));
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", "banner.png"));
             if (img != null) return img;
         }
         return null;
@@ -69,7 +69,7 @@ public static class ChaosArt
     {
         foreach (var root in Roots())
         {
-            var p = Path.Combine(root, "Assets", "Chaos", kind, id + ".png");
+            var p = Path.Combine(root, "assets", "Chaos", kind, id + ".png");
             if (File.Exists(p)) return p;
         }
         return null;

@@ -26,7 +26,6 @@ public partial class ChaosHubWindow : Window
     {
         InitializeComponent();
         TitleBar.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) { try { DragMove(); } catch { } } };
-        SldLiveShare.ValueChanged += (_, _) => TxtLiveShare.Text = $"{(int)(SldLiveShare.Value * 100)}%";
 
         LoadFromSettings();
         BuildUpgrades();
@@ -370,8 +369,6 @@ public partial class ChaosHubWindow : Window
         SetSegment(GrpDifficulty, s.ChaosDifficulty);
         SetSegment(GrpLength, s.ChaosRunDurationSec.ToString());
         SetSegment(GrpMotion, s.ChaosMotionMode);
-        SldLiveShare.Value = s.ChaosLiveBubbleShare;
-        TxtLiveShare.Text = $"{(int)(s.ChaosLiveBubbleShare * 100)}%";
         _shields = s.ChaosStartingShields; TxtShields.Text = _shields.ToString();
         _waves = s.ChaosWaveCount; TxtWaves.Text = _waves.ToString();
 
@@ -405,7 +402,6 @@ public partial class ChaosHubWindow : Window
         SetSegment(GrpDifficulty, "Easy");
         SetSegment(GrpLength, "180");
         SetSegment(GrpMotion, "Mixed");
-        SldLiveShare.Value = 0.35; TxtLiveShare.Text = "35%";
         _shields = 3; TxtShields.Text = "3";
         _waves = 5; TxtWaves.Text = "5";
         foreach (var t in GrpPool.Children.OfType<ToggleButton>()) t.IsChecked = true;
@@ -423,7 +419,6 @@ public partial class ChaosHubWindow : Window
         s.ChaosDifficulty = GetSegment(GrpDifficulty) ?? "Easy";
         if (int.TryParse(GetSegment(GrpLength), out var len)) s.ChaosRunDurationSec = len;
         s.ChaosMotionMode = GetSegment(GrpMotion) ?? "Mixed";
-        s.ChaosLiveBubbleShare = SldLiveShare.Value;
         s.ChaosStartingShields = _shields;
         s.ChaosWaveCount = _waves;
 
@@ -469,7 +464,6 @@ public partial class ChaosHubWindow : Window
         if (preset == null) return;
         foreach (var t in GrpPool.Children.OfType<ToggleButton>())
             t.IsChecked = preset.VariantIds.Contains(t.Tag?.ToString() ?? "");
-        SldLiveShare.Value = preset.LiveShare;
     }
 
     private void BtnRandomize_Click(object sender, RoutedEventArgs e)
@@ -480,7 +474,6 @@ public partial class ChaosHubWindow : Window
         SetSegment(GrpDifficulty, diffs[_rng.Next(diffs.Length)]);
         SetSegment(GrpLength, new[] { "120", "180", "300" }[_rng.Next(3)]);
         SetSegment(GrpMotion, new[] { "Mixed", "FloatUp", "RainDown", "RoamBounce" }[_rng.Next(4)]);
-        SldLiveShare.Value = 0.2 + _rng.NextDouble() * 0.6;
         var pool = GrpPool.Children.OfType<ToggleButton>().ToList();
         foreach (var t in pool) t.IsChecked = _rng.NextDouble() < 0.6;
         if (!pool.Any(t => t.IsChecked == true)) pool[0].IsChecked = true;

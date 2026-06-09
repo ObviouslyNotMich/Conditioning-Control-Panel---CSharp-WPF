@@ -51,7 +51,16 @@ public partial class ChaosOverlayWindow : Window
 
     // ============================ countdown ============================
 
-    public void ShowCountdown(Action onComplete)
+    private DispatcherTimer? _countdownTimer;
+    private Action? _countdownComplete;
+    private bool _countdownFinished;
+    private Services.GlobalKeyboardHook? _countdownKeyHook;
+    private IntPtr _countdownMouseHook = IntPtr.Zero;
+    private CountdownMouseProc? _countdownMouseProc;
+
+    /// <summary>Show the GO countdown. <paramref name="shortFlash"/> uses a single 1s "GO!" flash
+    /// (RunAgain); otherwise the full 3·2·1·GO. Skippable on click/keypress in both cases.</summary>
+    public void ShowCountdown(Action onComplete, bool shortFlash = false)
     {
         SetClickThrough(true);
         Backdrop.Visibility = Visibility.Collapsed;
@@ -59,27 +68,92 @@ public partial class ChaosOverlayWindow : Window
         ResultsPanel.Visibility = Visibility.Collapsed;
         CountdownBox.Visibility = Visibility.Visible;
 
-        string[] steps = { "3", "2", "1", "GO!" };
+        _countdownComplete = onComplete;
+        _countdownFinished = false;
+
+        string[] steps = shortFlash ? new[] { "GO!" } : new[] { "3", "2", "1", "GO!" };
+        int interval = shortFlash ? ChaosModeService.ChaosRestartCountdownMs : 750;
         int i = 0;
         ShowCountdownStep(steps[0]);
 
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(750) };
-        timer.Tick += (_, _) =>
+        _countdownTimer?.Stop();
+        _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(interval) };
+        _countdownTimer.Tick += (_, _) =>
         {
             i++;
-            if (i < steps.Length)
-            {
-                ShowCountdownStep(steps[i]);
-            }
-            else
-            {
-                timer.Stop();
-                CountdownBox.Visibility = Visibility.Collapsed;
-                onComplete();
-            }
+            if (i < steps.Length) ShowCountdownStep(steps[i]);
+            else FinishCountdown();
         };
-        timer.Start();
+        _countdownTimer.Start();
+        InstallCountdownSkipHooks();
     }
+
+    /// <summary>Complete the countdown immediately (timer end, or a skip click/keypress).</summary>
+    private void FinishCountdown()
+    {
+        if (_countdownFinished) return;
+        _countdownFinished = true;
+        _countdownTimer?.Stop();
+        _countdownTimer = null;
+        RemoveCountdownSkipHooks();
+        CountdownBox.Visibility = Visibility.Collapsed;
+        var cb = _countdownComplete;
+        _countdownComplete = null;
+        cb?.Invoke();
+    }
+
+    // The countdown overlay is click-through (so the desktop stays usable), so it can't
+    // receive WPF input itself. Use brief low-level keyboard + mouse hooks (torn down the
+    // instant the countdown ends) so any click/keypress skips straight to GO.
+    private void InstallCountdownSkipHooks()
+    {
+        try
+        {
+            _countdownKeyHook = new Services.GlobalKeyboardHook();
+            _countdownKeyHook.KeyPressed += OnCountdownKey;
+            _countdownKeyHook.Start();
+        }
+        catch { }
+        try
+        {
+            _countdownMouseProc = CountdownMouseHook;
+            using var proc = System.Diagnostics.Process.GetCurrentProcess();
+            using var mod = proc.MainModule!;
+            _countdownMouseHook = SetWindowsHookEx(WH_MOUSE_LL, _countdownMouseProc, GetModuleHandle(mod.ModuleName), 0);
+        }
+        catch { }
+    }
+
+    private void RemoveCountdownSkipHooks()
+    {
+        try { if (_countdownKeyHook != null) { _countdownKeyHook.KeyPressed -= OnCountdownKey; _countdownKeyHook.Dispose(); _countdownKeyHook = null; } } catch { }
+        try { if (_countdownMouseHook != IntPtr.Zero) { UnhookWindowsHookEx(_countdownMouseHook); _countdownMouseHook = IntPtr.Zero; } } catch { }
+        _countdownMouseProc = null;
+    }
+
+    private void OnCountdownKey(System.Windows.Input.Key _)
+    {
+        // Marshal to the UI thread; the hook callback runs on the message-pump thread.
+        try { Dispatcher.BeginInvoke(new Action(FinishCountdown)); } catch { }
+    }
+
+    private IntPtr CountdownMouseHook(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
+        {
+            try { Dispatcher.BeginInvoke(new Action(FinishCountdown)); } catch { }
+        }
+        return CallNextHookEx(_countdownMouseHook, nCode, wParam, lParam);
+    }
+
+    private delegate IntPtr CountdownMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+    private const int WH_MOUSE_LL = 14;
+    private const int WM_LBUTTONDOWN = 0x0201;
+    private const int WM_RBUTTONDOWN = 0x0204;
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr SetWindowsHookEx(int idHook, CountdownMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr GetModuleHandle(string lpModuleName);
 
     private void ShowCountdownStep(string text)
     {
@@ -94,11 +168,17 @@ public partial class ChaosOverlayWindow : Window
 
     // ============================ boon draft ============================
 
-    public void ShowBoonDraft(int waveJustCleared, List<ChaosBoon> options, Action<ChaosBoon?> onPick)
+    private DispatcherTimer? _autoResumeTimer;
+    private int _autoResumeRemainingSec;
+
+    public void ShowBoonDraft(int waveJustCleared, List<ChaosBoon> options, Action<ChaosBoon?> onPick, int autoResumeSec = 0)
     {
         _onBoonPick = onPick;
         _selectedBoon = null;
         _selectionMade = false;
+        _autoResumeTimer?.Stop();
+        _autoResumeTimer = null;
+        _autoResumeRemainingSec = autoResumeSec;
         SetClickThrough(false);
         CountdownBox.Visibility = Visibility.Collapsed;
         ResultsPanel.Visibility = Visibility.Collapsed;
@@ -133,7 +213,11 @@ public partial class ChaosOverlayWindow : Window
             if (_revealIndex >= _draftCards.Count)
             {
                 _revealTimer?.Stop();
-                if (!_selectionMade) DraftCountdown.Text = "field frozen — take your time";
+                if (!_selectionMade)
+                {
+                    if (_autoResumeRemainingSec > 0) StartAutoResume();
+                    else DraftCountdown.Text = "field frozen — take your time";
+                }
                 return;
             }
             RevealCard(_draftCards[_revealIndex]);
@@ -160,12 +244,36 @@ public partial class ChaosOverlayWindow : Window
     {
         _revealTimer?.Stop();
         _revealTimer = null;
+        _autoResumeTimer?.Stop();
+        _autoResumeTimer = null;
         _draftCards.Clear();
         _selectedBoon = null;
         _selectionMade = false;
         DraftPanel.Visibility = Visibility.Collapsed;
         Backdrop.Visibility = Visibility.Collapsed;
         SetClickThrough(true);
+    }
+
+    /// <summary>Auto-resume: an untouched draft ticks down, then auto-takes the SKIP (+1 shield) and
+    /// resumes the run so an unattended run never freezes forever. Any pick cancels it (see SelectBoon).</summary>
+    private void StartAutoResume()
+    {
+        DraftCountdown.Text = $"auto-skip in {_autoResumeRemainingSec}s — pick to keep playing";
+        _autoResumeTimer?.Stop();
+        _autoResumeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _autoResumeTimer.Tick += (_, _) =>
+        {
+            _autoResumeRemainingSec--;
+            if (_selectionMade) { _autoResumeTimer?.Stop(); return; }
+            if (_autoResumeRemainingSec <= 0)
+            {
+                _autoResumeTimer?.Stop();
+                ChooseBoon(null);   // auto-skip → +1 shield + ChaosBoonSkipped fired by the service
+                return;
+            }
+            DraftCountdown.Text = $"auto-skip in {_autoResumeRemainingSec}s — pick to keep playing";
+        };
+        _autoResumeTimer.Start();
     }
 
     private DraftCard BuildBoonCard(ChaosBoon boon)
@@ -232,6 +340,7 @@ public partial class ChaosOverlayWindow : Window
         _selectionMade = true;
         _selectedBoon = chosen.Boon;
         _revealTimer?.Stop();
+        _autoResumeTimer?.Stop();
         ChaosSfx.PlayBoonPicked();
 
         foreach (var dc in _draftCards)
@@ -287,7 +396,7 @@ public partial class ChaosOverlayWindow : Window
 
     // ============================ results ============================
 
-    public void ShowResults(ChaosRunState s, double baseXp, double skillMult, double finalXp)
+    public void ShowResults(ChaosRunState s, double baseXp, double skillMult, double finalXp, long previousBest)
     {
         SetClickThrough(false);
         CountdownBox.Visibility = Visibility.Collapsed;
@@ -296,12 +405,27 @@ public partial class ChaosOverlayWindow : Window
         ResultsPanel.Visibility = Visibility.Visible;
         BringToFront();
 
+        // PB / delta-vs-best (best already updated by AwardRunRewards; compare run score to the prior best).
+        double score = s.Score;
+        double pbDelta = score - previousBest;
+        bool isPb = score > previousBest;
+
         ResultsBody.Children.Clear();
         AddResultLine($"Reached ACT {Roman(s.ActIndex)} · W{s.WaveIndex}    Best combo x{s.BestCombo}    Survived {(int)s.ElapsedSec / 60:00}:{(int)s.ElapsedSec % 60:00}", 14, Brushes.White, FontWeights.SemiBold);
         AddResultLine($"defused {s.Defused} · detonated {s.Detonated} · effects fired {s.EffectsFired}", 13, new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontWeights.Normal);
+        AddResultLine($"score {score:N0}", 14, Brushes.White, FontWeights.SemiBold);
+        // Compulsion hook: a personal-best / delta line.
+        if (isPb)
+            AddResultLine($"★ NEW BEST  (+{pbDelta:N0} over {previousBest:N0})", 14, new SolidColorBrush(Color.FromRgb(255, 215, 90)), FontWeights.Bold);
+        else
+            AddResultLine($"best {previousBest:N0}   ({pbDelta:N0} vs best)", 13, new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontWeights.Normal);
         ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(85, 255, 105, 180)), Margin = new Thickness(0, 12, 0, 12) });
         AddResultLine($"base {baseXp:N0}  ×  skill x{skillMult:0.0}", 14, Brushes.White, FontWeights.Normal);
         AddResultLine($"TOTAL  {finalXp:N0} XP ✦", 22, new SolidColorBrush(Color.FromRgb(255, 105, 180)), FontWeights.Bold);
+
+        // Bark over the results (+ PB fields for the compulsion line).
+        App.Bark?.NotifyChaosResultsShown(score, ChaosMeta.State.BestScore, pbDelta, isPb,
+            s.Defused, s.Detonated, s.BestCombo, s.Config.Difficulty.ToString());
     }
 
     private void AddResultLine(string text, double size, Brush color, FontWeight weight)
@@ -325,6 +449,7 @@ public partial class ChaosOverlayWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        try { RemoveCountdownSkipHooks(); } catch { }
         OnDismissed?.Invoke();
     }
 
@@ -365,4 +490,6 @@ public partial class ChaosOverlayWindow : Window
     private const int WS_EX_TRANSPARENT = 0x00000020;
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)] private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)] private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 }

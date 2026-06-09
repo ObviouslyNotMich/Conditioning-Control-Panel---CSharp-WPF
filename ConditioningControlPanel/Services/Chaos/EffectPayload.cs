@@ -15,7 +15,9 @@ public enum EffectBubblePayloadKind
     Video,
     HtLink,
     Audio,
-    BambiFreeze
+    BambiFreeze,
+    BouncingText,
+    GifCascade
 }
 
 /// <summary>
@@ -175,5 +177,105 @@ public sealed class BambiFreezePayload : EffectPayload
     {
         try { App.Subliminal?.TriggerBambiFreeze(); }
         catch (Exception ex) { App.Logger?.Debug("BambiFreezePayload: {E}", ex.Message); }
+    }
+}
+
+/// <summary>
+/// A single short affirmation bouncing DVD-logo style across the screen, click-through, for a short
+/// window. REUSES the existing <see cref="BouncingTextService"/> (App.BouncingText) rather than building
+/// a new bouncer — sourcing its text from the existing affirmation/phrase pool — and tears it down after
+/// <see cref="DURATION_SEC"/> or <see cref="MAX_BOUNCES"/>, whichever comes first. Conservative defaults.
+/// No-op if the bouncing toy is already running for the user (so a payload never hijacks it).
+/// </summary>
+public sealed class BouncingTextPayload : EffectPayload
+{
+    public override string DisplayName => "bouncing text";
+    public override EffectBubblePayloadKind Kind => EffectBubblePayloadKind.BouncingText;
+
+    // ---- named tunables (conservative defaults) ----
+    public const double DURATION_SEC = 8.0;   // on-screen lifetime
+    public const int    MAX_BOUNCES  = 12;    // auto-stop after this many bounces (whichever first)
+    public const double OPACITY      = 0.85;  // text opacity (informational; service reads its own setting)
+    public const int    TEXT_SIZE    = 120;   // % of base font (informational tunable)
+    public const int    SPEED        = 5;     // 1..10 bounce speed (informational tunable)
+
+    public override void Fire()
+    {
+        try
+        {
+            var svc = App.BouncingText;
+            if (svc == null || svc.IsRunning) return;   // don't hijack a user-started bouncer
+
+            // Source a single affirmation from the existing enabled phrase pool.
+            string? phrase = PickAffirmation();
+            var pool = phrase != null ? new System.Collections.Generic.List<string> { phrase } : null;
+            svc.Start(bypassLevelCheck: true, pool: pool);
+
+            int bounces = 0;
+            EventHandler? onBounce = null;
+            var life = new System.Windows.Threading.DispatcherTimer
+            { Interval = TimeSpan.FromSeconds(Math.Max(0.5, DURATION_SEC * GlobalDurationMult)) };
+
+            void StopOnce()
+            {
+                try { life.Stop(); } catch { }
+                if (onBounce != null) { try { svc.OnBounce -= onBounce; } catch { } }
+                try { svc.Stop(); } catch { }
+            }
+
+            onBounce = (_, _) => { if (++bounces >= MAX_BOUNCES) StopOnce(); };
+            svc.OnBounce += onBounce;
+            life.Tick += (_, _) => StopOnce();
+            life.Start();
+        }
+        catch (Exception ex) { App.Logger?.Debug("BouncingTextPayload: {E}", ex.Message); }
+    }
+
+    private static string? PickAffirmation()
+    {
+        try
+        {
+            var pool = App.Settings?.Current?.BouncingTextPool;
+            if (pool == null) return null;
+            var enabled = new System.Collections.Generic.List<string>();
+            foreach (var kv in pool) if (kv.Value) enabled.Add(kv.Key);
+            if (enabled.Count == 0) return null;
+            return enabled[_rng.Next(enabled.Count)];
+        }
+        catch { return null; }
+    }
+
+    private static readonly Random _rng = new();
+}
+
+/// <summary>
+/// Images/gifs spawn at the top of the screen and fall/cascade downward, click-through, for a short
+/// window. Sources its images from the SAME flash/braindrain image pool (EffectiveAssetsPath/images,
+/// via <see cref="ChaosGifCascadeOverlay"/>). Conservative named defaults.
+/// </summary>
+public sealed class GifCascadePayload : EffectPayload
+{
+    public override string DisplayName => "gif cascade";
+    public override EffectBubblePayloadKind Kind => EffectBubblePayloadKind.GifCascade;
+
+    // ---- named tunables (conservative defaults) ----
+    public const double SPAWN_RATE_PER_SEC = 0.8;   // images per second
+    public const double DURATION_SEC       = 20.0;  // total cascade lifetime
+    public const double GIF_SIZE           = 200;   // px (max dimension)
+    public const double FALL_SPEED         = 2.5;   // DIPs per ~16ms frame
+    public const double OPACITY            = 0.85;  // per-image opacity
+
+    public override void Fire()
+    {
+        try
+        {
+            ChaosGifCascadeOverlay.Show(
+                spawnRatePerSec: SPAWN_RATE_PER_SEC,
+                durationSec: DURATION_SEC * GlobalDurationMult,
+                gifSize: GIF_SIZE,
+                fallSpeed: FALL_SPEED,
+                opacity: OPACITY);
+        }
+        catch (Exception ex) { App.Logger?.Debug("GifCascadePayload: {E}", ex.Message); }
     }
 }

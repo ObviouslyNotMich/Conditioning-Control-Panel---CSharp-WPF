@@ -21,6 +21,7 @@ public sealed class ChaosFxWindow : Window
 {
     private readonly Border _vignette;
     private readonly Border _edge;   // sustained edge-glow (held while a power-up window is active)
+    private readonly Border _heat;   // sustained warm temperature tint (rises with run Heat)
 
     public ChaosFxWindow()
     {
@@ -39,9 +40,11 @@ public sealed class ChaosFxWindow : Window
         Width = SystemParameters.PrimaryScreenWidth;
         Height = SystemParameters.PrimaryScreenHeight;
 
+        _heat = new Border { Opacity = 0, IsHitTestVisible = false };
         _edge = new Border { Opacity = 0, IsHitTestVisible = false };
         _vignette = new Border { Opacity = 0, IsHitTestVisible = false };
         var root = new Grid { IsHitTestVisible = false };
+        root.Children.Add(_heat);       // warm temperature tint sits at the very back
         root.Children.Add(_edge);       // held glow sits under the impact pulses
         root.Children.Add(_vignette);
         Content = root;
@@ -78,6 +81,40 @@ public sealed class ChaosFxWindow : Window
     public void EndEdgeHold()
     {
         try { _edge.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(450))); }
+        catch { }
+    }
+
+    /// <summary>Hold a subtle warm temperature tint on a dedicated back layer (rises with run Heat).
+    /// <paramref name="opacity"/> is the target peak (0..~0.3). Purely cosmetic edge wash.</summary>
+    public void SetHeatTint(Color color, double opacity)
+    {
+        try
+        {
+            double peak = Math.Clamp(opacity, 0.0, 0.5);
+            if (_heat.Background == null)
+            {
+                var brush = new RadialGradientBrush
+                {
+                    GradientOrigin = new Point(0.5, 0.5),
+                    Center = new Point(0.5, 0.5),
+                    RadiusX = 1.0,
+                    RadiusY = 1.1
+                };
+                brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, color.R, color.G, color.B), 0.0));
+                brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, color.R, color.G, color.B), 0.40));
+                brush.GradientStops.Add(new GradientStop(Color.FromArgb(255, color.R, color.G, color.B), 1.0));
+                brush.Freeze();
+                _heat.Background = brush;
+            }
+            _heat.BeginAnimation(OpacityProperty, new DoubleAnimation(peak, TimeSpan.FromMilliseconds(400)));
+        }
+        catch { }
+    }
+
+    /// <summary>Fade out the warm temperature tint (Heat dropped back below the floor).</summary>
+    public void EndHeatTint()
+    {
+        try { _heat.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(600))); }
         catch { }
     }
 

@@ -172,13 +172,17 @@ public static class ChaosMeta
     {
         if (run == null) return;
 
-        const double COMPLETION_BONUS_BASE = 25.0;
+        const double COMPLETION_BONUS_BASE = 35.0;   // bumped 25→35: raises the predictable Spark floor
         const double SPARK_SCORE_DIVISOR = 100.0;
+        const int FIRST_SPARK_BONUS = 25;            // one-time "First Spark" on the very first completed run
 
         double difficultyMult = run.Config.DifficultyMult;
         double completionBonus = COMPLETION_BONUS_BASE * difficultyMult;
         double scorePart = run.Score / SPARK_SCORE_DIVISOR * difficultyMult;
         int sparks = (int)Math.Round((scorePart + completionBonus) * run.Config.SparkGainMult);
+
+        // One-time cold-start kindness: +25 the first time RunsCompleted goes 0→1 (guarded so it only ever applies once).
+        if (State.RunsCompleted == 0) sparks += FIRST_SPARK_BONUS;
 
         State.Sparks += Math.Max(0, sparks);
         State.RunsCompleted += 1;
