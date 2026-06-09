@@ -47,6 +47,19 @@ namespace ConditioningControlPanel.Models
     }
 
     /// <summary>
+    /// Rendering quality tier used to scale down expensive work (image decode resolution,
+    /// bitmap scaling quality, glow effects, Brain Drain blur cost, animation FPS, window caps)
+    /// when the machine is under load or the user opts into a lighter mode.
+    /// Quality = full fidelity; Performance = cheapest. See Services/PerformanceProfile.cs.
+    /// </summary>
+    public enum PerformanceTier
+    {
+        Quality,
+        Balanced,
+        Performance
+    }
+
+    /// <summary>
     /// Application settings model - matches Python DEFAULT_SETTINGS
     /// </summary>
     public class AppSettings : INotifyPropertyChanged
@@ -940,6 +953,22 @@ namespace ConditioningControlPanel.Models
         {
             get => _removedDefaultSubliminals;
             set => _removedDefaultSubliminals = value ?? new();
+        }
+
+        /// <summary>
+        /// Subliminal phrases the user added manually via the editor. Protected from
+        /// ModService.PruneCrossModSubliminals so a custom phrase that happens to match
+        /// another built-in mod's default is never silently deleted on startup/mod-switch.
+        /// Case-insensitive to match the prune's comparison and the editor's upper-casing.
+        /// </summary>
+        private HashSet<string> _userAddedSubliminals = new(StringComparer.OrdinalIgnoreCase);
+        [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+        public HashSet<string> UserAddedSubliminals
+        {
+            get => _userAddedSubliminals;
+            set => _userAddedSubliminals = value == null
+                ? new(StringComparer.OrdinalIgnoreCase)
+                : new(value, StringComparer.OrdinalIgnoreCase);
         }
 
         private string _subBackgroundColor = "#000000";
@@ -1963,6 +1992,100 @@ namespace ConditioningControlPanel.Models
             get => _bubblesClickable;
             set { _bubblesClickable = value; OnPropertyChanged(); }
         }
+
+        // ---- Chaos Mode (effect-bubbles roguelite, Lab) ----
+        private bool _chaosModeEnabled = true;
+        public bool ChaosModeEnabled
+        {
+            get => _chaosModeEnabled;
+            set { _chaosModeEnabled = value; OnPropertyChanged(); }
+        }
+        private string _chaosDifficulty = "Easy";
+        public string ChaosDifficulty
+        {
+            get => _chaosDifficulty;
+            set { _chaosDifficulty = value; OnPropertyChanged(); }
+        }
+        private int _chaosRunDurationSec = 180;
+        public int ChaosRunDurationSec
+        {
+            get => _chaosRunDurationSec;
+            set { _chaosRunDurationSec = Math.Clamp(value, 60, 900); OnPropertyChanged(); }
+        }
+        private double _chaosLiveBubbleShare = 0.35;
+        public double ChaosLiveBubbleShare
+        {
+            get => _chaosLiveBubbleShare;
+            set { _chaosLiveBubbleShare = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
+        }
+        // Motion: "Mixed" (per-variant defaults), "FloatUp", "RainDown", "RoamBounce".
+        private string _chaosMotionMode = "Mixed";
+        public string ChaosMotionMode
+        {
+            get => _chaosMotionMode;
+            set { _chaosMotionMode = value; OnPropertyChanged(); }
+        }
+        private int _chaosStartingShields = 3;
+        public int ChaosStartingShields
+        {
+            get => _chaosStartingShields;
+            set { _chaosStartingShields = Math.Clamp(value, 0, 5); OnPropertyChanged(); }
+        }
+        private int _chaosWaveCount = 5;
+        public int ChaosWaveCount
+        {
+            get => _chaosWaveCount;
+            set { _chaosWaveCount = Math.Clamp(value, 1, 12); OnPropertyChanged(); }
+        }
+        /// <summary>Enabled bubble-variant ids. Null = all variants enabled.</summary>
+        private System.Collections.Generic.List<string>? _chaosEnabledVariants = null;
+        public System.Collections.Generic.List<string>? ChaosEnabledVariants
+        {
+            get => _chaosEnabledVariants;
+            set { _chaosEnabledVariants = value; OnPropertyChanged(); }
+        }
+        private bool _chaosScreenShakeEnabled = true;
+        public bool ChaosScreenShakeEnabled
+        {
+            get => _chaosScreenShakeEnabled;
+            set { _chaosScreenShakeEnabled = value; OnPropertyChanged(); }
+        }
+        private bool _chaosColorFlashesEnabled = true;
+        public bool ChaosColorFlashesEnabled
+        {
+            get => _chaosColorFlashesEnabled;
+            set { _chaosColorFlashesEnabled = value; OnPropertyChanged(); }
+        }
+        private double _chaosShakeIntensity = 0.8;
+        public double ChaosShakeIntensity
+        {
+            get => _chaosShakeIntensity;
+            set { _chaosShakeIntensity = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
+        }
+        private double _chaosEffectIntensity = 0.85;
+        public double ChaosEffectIntensity
+        {
+            get => _chaosEffectIntensity;
+            set { _chaosEffectIntensity = Math.Clamp(value, 0.2, 1.5); OnPropertyChanged(); }
+        }
+        private bool _chaosBoonDraftEnabled = true;
+        public bool ChaosBoonDraftEnabled
+        {
+            get => _chaosBoonDraftEnabled;
+            set { _chaosBoonDraftEnabled = value; OnPropertyChanged(); }
+        }
+        private bool _chaosAllowCurses = true;
+        public bool ChaosAllowCurses
+        {
+            get => _chaosAllowCurses;
+            set { _chaosAllowCurses = value; OnPropertyChanged(); }
+        }
+        private bool _chaosDartersEnabled = true;
+        public bool ChaosDartersEnabled
+        {
+            get => _chaosDartersEnabled;
+            set { _chaosDartersEnabled = value; OnPropertyChanged(); }
+        }
         #endregion
 
         #region Lock Card (Unlocks Lv.35)
@@ -2309,6 +2432,45 @@ namespace ConditioningControlPanel.Models
             get => _brainDrainHighRefresh;
             set { _brainDrainHighRefresh = value; OnPropertyChanged(); }
         }
+        #endregion
+
+        #region Performance
+
+        private bool _performanceMode = false;
+        /// <summary>
+        /// Master manual switch. When true, forces the Performance rendering tier everywhere
+        /// (most aggressive downscaling / effect reduction) regardless of load.
+        /// </summary>
+        public bool PerformanceMode
+        {
+            get => _performanceMode;
+            set { _performanceMode = value; OnPropertyChanged(); }
+        }
+
+        private bool _autoPerformanceMode = true;
+        /// <summary>
+        /// When true (and PerformanceMode is off), the effective rendering tier escalates
+        /// automatically (Quality → Balanced → Performance) as more heavy on-screen elements
+        /// (flashes/bubbles) become active. See Services/PerformanceProfile.cs.
+        /// </summary>
+        public bool AutoPerformanceMode
+        {
+            get => _autoPerformanceMode;
+            set { _autoPerformanceMode = value; OnPropertyChanged(); }
+        }
+
+        private bool _videoHardwareDecoding = true;
+        /// <summary>
+        /// Use GPU (DXVA) hardware decoding for mandatory videos. Default on; LibVLC falls back
+        /// to software automatically if a GPU's hardware decode path is unavailable. Provided as
+        /// an escape hatch for the rare systems with flaky hardware decoders.
+        /// </summary>
+        public bool VideoHardwareDecoding
+        {
+            get => _videoHardwareDecoding;
+            set { _videoHardwareDecoding = value; OnPropertyChanged(); }
+        }
+
         #endregion
 
         #region Avatar Companion

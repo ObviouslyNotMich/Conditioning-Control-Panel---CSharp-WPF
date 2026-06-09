@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using NAudio.Wave;
 using ConditioningControlPanel.Helpers;
+using ConditioningControlPanel.Services.Chaos;
 
 namespace ConditioningControlPanel.Services;
 
@@ -51,6 +52,13 @@ public class BubbleService : IDisposable
     }
 
     private bool _isPaused;
+
+    // ---- Chaos Mode hooks (set by ChaosModeService via BeginChaosMode) ----
+    private Action<EffectBubbleSpec>? _chaosOnBenignPop;
+    private Action<EffectBubbleSpec>? _chaosOnDefuse;
+    private Action<EffectBubbleSpec>? _chaosOnDetonate;
+    private Action<EffectBubbleSpec, bool>? _chaosOnDarterCaught;
+    private bool _chaosActive;
 
     public event Action? OnBubblePopped;
     public event Action? OnBubbleMissed;
@@ -328,10 +336,87 @@ public class BubbleService : IDisposable
     /// </summary>
     private void StopAnimationTimerIfIdle()
     {
-        if (!_isRunning && _bubbles.Count == 0 && _animationTimer != null)
+        if (!_isRunning && !_chaosActive && _bubbles.Count == 0 && _animationTimer != null)
         {
             _animationTimer.Stop();
             _animationTimer = null;
+        }
+    }
+
+    // ======================= Chaos Mode API =======================
+    // Chaos Mode reuses this service's bubble rendering (real bubble.png, shared
+    // 30fps timer, DPI, pooled pop sounds, click-through windows) but spawns
+    // *effect* bubbles carrying payloads with a fuse/defuse mechanic. The ambient
+    // pop game above is untouched — these only run while a chaos run is active.
+
+    /// <summary>Enter chaos mode: install effect callbacks + ensure the shared animation timer runs.</summary>
+    public void BeginChaosMode(Action<EffectBubbleSpec> onBenignPop, Action<EffectBubbleSpec> onDefuse, Action<EffectBubbleSpec> onDetonate,
+                               Action<EffectBubbleSpec, bool>? onDarterCaught = null)
+    {
+        _chaosOnBenignPop = onBenignPop;
+        _chaosOnDefuse = onDefuse;
+        _chaosOnDetonate = onDetonate;
+        _chaosOnDarterCaught = onDarterCaught;
+        _chaosActive = true;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            if (_bubbleImage == null) LoadBubbleImage();
+            EnsureAnimationTimer();
+        });
+    }
+
+    /// <summary>Spawn one configured effect bubble (cadence owned by ChaosModeService).</summary>
+    public void SpawnChaosBubble(EffectBubbleSpec spec)
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            try
+            {
+                if (_bubbleImage == null) LoadBubbleImage();
+                EnsureAnimationTimer();
+
+                var settings = App.Settings.Current;
+                var screens = settings.DualMonitorEnabled
+                    ? App.GetAllScreensCached()
+                    : new[] { System.Windows.Forms.Screen.PrimaryScreen! };
+                var screen = screens[_random.Next(screens.Length)];
+
+                var bubble = new Bubble(screen, _bubbleImage, _random, null, null, OnDestroy, isClickable: true,
+                    spec: spec,
+                    onBenignPop: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnBenignPop?.Invoke(b.Spec); },
+                    onDefuse:    b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec); },
+                    onDetonate:  b => { if (b.Spec != null) _chaosOnDetonate?.Invoke(b.Spec); },
+                    onDarterCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); });
+                _bubbles.Add(bubble);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error("SpawnChaosBubble failed: {Error}", ex.Message);
+            }
+        });
+    }
+
+    /// <summary>Leave chaos mode: clear effect bubbles + callbacks.</summary>
+    public void EndChaosMode()
+    {
+        _chaosActive = false;
+        _chaosOnBenignPop = _chaosOnDefuse = _chaosOnDetonate = null;
+        PopAllBubbles();
+        DispatcherHelper.RunOnUI(StopAnimationTimerIfIdle);
+    }
+
+    /// <summary>Ensure the shared 30fps animation timer is running (used by chaos + SpawnOnce).</summary>
+    private void EnsureAnimationTimer()
+    {
+        if (_animationTimer == null || !_animationTimer.IsEnabled)
+        {
+            _animationTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(32)
+            };
+            _animationTimer.Tick += AnimateAllBubbles;
+            _animationTimer.Start();
         }
     }
 
@@ -558,6 +643,32 @@ internal class Bubble
     private readonly Grid _grid;
     private List<SparkleParticle>? _sparkles;
 
+    // ---- Chaos effect-bubble extensions (null/inert for ambient bubbles) ----
+    private readonly EffectBubbleSpec? _spec;
+    private readonly Action<Bubble>? _onBenignPop;
+    private readonly Action<Bubble>? _onDefuse;
+    private readonly Action<Bubble>? _onDetonate;
+    private readonly Action<Bubble>? _onDarterCaught;
+    private double _fuseTotalMs;
+    private double _fuseRemainingMs;
+    private System.Windows.Shapes.Ellipse? _fuseRing;
+    private double _vx, _vy;                                   // RoamBounce velocity (DIPs/frame)
+    private double _screenBottom, _screenLeft, _screenRight;   // motion bounds (DIPs)
+
+    // ---- darter state (only when _spec.IsDarter) ----
+    private readonly bool _isDarter;
+    private double _telegraphRemainingMs;
+    private double _darterActiveMs;
+    private double _darterLifeRemainingMs;
+    private System.Windows.Shapes.Ellipse? _telegraphRing;
+    private bool _wasQuickCatch;
+
+    /// <summary>The chaos spec this bubble carries (null for ambient pop-game bubbles).</summary>
+    public EffectBubbleSpec? Spec => _spec;
+
+    /// <summary>True if this darter was caught within its quick-catch window. Valid after Pop().</summary>
+    public bool WasQuickCatch => _wasQuickCatch;
+
     private struct SparkleParticle
     {
         public double X, Y, VelX, VelY, Alpha, Size;
@@ -567,17 +678,28 @@ internal class Bubble
     public bool IsAlive => _isAlive && !_isDestroyed;
 
     public Bubble(System.Windows.Forms.Screen screen, BitmapImage? image, Random random,
-                  Action<Bubble>? onPop, Action<Bubble>? onMiss, Action<Bubble>? onDestroy, bool isClickable = true)
+                  Action<Bubble>? onPop, Action<Bubble>? onMiss, Action<Bubble>? onDestroy, bool isClickable = true,
+                  EffectBubbleSpec? spec = null,
+                  Action<Bubble>? onBenignPop = null, Action<Bubble>? onDefuse = null, Action<Bubble>? onDetonate = null,
+                  Action<Bubble>? onDarterCaught = null)
     {
         _random = random;
         _onPop = onPop;
         _onMiss = onMiss;
         _onDestroy = onDestroy;
         _isClickable = isClickable;
-        
-        // Random properties
-        _size = random.Next(150, 250);
-        _speed = 1.0 + random.NextDouble() * 1.0; // 1.0 to 2.0 pixels per frame (scaled for 30fps)
+        _spec = spec;
+        _onBenignPop = onBenignPop;
+        _onDefuse = onDefuse;
+        _onDetonate = onDetonate;
+        _onDarterCaught = onDarterCaught;
+        _isDarter = spec?.IsDarter == true;
+
+        // Random properties (size/motion overridden for chaos effect bubbles)
+        _size = spec != null ? Math.Max(60, (int)Math.Round(spec.SizePx)) : random.Next(150, 250);
+        _speed = 1.0 + random.NextDouble() * 1.0; // 1.0 to 2.0 px/frame
+        if (spec != null) // bigger chaos bubbles drift a little slower (more reachable)
+            _speed *= Math.Clamp(1.4 - (_size - 150) / 220.0, 0.6, 1.4);
         _animType = random.Next(4);
         _wobbleOffset = random.NextDouble() * 100;
         _angle = random.Next(360);
@@ -585,12 +707,47 @@ internal class Bubble
         // Get DPI scale for this specific screen
         var dpiScale = GetDpiForScreen(screen);
 
-        // Position - start at bottom of screen
         var area = screen.WorkingArea;
+        _screenLeft = area.X / dpiScale;
+        _screenRight = (area.X + area.Width) / dpiScale - _size;
+        _screenTop = area.Y / dpiScale - _size - 50;
+        _screenBottom = (area.Y + area.Height) / dpiScale + 50;
+
+        // Position + initial velocity depend on motion (FloatUp is the ambient default).
+        var motion = spec?.Motion ?? ChaosMotion.FloatUp;
         _startX = (area.X + random.Next(50, Math.Max(100, area.Width - _size - 50))) / dpiScale;
         _posX = _startX;
-        _posY = (area.Y + area.Height) / dpiScale;
-        _screenTop = area.Y / dpiScale - _size - 50;
+        switch (motion)
+        {
+            case ChaosMotion.RainDown:
+                _posY = area.Y / dpiScale - _size;                 // start just above the top
+                break;
+            case ChaosMotion.RoamBounce:
+                _posY = (area.Y + random.Next(50, Math.Max(100, area.Height - _size - 50))) / dpiScale;
+                double ang = random.NextDouble() * Math.PI * 2;
+                double roamSpeed = _speed * 1.4;
+                _vx = Math.Cos(ang) * roamSpeed;
+                _vy = Math.Sin(ang) * roamSpeed;
+                break;
+            default: // FloatUp
+                _posY = (area.Y + area.Height) / dpiScale;          // start at the bottom
+                break;
+        }
+
+        // Live chaos bubbles arm a fuse.
+        if (spec != null && spec.IsLive)
+            _fuseTotalMs = _fuseRemainingMs = Math.Max(1, spec.FuseMs);
+
+        // Darters: telegraph + active lifetime, and a faster fixed-magnitude velocity.
+        if (_isDarter && spec != null)
+        {
+            _telegraphRemainingMs = Math.Max(0, spec.TelegraphMs);
+            _darterLifeRemainingMs = Math.Max(1, spec.LifetimeMs);
+            double mag = Math.Sqrt(_vx * _vx + _vy * _vy);
+            if (mag < 0.001) { double a = random.NextDouble() * Math.PI * 2; _vx = Math.Cos(a); _vy = Math.Sin(a); mag = 1; }
+            _vx = _vx / mag * spec.DarterSpeed;
+            _vy = _vy / mag * spec.DarterSpeed;
+        }
 
         // Create bubble image (hit-testing disabled — the Ellipse behind handles clicks)
         _bubbleImage = new Image
@@ -666,6 +823,7 @@ internal class Bubble
         };
         _grid.Children.Add(hitArea);         // Hit area first (behind)
         _grid.Children.Add(_bubbleImage);    // Image on top
+        BuildChaosLayers();                  // tint + label + fuse ring (no-op for ambient bubbles)
         _grid.Children.Add(_sparkleCanvas);  // Sparkles on top of everything
 
         // Grid click as backup (only if clickable)
@@ -759,39 +917,97 @@ internal class Bubble
                 return;
             }
         }
+        else if (_isDarter)
+        {
+            // Darter: flare in place during the telegraph, then dart with a fast edge-bounce.
+            _timeAlive += 0.02;
+            if (_telegraphRemainingMs > 0)
+            {
+                _telegraphRemainingMs -= 32;
+                if (_telegraphRing != null && _spec != null)
+                {
+                    double tfrac = Math.Clamp(_telegraphRemainingMs / Math.Max(1, _spec.TelegraphMs), 0, 1);
+                    if (_telegraphRing.RenderTransform is ScaleTransform tst)
+                    { double rs = 1.0 + 0.30 * tfrac; tst.ScaleX = rs; tst.ScaleY = rs; }
+                    _telegraphRing.Opacity = 0.85 * tfrac;
+                    if (_telegraphRemainingMs <= 0) _telegraphRing.Visibility = Visibility.Collapsed;
+                }
+                // hold position while telegraphing
+            }
+            else
+            {
+                _darterActiveMs += 32;
+                _posX += _vx;
+                _posY += _vy;
+                if (_posX < _screenLeft) { _posX = _screenLeft; _vx = Math.Abs(_vx); }
+                else if (_posX > _screenRight) { _posX = _screenRight; _vx = -Math.Abs(_vx); }
+                double topB = _screenTop + _size + 50, botB = _screenBottom - _size - 50;
+                if (_posY < topB) { _posY = topB; _vy = Math.Abs(_vy); }
+                else if (_posY > botB) { _posY = botB; _vy = -Math.Abs(_vy); }
+            }
+            _darterLifeRemainingMs -= 32;
+            if (_darterLifeRemainingMs <= 0) { Destroy(); return; }   // vanish harmlessly, no combo break
+        }
         else
         {
-            // Normal float animation (scaled for 30fps)
+            // Normal travel animation (scaled for 30fps)
             _timeAlive += 0.02;
-            _posY -= _speed;
+            var motion = _spec?.Motion ?? ChaosMotion.FloatUp;
 
-            // Wobble based on animation type
+            // Horizontal wobble shared by Float/Rain (gives the lively drift)
             double offset = 0;
             switch (_animType)
             {
-                case 0:
-                    offset = Math.Sin(_timeAlive * 6) * 25;
-                    _angle = (_angle + 0.34) % 360;
+                case 0: offset = Math.Sin(_timeAlive * 6) * 25;  _angle = (_angle + 0.34) % 360; break;
+                case 1: offset = Math.Sin(_timeAlive * 7.5) * 30; _angle = (_angle + 0.14) % 360; break;
+                case 2: offset = Math.Cos(_timeAlive * 5.4) * 25; _angle = (_angle - 0.66) % 360; break;
+                case 3: offset = Math.Sin(_timeAlive * 3) * 30 + Math.Cos(_timeAlive * 6) * 15; _angle = (_angle + 0.54) % 360; break;
+            }
+
+            bool exited = false;
+            switch (motion)
+            {
+                case ChaosMotion.RainDown:
+                    _posY += _speed;
+                    _posX = _startX + offset;
+                    if (_posY > _screenBottom) exited = true;
                     break;
-                case 1:
-                    offset = Math.Sin(_timeAlive * 7.5) * 30;
-                    _angle = (_angle + 0.14) % 360;
+                case ChaosMotion.RoamBounce:
+                    _posX += _vx;
+                    _posY += _vy;
+                    if (_posX < _screenLeft) { _posX = _screenLeft; _vx = Math.Abs(_vx); }
+                    else if (_posX > _screenRight) { _posX = _screenRight; _vx = -Math.Abs(_vx); }
+                    double topB = _screenTop + _size + 50, botB = _screenBottom - _size - 50;
+                    if (_posY < topB) { _posY = topB; _vy = Math.Abs(_vy); }
+                    else if (_posY > botB) { _posY = botB; _vy = -Math.Abs(_vy); }
                     break;
-                case 2:
-                    offset = Math.Cos(_timeAlive * 5.4) * 25;
-                    _angle = (_angle - 0.66) % 360;
-                    break;
-                case 3:
-                    offset = Math.Sin(_timeAlive * 3) * 30 + Math.Cos(_timeAlive * 6) * 15;
-                    _angle = (_angle + 0.54) % 360;
+                default: // FloatUp
+                    _posY -= _speed;
+                    _posX = _startX + offset;
+                    if (_posY < _screenTop) exited = true;
                     break;
             }
-            _posX = _startX + offset;
 
-            // Check if floated off screen
-            if (_posY < _screenTop)
+            // Fuse countdown for live chaos bubbles.
+            if (_spec != null && _spec.IsLive && _fuseRemainingMs > 0)
             {
-                _onMiss?.Invoke(this);
+                _fuseRemainingMs -= 32;
+                double frac = Math.Clamp(_fuseRemainingMs / Math.Max(1, _fuseTotalMs), 0, 1);
+                if (_fuseRing?.RenderTransform is ScaleTransform fst)
+                {
+                    double rs = 0.45 + 0.55 * frac;
+                    fst.ScaleX = rs; fst.ScaleY = rs;
+                    byte gb = (byte)(70 + 120 * frac);
+                    _fuseRing.Stroke = new SolidColorBrush(Color.FromRgb(255, gb, gb));
+                }
+                if (_fuseRemainingMs <= 0) { Detonate(); return; }
+            }
+
+            if (exited)
+            {
+                if (_spec == null) { _onMiss?.Invoke(this); Destroy(); return; }
+                // Chaos: a live bubble that escaped undefused detonates; a benign one just leaves.
+                if (_spec.IsLive) { Detonate(); return; }
                 Destroy();
                 return;
             }
@@ -906,9 +1122,102 @@ internal class Bubble
     {
         if (!_isAlive || _isPopping) return;
         _isPopping = true;
-        _onPop?.Invoke(this);
-        // Don't call Destroy() here - let AnimateFrame() handle the burst animation
-        // The animation will expand and fade the bubble, then call Destroy() when done
+        if (_spec != null)
+        {
+            // Chaos bubble: a live bubble clicked in time is a DEFUSE (reward, no payload);
+            // a darter caught is its own reward path; a benign bubble is a treat.
+            if (_isDarter)
+            {
+                _wasQuickCatch = _telegraphRemainingMs <= 0 && _darterActiveMs <= _spec.QuickWindowMs;
+                _onDarterCaught?.Invoke(this);
+            }
+            else if (_spec.IsLive) _onDefuse?.Invoke(this);
+            else _onBenignPop?.Invoke(this);
+        }
+        else
+        {
+            _onPop?.Invoke(this);
+        }
+        // Don't call Destroy() here - let AnimateFrame() handle the burst animation.
+    }
+
+    /// <summary>Live chaos bubble reached fuse-out / escaped undefused → fire its payload.</summary>
+    private void Detonate()
+    {
+        if (!_isAlive || _isPopping) return;
+        _isPopping = true;
+        _onDetonate?.Invoke(this);
+        // Pop/burst animation + Destroy handled by AnimateFrame().
+    }
+
+    /// <summary>Builds the chaos-only visual layers (tint, label, fuse ring). No-op for ambient bubbles.</summary>
+    private void BuildChaosLayers()
+    {
+        if (_spec == null) return;
+
+        // Tint overlay — radial so the bubble's highlight still reads through.
+        var t = _spec.Tint;
+        var tintBrush = new RadialGradientBrush(
+            Color.FromArgb(150, t.R, t.G, t.B),
+            Color.FromArgb(90, t.R, t.G, t.B))
+        { GradientOrigin = new Point(0.35, 0.3) };
+        _grid.Children.Add(new System.Windows.Shapes.Ellipse
+        {
+            Width = _size, Height = _size,
+            Fill = tintBrush,
+            IsHitTestVisible = false,
+            Opacity = 0.55
+        });
+
+        // Label / emoji
+        if (!string.IsNullOrEmpty(_spec.Label))
+        {
+            _grid.Children.Add(new TextBlock
+            {
+                Text = _spec.Label,
+                Foreground = Brushes.White,
+                FontSize = Math.Max(14, _size * 0.30),
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false,
+                Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 6, ShadowDepth = 0, Opacity = 0.8 }
+            });
+        }
+
+        // Fuse ring (live only) — shrinks + reddens as the fuse runs down.
+        if (_spec.IsLive)
+        {
+            _fuseRing = new System.Windows.Shapes.Ellipse
+            {
+                Width = _size, Height = _size,
+                Stroke = new SolidColorBrush(Color.FromRgb(255, 190, 190)),
+                StrokeThickness = 5,
+                IsHitTestVisible = false,
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new ScaleTransform(1, 1)
+            };
+            _grid.Children.Add(_fuseRing);
+        }
+
+        // Darter: a soft glow so the fast bounce stays trackable, plus a telegraph flare
+        // ring (animated down to lock-on in AnimateFrame). Kept within the window bounds.
+        if (_spec.IsDarter)
+        {
+            var tc = Color.FromRgb(_spec.Tint.R, _spec.Tint.G, _spec.Tint.B);
+            _bubbleImage.Effect = new DropShadowEffect { Color = tc, BlurRadius = 26, ShadowDepth = 0, Opacity = 0.9 };
+            _telegraphRing = new System.Windows.Shapes.Ellipse
+            {
+                Width = _size, Height = _size,
+                Stroke = new SolidColorBrush(tc),
+                StrokeThickness = 4,
+                IsHitTestVisible = false,
+                Opacity = 0.85,
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new ScaleTransform(1.30, 1.30)
+            };
+            _grid.Children.Add(_telegraphRing);
+        }
     }
 
     /// <summary>

@@ -1,0 +1,215 @@
+<Window x:Class="ConditioningControlPanel.ChaosSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Chaos Setup"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        SizeToContent="Manual" Width="640" Height="720" FontFamily="Segoe UI">
+    <Window.Resources>
+        <SolidColorBrush x:Key="Pink" Color="#FF69B4"/>
+        <SolidColorBrush x:Key="Bg" Color="#FF14122A"/>
+        <SolidColorBrush x:Key="Card" Color="#FF1C1A36"/>
+        <SolidColorBrush x:Key="Border1" Color="#44FF69B4"/>
+        <SolidColorBrush x:Key="TextDim" Color="#AAB8B8D0"/>
+        <SolidColorBrush x:Key="TextMut" Color="#88A0A0C0"/>
+
+        <Style x:Key="SectionHdr" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Pink}"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style x:Key="Lbl" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Width" Value="92"/>
+        </Style>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border1}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <!-- segmented / toggle pill -->
+        <Style x:Key="Seg" TargetType="ToggleButton">
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="b" CornerRadius="8" Background="#22FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource Pink}"/>
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Pink}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Stepper" TargetType="Button">
+            <Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/>
+            <Setter Property="Background" Value="#22FFFFFF"/><Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style x:Key="Chk" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,3"/>
+        </Style>
+    </Window.Resources>
+
+    <Border CornerRadius="16" Background="{StaticResource Bg}" BorderBrush="{StaticResource Pink}" BorderThickness="2">
+        <Grid Margin="22">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- title -->
+            <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent" Margin="0,0,0,14">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="⚡ CHAOS MODE" Foreground="White" FontSize="22" FontWeight="Bold">
+                        <TextBlock.Effect><DropShadowEffect Color="#FFFF69B4" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/></TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock Text="SETUP" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
+                </StackPanel>
+                <Button x:Name="BtnCloseX" Content="✕" Click="BtnClose_Click" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Width="28" Height="28" Background="#22FFFFFF" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <!-- RUN -->
+                    <Border Style="{StaticResource CardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="RUN" Style="{StaticResource SectionHdr}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Difficulty" Style="{StaticResource Lbl}"/>
+                                <StackPanel x:Name="GrpDifficulty" Orientation="Horizontal">
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="Easy" Content="Easy" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="Medium" Content="Medium" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="Hard" Content="Hard" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="Extreme" Content="Extreme" Click="Segment_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Length" Style="{StaticResource Lbl}"/>
+                                <StackPanel x:Name="GrpLength" Orientation="Horizontal">
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="120" Content="2 min" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="180" Content="3 min" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="300" Content="5 min" Click="Segment_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Motion" Style="{StaticResource Lbl}"/>
+                                <StackPanel x:Name="GrpMotion" Orientation="Horizontal">
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="Mixed" Content="Mixed" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="FloatUp" Content="Float" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="RainDown" Content="Rain" Click="Segment_Click"/>
+                                    <ToggleButton Style="{StaticResource Seg}" Tag="RoamBounce" Content="Roam" Click="Segment_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Live share" Style="{StaticResource Lbl}"/>
+                                <Slider x:Name="SldLiveShare" Minimum="0" Maximum="1" Width="200" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="TxtLiveShare" Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" Width="44"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Shields" Style="{StaticResource Lbl}"/>
+                                <Button Style="{StaticResource Stepper}" Content="−" Tag="shields-" Click="Stepper_Click"/>
+                                <TextBlock x:Name="TxtShields" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <Button Style="{StaticResource Stepper}" Content="+" Tag="shields+" Click="Stepper_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- BUBBLE POOL -->
+                    <Border Style="{StaticResource CardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="BUBBLE POOL — what can drop" Style="{StaticResource SectionHdr}"/>
+                            <WrapPanel x:Name="GrpPool">
+                                <ToggleButton Style="{StaticResource Seg}" Tag="flash" Content="Flash" Margin="0,0,6,6"/>
+                                <ToggleButton Style="{StaticResource Seg}" Tag="subliminal" Content="Subliminal" Margin="0,0,6,6"/>
+                                <ToggleButton Style="{StaticResource Seg}" Tag="pink" Content="Pink Filter" Margin="0,0,6,6"/>
+                                <ToggleButton Style="{StaticResource Seg}" Tag="spiral" Content="Spiral" Margin="0,0,6,6"/>
+                                <ToggleButton Style="{StaticResource Seg}" Tag="braindrain" Content="BrainDrain" Margin="0,0,6,6"/>
+                                <ToggleButton Style="{StaticResource Seg}" Tag="bambifreeze" Content="Bambi Freeze" Margin="0,0,6,6"/>
+                                <ToggleButton Style="{StaticResource Seg}" Tag="video" Content="Video" Margin="0,0,6,6"/>
+                                <ToggleButton Style="{StaticResource Seg}" Tag="htlink" Content="HT Link" Margin="0,0,6,6"/>
+                            </WrapPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock Text="presets:" Foreground="{StaticResource TextMut}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Button Content="Balanced" Tag="Balanced" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Tease" Tag="Tease" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Overload" Tag="Overload" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
+                                <Button Content="Flash-only" Tag="Flash-only" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4"/>
+                            </StackPanel>
+                            <CheckBox x:Name="ChkDarters" Style="{StaticResource Chk}" Content="Darters (fast bonus catch targets)" Margin="0,12,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- JUICE + DRAFT -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,6,12">
+                            <StackPanel>
+                                <TextBlock Text="JUICE" Style="{StaticResource SectionHdr}"/>
+                                <CheckBox x:Name="ChkShake" Style="{StaticResource Chk}" Content="Screen shake"/>
+                                <Slider x:Name="SldShake" Minimum="0" Maximum="1" Margin="0,0,0,6"/>
+                                <CheckBox x:Name="ChkFlashes" Style="{StaticResource Chk}" Content="Color flashes"/>
+                                <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
+                                <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="6,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="DRAFT" Style="{StaticResource SectionHdr}"/>
+                                <CheckBox x:Name="ChkBoonDraft" Style="{StaticResource Chk}" Content="Boon draft between waves"/>
+                                <CheckBox x:Name="ChkCurses" Style="{StaticResource Chk}" Content="Allow curses"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Waves" Foreground="{StaticResource TextDim}" FontSize="12" VerticalAlignment="Center" Width="50"/>
+                                    <Button Style="{StaticResource Stepper}" Content="−" Tag="waves-" Click="Stepper_Click"/>
+                                    <TextBlock x:Name="TxtWaves" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
+                                    <Button Style="{StaticResource Stepper}" Content="+" Tag="waves+" Click="Stepper_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- footer -->
+            <Grid Grid.Row="2" Margin="0,12,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="↻ Randomize" Click="BtnRandomize_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="12,8" Margin="0,0,8,0"/>
+                    <Button Content="Defaults" Click="BtnDefaults_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="12,8"/>
+                </StackPanel>
+                <!-- TEMP debug strip (Session 1): earn→spend→persist→apply loop before the hub window exists. Removed in Session 3. -->
+                <StackPanel x:Name="DebugStrip" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtMetaDebug" Foreground="{StaticResource TextMut}" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button x:Name="BtnBegin" Content="▶ BEGIN CHAOS" Click="BtnBegin_Click" HorizontalAlignment="Right"
+                        Background="{StaticResource Pink}" Foreground="White" FontWeight="Bold" FontSize="15" BorderThickness="0" Padding="26,11" Cursor="Hand">
+                    <Button.Effect><DropShadowEffect Color="#FFFF69B4" BlurRadius="18" ShadowDepth="0" Opacity="0.6"/></Button.Effect>
+                </Button>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

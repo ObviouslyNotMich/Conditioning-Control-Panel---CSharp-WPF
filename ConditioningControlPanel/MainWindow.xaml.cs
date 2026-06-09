@@ -296,6 +296,7 @@ namespace ConditioningControlPanel
                 }
                 catch { }
 
+                EnsureSessionRestoredForExit();
                 SaveSettings();
                 Application.Current.Shutdown();
             };
@@ -9022,6 +9023,27 @@ namespace ConditioningControlPanel
             var quizWindow = new QuizWindow(fullscreen, playDrone);
             quizWindow.Closed += (s, args) => RefreshPastQuizzes();
             quizWindow.Show();
+        }
+
+        /// <summary>
+        /// Lab → Chaos Mode hero card. Opens the setup/lobby window where the user
+        /// configures the run; BEGIN CHAOS there persists settings and launches via
+        /// <see cref="App.Chaos"/> (which owns the countdown, HUD and loop).
+        /// </summary>
+        private void BtnStartChaos_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (App.Chaos == null || App.Chaos.IsRunning) return;
+                var setup = new ChaosSetupWindow { Owner = this };
+                setup.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "BtnStartChaos_Click failed");
+                MessageBox.Show("Couldn't start Chaos Mode:\n\n" + ex.Message, "Chaos Mode",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void RefreshPastQuizzes()
@@ -23646,6 +23668,9 @@ namespace ConditioningControlPanel
             ChkStartHidden.IsChecked = s.StartMinimized;
             ChkNoPanic.IsChecked = !s.PanicKeyEnabled;
             ChkOfflineMode.IsChecked = s.OfflineMode;
+            if (ChkPerformanceMode != null) ChkPerformanceMode.IsChecked = s.PerformanceMode;
+            if (ChkAutoPerformance != null) ChkAutoPerformance.IsChecked = s.AutoPerformanceMode;
+            if (ChkVideoHwDecode != null) ChkVideoHwDecode.IsChecked = s.VideoHardwareDecoding;
             ChkStopEffectsOnRemoteDisconnect.IsChecked = s.StopEffectsOnRemoteDisconnect;
             if (ChkRemoteShareAvatar != null) ChkRemoteShareAvatar.IsChecked = s.RemoteShareAvatar;
 
@@ -24025,6 +24050,9 @@ namespace ConditioningControlPanel
             s.StartMinimized = ChkStartHidden.IsChecked ?? false;
             s.PanicKeyEnabled = !(ChkNoPanic.IsChecked ?? false);
             s.OfflineMode = ChkOfflineMode.IsChecked ?? false;
+            if (ChkPerformanceMode != null) s.PerformanceMode = ChkPerformanceMode.IsChecked ?? false;
+            if (ChkAutoPerformance != null) s.AutoPerformanceMode = ChkAutoPerformance.IsChecked ?? true;
+            if (ChkVideoHwDecode != null) s.VideoHardwareDecoding = ChkVideoHwDecode.IsChecked ?? true;
 
             // Deeper
             if (ChkEnableDeeper != null) s.EnableDeeper = ChkEnableDeeper.IsChecked ?? true;
@@ -24177,6 +24205,7 @@ namespace ConditioningControlPanel
                 StopEngine();
             }
             _exitRequested = true;
+            EnsureSessionRestoredForExit();
             SaveSettings();
             Close(); // This will now actually close since _exitRequested is true
         }
@@ -26813,6 +26842,20 @@ namespace ConditioningControlPanel
                     App.Settings.Current.RemovedDefaultSubliminals.Remove(key);
                 }
 
+                // Remember phrases the user added by hand so the cross-mod prune never deletes
+                // them (a custom phrase can legitimately collide with another mod's default).
+                foreach (var key in newKeys)
+                {
+                    if (!oldKeys.Contains(key))
+                        App.Settings.Current.UserAddedSubliminals.Add(key);
+                }
+                // Forget any user-added phrase they just removed.
+                foreach (var key in oldKeys)
+                {
+                    if (!newKeys.Contains(key))
+                        App.Settings.Current.UserAddedSubliminals.Remove(key);
+                }
+
                 App.Settings.Current.SubliminalPool = dialog.ResultData;
                 App.Settings.Save();
                 App.Logger?.Information("Subliminal pool updated: {Count} items", dialog.ResultData.Count);
@@ -29320,6 +29363,27 @@ namespace ConditioningControlPanel
             }
         }
 
+        private void ChkPerformanceMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            App.Settings.Current.PerformanceMode = ChkPerformanceMode.IsChecked ?? false;
+            App.Logger?.Information("Performance mode set to {Enabled}", App.Settings.Current.PerformanceMode);
+        }
+
+        private void ChkAutoPerformance_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            App.Settings.Current.AutoPerformanceMode = ChkAutoPerformance.IsChecked ?? true;
+            App.Logger?.Information("Auto performance mode set to {Enabled}", App.Settings.Current.AutoPerformanceMode);
+        }
+
+        private void ChkVideoHwDecode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            App.Settings.Current.VideoHardwareDecoding = ChkVideoHwDecode.IsChecked ?? true;
+            App.Logger?.Information("Video hardware decoding set to {Enabled}", App.Settings.Current.VideoHardwareDecoding);
+        }
+
         private void ChkOfflineMode_Changed(object sender, RoutedEventArgs e)
         {
             if (_isLoading) return;
@@ -29634,6 +29698,26 @@ namespace ConditioningControlPanel
 
         #region Window Events
 
+        /// <summary>
+        /// Stops an in-progress preset session so SessionEngine.RestoreSettings() runs BEFORE we
+        /// persist settings on exit. Without this, quitting mid-session saves the session's
+        /// overridden pools (every user phrase disabled + session phrases injected), so the
+        /// subliminal/bouncing-text message sets look wiped on the next launch. StopSession()
+        /// is a no-op when no session is running, so this is always safe to call.
+        /// </summary>
+        private void EnsureSessionRestoredForExit()
+        {
+            try
+            {
+                if (_sessionEngine != null && _sessionEngine.IsRunning)
+                    _sessionEngine.StopSession(completed: false);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to restore session settings on exit");
+            }
+        }
+
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             // Lockdown mode: block all close attempts
@@ -29642,6 +29726,10 @@ namespace ConditioningControlPanel
                 e.Cancel = true;
                 return;
             }
+
+            // Closing (real exit OR minimize-to-tray) always ends a Chaos run so it
+            // can't keep spawning bubbles / pinning the app alive behind the scenes.
+            try { App.Chaos?.ForceShutdown(); } catch { }
 
             // Only allow actual close if exit was explicitly requested
             if (_exitRequested)
@@ -29658,6 +29746,10 @@ namespace ConditioningControlPanel
                 {
                     App.Logger?.Warning(ex, "Failed to sync conditioning time on exit");
                 }
+
+                // Restore any active session's settings before persisting (else the overridden
+                // pools get saved and the message sets look wiped next launch).
+                EnsureSessionRestoredForExit();
 
                 // Actually closing - clean up
                 SaveSettings();

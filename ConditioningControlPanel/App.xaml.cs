@@ -259,6 +259,7 @@ namespace ConditioningControlPanel
         public static OverlayService Overlay { get; private set; } = null!;
         public static ScreenShakeService ScreenShake { get; private set; } = null!;
         public static BubbleService Bubbles { get; private set; } = null!;
+        public static Services.Chaos.ChaosModeService Chaos { get; private set; } = null!;
         public static LockCardService LockCard { get; private set; } = null!;
         public static PopQuizService PopQuiz { get; private set; } = null!;
         public static BubbleCountService BubbleCount { get; private set; } = null!;
@@ -1028,6 +1029,8 @@ namespace ConditioningControlPanel
             Overlay = new OverlayService();
             ScreenShake = new ScreenShakeService();
             Bubbles = new BubbleService();
+            Services.Chaos.ChaosMeta.Init();   // load persistent Chaos meta-progression before the run service
+            Chaos = new Services.Chaos.ChaosModeService();
             InteractionQueue = new InteractionQueueService();
             LockCard = new LockCardService();
             PopQuiz = new PopQuizService();
@@ -2561,6 +2564,7 @@ Application State:
             Subliminal?.Dispose();
             Overlay?.Dispose();
             ScreenShake?.Dispose();
+            try { Chaos?.ForceShutdown(); } catch { }
             Bubbles?.Dispose();
             LockCard?.Dispose();
             PopQuiz?.Dispose();
