@@ -103,7 +103,7 @@ namespace ConditioningControlPanel
         // emotionLineId (bark audio-filename stem) rides along so a QUEUED bark still drives the
         // portrait emotion when its bubble finally renders, not when it was enqueued. Null for
         // non-bark speech (AI/triggers/canned) → no emotion change.
-        private readonly Queue<(string text, SpeechSource source, string? emotionLineId)> _speechQueue = new();
+        private readonly Queue<(string text, SpeechSource source, string? emotionLineId, string? mood)> _speechQueue = new();
         private bool _isGiggling = false;
         private bool _isWaitingForAi = false; // Blocks other giggles while waiting for AI
         private DispatcherTimer? _speechTimer;
@@ -380,6 +380,9 @@ namespace ConditioningControlPanel
             // Emotive portrait avatar: if the active mod ships avatar_manifest.json, take over the
             // avatar with the 79-pose emotive system. No-op (keeps the legacy 4-pose path) otherwise.
             TryEnterPortraitMode();
+
+            // Circe's Lock pose-1: take over with animated WebP emotes (overrides the above).
+            TryUpdateCirceEmoteMode();
 
             // Subscribe to parent window events
             _parentWindow.LocationChanged += ParentWindow_PositionChanged;
@@ -846,6 +849,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void PauseAvatarGif()
         {
+            if (_circeEmoteMode) { CircePause(); return; }
             if (!_useAnimatedAvatar) return;
             try
             {
@@ -860,6 +864,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void ResumeAvatarGif()
         {
+            if (_circeEmoteMode) { CirceResume(); return; }
             if (!_useAnimatedAvatar) return;
             try
             {
@@ -945,6 +950,9 @@ namespace ConditioningControlPanel
                 UpdateTitleDisplay(App.Settings?.Current?.PlayerLevel ?? 1);
                 UpdateNavigationArrows();
                 ApplyAvatarTransform(setNumber);
+
+                // Circe's Lock: engage emotes only on the base set (pose 1), leave otherwise.
+                TryUpdateCirceEmoteMode();
             };
 
             if (animate)
@@ -1142,6 +1150,9 @@ namespace ConditioningControlPanel
                 ApplyAvatarTransform(_currentAvatarSet);
                 UpdateNavigationArrows();
 
+                // Circe's Lock pose-1: engage/leave animated WebP emotes after the normal setup.
+                TryUpdateCirceEmoteMode();
+
                 // Refresh voice lines from new mod
                 _voiceLinesPath = Services.CompanionPhraseService.VoiceLineFolder;
                 RefreshVoiceLines();
@@ -1162,18 +1173,20 @@ namespace ConditioningControlPanel
         /// </summary>
         private void ApplyTubeLayoutOffsets()
         {
-            // Apply avatar scale from mod
-            var scale = App.Mods?.GetAvatarScale() ?? 1.0;
+            // Apply avatar scale (emote-set override wins over the mod's global TubeLayout).
+            var scale = EffAvatarScale();
             if (Math.Abs(scale - 1.0) > 0.001)
             {
                 var scaleTransform = new System.Windows.Media.ScaleTransform(scale, scale);
                 ImgAvatar.LayoutTransform = scaleTransform;
                 ImgAvatarAnimated.LayoutTransform = scaleTransform;
+                ImgAvatarAnimatedB.LayoutTransform = scaleTransform; // Circe emote crossfade layer must match
             }
             else
             {
                 ImgAvatar.LayoutTransform = null;
                 ImgAvatarAnimated.LayoutTransform = null;
+                ImgAvatarAnimatedB.LayoutTransform = null;
             }
 
             // When the mod only overrides the attached tube image, force the attached
@@ -1183,8 +1196,8 @@ namespace ConditioningControlPanel
 
             if (useAttachedLayout)
             {
-                var dx = App.Mods?.GetAvatarOffsetX() ?? 0;
-                var dy = App.Mods?.GetAvatarOffsetY() ?? 0;
+                var dx = EffAvatarOffsetX();
+                var dy = EffAvatarOffsetY();
                 AvatarBorder.Margin = new Thickness(5, 100, 126 - dx, 210 + dy);
                 TitleBox.Margin = new Thickness(0, 0, 121 - dx, 180);
                 InputPanel.Margin = new Thickness(0, 0, 126 - dx, 520);
@@ -1192,8 +1205,8 @@ namespace ConditioningControlPanel
             }
             else
             {
-                var dx = App.Mods?.GetAvatarDetachedOffsetX() ?? 0;
-                var dy = App.Mods?.GetAvatarDetachedOffsetY() ?? 0;
+                var dx = EffAvatarDetachedOffsetX();
+                var dy = EffAvatarDetachedOffsetY();
                 // Detached nudge: 20px higher (bottom margin +20, bottom-aligned) and net 5px left
                 // (right margin +10 — element is HorizontalAlignment=Center, so offset is (L-R)/2).
                 AvatarBorder.Margin = new Thickness(5, 100, 436 - dx, 228 + dy);
@@ -1306,6 +1319,8 @@ namespace ConditioningControlPanel
             if (currentIndex > 0)
             {
                 SwitchToAvatarSet(unlockedSets[currentIndex - 1]);
+                // User-initiated appearance/skin change (the arrows also repoint the portrait skin).
+                try { App.Bark?.NotifyAvatarChanged(); } catch { }
             }
         }
 
@@ -1319,6 +1334,8 @@ namespace ConditioningControlPanel
             if (currentIndex >= 0 && currentIndex < unlockedSets.Length - 1)
             {
                 SwitchToAvatarSet(unlockedSets[currentIndex + 1]);
+                // User-initiated appearance/skin change (the arrows also repoint the portrait skin).
+                try { App.Bark?.NotifyAvatarChanged(); } catch { }
             }
         }
 
@@ -1410,8 +1427,8 @@ namespace ConditioningControlPanel
                             // Anchored at bottom, grows upward. Margin = left, top, right, bottom
                             var initUseAttached = _isAttached || ModOverridesAttachedTubeOnly();
                             var initDx = initUseAttached
-                                ? (App.Mods?.GetAvatarOffsetX() ?? 0)
-                                : (App.Mods?.GetAvatarDetachedOffsetX() ?? 0);
+                                ? EffAvatarOffsetX()
+                                : EffAvatarDetachedOffsetX();
                             var initRight = initUseAttached ? 125 - initDx : 425 - initDx;
                             SpeechBubble.Margin = new Thickness(0, 0, initRight, 550);
                         }), System.Windows.Threading.DispatcherPriority.Loaded);
@@ -2031,12 +2048,18 @@ namespace ConditioningControlPanel
         /// seductive mix (mostly alluring, plus entrancing/dreamy/teasing). The number of poses scales with
         /// the line's length. No-op when the portrait system is off.
         /// </summary>
-        private void PlayEmotionForLine(string? emotionLineId, string? audioPath, string? text)
+        private void PlayEmotionForLine(string? emotionLineId, string? audioPath, string? text, string? mood = null)
         {
+            // Circe pose-1 animated emotes take over the spoken-line reaction (own WebP path).
+            if (_circeEmoteMode) { CircePlayEmote(emotionLineId, audioPath, text, mood); return; }
             if (!_portraitMode || _portraitSet == null) return;
             var emotion = _portraitSet.EmotionForLine(emotionLineId);
             if (string.IsNullOrEmpty(emotion))
-                emotion = PickAffirmationEmotion();
+                // Bark lines carry a mood → map it to an emotion (base layer). Non-bark speech
+                // (AI/trigger/canned, mood==null) keeps the alluring affirmation mix for variety.
+                emotion = !string.IsNullOrWhiteSpace(mood)
+                    ? _portraitSet.EmotionForMood(mood)
+                    : PickAffirmationEmotion();
             double durationSec = audioPath != null ? AudioDurationSec(audioPath) : EstimateDurationSec(text);
             SetEmotionSequence(emotion!, PoseCountForDuration(durationSec), durationSec);
         }
@@ -2786,15 +2809,15 @@ namespace ConditioningControlPanel
             kf.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
                 1.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
             kf.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
-                1.15, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(90)),
+                1.015, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(80)),
                 new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }));
             kf.KeyFrames.Add(new System.Windows.Media.Animation.EasingDoubleKeyFrame(
-                1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(480)),
+                1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(300)),
                 new System.Windows.Media.Animation.ElasticEase
                 {
                     EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut,
-                    Oscillations = 2,
-                    Springiness = 5
+                    Oscillations = 1,
+                    Springiness = 7
                 }));
 
             AvatarBounceScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, kf);
@@ -3045,7 +3068,7 @@ namespace ConditioningControlPanel
                 return;
             }
 
-            var (nextText, source, nextEmotionLineId) = _speechQueue.Dequeue();
+            var (nextText, source, nextEmotionLineId, nextMood) = _speechQueue.Dequeue();
             App.Logger?.Debug("Dequeued speech ({Source}): {Text}", source, nextText);
 
             // Calculate how long since last speech ended (delay based on PREVIOUS speech properties)
@@ -3061,7 +3084,7 @@ namespace ConditioningControlPanel
                 _speechDelayTimer.Tick += (s, e) =>
                 {
                     _speechDelayTimer.Stop();
-                    ShowSpeechBySource(nextText, source, nextEmotionLineId);
+                    ShowSpeechBySource(nextText, source, nextEmotionLineId, nextMood);
                 };
                 _speechDelayTimer.Start();
                 App.Logger?.Debug("Delaying speech by {Delay:F1}s", remainingDelay);
@@ -3069,14 +3092,14 @@ namespace ConditioningControlPanel
             else
             {
                 // Show immediately
-                ShowSpeechBySource(nextText, source, nextEmotionLineId);
+                ShowSpeechBySource(nextText, source, nextEmotionLineId, nextMood);
             }
         }
 
         /// <summary>
         /// Shows speech based on its source (triggers play audio, others don't)
         /// </summary>
-        private void ShowSpeechBySource(string text, SpeechSource source, string? emotionLineId = null)
+        private void ShowSpeechBySource(string text, SpeechSource source, string? emotionLineId = null, string? mood = null)
         {
             if (source == SpeechSource.Trigger)
             {
@@ -3087,7 +3110,7 @@ namespace ConditioningControlPanel
             {
                 // Determine sound: always for AI, 1 in 5 for presets
                 bool playSound = source == SpeechSource.AI || (source == SpeechSource.Preset && ++_presetGiggleCounter % 5 == 0);
-                ShowGiggle(text, playSound, source, emotionLineId: emotionLineId);
+                ShowGiggle(text, playSound, source, emotionLineId: emotionLineId, mood: mood);
             }
         }
 
@@ -3096,7 +3119,7 @@ namespace ConditioningControlPanel
         /// Blocked while waiting for AI response or while AI bubble is visible.
         /// Plays giggle sound 1 in 5 times for preset phrases.
         /// </summary>
-        public void Giggle(string text, string? phraseAudioPath = null, bool barkVoice = false)
+        public void Giggle(string text, string? phraseAudioPath = null, bool barkVoice = false, string? mood = null)
         {
             if (_isPlayingUninterruptibleClip) return; // an uninterruptible clip is speaking
 
@@ -3132,7 +3155,7 @@ namespace ConditioningControlPanel
 
                 if (_isGiggling)
                 {
-                    _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId));
+                    _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId, mood));
                     App.Logger?.Debug("Queued preset speech: {Text}", text);
                     return;
                 }
@@ -3146,7 +3169,7 @@ namespace ConditioningControlPanel
                     // Queue it and let the delay system handle it. The queue now carries emotionLineId so
                     // the portrait emotion still fires when the bubble renders; audio is still text-only on
                     // this delayed path (barks normally fire idle, so the immediate path below is the norm).
-                    _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId));
+                    _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId, mood));
                     _isGiggling = true;
                     ProcessNextSpeech();
                 }
@@ -3158,7 +3181,7 @@ namespace ConditioningControlPanel
                     _presetGiggleCounter++;
                     bool playSound = _presetGiggleCounter % 5 == 0;
                     ShowGiggle(text, playSound, SpeechSource.Preset, phraseAudioPath, barkVoice: barkVoice,
-                        emotionLineId: emotionLineId);
+                        emotionLineId: emotionLineId, mood: mood);
                 }
             });
         }
@@ -3263,7 +3286,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public bool IsSpeaking => _isGiggling;
 
-        public void GigglePriority(string text, bool playSound = true, bool aiGenerated = true, string? phraseAudioPath = null, bool barkVoice = false)
+        public void GigglePriority(string text, bool playSound = true, bool aiGenerated = true, string? phraseAudioPath = null, bool barkVoice = false, string? mood = null)
         {
             if (_isPlayingUninterruptibleClip) return; // an uninterruptible clip is speaking
             string? emotionLineId = phraseAudioPath != null
@@ -3298,7 +3321,7 @@ namespace ConditioningControlPanel
                 // through GigglePriority are AI replies, but the awareness keyword path can fall back
                 // to canned phrases when the AI is unavailable — those callers pass false.
                 ShowGiggle(text, playSound: playSound, source: SpeechSource.AI, aiGenerated: aiGenerated,
-                    phraseAudioPath: phraseAudioPath, barkVoice: barkVoice, emotionLineId: emotionLineId);
+                    phraseAudioPath: phraseAudioPath, barkVoice: barkVoice, emotionLineId: emotionLineId, mood: mood);
 
                 App.Logger?.Debug("Priority speech (queue cleared): {Text}", text);
             });
@@ -3354,7 +3377,7 @@ namespace ConditioningControlPanel
         /// <param name="text">The text to display</param>
         /// <param name="playSound">Whether to play a giggle sound</param>
         /// <param name="source">The source of the speech (for delay calculation)</param>
-        private void ShowGiggle(string text, bool playSound = false, SpeechSource source = SpeechSource.Preset, string? phraseAudioPath = null, bool aiGenerated = false, bool bypassClipLock = false, bool barkVoice = false, string? emotionLineId = null)
+        private void ShowGiggle(string text, bool playSound = false, SpeechSource source = SpeechSource.Preset, string? phraseAudioPath = null, bool aiGenerated = false, bool bypassClipLock = false, bool barkVoice = false, string? emotionLineId = null, string? mood = null)
         {
             // An uninterruptible recorded clip owns the bubble — only its own (bypassing) call may render.
             if (_isPlayingUninterruptibleClip && !bypassClipLock) return;
@@ -3401,7 +3424,7 @@ namespace ConditioningControlPanel
             PlayEmotionForLine(
                 emotionLineId ?? (phraseAudioPath != null
                     ? System.IO.Path.GetFileNameWithoutExtension(phraseAudioPath) : null),
-                phraseAudioPath, text);
+                phraseAudioPath, text, mood);
 
             // Any new bubble cuts off the previous spoken line (covers the giggle-sound/fallback branches
             // below, which otherwise wouldn't stop an in-flight voiceline → overlap).
@@ -3596,8 +3619,8 @@ namespace ConditioningControlPanel
             // Position bubble next to avatar — align with tube position based on attach state.
             var bubbleUseAttached = _isAttached || ModOverridesAttachedTubeOnly();
             var bubbleDx = bubbleUseAttached
-                ? (App.Mods?.GetAvatarOffsetX() ?? 0)
-                : (App.Mods?.GetAvatarDetachedOffsetX() ?? 0);
+                ? EffAvatarOffsetX()
+                : EffAvatarDetachedOffsetX();
             var bubbleRight = bubbleUseAttached ? 125 - bubbleDx : 425 - bubbleDx;
             SpeechBubble.Margin = new Thickness(0, 0, bubbleRight, 550);
         }
@@ -4661,7 +4684,7 @@ namespace ConditioningControlPanel
                 if (_isGiggling || timeSinceLastSpeech < requiredDelay)
                 {
                     // Queue the trigger and let delay system handle it
-                    _speechQueue.Enqueue((trigger, SpeechSource.Trigger, null));
+                    _speechQueue.Enqueue((trigger, SpeechSource.Trigger, null, null));
                     App.Logger?.Debug("Queued trigger speech: {Trigger}", trigger);
                     if (!_isGiggling)
                     {

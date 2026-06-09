@@ -1,0 +1,7 @@
+{
+  "_comment": "Maps (modId, avatarSet) -> a Resources/<folder>/ that ships animated emote clips + emotes.json. Add a line per pose/mod; no C# changes needed. See tools/avatar-emotes/README.md.",
+  "sets": [
+    { "modId": "builtin-locked", "avatarSet": 1, "folder": "circe_emotes" },
+    { "modId": "builtin-locked", "avatarSet": 2, "folder": "circe_emotes_p2" }
+  ]
+}

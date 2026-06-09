@@ -116,6 +116,47 @@ namespace ConditioningControlPanel.Services
             return _m.Lines.TryGetValue(lineId, out var line) ? line.Emotion : null;
         }
 
+        /// <summary>
+        /// Fallback emotion for a bark whose stem has no explicit <c>lines{}</c> override: map its
+        /// free-text <c>mood</c> to a portrait emotion. Compound moods (e.g. "soft, possessive") are
+        /// split on comma and the FIRST recognized token wins; anything unrecognized defaults to
+        /// <c>neutral</c>. This is the base layer for the expanded bark set — hand-authored
+        /// <c>lines{}</c> entries still override it. Returned name need not exist in this manifest;
+        /// <see cref="GetBucket"/> falls back gracefully if a skin lacks it.
+        /// </summary>
+        public string EmotionForMood(string? mood)
+        {
+            if (string.IsNullOrWhiteSpace(mood)) return "neutral";
+            foreach (var raw in mood.Split(','))
+            {
+                var token = raw.Trim().ToLowerInvariant();
+                if (token.Length == 0) continue;
+                if (MoodEmotionMap.TryGetValue(token, out var emo)) return emo;
+            }
+            return "neutral";
+        }
+
+        /// <summary>
+        /// mood-token → portrait-emotion lookup. Includes the emotion names themselves (self-map) plus
+        /// the descriptive mood words the bark manifests actually use. Tokens absent here are skipped so
+        /// the next token in a compound mood gets a chance before falling through to neutral.
+        /// </summary>
+        private static readonly Dictionary<string, string> MoodEmotionMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            // direct emotion names (so "teasing"/"dreamy"/… resolve to themselves)
+            ["neutral"] = "neutral", ["happy"] = "happy", ["excited"] = "excited", ["praise"] = "praise",
+            ["affectionate"] = "affectionate", ["teasing"] = "teasing", ["giggly"] = "giggly", ["wink"] = "wink",
+            ["alluring"] = "alluring", ["inviting"] = "inviting", ["entrancing"] = "entrancing", ["dreamy"] = "dreamy",
+            ["shy"] = "shy", ["tender"] = "tender", ["adoring"] = "adoring", ["surprised"] = "surprised",
+            ["curious"] = "curious", ["greeting"] = "greeting", ["pleased"] = "pleased", ["overwhelmed"] = "overwhelmed",
+            // descriptive mood words used across the bark content
+            ["soft"] = "tender", ["possessive"] = "adoring", ["knowing"] = "teasing", ["warm"] = "affectionate",
+            ["playful"] = "giggly", ["vain"] = "wink", ["amused"] = "giggly", ["indulgent"] = "pleased",
+            ["patient"] = "tender", ["intimate"] = "alluring", ["deepening"] = "entrancing", ["affirming"] = "praise",
+            ["smug"] = "wink", ["fond"] = "adoring", ["reverent"] = "adoring", ["afterglow"] = "dreamy",
+            ["seductive"] = "alluring", ["proud"] = "praise", ["dominant"] = "adoring",
+        };
+
         /// <summary>Fx tags (blush/hearts) declared for an emotion — parsed now, rendered later.</summary>
         public IReadOnlyList<string> FxForEmotion(string emotion) =>
             _m.Emotions.TryGetValue(emotion, out var e) ? e.Fx : Array.Empty<string>();

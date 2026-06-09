@@ -524,6 +524,22 @@
                             <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>
                         </Image.Effect>
                     </Image>
+                    <!-- Second animated layer: crossfade target for Circe WebP emotes
+                         (AvatarTubeWindow.CirceEmotes.cs). Mirrors ImgAvatarAnimated. -->
+                    <Image x:Name="ImgAvatarAnimatedB"
+                           Stretch="Uniform"
+                           MaxHeight="306"
+                           MaxWidth="198"
+                           Opacity="0"
+                           Visibility="Collapsed"
+                           RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <TranslateTransform x:Name="AvatarAnimatedTranslateB" Y="0"/>
+                        </Image.RenderTransform>
+                        <Image.Effect>
+                            <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>
+                        </Image.Effect>
+                    </Image>
                 </Grid>
             </Border>
 

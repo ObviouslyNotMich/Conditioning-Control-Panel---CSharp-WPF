@@ -94,7 +94,7 @@
       <IncludeAssets>all</IncludeAssets>
     </PackageReference>
 
-    <!-- GIF Animation Support -->
+    <!-- GIF Animation Support (also used for Circe avatar emotes — AvatarTubeWindow.CirceEmotes.cs) -->
     <PackageReference Include="XamlAnimatedGif" Version="2.3.0" />
 
     <!-- QR Code Generation (used by Remote Control tab for mobile pairing) -->
@@ -243,6 +243,18 @@
     <Resource Include="Resources\animated3_1.gif" />
     <Resource Include="Resources\animated4_1.gif" />
     -->
+
+    <!-- Animated companion emotes (transparent looping GIF, 15fps) + per-set mapping.
+         Rendered via XamlAnimatedGif, wired in AvatarTubeWindow.CirceEmotes.cs (registry-driven).
+         To add a pose/mod: drop Resources\<folder>\ (clips + emotes.json), add a line to the
+         registry below, and add a <Resource> include here. See tools/avatar-emotes/README.md.
+         Embedded as Resource so pack:// URIs resolve in the single-file build (~30 MB / pose). -->
+    <Resource Include="Resources\avatar_emotes_registry.json" />
+    <Resource Include="Resources\circe_emotes\*.gif" />
+    <Resource Include="Resources\circe_emotes\emotes.json" />
+    <!-- Circe pose 2 (assets land via the pipeline; include is harmless while the folder is empty). -->
+    <Resource Include="Resources\circe_emotes_p2\*.gif" />
+    <Resource Include="Resources\circe_emotes_p2\emotes.json" Condition="Exists('Resources\circe_emotes_p2\emotes.json')" />
 
     <!-- Achievement images -->
     <Resource Include="Resources\achievements\*.png" />

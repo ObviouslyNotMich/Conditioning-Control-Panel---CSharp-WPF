@@ -1,0 +1,31 @@
+{
+  "_comment": "Circe pose-1 animated emote mapping. Clip names = Resources/circe_emotes/<clip>.webp. Resolution order when Circe speaks: stemPrefix(emotionLineId) -> mood(first token) -> talking(by audio length). Unmapped -> talking. Edit freely; rebuild to embed.",
+  "fps": 15,
+  "fadeMs": 800,
+  "idleSwapSeconds": 9,
+  "idleRotation": [
+    { "clip": "idle4", "weight": 6 },
+    { "clip": "idle5", "weight": 3 },
+    { "clip": "phone", "weight": 1 }
+  ],
+  "talking": { "short": "talkA", "medium": "talkA", "long": "idle6", "shortMaxSec": 3.0, "longMinSec": 7.0 },
+  "stemPrefix": {
+    "attention_lost": "disappointed2",
+    "achievement": "praise",
+    "companion_level": "cheer",
+    "session_start": "greeting",
+    "greeting": "greeting",
+    "face_found": "greeting"
+  },
+  "mood": {
+    "teasing": "denial", "knowing": "denial", "controlling": "denial", "bold": "denial",
+    "playful": "giggle2", "amused": "giggle2", "giggly": "giggle2", "conspiratorial": "giggle2", "delighted": "giggle2",
+    "proud": "praise", "approving": "praise", "pleased": "praise", "encouraging": "praise", "affirming": "praise",
+    "possessive": "kiss", "adoring": "kiss", "affectionate": "kiss",
+    "inviting": "comehere", "intimate": "comehere", "sultry": "comehere", "coaxing": "comehere", "seductive": "comehere",
+    "hypnotic": "entrancing", "dreamy": "entrancing", "guiding": "entrancing", "intense": "entrancing", "dark": "entrancing", "deepening": "entrancing",
+    "curious": "thinking", "intrigued": "thinking",
+    "excited": "cheer", "overwhelmed": "cheer",
+    "happy": "alluring", "vibing": "alluring"
+  }
+}
