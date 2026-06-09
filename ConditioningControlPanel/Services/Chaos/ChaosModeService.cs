@@ -146,6 +146,9 @@ public sealed class ChaosModeService
 
         try { _fx = new ChaosFxWindow(); _fx.Show(); } catch (Exception ex) { App.Logger?.Debug("Chaos FX init: {E}", ex.Message); }
 
+        // A mandatory-video payload can fire mid-run; keep the gameplay layer above it (see handler).
+        if (App.Video != null) App.Video.VideoStarted += OnVideoStartedDuringRun;
+
         _runTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _runTimer.Tick += RunTick;
         _runTimer.Start();
@@ -153,6 +156,34 @@ public sealed class ChaosModeService
         _spawnTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _spawnTimer.Tick += SpawnTick;
         _spawnTimer.Start();
+    }
+
+    /// <summary>
+    /// A chaos payload can fire a mandatory video mid-run. The video is a freshly-raised
+    /// fullscreen topmost window that lands on top of the run's bubbles + HUD + FX. Lift the
+    /// gameplay layer back ABOVE it (focus-free, so the video keeps playing) — the video ends up
+    /// UNDER the assets but over everything else, and the player keeps popping. Re-kick once after
+    /// the video's maximize/activate settles (mirrors VideoService's 50ms attention-target kick).
+    /// New bubbles spawned during the video already land on top naturally (fresh topmost windows).
+    /// </summary>
+    private void OnVideoStartedDuringRun(object? sender, EventArgs e)
+    {
+        void Raise()
+        {
+            if (!_spawning) return;
+            App.Bubbles?.BringAllToFront();
+            try { _fx?.RaiseToTopmost(); } catch { }
+            try { _hud?.RaiseToTopmost(); } catch { }
+        }
+        var disp = Application.Current?.Dispatcher;
+        if (disp == null) return;
+        try { disp.BeginInvoke((Action)Raise); } catch { }
+        System.Threading.Tasks.Task.Delay(60).ContinueWith(_ =>
+        {
+            if (Application.Current?.Dispatcher == null) return;
+            try { Application.Current.Dispatcher.BeginInvoke((Action)Raise); }
+            catch (Exception ex) { App.Logger?.Debug("Chaos raise-above-video kick: {E}", ex.Message); }
+        });
     }
 
     // ============================ run loop ============================
@@ -268,17 +299,24 @@ public sealed class ChaosModeService
             _state.ApplyBoon(boon);
             if (boon.Id == "extra_shield") Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);   // +2 shields cue
             if (boon.IsCurse)
+            {
                 App.Bark?.NotifyChaosCursePicked(boon.Name, boon.Rarity.ToString(), boon.RunMultBonus);
+                ChaosAnnouncerOverlay.Announce($"☠ {boon.Name}", ChaosAnnounceKind.Temptation);
+            }
             else
+            {
                 App.Bark?.NotifyChaosBoonPicked(boon.Name);
+                ChaosAnnouncerOverlay.Announce($"✦ {boon.Name}", ChaosAnnounceKind.Mantra);
+            }
         }
         else
         {
             _state.Shields += 1;
-            _state.PushEvent("⛊ skipped → +1 shield");
+            _state.PushEvent("⛊ skipped → +1 willpower");
             // Shield-gain cue (+1 from skip) — pulse + bark.
             Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);
             App.Bark?.NotifyChaosBoonSkipped(_state.Shields);
+            ChaosAnnouncerOverlay.Announce("+1 WILLPOWER", ChaosAnnounceKind.Willpower);
         }
 
         if (_state.DoubleOrNothingArmed)
@@ -338,7 +376,7 @@ public sealed class ChaosModeService
         App.Achievements?.TrackBubblePopped();
         App.Bark?.NotifyChaosBubbleDefused(_state.Combo, spec.VariantId, _state.Config.Difficulty.ToString());
         Pulse(Color.FromRgb(90, 255, 150), 0.16);   // soft green confirm
-        _state.PushEvent($"✔ defused {spec.Payload.DisplayName}");
+        _state.PushEvent($"✔ snapped {spec.Payload.DisplayName}");
         CheckComboMilestone();
     }
 
@@ -370,7 +408,7 @@ public sealed class ChaosModeService
             _state.Combo = 0;
             _lastComboBigFired = 0;                // combo broke → reset ComboBig crossing tracking
             _state.Heat = 0;
-            _state.PushEvent($"💥 {spec.Payload.DisplayName} detonated!");
+            _state.PushEvent($"💥 {spec.Payload.DisplayName} triggered!");
             Pulse(Color.FromRgb(255, 50, 50), 0.4 + s * 0.35);   // red malus
             Shake(0.4 + s * 0.5, 380);                           // the malus jolt
             // Real-hit branch (unshielded only now).
@@ -502,15 +540,16 @@ public sealed class ChaosModeService
             if (combo >= t && _lastComboBigFired < t)
             {
                 _lastComboBigFired = t;
-                _state.PushEvent($"🔥🔥 COMBO x{combo}!");
+                _state.PushEvent($"🔥🔥 STREAK x{combo}!");
                 App.Bark?.NotifyChaosComboBig(combo, t);
+                ChaosAnnouncerOverlay.Announce($"STREAK ×{t}", ChaosAnnounceKind.Streak);
                 Pulse(COMBO_BIG_COLOR, COMBO_BIG_PULSE);   // distinct bigger beat
             }
         }
 
         if (combo % 10 == 0)
         {
-            _state.PushEvent($"🔥 combo x{combo}!");
+            _state.PushEvent($"🔥 streak x{combo}!");
             App.Bark?.NotifyChaosComboMilestone(combo, _state.Config.Difficulty.ToString());
             Pulse(Color.FromRgb(255, 200, 60), 0.4);   // gold combo flash
         }
@@ -531,6 +570,7 @@ public sealed class ChaosModeService
         {
             _lastActFired = _state.ActIndex;
             App.Bark?.NotifyChaosActChanged(_state.ActIndex, _state.WaveIndex);
+            ChaosAnnouncerOverlay.Announce($"DEPTH {_state.ActIndex}", ChaosAnnounceKind.Depth);
         }
     }
 
@@ -576,6 +616,7 @@ public sealed class ChaosModeService
         EndSlowMo(); EndFreeze();
         try { ChaosFlashOverlay.CloseActive(); } catch { }
         try { ChaosGifCascadeOverlay.CloseActive(); } catch { }
+        try { ChaosAnnouncerOverlay.CloseActive(); } catch { }
         try { _fx?.Close(); } catch { }
         if (_overlay != null)
         {
@@ -591,12 +632,14 @@ public sealed class ChaosModeService
     {
         if (!_spawning || _state == null) return;
         _spawning = false;
+        if (App.Video != null) App.Video.VideoStarted -= OnVideoStartedDuringRun;
         _runTimer?.Stop();
         _spawnTimer?.Stop();
         App.Bubbles?.EndChaosMode();
         EndSlowMo(); EndFreeze();
         try { ChaosFlashOverlay.CloseActive(); } catch { }
         try { ChaosGifCascadeOverlay.CloseActive(); } catch { }
+        try { ChaosAnnouncerOverlay.CloseActive(); } catch { }
         try { _fx?.Close(); } catch { }
         _fx = null;
 
@@ -652,6 +695,7 @@ public sealed class ChaosModeService
 
     private void CleanupAfterRun()
     {
+        if (App.Video != null) App.Video.VideoStarted -= OnVideoStartedDuringRun;   // belt-and-suspenders (mid-run close)
         _runTimer = null;
         _spawnTimer = null;
         _hud = null;

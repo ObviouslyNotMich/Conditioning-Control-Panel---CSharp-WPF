@@ -7511,7 +7511,7 @@
                                         <TextBlock Text="NEW" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="10"/>
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Text="Bubbles rain down carrying live effects — flashes, videos, links, overlays. Defuse them in time, or brace for impact. Stack combos, draft boons, ride the multiplier."
+                                <TextBlock Text="Bubbles rain down carrying live effects — flashes, videos, links, overlays. Snap them in time, or brace for impact. Stack streaks, draft mantras, ride the multiplier."
                                            Foreground="{DynamicResource TextMutedBrush}" FontSize="13" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                             </StackPanel>
 
@@ -7541,6 +7541,11 @@
                                         </Style>
                                     </Button.Resources>
                                 </Button>
+                                <CheckBox Content="Announcements"
+                                          IsChecked="{Binding Source={x:Static local:App.Settings}, Path=Current.ChaosAnnouncerEnabled, Mode=TwoWay}"
+                                          Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Cursor="Hand"
+                                          HorizontalAlignment="Right" Margin="0,10,0,0"
+                                          ToolTip="Flash on-screen subtitle announcements (mantra, willpower, depth, streak) during a run"/>
                             </StackPanel>
                         </Grid>
                     </Border>

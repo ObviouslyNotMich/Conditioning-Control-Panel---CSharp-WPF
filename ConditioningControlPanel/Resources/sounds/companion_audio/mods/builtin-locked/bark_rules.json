@@ -6206,7 +6206,7 @@
     "id": "chaos_run_started",
     "variant_pool": [
       {
-        "text": "opening the floodgates, pet. how brave. pop the harmless, defuse the live, and let nothing go off."
+        "text": "opening the floodgates, pet. how brave. pop the harmless, snap the live, and let nothing trigger you."
       },
       {
         "text": "chaos. every bubble a gift or a snare. try to keep pace with me."
@@ -6231,7 +6231,7 @@
     "id": "chaos_wave_escalated",
     "variant_pool": [
       {
-        "text": "faster now. another wave. the bubbles will not slow for you, pet."
+        "text": "faster now. another loop. the bubbles will not slow for you, pet."
       },
       {
         "text": "it quickens. brace yourself, and keep those hands moving."
@@ -6240,7 +6240,7 @@
         "text": "deeper. the pressure rises. you feel it closing in, don't you."
       },
       {
-        "text": "the next wave. no quarter. that is rather the point."
+        "text": "the next loop. no quarter. that is rather the point."
       }
     ]
   },
@@ -6259,7 +6259,7 @@
     "id": "chaos_act_changed",
     "variant_pool": [
       {
-        "text": "a new act. the floor has shifted beneath you. it only worsens from here."
+        "text": "a new depth. the floor has shifted beneath you. it only worsens from here."
       },
       {
         "text": "and now this. whatever you grew accustomed to, forget it, sweet thing."
@@ -6290,7 +6290,7 @@
         "text": "quick hands. you snuffed it before it could bloom. clever pet."
       },
       {
-        "text": "defused. see how lovely it feels to obey at once."
+        "text": "snapped. see how lovely it feels to obey at once."
       },
       {
         "text": "caught precisely in time. obedient reflexes. good."
@@ -6340,13 +6340,13 @@
         "text": "there. you hesitated, and the spell drinks you anyway. resistance is so decorative."
       },
       {
-        "text": "too slow. now you take what was inside it. that is the arrangement."
+        "text": "too slow. now it triggers, and you take what was inside. that is the arrangement."
       },
       {
-        "text": "it went off. do not fight it. let the effect close over you."
+        "text": "it triggered. do not fight it. let the effect close over you."
       },
       {
-        "text": "you let one detonate. careless thing. take it in."
+        "text": "you let one trigger. careless thing. take it in."
       }
     ]
   },
@@ -6390,7 +6390,7 @@
         "text": "ah. and there goes your pretty little streak. the whole of it. gone."
       },
       {
-        "text": "so long a chain, and you fed it to a single bubble. i twist the knife so you remember."
+        "text": "so long a streak, and you fed it to a single bubble. i twist the knife so you remember."
       }
     ]
   },
@@ -6398,10 +6398,10 @@
     "id": "chaos_detonate_absorbed",
     "variant_pool": [
       {
-        "text": "fortunate. the shield drank that one for you. do not grow used to being spared."
+        "text": "fortunate. your willpower drank that one for you. do not grow used to being spared."
       },
       {
-        "text": "ooh, close. one shield poorer, but your pretty head stays clean. for now."
+        "text": "ooh, close. a little willpower poorer, but your pretty head stays clean. for now."
       }
     ]
   },
@@ -6412,7 +6412,7 @@
         "text": "the field is clean, good girl. now choose."
       },
       {
-        "text": "the wave is cleared. nothing of consequence slipped past you. now select."
+        "text": "the loop is cleared. nothing of consequence slipped past you. now select."
       },
       {
         "text": "all swept away. you held the line. take your reward, pet."
@@ -6437,10 +6437,10 @@
     "id": "chaos_curse_picked",
     "variant_pool": [
       {
-        "text": "oh, you took the cursed one. greedy. i do adore greed."
+        "text": "oh, you took the tempting one. greedy. i do adore greed."
       },
       {
-        "text": "a curse for a richer prize. reckless thing. let us see if it unmakes you."
+        "text": "a temptation for a richer prize. reckless thing. let us see if it unmakes you."
       }
     ]
   },
@@ -6448,7 +6448,7 @@
     "id": "chaos_curse_picked_juicy",
     "variant_pool": [
       {
-        "text": "stacking curses for that multiplier. you gamble with your own mind. exquisite."
+        "text": "stacking temptations for that multiplier. you gamble with your own mind. exquisite."
       },
       {
         "text": "behold the bonus you have bought yourself. and the cost. brave, brave thing."
@@ -6459,10 +6459,10 @@
     "id": "chaos_boon_skipped",
     "variant_pool": [
       {
-        "text": "skipping it for a shield. cautious. we both know it will not be enough."
+        "text": "skipping it for willpower. cautious. we both know it will not be enough."
       },
       {
-        "text": "hoarding shields, are we. shrewd. or frightened. likely both."
+        "text": "hoarding willpower, are we. shrewd. or frightened. likely both."
       }
     ]
   },
@@ -6470,7 +6470,7 @@
     "id": "chaos_combo_milestone",
     "variant_pool": [
       {
-        "text": "look at that chain. you are quite on fire, pet."
+        "text": "look at that streak. you are quite on fire, pet."
       },
       {
         "text": "ten more, just so. the multiplier is fond of you this moment."
@@ -6545,7 +6545,7 @@
         "text": "there is your score. respectable. yet i have seen you do better. again, for me."
       },
       {
-        "text": "the reckoning. defused and detonated, each set down. now go and best it."
+        "text": "the reckoning. snapped and triggered, each set down. now go and best it."
       }
     ]
   },

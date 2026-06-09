@@ -186,7 +186,7 @@ public partial class ChaosOverlayWindow : Window
         DraftPanel.Visibility = Visibility.Visible;
         BringToFront();
 
-        DraftTitle.Text = $"WAVE {waveJustCleared} CLEARED · CHOOSE A BOON";
+        DraftTitle.Text = $"LOOP {waveJustCleared} CLEARED · CHOOSE A MANTRA";
         DraftCountdown.Text = "";
         BtnSkipBoon.Visibility = Visibility.Visible;
         BtnContinue.Visibility = Visibility.Collapsed;
@@ -411,8 +411,8 @@ public partial class ChaosOverlayWindow : Window
         bool isPb = score > previousBest;
 
         ResultsBody.Children.Clear();
-        AddResultLine($"Reached ACT {Roman(s.ActIndex)} · W{s.WaveIndex}    Best combo x{s.BestCombo}    Survived {(int)s.ElapsedSec / 60:00}:{(int)s.ElapsedSec % 60:00}", 14, Brushes.White, FontWeights.SemiBold);
-        AddResultLine($"defused {s.Defused} · detonated {s.Detonated} · effects fired {s.EffectsFired}", 13, new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontWeights.Normal);
+        AddResultLine($"Reached DEPTH {Roman(s.ActIndex)} · L{s.WaveIndex}    Best streak x{s.BestCombo}    Survived {(int)s.ElapsedSec / 60:00}:{(int)s.ElapsedSec % 60:00}", 14, Brushes.White, FontWeights.SemiBold);
+        AddResultLine($"snapped {s.Defused} · triggered {s.Detonated} · effects fired {s.EffectsFired}", 13, new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontWeights.Normal);
         AddResultLine($"score {score:N0}", 14, Brushes.White, FontWeights.SemiBold);
         // Compulsion hook: a personal-best / delta line.
         if (isPb)

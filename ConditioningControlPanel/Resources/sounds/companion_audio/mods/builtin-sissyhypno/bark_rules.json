@@ -6179,7 +6179,7 @@
     "id": "chaos_run_started",
     "variant_pool": [
       {
-        "text": "bubbles everywhere, sweetie. pop the safe ones, defuse the live ones, and don't let one go off."
+        "text": "bubbles everywhere, sweetie. pop the safe ones, snap the live ones, and don't let one trigger you."
       },
       {
         "text": "chaos mode. every bubble's a little gift or a little trap. show me how trained you are."
@@ -6204,7 +6204,7 @@
     "id": "chaos_wave_escalated",
     "variant_pool": [
       {
-        "text": "faster now. another wave. the bubbles won't wait for you, sweetie."
+        "text": "faster now. another loop. the bubbles won't wait for you, sweetie."
       },
       {
         "text": "it's speeding up. breathe and keep those hands moving."
@@ -6213,7 +6213,7 @@
         "text": "deeper in. feel the pressure pulling you down? good."
       },
       {
-        "text": "next wave. no resting. that's how we train."
+        "text": "next loop. no resting. that's how we train."
       }
     ]
   },
@@ -6232,7 +6232,7 @@
     "id": "chaos_act_changed",
     "variant_pool": [
       {
-        "text": "new act. the rules just shifted under you. keep up, sweetie."
+        "text": "deeper now. the rules just shifted under you. keep up, sweetie."
       },
       {
         "text": "and now this part. whatever you got comfy with, forget it."
@@ -6263,7 +6263,7 @@
         "text": "good girl. caught it just in time."
       },
       {
-        "text": "defused. such an obedient little thing. keep proving it."
+        "text": "snapped it. such an obedient little thing. keep proving it."
       },
       {
         "text": "perfect reflexes. keep the streak alive for me."
@@ -6310,13 +6310,13 @@
     "id": "chaos_bubble_detonated",
     "variant_pool": [
       {
-        "text": "aww, you let it pop. good. let it sink in. sissies don't get to dodge."
+        "text": "aww, you let it trigger. good. let it sink in. sissies don't get to dodge."
       },
       {
-        "text": "it went off. don't fight it, just let the effect take you, sweetie."
+        "text": "it triggered. don't fight it, just let the effect take you, sweetie."
       },
       {
-        "text": "you let one detonate. naughty girl. drink it in."
+        "text": "you let one trigger. naughty girl. drink it in."
       },
       {
         "text": "there it goes. you hesitated, and it has you anyway."
@@ -6363,7 +6363,7 @@
         "text": "oh. and there goes your pretty little streak. all of it. gone."
       },
       {
-        "text": "such a long combo, and you gave it to one bubble. i twist the knife so you remember."
+        "text": "such a long streak, and you gave it to one bubble. i twist the knife so you remember."
       }
     ]
   },
@@ -6371,10 +6371,10 @@
     "id": "chaos_detonate_absorbed",
     "variant_pool": [
       {
-        "text": "lucky. the shield ate that one. don't get used to being saved, sweetie."
+        "text": "lucky. your willpower ate that one. don't get used to being saved, sweetie."
       },
       {
-        "text": "ooh, close. one less shield, but your pretty head stays clean. this time."
+        "text": "ooh, close. a little less willpower, but your pretty head stays clean. this time."
       }
     ]
   },
@@ -6385,7 +6385,7 @@
         "text": "field's clean, good girl. now choose."
       },
       {
-        "text": "wave cleared. nothing that mattered got past you. now pick, sweetie."
+        "text": "loop cleared. nothing that mattered got past you. now pick, sweetie."
       },
       {
         "text": "all swept. you held the line. take your reward."
@@ -6410,10 +6410,10 @@
     "id": "chaos_curse_picked",
     "variant_pool": [
       {
-        "text": "oh, you took the cursed one. greedy. i do love greedy sissies."
+        "text": "oh, you took the tempting one. greedy. i do love greedy sissies."
       },
       {
-        "text": "a curse for a bigger reward. reckless. let's see if it ruins you."
+        "text": "a temptation for a bigger reward. reckless. let's see if it ruins you."
       }
     ]
   },
@@ -6421,7 +6421,7 @@
     "id": "chaos_curse_picked_juicy",
     "variant_pool": [
       {
-        "text": "stacking curses for that multiplier. gambling with your own head. delicious."
+        "text": "stacking temptations for that multiplier. gambling with your own head. delicious."
       },
       {
         "text": "look at the bonus you bought. and the price. brave, brave little thing."
@@ -6432,10 +6432,10 @@
     "id": "chaos_boon_skipped",
     "variant_pool": [
       {
-        "text": "skipping it for a shield. cautious. we both know it won't be enough."
+        "text": "skipping it for willpower. cautious. we both know it won't be enough."
       },
       {
-        "text": "hoarding shields, are we. clever. or scared. probably both."
+        "text": "hoarding willpower, are we. clever. or scared. probably both."
       }
     ]
   },
@@ -6443,7 +6443,7 @@
     "id": "chaos_combo_milestone",
     "variant_pool": [
       {
-        "text": "look at that combo. you're on fire, sweetie."
+        "text": "look at that streak. you're on fire, sweetie."
       },
       {
         "text": "ten more, just like that. the multiplier loves you right now."
@@ -6518,7 +6518,7 @@
         "text": "there's your score. not bad. i've seen you do better, though. try again for me."
       },
       {
-        "text": "the tally, all written down. defused and detonated. now go beat it, princess."
+        "text": "the tally, all written down. snapped and triggered. now go beat it, princess."
       }
     ]
   },

@@ -79,14 +79,14 @@
                 <!-- middle: stack + boons -->
                 <StackPanel Grid.Row="1" Margin="0,6,0,0">
                     <TextBlock Text="MULTIPLIER STACK" Style="{StaticResource Hdr}"/>
-                    <Grid Margin="0,1"><TextBlock Text="{Binding Combo, StringFormat=combo x{0}}" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid Margin="0,1"><TextBlock Text="{Binding Combo, StringFormat=streak x{0}}" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
                     <Grid Margin="0,1"><TextBlock Text="difficulty" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding DifficultyMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
                     <Grid Margin="0,1"><TextBlock Text="heat" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                    <Grid Margin="0,1"><TextBlock Text="boons" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid Margin="0,1"><TextBlock Text="mantras" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
                     <ProgressBar Minimum="0" Maximum="1" Value="{Binding Heat, Mode=OneWay}" Height="5" Margin="0,6,0,0"
                                  Foreground="#FFFF7A3D" Background="#33000000" BorderThickness="0"/>
 
-                    <TextBlock Text="SHIELDS" Style="{StaticResource Hdr}"/>
+                    <TextBlock Text="WILLPOWER" Style="{StaticResource Hdr}"/>
                     <TextBlock Text="{Binding ShieldText}" Foreground="#FFFF6EC7" FontSize="22"/>
 
                     <TextBlock Text="BUILD" Style="{StaticResource Hdr}"/>

@@ -7629,7 +7629,7 @@
     "id": "chaos_run_started",
     "variant_pool": [
       {
-        "text": "okay Bambi, bubbles everywhere! pop the cute ones, defuse the scary ones, don't let any go boom!"
+        "text": "okay Bambi, bubbles everywhere! pop the cute ones, snap the scary ones, don't let any trigger you!"
       },
       {
         "text": "chaos time! so many pretty bubbles. don't think too hard, sweetie, you're bad at that anyway."
@@ -7663,7 +7663,7 @@
         "text": "deeper in now! feel your head getting all fuzzy and busy?"
       },
       {
-        "text": "next wave! no resting, silly. tap tap tap."
+        "text": "next loop! no resting, silly. tap tap tap."
       }
     ]
   },
@@ -7682,7 +7682,7 @@
     "id": "chaos_act_changed",
     "variant_pool": [
       {
-        "text": "ooh, new part! everything just changed. fun!"
+        "text": "ooh, deeper now! everything just changed. fun!"
       },
       {
         "text": "and now it's different! don't get used to anything, Bambi."
@@ -7713,7 +7713,7 @@
         "text": "good girl! caught it just in time."
       },
       {
-        "text": "defused! see how nice it feels to obey super fast?"
+        "text": "snapped it! see how nice it feels to obey super fast?"
       },
       {
         "text": "perfect little reflexes, Bambi. keep it going!"
@@ -7760,13 +7760,13 @@
     "id": "chaos_bubble_detonated",
     "variant_pool": [
       {
-        "text": "too slow, sweetie! now it goes off and Bambi takes every bit. that's the deal."
+        "text": "too slow, sweetie! now it triggers and Bambi takes every bit. that's the deal."
       },
       {
-        "text": "oops, boom! don't fight it, just let it wash over your empty head."
+        "text": "oops, it triggered! don't fight it, just let it wash over your empty head."
       },
       {
-        "text": "you let one pop! naughty Bambi. drink it innn."
+        "text": "you let one trigger! naughty Bambi. drink it innn."
       },
       {
         "text": "there it goes, all over you. you hesitated, silly."
@@ -7777,7 +7777,7 @@
     "id": "chaos_detonate_first",
     "variant_pool": [
       {
-        "text": "and there's the first boom! don't pretend you'll catch them all now."
+        "text": "and there's the first trigger! don't pretend you'll catch them all now."
       },
       {
         "text": "first slip! hehe, i knew it. they're way easier to let go after this one."
@@ -7813,7 +7813,7 @@
         "text": "oh nooo, there goes your whole streak! all of it! gone! hehe."
       },
       {
-        "text": "such a big combo and you fed it to one bubble. silly, dizzy Bambi."
+        "text": "such a big streak and you fed it to one bubble. silly, dizzy Bambi."
       }
     ]
   },
@@ -7821,10 +7821,10 @@
     "id": "chaos_detonate_absorbed",
     "variant_pool": [
       {
-        "text": "lucky! the shield ate that one. don't get used to being saved, cutie."
+        "text": "lucky! your willpower ate that one. don't get used to being saved, cutie."
       },
       {
-        "text": "ooh close! one less shield but your pretty head stays clean. this time."
+        "text": "ooh close! a little less willpower but your pretty head stays clean. this time."
       }
     ]
   },
@@ -7835,7 +7835,7 @@
         "text": "field's all clean! good girl. now pick what's next."
       },
       {
-        "text": "wave done! nothing bad got past you. now choose, Bambi."
+        "text": "loop done! nothing bad got past you. now choose, Bambi."
       },
       {
         "text": "all swept up! you held the line. take your treat."
@@ -7860,10 +7860,10 @@
     "id": "chaos_curse_picked",
     "variant_pool": [
       {
-        "text": "ooh you took the cursed one! greedy Bambi. i love greedy."
+        "text": "ooh you took the tempting one! greedy Bambi. i love greedy."
       },
       {
-        "text": "a curse for a bigger prize? reckless. let's see if it melts your brain."
+        "text": "a temptation for a bigger prize? reckless. let's see if it melts your brain."
       }
     ]
   },
@@ -7871,7 +7871,7 @@
     "id": "chaos_curse_picked_juicy",
     "variant_pool": [
       {
-        "text": "stacking curses for that big multiplier? you're gambling with your own head, hehe. yummy."
+        "text": "stacking temptations for that big multiplier? you're gambling with your own head, hehe. yummy."
       },
       {
         "text": "look at that bonus you bought! and the price. so brave, dumb girl."
@@ -7882,10 +7882,10 @@
     "id": "chaos_boon_skipped",
     "variant_pool": [
       {
-        "text": "skipping it for a shield? cautious. we both know it won't be enough, sweetie."
+        "text": "skipping it for willpower? cautious. we both know it won't be enough, sweetie."
       },
       {
-        "text": "hoarding shields, are we. smart. or scared. probably both!"
+        "text": "hoarding willpower, are we. smart. or scared. probably both!"
       }
     ]
   },
@@ -7893,7 +7893,7 @@
     "id": "chaos_combo_milestone",
     "variant_pool": [
       {
-        "text": "look at that combo! you're on fire, good girl!"
+        "text": "look at that streak! you're on fire, good girl!"
       },
       {
         "text": "ten more, just like that! the multiplier loves you sooo much."
@@ -7968,7 +7968,7 @@
         "text": "there's your score! not bad, sweetie. i've seen you do better though. go again!"
       },
       {
-        "text": "all the numbers! popped this many, boomed that many. now go beat it for me."
+        "text": "all the numbers! popped this many, triggered that many. now go beat it for me."
       }
     ]
   },

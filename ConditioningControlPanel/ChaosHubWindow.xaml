@@ -229,7 +229,7 @@
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Shields" Style="{StaticResource Lbl}"/>
+                                    <TextBlock Text="Willpower" Style="{StaticResource Lbl}"/>
                                     <Button Style="{StaticResource Stepper}" Content="−" Tag="shields-" Click="Stepper_Click"/>
                                     <TextBlock x:Name="TxtShields" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
                                     <Button Style="{StaticResource Stepper}" Content="+" Tag="shields+" Click="Stepper_Click"/>
@@ -274,15 +274,16 @@
                                     <CheckBox x:Name="ChkFlashes" Style="{StaticResource Chk}" Content="Color flashes"/>
                                     <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
                                     <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
+                                    <CheckBox x:Name="ChkAnnouncer" Style="{StaticResource Chk}" Content="Announcements" Margin="0,8,0,0"/>
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="6,0,0,12">
                                 <StackPanel>
                                     <TextBlock Text="DRAFT" Style="{StaticResource SectionHdr}"/>
-                                    <CheckBox x:Name="ChkBoonDraft" Style="{StaticResource Chk}" Content="Boon draft between waves"/>
-                                    <CheckBox x:Name="ChkCurses" Style="{StaticResource Chk}" Content="Allow curses"/>
+                                    <CheckBox x:Name="ChkBoonDraft" Style="{StaticResource Chk}" Content="Mantra draft between loops"/>
+                                    <CheckBox x:Name="ChkCurses" Style="{StaticResource Chk}" Content="Allow temptations"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <TextBlock Text="Waves" Foreground="{StaticResource TextDim}" FontSize="12" VerticalAlignment="Center" Width="50"/>
+                                        <TextBlock Text="Loops" Foreground="{StaticResource TextDim}" FontSize="12" VerticalAlignment="Center" Width="50"/>
                                         <Button Style="{StaticResource Stepper}" Content="−" Tag="waves-" Click="Stepper_Click"/>
                                         <TextBlock x:Name="TxtWaves" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
                                         <Button Style="{StaticResource Stepper}" Content="+" Tag="waves+" Click="Stepper_Click"/>
@@ -301,7 +302,7 @@
                 <!-- LOADOUT -->
                 <ScrollViewer x:Name="PanelLoadout" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel>
-                        <TextBlock Text="Pick one boon to start every run already equipped." Foreground="{StaticResource TextDim}" FontSize="12" Margin="2,0,0,12"/>
+                        <TextBlock Text="Pick one mantra to start every spiral already equipped." Foreground="{StaticResource TextDim}" FontSize="12" Margin="2,0,0,12"/>
                         <WrapPanel x:Name="LoadoutPanel"/>
                     </StackPanel>
                 </ScrollViewer>
@@ -311,7 +312,7 @@
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel x:Name="CodexPanel">
                             <TextBlock Text="CODEX" Style="{StaticResource SectionHdr}"/>
-                            <TextBlock Text="Entries unlock as you encounter bubbles and boons in a run." Foreground="{StaticResource TextDim}" FontSize="12" TextWrapping="Wrap"/>
+                            <TextBlock Text="Entries unlock as you encounter bubbles and mantras in a spiral." Foreground="{StaticResource TextDim}" FontSize="12" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                 </ScrollViewer>
@@ -332,13 +333,13 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Sparks" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5" Width="160"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" x:Name="StSparks" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,5"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Runs completed" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Spirals completed" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" x:Name="StRuns" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,5"/>
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Best score" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" x:Name="StBestScore" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,5"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Best combo" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Best streak" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" x:Name="StBestCombo" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,5"/>
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Total defused" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Total snapped" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,5"/>
                                 <TextBlock Grid.Row="4" Grid.Column="1" x:Name="StDefused" Foreground="White" FontWeight="Bold" FontSize="13" Margin="0,5"/>
                             </Grid>
                         </StackPanel>

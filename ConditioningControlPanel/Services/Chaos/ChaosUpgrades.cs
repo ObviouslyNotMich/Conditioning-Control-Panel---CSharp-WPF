@@ -47,13 +47,13 @@ public static class ChaosUpgrades
     public static readonly IReadOnlyList<ChaosUpgrade> All = new List<ChaosUpgrade>
     {
         // ---- Control ----
-        new() { Id = "start_shield",    Branch = ChaosBranch.Control, Name = "+1 Start Shield", Cost = COST_START_SHIELD,
+        new() { Id = "start_shield",    Branch = ChaosBranch.Control, Name = "+1 Start Willpower", Cost = COST_START_SHIELD,
                 Apply = c => c.StartingShields += 1 },
-        new() { Id = "slow_fuses",      Branch = ChaosBranch.Control, Name = "Slower Fuses",    Cost = COST_SLOW_FUSES,
+        new() { Id = "slow_fuses",      Branch = ChaosBranch.Control, Name = "Slower Trance",    Cost = COST_SLOW_FUSES,
                 Apply = c => c.FuseTimeMult *= 1.15 },
         new() { Id = "bigger_hitboxes", Branch = ChaosBranch.Control, Name = "Bigger Hitboxes", Cost = COST_BIGGER_HITBOXES,
                 Apply = c => c.HitboxScale = 1.25 },                       // runtime deferred
-        new() { Id = "shield_recharge", Branch = ChaosBranch.Control, Name = "Shield Recharge", Cost = COST_SHIELD_RECHARGE,
+        new() { Id = "shield_recharge", Branch = ChaosBranch.Control, Name = "Willpower Recharge", Cost = COST_SHIELD_RECHARGE,
                 Apply = c => c.ShieldRechargeSeconds = 45 },               // runtime deferred
 
         // ---- Greed ----
@@ -69,7 +69,7 @@ public static class ChaosUpgrades
         // ---- Depth ----
         new() { Id = "max_bubbles",     Branch = ChaosBranch.Depth,   Name = "+2 Max Bubbles",  Cost = COST_MAX_BUBBLES,
                 Apply = c => c.MaxBubblesBonus += 2 },
-        new() { Id = "draft4",          Branch = ChaosBranch.Depth,   Name = "4-Boon Draft",    Cost = COST_DRAFT4,
+        new() { Id = "draft4",          Branch = ChaosBranch.Depth,   Name = "4-Mantra Draft",    Cost = COST_DRAFT4,
                 Apply = c => c.DraftChoices = 4 },
         new() { Id = "extreme_tier",    Branch = ChaosBranch.Depth,   Name = "Extreme Tier",    Cost = COST_EXTREME_TIER,
                 Apply = _ => { } },                                       // flag stored at purchase time

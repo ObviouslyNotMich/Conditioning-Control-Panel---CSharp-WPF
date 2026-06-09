@@ -34,12 +34,12 @@
                 Background="{StaticResource PanelBg}" BorderBrush="{StaticResource Pink}" BorderThickness="2"
                 CornerRadius="16" Padding="28">
             <StackPanel>
-                <TextBlock x:Name="DraftTitle" Text="WAVE CLEARED · CHOOSE A BOON"
+                <TextBlock x:Name="DraftTitle" Text="LOOP CLEARED · CHOOSE A MANTRA"
                            Foreground="{StaticResource Pink}" FontWeight="Bold" FontSize="18"
                            HorizontalAlignment="Center" Margin="0,0,0,18"/>
                 <StackPanel x:Name="BoonCardHost" Orientation="Horizontal" HorizontalAlignment="Center"/>
                 <Grid Margin="0,18,0,0">
-                    <Button x:Name="BtnSkipBoon" Content="skip → +1 shield" Click="BtnSkipBoon_Click"
+                    <Button x:Name="BtnSkipBoon" Content="skip → +1 willpower" Click="BtnSkipBoon_Click"
                             HorizontalAlignment="Left" Padding="12,6" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
                     <TextBlock x:Name="DraftCountdown" Foreground="{StaticResource TextDim}" FontSize="13"
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>

@@ -258,7 +258,7 @@ public partial class ChaosHubWindow : Window
             sp.Children.Add(new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, 0, 6), HorizontalAlignment = HorizontalAlignment.Left, Background = new SolidColorBrush(Color.FromArgb(70, 0xE8, 0x43, 0x93)), BorderBrush = new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)), BorderThickness = new Thickness(1) });
 
         sp.Children.Add(new TextBlock { Text = boon?.Name ?? "None", Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeights.SemiBold });
-        sp.Children.Add(new TextBlock { Text = boon?.Desc ?? "No start boon equipped.", Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
+        sp.Children.Add(new TextBlock { Text = boon?.Desc ?? "No start mantra equipped.", Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
 
         var card = new Border
         {
@@ -288,7 +288,7 @@ public partial class ChaosHubWindow : Window
         CodexPanel.Children.Add(new TextBlock { Text = "CODEX", Style = (Style)FindResource("SectionHdr") });
         CodexPanel.Children.Add(new TextBlock
         {
-            Text = "Entries fill in as you encounter bubbles and boons during a run.",
+            Text = "Entries fill in as you encounter bubbles and mantras during a spiral.",
             Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 12,
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10)
         });
@@ -301,7 +301,7 @@ public partial class ChaosHubWindow : Window
         CodexPanel.Children.Add(CodexRow("bubble:darter", "Darter", ChaosBubbleVariants.DescriptionFor("darter"),
             ChaosArt.Resolve("bubbles", "darter"), "✦", Color.FromRgb(0xFF, 0x4D, 0xC4)));
 
-        CodexPanel.Children.Add(SubHeader("BOONS & CURSES"));
+        CodexPanel.Children.Add(SubHeader("MANTRAS & TEMPTATIONS"));
         foreach (var b in ChaosBoonPool.All)
             CodexRow_Add(b);
     }
@@ -383,6 +383,7 @@ public partial class ChaosHubWindow : Window
         ChkBoonDraft.IsChecked = s.ChaosBoonDraftEnabled;
         ChkCurses.IsChecked = s.ChaosAllowCurses;
         ChkDarters.IsChecked = s.ChaosDartersEnabled;
+        ChkAnnouncer.IsChecked = s.ChaosAnnouncerEnabled;
 
         ApplyExtremeGate();
     }
@@ -409,6 +410,7 @@ public partial class ChaosHubWindow : Window
         ChkFlashes.IsChecked = true; SldEffect.Value = 0.85;
         ChkBoonDraft.IsChecked = true; ChkCurses.IsChecked = true;
         ChkDarters.IsChecked = true;
+        ChkAnnouncer.IsChecked = true;
     }
 
     private void SaveToSettings()
@@ -434,6 +436,7 @@ public partial class ChaosHubWindow : Window
         s.ChaosBoonDraftEnabled = ChkBoonDraft.IsChecked == true;
         s.ChaosAllowCurses = ChkCurses.IsChecked == true;
         s.ChaosDartersEnabled = ChkDarters.IsChecked == true;
+        s.ChaosAnnouncerEnabled = ChkAnnouncer.IsChecked == true;
     }
 
     // ============================ run-setup controls ============================

@@ -26,7 +26,7 @@
     "mood": "teasing, excited",
     "class": "normal",
     "variant_pool": [
-      { "text": "oh, opening the floodgates. how brave. pop the safe ones, defuse the live ones, and don't let one go off." },
+      { "text": "oh, opening the floodgates. how brave. pop the safe ones, snap the live ones, and don't let one trigger you." },
       { "text": "chaos mode. every bubble's a little gift or a little trap. try to keep up." },
       { "text": "here we go. bubbles everywhere. clicking feels good, doesn't it. don't think, just pop." }
     ]
@@ -57,10 +57,10 @@
     "mood": "commanding, rising",
     "class": "normal",
     "variant_pool": [
-      { "text": "faster now. another wave. the bubbles won't slow down for you." },
+      { "text": "faster now. another loop. the bubbles won't slow down for you." },
       { "text": "it's speeding up. brace yourself, and keep those hands moving." },
       { "text": "deeper in. the pressure's rising. you feel it, don't you." },
-      { "text": "next wave. no breathing room. that's the point." }
+      { "text": "next loop. no breathing room. that's the point." }
     ]
   },
   {
@@ -89,8 +89,8 @@
     "mood": "commanding, ominous",
     "class": "normal",
     "variant_pool": [
-      { "text": "new act. the gears just shifted under you. it gets worse from here." },
-      { "text": "and now this part. whatever you got used to, forget it." }
+      { "text": "new depth. the gears just shifted under you. it gets worse from here." },
+      { "text": "deeper now. whatever you got used to, forget it." }
     ]
   },
 
@@ -124,7 +124,7 @@
     "class": "normal",
     "variant_pool": [
       { "text": "good. caught it just in time." },
-      { "text": "defused. see how nice it feels to obey quickly." },
+      { "text": "snapped it. see how nice it feels to obey quickly." },
       { "text": "perfect little reflexes. keep the streak alive." },
       { "text": "snuffed it before it could bloom. clever." }
     ]
@@ -189,9 +189,9 @@
     "mood": "teasing, wicked",
     "class": "normal",
     "variant_pool": [
-      { "text": "too slow. now you take what's inside it. that's the deal." },
-      { "text": "it went off. don't fight it, just let the effect wash over you." },
-      { "text": "you let one detonate. naughty. drink it in." },
+      { "text": "too slow. now it triggers, and you take what's inside. that's the deal." },
+      { "text": "it triggered. don't fight it, just let the effect wash over you." },
+      { "text": "you let one trigger. naughty. drink it in." },
       { "text": "there it goes. you hesitated, and it drinks you anyway." }
     ]
   },
@@ -256,7 +256,7 @@
     "class": "normal",
     "variant_pool": [
       { "text": "oh. and there goes your pretty little streak. all of it. gone." },
-      { "text": "such a long combo, and you fed it to one bubble. i twist the knife so you'll remember." }
+      { "text": "such a long streak, and you fed it to one bubble. i twist the knife so you'll remember." }
     ]
   },
 
@@ -271,8 +271,8 @@
     "mood": "playful, amused",
     "class": "normal",
     "variant_pool": [
-      { "text": "lucky. the shield ate that one for you. don't get used to being saved." },
-      { "text": "ooh, close. one less shield, but your pretty head stays clean. this time." }
+      { "text": "lucky. your willpower took that one for you. don't get used to being saved." },
+      { "text": "ooh, close. a little less willpower, but your pretty head stays clean. this time." }
     ]
   },
 
@@ -288,7 +288,7 @@
     "class": "normal",
     "variant_pool": [
       { "text": "field's clean. good. now choose what comes next." },
-      { "text": "wave cleared. not one got past you that mattered. now pick." },
+      { "text": "loop cleared. not one got past you that mattered. now pick." },
       { "text": "all swept. you held the line. take your reward." }
     ]
   },
@@ -304,7 +304,7 @@
     "class": "normal",
     "variant_pool": [
       { "text": "good choice. or a terrible one. we'll see, won't we." },
-      { "text": "mm, that'll change things. use it well." },
+      { "text": "mm, that mantra will change things. use it well." },
       { "text": "taken. that one's yours now, for better or worse." }
     ]
   },
@@ -319,8 +319,8 @@
     "mood": "dark, delighted",
     "class": "normal",
     "variant_pool": [
-      { "text": "oh, you took the cursed one. greedy. i love greedy." },
-      { "text": "a curse for a bigger reward. reckless little thing. let's see if it ruins you." }
+      { "text": "oh, you took the tempting one. greedy. i love greedy." },
+      { "text": "a temptation for a bigger reward. reckless little thing. let's see if it ruins you." }
     ]
   },
   {
@@ -334,7 +334,7 @@
     "mood": "dark, intense",
     "class": "normal",
     "variant_pool": [
-      { "text": "stacking the curses for that multiplier. you're gambling with your own head. delicious." },
+      { "text": "stacking the temptations for that multiplier. you're gambling with your own head. delicious." },
       { "text": "look at that bonus you bought yourself. and the price. brave, brave thing." }
     ]
   },
@@ -349,8 +349,8 @@
     "mood": "knowing, teasing",
     "class": "normal",
     "variant_pool": [
-      { "text": "skipping it for a shield. cautious. we both know it won't be enough." },
-      { "text": "hoarding shields, are we. clever. or scared. probably both." }
+      { "text": "skipping it for willpower. cautious. we both know it won't be enough." },
+      { "text": "hoarding willpower, are we. clever. or scared. probably both." }
     ]
   },
 
@@ -365,7 +365,7 @@
     "mood": "delighted, proud",
     "class": "normal",
     "variant_pool": [
-      { "text": "look at that combo. you're on fire." },
+      { "text": "look at that streak. you're on fire." },
       { "text": "ten more, just like that. the multiplier loves you right now." },
       { "text": "still climbing. don't you dare drop it now." }
     ]
@@ -462,7 +462,7 @@
     "class": "normal",
     "variant_pool": [
       { "text": "there's your score. not bad. i've seen you do better, though. try again for me." },
-      { "text": "the tally. defused and detonated, all written down. now go beat it." }
+      { "text": "the tally. snapped and triggered, all written down. now go beat it." }
     ]
   },
   {

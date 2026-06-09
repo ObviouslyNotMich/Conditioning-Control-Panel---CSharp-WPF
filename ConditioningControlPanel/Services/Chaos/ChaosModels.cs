@@ -115,23 +115,23 @@ public static class ChaosBoonPool
 {
     public static readonly List<ChaosBoon> All = new()
     {
-        new("slow_fuses", "Slow Fuses", "+30% fuse time on live bubbles.",
+        new("slow_fuses", "Slow Trance", "+30% trance time on live bubbles.",
             ChaosRarity.Common, false, 0.0, s => s.FuseTimeMult *= 1.30),
-        new("defuse_chain", "Defuse Chain", "Each defuse grants a brief invulnerability.",
+        new("defuse_chain", "Snap Chain", "Each snap grants a brief invulnerability.",
             ChaosRarity.Uncommon, false, 0.10, s => s.DefuseInvulnMs = 900),
         new("golden_touch", "Golden Touch", "+15% run multiplier outright.",
             ChaosRarity.Uncommon, false, 0.15, s => { /* RunMultBonus folds into BoonMult */ }),
-        new("magnet", "Magnet", "Near-clicks still defuse a live bubble.",
+        new("magnet", "Magnet", "Near-clicks still snap a live bubble.",
             ChaosRarity.Uncommon, false, 0.10, s => s.MagnetEnabled = true),
-        new("extra_shield", "Extra Shield", "Gain +2 shields.",
+        new("extra_shield", "Extra Willpower", "Gain +2 willpower.",
             ChaosRarity.Common, false, 0.0, s => s.Shields += 2),
 
         // Curses — risk/reward: bigger run-mult bonus, nastier knob.
-        new("hair_trigger", "Hair Trigger", "−25% fuse time, but +0.4x run multiplier.",
+        new("hair_trigger", "Hair Trigger", "−25% trance time, but +0.4x run multiplier.",
             ChaosRarity.Rare, true, 0.40, s => s.FuseTimeMult *= 0.75),
-        new("live_wire", "Live Wire", "Next wave: every bubble is live. +0.5x run multiplier.",
+        new("live_wire", "Live Wire", "Next loop: every bubble is live. +0.5x run multiplier.",
             ChaosRarity.Rare, true, 0.50, s => s.AllLiveNextWave = true),
-        new("double_or_nothing", "Double or Nothing", "Next wave pays x2 — detonations cost a shield extra.",
+        new("double_or_nothing", "Double or Nothing", "Next loop pays x2. triggers cost extra willpower.",
             ChaosRarity.Rare, true, 0.0, s => { s.NextWavePayoutMult = 2.0; s.DoubleOrNothingArmed = true; }),
     };
 
@@ -196,7 +196,7 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     private int _waveIndex = 1;
     public int WaveIndex { get => _waveIndex; set { _waveIndex = value; OnChanged(); OnChanged(nameof(ActWaveText)); } }
     public int WaveCount { get; }
-    public string ActWaveText => $"ACT {ToRoman(ActIndex)} · WAVE {WaveIndex}/{WaveCount}";
+    public string ActWaveText => $"DEPTH {ToRoman(ActIndex)} · LOOP {WaveIndex}/{WaveCount}";
 
     private double _waveProgress;
     public double WaveProgress { get => _waveProgress; set { _waveProgress = Math.Clamp(value, 0, 1); OnChanged(); } }

@@ -2081,6 +2081,13 @@ namespace ConditioningControlPanel.Models
             get => _chaosDartersEnabled;
             set { _chaosDartersEnabled = value; OnPropertyChanged(); }
         }
+        private bool _chaosAnnouncerEnabled = true;
+        /// <summary>Show the on-screen subtitle announcer (mantra/temptation/willpower/depth/streak) during a Chaos run.</summary>
+        public bool ChaosAnnouncerEnabled
+        {
+            get => _chaosAnnouncerEnabled;
+            set { _chaosAnnouncerEnabled = value; OnPropertyChanged(); }
+        }
         #endregion
 
         #region Lock Card (Unlocks Lv.35)
