@@ -117,19 +117,6 @@ public class BubbleService : IDisposable
     /// <summary>Time-scale for chaos bubble motion + fuses (the darter slow-mo power-up). 1 = normal, &lt;1 = slow.</summary>
     public void SetChaosTimeScale(double scale) => _chaosTimeScale = Math.Clamp(scale, 0.05, 1.0);
 
-    /// <summary>Smallest remaining fuse (ms) across all currently-armed live chaos bubbles, or null when
-    /// none are live. Read-only; used by the chaos near-miss danger telegraph.</summary>
-    public double? MinLiveFuseRemainingMs()
-    {
-        double? min = null;
-        for (int i = 0; i < _bubbles.Count; i++)
-        {
-            var f = _bubbles[i].LiveFuseRemainingMs;
-            if (f.HasValue && (min == null || f.Value < min.Value)) min = f.Value;
-        }
-        return min;
-    }
-
     private void AnimateAllBubbles(object? sender, EventArgs e)
     {
         // NOTE: a freeze does NOT skip this loop — bubbles must keep rendering so the freeze aura
@@ -702,6 +689,9 @@ internal class Bubble
     private double _freezePulsePhase;              // aura pulse oscillator
     private double _fuseTotalMs;
     private double _fuseRemainingMs;
+    /// <summary>Last window (ms) of a live fuse over which the bubble flashes + breathes faster.</summary>
+    private const double DANGER_TELEGRAPH_MS = 1200;
+    private double _dangerFactor;   // 0 outside the telegraph window, ramps to 1 at detonation (visual only)
     private System.Windows.Shapes.Ellipse? _fuseRing;
     // Mutable (unfrozen) brush reused for the fuse ring so its colour can be tweaked every
     // frame without allocating a new SolidColorBrush per tick (GC pressure at 30fps).
@@ -725,11 +715,6 @@ internal class Bubble
 
     /// <summary>The chaos spec this bubble carries (null for ambient pop-game bubbles).</summary>
     public EffectBubbleSpec? Spec => _spec;
-
-    /// <summary>Remaining fuse (ms) if this is an armed live chaos bubble, else null. Read-only — for the
-    /// near-miss danger telegraph. Returns null while frozen-out or not live.</summary>
-    public double? LiveFuseRemainingMs =>
-        (_spec != null && _spec.IsLive && _fuseRemainingMs > 0) ? _fuseRemainingMs : (double?)null;
 
     /// <summary>True if this darter was caught within its quick-catch window. Valid after Pop().</summary>
     public bool WasQuickCatch => _wasQuickCatch;
@@ -1125,12 +1110,37 @@ internal class Bubble
             {
                 _fuseRemainingMs -= 32 * ts;   // slow-mo makes live fuses last longer
                 double frac = Math.Clamp(_fuseRemainingMs / Math.Max(1, _fuseTotalMs), 0, 1);
+
+                // Near-miss danger telegraph (visual only): in the last DANGER_TELEGRAPH_MS the bubble
+                // flashes brighter and "breathes" faster, ramping urgency as the fuse empties. The
+                // breathing is applied in the visual block below via _dangerFactor; never touches score.
+                double dangerMs = Math.Min(_fuseTotalMs, DANGER_TELEGRAPH_MS);
+                _dangerFactor = _fuseRemainingMs < dangerMs
+                    ? Math.Clamp(1.0 - _fuseRemainingMs / Math.Max(1, dangerMs), 0, 1)
+                    : 0.0;
+
                 if (_fuseRing?.RenderTransform is ScaleTransform fst)
                 {
                     double rs = 0.45 + 0.55 * frac;
                     fst.ScaleX = rs; fst.ScaleY = rs;
                     byte gb = (byte)(70 + 120 * frac);
-                    if (_fuseStrokeBrush != null) _fuseStrokeBrush.Color = Color.FromRgb(255, gb, gb);
+                    if (_fuseStrokeBrush != null)
+                    {
+                        if (_dangerFactor > 0)
+                        {
+                            // Flash the ring toward bright white, faster as the fuse empties.
+                            double flash = 0.5 + 0.5 * Math.Sin(_timeAlive * (18.0 + _dangerFactor * 34.0));
+                            double lift = flash * _dangerFactor;
+                            byte ch = (byte)(gb + (255 - gb) * lift);
+                            _fuseStrokeBrush.Color = Color.FromRgb(255, ch, ch);
+                            _fuseRing!.Opacity = 0.65 + 0.35 * flash;
+                        }
+                        else
+                        {
+                            _fuseStrokeBrush.Color = Color.FromRgb(255, gb, gb);
+                            _fuseRing!.Opacity = 1.0;
+                        }
+                    }
                 }
                 if (_fuseRemainingMs <= 0) { Detonate(); return; }
             }
@@ -1152,8 +1162,11 @@ internal class Bubble
             if (_isDestroyed || !_isAlive) return;
 
             // Update scale wobble (scaled for 30fps). Darters drive their own throb into _scale,
-            // so skip the ambient wobble for them to avoid doubling it.
-            var wobble = _isDarter ? 0.0 : 0.06 * Math.Sin(_timeAlive * 7.5 + _wobbleOffset);
+            // so skip the ambient wobble for them to avoid doubling it. Live bubbles in the danger
+            // window breathe faster + deeper as _dangerFactor (from the fuse countdown) ramps to 1.
+            double breatheFreq = 7.5 + _dangerFactor * 24.0;
+            double breatheAmp = 0.06 + _dangerFactor * 0.12;
+            var wobble = _isDarter ? 0.0 : breatheAmp * Math.Sin(_timeAlive * breatheFreq + _wobbleOffset);
             var currentScale = (_scale + wobble) * _gazeDwellScale;
 
             if (_bubbleImage.RenderTransform is TransformGroup tg && tg.Children.Count >= 2)

@@ -57,18 +57,13 @@ public sealed class ChaosModeService
     // ---- wave-clear cue ----
     private static readonly Color WAVE_CLEAR_COLOR = Color.FromRgb(150, 200, 255);
     private const double WAVE_CLEAR_PULSE = 0.30;
-    // ---- near-miss danger telegraph (last window before a live bubble detonates) ----
-    /// <summary>How long before a live detonation the escalating danger telegraph runs.</summary>
-    public const int NEAR_MISS_TELEGRAPH_MS = 800;
-    private static readonly Color NEAR_MISS_COLOR = Color.FromRgb(255, 60, 40);
-    private const double NEAR_MISS_PULSE = 0.18;     // per-tick escalating edge-flash strength
-    private const int NEAR_MISS_TICK_MS = 220;       // cadence of the escalating tick
+    // Near-miss danger telegraph is now visual-only and per-bubble (the about-to-blow bubble
+    // flashes + breathes faster in BubbleService) — no screen flash, no audio tick.
     // ---- heat temperature tint (additive overlay only; rises with HeatMult) ----
     private static readonly Color HEAT_TINT_COLOR = Color.FromRgb(255, 90, 40);
     private const double HEAT_TINT_MIN = 0.30;       // heat must exceed this before the tint shows
     private const double HEAT_TINT_MAX_OPACITY = 0.30;  // peak held-edge opacity at full heat
     private double _lastHeatTint = -1;               // last applied heat-tint level (avoid churn)
-    private double _nearMissTickAccumMs;             // throttles the escalating telegraph tick
 
     public bool IsRunning => _active;
 
@@ -171,7 +166,6 @@ public sealed class ChaosModeService
         _state.ElapsedSec = elapsed;
         _state.Heat = Math.Max(0, _state.Heat - 0.0015);
         UpdateHeatTint();
-        UpdateNearMissTelegraph(dt);
 
         // Power-ups run on the real clock (so they don't extend the run length).
         if (_slowMoRemainingSec > 0)
@@ -538,27 +532,6 @@ public sealed class ChaosModeService
             _lastActFired = _state.ActIndex;
             App.Bark?.NotifyChaosActChanged(_state.ActIndex, _state.WaveIndex);
         }
-    }
-
-    /// <summary>Near-miss danger telegraph: in the last <see cref="NEAR_MISS_TELEGRAPH_MS"/> before the
-    /// soonest live bubble detonates, fire an escalating red edge-flash + audio tick. Additive feel only —
-    /// it polls a read-only fuse accessor and never changes the fuse/score. No-op when frozen/paused.</summary>
-    private void UpdateNearMissTelegraph(double dt)
-    {
-        if (_state?.Config?.ColorFlashesEnabled != true) { _nearMissTickAccumMs = 0; return; }
-        if (_freezeRemainingSec > 0) { _nearMissTickAccumMs = 0; return; }   // time frozen: no impending detonation
-
-        double? minFuse = App.Bubbles?.MinLiveFuseRemainingMs();
-        if (minFuse == null || minFuse.Value > NEAR_MISS_TELEGRAPH_MS) { _nearMissTickAccumMs = 0; return; }
-
-        _nearMissTickAccumMs += dt * 1000.0;
-        if (_nearMissTickAccumMs < NEAR_MISS_TICK_MS) return;
-        _nearMissTickAccumMs = 0;
-
-        // The closer to zero, the stronger the flash (0..1 urgency above the window).
-        double urgency = 1.0 - Math.Clamp(minFuse.Value / NEAR_MISS_TELEGRAPH_MS, 0, 1);
-        Pulse(NEAR_MISS_COLOR, NEAR_MISS_PULSE + urgency * 0.22);
-        ChaosSfx.PlayNearMissTick();
     }
 
     /// <summary>Make heat visible: a subtle rising temperature tint as Heat climbs (additive
