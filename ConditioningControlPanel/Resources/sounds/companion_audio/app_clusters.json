@@ -1,0 +1,21 @@
+{
+  "_comment": "Window-title classification for the awareness-gated bark rules. Lowercased substrings; longest match wins; 'apps' (bespoke single titles -> app_eq) take precedence over 'clusters' (-> app_cluster_eq). Extend freely — bark logic never needs to change. Mirrors the embedded defaults in Services/AppClusterMap.cs.",
+  "clusters": {
+    "game_competitive": ["valorant", "league of legends", "counter-strike", "cs2", "csgo", "overwatch", "apex legends", "rainbow six", "dota 2", "rocket league", "fortnite", "call of duty", "warzone"],
+    "game_cozy": ["stardew valley", "animal crossing", "minecraft", "terraria", "the sims", "cozy grove", "spiritfarer", "unpacking", "powerwash"],
+    "game_rpg": ["elden ring", "baldur's gate", "skyrim", "the witcher", "cyberpunk", "final fantasy", "persona", "dark souls", "fallout", "diablo", "path of exile"],
+    "game_gacha": ["genshin impact", "honkai", "star rail", "fate/grand", "arknights", "blue archive", "nikke", "wuthering waves", "zenless"],
+    "game_mmo": ["world of warcraft", "final fantasy xiv", "ffxiv", "lost ark", "guild wars", "new world", "runescape", "black desert"],
+    "game_social_vr": ["vrchat", "chilloutvr", "resonite", "rec room", "neos"],
+    "site_doomscroll": ["twitter", "x.com", "reddit", "tiktok", "tumblr", "facebook", "instagram", "threads", "bluesky"],
+    "site_video": ["youtube", "netflix", "twitch", "hulu", "disney+", "hbo max", "crunchyroll", "prime video"],
+    "site_music": ["spotify", "soundcloud", "apple music", "youtube music"],
+    "site_shopping": ["amazon", "ebay", "etsy", "aliexpress", "shein", "throne", "wishtender", "wish.com"],
+    "site_eh": ["pornhub", "xvideos", "xhamster", "e-hentai", "nhentai", "rule34", "hypnotube", "bambicloud", "adult content"]
+  },
+  "apps": {
+    "hades": ["hades"],
+    "obs": ["obs studio", "obs "],
+    "discord": ["discord"]
+  }
+}

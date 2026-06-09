@@ -14,5 +14,101 @@
       { "text": "Bambi TikTok, the original. before all of this there was just a little loop and Miss Jenny's clever hands. say thank you to her, lovely. i always do.", "audio": "egg_first_enhancement_2.mp3" },
       { "text": "mm, a relic. the first thing that ever taught me how to teach you. everything after is just me getting better at keeping you.", "audio": "egg_first_enhancement_3.mp3" }
     ]
+  },
+  {
+    "id": "chaos_run_started",
+    "trigger": "ChaosRunStarted",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "excited, teasing",
+    "variant_pool": [
+      { "text": "oh good girl, opening the floodgates. let them rain down — pop the safe ones, defuse the live ones, and don't you dare let one go off." },
+      { "text": "chaos mode. how brave. every bubble's a little gift or a little trap, sweetie. try to keep up." },
+      { "text": "here we go, lovely. bubbles everywhere. clicking feels so good, doesn't it? don't think, just pop." }
+    ]
+  },
+  {
+    "id": "chaos_wave_escalated",
+    "trigger": "ChaosWaveEscalated",
+    "priority": 290,
+    "cooldown_ms": 4000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "rising, breathy",
+    "variant_pool": [
+      { "text": "faster now. another wave. pick something to help yourself — or something to hurt, if you're feeling greedy." },
+      { "text": "mm, it's speeding up. choose your boon, good girl, and brace." },
+      { "text": "deeper into it. the bubbles won't slow down for you, so choose well." }
+    ]
+  },
+  {
+    "id": "chaos_bubble_defused",
+    "trigger": "ChaosBubbleDefused",
+    "priority": 200,
+    "cooldown_ms": 9000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "variant_pool": [
+      { "text": "good girl. caught it just in time." },
+      { "text": "mm, defused. see how nice it feels to obey quickly?" },
+      { "text": "perfect little reflexes. keep the combo going." }
+    ]
+  },
+  {
+    "id": "chaos_bubble_detonated",
+    "trigger": "ChaosBubbleDetonated",
+    "priority": 210,
+    "cooldown_ms": 7000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, wicked",
+    "variant_pool": [
+      { "text": "too slow. now you take what's inside it, sweetie. that's the deal." },
+      { "text": "oops. it went off. don't fight it — just let the effect wash over you." },
+      { "text": "you let one detonate. naughty. drink it in." }
+    ]
+  },
+  {
+    "id": "chaos_boon_picked",
+    "trigger": "ChaosBoonPicked",
+    "priority": 250,
+    "cooldown_ms": 2000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pleased",
+    "variant_pool": [
+      { "text": "good choice. or a terrible one. we'll see, won't we?" },
+      { "text": "mm, that'll change things. use it well, lovely." }
+    ]
+  },
+  {
+    "id": "chaos_combo_milestone",
+    "trigger": "ChaosComboMilestone",
+    "priority": 260,
+    "cooldown_ms": 5000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted",
+    "variant_pool": [
+      { "text": "look at that combo. you're on fire, good girl." },
+      { "text": "ten more, just like that. the multiplier loves you right now." }
+    ]
+  },
+  {
+    "id": "chaos_run_completed",
+    "trigger": "ChaosRunCompleted",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, satisfied",
+    "variant_pool": [
+      { "text": "all done. look how much you earned for me. such a good, obedient toy." },
+      { "text": "the chaos settles. you did beautifully, sweetie. come back and do it again soon." },
+      { "text": "run complete. breathe. you let go so nicely in there." }
+    ]
   }
 ]

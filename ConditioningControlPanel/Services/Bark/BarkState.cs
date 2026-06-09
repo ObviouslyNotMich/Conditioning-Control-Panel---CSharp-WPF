@@ -95,6 +95,27 @@ namespace ConditioningControlPanel.Services.Bark
             return n;
         }
 
+        // --- setup-screen state for the anticipatory SessionSetupReady bark (item E) ---
+        // Counts setting changes since app-open and timestamps the last setup action so the detector
+        // can fire when the user "goes quiet" and expose setup_idle_sec for the stall variant.
+        private int _settingsChangedThisSession;
+        public int SettingsChangedThisSession => System.Threading.Volatile.Read(ref _settingsChangedThisSession);
+        private long _lastSetupActionTicks; // DateTime.UtcNow.Ticks of last setup action (0 = none yet)
+        public void MarkSettingChanged()
+        {
+            System.Threading.Interlocked.Increment(ref _settingsChangedThisSession);
+            System.Threading.Interlocked.Exchange(ref _lastSetupActionTicks, DateTime.UtcNow.Ticks);
+        }
+        /// <summary>Seconds since the last setup action, or a large sentinel if none yet.</summary>
+        public double SetupIdleSeconds
+        {
+            get
+            {
+                var ticks = System.Threading.Interlocked.Read(ref _lastSetupActionTicks);
+                return ticks == 0 ? 999999 : (DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc)).TotalSeconds;
+            }
+        }
+
         // --- days-away / instant-relaunch, computed once from AppSettings.LastSeenUtc ---
         public double DaysAwayAtLaunch { get; private set; }
         public bool InstantRelaunch { get; private set; }
