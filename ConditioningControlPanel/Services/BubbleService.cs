@@ -59,6 +59,7 @@ public class BubbleService : IDisposable
     private Action<EffectBubbleSpec>? _chaosOnDetonate;
     private Action<EffectBubbleSpec, bool>? _chaosOnDarterCaught;
     private bool _chaosActive;
+    private bool _chaosFrozen;   // pause / freeze power-up: halts all bubble motion + fuses
 
     public event Action? OnBubblePopped;
     public event Action? OnBubbleMissed;
@@ -103,8 +104,12 @@ public class BubbleService : IDisposable
         App.Logger?.Information("BubbleService started - {Freq} bubbles/min", settings.BubblesFrequency);
     }
 
+    /// <summary>Freeze/unfreeze all chaos bubble motion + fuse countdowns (pause / time-freeze power-up).</summary>
+    public void SetChaosFrozen(bool frozen) => _chaosFrozen = frozen;
+
     private void AnimateAllBubbles(object? sender, EventArgs e)
     {
+        if (_chaosFrozen) return;   // time is frozen: hold every bubble in place, fuses paused
         if (_bubbles.Count == 0) return;
 
         // Animate all bubbles in a single pass - iterate by index to avoid allocation
@@ -387,7 +392,8 @@ public class BubbleService : IDisposable
                     onBenignPop: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnBenignPop?.Invoke(b.Spec); },
                     onDefuse:    b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec); },
                     onDetonate:  b => { if (b.Spec != null) _chaosOnDetonate?.Invoke(b.Spec); },
-                    onDarterCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); });
+                    onDarterCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); },
+                    isChaosFrozen: () => _chaosFrozen);
                 _bubbles.Add(bubble);
             }
             catch (Exception ex)
@@ -401,7 +407,9 @@ public class BubbleService : IDisposable
     public void EndChaosMode()
     {
         _chaosActive = false;
+        _chaosFrozen = false;
         _chaosOnBenignPop = _chaosOnDefuse = _chaosOnDetonate = null;
+        _chaosOnDarterCaught = null;
         PopAllBubbles();
         DispatcherHelper.RunOnUI(StopAnimationTimerIfIdle);
     }
@@ -649,6 +657,7 @@ internal class Bubble
     private readonly Action<Bubble>? _onDefuse;
     private readonly Action<Bubble>? _onDetonate;
     private readonly Action<Bubble>? _onDarterCaught;
+    private readonly Func<bool>? _isChaosFrozen;   // true while the field is frozen (pause / time-freeze)
     private double _fuseTotalMs;
     private double _fuseRemainingMs;
     private System.Windows.Shapes.Ellipse? _fuseRing;
@@ -686,7 +695,7 @@ internal class Bubble
                   Action<Bubble>? onPop, Action<Bubble>? onMiss, Action<Bubble>? onDestroy, bool isClickable = true,
                   EffectBubbleSpec? spec = null,
                   Action<Bubble>? onBenignPop = null, Action<Bubble>? onDefuse = null, Action<Bubble>? onDetonate = null,
-                  Action<Bubble>? onDarterCaught = null)
+                  Action<Bubble>? onDarterCaught = null, Func<bool>? isChaosFrozen = null)
     {
         _random = random;
         _onPop = onPop;
@@ -698,6 +707,7 @@ internal class Bubble
         _onDefuse = onDefuse;
         _onDetonate = onDetonate;
         _onDarterCaught = onDarterCaught;
+        _isChaosFrozen = isChaosFrozen;
         _isDarter = spec?.IsDarter == true;
 
         // Random properties (size/motion overridden for chaos effect bubbles)
@@ -1138,6 +1148,7 @@ internal class Bubble
     public void Pop()
     {
         if (!_isAlive || _isPopping) return;
+        if (_isChaosFrozen?.Invoke() == true) return;   // field is frozen (paused): ignore clicks
         _isPopping = true;
         if (_spec != null)
         {
@@ -1246,7 +1257,7 @@ internal class Bubble
     /// Whether this bubble can currently be popped via Focus Gaze.
     /// False once popping has started or the bubble has been destroyed.
     /// </summary>
-    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable;
+    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable && !(_isChaosFrozen?.Invoke() ?? false);
 
     /// <summary>
     /// Bubble window bounds in WPF DIPs (matches the coordinate space of

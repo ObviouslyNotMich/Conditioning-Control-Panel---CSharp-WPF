@@ -4,7 +4,7 @@
         Title="Chaos HUD"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False"
-        ResizeMode="NoResize" WindowStartupLocation="Manual" FontFamily="Segoe UI" Width="240">
+        ResizeMode="NoResize" WindowStartupLocation="Manual" FontFamily="Segoe UI" Width="300">
     <Window.Resources>
         <SolidColorBrush x:Key="Pink" Color="#FF69B4"/>
         <SolidColorBrush x:Key="StripBg" Color="#E6121026"/>
@@ -15,37 +15,37 @@
             <Setter Property="Foreground" Value="{StaticResource Pink}"/>
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Margin" Value="0,10,0,5"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,12,0,6"/>
         </Style>
     </Window.Resources>
 
     <!-- Root has NO background → unpainted area is alpha-0 and click-through (desktop usable). -->
     <Grid>
         <!-- COLLAPSED STRIP (always visible, left edge) -->
-        <Border x:Name="Strip" HorizontalAlignment="Left" Width="58"
-                Background="{StaticResource StripBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,1,0"
-                MouseEnter="Hud_MouseEnter">
-            <StackPanel VerticalAlignment="Top" Margin="0,16,0,0" HorizontalAlignment="Center">
-                <TextBlock Text="⚡" Foreground="{StaticResource Pink}" FontSize="22" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding ClockText}" Foreground="White" FontFamily="Consolas" FontSize="13"
-                           HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                <TextBlock Text="✦" Foreground="Gold" FontSize="12" HorizontalAlignment="Center" Margin="0,10,0,0"/>
-                <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="12"
+        <Border x:Name="Strip" HorizontalAlignment="Left" Width="78"
+                Background="{StaticResource StripBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,8,8"
+                CornerRadius="0,0,18,0" MouseEnter="Hud_MouseEnter">
+            <StackPanel VerticalAlignment="Top" Margin="0,20,0,0" HorizontalAlignment="Center">
+                <TextBlock Text="⚡" Foreground="{StaticResource Pink}" FontSize="30" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding ClockText}" Foreground="White" FontFamily="Consolas" FontSize="17"
+                           HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                <TextBlock Text="✦" Foreground="Gold" FontSize="15" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="16"
                            HorizontalAlignment="Center" TextAlignment="Center"/>
-                <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="14"
-                           HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
+                           HorizontalAlignment="Center" Margin="0,12,0,0"/>
             </StackPanel>
         </Border>
 
         <!-- EXPANDED PANEL (shown on hover) -->
-        <Border x:Name="Panel" HorizontalAlignment="Left" Width="240" Visibility="Collapsed"
-                Background="{StaticResource PanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,1,0"
-                MouseLeave="Hud_MouseLeave">
+        <Border x:Name="Panel" HorizontalAlignment="Left" Width="300" Visibility="Collapsed"
+                Background="{StaticResource PanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,8,8"
+                CornerRadius="0,0,18,0" MouseLeave="Hud_MouseLeave">
             <Border.RenderTransform>
-                <TranslateTransform x:Name="PanelSlide" X="-240"/>
+                <TranslateTransform x:Name="PanelSlide" X="-300"/>
             </Border.RenderTransform>
-            <Grid Margin="16,14,16,14">
+            <Grid Margin="20,18,20,18">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
@@ -61,47 +61,59 @@
                         </Border>
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⚡ CHAOS" Foreground="{StaticResource Pink}" FontWeight="Bold" FontSize="18"/>
-                                <TextBlock Text="{Binding ActWaveText}" Foreground="White" FontSize="11" VerticalAlignment="Bottom" Margin="8,0,0,2"/>
+                                <TextBlock Text="⚡ CHAOS" Foreground="{StaticResource Pink}" FontWeight="Bold" FontSize="22"/>
+                                <TextBlock Text="{Binding ActWaveText}" Foreground="White" FontSize="13" VerticalAlignment="Bottom" Margin="8,0,0,3"/>
                             </StackPanel>
-                            <TextBlock Text="{Binding RunTimeText}" Foreground="{StaticResource TextDim}" FontSize="11" Margin="0,2,0,0"/>
+                            <TextBlock Text="{Binding RunTimeText}" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,2,0,0"/>
                         </StackPanel>
                     </StackPanel>
                     <ProgressBar Minimum="0" Maximum="1" Value="{Binding RunProgress, Mode=OneWay}" Height="5" Margin="0,4,0,0"
                                  Foreground="#FF8A7DBD" Background="#33000000" BorderThickness="0"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                        <TextBlock Text="✦" Foreground="Gold" FontSize="15" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="17" Margin="5,0,14,0"/>
-                        <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="17" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <TextBlock Text="✦" Foreground="Gold" FontSize="19" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="22" Margin="6,0,16,0"/>
+                        <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="22" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
 
                 <!-- middle: stack + boons -->
                 <StackPanel Grid.Row="1" Margin="0,6,0,0">
                     <TextBlock Text="MULTIPLIER STACK" Style="{StaticResource Hdr}"/>
-                    <Grid Margin="0,1"><TextBlock Text="{Binding Combo, StringFormat=combo x{0}}" Foreground="{StaticResource TextDim}" FontSize="11"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="11" HorizontalAlignment="Right"/></Grid>
-                    <Grid Margin="0,1"><TextBlock Text="difficulty" Foreground="{StaticResource TextDim}" FontSize="11"/><TextBlock Text="{Binding DifficultyMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="11" HorizontalAlignment="Right"/></Grid>
-                    <Grid Margin="0,1"><TextBlock Text="heat" Foreground="{StaticResource TextDim}" FontSize="11"/><TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="11" HorizontalAlignment="Right"/></Grid>
-                    <Grid Margin="0,1"><TextBlock Text="boons" Foreground="{StaticResource TextDim}" FontSize="11"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="11" HorizontalAlignment="Right"/></Grid>
+                    <Grid Margin="0,1"><TextBlock Text="{Binding Combo, StringFormat=combo x{0}}" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid Margin="0,1"><TextBlock Text="difficulty" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding DifficultyMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid Margin="0,1"><TextBlock Text="heat" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid Margin="0,1"><TextBlock Text="boons" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
                     <ProgressBar Minimum="0" Maximum="1" Value="{Binding Heat, Mode=OneWay}" Height="5" Margin="0,6,0,0"
                                  Foreground="#FFFF7A3D" Background="#33000000" BorderThickness="0"/>
 
                     <TextBlock Text="SHIELDS" Style="{StaticResource Hdr}"/>
-                    <TextBlock Text="{Binding ShieldText}" Foreground="#FFFF6EC7" FontSize="18"/>
+                    <TextBlock Text="{Binding ShieldText}" Foreground="#FFFF6EC7" FontSize="22"/>
+
+                    <TextBlock Text="BUILD" Style="{StaticResource Hdr}"/>
+                    <ItemsControl ItemsSource="{Binding ActiveBoons}">
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                            <TextBlock Text="{Binding Name, StringFormat=◈ {0}}" Foreground="#FF9CE8A0" FontSize="13" Margin="0,1" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding ActiveCurses}">
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                            <TextBlock Text="{Binding Name, StringFormat=☠ {0}}" Foreground="#FFFF8A8A" FontSize="13" Margin="0,1" TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <TextBlock Text="FEED" Style="{StaticResource Hdr}"/>
                     <ItemsControl ItemsSource="{Binding RecentEvents}">
                         <ItemsControl.ItemTemplate><DataTemplate>
-                            <TextBlock Text="{Binding}" Foreground="{StaticResource TextDim}" FontSize="11" Margin="0,1" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding}" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,1" TextTrimming="CharacterEllipsis"/>
                         </DataTemplate></ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
 
                 <!-- bottom: controls -->
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
-                    <Button x:Name="BtnPause" Content="⏸ pause" Click="BtnPause_Click" Padding="10,6" Margin="0,0,8,0"
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button x:Name="BtnPause" Content="⏸ pause" Click="BtnPause_Click" Padding="14,9" Margin="0,0,10,0" FontSize="13"
                             Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
-                    <Button x:Name="BtnStop" Content="✖ end" Click="BtnStop_Click" Padding="10,6"
+                    <Button x:Name="BtnStop" Content="✖ end" Click="BtnStop_Click" Padding="14,9" FontSize="13"
                             Background="#55FF5050" Foreground="White" BorderThickness="0"/>
                 </StackPanel>
             </Grid>

@@ -21,7 +21,6 @@ public sealed class ChaosModeService
 {
     private ChaosRunState? _state;
     private ChaosHudWindow? _hud;
-    private ChaosBottomBarWindow? _bottomBar;
     private ChaosOverlayWindow? _overlay;
     private ChaosFxWindow? _fx;
     private DispatcherTimer? _runTimer;
@@ -34,12 +33,26 @@ public sealed class ChaosModeService
 
     public bool IsRunning => _active;
 
+    public bool IsManuallyPaused => _manualPaused;
+
     public void ToggleManualPause()
     {
         if (!_spawning || _paused) return;
         _manualPaused = !_manualPaused;
-        if (_manualPaused) _spawnTimer?.Stop();
-        else _spawnTimer?.Start();
+        if (_manualPaused)
+        {
+            // Freeze the whole field: stop spawning, hold the clock (RunTick early-returns),
+            // and freeze every bubble's motion + fuse so nothing detonates while paused.
+            _spawnTimer?.Stop();
+            App.Bubbles?.SetChaosFrozen(true);
+            _state?.PushEvent("⏸ paused — frozen");
+        }
+        else
+        {
+            App.Bubbles?.SetChaosFrozen(false);
+            _spawnTimer?.Start();
+            _state?.PushEvent("▶ resumed");
+        }
     }
 
     // ============================ start / countdown ============================
@@ -92,7 +105,6 @@ public sealed class ChaosModeService
         _spawning = true;
 
         try { _fx = new ChaosFxWindow(); _fx.Show(); } catch (Exception ex) { App.Logger?.Debug("Chaos FX init: {E}", ex.Message); }
-        try { _bottomBar = new ChaosBottomBarWindow(_state); _bottomBar.Show(); } catch (Exception ex) { App.Logger?.Debug("Chaos bottom bar init: {E}", ex.Message); }
 
         _runTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _runTimer.Tick += RunTick;
@@ -337,7 +349,6 @@ public sealed class ChaosModeService
         try { App.Bubbles?.EndChaosMode(); } catch { }
         try { App.Bubbles?.Resume(); } catch { }
         try { _fx?.Close(); } catch { }
-        try { _bottomBar?.Close(); } catch { }
         if (_overlay != null)
         {
             _overlay.OnDismissed = null;   // avoid re-entrant cleanup
@@ -357,8 +368,6 @@ public sealed class ChaosModeService
         App.Bubbles?.EndChaosMode();
         try { _fx?.Close(); } catch { }
         _fx = null;
-        try { _bottomBar?.Close(); } catch { }
-        _bottomBar = null;
 
         double durMin = Math.Max(1, _state.RunDurationSec) / 60.0;
         double capBase = 250.0 * durMin * _state.Config.DifficultyMult;
@@ -403,7 +412,6 @@ public sealed class ChaosModeService
             App.Bubbles?.Resume();
         }
         try { _hud?.Close(); } catch { }
-        try { _bottomBar?.Close(); } catch { }
         CleanupAfterRun();
     }
 
@@ -412,7 +420,6 @@ public sealed class ChaosModeService
         _runTimer = null;
         _spawnTimer = null;
         _hud = null;
-        _bottomBar = null;
         _overlay = null;
         _fx = null;
         _state = null;

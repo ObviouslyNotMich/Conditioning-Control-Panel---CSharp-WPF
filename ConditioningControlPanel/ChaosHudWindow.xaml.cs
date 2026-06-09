@@ -26,9 +26,12 @@ public partial class ChaosHudWindow : Window
         _chaos = chaos;
         DataContext = state;
 
-        Left = 0;
-        Top = 0;
-        Height = SystemParameters.PrimaryScreenHeight;
+        // Top-anchored and ~60% of the work-area height, so it doesn't span the whole
+        // screen (shrinks from the bottom up).
+        var wa = SystemParameters.WorkArea;
+        Left = wa.Left;
+        Top = wa.Top;
+        Height = wa.Height * 0.6;
         LoadPortrait();
         SourceInitialized += (_, _) => ApplyExStyles();
     }
@@ -56,7 +59,7 @@ public partial class ChaosHudWindow : Window
     {
         if (!_expanded) return;
         _expanded = false;
-        var slide = new DoubleAnimation(-240, TimeSpan.FromMilliseconds(180));
+        var slide = new DoubleAnimation(-300, TimeSpan.FromMilliseconds(180));
         slide.Completed += (_, _) => { if (!_expanded) Panel.Visibility = Visibility.Collapsed; };
         PanelSlide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slide);
     }
@@ -67,7 +70,11 @@ public partial class ChaosHudWindow : Window
         PanelSlide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slide);
     }
 
-    private void BtnPause_Click(object sender, RoutedEventArgs e) => _chaos.ToggleManualPause();
+    private void BtnPause_Click(object sender, RoutedEventArgs e)
+    {
+        _chaos.ToggleManualPause();
+        BtnPause.Content = _chaos.IsManuallyPaused ? "▶ resume" : "⏸ pause";
+    }
     private void BtnStop_Click(object sender, RoutedEventArgs e) => _chaos.RequestStop();
 
     // Don't steal focus / show in Alt+Tab. (No WS_EX_TRANSPARENT — the HUD must be
