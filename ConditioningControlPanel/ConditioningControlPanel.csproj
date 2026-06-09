@@ -252,9 +252,13 @@
     <Resource Include="Resources\avatar_emotes_registry.json" />
     <Resource Include="Resources\circe_emotes\*.gif" />
     <Resource Include="Resources\circe_emotes\emotes.json" />
-    <!-- Circe pose 2 (assets land via the pipeline; include is harmless while the folder is empty). -->
+    <!-- Circe level emote sets: avatar set 2 = L2 (The Claim/key), 3 = L3 (The Pull/spiral), 4 = L4 (The Bind/chain). -->
     <Resource Include="Resources\circe_emotes_p2\*.gif" />
     <Resource Include="Resources\circe_emotes_p2\emotes.json" Condition="Exists('Resources\circe_emotes_p2\emotes.json')" />
+    <Resource Include="Resources\circe_emotes_p3\*.gif" />
+    <Resource Include="Resources\circe_emotes_p3\emotes.json" Condition="Exists('Resources\circe_emotes_p3\emotes.json')" />
+    <Resource Include="Resources\circe_emotes_p4\*.gif" />
+    <Resource Include="Resources\circe_emotes_p4\emotes.json" Condition="Exists('Resources\circe_emotes_p4\emotes.json')" />
 
     <!-- Achievement images -->
     <Resource Include="Resources\achievements\*.png" />

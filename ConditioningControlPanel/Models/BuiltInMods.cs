@@ -2000,7 +2000,7 @@ namespace ConditioningControlPanel.Models
                     }
                 },
 
-                SupportedAvatarSets = new List<int> { 1, 2, 3, 4, 5 },
+                SupportedAvatarSets = new List<int> { 1, 2, 3, 4 },   // 4 levels (set 5 "The Apex" retired)
 
                 // Locked's avatar art reads larger in the tube than the base set. Scale 0.864
                 // (shared by attached + detached; tuned for the animated emote set). Attached:

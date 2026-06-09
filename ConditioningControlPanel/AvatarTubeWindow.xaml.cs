@@ -345,6 +345,15 @@ namespace ConditioningControlPanel
             _selectedAvatarSet = Math.Clamp(_selectedAvatarSet, 1, _maxUnlockedSet);
             _currentAvatarSet = _selectedAvatarSet;
 
+            // Fall back if the saved set isn't supported by the active mod (e.g. a level was retired,
+            // like Circe's set 5) — otherwise a stale selection would load an unsupported avatar.
+            var supportedSetsInit = GetUnlockedAvatarSets(playerLevel);
+            if (supportedSetsInit.Length > 0 && !supportedSetsInit.Contains(_currentAvatarSet))
+            {
+                _selectedAvatarSet = supportedSetsInit[supportedSetsInit.Length - 1];
+                _currentAvatarSet = _selectedAvatarSet;
+            }
+
             // Check if this avatar set has an animated version available
             _useAnimatedAvatar = HasAnimatedAvatar(_currentAvatarSet);
 
@@ -874,6 +883,10 @@ namespace ConditioningControlPanel
             catch { }
         }
 
+        /// <summary>Monotonic token; a rapid burst of set-switches collapses to the latest so a stale
+        /// fade-completion can't repaint an intermediate set (the "ghost" avatar bug).</summary>
+        private int _avatarSwitchGen;
+
         /// <summary>
         /// Switch to a specific avatar set (with optional animation)
         /// </summary>
@@ -882,6 +895,7 @@ namespace ConditioningControlPanel
             int playerLevel = App.Settings?.Current?.PlayerLevel ?? 1;
             if (!IsAvatarSetUnlocked(setNumber, playerLevel)) return;
 
+            int gen = ++_avatarSwitchGen;
             _currentAvatarSet = setNumber;
             _selectedAvatarSet = setNumber;
             _useAnimatedAvatar = HasAnimatedAvatar(setNumber);
@@ -893,22 +907,22 @@ namespace ConditioningControlPanel
                 App.Settings.Save();
             }
 
-            // Link avatar sets 4+ to companions (v5.3)
-            // Set 4: Level 50 → Companion 0 (Perfect Fuckpuppet)
-            // Set 5: Level 125 → Companion 2 (Brainwashed Slavedoll)
-            // Set 6: Level 150 → Companion 3 (Platinum Puppet)
-            // In portrait mode the "set" picks a SKIN (outfit), not a companion — skip the coupling.
-            if (!UsePortraitSystem())
-            {
-                var companionId = GetCompanionForAvatarSet(setNumber);
-                if (companionId.HasValue && App.Companion != null)
-                {
-                    App.Companion.SwitchCompanion(companionId.Value);
-                }
-            }
-
             Action switchAction = () =>
             {
+                // Link avatar sets 4+ to companions (v5.3). Done here (NOT in the synchronous prefix)
+                // so a rapid swipe past intermediate sets doesn't fire SwitchCompanion -> repaint for
+                // each one — only the settled set switches the companion (fixes the ghost avatar).
+                //   Set 4: Lv50 → Perfect Fuckpuppet · Set 5: Lv125 → Brainwashed Slavedoll · Set 6: Lv150 → Platinum Puppet
+                // In portrait mode the "set" picks a SKIN (outfit), not a companion — skip the coupling.
+                if (!UsePortraitSystem())
+                {
+                    var companionId = GetCompanionForAvatarSet(setNumber);
+                    if (companionId.HasValue && App.Companion != null)
+                    {
+                        App.Companion.SwitchCompanion(companionId.Value);
+                    }
+                }
+
                 if (UsePortraitSystem())
                 {
                     // Portrait mode: the selector picks the SKIN. Repoint and reload the buckets.
@@ -962,6 +976,7 @@ namespace ConditioningControlPanel
                 var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
                 fadeOut.Completed += (s, args) =>
                 {
+                    if (gen != _avatarSwitchGen) return;   // a newer swap superseded this one — skip
                     switchAction();
                     var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200));
                     AvatarBorder.BeginAnimation(OpacityProperty, fadeIn);
