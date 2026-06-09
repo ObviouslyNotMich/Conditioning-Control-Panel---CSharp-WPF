@@ -329,6 +329,15 @@ public sealed class ChaosModeService
         _state.ActIndex = 1 + (_state.WaveIndex - 1) / 5;
         FireActChangedIfCrossed();
 
+        // A brief "Ready? :3" → "GO!" beat (same flashing display as run start) before the next
+        // loop resumes, so the pick lands with a moment to settle. Stays paused until GO.
+        if (_overlay != null) _overlay.ShowReadyGo(ResumeAfterDraft);
+        else ResumeAfterDraft();
+    }
+
+    /// <summary>Un-pause the field and restart spawns after the post-pick "Ready? → GO!" beat.</summary>
+    private void ResumeAfterDraft()
+    {
         _paused = false;
         if (_spawning) _spawnTimer?.Start();
     }

@@ -30,6 +30,8 @@ public partial class ChaosOverlayWindow : Window
         public Button Pick = null!;
         public ScaleTransform Scale = null!;
         public ChaosBoon Boon = null!;
+        public Border Art = null!;                 // artwork square (placeholder until per-boon art ships)
+        public SolidColorBrush ArtBorder = null!;  // its thick border brush — flashed on pick
     }
     private readonly System.Collections.Generic.List<DraftCard> _draftCards = new();
     private DispatcherTimer? _revealTimer;
@@ -62,6 +64,18 @@ public partial class ChaosOverlayWindow : Window
     /// (RunAgain); otherwise the full 3·2·1·GO. Skippable on click/keypress in both cases.</summary>
     public void ShowCountdown(Action onComplete, bool shortFlash = false)
     {
+        string[] steps = shortFlash ? new[] { "GO!" } : new[] { "3", "2", "1", "GO!" };
+        int interval = shortFlash ? ChaosModeService.ChaosRestartCountdownMs : 750;
+        ShowCountdownSteps(steps, interval, onComplete);
+    }
+
+    /// <summary>A short "Ready? :3" → "GO!" beat after a mantra pick, using the same flashing
+    /// countdown display as the run start, so play resumes with a moment to settle. Skippable.</summary>
+    public void ShowReadyGo(Action onComplete)
+        => ShowCountdownSteps(new[] { "Ready? :3", "GO!" }, 800, onComplete);
+
+    private void ShowCountdownSteps(string[] steps, int interval, Action onComplete)
+    {
         SetClickThrough(true);
         Backdrop.Visibility = Visibility.Collapsed;
         DraftPanel.Visibility = Visibility.Collapsed;
@@ -71,8 +85,6 @@ public partial class ChaosOverlayWindow : Window
         _countdownComplete = onComplete;
         _countdownFinished = false;
 
-        string[] steps = shortFlash ? new[] { "GO!" } : new[] { "3", "2", "1", "GO!" };
-        int interval = shortFlash ? ChaosModeService.ChaosRestartCountdownMs : 750;
         int i = 0;
         ShowCountdownStep(steps[0]);
 
@@ -282,6 +294,31 @@ public partial class ChaosOverlayWindow : Window
         var accentBrush = new SolidColorBrush(accent);
 
         var panel = new StackPanel { Width = 190 };
+
+        // Artwork square on top of the card — a thick accent border (flashed on pick) around the
+        // boon's art. Real art at assets/Chaos/boons/{id}.png is used when present; until then a
+        // placeholder (dark fill + the boon's glyph) stands in.
+        var artBorderBrush = new SolidColorBrush(accent);
+        var artFill = Services.Chaos.ChaosArt.Resolve("boons", boon.Id);
+        var art = new Border
+        {
+            Width = 190, Height = 190,
+            BorderBrush = artBorderBrush, BorderThickness = new Thickness(4),
+            CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, 0, 10),
+            RenderTransformOrigin = new Point(0.5, 0.5),
+            Background = artFill != null
+                ? new ImageBrush(artFill) { Stretch = Stretch.UniformToFill }
+                : new SolidColorBrush(Color.FromArgb(48, 0, 0, 0)),
+        };
+        if (artFill == null)
+            art.Child = new TextBlock
+            {
+                Text = boon.IsCurse ? "☠" : "◈", FontSize = 70,
+                Foreground = new SolidColorBrush(Color.FromArgb(90, accent.R, accent.G, accent.B)),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            };
+        panel.Children.Add(art);
+
         panel.Children.Add(new TextBlock
         {
             Text = (boon.IsCurse ? "☠ " : "◈ ") + boon.Name.ToUpperInvariant(),
@@ -320,7 +357,7 @@ public partial class ChaosOverlayWindow : Window
             RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = scale
         };
 
-        var dc = new DraftCard { Card = card, Pick = pick, Scale = scale, Boon = boon };
+        var dc = new DraftCard { Card = card, Pick = pick, Scale = scale, Boon = boon, Art = art, ArtBorder = artBorderBrush };
         pick.Click += (_, _) => SelectBoon(dc);
         return dc;
     }
@@ -364,6 +401,20 @@ public partial class ChaosOverlayWindow : Window
         chosen.Card.BorderBrush = new SolidColorBrush(hi);
         chosen.Card.BorderThickness = new Thickness(3);
         chosen.Card.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = hi, BlurRadius = 28, ShadowDepth = 0, Opacity = 0.9 };
+
+        // Flash the chosen art-square's thick border: pulse its colour bright↔accent on a loop, and
+        // give the square a matching glow. The loop tears down with the draft a moment later.
+        chosen.Art.BorderThickness = new Thickness(5);
+        chosen.Art.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = hi, BlurRadius = 24, ShadowDepth = 0, Opacity = 0.95 };
+        var flash = new ColorAnimation
+        {
+            From = chosen.ArtBorder.Color, To = hi,
+            Duration = TimeSpan.FromMilliseconds(240),
+            AutoReverse = true,
+            RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut },
+        };
+        chosen.ArtBorder.BeginAnimation(SolidColorBrush.ColorProperty, flash);
 
         // Slight bounce on the chosen button.
         if (chosen.Pick.RenderTransform is ScaleTransform ps)
