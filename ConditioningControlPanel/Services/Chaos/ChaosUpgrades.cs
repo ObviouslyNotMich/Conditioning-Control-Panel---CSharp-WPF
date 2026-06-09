@@ -18,6 +18,8 @@ public sealed class ChaosUpgrade
     public string Name = "";
     public int Cost;                            // in Sparks
     public Action<ChaosRunConfig> Apply = _ => { };
+    /// <summary>Optional icon path; null falls back to a vector placeholder. Wired in phase 5.</summary>
+    public string? IconPath = null;
 }
 
 /// <summary>
@@ -87,6 +89,33 @@ public static class ChaosMeta
     public static ChaosMetaState State { get; private set; } = new();
 
     public static void Init() => State = ChaosMetaStore.Load();
+
+    /// <summary>Persist the current state (after a mutation made directly on State).</summary>
+    public static void Save() => ChaosMetaStore.Save(State);
+
+    // ---- progressive hub unlocks (named thresholds, by lifetime RunsCompleted) ----
+    public const int UNLOCK_UPGRADES_RUNS = 1;
+    public const int UNLOCK_STATS_RUNS    = 1;
+    public const int UNLOCK_CODEX_RUNS    = 1;
+    public const int UNLOCK_LOADOUT_RUNS  = 3;
+
+    /// <summary>Rank derived from lifetime <see cref="ChaosMetaState.RunsCompleted"/> (monotonic, simple).</summary>
+    public static string Rank => State.RunsCompleted switch
+    {
+        >= 100 => "Paragon",
+        >= 50  => "Adept",
+        >= 25  => "Initiate",
+        >= 10  => "Novice",
+        >= 3   => "Dabbler",
+        _      => "Newcomer"
+    };
+
+    /// <summary>Equip (or clear, with null) the pre-drafted start boon and persist.</summary>
+    public static void EquipStartBoon(string? boonId)
+    {
+        State.EquippedStartBoon = boonId;
+        Save();
+    }
 
     public static bool IsOwned(string id) => State.PurchasedUpgrades.Contains(id);
 

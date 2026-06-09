@@ -16,6 +16,9 @@ public sealed class ChaosMetaState
     public HashSet<string> PurchasedUpgrades { get; set; } = new();
     public bool ExtremeUnlocked { get; set; } = false;
 
+    /// <summary>Boon id pre-equipped to apply at run start (Loadout tab). Null = none.</summary>
+    public string? EquippedStartBoon { get; set; } = null;
+
     // lifetime stats (consumed by the Stats tab in a later session)
     public int RunsCompleted { get; set; } = 0;
     public long BestScore { get; set; } = 0;

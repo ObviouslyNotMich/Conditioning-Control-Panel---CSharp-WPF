@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -79,6 +80,14 @@ public sealed class ChaosModeService
         App.Bubbles?.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated, OnDarterCaught);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("⚡ run started");
+
+        // Loadout: a pre-equipped start boon enters the run already active (before wave 1).
+        var equipped = ChaosMeta.State.EquippedStartBoon;
+        if (!string.IsNullOrEmpty(equipped))
+        {
+            var boon = ChaosBoonPool.All.FirstOrDefault(b => b.Id == equipped);
+            if (boon != null) _state.ApplyBoon(boon);
+        }
         _spawning = true;
 
         try { _fx = new ChaosFxWindow(); _fx.Show(); } catch (Exception ex) { App.Logger?.Debug("Chaos FX init: {E}", ex.Message); }

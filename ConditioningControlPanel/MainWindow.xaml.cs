@@ -9035,8 +9035,8 @@ namespace ConditioningControlPanel
             try
             {
                 if (App.Chaos == null || App.Chaos.IsRunning) return;
-                var setup = new ChaosSetupWindow { Owner = this };
-                setup.ShowDialog();
+                var hub = new ChaosHubWindow { Owner = this };
+                hub.ShowDialog();
             }
             catch (Exception ex)
             {
