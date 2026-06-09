@@ -145,14 +145,14 @@ public static class ChaosBubbleVariants
     };
 
     /// <summary>Curated one-click bubble-pool mixes for the setup window.</summary>
-    public sealed record ChaosPreset(string Name, List<string> VariantIds, double LiveShare);
+    public sealed record ChaosPreset(string Name, List<string> VariantIds);
 
     public static List<ChaosPreset> Presets => new()
     {
-        new("Balanced",   AllIds(),                                                  0.40),
-        new("Tease",      new() { "flash", "subliminal", "pink", "spiral", "bambifreeze" }, 0.30),
-        new("Overload",   AllIds(),                                                  0.70),
-        new("Flash-only", new() { "flash", "subliminal" },                           0.20),
+        new("Balanced",   AllIds()),
+        new("Tease",      new() { "flash", "subliminal", "pink", "spiral", "bambifreeze" }),
+        new("Overload",   AllIds()),
+        new("Flash-only", new() { "flash", "subliminal" }),
     };
 
     public static readonly List<ChaosBubbleVariant> All = new()

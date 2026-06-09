@@ -30,6 +30,40 @@ public sealed class ChaosModeService
     private bool _paused;        // boon draft on screen (clock + spawns held)
     private bool _manualPaused;  // user hit pause
     private int _pendingWave;
+    private int _runDetonations;  // per-run count of detonations (absorbed + unshielded)
+    private int _lastComboBigFired;   // highest ComboBig threshold already fired this combo streak
+    private int _lastActFired = 1;    // last ActIndex an ActChanged bark fired for
+
+    // ---- "start small": named tunables (conservative defaults; no magic numbers in logic) ----
+    /// <summary>High-combo thresholds that fire ChaosComboBig once per crossing (edge-detected).</summary>
+    private static readonly int[] COMBO_BIG_THRESHOLDS = { 25, 50, 100 };
+    /// <summary>Countdown length (ms) used on RunAgain (full-start countdown is unchanged at 3s).</summary>
+    public const int ChaosRestartCountdownMs = 1000;
+    /// <summary>Seconds an untouched boon draft waits before auto-skipping (+1 shield). 0 disables.</summary>
+    public const int DraftAutoResumeSecDefault = 15;
+
+    // ---- benign-pop juice ----
+    private static readonly Color BENIGN_POP_COLOR = Color.FromRgb(255, 200, 235);  // soft pink/white
+    private const double BENIGN_POP_PULSE = 0.10;                                    // low-strength micro-pulse
+    // ---- combo micro-build juice ----
+    private const double COMBO_MICRO_PULSE_MIN = 0.04;   // tiny pulse just after a milestone
+    private const double COMBO_MICRO_PULSE_MAX = 0.12;   // grows toward the next milestone
+    private const double COMBO_BIG_PULSE = 0.55;         // distinct big-combo beat
+    private static readonly Color COMBO_MICRO_COLOR = Color.FromRgb(255, 170, 80);
+    private static readonly Color COMBO_BIG_COLOR   = Color.FromRgb(255, 230, 120);
+    // ---- shield gain/loss cue ----
+    private static readonly Color SHIELD_GAIN_COLOR = Color.FromRgb(120, 220, 160);  // green +shield
+    private const double SHIELD_GAIN_PULSE = 0.22;
+    // ---- wave-clear cue ----
+    private static readonly Color WAVE_CLEAR_COLOR = Color.FromRgb(150, 200, 255);
+    private const double WAVE_CLEAR_PULSE = 0.30;
+    // Near-miss danger telegraph is now visual-only and per-bubble (the about-to-blow bubble
+    // flashes + breathes faster in BubbleService) — no screen flash, no audio tick.
+    // ---- heat temperature tint (additive overlay only; rises with HeatMult) ----
+    private static readonly Color HEAT_TINT_COLOR = Color.FromRgb(255, 90, 40);
+    private const double HEAT_TINT_MIN = 0.30;       // heat must exceed this before the tint shows
+    private const double HEAT_TINT_MAX_OPACITY = 0.30;  // peak held-edge opacity at full heat
+    private double _lastHeatTint = -1;               // last applied heat-tint level (avoid churn)
 
     public bool IsRunning => _active;
 
@@ -57,7 +91,7 @@ public sealed class ChaosModeService
 
     // ============================ start / countdown ============================
 
-    public void StartRun(ChaosRunConfig? config = null)
+    public void StartRun(ChaosRunConfig? config = null, bool isRestart = false)
     {
         if (_active) return;
         var cfg = config ?? ChaosRunConfig.FromSettings();
@@ -75,7 +109,7 @@ public sealed class ChaosModeService
             _overlay.OnRunAgain = RunAgain;
             _overlay.OnDismissed = OnOverlayClosed;
             _overlay.Show();
-            _overlay.ShowCountdown(BeginRun);
+            _overlay.ShowCountdown(BeginRun, shortFlash: isRestart);   // 1s flash on RunAgain
         }
         catch (Exception ex)
         {
@@ -94,6 +128,10 @@ public sealed class ChaosModeService
         App.Bubbles?.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated, OnDarterCaught, OnFreezeCaught);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("⚡ run started");
+        _runDetonations = 0;
+        _lastComboBigFired = 0;
+        _lastActFired = 1;
+        _lastHeatTint = -1;
         EndSlowMo(); EndFreeze();   // clean power-up state for the new run (no leak across runs)
         App.Overlay?.WarmSpiralCache();   // pre-decode the spiral off-thread so its first show doesn't hitch
 
@@ -127,6 +165,7 @@ public sealed class ChaosModeService
         double elapsed = _state.ElapsedSec + dt;
         _state.ElapsedSec = elapsed;
         _state.Heat = Math.Max(0, _state.Heat - 0.0015);
+        UpdateHeatTint();
 
         // Power-ups run on the real clock (so they don't extend the run length).
         if (_slowMoRemainingSec > 0)
@@ -193,6 +232,7 @@ public sealed class ChaosModeService
             _state.WaveIndex = newWave;
             _state.ActIndex = 1 + (newWave - 1) / 5;
             App.Bark?.NotifyChaosWaveEscalated(newWave);
+            FireActChangedIfCrossed();
             return;
         }
 
@@ -202,6 +242,9 @@ public sealed class ChaosModeService
         // with a single burst cue as everything pops.
         App.Bubbles?.PopAllBubbles();
         ChaosSfx.PlayWaveClear();
+        // Wave-clear juice (additive only): a soft screen pulse + a clear bark on the boundary.
+        Pulse(WAVE_CLEAR_COLOR, WAVE_CLEAR_PULSE);
+        App.Bark?.NotifyChaosWaveCleared(_state.WaveIndex);
 
         // Clear the finished wave's transient (next-wave) flags before drafting.
         _state.AllLiveNextWave = false;
@@ -213,7 +256,7 @@ public sealed class ChaosModeService
 
         var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices);
         foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
-        _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen);
+        _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen, _state.Config.DraftAutoResumeSec);
     }
 
     private void OnBoonChosen(ChaosBoon? boon)
@@ -223,12 +266,19 @@ public sealed class ChaosModeService
         if (boon != null)
         {
             _state.ApplyBoon(boon);
-            App.Bark?.NotifyChaosBoonPicked(boon.Name);
+            if (boon.Id == "extra_shield") Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);   // +2 shields cue
+            if (boon.IsCurse)
+                App.Bark?.NotifyChaosCursePicked(boon.Name, boon.Rarity.ToString(), boon.RunMultBonus);
+            else
+                App.Bark?.NotifyChaosBoonPicked(boon.Name);
         }
         else
         {
             _state.Shields += 1;
             _state.PushEvent("⛊ skipped → +1 shield");
+            // Shield-gain cue (+1 from skip) — pulse + bark.
+            Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);
+            App.Bark?.NotifyChaosBoonSkipped(_state.Shields);
         }
 
         if (_state.DoubleOrNothingArmed)
@@ -239,6 +289,7 @@ public sealed class ChaosModeService
 
         _state.WaveIndex = _pendingWave;
         _state.ActIndex = 1 + (_state.WaveIndex - 1) / 5;
+        FireActChangedIfCrossed();
 
         _paused = false;
         if (_spawning) _spawnTimer?.Start();
@@ -271,6 +322,8 @@ public sealed class ChaosModeService
         double benignMult = _state.Config.GoldenTouchBaseline ? 0.6 : 0.4;
         _state.Score += BasePoints(spec.Strength) * benignMult * _state.TotalMult;
         App.Achievements?.TrackBubblePopped();
+        Pulse(BENIGN_POP_COLOR, BENIGN_POP_PULSE);   // the most-frequent action now has a tiny pop pulse
+        App.Bark?.NotifyChaosBenignPopped(spec.VariantId, spec.Payload.DisplayName, _state.Combo);
         _state.PushEvent($"○ popped {spec.Payload.DisplayName}");
         CheckComboMilestone();
     }
@@ -283,7 +336,7 @@ public sealed class ChaosModeService
         _state.Heat = Math.Min(1.0, _state.Heat + 0.07);
         _state.Score += BasePoints(spec.Strength) * 1.0 * _state.TotalMult;
         App.Achievements?.TrackBubblePopped();
-        App.Bark?.NotifyChaosBubbleDefused();
+        App.Bark?.NotifyChaosBubbleDefused(_state.Combo, spec.VariantId, _state.Config.Difficulty.ToString());
         Pulse(Color.FromRgb(90, 255, 150), 0.16);   // soft green confirm
         _state.PushEvent($"✔ defused {spec.Payload.DisplayName}");
         CheckComboMilestone();
@@ -292,10 +345,13 @@ public sealed class ChaosModeService
     private void OnDetonated(EffectBubbleSpec spec)
     {
         if (_state == null || _paused) return;
-        spec.Payload.Fire();                 // the threat goes off
+        FirePayloadForDetonation(spec);      // the threat goes off (ambient mode may soften it)
         _state.EffectsFired++;
         _state.Detonated++;
+        _runDetonations++;
 
+        string variant = spec.VariantId;     // payload ctx = variant id (e.g. "braindrain","video")
+        string diff = _state.Config.Difficulty.ToString();
         double s = spec.Strength / 100.0;
         int shieldCost = _state.DoubleOrNothingActive ? 2 : 1;
         if (_state.Shields >= shieldCost)
@@ -305,17 +361,51 @@ public sealed class ChaosModeService
             _state.PushEvent($"🛡 absorbed {spec.Payload.DisplayName}!");
             Pulse(Color.FromRgb(80, 160, 255), 0.28);    // blue shield-save
             Shake(0.25 + s * 0.3, 280);
+            // Clutch shield-save branch — distinct trigger so the matcher can praise it.
+            App.Bark?.NotifyChaosBubbleDetonatedAbsorbed(variant, spec.Strength, _runDetonations, _state.Combo, diff, _state.Shields);
         }
         else
         {
+            int comboBeforeBreak = _state.Combo;   // capture BEFORE zeroing (frozen contract)
             _state.Combo = 0;
+            _lastComboBigFired = 0;                // combo broke → reset ComboBig crossing tracking
             _state.Heat = 0;
             _state.PushEvent($"💥 {spec.Payload.DisplayName} detonated!");
             Pulse(Color.FromRgb(255, 50, 50), 0.4 + s * 0.35);   // red malus
             Shake(0.4 + s * 0.5, 380);                           // the malus jolt
+            // Real-hit branch (unshielded only now).
+            App.Bark?.NotifyChaosBubbleDetonated(variant, spec.Strength, _runDetonations, comboBeforeBreak, diff);
         }
-        App.Bark?.NotifyChaosBubbleDetonated(spec.Payload.DisplayName);
     }
+
+    /// <summary>
+    /// Fire a detonating bubble's payload. In opt-in Ambient mode, an intrusive payload
+    /// (video / HT link) is remapped to one of the two lighter ambient payloads so a
+    /// background run never yanks a fullscreen video/browser over the user's work.
+    /// Outside ambient mode the payload fires exactly as built (neutral invariant).
+    /// </summary>
+    private void FirePayloadForDetonation(EffectBubbleSpec spec)
+    {
+        try
+        {
+            if (_state?.Config?.AmbientMode == true && IsIntrusivePayload(spec.Payload.Kind))
+            {
+                EffectPayload soft = _ambientRng.NextDouble() < 0.5
+                    ? new BouncingTextPayload()
+                    : new GifCascadePayload();
+                soft.Strength = spec.Payload.Strength;
+                soft.Fire();
+                return;
+            }
+        }
+        catch (Exception ex) { App.Logger?.Debug("Chaos ambient remap: {E}", ex.Message); }
+        spec.Payload.Fire();
+    }
+
+    private static bool IsIntrusivePayload(EffectBubblePayloadKind k) =>
+        k == EffectBubblePayloadKind.Video || k == EffectBubblePayloadKind.HtLink;
+
+    private static readonly Random _ambientRng = new();
 
     private void OnDarterCaught(EffectBubbleSpec spec, bool quick)
     {
@@ -328,6 +418,7 @@ public sealed class ChaosModeService
         // The darter is a utility pickup: catching it slows time (no conditioning jolt).
         ActivateSlowMo();
         Pulse(Color.FromRgb(120, 200, 255), quick ? 0.32 : 0.24);   // icy slow-mo flash
+        App.Bark?.NotifyChaosDarterCaught(pts, _state.Combo, quick);
         _state.PushEvent(quick ? "⚡ quick catch — time slows!" : "⏳ darter caught — time slows!");
         CheckComboMilestone();
     }
@@ -343,6 +434,7 @@ public sealed class ChaosModeService
         _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
         App.Achievements?.TrackBubblePopped();
         ActivateFreeze();
+        App.Bark?.NotifyChaosFreezeCaught(FREEZE_BASE_POINTS * _state.TotalMult, _state.Combo);
         _state.PushEvent("❄ frozen — the field holds!");
         CheckComboMilestone();
     }
@@ -401,12 +493,62 @@ public sealed class ChaosModeService
     private void CheckComboMilestone()
     {
         if (_state == null) return;
-        if (_state.Combo > 0 && _state.Combo % 10 == 0)
+        int combo = _state.Combo;
+        if (combo <= 0) return;
+
+        // Big-combo crossing: edge-detected, fires ONCE per threshold per streak.
+        foreach (int t in COMBO_BIG_THRESHOLDS)
         {
-            _state.PushEvent($"🔥 combo x{_state.Combo}!");
-            App.Bark?.NotifyChaosComboMilestone(_state.Combo);
+            if (combo >= t && _lastComboBigFired < t)
+            {
+                _lastComboBigFired = t;
+                _state.PushEvent($"🔥🔥 COMBO x{combo}!");
+                App.Bark?.NotifyChaosComboBig(combo, t);
+                Pulse(COMBO_BIG_COLOR, COMBO_BIG_PULSE);   // distinct bigger beat
+            }
+        }
+
+        if (combo % 10 == 0)
+        {
+            _state.PushEvent($"🔥 combo x{combo}!");
+            App.Bark?.NotifyChaosComboMilestone(combo, _state.Config.Difficulty.ToString());
             Pulse(Color.FromRgb(255, 200, 60), 0.4);   // gold combo flash
         }
+        else
+        {
+            // Micro-build between milestones: a tiny pulse that grows toward the next ×10.
+            double frac = (combo % 10) / 10.0;
+            double strength = COMBO_MICRO_PULSE_MIN + (COMBO_MICRO_PULSE_MAX - COMBO_MICRO_PULSE_MIN) * frac;
+            Pulse(COMBO_MICRO_COLOR, strength);
+        }
+    }
+
+    /// <summary>Fire ChaosActChanged once when ActIndex advances (edge-detected, not per tick).</summary>
+    private void FireActChangedIfCrossed()
+    {
+        if (_state == null) return;
+        if (_state.ActIndex > _lastActFired)
+        {
+            _lastActFired = _state.ActIndex;
+            App.Bark?.NotifyChaosActChanged(_state.ActIndex, _state.WaveIndex);
+        }
+    }
+
+    /// <summary>Make heat visible: a subtle rising temperature tint as Heat climbs (additive
+    /// held-edge overlay only — never touches scoring/multiplier math). Honors the color-flashes toggle.</summary>
+    private void UpdateHeatTint()
+    {
+        if (_state?.Config?.ColorFlashesEnabled != true || _fx == null) return;
+        double heat = _state.Heat;
+        double level = heat <= HEAT_TINT_MIN
+            ? 0
+            : (heat - HEAT_TINT_MIN) / (1.0 - HEAT_TINT_MIN);   // 0..1 above the floor
+        // Quantize so we don't re-issue an animation every 250ms tick.
+        double q = Math.Round(level, 1);
+        if (Math.Abs(q - _lastHeatTint) < 0.05) return;
+        _lastHeatTint = q;
+        if (q <= 0) _fx.EndHeatTint();
+        else _fx.SetHeatTint(HEAT_TINT_COLOR, q * HEAT_TINT_MAX_OPACITY);
     }
 
     // ============================ end / teardown ============================
@@ -433,6 +575,7 @@ public sealed class ChaosModeService
         try { App.Bubbles?.Resume(); } catch { }
         EndSlowMo(); EndFreeze();
         try { ChaosFlashOverlay.CloseActive(); } catch { }
+        try { ChaosGifCascadeOverlay.CloseActive(); } catch { }
         try { _fx?.Close(); } catch { }
         if (_overlay != null)
         {
@@ -453,6 +596,7 @@ public sealed class ChaosModeService
         App.Bubbles?.EndChaosMode();
         EndSlowMo(); EndFreeze();
         try { ChaosFlashOverlay.CloseActive(); } catch { }
+        try { ChaosGifCascadeOverlay.CloseActive(); } catch { }
         try { _fx?.Close(); } catch { }
         _fx = null;
 
@@ -462,18 +606,22 @@ public sealed class ChaosModeService
         double skillMult = _state.SkillMult;
         double finalXp = baseXp * skillMult;
 
-        try { App.Progression?.AddXP(baseXp, XPSource.Bubble); }
+        try { App.Progression?.AddXP(baseXp, XPSource.Chaos); }
         catch (Exception ex) { App.Logger?.Debug("Chaos payout AddXP: {E}", ex.Message); }
+
+        // Capture the previous best BEFORE the meta award updates it — for the PB delta line/bark.
+        long previousBest = ChaosMeta.State.BestScore;
 
         // Meta-progression: bank Sparks + update lifetime stats (separate from XP payout).
         try { ChaosMeta.AwardRunRewards(_state); }
         catch (Exception ex) { App.Logger?.Debug("Chaos meta award: {E}", ex.Message); }
 
-        App.Bark?.NotifyChaosRunCompleted((int)finalXp);
+        string diff = _state.Config.Difficulty.ToString();
+        App.Bark?.NotifyChaosRunCompleted((int)finalXp, diff);
 
         _hud?.Close();
         _hud = null;
-        _overlay?.ShowResults(_state, baseXp, skillMult, finalXp);
+        _overlay?.ShowResults(_state, baseXp, skillMult, finalXp, previousBest);
 
         App.Bubbles?.Resume();
         App.Logger?.Information("Chaos run complete: base {Base:0} x skill {Mult:0.0} = {Final:0} XP (defused {D}, detonated {Det})",
@@ -482,9 +630,9 @@ public sealed class ChaosModeService
 
     private void RunAgain()
     {
-        // Tear down the current run windows, then start a fresh one.
+        // Tear down the current run windows, then start a fresh one (short 1s GO flash on restart).
         _overlay?.Close();   // triggers OnOverlayClosed → CleanupAfterRun
-        Application.Current?.Dispatcher.BeginInvoke(new Action(() => StartRun()));
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() => StartRun(isRestart: true)));
     }
 
     private void OnOverlayClosed()

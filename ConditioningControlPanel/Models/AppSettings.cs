@@ -2012,12 +2012,7 @@ namespace ConditioningControlPanel.Models
             get => _chaosRunDurationSec;
             set { _chaosRunDurationSec = Math.Clamp(value, 60, 900); OnPropertyChanged(); }
         }
-        private double _chaosLiveBubbleShare = 0.35;
-        public double ChaosLiveBubbleShare
-        {
-            get => _chaosLiveBubbleShare;
-            set { _chaosLiveBubbleShare = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
-        }
+        // (ChaosLiveBubbleShare removed — the knob was inert; live/benign split is set by variant weights.)
         // Motion: "Mixed" (per-variant defaults), "FloatUp", "RainDown", "RoamBounce".
         private string _chaosMotionMode = "Mixed";
         public string ChaosMotionMode

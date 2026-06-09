@@ -7530,6 +7530,17 @@
                                         </Style>
                                     </Button.Resources>
                                 </Button>
+                                <Button x:Name="BtnQuickStartChaos" Content="⚡ Quick Start" Cursor="Hand"
+                                        Background="Transparent" Foreground="{DynamicResource PinkBrush}" FontWeight="SemiBold" FontSize="12"
+                                        BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" Padding="14,6" Margin="0,8,0,0"
+                                        HorizontalAlignment="Right" ToolTip="Skip the hub — start a run with your saved settings"
+                                        Click="BtnQuickStartChaos_Click">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="9"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
                             </StackPanel>
                         </Grid>
                     </Border>

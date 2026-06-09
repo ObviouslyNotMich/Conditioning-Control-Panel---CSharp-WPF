@@ -215,16 +215,59 @@ namespace ConditioningControlPanel.Services
         public void NotifyChaosRunStarted(string difficulty) => Raise("ChaosRunStarted", c => c.Set("difficulty", difficulty));
         /// <summary>The run escalated into a new wave. ctx: wave (number).</summary>
         public void NotifyChaosWaveEscalated(int wave) => Raise("ChaosWaveEscalated", c => c.Set("wave", (double)wave));
-        /// <summary>A live bubble was defused in time.</summary>
-        public void NotifyChaosBubbleDefused() => Raise("ChaosBubbleDefused");
-        /// <summary>A live bubble detonated and fired its payload. ctx: payload (name).</summary>
-        public void NotifyChaosBubbleDetonated(string payload) => Raise("ChaosBubbleDetonated", c => c.Set("payload", payload));
-        /// <summary>A boon (or curse) was drafted. ctx: boon (name).</summary>
+        /// <summary>A live bubble was defused in time. ctx: combo, payload (variant id), difficulty.</summary>
+        public void NotifyChaosBubbleDefused(int combo, string payload, string difficulty) =>
+            Raise("ChaosBubbleDefused", c => c.Set("combo", (double)combo).Set("payload", payload).Set("difficulty", difficulty));
+        /// <summary>An UNSHIELDED live bubble detonated and fired its payload (real hit). ctx: payload (variant id),
+        /// strength, shield_absorbed(false), run_detonations, combo (captured before the break), difficulty.</summary>
+        public void NotifyChaosBubbleDetonated(string payload, double strength, double runDetonations, int combo, string difficulty) =>
+            Raise("ChaosBubbleDetonated", c => c
+                .Set("payload", payload).Set("strength", strength).Set("shield_absorbed", false)
+                .Set("run_detonations", runDetonations).Set("combo", (double)combo).Set("difficulty", difficulty));
+        /// <summary>A clutch shield-save: a live bubble's detonation was absorbed by a shield. ctx: payload (variant id),
+        /// strength, shield_absorbed(true), run_detonations, combo, difficulty, shields_left.</summary>
+        public void NotifyChaosBubbleDetonatedAbsorbed(string payload, double strength, double runDetonations, int combo, string difficulty, int shieldsLeft) =>
+            Raise("ChaosBubbleDetonatedAbsorbed", c => c
+                .Set("payload", payload).Set("strength", strength).Set("shield_absorbed", true)
+                .Set("run_detonations", runDetonations).Set("combo", (double)combo).Set("difficulty", difficulty)
+                .Set("shields_left", (double)shieldsLeft));
+        /// <summary>A benign treat bubble was popped. ctx: variant_id, payload (display name), combo.</summary>
+        public void NotifyChaosBenignPopped(string variantId, string payload, int combo) =>
+            Raise("ChaosBenignPopped", c => c.Set("variant_id", variantId).Set("payload", payload).Set("combo", (double)combo));
+        /// <summary>A boon was drafted. ctx: boon (name).</summary>
         public void NotifyChaosBoonPicked(string boon) => Raise("ChaosBoonPicked", c => c.Set("boon", boon));
-        /// <summary>A combo milestone (every 10). ctx: combo.</summary>
-        public void NotifyChaosComboMilestone(int combo) => Raise("ChaosComboMilestone", c => c.Set("combo", (double)combo));
-        /// <summary>The run finished. ctx: xp (final payout).</summary>
-        public void NotifyChaosRunCompleted(int xp) => Raise("ChaosRunCompleted", c => c.Set("xp", (double)xp));
+        /// <summary>A curse was drafted (fired instead of ChaosBoonPicked for curses). ctx: boon (name), rarity, run_mult_bonus.</summary>
+        public void NotifyChaosCursePicked(string boon, string rarity, double runMultBonus) =>
+            Raise("ChaosCursePicked", c => c.Set("boon", boon).Set("rarity", rarity).Set("run_mult_bonus", runMultBonus));
+        /// <summary>The boon draft was skipped (null pick, +1 shield). ctx: shields_now.</summary>
+        public void NotifyChaosBoonSkipped(int shieldsNow) => Raise("ChaosBoonSkipped", c => c.Set("shields_now", (double)shieldsNow));
+        /// <summary>A darter was caught. ctx: points, combo, quick (true = fast-catch bonus).</summary>
+        public void NotifyChaosDarterCaught(double points, int combo, bool quick) =>
+            Raise("ChaosDarterCaught", c => c.Set("points", points).Set("combo", (double)combo).Set("quick", quick));
+        /// <summary>A freeze bubble was caught. ctx: points, combo.</summary>
+        public void NotifyChaosFreezeCaught(double points, int combo) =>
+            Raise("ChaosFreezeCaught", c => c.Set("points", points).Set("combo", (double)combo));
+        /// <summary>A combo milestone (every 10). ctx: combo, difficulty.</summary>
+        public void NotifyChaosComboMilestone(int combo, string difficulty) =>
+            Raise("ChaosComboMilestone", c => c.Set("combo", (double)combo).Set("difficulty", difficulty));
+        /// <summary>A high combo threshold was crossed (edge-detected). ctx: combo, threshold.</summary>
+        public void NotifyChaosComboBig(int combo, double threshold) =>
+            Raise("ChaosComboBig", c => c.Set("combo", (double)combo).Set("threshold", threshold));
+        /// <summary>The act advanced (edge-detected). ctx: act, wave.</summary>
+        public void NotifyChaosActChanged(int act, int wave) =>
+            Raise("ChaosActChanged", c => c.Set("act", (double)act).Set("wave", (double)wave));
+        /// <summary>The field was cleared at a wave boundary. ctx: wave (the wave just cleared).</summary>
+        public void NotifyChaosWaveCleared(int wave) => Raise("ChaosWaveCleared", c => c.Set("wave", (double)wave));
+        /// <summary>The run finished. ctx: xp (final payout), difficulty.</summary>
+        public void NotifyChaosRunCompleted(int xp, string difficulty) =>
+            Raise("ChaosRunCompleted", c => c.Set("xp", (double)xp).Set("difficulty", difficulty));
+        /// <summary>The results screen was shown. ctx: score, best_score, pb_delta, is_pb, defused, detonated, best_combo, difficulty.</summary>
+        public void NotifyChaosResultsShown(double score, double bestScore, double pbDelta, bool isPb,
+                                            double defused, double detonated, int bestCombo, string difficulty) =>
+            Raise("ChaosResultsShown", c => c
+                .Set("score", score).Set("best_score", bestScore).Set("pb_delta", pbDelta).Set("is_pb", isPb)
+                .Set("defused", defused).Set("detonated", detonated).Set("best_combo", (double)bestCombo)
+                .Set("difficulty", difficulty));
 
         // Reflection cache so a numeric-setting read on every PropertyChanged stays cheap.
         private static readonly Dictionary<string, System.Reflection.PropertyInfo?> _settingPropCache = new(StringComparer.Ordinal);

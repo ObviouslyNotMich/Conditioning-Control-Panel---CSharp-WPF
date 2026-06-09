@@ -17,8 +17,6 @@ public sealed class ChaosRunConfig
     public ChaosDifficulty Difficulty { get; set; } = ChaosDifficulty.Easy;
     public int DurationSec { get; set; } = 180;
     public int WaveCount { get; set; } = 5;
-    /// <summary>Baseline share (0..1) of spawned bubbles that are "live" (fused).</summary>
-    public double LiveBubbleShare { get; set; } = 0.35;
     public List<PayloadConfig> Payloads { get; set; } = EffectPayloadFactory.DefaultConfig();
 
     // ---- setup-window config ----
@@ -35,6 +33,12 @@ public sealed class ChaosRunConfig
     public bool AllowCurses { get; set; } = true;
     /// <summary>Darters (bouncing-flash catch targets) spawn during the run when true.</summary>
     public bool DartersEnabled { get; set; } = true;
+    /// <summary>If a boon draft is left untouched this many seconds, auto-take the SKIP (+1 shield) and
+    /// resume so an unattended run never freezes forever. 0 disables (wait indefinitely).</summary>
+    public int DraftAutoResumeSec { get; set; } = ChaosModeService.DraftAutoResumeSecDefault;
+    /// <summary>Opt-in ambient mode (OFF by default): remap intrusive detonations (video / HT link) to a
+    /// lighter payload (bouncing text / gif cascade) so a background run is never yanked fullscreen.</summary>
+    public bool AmbientMode { get; set; } = false;
 
     // ---- meta-progression knobs (set by ChaosMeta.ApplyTo from owned upgrades) ----
     // Every field has a neutral default so an unmodified run is byte-for-byte unchanged.
@@ -66,7 +70,6 @@ public sealed class ChaosRunConfig
         if (s == null) { ChaosMeta.ApplyTo(cfg); return cfg; }
         cfg.Difficulty = Enum.TryParse<ChaosDifficulty>(s.ChaosDifficulty, out var d) ? d : ChaosDifficulty.Easy;
         cfg.DurationSec = Math.Clamp(s.ChaosRunDurationSec, 60, 900);
-        cfg.LiveBubbleShare = Math.Clamp(s.ChaosLiveBubbleShare, 0.0, 1.0);
         cfg.WaveCount = Math.Clamp(s.ChaosWaveCount, 1, 12);
         cfg.StartingShields = Math.Clamp(s.ChaosStartingShields, 0, 5);
         cfg.MotionOverride = Enum.TryParse<ChaosMotion>(s.ChaosMotionMode, out var m) ? m : (ChaosMotion?)null;

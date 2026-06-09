@@ -689,6 +689,9 @@ internal class Bubble
     private double _freezePulsePhase;              // aura pulse oscillator
     private double _fuseTotalMs;
     private double _fuseRemainingMs;
+    /// <summary>Last window (ms) of a live fuse over which the bubble flashes + breathes faster.</summary>
+    private const double DANGER_TELEGRAPH_MS = 1200;
+    private double _dangerFactor;   // 0 outside the telegraph window, ramps to 1 at detonation (visual only)
     private System.Windows.Shapes.Ellipse? _fuseRing;
     // Mutable (unfrozen) brush reused for the fuse ring so its colour can be tweaked every
     // frame without allocating a new SolidColorBrush per tick (GC pressure at 30fps).
@@ -1107,12 +1110,37 @@ internal class Bubble
             {
                 _fuseRemainingMs -= 32 * ts;   // slow-mo makes live fuses last longer
                 double frac = Math.Clamp(_fuseRemainingMs / Math.Max(1, _fuseTotalMs), 0, 1);
+
+                // Near-miss danger telegraph (visual only): in the last DANGER_TELEGRAPH_MS the bubble
+                // flashes brighter and "breathes" faster, ramping urgency as the fuse empties. The
+                // breathing is applied in the visual block below via _dangerFactor; never touches score.
+                double dangerMs = Math.Min(_fuseTotalMs, DANGER_TELEGRAPH_MS);
+                _dangerFactor = _fuseRemainingMs < dangerMs
+                    ? Math.Clamp(1.0 - _fuseRemainingMs / Math.Max(1, dangerMs), 0, 1)
+                    : 0.0;
+
                 if (_fuseRing?.RenderTransform is ScaleTransform fst)
                 {
                     double rs = 0.45 + 0.55 * frac;
                     fst.ScaleX = rs; fst.ScaleY = rs;
                     byte gb = (byte)(70 + 120 * frac);
-                    if (_fuseStrokeBrush != null) _fuseStrokeBrush.Color = Color.FromRgb(255, gb, gb);
+                    if (_fuseStrokeBrush != null)
+                    {
+                        if (_dangerFactor > 0)
+                        {
+                            // Flash the ring toward bright white, faster as the fuse empties.
+                            double flash = 0.5 + 0.5 * Math.Sin(_timeAlive * (18.0 + _dangerFactor * 34.0));
+                            double lift = flash * _dangerFactor;
+                            byte ch = (byte)(gb + (255 - gb) * lift);
+                            _fuseStrokeBrush.Color = Color.FromRgb(255, ch, ch);
+                            _fuseRing!.Opacity = 0.65 + 0.35 * flash;
+                        }
+                        else
+                        {
+                            _fuseStrokeBrush.Color = Color.FromRgb(255, gb, gb);
+                            _fuseRing!.Opacity = 1.0;
+                        }
+                    }
                 }
                 if (_fuseRemainingMs <= 0) { Detonate(); return; }
             }
@@ -1134,8 +1162,11 @@ internal class Bubble
             if (_isDestroyed || !_isAlive) return;
 
             // Update scale wobble (scaled for 30fps). Darters drive their own throb into _scale,
-            // so skip the ambient wobble for them to avoid doubling it.
-            var wobble = _isDarter ? 0.0 : 0.06 * Math.Sin(_timeAlive * 7.5 + _wobbleOffset);
+            // so skip the ambient wobble for them to avoid doubling it. Live bubbles in the danger
+            // window breathe faster + deeper as _dangerFactor (from the fuse countdown) ramps to 1.
+            double breatheFreq = 7.5 + _dangerFactor * 24.0;
+            double breatheAmp = 0.06 + _dangerFactor * 0.12;
+            var wobble = _isDarter ? 0.0 : breatheAmp * Math.Sin(_timeAlive * breatheFreq + _wobbleOffset);
             var currentScale = (_scale + wobble) * _gazeDwellScale;
 
             if (_bubbleImage.RenderTransform is TransformGroup tg && tg.Children.Count >= 2)
@@ -1257,7 +1288,8 @@ internal class Bubble
     public void Pop()
     {
         if (!_isAlive || _isPopping) return;
-        if (_isChaosFrozen?.Invoke() == true) return;   // field is frozen (paused): ignore clicks
+        // NOTE: frozen bubbles ARE poppable — the freeze is a reward (a calm window to pop/defuse
+        // for free while fuses are paused). The pop animation runs even while the field is frozen.
         _isPopping = true;
         if (_spec != null)
         {
@@ -1387,7 +1419,7 @@ internal class Bubble
     /// Whether this bubble can currently be popped via Focus Gaze.
     /// False once popping has started or the bubble has been destroyed.
     /// </summary>
-    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable && !(_isChaosFrozen?.Invoke() ?? false);
+    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable;
 
     /// <summary>
     /// Bubble window bounds in WPF DIPs (matches the coordinate space of

@@ -228,11 +228,6 @@
                                         <ToggleButton Style="{StaticResource Seg}" Tag="RoamBounce" Content="Roam" Click="Segment_Click"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="Live share" Style="{StaticResource Lbl}"/>
-                                    <Slider x:Name="SldLiveShare" Minimum="0" Maximum="1" Width="200" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="TxtLiveShare" Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" Width="44"/>
-                                </StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Shields" Style="{StaticResource Lbl}"/>
                                     <Button Style="{StaticResource Stepper}" Content="−" Tag="shields-" Click="Stepper_Click"/>

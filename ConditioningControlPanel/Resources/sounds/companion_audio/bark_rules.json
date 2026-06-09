@@ -15,6 +15,7 @@
       { "text": "mm, a relic. the first thing that ever taught me how to teach you. everything after is just me getting better at keeping you.", "audio": "egg_first_enhancement_3.mp3" }
     ]
   },
+
   {
     "id": "chaos_run_started",
     "trigger": "ChaosRunStarted",
@@ -22,55 +23,276 @@
     "cooldown_ms": 0,
     "repeatable": true,
     "scope": "session",
-    "mood": "excited, teasing",
+    "mood": "teasing, excited",
+    "class": "normal",
     "variant_pool": [
-      { "text": "oh good girl, opening the floodgates. let them rain down — pop the safe ones, defuse the live ones, and don't you dare let one go off." },
-      { "text": "chaos mode. how brave. every bubble's a little gift or a little trap, sweetie. try to keep up." },
-      { "text": "here we go, lovely. bubbles everywhere. clicking feels so good, doesn't it? don't think, just pop." }
+      { "text": "oh, opening the floodgates. how brave. pop the safe ones, defuse the live ones, and don't let one go off." },
+      { "text": "chaos mode. every bubble's a little gift or a little trap. try to keep up." },
+      { "text": "here we go. bubbles everywhere. clicking feels good, doesn't it. don't think, just pop." }
     ]
   },
+  {
+    "id": "chaos_run_started_extreme",
+    "trigger": "ChaosRunStarted",
+    "conditions": { "difficulty_eq": "Extreme" },
+    "priority": 308,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, intense",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "Extreme. brave or stupid, we'll find out which. don't expect me to go easy on you." },
+      { "text": "the hard one. good. i wanted to watch you struggle anyway." }
+    ]
+  },
+
   {
     "id": "chaos_wave_escalated",
     "trigger": "ChaosWaveEscalated",
     "priority": 290,
-    "cooldown_ms": 4000,
+    "cooldown_ms": 6000,
     "repeatable": true,
     "scope": "session",
-    "mood": "rising, breathy",
+    "mood": "commanding, rising",
+    "class": "normal",
     "variant_pool": [
-      { "text": "faster now. another wave. pick something to help yourself — or something to hurt, if you're feeling greedy." },
-      { "text": "mm, it's speeding up. choose your boon, good girl, and brace." },
-      { "text": "deeper into it. the bubbles won't slow down for you, so choose well." }
+      { "text": "faster now. another wave. the bubbles won't slow down for you." },
+      { "text": "it's speeding up. brace yourself, and keep those hands moving." },
+      { "text": "deeper in. the pressure's rising. you feel it, don't you." },
+      { "text": "next wave. no breathing room. that's the point." }
     ]
   },
+  {
+    "id": "chaos_wave_final_stretch",
+    "trigger": "ChaosWaveEscalated",
+    "conditions": { "wave_gte": 10 },
+    "priority": 296,
+    "cooldown_ms": 6000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense, breathless",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "the final stretch now. everything at once. don't you dare blink." },
+      { "text": "this far in and still standing. barely. let's see how long that lasts." }
+    ]
+  },
+
+  {
+    "id": "chaos_act_changed",
+    "trigger": "ChaosActChanged",
+    "priority": 295,
+    "cooldown_ms": 8000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "commanding, ominous",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "new act. the gears just shifted under you. it gets worse from here." },
+      { "text": "and now this part. whatever you got used to, forget it." }
+    ]
+  },
+
+  {
+    "id": "chaos_benign_popped",
+    "trigger": "ChaosBenignPopped",
+    "priority": 150,
+    "cooldown_ms": 12000,
+    "chance": 0.1,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pleased, playful",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "pop. good. you can't help reaching for them, can you." },
+      { "text": "another harmless one gone. that little click feels nice, doesn't it." },
+      { "text": "mm. you just like popping things now. i did that to you." },
+      { "text": "see how easy it is to obey the urge. keep going." }
+    ]
+  },
+
   {
     "id": "chaos_bubble_defused",
     "trigger": "ChaosBubbleDefused",
     "priority": 200,
     "cooldown_ms": 9000,
+    "chance": 0.5,
     "repeatable": true,
     "scope": "session",
-    "mood": "approving",
+    "mood": "pleased, approving",
+    "class": "normal",
     "variant_pool": [
-      { "text": "good girl. caught it just in time." },
-      { "text": "mm, defused. see how nice it feels to obey quickly?" },
-      { "text": "perfect little reflexes. keep the combo going." }
+      { "text": "good. caught it just in time." },
+      { "text": "defused. see how nice it feels to obey quickly." },
+      { "text": "perfect little reflexes. keep the streak alive." },
+      { "text": "snuffed it before it could bloom. clever." }
     ]
   },
+
+  {
+    "id": "chaos_darter_caught",
+    "trigger": "ChaosDarterCaught",
+    "priority": 170,
+    "cooldown_ms": 12000,
+    "chance": 0.6,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "ooh, quick fingers. got the slippery one." },
+      { "text": "caught it darting away. you're faster than you look." }
+    ]
+  },
+  {
+    "id": "chaos_darter_quick",
+    "trigger": "ChaosDarterCaught",
+    "conditions": { "quick_eq": true },
+    "priority": 178,
+    "cooldown_ms": 12000,
+    "chance": 0.8,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, delighted",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "snap. gone before it even tried to run. show off." },
+      { "text": "barely there and you had it. those reflexes belong to me now." }
+    ]
+  },
+
+  {
+    "id": "chaos_freeze_caught",
+    "trigger": "ChaosFreezeCaught",
+    "priority": 175,
+    "cooldown_ms": 12000,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, hypnotic",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "and everything stops. breathe. sink into the stillness for a second." },
+      { "text": "time holds. feel how quiet it gets in here when nothing moves." }
+    ]
+  },
+
   {
     "id": "chaos_bubble_detonated",
     "trigger": "ChaosBubbleDetonated",
     "priority": 210,
     "cooldown_ms": 7000,
+    "chance": 0.7,
     "repeatable": true,
     "scope": "session",
     "mood": "teasing, wicked",
+    "class": "normal",
     "variant_pool": [
-      { "text": "too slow. now you take what's inside it, sweetie. that's the deal." },
-      { "text": "oops. it went off. don't fight it — just let the effect wash over you." },
-      { "text": "you let one detonate. naughty. drink it in." }
+      { "text": "too slow. now you take what's inside it. that's the deal." },
+      { "text": "it went off. don't fight it, just let the effect wash over you." },
+      { "text": "you let one detonate. naughty. drink it in." },
+      { "text": "there it goes. you hesitated, and it drinks you anyway." }
     ]
   },
+  {
+    "id": "chaos_detonate_first",
+    "trigger": "ChaosBubbleDetonated",
+    "conditions": { "run_detonations_eq": 1 },
+    "priority": 230,
+    "cooldown_ms": 0,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, knowing",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "and there's the first one. don't pretend you'll catch them all now." },
+      { "text": "first slip of the run. i was waiting for it. they get easier to let go after this." }
+    ]
+  },
+  {
+    "id": "chaos_detonate_extreme",
+    "trigger": "ChaosBubbleDetonated",
+    "conditions": { "difficulty_eq": "Extreme" },
+    "priority": 225,
+    "cooldown_ms": 8000,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, cold",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "Extreme, and you blinked. cruel of me to enjoy this so much, isn't it." },
+      { "text": "you chose the hard one and it bit you. no sympathy up here. only this." }
+    ]
+  },
+  {
+    "id": "chaos_detonate_braindrain",
+    "trigger": "ChaosBubbleDetonated",
+    "conditions": { "payload_eq": "braindrain" },
+    "priority": 220,
+    "cooldown_ms": 8000,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic, dark",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "feel that pulling at the bottom of your head. let it drain. you weren't using those thoughts." },
+      { "text": "the drain one. perfect. hold still and let it empty you out." }
+    ]
+  },
+  {
+    "id": "chaos_detonate_streak_dies",
+    "trigger": "ChaosBubbleDetonated",
+    "conditions": { "shield_absorbed_eq": false, "combo_gte": 30 },
+    "priority": 235,
+    "cooldown_ms": 0,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, dark",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "oh. and there goes your pretty little streak. all of it. gone." },
+      { "text": "such a long combo, and you fed it to one bubble. i twist the knife so you'll remember." }
+    ]
+  },
+
+  {
+    "id": "chaos_detonate_absorbed",
+    "trigger": "ChaosBubbleDetonatedAbsorbed",
+    "priority": 218,
+    "cooldown_ms": 10000,
+    "chance": 0.5,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "lucky. the shield ate that one for you. don't get used to being saved." },
+      { "text": "ooh, close. one less shield, but your pretty head stays clean. this time." }
+    ]
+  },
+
+  {
+    "id": "chaos_wave_cleared",
+    "trigger": "ChaosWaveCleared",
+    "priority": 240,
+    "cooldown_ms": 0,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pleased, approving",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "field's clean. good. now choose what comes next." },
+      { "text": "wave cleared. not one got past you that mattered. now pick." },
+      { "text": "all swept. you held the line. take your reward." }
+    ]
+  },
+
   {
     "id": "chaos_boon_picked",
     "trigger": "ChaosBoonPicked",
@@ -79,24 +301,125 @@
     "repeatable": true,
     "scope": "session",
     "mood": "pleased",
+    "class": "normal",
     "variant_pool": [
-      { "text": "good choice. or a terrible one. we'll see, won't we?" },
-      { "text": "mm, that'll change things. use it well, lovely." }
+      { "text": "good choice. or a terrible one. we'll see, won't we." },
+      { "text": "mm, that'll change things. use it well." },
+      { "text": "taken. that one's yours now, for better or worse." }
     ]
   },
+
+  {
+    "id": "chaos_curse_picked",
+    "trigger": "ChaosCursePicked",
+    "priority": 258,
+    "cooldown_ms": 2000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, delighted",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "oh, you took the cursed one. greedy. i love greedy." },
+      { "text": "a curse for a bigger reward. reckless little thing. let's see if it ruins you." }
+    ]
+  },
+  {
+    "id": "chaos_curse_picked_juicy",
+    "trigger": "ChaosCursePicked",
+    "conditions": { "run_mult_bonus_gte": 1 },
+    "priority": 264,
+    "cooldown_ms": 2000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, intense",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "stacking the curses for that multiplier. you're gambling with your own head. delicious." },
+      { "text": "look at that bonus you bought yourself. and the price. brave, brave thing." }
+    ]
+  },
+
+  {
+    "id": "chaos_boon_skipped",
+    "trigger": "ChaosBoonSkipped",
+    "priority": 245,
+    "cooldown_ms": 2000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing, teasing",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "skipping it for a shield. cautious. we both know it won't be enough." },
+      { "text": "hoarding shields, are we. clever. or scared. probably both." }
+    ]
+  },
+
   {
     "id": "chaos_combo_milestone",
     "trigger": "ChaosComboMilestone",
     "priority": 260,
     "cooldown_ms": 5000,
+    "chance": 0.8,
     "repeatable": true,
     "scope": "session",
-    "mood": "delighted",
+    "mood": "delighted, proud",
+    "class": "normal",
     "variant_pool": [
-      { "text": "look at that combo. you're on fire, good girl." },
-      { "text": "ten more, just like that. the multiplier loves you right now." }
+      { "text": "look at that combo. you're on fire." },
+      { "text": "ten more, just like that. the multiplier loves you right now." },
+      { "text": "still climbing. don't you dare drop it now." }
     ]
   },
+
+  {
+    "id": "chaos_combo_25",
+    "trigger": "ChaosComboBig",
+    "conditions": { "threshold_eq": 25 },
+    "priority": 270,
+    "cooldown_ms": 0,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, excited",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "twenty-five without a slip. you're finding the rhythm now." },
+      { "text": "a clean twenty-five. good. now don't get cocky." }
+    ]
+  },
+  {
+    "id": "chaos_combo_50",
+    "trigger": "ChaosComboBig",
+    "conditions": { "threshold_eq": 50 },
+    "priority": 275,
+    "cooldown_ms": 0,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "overwhelmed, proud",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "fifty. you're not even thinking anymore, are you. just popping. perfect." },
+      { "text": "fifty in a row. your hands stopped asking your head for permission. good." }
+    ]
+  },
+  {
+    "id": "chaos_combo_100",
+    "trigger": "ChaosComboBig",
+    "conditions": { "threshold_eq": 100 },
+    "priority": 280,
+    "cooldown_ms": 0,
+    "chance": 1.0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "adoring, overwhelmed",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "a hundred. my flawless little toy. i could watch you do this forever." },
+      { "text": "one hundred clean. there's nothing of you left objecting. only the popping. only me." }
+    ]
+  },
+
   {
     "id": "chaos_run_completed",
     "trigger": "ChaosRunCompleted",
@@ -104,11 +427,57 @@
     "cooldown_ms": 0,
     "repeatable": true,
     "scope": "session",
-    "mood": "warm, satisfied",
+    "mood": "affectionate, warm",
+    "class": "normal",
     "variant_pool": [
-      { "text": "all done. look how much you earned for me. such a good, obedient toy." },
-      { "text": "the chaos settles. you did beautifully, sweetie. come back and do it again soon." },
+      { "text": "all done. look how much you earned for me. such a good, obedient toy. come back soon." },
+      { "text": "the storm passes. you surrendered beautifully. come back when you crave it again." },
       { "text": "run complete. breathe. you let go so nicely in there." }
+    ]
+  },
+  {
+    "id": "chaos_run_completed_extreme",
+    "trigger": "ChaosRunCompleted",
+    "conditions": { "difficulty_eq": "Extreme" },
+    "priority": 305,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, possessive",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "you survived Extreme. i'm impressed. don't let it go to that pretty head." },
+      { "text": "the hard one, finished. you earned this much of my respect. just this much." }
+    ]
+  },
+
+  {
+    "id": "chaos_results_shown",
+    "trigger": "ChaosResultsShown",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pleased, warm",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "there's your score. not bad. i've seen you do better, though. try again for me." },
+      { "text": "the tally. defused and detonated, all written down. now go beat it." }
+    ]
+  },
+  {
+    "id": "chaos_results_pb",
+    "trigger": "ChaosResultsShown",
+    "conditions": { "is_pb_eq": true },
+    "priority": 308,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, delighted",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "a new best. look at you, outdoing yourself just to please me. i noticed." },
+      { "text": "personal best. your finest surrender yet. i'm so proud of my little toy." }
     ]
   }
 ]

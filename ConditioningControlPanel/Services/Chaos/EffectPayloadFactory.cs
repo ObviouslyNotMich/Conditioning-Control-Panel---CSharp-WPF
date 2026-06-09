@@ -78,9 +78,11 @@ public static class EffectPayloadFactory
         EffectBubblePayloadKind.Overlay     => new OverlayPayload(PickOverlayKind()),
         EffectBubblePayloadKind.Video       => new VideoPayload(),
         EffectBubblePayloadKind.HtLink      => new HtLinkPayload(),
-        EffectBubblePayloadKind.Audio       => new AudioPayload(),
-        EffectBubblePayloadKind.BambiFreeze => new BambiFreezePayload(),
-        _                                   => new FlashPayload(),
+        EffectBubblePayloadKind.Audio        => new AudioPayload(),
+        EffectBubblePayloadKind.BambiFreeze  => new BambiFreezePayload(),
+        EffectBubblePayloadKind.BouncingText => new BouncingTextPayload(),
+        EffectBubblePayloadKind.GifCascade   => new GifCascadePayload(),
+        _                                    => new FlashPayload(),
     };
 
     private static string PickOverlayKind()
