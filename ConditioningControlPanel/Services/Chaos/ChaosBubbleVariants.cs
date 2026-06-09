@@ -129,6 +129,24 @@ public static class ChaosBubbleVariants
     /// <summary>All variant ids, in table order.</summary>
     public static List<string> AllIds() => All.Select(v => v.Id).ToList();
 
+    /// <summary>
+    /// Short, color-coded word flashed at the bubble the instant its effect fires (the floating
+    /// "combat text"). Kept to one punchy uppercase token for a fast read. Empty = no label
+    /// (e.g. the darter's micro-flash, which has its own juice). Themed to the conditioning lexicon.
+    /// </summary>
+    public static string PopWordFor(string id) => id switch
+    {
+        "flash"       => "FLASH",
+        "subliminal"  => "WHISPER",
+        "pink"        => "PINK",
+        "spiral"      => "SPIRAL",
+        "braindrain"  => "DRAIN",
+        "bambifreeze" => "FREEZE",
+        "video"       => "WATCH",
+        "htlink"      => "LINK",
+        _             => ""
+    };
+
     /// <summary>Codex blurb for a bubble variant (plain, understated). Empty for unknown ids.</summary>
     public static string DescriptionFor(string id) => id switch
     {

@@ -478,8 +478,8 @@ public sealed class ChaosModeService
     }
 
     // ---- darter slow-mo power-up ----
-    private const double SLOWMO_FACTOR = 0.20;        // chaos motion/fuse speed while active (lower = stronger slow)
-    private const double SLOWMO_DURATION_SEC = 5.0;   // real-time length of the slow-mo
+    private const double SLOWMO_FACTOR = 0.12;        // chaos motion/fuse speed while active (lower = stronger slow)
+    private const double SLOWMO_DURATION_SEC = 6.0;   // real-time length of the slow-mo
     private double _slowMoRemainingSec;
 
     /// <summary>Catching a darter slows the whole field: bubbles drift slower, live fuses last

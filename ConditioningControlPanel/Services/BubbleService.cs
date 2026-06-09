@@ -691,6 +691,10 @@ internal class Bubble
     private double _fuseRemainingMs;
     /// <summary>Last window (ms) of a live fuse over which the bubble flashes + breathes faster.</summary>
     private const double DANGER_TELEGRAPH_MS = 1200;
+    /// <summary>Default transparent margin (DIPs) around the bubble inside its window — room for glow/aura/effects.</summary>
+    private const int WindowPad = 34;
+    /// <summary>Actual per-bubble margin; darters need far more so their big catch-explosion doesn't clip.</summary>
+    private readonly int _winPad;
     private double _dangerFactor;   // 0 outside the telegraph window, ramps to 1 at detonation (visual only)
     private System.Windows.Shapes.Ellipse? _fuseRing;
     // Mutable (unfrozen) brush reused for the fuse ring so its colour can be tweaked every
@@ -754,6 +758,9 @@ internal class Bubble
 
         // Random properties (size/motion overridden for chaos effect bubbles)
         _size = spec != null ? Math.Max(60, (int)Math.Round(spec.SizePx)) : random.Next(150, 250);
+        // Darters explode to ~3x on catch (slower + bigger pop), so give them a generous window
+        // so the burst + glow don't clip against the window edge.
+        _winPad = _isDarter ? Math.Max(WindowPad, (int)Math.Round(_size * 1.3)) : WindowPad;
         _speed = 1.0 + random.NextDouble() * 1.0; // 1.0 to 2.0 px/frame
         if (spec != null) // bigger chaos bubbles drift a little slower (more reachable)
             _speed *= Math.Clamp(1.4 - (_size - 150) / 220.0, 0.6, 1.4);
@@ -913,10 +920,10 @@ internal class Bubble
             ShowInTaskbar = false,
             ShowActivated = false,
             Focusable = false,
-            Width = _size + 40,
-            Height = _size + 40,
-            Left = _posX - 20,
-            Top = _posY - 20,
+            Width = _size + _winPad * 2,
+            Height = _size + _winPad * 2,
+            Left = _posX - _winPad,
+            Top = _posY - _winPad,
             Content = _grid,
             Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow,
             IsHitTestVisible = _isClickable
@@ -1164,8 +1171,8 @@ internal class Bubble
             // Update scale wobble (scaled for 30fps). Darters drive their own throb into _scale,
             // so skip the ambient wobble for them to avoid doubling it. Live bubbles in the danger
             // window breathe faster + deeper as _dangerFactor (from the fuse countdown) ramps to 1.
-            double breatheFreq = 7.5 + _dangerFactor * 24.0;
-            double breatheAmp = 0.06 + _dangerFactor * 0.12;
+            double breatheFreq = 7.5 + _dangerFactor * 9.0;
+            double breatheAmp = 0.06 + _dangerFactor * 0.0225;
             var wobble = _isDarter ? 0.0 : breatheAmp * Math.Sin(_timeAlive * breatheFreq + _wobbleOffset);
             var currentScale = (_scale + wobble) * _gazeDwellScale;
 
@@ -1188,7 +1195,7 @@ internal class Bubble
                 if (_spec != null && _isChaosFrozen?.Invoke() == true)
                 {
                     _freezePulsePhase += 0.18;
-                    _freezeAura.Opacity = 0.45 + 0.35 * Math.Sin(_freezePulsePhase);
+                    _freezeAura.Opacity = 0.1125 + 0.0875 * Math.Sin(_freezePulsePhase);
                 }
                 else if (_freezeAura.Opacity > 0) _freezeAura.Opacity = 0;
             }
@@ -1202,8 +1209,8 @@ internal class Bubble
             }
 
             _window.Opacity = _fadeAlpha;
-            _window.Left = _posX - 20 + jx;
-            _window.Top = _posY - 20 + jy;
+            _window.Left = _posX - _winPad + jx;
+            _window.Top = _posY - _winPad + jy;
         }
         catch (Exception ex)
         {
@@ -1298,11 +1305,12 @@ internal class Bubble
             if (_isDarter)
             {
                 _wasQuickCatch = _telegraphRemainingMs <= 0 && _darterActiveMs <= _spec.QuickWindowMs;
+                ShowChaosLabel("TIME SLOW", _spec.Tint);                                      // catch → fires the slow-mo power-up
                 _onDarterCaught?.Invoke(this);
             }
-            else if (_isFreeze) _onFreezeCaught?.Invoke(this);   // good pickup → fires the freeze power-up
-            else if (_spec.IsLive) _onDefuse?.Invoke(this);
-            else _onBenignPop?.Invoke(this);
+            else if (_isFreeze) { ShowChaosEffectLabel(); _onFreezeCaught?.Invoke(this); }   // good pickup → fires the freeze power-up
+            else if (_spec.IsLive) { ShowChaosLabel("SNAP", SnapColor); _onDefuse?.Invoke(this); }  // snapped in time → no effect, but confirm the catch
+            else { ShowChaosEffectLabel(); _onBenignPop?.Invoke(this); }                      // treat → its effect fires
         }
         else
         {
@@ -1316,8 +1324,37 @@ internal class Bubble
     {
         if (!_isAlive || _isPopping) return;
         _isPopping = true;
+        ShowChaosEffectLabel();   // the live effect is firing → flash its color-coded word at the bubble
         _onDetonate?.Invoke(this);
         // Pop/burst animation + Destroy handled by AnimateFrame().
+    }
+
+    /// <summary>Cool "safe" accent for the snap (defuse) label — reads as a good outcome, not a threat.</summary>
+    private static readonly Color SnapColor = Color.FromRgb(0x7A, 0xE0, 0xFF);
+
+    /// <summary>
+    /// Flash the small, color-coded word at this bubble's on-screen spot — the floating "combat
+    /// text" clarity label. Effect-name + bubble tint for an effect that fired (benign pop /
+    /// freeze catch / detonate); the call sites pass an explicit word/colour for snap + catch.
+    /// No-op for variants without a word, or when on-screen Chaos text is off (gated in ChaosPopText).
+    /// </summary>
+    private void ShowChaosEffectLabel()
+    {
+        if (_spec == null) return;
+        ShowChaosLabel(ChaosBubbleVariants.PopWordFor(_spec.VariantId), _spec.Tint);
+    }
+
+    /// <summary>Flash an explicit word + colour at this bubble's centre.</summary>
+    private void ShowChaosLabel(string word, Color color)
+    {
+        if (_spec == null || string.IsNullOrEmpty(word)) return;
+        try
+        {
+            double cx = _window.Left + _window.Width / 2;
+            double cy = _window.Top + _window.Height / 2;
+            ChaosPopText.Show(cx, cy, word, color);
+        }
+        catch { }
     }
 
     /// <summary>Builds the chaos-only visual layers (tint, label, fuse ring). No-op for ambient bubbles.</summary>
@@ -1329,7 +1366,7 @@ internal class Bubble
         // frozen, then pulsed in AnimateFrame. Every chaos bubble carries one so the whole field
         // glows icy-blue during a freeze. Sits just above the (invisible) hit area, under the art.
         var auraColor = Color.FromRgb(150, 210, 255);
-        double auraSize = _size + 24;
+        double auraSize = _size + 6;
         var auraBrush = new RadialGradientBrush { GradientOrigin = new Point(0.5, 0.5), Center = new Point(0.5, 0.5) };
         auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0,   auraColor.R, auraColor.G, auraColor.B), 0.30));
         auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(190, auraColor.R, auraColor.G, auraColor.B), 0.66));
