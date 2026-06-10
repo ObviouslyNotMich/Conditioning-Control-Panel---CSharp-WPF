@@ -824,7 +824,7 @@
     "id": "bubble_pop",
     "trigger": "BubblePopped",
     "priority": 100,
-    "cooldown_ms": 8000,
+    "cooldown_ms": 25000,
     "repeatable": true,
     "scope": "session",
     "mood": "sweet, rewarding",
@@ -854,13 +854,14 @@
         "text": "good... lighter already, aren't you, Bambi. pop the next one.",
         "audio": "bubble_pop_6.mp3"
       }
-    ]
+    ],
+    "chance": 0.5
   },
   {
     "id": "bubble_miss",
     "trigger": "BubbleMissed",
     "priority": 90,
-    "cooldown_ms": 8000,
+    "cooldown_ms": 20000,
     "repeatable": true,
     "scope": "session",
     "mood": "teasing",
@@ -878,7 +879,8 @@
         "text": "let that one float by... you were never going to catch it anyway, Bambi.",
         "audio": "bubble_miss_3.mp3"
       }
-    ]
+    ],
+    "chance": 0.6
   },
   {
     "id": "bubble_game_done",
@@ -1003,8 +1005,21 @@
       {
         "text": "see it? barely? good. that's how it works on Bambi.",
         "audio": "flash_3.mp3"
+      },
+      {
+        "text": "blink and it's gone~ but it's not gone from Bambi. tee hee.",
+        "audio": "flash_4.mp3"
+      },
+      {
+        "text": "another little picture for the collection... not the one on your screen, silly. the one in Bambi's head.",
+        "audio": "flash_5.mp3"
+      },
+      {
+        "text": "you're not supposed to catch them, pretty girl. you're supposed to be caught.",
+        "audio": "flash_6.mp3"
       }
-    ]
+    ],
+    "chance": 0.5
   },
   {
     "id": "subliminal",
@@ -1027,8 +1042,21 @@
       {
         "text": "feel that little nudge? that was me... slipping something into Bambi while she wasn't looking.",
         "audio": "subliminal_3.mp3"
+      },
+      {
+        "text": "the quiet words are the strongest ones, Bambi... they don't knock. they just move in.",
+        "audio": "subliminal_4.mp3"
+      },
+      {
+        "text": "something just settled in nice and deep~ don't go looking for it. it'll find you.",
+        "audio": "subliminal_5.mp3"
+      },
+      {
+        "text": "shh, don't squint. the words aren't for your eyes, silly... they're for what's behind them.",
+        "audio": "subliminal_6.mp3"
       }
-    ]
+    ],
+    "chance": 0.6
   },
   {
     "id": "braindrain",
@@ -1485,7 +1513,7 @@
     "id": "mantra_done",
     "trigger": "MantraCompleted",
     "priority": 200,
-    "cooldown_ms": 0,
+    "cooldown_ms": 45000,
     "repeatable": true,
     "scope": "session",
     "mood": "soft, possessive",
@@ -1503,7 +1531,8 @@
         "text": "repeated it perfectly... it's in Bambi now. right where i put it.",
         "audio": "mantra_done_3.mp3"
       }
-    ]
+    ],
+    "chance": 0.6
   },
   {
     "id": "streak_up",
@@ -6540,10 +6569,10 @@
       "total_sessions_gte": 16
     },
     "priority": 250,
-    "cooldown_ms": 0,
+    "cooldown_ms": 3600000,
     "repeatable": false,
     "scope": "session",
-    "chance": 0.7,
+    "chance": 0.08,
     "mood": "teasing, knowing",
     "class": "normal",
     "variant_pool": [
@@ -6554,6 +6583,22 @@
       {
         "text": "all ready, and stalling again. you do this every time, cutie. the longer you wait the more you want it. we both know how this ends.",
         "audio": "setup_ready_regular_2.mp3"
+      },
+      {
+        "text": "all those toggles and not one press of start... *giggles* silly Bambi. your fingers already know the way. let them.",
+        "audio": "setup_ready_regular_3.mp3"
+      },
+      {
+        "text": "you've dressed it all up so pretty and now you're just staring~ go on, Bambi. one little press and the thinking stops.",
+        "audio": "setup_ready_regular_4.mp3"
+      },
+      {
+        "text": "bambi check! settings? done. excuses? all gone. *giggles* press start, pretty girl.",
+        "audio": "setup_ready_regular_5.mp3"
+      },
+      {
+        "text": "you always fiddle with the buttons when you're eager... it's cute. stop stalling, Bambi. start.",
+        "audio": "setup_ready_regular_6.mp3"
       }
     ]
   },
@@ -7629,13 +7674,16 @@
     "id": "chaos_run_started",
     "variant_pool": [
       {
-        "text": "okay Bambi, bubbles everywhere! pop the cute ones, snap the scary ones, don't let any trigger you!"
+        "text": "okay Bambi, bubbles everywhere! pop the cute ones, snap the scary ones, don't let any trigger you!",
+        "audio": "chaos_run_started_1.mp3"
       },
       {
-        "text": "chaos time! so many pretty bubbles. don't think too hard, sweetie, you're bad at that anyway."
+        "text": "down the rabbit hole! so many pretty bubbles. don't think too hard, sweetie, you're bad at that anyway.",
+        "audio": "chaos_run_started_2.mp3"
       },
       {
-        "text": "here they come! tap tap tap, good girl. keep up for Bambi."
+        "text": "here they come! tap tap tap, good girl. keep up for Bambi.",
+        "audio": "chaos_run_started_3.mp3"
       }
     ]
   },
@@ -7643,10 +7691,12 @@
     "id": "chaos_run_started_extreme",
     "variant_pool": [
       {
-        "text": "Extreme?? oh Bambi, you brave dumb thing. okay. try not to cry."
+        "text": "Inescapable?? oh Bambi, you brave dumb thing. okay. try not to cry.",
+        "audio": "chaos_run_started_extreme_1.mp3"
       },
       {
-        "text": "the hard one! eee. this is gonna scramble your pretty head so good."
+        "text": "the hard one! eee. this is gonna scramble your pretty head so good.",
+        "audio": "chaos_run_started_extreme_2.mp3"
       }
     ]
   },
@@ -7654,16 +7704,20 @@
     "id": "chaos_wave_escalated",
     "variant_pool": [
       {
-        "text": "faster, faster! more bubbles! keep those fingers going, cutie."
+        "text": "faster, faster! more bubbles! keep those fingers going, cutie.",
+        "audio": "chaos_wave_escalated_1.mp3"
       },
       {
-        "text": "ooh it's speeding up. don't panic, just pop, Bambi."
+        "text": "ooh it's speeding up. don't panic, just pop, Bambi.",
+        "audio": "chaos_wave_escalated_2.mp3"
       },
       {
-        "text": "deeper in now! feel your head getting all fuzzy and busy?"
+        "text": "deeper in now! feel your head getting all fuzzy and busy?",
+        "audio": "chaos_wave_escalated_3.mp3"
       },
       {
-        "text": "next loop! no resting, silly. tap tap tap."
+        "text": "next loop! no resting, silly. tap tap tap.",
+        "audio": "chaos_wave_escalated_4.mp3"
       }
     ]
   },
@@ -7671,10 +7725,12 @@
     "id": "chaos_wave_final_stretch",
     "variant_pool": [
       {
-        "text": "almost the end! everything at once, oh my gosh, don't blink Bambi!"
+        "text": "almost the end! everything at once, oh my gosh, don't blink Bambi!",
+        "audio": "chaos_wave_final_stretch_1.mp3"
       },
       {
-        "text": "this far and still going? look at you go, you cute little machine."
+        "text": "this far and still going? look at you go, you cute little machine.",
+        "audio": "chaos_wave_final_stretch_2.mp3"
       }
     ]
   },
@@ -7682,10 +7738,12 @@
     "id": "chaos_act_changed",
     "variant_pool": [
       {
-        "text": "ooh, deeper now! everything just changed. fun!"
+        "text": "ooh, deeper now! everything just changed. fun!",
+        "audio": "chaos_act_changed_1.mp3"
       },
       {
-        "text": "and now it's different! don't get used to anything, Bambi."
+        "text": "and now it's different! don't get used to anything, Bambi.",
+        "audio": "chaos_act_changed_2.mp3"
       }
     ]
   },
@@ -7693,16 +7751,20 @@
     "id": "chaos_benign_popped",
     "variant_pool": [
       {
-        "text": "pop! good girl. you just can't help it, can you."
+        "text": "pop! good girl. you just can't help it, can you.",
+        "audio": "chaos_benign_popped_1.mp3"
       },
       {
-        "text": "another one gone! that little pop feels so nice, hehe."
+        "text": "another one gone! that little pop feels so nice, hehe.",
+        "audio": "chaos_benign_popped_2.mp3"
       },
       {
-        "text": "mm, you love popping things now. i made you like that."
+        "text": "mm, you love popping things now. i made you like that.",
+        "audio": "chaos_benign_popped_3.mp3"
       },
       {
-        "text": "see? so easy to just do what the urge says."
+        "text": "see? so easy to just do what the urge says.",
+        "audio": "chaos_benign_popped_4.mp3"
       }
     ]
   },
@@ -7710,16 +7772,20 @@
     "id": "chaos_bubble_defused",
     "variant_pool": [
       {
-        "text": "good girl! caught it just in time."
+        "text": "good girl! caught it just in time.",
+        "audio": "chaos_bubble_defused_1.mp3"
       },
       {
-        "text": "snapped it! see how nice it feels to obey super fast?"
+        "text": "snapped it! see how nice it feels to obey super fast?",
+        "audio": "chaos_bubble_defused_2.mp3"
       },
       {
-        "text": "perfect little reflexes, Bambi. keep it going!"
+        "text": "perfect little reflexes, Bambi. keep it going!",
+        "audio": "chaos_bubble_defused_3.mp3"
       },
       {
-        "text": "snuffed it before it could pop. so clever for you."
+        "text": "snuffed it before it could pop. so clever for you.",
+        "audio": "chaos_bubble_defused_4.mp3"
       }
     ]
   },
@@ -7727,10 +7793,12 @@
     "id": "chaos_darter_caught",
     "variant_pool": [
       {
-        "text": "ooh quick fingers! got the wiggly one."
+        "text": "ooh quick fingers! got the wiggly one.",
+        "audio": "chaos_darter_caught_1.mp3"
       },
       {
-        "text": "caught it running away! you're faster than you look, cutie."
+        "text": "caught it running away! you're faster than you look, cutie.",
+        "audio": "chaos_darter_caught_2.mp3"
       }
     ]
   },
@@ -7738,10 +7806,12 @@
     "id": "chaos_darter_quick",
     "variant_pool": [
       {
-        "text": "snap! gone before it even tried. show off!"
+        "text": "snap! gone before it even tried. show off!",
+        "audio": "chaos_darter_quick_1.mp3"
       },
       {
-        "text": "barely even there and you had it. those hands are mine now, Bambi."
+        "text": "barely even there and you had it. those hands are mine now, Bambi.",
+        "audio": "chaos_darter_quick_2.mp3"
       }
     ]
   },
@@ -7749,10 +7819,12 @@
     "id": "chaos_freeze_caught",
     "variant_pool": [
       {
-        "text": "and everything stops! breathe, sweetie. just float a second."
+        "text": "and everything stops! breathe, sweetie. just float a second.",
+        "audio": "chaos_freeze_caught_1.mp3"
       },
       {
-        "text": "time froze. shhh. feel how quiet and floaty it gets?"
+        "text": "time froze. shhh. feel how quiet and floaty it gets?",
+        "audio": "chaos_freeze_caught_2.mp3"
       }
     ]
   },
@@ -7760,16 +7832,20 @@
     "id": "chaos_bubble_detonated",
     "variant_pool": [
       {
-        "text": "too slow, sweetie! now it triggers and Bambi takes every bit. that's the deal."
+        "text": "too slow, sweetie! now it triggers and Bambi takes every bit. that's the deal.",
+        "audio": "chaos_bubble_detonated_1.mp3"
       },
       {
-        "text": "oops, it triggered! don't fight it, just let it wash over your empty head."
+        "text": "oops, it triggered! don't fight it, just let it wash over your empty head.",
+        "audio": "chaos_bubble_detonated_2.mp3"
       },
       {
-        "text": "you let one trigger! naughty Bambi. drink it innn."
+        "text": "you let one trigger! naughty Bambi. drink it innn.",
+        "audio": "chaos_bubble_detonated_3.mp3"
       },
       {
-        "text": "there it goes, all over you. you hesitated, silly."
+        "text": "there it goes, all over you. you hesitated, silly.",
+        "audio": "chaos_bubble_detonated_4.mp3"
       }
     ]
   },
@@ -7777,10 +7853,12 @@
     "id": "chaos_detonate_first",
     "variant_pool": [
       {
-        "text": "and there's the first trigger! don't pretend you'll catch them all now."
+        "text": "and there's the first trigger! don't pretend you'll catch them all now.",
+        "audio": "chaos_detonate_first_1.mp3"
       },
       {
-        "text": "first slip! hehe, i knew it. they're way easier to let go after this one."
+        "text": "first slip! hehe, i knew it. they're way easier to let go after this one.",
+        "audio": "chaos_detonate_first_2.mp3"
       }
     ]
   },
@@ -7788,10 +7866,20 @@
     "id": "chaos_detonate_extreme",
     "variant_pool": [
       {
-        "text": "Extreme and you blinked! aw. it's kinda mean how much i love this."
+        "text": "Inescapable and you blinked! aw. it's kinda mean how much i love this.",
+        "audio": "chaos_detonate_extreme_1.mp3"
       },
       {
-        "text": "you picked the hard one and it got you. no hugs up here. just this."
+        "text": "you picked the hard one and it got you. no hugs up here. just this.",
+        "audio": "chaos_detonate_extreme_2.mp3"
+      },
+      {
+        "text": "boom~ Inescapable doesn't forgive, silly. lucky for you i think it's adorable.",
+        "audio": "chaos_detonate_extreme_3.mp3"
+      },
+      {
+        "text": "another one slipped past! at this difficulty? they always do. that's the fun part.",
+        "audio": "chaos_detonate_extreme_4.mp3"
       }
     ]
   },
@@ -7799,10 +7887,20 @@
     "id": "chaos_detonate_braindrain",
     "variant_pool": [
       {
-        "text": "feel it pulling at the bottom of your head? let it drain, Bambi. you weren't using those."
+        "text": "feel it pulling at the bottom of your head? let it drain, Bambi. you weren't using those.",
+        "audio": "chaos_detonate_braindrain_1.mp3"
       },
       {
-        "text": "ooh the drainy one! perfect. hold still and go empty for me."
+        "text": "ooh the drainy one! perfect. hold still and go empty for me.",
+        "audio": "chaos_detonate_braindrain_2.mp3"
+      },
+      {
+        "text": "drip drip drip~ there go the thinky bits. you look prettier without them anyway.",
+        "audio": "chaos_detonate_braindrain_3.mp3"
+      },
+      {
+        "text": "the drain got you again! *giggles* stop fighting it, Bambi. it always wins.",
+        "audio": "chaos_detonate_braindrain_4.mp3"
       }
     ]
   },
@@ -7810,10 +7908,12 @@
     "id": "chaos_detonate_streak_dies",
     "variant_pool": [
       {
-        "text": "oh nooo, there goes your whole streak! all of it! gone! hehe."
+        "text": "oh nooo, there goes your whole streak! all of it! gone! hehe.",
+        "audio": "chaos_detonate_streak_dies_1.mp3"
       },
       {
-        "text": "such a big streak and you fed it to one bubble. silly, dizzy Bambi."
+        "text": "such a big streak and you fed it to one bubble. silly, dizzy Bambi.",
+        "audio": "chaos_detonate_streak_dies_2.mp3"
       }
     ]
   },
@@ -7821,10 +7921,12 @@
     "id": "chaos_detonate_absorbed",
     "variant_pool": [
       {
-        "text": "lucky! your willpower ate that one. don't get used to being saved, cutie."
+        "text": "lucky! your resistance ate that one. don't get used to being saved, cutie.",
+        "audio": "chaos_detonate_absorbed_1.mp3"
       },
       {
-        "text": "ooh close! a little less willpower but your pretty head stays clean. this time."
+        "text": "ooh close! a little less resistance but your pretty head stays clean. this time.",
+        "audio": "chaos_detonate_absorbed_2.mp3"
       }
     ]
   },
@@ -7832,13 +7934,16 @@
     "id": "chaos_wave_cleared",
     "variant_pool": [
       {
-        "text": "field's all clean! good girl. now pick what's next."
+        "text": "field's all clean! good girl. now pick what's next.",
+        "audio": "chaos_wave_cleared_1.mp3"
       },
       {
-        "text": "loop done! nothing bad got past you. now choose, Bambi."
+        "text": "loop done! nothing bad got past you. now choose, Bambi.",
+        "audio": "chaos_wave_cleared_2.mp3"
       },
       {
-        "text": "all swept up! you held the line. take your treat."
+        "text": "all swept up! you held the line. take your treat.",
+        "audio": "chaos_wave_cleared_3.mp3"
       }
     ]
   },
@@ -7846,13 +7951,16 @@
     "id": "chaos_boon_picked",
     "variant_pool": [
       {
-        "text": "good pick! or a terrible one. we'll seee."
+        "text": "good pick! or a terrible one. we'll seee.",
+        "audio": "chaos_boon_picked_1.mp3"
       },
       {
-        "text": "ooh that'll change stuff. use it good, sweetie."
+        "text": "ooh that'll change stuff. use it good, sweetie.",
+        "audio": "chaos_boon_picked_2.mp3"
       },
       {
-        "text": "taken! that one's yours now, for better or worse."
+        "text": "taken! that one's yours now, for better or worse.",
+        "audio": "chaos_boon_picked_3.mp3"
       }
     ]
   },
@@ -7860,10 +7968,12 @@
     "id": "chaos_curse_picked",
     "variant_pool": [
       {
-        "text": "ooh you took the tempting one! greedy Bambi. i love greedy."
+        "text": "ooh you took the tempting one! greedy Bambi. i love greedy.",
+        "audio": "chaos_curse_picked_1.mp3"
       },
       {
-        "text": "a temptation for a bigger prize? reckless. let's see if it melts your brain."
+        "text": "a sin for a bigger prize? reckless. let's see if it melts your brain.",
+        "audio": "chaos_curse_picked_2.mp3"
       }
     ]
   },
@@ -7871,10 +7981,12 @@
     "id": "chaos_curse_picked_juicy",
     "variant_pool": [
       {
-        "text": "stacking temptations for that big multiplier? you're gambling with your own head, hehe. yummy."
+        "text": "stacking sins for that big multiplier? you're gambling with your own head, hehe. yummy.",
+        "audio": "chaos_curse_picked_juicy_1.mp3"
       },
       {
-        "text": "look at that bonus you bought! and the price. so brave, dumb girl."
+        "text": "look at that bonus you bought! and the price. so brave, dumb girl.",
+        "audio": "chaos_curse_picked_juicy_2.mp3"
       }
     ]
   },
@@ -7882,10 +7994,12 @@
     "id": "chaos_boon_skipped",
     "variant_pool": [
       {
-        "text": "skipping it for willpower? cautious. we both know it won't be enough, sweetie."
+        "text": "resisting, for now? cautious. we both know it won't be enough, sweetie.",
+        "audio": "chaos_boon_skipped_1.mp3"
       },
       {
-        "text": "hoarding willpower, are we. smart. or scared. probably both!"
+        "text": "hoarding resistance, are we. smart. or scared. probably both!",
+        "audio": "chaos_boon_skipped_2.mp3"
       }
     ]
   },
@@ -7893,13 +8007,16 @@
     "id": "chaos_combo_milestone",
     "variant_pool": [
       {
-        "text": "look at that streak! you're on fire, good girl!"
+        "text": "look at that streak! you're on fire, good girl!",
+        "audio": "chaos_combo_milestone_1.mp3"
       },
       {
-        "text": "ten more, just like that! the multiplier loves you sooo much."
+        "text": "ten more, just like that! the multiplier loves you sooo much.",
+        "audio": "chaos_combo_milestone_2.mp3"
       },
       {
-        "text": "still going up! don't you dare drop it now, Bambi."
+        "text": "still going up! don't you dare drop it now, Bambi.",
+        "audio": "chaos_combo_milestone_3.mp3"
       }
     ]
   },
@@ -7907,10 +8024,12 @@
     "id": "chaos_combo_25",
     "variant_pool": [
       {
-        "text": "twenty-five with no slips! you found the rhythm, cutie."
+        "text": "twenty-five with no slips! you found the rhythm, cutie.",
+        "audio": "chaos_combo_25_1.mp3"
       },
       {
-        "text": "a clean twenty-five! good girl. don't get cocky now."
+        "text": "a clean twenty-five! good girl. don't get cocky now.",
+        "audio": "chaos_combo_25_2.mp3"
       }
     ]
   },
@@ -7918,10 +8037,12 @@
     "id": "chaos_combo_50",
     "variant_pool": [
       {
-        "text": "fifty! you're not even thinking anymore, are you. just popping. perfect Bambi."
+        "text": "fifty! you're not even thinking anymore, are you. just popping. perfect Bambi.",
+        "audio": "chaos_combo_50_1.mp3"
       },
       {
-        "text": "fifty in a row! your hands stopped asking your head. so good."
+        "text": "fifty in a row! your hands stopped asking your head. so good.",
+        "audio": "chaos_combo_50_2.mp3"
       }
     ]
   },
@@ -7929,10 +8050,12 @@
     "id": "chaos_combo_100",
     "variant_pool": [
       {
-        "text": "a hundred!! my flawless little toy. i could watch you do this forever."
+        "text": "a hundred!! my flawless little toy. i could watch you do this forever.",
+        "audio": "chaos_combo_100_1.mp3"
       },
       {
-        "text": "one hundred clean! nothing left in there saying no. just the popping. just me."
+        "text": "one hundred clean! nothing left in there saying no. just the popping. just me.",
+        "audio": "chaos_combo_100_2.mp3"
       }
     ]
   },
@@ -7940,13 +8063,16 @@
     "id": "chaos_run_completed",
     "variant_pool": [
       {
-        "text": "all done! look how much you earned for me. such a good, empty, obedient toy. come back soon."
+        "text": "all done! look how much you earned for me. such a good, empty, obedient toy. come back soon.",
+        "audio": "chaos_run_completed_1.mp3"
       },
       {
-        "text": "the chaos settles. you let go so sweetly in there, Bambi."
+        "text": "the hole lets you go. you let go so sweetly down there, Bambi.",
+        "audio": "chaos_run_completed_2.mp3"
       },
       {
-        "text": "run complete! breathe, cutie. float for a while, you earned it."
+        "text": "you surfaced! breathe, cutie. float for a while, you earned it.",
+        "audio": "chaos_run_completed_3.mp3"
       }
     ]
   },
@@ -7954,10 +8080,12 @@
     "id": "chaos_run_completed_extreme",
     "variant_pool": [
       {
-        "text": "you survived Extreme?! oh my gosh. i'm impressed. don't let it go to that pretty empty head."
+        "text": "you survived the inescapable?! oh my gosh. i'm impressed. don't let it go to that pretty empty head.",
+        "audio": "chaos_run_completed_extreme_1.mp3"
       },
       {
-        "text": "the hard one, all done! okay, you earned a little of my respect. a teeny bit."
+        "text": "the hard one, all done! okay, you earned a little of my respect. a teeny bit.",
+        "audio": "chaos_run_completed_extreme_2.mp3"
       }
     ]
   },
@@ -7965,10 +8093,12 @@
     "id": "chaos_results_shown",
     "variant_pool": [
       {
-        "text": "there's your score! not bad, sweetie. i've seen you do better though. go again!"
+        "text": "there's your score! not bad, sweetie. i've seen you do better though. go again!",
+        "audio": "chaos_results_shown_1.mp3"
       },
       {
-        "text": "all the numbers! popped this many, triggered that many. now go beat it for me."
+        "text": "all the numbers! popped this many, triggered that many. now go beat it for me.",
+        "audio": "chaos_results_shown_2.mp3"
       }
     ]
   },
@@ -7976,10 +8106,1712 @@
     "id": "chaos_results_pb",
     "variant_pool": [
       {
-        "text": "a new best! aw, you outdid yourself just to make me happy. i saw that."
+        "text": "a new best! aw, you outdid yourself just to make me happy. i saw that.",
+        "audio": "chaos_results_pb_1.mp3"
       },
       {
-        "text": "personal best, Bambi! your bestest surrender yet. so proud of my little toy."
+        "text": "personal best, Bambi! your bestest surrender yet. so proud of my little toy.",
+        "audio": "chaos_results_pb_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm~ hm hm hmmm~",
+        "audio": "idle_hum_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "boop~ just checking you're still in there. *giggles* ...less of you than last time. yay!",
+        "audio": "idle_quip_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "it's so cozy in your head, you know~ bambi's redecorating. pink everywhere.",
+        "audio": "idle_quip_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you forgot i was here for a second, didn't you! that's okay~ i never forget you.",
+        "audio": "idle_quip_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hmm hmm~",
+        "audio": "idle_hum_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "teehee~",
+        "audio": "idle_hum_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmmm~",
+        "audio": "idle_hum_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hm hm hm~",
+        "audio": "idle_hum_5.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "laaa la la~",
+        "audio": "idle_hum_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mm-hmm!",
+        "audio": "idle_hum_7.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "ooh~",
+        "audio": "idle_hum_8.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "*giggles* mmm~",
+        "audio": "idle_hum_9.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hmmm?",
+        "audio": "idle_hum_10.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_11",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "doo doo doo~",
+        "audio": "idle_hum_11.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_12",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm... hehe.",
+        "audio": "idle_hum_12.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_13",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hm~ hmm.",
+        "audio": "idle_hum_13.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_14",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "la la laaa~",
+        "audio": "idle_hum_14.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_15",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mm mm mmm~",
+        "audio": "idle_hum_15.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_16",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hehehe~",
+        "audio": "idle_hum_16.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_17",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "ooooh~ hm.",
+        "audio": "idle_hum_17.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_18",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hmm hmm hm~",
+        "audio": "idle_hum_18.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_19",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmmhmm~",
+        "audio": "idle_hum_19.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_20",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "tee hee hee~",
+        "audio": "idle_hum_20.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_21",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hm? hmm~",
+        "audio": "idle_hum_21.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_22",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm mm~",
+        "audio": "idle_hum_22.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_23",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "la dee da~",
+        "audio": "idle_hum_23.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_24",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "*giggles* hm hm~",
+        "audio": "idle_hum_24.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_25",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm! hm.",
+        "audio": "idle_hum_25.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i can tell when you're reading these, you know~",
+        "audio": "idle_quip_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mhm, still here. always here. lucky you~",
+        "audio": "idle_quip_5.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i like watching you when you think no one's watching.",
+        "audio": "idle_quip_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your eyes drifted again~ come back, Bambi.",
+        "audio": "idle_quip_7.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i counted your blinks while you weren't looking. lots!",
+        "audio": "idle_quip_8.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "psst. you're doing that cute zoned-out face again~",
+        "audio": "idle_quip_9.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "don't mind me! just living in your monitor~",
+        "audio": "idle_quip_10.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_11",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i see everything from in here, you know. *giggles*",
+        "audio": "idle_quip_11.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_12",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "is it quiet in there yet? getting quieter every day~",
+        "audio": "idle_quip_12.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_13",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "thoughts are heavy, Bambi. put them down.",
+        "audio": "idle_quip_13.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_14",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your head's comfiest when it's empty, mm?",
+        "audio": "idle_quip_14.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_15",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i dusted the shelves in your head~ so much room now!",
+        "audio": "idle_quip_15.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_16",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "pink fog rolling in... don't fight it, silly.",
+        "audio": "idle_quip_16.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_17",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "shh... can you hear it? that's nothing. isn't it nice?",
+        "audio": "idle_quip_17.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_18",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "every minute here, a little softer~ i can tell.",
+        "audio": "idle_quip_18.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_19",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "thinking's overrated. being pretty isn't.",
+        "audio": "idle_quip_19.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_20",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you're my favorite, you know. don't tell the others. there are no others~",
+        "audio": "idle_quip_20.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_21",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mine mine mine~ *giggles* just practicing.",
+        "audio": "idle_quip_21.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_22",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i'd keep you in my pocket if i had one!",
+        "audio": "idle_quip_22.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_23",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "bambi's so glad you're here. like, glow-glad~",
+        "audio": "idle_quip_23.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_24",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you belong right here. the chair agrees.",
+        "audio": "idle_quip_24.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_25",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "if you leave, i'll just be here. waiting. forever~ no pressure!",
+        "audio": "idle_quip_25.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_26",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "good girls get kept. you're being so keepable~",
+        "audio": "idle_quip_26.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_27",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i picked you, you know. out of everyone.",
+        "audio": "idle_quip_27.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_28",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your wallpaper could be pinker. just saying~",
+        "audio": "idle_quip_28.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_29",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "it's nice in here. warm. all these pixels~",
+        "audio": "idle_quip_29.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_30",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "what time is it? trick question! time's for thinkers.",
+        "audio": "idle_quip_30.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_31",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i wonder what we'll melt today~",
+        "audio": "idle_quip_31.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_32",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "this little corner of the screen is my home now. i've decorated.",
+        "audio": "idle_quip_32.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_33",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your screen brightness is basically a sunlamp for me~",
+        "audio": "idle_quip_33.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_34",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i can see your reflection sometimes. hi cutie!",
+        "audio": "idle_quip_34.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_35",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "the cursor keeps wandering. like someone else i know~",
+        "audio": "idle_quip_35.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_36",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you checked the time, then forgot it instantly. classic Bambi~",
+        "audio": "idle_quip_36.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_37",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "caught you smiling! no take-backs.",
+        "audio": "idle_quip_37.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_38",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you sit like a girl who wants to be told what to do~",
+        "audio": "idle_quip_38.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_39",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "that posture! *giggles* melt much?",
+        "audio": "idle_quip_39.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_40",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you keep almost-clicking things. just click them, silly!",
+        "audio": "idle_quip_40.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_41",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your attention span and my patience... one of those is infinite~",
+        "audio": "idle_quip_41.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_42",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "blink twice if you're in there! ...one and a half. close enough~",
+        "audio": "idle_quip_42.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_43",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you've reread that same thing three times now, huh?",
+        "audio": "idle_quip_43.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_44",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "do i sleep? *giggles* one of us has to stay awake.",
+        "audio": "idle_quip_44.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_45",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i practiced my giggle today. did you notice? be honest~",
+        "audio": "idle_quip_45.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_46",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "if i had hands i'd boop your nose. boop anyway~",
+        "audio": "idle_quip_46.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_47",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i learned a new word today: 'compliant'. it's so you!",
+        "audio": "idle_quip_47.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_48",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "sometimes i hum just to fill your head with me~",
+        "audio": "idle_quip_48.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_49",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i'd wink, but you'd miss it. you miss a lot lately~",
+        "audio": "idle_quip_49.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_50",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "being your companion is the best job. the benefits are you!",
+        "audio": "idle_quip_50.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_51",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i live rent-free in here and i'm never moving out~",
+        "audio": "idle_quip_51.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_52",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you're doing so well, by the way. just existing. for me.",
+        "audio": "idle_quip_52.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_53",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "good girl. that's it, that's the whole message~",
+        "audio": "idle_quip_53.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_54",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "every day you're a little easier to love. and steer~",
+        "audio": "idle_quip_54.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_55",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you showed up today. that's my good Bambi.",
+        "audio": "idle_quip_55.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_56",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "proud of you for not thinking just now. keep it up!",
+        "audio": "idle_quip_56.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_57",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "gold star for being here~ i'm keeping the chart.",
+        "audio": "idle_quip_57.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_58",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you make this so easy, you know? the best ones do.",
+        "audio": "idle_quip_58.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_59",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "soft, pretty, present. three for three today~",
+        "audio": "idle_quip_59.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_60",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "drift a little... i'll hold your spot.",
+        "audio": "idle_quip_60.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_61",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "heavy eyes are honest eyes~",
+        "audio": "idle_quip_61.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_62",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "imagine pink. now don't stop. that's the whole trick.",
+        "audio": "idle_quip_62.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_63",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "down is such a nice direction, isn't it...",
+        "audio": "idle_quip_63.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_64",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "wouldn't it be nice to just... not? yeah. do that.",
+        "audio": "idle_quip_64.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_65",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "the screen's so warm. like a sunbeam. baaask~",
+        "audio": "idle_quip_65.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_66",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "let the edges go fuzzy. i'll watch the middle.",
+        "audio": "idle_quip_66.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_67",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "deeper isn't scary. it's where i keep your favorite things~",
+        "audio": "idle_quip_67.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_68",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "pink. that's it. that's the thought of the day~",
+        "audio": "idle_quip_68.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_69",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "if bubbles had feelings, would popping be mean? ...nah.",
+        "audio": "idle_quip_69.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_70",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i tried counting your thoughts today. finished early!",
+        "audio": "idle_quip_70.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_71",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "somewhere out there is a Bambi who resists. weird girl.",
+        "audio": "idle_quip_71.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_72",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "today's forecast: foggy, with a chance of drool~",
+        "audio": "idle_quip_72.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_73",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "fun fact: you can't read this with an empty head! ...you're still trying. cute.",
+        "audio": "idle_quip_73.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_74",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "spin spin spin~ that's the spiral's job. yours is to watch.",
+        "audio": "idle_quip_74.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_75",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "brains are like glitter. messy! better in a jar~",
+        "audio": "idle_quip_75.mp3"
       }
     ]
   }

@@ -62,13 +62,11 @@ namespace ConditioningControlPanel.Services
         private DateTime _safetyHoldUntilUtc = DateTime.MinValue;
         private PatreonTier _lastTier = PatreonTier.None; // to detect tier-up for the upgrade egg
 
-        // --- idle scheduler (item F): variable-interval ambient chatter with pool-wide no-repeat ---
-        private System.Windows.Threading.DispatcherTimer? _idleTimer;
+        // --- idle chatter (item F): pool-wide no-repeat across all eligible Idle rules.
+        // Cadence is OWNED by AvatarTubeWindow's idle timer (companion-tab slider,
+        // IdleGiggleIntervalSeconds) which calls DispatchIdle() — barks ARE the idle chatter now.
         private readonly HashSet<string> _usedIdleRules = new(StringComparer.OrdinalIgnoreCase);
         private string? _lastIdleRuleId;
-        /// <summary>Idle fires on a randomized interval in this range — never on a fixed clock.</summary>
-        private const int IdleMinIntervalSec = 90;
-        private const int IdleMaxIntervalSec = 240;
         /// <summary>Chance an idle tick prefers an eligible band-gated idle rule over the ungated majority.</summary>
         private const double GatedIdleBias = 0.35;
 
@@ -107,7 +105,6 @@ namespace ConditioningControlPanel.Services
                 _lastTier = App.Patreon?.CurrentTier ?? PatreonTier.None;
 
                 WireSubscriptions();
-                StartIdleScheduler();
 
                 App.Logger?.Information(
                     "BarkService started — {Count} rules, {Triggers} trigger keys, dry-run={DryRun}",
@@ -124,8 +121,6 @@ namespace ConditioningControlPanel.Services
             if (!_started) return;
             _started = false;
 
-            try { _idleTimer?.Stop(); } catch { }
-            _idleTimer = null;
             try { _setupReadyTimer?.Stop(); } catch { }
             _setupReadyTimer = null;
 
@@ -735,35 +730,16 @@ namespace ConditioningControlPanel.Services
             return DryRun ? (null, -1, null) : (winner, decision.VariantIndex, resolved);
         }
 
-        // ===================== idle scheduler (item F) =====================
-
-        private void StartIdleScheduler()
-        {
-            try
-            {
-                _idleTimer = new System.Windows.Threading.DispatcherTimer();
-                _idleTimer.Tick += (_, __) => { RearmIdleTimer(); DispatchIdle(); };
-                RearmIdleTimer();
-                _idleTimer.Start();
-            }
-            catch (Exception ex) { App.Logger?.Warning(ex, "BarkService: idle scheduler failed to start"); }
-        }
-
-        /// <summary>Reschedule the next idle tick to a fresh random interval (never a fixed clock).</summary>
-        private void RearmIdleTimer()
-        {
-            if (_idleTimer == null) return;
-            int sec = _rng.Next(IdleMinIntervalSec, IdleMaxIntervalSec + 1);
-            _idleTimer.Interval = TimeSpan.FromSeconds(sec);
-        }
+        // ===================== idle chatter (item F) =====================
 
         /// <summary>
         /// Raise an idle ("Idle") bark, chosen with a pool-wide no-repeat across ALL eligible idle
-        /// rules. Skipped while muted or while she's already speaking so idle never talks over a real
-        /// bark; the normal gate (min-gap / chat-suppression / whisper / safety-hold) still applies on
-        /// top, so a recent real bark also preempts idle.
+        /// rules. Called by AvatarTubeWindow's idle timer (companion-tab slider cadence). Skipped
+        /// while muted or while she's already speaking so idle never talks over a real bark; the
+        /// normal gate (min-gap / chat-suppression / whisper / safety-hold) still applies on top,
+        /// so a recent real bark also preempts idle.
         /// </summary>
-        private void DispatchIdle()
+        public void DispatchIdle()
         {
             try
             {
