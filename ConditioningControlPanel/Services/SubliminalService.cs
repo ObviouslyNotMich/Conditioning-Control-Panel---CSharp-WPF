@@ -21,7 +21,17 @@ namespace ConditioningControlPanel.Services
     {
         private readonly DispatcherTimer _timer;
         private readonly Random _random = new();
-        private readonly List<Window> _activeWindows = new();
+
+        // KEEP-ALIVE windows, one per screen: a subliminal "show" swaps the text content and
+        // animates opacity on a persistent full-screen click-through window. Creating and
+        // closing a layered window per subliminal (the old behavior) is render-thread churn
+        // that can wedge WPF's shared render thread while other layered surfaces animate
+        // (Application Hang 1002 — same fix as FlashService pooling / chaos overlays).
+        // Keyed by screen DeviceName; bounds are re-asserted per show. Closed only in Dispose.
+        private readonly Dictionary<string, Window> _screenWindows = new();
+        // Per-window show generation: a new show on the same window invalidates the previous
+        // storyboard's Completed (which would otherwise blank the new text early).
+        private readonly Dictionary<Window, int> _showGeneration = new();
         private readonly string _audioPath;
         private string[]? _audioFilesCache;
         private DateTime _audioFilesCacheTime;
@@ -73,21 +83,23 @@ namespace ConditioningControlPanel.Services
         {
             _isRunning = false;
             _timer.Stop();
-            
-            // Detach animations and close any active windows
-            foreach (var win in _activeWindows.ToList())
+
+            // Blank + hide the keep-alive windows (don't close them — a Stop can land
+            // mid-chaos-run, and closing layered windows then is the deadlock trigger).
+            foreach (var win in _screenWindows.Values)
             {
                 try
                 {
                     win.BeginAnimation(Window.OpacityProperty, null);
-                    win.Close();
+                    win.Opacity = 0;
+                    win.Content = null;
+                    win.Hide();
                 }
                 catch { }
             }
-            _activeWindows.Clear();
-            
+
             StopAudio();
-            
+
             App.Logger?.Information("SubliminalService stopped");
         }
 
@@ -533,9 +545,6 @@ namespace ConditioningControlPanel.Services
             if (!_isRunning && !_oneShotActive) return;
             _oneShotActive = false;
 
-            // Prevent memory explosion from too many concurrent subliminal windows
-            if (_activeWindows.Count >= 15) return;
-
             // Increment counter and fire event
             _subliminalCount++;
             SubliminalDisplayed?.Invoke(this, EventArgs.Empty);
@@ -553,68 +562,46 @@ namespace ConditioningControlPanel.Services
             var borderColor = ParseColor(App.Settings.Current.SubBorderColor, Colors.White);
             var bgTransparent = App.Settings.Current.SubBackgroundTransparent;
 
-            // Get all monitors and create windows for all at once
+            // Get all monitors and reuse (or lazily create) the keep-alive window per screen
             var screens = App.Settings.Current.DualMonitorEnabled
                 ? App.GetAllScreensCached()
                 : new[] { System.Windows.Forms.Screen.PrimaryScreen! };
-            var windows = new List<Window>();
             var stealsFocus = App.Settings.Current.SubliminalStealsFocus;
 
-            // Create all windows first (don't show yet)
-            // SourceInitialized handler will apply click-through styles BEFORE window is rendered
             foreach (var screen in screens)
             {
-                var win = CreateSubliminalWindow(screen, text, targetOpacity,
-                    bgColor, textColor, borderColor, bgTransparent, stealsFocus);
-                windows.Add(win);
-            }
-
-            // Show all windows simultaneously
-            foreach (var win in windows)
-            {
-                win.Show();
-
-                // If stealing focus is enabled, activate the window to force keyboard focus
-                if (stealsFocus)
-                {
-                    win.Activate();
-                }
-
-                _activeWindows.Add(win);
-            }
-
-            // Animate all windows simultaneously
-            foreach (var win in windows)
-            {
+                if (screen == null) continue;
+                var win = GetOrCreateScreenWindow(screen);
+                BuildSubliminalContent(win, text, bgColor, textColor, borderColor, bgTransparent);
+                if (!win.IsVisible) win.Show();   // idles HIDDEN between shows (a visible
+                                                  // full-screen layered surface costs DWM
+                                                  // composition every frame, even at opacity 0)
+                ApplyWindowStyles(win, screen.Bounds, stealsFocus);
+                if (stealsFocus) win.Activate();
+                PositionSubliminalText(win);
                 AnimateSubliminal(win, targetOpacity, durationMs);
             }
         }
 
         private const int WS_EX_LAYERED = 0x00080000;
 
-        private Window CreateSubliminalWindow(System.Windows.Forms.Screen screen, string text,
-            double targetOpacity, Color bgColor, Color textColor,
-            Color borderColor, bool bgTransparent, bool stealsFocus)
+        /// <summary>
+        /// Get the keep-alive subliminal window for a screen, creating (and showing, at
+        /// opacity 0) it on first use. The window shell is permanent — only its content
+        /// and opacity change per subliminal. Bounds/styles are re-asserted per show by
+        /// <see cref="ApplyWindowStyles"/> so resolution changes and the StealsFocus
+        /// setting are picked up.
+        /// </summary>
+        private Window GetOrCreateScreenWindow(System.Windows.Forms.Screen screen)
         {
+            var key = screen.DeviceName ?? "primary";
+            if (_screenWindows.TryGetValue(key, out var cached) && cached.IsLoaded)
+                return cached;
+
             // Use EXACTLY the same approach as OverlayService.GetWpfScreenBounds
             // which works correctly for multi-monitor DPI setups
             var bounds = screen.Bounds;
-
-            // WPF uses the primary monitor's DPI as the reference for ALL coordinate calculations
-            double primaryDpi = GetPrimaryMonitorDpi();
-            double primaryScale = primaryDpi / 96.0;
-
-            // BOTH position AND size divided by primaryScale (same as OverlayService)
-            double left = bounds.X / primaryScale;
-            double top = bounds.Y / primaryScale;
-            double width = bounds.Width / primaryScale;
-            double height = bounds.Height / primaryScale;
-
-            App.Logger?.Debug("Subliminal window for {Screen}: Bounds=({BX},{BY},{BW}x{BH}), PrimaryDPI={PDPI}, PrimaryScale={PS}, WPF=({WL},{WT},{WW}x{WH})",
-                screen.DeviceName, bounds.X, bounds.Y, bounds.Width, bounds.Height, primaryDpi, primaryScale, left, top, width, height);
-
-            // Capture screen bounds for use in SourceInitialized handler
-            var targetBounds = bounds;
+            double primaryScale = GetPrimaryMonitorDpi() / 96.0;
 
             var win = new Window
             {
@@ -627,13 +614,23 @@ namespace ConditioningControlPanel.Services
                 Focusable = false,
                 IsHitTestVisible = false,
                 WindowStartupLocation = WindowStartupLocation.Manual,
-                Left = left,
-                Top = top,
-                Width = width,
-                Height = height,
+                Left = bounds.X / primaryScale,
+                Top = bounds.Y / primaryScale,
+                Width = bounds.Width / primaryScale,
+                Height = bounds.Height / primaryScale,
                 Opacity = 0
             };
 
+            win.Show();   // hwnd exists from here on; the window idles invisible between shows
+            _screenWindows[key] = win;
+            App.Logger?.Debug("Subliminal keep-alive window created for {Screen}", key);
+            return win;
+        }
+
+        /// <summary>Swap in the text/background visuals for one show.</summary>
+        private void BuildSubliminalContent(Window win, string text,
+            Color bgColor, Color textColor, Color borderColor, bool bgTransparent)
+        {
             // Use a Grid that stretches to fill the window (unlike Canvas with explicit size)
             var grid = new Grid
             {
@@ -673,7 +670,7 @@ namespace ConditioningControlPanel.Services
                 (0, -4), (0, 4), (-4, 0), (4, 0)
             };
 
-            // Draw border text (will be positioned in Loaded event when we know actual size)
+            // Draw border text (positioned by PositionSubliminalText once sizes are known)
             foreach (var (ox, oy) in offsets)
             {
                 var borderText = CreateTextBlock(text, fontSize, borderColor);
@@ -688,55 +685,71 @@ namespace ConditioningControlPanel.Services
 
             grid.Children.Add(textCanvas);
             win.Content = grid;
+        }
 
-            // CRITICAL: Apply click-through styles in SourceInitialized (BEFORE window is rendered)
-            // This is the same pattern OverlayService uses and prevents focus stealing during Show()
-            win.SourceInitialized += (s, e) =>
+        /// <summary>
+        /// Re-assert ex-styles, physical-pixel bounds, topmost band and capture-exclusion on
+        /// the live hwnd. Runs per show: StealsFocus can change between shows, and bounds
+        /// can change with display layout.
+        /// </summary>
+        private void ApplyWindowStyles(Window win, System.Drawing.Rectangle targetBounds, bool stealsFocus)
+        {
+            try
             {
                 var hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
-                if (hwnd != IntPtr.Zero)
-                {
-                    var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-                    if (stealsFocus)
-                    {
-                        // Only mouse click-through, but allow focus steal
-                        SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_LAYERED);
-                    }
-                    else
-                    {
-                        // Full click-through: mouse passes through AND no focus stealing
-                        SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_LAYERED);
-                    }
+                if (hwnd == IntPtr.Zero) return;
 
-                    // Position window using SetWindowPos with SWP_NOACTIVATE for robust no-focus behavior
-                    // Use physical pixel coordinates to bypass WPF DPI virtualization
-                    SetWindowPos(hwnd, HWND_TOPMOST,
-                        targetBounds.X, targetBounds.Y, targetBounds.Width, targetBounds.Height,
-                        SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE)
+                              | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_LAYERED;
+                if (stealsFocus)
+                    exStyle &= ~WS_EX_NOACTIVATE;   // mouse click-through, but allow focus steal
+                else
+                    exStyle |= WS_EX_NOACTIVATE;    // full click-through, no focus stealing
+                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle);
 
-                    // Exclude from screen capture so OCR doesn't read subliminal text
-                    SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
-                }
-            };
+                // Position window using SetWindowPos with SWP_NOACTIVATE for robust no-focus behavior
+                // Use physical pixel coordinates to bypass WPF DPI virtualization
+                SetWindowPos(hwnd, HWND_TOPMOST,
+                    targetBounds.X, targetBounds.Y, targetBounds.Width, targetBounds.Height,
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW);
 
-            // Position text when window is loaded (we now know actual size)
-            win.Loaded += (s, e) =>
+                // Exclude from screen capture so OCR doesn't read subliminal text
+                SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+            }
+            catch (Exception ex)
             {
+                App.Logger?.Debug("Subliminal ApplyWindowStyles: {E}", ex.Message);
+            }
+        }
+
+        /// <summary>Center the border/main text blocks for the current content + window size.</summary>
+        private static void PositionSubliminalText(Window win)
+        {
+            try
+            {
+                if (win.Content is not Grid grid) return;
+                Canvas? textCanvas = null;
+                foreach (var child in grid.Children)
+                    if (child is Canvas c) { textCanvas = c; break; }
+                if (textCanvas == null) return;
+
                 var centerX = win.ActualWidth / 2.0;
                 var centerY = win.ActualHeight / 2.0;
 
                 foreach (var child in textCanvas.Children)
                 {
-                    if (child is TextBlock tb && tb.Tag is (double ox, double oy, bool isBorder))
+                    if (child is TextBlock tb && tb.Tag is (double ox, double oy, bool _))
                     {
                         tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                         Canvas.SetLeft(tb, centerX - tb.DesiredSize.Width / 2 + ox);
                         Canvas.SetTop(tb, centerY - tb.DesiredSize.Height / 2 + oy);
                     }
                 }
-            };
-
-            return win;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Subliminal PositionText: {E}", ex.Message);
+            }
         }
 
         private double GetPrimaryMonitorDpi()
@@ -835,15 +848,29 @@ namespace ConditioningControlPanel.Services
             Storyboard.SetTargetProperty(fadeOut, new PropertyPath(Window.OpacityProperty));
             storyboard.Children.Add(fadeOut);
 
+            // A newer show on this window invalidates this storyboard's cleanup — otherwise
+            // the old Completed would blank the new text early.
+            _showGeneration.TryGetValue(win, out var g);
+            var myGeneration = g + 1;
+            _showGeneration[win] = myGeneration;
+
             storyboard.Completed += (s, e) =>
             {
-                _activeWindows.Remove(win);
+                if (_showGeneration.TryGetValue(win, out var current) && current != myGeneration)
+                    return;
                 // Detach animation clocks from the Window to break reference cycle
-                // (Storyboard.SetTarget creates clocks that prevent GC of the Window)
+                // (Storyboard.SetTarget creates clocks that prevent GC of the Window).
+                // The window itself stays alive but HIDES for the next show — never closed
+                // mid-session (layered-window close mid-run can deadlock the render thread),
+                // and never left visible (an idle full-screen layered surface taxes DWM).
                 win.BeginAnimation(Window.OpacityProperty, null);
-                win.Close();
+                win.Opacity = 0;
+                win.Content = null;
+                try { win.Hide(); } catch { }
             };
 
+            // Detach any still-running previous clocks before starting the new pass.
+            win.BeginAnimation(Window.OpacityProperty, null);
             storyboard.Begin();
         }
 
@@ -867,6 +894,13 @@ namespace ConditioningControlPanel.Services
             _disposed = true;
 
             Stop();
+            // App shutdown: the only place the keep-alive windows actually close.
+            foreach (var win in _screenWindows.Values)
+            {
+                try { win.Close(); } catch { }
+            }
+            _screenWindows.Clear();
+            _showGeneration.Clear();
             StopAudio();
         }
 

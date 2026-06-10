@@ -78,6 +78,25 @@ namespace ConditioningControlPanel.Services
         public event EventHandler? VideoStarted;
         public event EventHandler? VideoEnded;
 
+        // ---- chaos random-segment mode (one-shot) ----
+        // The NEXT triggered video jumps to a random position leaving at least _segmentSec of
+        // runway (the chaos 15s cap then ends it — so the player sees a random 15s slice, not
+        // always the opening). One shared fraction keeps dual-monitor mirrors in sync. Armed
+        // immediately before TriggerVideo by the chaos VideoPayload; disarmed in CloseAll.
+        private double _segmentSec;
+        private double _segmentFraction;
+        private DateTime _segmentArmedAtUtc = DateTime.MinValue;
+        private bool SegmentArmed => (DateTime.UtcNow - _segmentArmedAtUtc).TotalSeconds < 30;
+
+        /// <summary>Chaos: make the next video start at a random position with at least
+        /// <paramref name="segmentSec"/> seconds left to play.</summary>
+        public void ArmRandomSegment(double segmentSec)
+        {
+            _segmentSec = Math.Max(1, segmentSec);
+            _segmentFraction = Random.Shared.NextDouble();
+            _segmentArmedAtUtc = DateTime.UtcNow;
+        }
+
         /// <summary>
         /// Primary (audio-bearing) media player, or null if no video is playing.
         /// Exposed for the Deeper EnhancementEngine to read playback time and
@@ -616,6 +635,16 @@ namespace ConditioningControlPanel.Services
             if (_triggerInProgress)
             {
                 App.Logger?.Information("VideoService: TriggerVideo skipped - trigger already in progress");
+                return;
+            }
+
+            // Chaos gif rain in flight: a mandatory video opening over a falling cascade is the
+            // proven UI-thread killer (AppHangB1 2026-06-10). Drop the trigger outright — never
+            // queue it. Chaos's own video bubbles are already gated upstream while the rain
+            // falls, so this only ever drops ambient/scheduler triggers.
+            if (ChaosGifCascadeOverlay.IsRaining)
+            {
+                App.Logger?.Information("VideoService: TriggerVideo dropped - chaos gif cascade in flight");
                 return;
             }
 
@@ -1258,6 +1287,47 @@ namespace ConditioningControlPanel.Services
                 {
                     _duration = e.Length / 1000.0; // Convert ms to seconds
                     App.Logger?.Information("VideoService: LibVLC LengthChanged fired, duration={Duration}s", _duration);
+
+                    // Chaos random segment: jump to the shared random start (every player uses the
+                    // same fraction so mirrors stay in sync). Only when the file outruns the segment.
+                    // The seek is DEFERRED until the player is actually rolling: LengthChanged fires
+                    // before the video output finishes initializing, and seeking mid-creation blanks
+                    // the primary view (observed 2026-06-10).
+                    try
+                    {
+                        long segMs = (long)(_segmentSec * 1000);
+                        if (SegmentArmed && e.Length > segMs)
+                        {
+                            long startMs = (long)((e.Length - segMs) * _segmentFraction);
+                            if (startMs > 500)
+                            {
+                                var dispatcher = Application.Current?.Dispatcher;
+                                if (dispatcher != null && !dispatcher.HasShutdownStarted)
+                                {
+                                    dispatcher.BeginInvoke(() =>
+                                    {
+                                        var seek = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+                                        seek.Tick += (_, _) =>
+                                        {
+                                            seek.Stop();
+                                            try
+                                            {
+                                                if (_videoPlaying && mediaPlayer.IsPlaying && mediaPlayer.Time < startMs - 1000)
+                                                {
+                                                    mediaPlayer.Time = startMs;
+                                                    App.Logger?.Information("VideoService: random segment — seeking to {Start}s of {Len}s",
+                                                        startMs / 1000, e.Length / 1000);
+                                                }
+                                            }
+                                            catch (Exception ex2) { App.Logger?.Debug("VideoService random-segment seek: {E}", ex2.Message); }
+                                        };
+                                        seek.Start();
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex) { App.Logger?.Debug("VideoService random-segment seek: {E}", ex.Message); }
                     try
                     {
                         var dispatcher = Application.Current?.Dispatcher;
@@ -2178,6 +2248,7 @@ namespace ConditioningControlPanel.Services
             try
             {
                 _attentionTimer?.Stop();
+                _segmentArmedAtUtc = DateTime.MinValue;   // random-segment mode is one-shot per video
 
                 lock (_targets)
                 {
@@ -2223,6 +2294,18 @@ namespace ConditioningControlPanel.Services
                     if (!allStopped)
                     {
                         App.Logger?.Warning("CloseAll: Some LibVLC players did not stop within timeout");
+                        // Detaching a VideoView from a STILL-RENDERING player is the multi-monitor
+                        // crash/freeze path (2026-06-10: the chaos 15s cap stops players mid-decode,
+                        // which regularly outruns 500ms with two of them). Pump-wait up to 4s more
+                        // for the stragglers before touching the views — a slow close beats a
+                        // wedged render thread.
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        while (sw.ElapsedMilliseconds < 4000 && stopTasks.Any(t => !t.IsCompleted))
+                            WaitWithMessagePump(150);
+                        if (stopTasks.Any(t => !t.IsCompleted))
+                            App.Logger?.Error("CloseAll: LibVLC player STILL stopping after extended wait — detaching anyway");
+                        else
+                            App.Logger?.Information("CloseAll: stragglers stopped after extended wait ({Ms}ms)", sw.ElapsedMilliseconds);
                     }
                 }
 

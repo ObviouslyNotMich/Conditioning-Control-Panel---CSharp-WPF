@@ -33,6 +33,14 @@ namespace ConditioningControlPanel.Services
 
         private readonly Random _random = new();
         private readonly List<FlashWindow> _activeWindows = new();
+
+        // Window pool: retired flash windows Hide() and get recycled instead of Close().
+        // Destroying a layered window while other layered surfaces animate (chaos bubbles,
+        // GIF flashes) can wedge the shared WPF render thread (Application Hang 1002) — the
+        // per-flash create/close churn was implicated in repeated mid-chaos-run freezes.
+        // UI-thread only (heartbeat/spawn/close all run on the dispatcher).
+        private readonly Stack<FlashWindow> _windowPool = new();
+        private const int WINDOW_POOL_MAX = 12;
         private List<string> _imageList = new();  // Cached image list for random selection
         private List<(string PackId, PackFileEntry File)> _packImageList = new();  // Cached pack images for random selection
         private Queue<string> _soundQueue = new();  // Performance: Changed to Queue for O(1) dequeue
@@ -46,7 +54,8 @@ namespace ConditioningControlPanel.Services
         private const int CACHE_EXPIRY_SECONDS = 60;  // Re-scan directories every 60 seconds
 
         private DispatcherTimer? _schedulerTimer;
-        private DispatcherTimer? _heartbeatTimer;
+        private bool _heartbeatOn;                       // CompositionTarget.Rendering subscribed
+        private TimeSpan _lastHeartbeat = TimeSpan.MinValue;
         private CancellationTokenSource? _cancellationSource;
         
         private bool _isRunning;
@@ -156,13 +165,10 @@ namespace ConditioningControlPanel.Services
             RefreshImagesPath();
             _soundsPath = CompanionPhraseService.VoiceLineFolder;
             Directory.CreateDirectory(_soundsPath);
-
-            // Heartbeat timer for animation and fade management
-            _heartbeatTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(33) // ~30 FPS
-            };
-            _heartbeatTimer.Tick += Heartbeat_Tick;
+            // Animation/fade heartbeat runs off CompositionTarget.Rendering (vsync-aligned)
+            // — see StartHeartbeat. A 33ms DispatcherTimer's OS-quantized cadence beats
+            // against the display refresh and makes GIF flashes judder (same fix as the
+            // chaos DVD logo / gif cascade).
         }
 
         #endregion
@@ -196,7 +202,7 @@ namespace ConditioningControlPanel.Services
             _isRunning = true;
             _cancellationSource?.Dispose();
             _cancellationSource = new CancellationTokenSource();
-            _heartbeatTimer?.Start();
+            StartHeartbeat();
 
             ScheduleNextFlash();
 
@@ -211,7 +217,7 @@ namespace ConditioningControlPanel.Services
             _isRunning = false;
             try { _cancellationSource?.Cancel(); }
             catch (ObjectDisposedException) { }
-            _heartbeatTimer?.Stop();
+            StopHeartbeat();
             _schedulerTimer?.Stop();
 
             StopCurrentSound();
@@ -260,7 +266,7 @@ namespace ConditioningControlPanel.Services
             _soundPlayingForCurrentFlash = false;
 
             // Start heartbeat timer for animation and fade management
-            _heartbeatTimer?.Start();
+            StartHeartbeat();
 
             Task.Run(() => LoadAndShowImages(amount, duration, size, suppressHaptic));
         }
@@ -302,7 +308,7 @@ namespace ConditioningControlPanel.Services
             _isBusy = true;
             _oneShotActive = true;
             _soundPlayingForCurrentFlash = false;
-            _heartbeatTimer?.Start();
+            StartHeartbeat();
 
             Task.Run(() => LoadAndShowSpecificImage(resolved, durationMs, playSound, suppressHaptic));
         }
@@ -869,7 +875,7 @@ namespace ConditioningControlPanel.Services
                             if (!hasWindows && _oneShotActive && !_isRunning)
                             {
                                 _oneShotActive = false;
-                                _heartbeatTimer?.Stop();
+                                StopHeartbeat();
                                 App.Logger?.Debug("FlashService: One-shot flash completed (all windows faded) uwu~ 🌙");
                             }
                         });
@@ -968,28 +974,23 @@ namespace ConditioningControlPanel.Services
                     finalY = monitor.Y + _random.Next(0, Math.Max(1, monitor.Height - geom.Height));
                 }
 
-                window = new FlashWindow
-                {
-                    Left = finalX,
-                    Top = finalY,
-                    Width = geom.Width,
-                    Height = geom.Height,
-                    Frames = imageData.Frames,
-                    FrameDelay = imageData.FrameDelay,
-                    StartTime = DateTime.Now,
-                    IsClickable = settings.FlashClickable,
-                    AllowsTransparency = true,
-                    WindowStyle = WindowStyle.None,
-                    Topmost = true,
-                    ShowInTaskbar = false,
-                    ShowActivated = false,
-                    Background = System.Windows.Media.Brushes.Black,
-                    ResizeMode = ResizeMode.NoResize,
-                    LifetimeCts = windowCts,
-                    ExpiresAt = DateTime.Now.AddMilliseconds(lifetimeMs),
-                    OriginalLifetimeMs = lifetimeMs,
-                    HydraGeneration = hydraGeneration
-                };
+                // Recycled from the pool when possible — all per-spawn state must be (re)set here.
+                window = AcquireFlashWindow();
+                window.Left = finalX;
+                window.Top = finalY;
+                window.Width = geom.Width;
+                window.Height = geom.Height;
+                window.Frames = imageData.Frames;
+                window.FrameDelay = imageData.FrameDelay;
+                window.StartTime = DateTime.Now;
+                window.CurrentFrameIndex = 0;
+                window.IsClickable = settings.FlashClickable;
+                window.Background = System.Windows.Media.Brushes.Black;
+                window.IsFadingOut = false;
+                window.LifetimeCts = windowCts;
+                window.ExpiresAt = DateTime.Now.AddMilliseconds(lifetimeMs);
+                window.OriginalLifetimeMs = lifetimeMs;
+                window.HydraGeneration = hydraGeneration;
                 // Capture the monitor on the window so hydra children can inherit
                 // their parent's screen (TriggerMultiplication reads window.Monitor).
                 window.Monitor = monitor;
@@ -1007,20 +1008,6 @@ namespace ConditioningControlPanel.Services
                     }
                     catch { }
                 });
-
-                // Safety net: if the window is closed externally (e.g., OS shutdown, Alt+F4)
-                // without going through SafeCloseFlashWindow, dispose the CTS to prevent leaks~ 🧹
-                window.Closed += (s, e) =>
-                {
-                    if (s is FlashWindow fw)
-                    {
-                        try { fw.LifetimeRegistration?.Dispose(); } catch { }
-                        fw.LifetimeRegistration = null;
-                        try { fw.LifetimeCts?.Cancel(); } catch { }
-                        try { fw.LifetimeCts?.Dispose(); } catch { }
-                        fw.LifetimeCts = null;
-                    }
-                };
 
                 // Create image control
                 var perfTier = PerformanceProfile.CurrentTier;
@@ -1150,26 +1137,14 @@ namespace ConditioningControlPanel.Services
 
                 window.Opacity = 0;
 
-                // Click handler
-                if (settings.FlashClickable)
-                {
-                    window.Cursor = System.Windows.Input.Cursors.Hand;
-                    window.MouseLeftButtonDown += (s, e) =>
-                    {
-                        if (s is FlashWindow fw)
-                            OnFlashClicked(fw, App.Settings.Current);
-                    };
-                }
-                else
-                {
-                    window.Cursor = System.Windows.Input.Cursors.No;
-                    MakeClickThrough(window);
-                }
-
-                // Hide from Alt+Tab for ALL flash windows
-                HideFromAltTab(window);
+                // Click handler + Alt+Tab hiding are wired ONCE in AcquireFlashWindow (the
+                // handler reads IsClickable per spawn) so recycled windows never stack handlers.
+                window.Cursor = settings.FlashClickable
+                    ? System.Windows.Input.Cursors.Hand
+                    : System.Windows.Input.Cursors.No;
 
                 window.Show();
+                ApplyClickability(window, settings.FlashClickable);
                 if (!suppressHaptic)
                     _ = App.Haptics?.FlashDecayVibeAsync();
 
@@ -1310,12 +1285,63 @@ namespace ConditioningControlPanel.Services
 
         #region Heartbeat & Animation
 
-        private void Heartbeat_Tick(object? sender, EventArgs e)
+        // Old 33ms-tick fade step was 0.08/tick — same speed, expressed per second.
+        private const double FADE_PER_SEC = 2.4;
+
+        /// <summary>Subscribe the heartbeat to the composition clock (idempotent, any thread).</summary>
+        private void StartHeartbeat()
+        {
+            var disp = System.Windows.Application.Current?.Dispatcher;
+            if (disp == null) return;
+            void Sub()
+            {
+                if (_heartbeatOn) return;
+                _heartbeatOn = true;
+                _lastHeartbeat = TimeSpan.MinValue;
+                CompositionTarget.Rendering += Heartbeat_Render;
+            }
+            if (disp.CheckAccess()) Sub(); else disp.BeginInvoke((Action)Sub);
+        }
+
+        /// <summary>Unsubscribe the heartbeat (idempotent, any thread). Important: a live
+        /// Rendering subscription forces WPF to render continuously, so it only runs while
+        /// flashes are actually active.</summary>
+        private void StopHeartbeat()
+        {
+            var disp = System.Windows.Application.Current?.Dispatcher;
+            if (disp == null) return;
+            void Unsub()
+            {
+                if (!_heartbeatOn) return;
+                _heartbeatOn = false;
+                CompositionTarget.Rendering -= Heartbeat_Render;
+            }
+            if (disp.CheckAccess()) Unsub(); else disp.BeginInvoke((Action)Unsub);
+        }
+
+        private void Heartbeat_Render(object? sender, EventArgs e)
+        {
+            // True delta time from the composition clock: baseline on the first frame,
+            // skip duplicate callbacks, clamp after a stall so fades can't jump.
+            double dt = 0.033;
+            if (e is RenderingEventArgs r)
+            {
+                if (_lastHeartbeat == TimeSpan.MinValue) { _lastHeartbeat = r.RenderingTime; return; }
+                dt = (r.RenderingTime - _lastHeartbeat).TotalSeconds;
+                if (dt <= 0) return;
+                _lastHeartbeat = r.RenderingTime;
+                if (dt > 0.1) dt = 0.1;
+            }
+            Heartbeat_Tick(dt);
+        }
+
+        private void Heartbeat_Tick(double dt)
         {
             if (!_isRunning && !_oneShotActive) return;
 
             var settings = App.Settings.Current;
             var maxAlpha = Math.Min(1.0, Math.Max(0.0, settings.FlashOpacity / 100.0));
+            var fadeStep = FADE_PER_SEC * dt;
 
             FlashWindow[] windowsCopy;
             lock (_lockObj)
@@ -1347,11 +1373,11 @@ namespace ConditioningControlPanel.Services
                     var currentAlpha = window.Opacity;
                     if (targetAlpha > currentAlpha)
                     {
-                        window.Opacity = Math.Min(targetAlpha, currentAlpha + 0.08);
+                        window.Opacity = Math.Min(targetAlpha, currentAlpha + fadeStep);
                     }
                     else if (targetAlpha < currentAlpha)
                     {
-                        var newAlpha = Math.Max(0.0, currentAlpha - 0.08);
+                        var newAlpha = Math.Max(0.0, currentAlpha - fadeStep);
                         window.Opacity = newAlpha;
                         
                         if (newAlpha <= 0)
@@ -1961,6 +1987,82 @@ namespace ConditioningControlPanel.Services
 
         #region Window Management
 
+        /// <summary>
+        /// Pop a recycled flash window or create a fresh one. The window's chrome and
+        /// one-time hooks (click handler, CTS safety net, Alt+Tab hiding) are wired here
+        /// exactly once; everything per-spawn is assigned by SpawnFlashWindow.
+        /// </summary>
+        private FlashWindow AcquireFlashWindow()
+        {
+            while (_windowPool.Count > 0)
+            {
+                var pooled = _windowPool.Pop();
+                if (pooled.IsLoaded) return pooled;   // skip any window that got closed externally
+            }
+
+            var w = new FlashWindow
+            {
+                AllowsTransparency = true,
+                WindowStyle = WindowStyle.None,
+                Topmost = true,
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                Background = System.Windows.Media.Brushes.Black,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Opacity = 0,
+            };
+
+            // One-time click handler — gated on the per-spawn IsClickable flag so a
+            // recycled window behaves per its current spawn, with no handler stacking.
+            w.MouseLeftButtonDown += (s, e) =>
+            {
+                if (s is FlashWindow fw && fw.IsClickable && !fw.IsFadingOut)
+                    OnFlashClicked(fw, App.Settings.Current);
+            };
+
+            // Safety net: if the window is closed externally (e.g., OS shutdown, Alt+F4)
+            // without going through SafeCloseFlashWindow, dispose the CTS to prevent leaks~ 🧹
+            w.Closed += (s, e) =>
+            {
+                if (s is FlashWindow fw)
+                {
+                    try { fw.LifetimeRegistration?.Dispose(); } catch { }
+                    fw.LifetimeRegistration = null;
+                    try { fw.LifetimeCts?.Cancel(); } catch { }
+                    try { fw.LifetimeCts?.Dispose(); } catch { }
+                    fw.LifetimeCts = null;
+                }
+            };
+
+            // Hide from Alt+Tab for ALL flash windows (SourceInitialized fires once, at first Show)
+            HideFromAltTab(w);
+            return w;
+        }
+
+        /// <summary>
+        /// Toggle mouse click-through on a (shown) flash window. Recycled windows can flip
+        /// between clickable and click-through across spawns, so the style is re-applied
+        /// directly on the live hwnd each time rather than via SourceInitialized.
+        /// </summary>
+        private static void ApplyClickability(FlashWindow window, bool clickable)
+        {
+            try
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+                if (hwnd == IntPtr.Zero) return;
+                var style = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE)
+                            | NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_NOACTIVATE;
+                if (clickable) style &= ~NativeMethods.WS_EX_TRANSPARENT;
+                else style |= NativeMethods.WS_EX_TRANSPARENT;
+                NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, style);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("ApplyClickability failed: {Error}", ex.Message);
+            }
+        }
+
         private void SafeCloseFlashWindow(FlashWindow window)
         {
             try
@@ -1974,8 +2076,8 @@ namespace ConditioningControlPanel.Services
                 try { window.LifetimeCts?.Dispose(); } catch { }
                 window.LifetimeCts = null;
 
-                // Release bitmap references before closing to prevent memory accumulation
-                // Without this, closed windows hold BitmapSource frames until GC collects them,
+                // Release bitmap references before retiring to prevent memory accumulation
+                // Without this, retired windows hold BitmapSource frames until GC collects them,
                 // causing multi-GB memory growth over long sessions
                 if (window.ImageControl != null)
                 {
@@ -1983,35 +2085,26 @@ namespace ConditioningControlPanel.Services
                     window.ImageControl = null;
                 }
                 window.Frames.Clear();
+                window.Content = null;
+                window.IsFadingOut = false;
+                window.Opacity = 0;
 
-                window.Close();
+                // Recycle instead of Close: hide the window and return it to the pool.
+                // Closing a layered window mid-run is the render-thread-deadlock trigger.
+                if (window.IsLoaded && _windowPool.Count < WINDOW_POOL_MAX)
+                {
+                    window.Hide();
+                    _windowPool.Push(window);
+                }
+                else
+                {
+                    window.Close();
+                }
             }
             catch (Exception ex)
             {
                 App.Logger?.Debug("Failed to close flash window: {Error}", ex.Message);
-            }
-        }
-
-        private void MakeClickThrough(Window window)
-        {
-            try
-            {
-                // Need to do this after window is shown
-                window.SourceInitialized += (s, e) =>
-                {
-                    if (s is not Window w) return;
-                    var hwnd = new System.Windows.Interop.WindowInteropHelper(w).Handle;
-                    var extendedStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
-                    // WS_EX_TRANSPARENT: clicks pass through
-                    // WS_EX_LAYERED: allows transparency
-                    // WS_EX_NOACTIVATE: never steals keyboard/mouse focus
-                    NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE,
-                        extendedStyle | NativeMethods.WS_EX_TRANSPARENT | NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_NOACTIVATE);
-                };
-            }
-            catch (Exception ex)
-            {
-                App.Logger.Debug("Could not make window click-through: {Error}", ex.Message);
+                try { window.Close(); } catch { }
             }
         }
 
@@ -2075,6 +2168,12 @@ namespace ConditioningControlPanel.Services
         public void Dispose()
         {
             Stop();
+            // Drain the recycled-window pool — the only place pooled hwnds actually close
+            // (app shutdown; nothing else is animating, so the close is safe here).
+            while (_windowPool.Count > 0)
+            {
+                try { _windowPool.Pop().Close(); } catch { }
+            }
             _cancellationSource?.Dispose();
             StopCurrentSound();
             CleanupTempPackFiles();
