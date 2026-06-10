@@ -37,9 +37,9 @@
     "_comment": "Delta on top of the mod's avatar layout. scale = multiplier (0.855 = ~14.5% smaller total); offsetX += right (negative = left); offsetY += DOWN. Applies to BambiSleep + Sissy (the avatar0 set).",
     "scale": 0.855,
     "offsetX": 10,
-    "offsetY": -20,
+    "offsetY": -30,
     "detachedX": 10,
-    "detachedY": -20
+    "detachedY": -30
   },
   "stemPrefix": {
     "session_start": "greeting",

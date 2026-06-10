@@ -988,7 +988,13 @@ namespace ConditioningControlPanel
                 var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
                 fadeOut.Completed += (s, args) =>
                 {
-                    if (gen != _avatarSwitchGen) return;   // a newer swap superseded this one — skip
+                    if (gen != _avatarSwitchGen)
+                    {
+                        // A newer swap superseded this one — its own fade restores the border opacity.
+                        App.Logger?.Information("[AVATAR] swap to set {Set} superseded (gen {Gen}/{Cur})",
+                            setNumber, gen, _avatarSwitchGen);
+                        return;
+                    }
                     switchAction();
                     var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200));
                     AvatarBorder.BeginAnimation(OpacityProperty, fadeIn);
@@ -4238,6 +4244,16 @@ namespace ConditioningControlPanel
                     {
                         _reattachAfterChaos = true;
                         Detach(silent: true);
+                        // The attached anchor sits over the sidebar's Stop button; drop the
+                        // detached widget down so the Chaos run's controls stay clickable.
+                        try
+                        {
+                            double drop = 250;
+                            var area = System.Windows.Forms.Screen.FromHandle(_tubeHandle).WorkingArea;
+                            double maxTop = area.Bottom - Math.Max(120, ActualHeight) - 8;
+                            Top = Math.Min(Top + drop, maxTop);
+                        }
+                        catch { /* positioning is best-effort */ }
                     }
                 }
                 else if (_reattachAfterChaos)
@@ -4350,16 +4366,12 @@ namespace ConditioningControlPanel
             // Skip if speech is on cooldown or currently showing
             if (!IsSpeechReady()) return;
 
-            // Use voice lines with audio for idle comments instead of preset phrases
-            var voiceLinePath = GetRandomVoiceLinePath();
-            if (voiceLinePath != null)
-            {
-                ShowVoiceLineBubble(voiceLinePath);
-                return;
-            }
-
-            // Fall back to preset phrases if no voice lines available
-            Giggle(GetRandomBambiPhrase());
+            // Idle chatter IS the bark system now: this timer only sets the cadence (the
+            // companion-tab slider); the line itself comes from the Idle bark pool with its
+            // pool-wide no-repeat rotation. Preset phrases are just the no-barks fallback.
+            // (flashes_audio voicelines are flash material and no longer spoken here.)
+            if (App.Bark != null) App.Bark.DispatchIdle();
+            else Giggle(GetRandomBambiPhrase());
         }
 
         // ============================================================
@@ -4774,25 +4786,11 @@ namespace ConditioningControlPanel
             // Skip if speech is on cooldown or currently showing
             if (!IsSpeechReady()) return;
 
-            // 50% chance to use a voice line instead of a subliminal trigger
-            var voiceLinePath = GetRandomVoiceLinePath();
-            if (voiceLinePath != null && _random.Next(2) == 0)
-            {
-                // Use voice line with audio
-                ShowVoiceLineBubble(voiceLinePath);
-                App.Logger?.Debug("TriggerMode: Using voice line instead of trigger");
-                return;
-            }
-
+            // Trigger mode speaks triggers only — the flashes_audio voicelines are flash
+            // material, no longer borrowed here (they repeated badly: uniform random, no memory).
             var triggers = App.Settings?.Current?.CustomTriggers;
             if (triggers == null || triggers.Count == 0)
             {
-                // Fall back to voice line if no triggers configured
-                if (voiceLinePath != null)
-                {
-                    ShowVoiceLineBubble(voiceLinePath);
-                    return;
-                }
                 App.Logger?.Debug("TriggerMode: No triggers configured");
                 return;
             }

@@ -21,5 +21,5 @@
     "hypnotic": "entrancing", "dreamy": "entrancing", "guiding": "entrancing", "intense": "entrancing", "dark": "entrancing", "deepening": "entrancing", "commanding": "entrancing",
     "curious": "talkA", "intrigued": "talkA"
   },
-  "layout": { "scale": 0.93 }
+  "layout": { "scale": 0.93, "offsetY": -10, "detachedY": -10 }
 }

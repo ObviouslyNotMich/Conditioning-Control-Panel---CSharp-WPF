@@ -201,6 +201,15 @@ namespace ConditioningControlPanel
                         LeaveCirceEmoteMode();
                         EnterCirceEmoteMode(folder!);
                     }
+                    else
+                    {
+                        // Same folder, still engaged — e.g. BambiSleep <-> Sissy both map to
+                        // avatar0_emotes. The mod-change/set-switch setup that ran before us has
+                        // already re-shown the static avatar (or fully re-entered portrait mode when
+                        // the new mod ships a manifest, like Sissy), which then sits visible BEHIND
+                        // the still-running emote layers — the "double avatar" bug. Re-hide it.
+                        ReassertCirceEmoteVisuals();
+                    }
                 }
                 else if (_circeEmoteMode)
                 {
@@ -221,10 +230,15 @@ namespace ConditioningControlPanel
             LeavePortraitMode();          // never run portrait + emote together
             _poseTimer.Stop();            // no legacy 4-pose rotation
             _useAnimatedAvatar = false;
+            // The mod-change setup may have just entered portrait mode (the new mod ships a manifest),
+            // whose chrome shifted AvatarBorder; LeavePortraitMode doesn't reset that transform.
+            ApplyAvatarTransform(_currentAvatarSet);
 
             ImgAvatar.Visibility = Visibility.Collapsed;
             if (ImgAvatarB != null) ImgAvatarB.Visibility = Visibility.Collapsed;
 
+            ImgAvatarAnimated.BeginAnimation(UIElement.OpacityProperty, null); // kill stale fade clocks
+            ImgAvatarAnimatedB.BeginAnimation(UIElement.OpacityProperty, null);
             ClearGifLayer(ImgAvatarAnimated);
             ClearGifLayer(ImgAvatarAnimatedB);
             ImgAvatarAnimated.Opacity = 1;
@@ -236,6 +250,8 @@ namespace ConditioningControlPanel
             {
                 AnimationBehavior.AddAnimationCompletedHandler(ImgAvatarAnimated, OnCirceClipCompleted);
                 AnimationBehavior.AddAnimationCompletedHandler(ImgAvatarAnimatedB, OnCirceClipCompleted);
+                AnimationBehavior.AddErrorHandler(ImgAvatarAnimated, OnCirceGifError);
+                AnimationBehavior.AddErrorHandler(ImgAvatarAnimatedB, OnCirceGifError);
                 _circeHandlersAttached = true;
             }
 
@@ -276,6 +292,10 @@ namespace ConditioningControlPanel
             _circeWatchdog?.Stop();
             _circeMinHoldTimer?.Stop();
             _circePendingClip = null;
+            // Cancel any in-flight crossfade so the local opacity values below actually take effect —
+            // a running fade's animated value otherwise overrides them until its clock ends.
+            ImgAvatarAnimated.BeginAnimation(UIElement.OpacityProperty, null);
+            ImgAvatarAnimatedB.BeginAnimation(UIElement.OpacityProperty, null);
             ClearGifLayer(ImgAvatarAnimated);
             ClearGifLayer(ImgAvatarAnimatedB);
             ImgAvatarAnimated.Opacity = 1;
@@ -286,6 +306,51 @@ namespace ConditioningControlPanel
             _circeActiveImg = null;
             ApplyTubeLayoutOffsets();     // revert to the mod's global TubeLayout
             // Caller restores the normal static/animated/portrait avatar after this returns.
+        }
+
+        /// <summary>
+        /// Emote mode stayed engaged across a mod/set switch (same registered folder), but the normal
+        /// avatar setup that ran first re-showed the static/portrait avatar and may have cleared the
+        /// active GIF layer (every OnModChanged branch touches ImgAvatarAnimated). Put the emote-mode
+        /// visuals back without restarting clips that are still playing.
+        /// </summary>
+        private void ReassertCirceEmoteVisuals()
+        {
+            if (!_circeEmoteMode) return;
+
+            LeavePortraitMode();          // sissy's manifest re-engages portrait mode on mod switch
+            _poseTimer.Stop();
+            _useAnimatedAvatar = false;
+
+            ImgAvatar.Visibility = Visibility.Collapsed;
+            if (ImgAvatarB != null) ImgAvatarB.Visibility = Visibility.Collapsed;
+
+            ApplyAvatarTransform(_currentAvatarSet); // undo portrait chrome's AvatarBorder shift
+            ApplyTubeLayoutOffsets();                // restore the emote set's layout delta
+
+            // If the setup repointed or cleared the active animated layer (legacy animated branch /
+            // portrait + static branches null its source), bring the rotation back with a fresh idle.
+            // Deferred to a Background tick for the same render-thread-deadlock reason as in
+            // EnterCirceEmoteMode. Otherwise the current clip is untouched — just ensure it's shown.
+            var active = _circeActiveImg ?? ImgAvatarAnimated;
+            var expected = _circeCurrentClip != null ? CirceClipUri(_circeCurrentClip).ToString() : null;
+            var actual = AnimationBehavior.GetSourceUri(active)?.ToString();
+            if (expected == null || !string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+            {
+                StopTalkSequence();
+                _circeQueue.Clear();
+                _circeReacting = false;
+                _circeCurrentClip = null;
+                var idle = PickWeightedIdle();
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                {
+                    if (_circeEmoteMode && _circeCurrentClip == null) DoCirceCrossfade(idle);
+                }));
+            }
+            else
+            {
+                active.Visibility = Visibility.Visible;
+            }
         }
 
         // ---- Effective layout: the mod's global TubeLayout + the engaged emote-set's optional delta ----
@@ -316,6 +381,7 @@ namespace ConditioningControlPanel
             {
                 t.Stop();
                 if (!_circeEmoteMode || _circeTalkSeqActive || _circePendingClip != null) return;
+                App.Logger?.Information("[EMOTE] watchdog advance (stuck clip={Clip})", _circeCurrentClip);
                 AdvanceCirce(); // a completion event was missed — keep the rotation alive
             };
             return t;
@@ -632,6 +698,30 @@ namespace ConditioningControlPanel
             AdvanceCirce();
         }
 
+        /// <summary>
+        /// A clip failed to load/render (XamlAnimatedGif raises this instead of throwing — the layer
+        /// stays EMPTY and AnimationCompleted never fires, so without intervention the avatar fades
+        /// into nothing until the watchdog notices). Log it; if the dead layer is the active one,
+        /// nudge the rotation immediately rather than waiting out the full watchdog interval.
+        /// </summary>
+        private void OnCirceGifError(object? sender, AnimationErrorEventArgs e)
+        {
+            var layer = ReferenceEquals(sender, ImgAvatarAnimated) ? "A" : "B";
+            App.Logger?.Warning("[EMOTE] GIF {Kind} error on layer {Layer} (clip={Clip}): {Error}",
+                e.Kind, layer, _circeCurrentClip, e.Exception?.Message);
+            if (!_circeEmoteMode || _circeTalkSeqActive) return;
+            if (!ReferenceEquals(sender, _circeActiveImg)) return;
+            // Recover via the watchdog cadence but shortened: re-arm at 2s so a one-off load failure
+            // doesn't leave an empty tube for 13s. (Not advancing synchronously — a persistent failure
+            // would otherwise hot-loop through clips.)
+            if (_circeWatchdog != null)
+            {
+                _circeWatchdog.Stop();
+                _circeWatchdog.Interval = TimeSpan.FromMilliseconds(2000);
+                _circeWatchdog.Start();
+            }
+        }
+
         private void AdvanceCirce()
         {
             if (!_circeEmoteMode) return;
@@ -689,6 +779,13 @@ namespace ConditioningControlPanel
 
             try
             {
+                // Force a property CHANGE even if this layer still holds the same URI (its cleanup is
+                // skipped when a crossfade is interrupted mid-fade — the replaced fade's Completed never
+                // runs ClearGifLayer). Re-setting an identical URI would be a silent no-op: the old,
+                // already-finished animator stays (RepeatBehavior(1)) → no restart, no AnimationCompleted,
+                // and the rotation strands on a dead layer.
+                if (AnimationBehavior.GetSourceUri(inImg) != null)
+                    AnimationBehavior.SetSourceUri(inImg, null);
                 AnimationBehavior.SetRepeatBehavior(inImg, new RepeatBehavior(1)); // play once, then rotate
                 AnimationBehavior.SetAutoStart(inImg, true);
                 AnimationBehavior.SetSourceUri(inImg, CirceClipUri(clip));
@@ -696,8 +793,16 @@ namespace ConditioningControlPanel
             catch (Exception ex)
             {
                 App.Logger?.Warning("Emote clip load failed ({Clip}): {Error}", clip, ex.Message);
+                // Keep the self-heal alive: without this a failed load left the watchdog unarmed and
+                // the rotation permanently dead on whatever was last shown.
+                _circeWatchdog ??= CreateWatchdog();
+                _circeWatchdog.Stop();
+                _circeWatchdog.Interval = TimeSpan.FromMilliseconds(CirceWatchdogMs);
+                _circeWatchdog.Start();
                 return;
             }
+            App.Logger?.Information("[EMOTE] xfade -> {Clip} (in={In}, outOp={OutOp:F2}, talkSeq={Talk})",
+                clip, ReferenceEquals(inImg, ImgAvatarAnimated) ? "A" : "B", outImg.Opacity, _circeTalkSeqActive);
 
             inImg.Opacity = 0;
             inImg.Visibility = Visibility.Visible;
