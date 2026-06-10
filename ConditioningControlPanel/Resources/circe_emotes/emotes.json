@@ -27,5 +27,6 @@
     "curious": "thinking", "intrigued": "thinking",
     "excited": "cheer", "overwhelmed": "cheer",
     "happy": "alluring", "vibing": "alluring"
-  }
+  },
+  "layout": { "scale": 0.93 }
 }

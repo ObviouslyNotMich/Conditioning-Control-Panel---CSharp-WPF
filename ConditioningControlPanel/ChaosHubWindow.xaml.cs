@@ -29,6 +29,7 @@ public partial class ChaosHubWindow : Window
 
         LoadFromSettings();
         BuildUpgrades();
+        BuildLifetimeBoons();
         BuildLoadout();
         BuildCodex();
         RefreshTopBar();
@@ -54,6 +55,11 @@ public partial class ChaosHubWindow : Window
         SetTabEnabled(TabStats, runs >= ChaosMeta.UNLOCK_STATS_RUNS);
         SetTabEnabled(TabCodex, runs >= ChaosMeta.UNLOCK_CODEX_RUNS);
         SetTabEnabled(TabLoadout, runs >= ChaosMeta.UNLOCK_LOADOUT_RUNS);
+        // Lifetime-boon shelves are always visible — the Sparks cost is the real gate, and the
+        // layout should be discoverable from the first visit.
+        TabSkills.IsEnabled = true;
+        TabAccessories.IsEnabled = true;
+        TabUtility.IsEnabled = true;
         // Run setup is always available.
         TabRun.IsEnabled = true;
     }
@@ -74,17 +80,23 @@ public partial class ChaosHubWindow : Window
 
     private void ShowTab(string tag)
     {
-        PanelUpgrades.Visibility = tag == "upgrades" ? Visibility.Visible : Visibility.Collapsed;
-        PanelRun.Visibility      = tag == "run"      ? Visibility.Visible : Visibility.Collapsed;
-        PanelLoadout.Visibility  = tag == "loadout"  ? Visibility.Visible : Visibility.Collapsed;
-        PanelCodex.Visibility    = tag == "codex"    ? Visibility.Visible : Visibility.Collapsed;
-        PanelStats.Visibility    = tag == "stats"    ? Visibility.Visible : Visibility.Collapsed;
+        PanelUpgrades.Visibility    = tag == "upgrades"    ? Visibility.Visible : Visibility.Collapsed;
+        PanelSkills.Visibility      = tag == "skills"      ? Visibility.Visible : Visibility.Collapsed;
+        PanelAccessories.Visibility = tag == "accessories" ? Visibility.Visible : Visibility.Collapsed;
+        PanelUtility.Visibility     = tag == "utility"     ? Visibility.Visible : Visibility.Collapsed;
+        PanelRun.Visibility         = tag == "run"         ? Visibility.Visible : Visibility.Collapsed;
+        PanelLoadout.Visibility     = tag == "loadout"     ? Visibility.Visible : Visibility.Collapsed;
+        PanelCodex.Visibility       = tag == "codex"       ? Visibility.Visible : Visibility.Collapsed;
+        PanelStats.Visibility       = tag == "stats"       ? Visibility.Visible : Visibility.Collapsed;
 
-        TabUpgrades.IsChecked = tag == "upgrades";
-        TabRun.IsChecked      = tag == "run";
-        TabLoadout.IsChecked  = tag == "loadout";
-        TabCodex.IsChecked    = tag == "codex";
-        TabStats.IsChecked    = tag == "stats";
+        TabUpgrades.IsChecked    = tag == "upgrades";
+        TabSkills.IsChecked      = tag == "skills";
+        TabAccessories.IsChecked = tag == "accessories";
+        TabUtility.IsChecked     = tag == "utility";
+        TabRun.IsChecked         = tag == "run";
+        TabLoadout.IsChecked     = tag == "loadout";
+        TabCodex.IsChecked       = tag == "codex";
+        TabStats.IsChecked       = tag == "stats";
 
         // BEGIN CHAOS is the action for the run setup; keep it always available
         // (run setup is always unlocked), but nudge the hint on other tabs.
@@ -233,6 +245,185 @@ public partial class ChaosHubWindow : Window
             RefreshTopBar();
             RefreshStats();
         }
+    }
+
+    // ===================== lifetime boons (skills/accessories/utility) =====================
+
+    private static readonly Color BoonAccent = Color.FromRgb(0xE8, 0x43, 0x93);
+
+    private void BuildLifetimeBoons()
+    {
+        BuildBoonShelf(BoonHostSkills, ChaosBoonCategory.Skill);
+        BuildBoonShelf(BoonHostAccessories, ChaosBoonCategory.Accessory);
+        BuildBoonShelf(BoonHostUtility, ChaosBoonCategory.Utility);
+    }
+
+    private void BuildBoonShelf(Panel host, ChaosBoonCategory cat)
+    {
+        host.Children.Clear();
+        var boons = ChaosLifetimeBoons.InCategory(cat).ToList();
+        if (boons.Count == 0)
+        {
+            host.Children.Add(new Border
+            {
+                Style = (Style)FindResource("CardStyle"),
+                Child = new TextBlock
+                {
+                    Text = $"New {cat.ToString().ToLowerInvariant()} unlocks are coming soon.",
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xC0)),
+                    FontSize = 12, TextWrapping = TextWrapping.Wrap
+                }
+            });
+            return;
+        }
+        foreach (var b in boons) host.Children.Add(BuildLifetimeBoonRow(b));
+    }
+
+    private Border BuildLifetimeBoonRow(ChaosLifetimeBoon b)
+    {
+        int level = ChaosMeta.BoonLevel(b.Id);
+        bool unlocked = level >= 1;
+        bool active = ChaosMeta.IsBoonActive(b.Id);
+        bool maxed = unlocked && level >= b.MaxLevel;
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        // ---- icon (real art if present, else a tinted square with the glyph) ----
+        var iconSrc = ChaosArt.Resolve("boons", b.Id);
+        FrameworkElement icon;
+        if (iconSrc != null)
+            icon = new Image { Source = iconSrc, Width = 48, Height = 48 };
+        else
+            icon = new Border
+            {
+                Width = 48, Height = 48, CornerRadius = new CornerRadius(10),
+                Background = new SolidColorBrush(Color.FromArgb(70, BoonAccent.R, BoonAccent.G, BoonAccent.B)),
+                BorderBrush = new SolidColorBrush(BoonAccent), BorderThickness = new Thickness(1),
+                Child = new TextBlock { Text = b.Glyph, FontSize = 24, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+            };
+        icon.VerticalAlignment = VerticalAlignment.Top;
+        icon.Margin = new Thickness(0, 0, 12, 0);
+        icon.Opacity = unlocked ? 1.0 : 0.5;
+        Grid.SetColumn(icon, 0);
+        grid.Children.Add(icon);
+
+        // ---- middle: name + desc + level pips + value ----
+        var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        mid.Children.Add(new TextBlock { Text = b.Name, Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
+        mid.Children.Add(new TextBlock { Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
+
+        var pips = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
+        for (int i = 1; i <= b.MaxLevel; i++)
+            pips.Children.Add(new TextBlock
+            {
+                Text = i <= level ? "●" : "○",
+                Foreground = new SolidColorBrush(i <= level ? BoonAccent : Color.FromArgb(0x66, 0xB8, 0xB8, 0xD0)),
+                FontSize = 13, Margin = new Thickness(0, 0, 3, 0)
+            });
+        string valueText = unlocked ? string.Format(b.ValueLabel, b.ValueAt(level)) : "locked";
+        pips.Children.Add(new TextBlock
+        {
+            Text = $"   {valueText}",
+            Foreground = new SolidColorBrush(Color.FromRgb(0x8B, 0x5C, 0xF6)),
+            FontSize = 12, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center
+        });
+        mid.Children.Add(pips);
+        Grid.SetColumn(mid, 1);
+        grid.Children.Add(mid);
+
+        // ---- right: on/off toggle + unlock/upgrade ----
+        var right = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Width = 132 };
+
+        if (unlocked)
+        {
+            var toggle = new ToggleButton
+            {
+                Style = (Style)FindResource("Seg"),
+                Content = active ? "ON" : "OFF",
+                IsChecked = active,
+                Tag = b.Id,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 0, 0, 8),
+                MinWidth = 64
+            };
+            toggle.Click += BoonToggle_Click;
+            right.Children.Add(toggle);
+        }
+
+        if (!unlocked)
+            right.Children.Add(BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, ChaosMeta.CanAffordUnlock(b.Id), BoonUnlock_Click));
+        else if (maxed)
+            right.Children.Add(new TextBlock { Text = "MAX  ✓", Foreground = new SolidColorBrush(Color.FromRgb(0x5A, 0xE0, 0x96)), FontSize = 13, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right });
+        else
+        {
+            int cost = ChaosMeta.NextUpgradeCostOf(b.Id) ?? 0;
+            right.Children.Add(BuyButton($"Upgrade  ✦{cost}", b.Id, ChaosMeta.CanAffordUpgrade(b.Id), BoonUpgrade_Click));
+        }
+        Grid.SetColumn(right, 2);
+        grid.Children.Add(right);
+
+        return new Border
+        {
+            Child = grid,
+            Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x1A, 0x36)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(unlocked ? (byte)90 : (byte)40, BoonAccent.R, BoonAccent.G, BoonAccent.B)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+    }
+
+    private Button BuyButton(string text, string id, bool afford, RoutedEventHandler onClick)
+    {
+        var btn = new Button
+        {
+            Content = text,
+            Tag = id,
+            Padding = new Thickness(12, 6, 12, 6),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Background = afford ? new SolidColorBrush(BoonAccent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+            Foreground = afford ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+            BorderThickness = new Thickness(0),
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Cursor = afford ? Cursors.Hand : Cursors.Arrow,
+            IsEnabled = afford
+        };
+        btn.Click += onClick;
+        return btn;
+    }
+
+    private void BoonToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton tb && tb.Tag is string id)
+        {
+            bool on = tb.IsChecked == true;
+            ChaosMeta.SetBoonActive(id, on);
+            tb.Content = on ? "ON" : "OFF";
+        }
+    }
+
+    private void BoonUnlock_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string id && ChaosMeta.TryUnlockBoon(id))
+            AfterBoonChange();
+    }
+
+    private void BoonUpgrade_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string id && ChaosMeta.TryUpgradeBoon(id))
+            AfterBoonChange();
+    }
+
+    private void AfterBoonChange()
+    {
+        BuildLifetimeBoons();
+        RefreshTopBar();
+        RefreshStats();
     }
 
     // ============================ loadout tab ============================

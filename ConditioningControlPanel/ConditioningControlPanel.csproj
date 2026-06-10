@@ -259,6 +259,10 @@
     <Resource Include="Resources\circe_emotes_p3\emotes.json" Condition="Exists('Resources\circe_emotes_p3\emotes.json')" />
     <Resource Include="Resources\circe_emotes_p4\*.gif" />
     <Resource Include="Resources\circe_emotes_p4\emotes.json" Condition="Exists('Resources\circe_emotes_p4\emotes.json')" />
+    <!-- Avatar-0 (blonde) emote set: shared by BambiSleep + Sissy at avatar set 1. -->
+    <Resource Include="Resources\avatar0_emotes\*.gif" />
+    <Resource Include="Resources\avatar0_emotes\emotes.json" Condition="Exists('Resources\avatar0_emotes\emotes.json')" />
+    <Resource Include="Resources\avatar0_emotes\clip_timing.json" Condition="Exists('Resources\avatar0_emotes\clip_timing.json')" />
 
     <!-- Achievement images -->
     <Resource Include="Resources\achievements\*.png" />

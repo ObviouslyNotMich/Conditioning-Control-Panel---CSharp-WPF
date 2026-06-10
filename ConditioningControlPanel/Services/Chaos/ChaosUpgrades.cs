@@ -163,6 +163,95 @@ public static class ChaosMeta
             ChaosUpgrades.ById(id)?.Apply(config);
     }
 
+    // ---- lifetime boons (Skills / Accessories / Utility): unlock + level + toggle ----
+    // Permanent, leveled, toggleable boons bought with Sparks; applied to a run at start when
+    // active. They carry no run-mult (utility, not score) and have no active-slot cap yet —
+    // both are future balance levers as the shelves fill out.
+
+    /// <summary>Current level of a lifetime boon (0 = locked, >=1 = unlocked at that level).</summary>
+    public static int BoonLevel(string id) =>
+        State.LifetimeBoonLevels != null && State.LifetimeBoonLevels.TryGetValue(id, out var l) ? l : 0;
+
+    public static bool IsBoonUnlocked(string id) => BoonLevel(id) >= 1;
+    public static bool IsBoonActive(string id) =>
+        State.ActiveLifetimeBoons != null && State.ActiveLifetimeBoons.Contains(id) && IsBoonUnlocked(id);
+
+    /// <summary>Spark cost to unlock (level 1), or null if the id is unknown/already unlocked.</summary>
+    public static int? UnlockCostOf(string id)
+    {
+        var b = ChaosLifetimeBoons.ById(id);
+        return (b == null || IsBoonUnlocked(id)) ? (int?)null : b.UnlockCost;
+    }
+
+    /// <summary>Spark cost of the next level-up, or null if locked / already at max.</summary>
+    public static int? NextUpgradeCostOf(string id)
+    {
+        var b = ChaosLifetimeBoons.ById(id);
+        if (b == null) return null;
+        int lvl = BoonLevel(id);
+        if (lvl < 1 || lvl >= b.MaxLevel) return null;
+        return (lvl - 1) < b.UpgradeCosts.Length ? b.UpgradeCosts[lvl - 1] : (int?)null;
+    }
+
+    public static bool CanAffordUnlock(string id)
+    {
+        var c = UnlockCostOf(id);
+        return c.HasValue && State.Sparks >= c.Value;
+    }
+
+    public static bool CanAffordUpgrade(string id)
+    {
+        var c = NextUpgradeCostOf(id);
+        return c.HasValue && State.Sparks >= c.Value;
+    }
+
+    /// <summary>Validate + buy level 1: deduct Sparks, record level, auto-activate, persist.</summary>
+    public static bool TryUnlockBoon(string id)
+    {
+        var c = UnlockCostOf(id);
+        if (!c.HasValue || State.Sparks < c.Value) return false;
+        State.Sparks -= c.Value;
+        State.LifetimeBoonLevels ??= new();
+        State.LifetimeBoonLevels[id] = 1;
+        State.ActiveLifetimeBoons ??= new();
+        State.ActiveLifetimeBoons.Add(id);   // a fresh unlock comes on by default
+        ChaosMetaStore.Save(State);
+        return true;
+    }
+
+    /// <summary>Validate + buy the next level: deduct Sparks, bump level (capped at max), persist.</summary>
+    public static bool TryUpgradeBoon(string id)
+    {
+        var b = ChaosLifetimeBoons.ById(id);
+        var c = NextUpgradeCostOf(id);
+        if (b == null || !c.HasValue || State.Sparks < c.Value) return false;
+        State.Sparks -= c.Value;
+        State.LifetimeBoonLevels[id] = Math.Min(BoonLevel(id) + 1, b.MaxLevel);
+        ChaosMetaStore.Save(State);
+        return true;
+    }
+
+    /// <summary>Toggle a lifetime boon on/off (no-op unless unlocked). Persists.</summary>
+    public static void SetBoonActive(string id, bool active)
+    {
+        if (active && !IsBoonUnlocked(id)) return;
+        State.ActiveLifetimeBoons ??= new();
+        bool changed = active ? State.ActiveLifetimeBoons.Add(id) : State.ActiveLifetimeBoons.Remove(id);
+        if (changed) ChaosMetaStore.Save(State);
+    }
+
+    /// <summary>Apply every active+unlocked lifetime boon (at its current level) to the run state.</summary>
+    public static void ApplyLifetimeBoons(ChaosRunState run)
+    {
+        if (run == null || State.ActiveLifetimeBoons == null) return;
+        foreach (var id in State.ActiveLifetimeBoons)
+        {
+            int lvl = BoonLevel(id);
+            var b = ChaosLifetimeBoons.ById(id);
+            if (b != null && lvl >= 1) b.Apply(run, b.ValueAt(lvl));
+        }
+    }
+
     /// <summary>
     /// Bank Sparks + update lifetime stats at the end of a completed run, then persist.
     /// Formula: <c>round((score/divisor + completionBonus) * SparkGainMult) * difficulty</c>

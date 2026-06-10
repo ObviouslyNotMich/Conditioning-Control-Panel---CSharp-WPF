@@ -35,6 +35,28 @@
                            HorizontalAlignment="Center" TextAlignment="Center"/>
                 <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
+
+                <!-- active lifetime boons (Skills/Accessories/Utility): art if present, else glyph + level -->
+                <ItemsControl ItemsSource="{Binding ActiveSidebarBoons}" Margin="0,18,0,0" HorizontalAlignment="Center">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Width="42" Height="42" Margin="0,0,0,8" HorizontalAlignment="Center" ToolTip="{Binding Name}">
+                                <Border CornerRadius="10" Background="#33FF69B4"
+                                        BorderBrush="{StaticResource PanelBorder}" BorderThickness="1">
+                                    <Grid>
+                                        <TextBlock Text="{Binding Glyph}" FontSize="20" Foreground="White"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
+                                    </Grid>
+                                </Border>
+                                <Border Background="#DD121026" CornerRadius="6" Padding="3,0"
+                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3">
+                                    <TextBlock Text="{Binding LevelText}" Foreground="{StaticResource Pink}" FontSize="9" FontWeight="Bold"/>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </Border>
 

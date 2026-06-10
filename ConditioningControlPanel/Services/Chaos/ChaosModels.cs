@@ -4,8 +4,21 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Windows.Media;
 
 namespace ConditioningControlPanel.Services.Chaos;
+
+/// <summary>One active lifetime boon as rendered in the HUD strip: art if present, else a glyph + level badge.</summary>
+public sealed class ChaosSidebarBoon
+{
+    public ImageSource? Icon { get; init; }
+    public string Glyph { get; init; } = "◈";
+    public string Name { get; init; } = "";
+    public int Level { get; init; }
+    public bool HasIcon => Icon != null;
+    public bool ShowGlyph => Icon == null;
+    public string LevelText => $"L{Level}";
+}
 
 public enum ChaosDifficulty { Easy, Medium, Hard, Extreme }
 
@@ -243,6 +256,9 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public ObservableCollection<ChaosBoon> ActiveCurses { get; } = new();
     public ObservableCollection<string> RecentEvents { get; } = new();
 
+    /// <summary>Active lifetime boons (Skills/Accessories/Utility) to show as icons in the HUD strip. Filled at run start.</summary>
+    public ObservableCollection<ChaosSidebarBoon> ActiveSidebarBoons { get; } = new();
+
     public void PushEvent(string text)
     {
         RecentEvents.Insert(0, text);
@@ -265,6 +281,8 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public bool DoubleOrNothingArmed;
     public bool DoubleOrNothingActive;
     public bool AllLiveNextWave;
+    /// <summary>Chain Reaction lifetime boon: a pop's burst pops neighbours within this box-multiple. 1.0 = off.</summary>
+    public double ChainReactionReach = 1.0;
     public double LuckBonus;
 
     public event PropertyChangedEventHandler? PropertyChanged;

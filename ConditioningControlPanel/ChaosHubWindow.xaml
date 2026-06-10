@@ -1,7 +1,7 @@
 <Window x:Class="ConditioningControlPanel.ChaosHubWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Chaos Mode"
+        Title="The Rabbit Hole"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
         SizeToContent="Manual" Width="860" Height="780" FontFamily="Segoe UI">
@@ -122,23 +122,23 @@
             <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent" Margin="0,0,0,14">
                 <Image x:Name="BannerImage" Stretch="UniformToFill" Opacity="0.30" Visibility="Collapsed"/>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="⚡ CHAOS MODE" Foreground="White" FontSize="22" FontWeight="Bold">
+                    <TextBlock Text="🐇 THE RABBIT HOLE" Foreground="White" FontSize="22" FontWeight="Bold">
                         <TextBlock.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/></TextBlock.Effect>
                     </TextBlock>
-                    <TextBlock Text="HUB" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
+                    <TextBlock Text="THE WARREN" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="RANK" Foreground="{StaticResource TextMut}" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock x:Name="TxtRank" Text="Newcomer" Foreground="White" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtRank" Text="Curious" Foreground="White" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                     <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✦" Foreground="{StaticResource Purple}" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <TextBlock x:Name="TxtSparks" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text="sparks" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
+                            <TextBlock Text="drops" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
                         </StackPanel>
                     </Border>
                     <Button x:Name="BtnCloseX" Content="✕" Click="BtnClose_Click"
@@ -147,13 +147,16 @@
             </Grid>
 
             <!-- tabs -->
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,14">
-                <ToggleButton x:Name="TabUpgrades" Style="{StaticResource Tab}" Content="Upgrades" Tag="upgrades" Click="Tab_Click"/>
-                <ToggleButton x:Name="TabRun" Style="{StaticResource Tab}" Content="Run setup" Tag="run" Click="Tab_Click"/>
-                <ToggleButton x:Name="TabLoadout" Style="{StaticResource Tab}" Content="Loadout" Tag="loadout" Click="Tab_Click"/>
-                <ToggleButton x:Name="TabCodex" Style="{StaticResource Tab}" Content="Codex" Tag="codex" Click="Tab_Click"/>
+            <WrapPanel Grid.Row="1" Margin="0,0,0,14">
+                <ToggleButton x:Name="TabUpgrades" Style="{StaticResource Tab}" Content="Conditioning" Tag="upgrades" Click="Tab_Click"/>
+                <ToggleButton x:Name="TabSkills" Style="{StaticResource Tab}" Content="Habits" Tag="skills" Click="Tab_Click"/>
+                <ToggleButton x:Name="TabAccessories" Style="{StaticResource Tab}" Content="Accessories" Tag="accessories" Click="Tab_Click"/>
+                <ToggleButton x:Name="TabUtility" Style="{StaticResource Tab}" Content="Improvements" Tag="utility" Click="Tab_Click"/>
+                <ToggleButton x:Name="TabRun" Style="{StaticResource Tab}" Content="The Descent" Tag="run" Click="Tab_Click"/>
+                <ToggleButton x:Name="TabLoadout" Style="{StaticResource Tab}" Content="Anchor" Tag="loadout" Click="Tab_Click"/>
+                <ToggleButton x:Name="TabCodex" Style="{StaticResource Tab}" Content="Confessions" Tag="codex" Click="Tab_Click"/>
                 <ToggleButton x:Name="TabStats" Style="{StaticResource Tab}" Content="Stats" Tag="stats" Click="Tab_Click"/>
-            </StackPanel>
+            </WrapPanel>
 
             <!-- content -->
             <Grid Grid.Row="2">
@@ -170,7 +173,7 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <Image x:Name="CrestControl" Width="22" Height="22" Margin="0,0,8,0"/>
-                                    <TextBlock Text="CONTROL" Style="{StaticResource SectionHdr}" Margin="0"/>
+                                    <TextBlock Text="RESTRAINT" Style="{StaticResource SectionHdr}" Margin="0"/>
                                 </StackPanel>
                                 <StackPanel x:Name="UpgColControl"/>
                             </StackPanel>
@@ -179,7 +182,7 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <Image x:Name="CrestGreed" Width="22" Height="22" Margin="0,0,8,0"/>
-                                    <TextBlock Text="GREED" Style="{StaticResource SectionHdr}" Margin="0"/>
+                                    <TextBlock Text="CRAVING" Style="{StaticResource SectionHdr}" Margin="0"/>
                                 </StackPanel>
                                 <StackPanel x:Name="UpgColGreed"/>
                             </StackPanel>
@@ -196,19 +199,31 @@
                     </Grid>
                 </ScrollViewer>
 
+                <!-- SKILLS / ACCESSORIES / UTILITY (lifetime boons) -->
+                <ScrollViewer x:Name="PanelSkills" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel x:Name="BoonHostSkills"/>
+                </ScrollViewer>
+                <ScrollViewer x:Name="PanelAccessories" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel x:Name="BoonHostAccessories"/>
+                </ScrollViewer>
+                <ScrollViewer x:Name="PanelUtility" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel x:Name="BoonHostUtility"/>
+                </ScrollViewer>
+
                 <!-- RUN SETUP -->
                 <ScrollViewer x:Name="PanelRun" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel>
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="RUN" Style="{StaticResource SectionHdr}"/>
+                                <TextBlock Text="THE DESCENT" Style="{StaticResource SectionHdr}" Margin="0,0,0,2"/>
+                                <TextBlock Text="dress it up however you like. it ends the same way." Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <TextBlock Text="Difficulty" Style="{StaticResource Lbl}"/>
                                     <StackPanel x:Name="GrpDifficulty" Orientation="Horizontal">
-                                        <ToggleButton Style="{StaticResource Seg}" Tag="Easy" Content="Easy" Click="Segment_Click"/>
-                                        <ToggleButton Style="{StaticResource Seg}" Tag="Medium" Content="Medium" Click="Segment_Click"/>
-                                        <ToggleButton Style="{StaticResource Seg}" Tag="Hard" Content="Hard" Click="Segment_Click"/>
-                                        <ToggleButton x:Name="SegExtreme" Style="{StaticResource Seg}" Tag="Extreme" Content="Extreme 🔒" Click="Segment_Click"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="Easy" Content="Gentle" Click="Segment_Click"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="Medium" Content="Teasing" Click="Segment_Click"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="Hard" Content="Relentless" Click="Segment_Click"/>
+                                        <ToggleButton x:Name="SegExtreme" Style="{StaticResource Seg}" Tag="Extreme" Content="Inescapable 🔒" Click="Segment_Click"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -229,7 +244,7 @@
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Willpower" Style="{StaticResource Lbl}"/>
+                                    <TextBlock Text="Resistance" Style="{StaticResource Lbl}"/>
                                     <Button Style="{StaticResource Stepper}" Content="−" Tag="shields-" Click="Stepper_Click"/>
                                     <TextBlock x:Name="TxtShields" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
                                     <Button Style="{StaticResource Stepper}" Content="+" Tag="shields+" Click="Stepper_Click"/>
@@ -257,7 +272,7 @@
                                     <Button Content="Overload" Tag="Overload" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
                                     <Button Content="Flash-only" Tag="Flash-only" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4"/>
                                 </StackPanel>
-                                <CheckBox x:Name="ChkDarters" Style="{StaticResource Chk}" Content="Darters (fast bonus catch targets)" Margin="0,12,0,0"/>
+                                <CheckBox x:Name="ChkDarters" Style="{StaticResource Chk}" Content="White rabbits (fast bonus catch targets)" Margin="0,12,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -268,7 +283,7 @@
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,6,12">
                                 <StackPanel>
-                                    <TextBlock Text="JUICE" Style="{StaticResource SectionHdr}"/>
+                                    <TextBlock Text="SENSATION" Style="{StaticResource SectionHdr}"/>
                                     <CheckBox x:Name="ChkShake" Style="{StaticResource Chk}" Content="Screen shake"/>
                                     <Slider x:Name="SldShake" Minimum="0" Maximum="1" Margin="0,0,0,6"/>
                                     <CheckBox x:Name="ChkFlashes" Style="{StaticResource Chk}" Content="Color flashes"/>
@@ -279,9 +294,9 @@
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="6,0,0,12">
                                 <StackPanel>
-                                    <TextBlock Text="DRAFT" Style="{StaticResource SectionHdr}"/>
+                                    <TextBlock Text="MANTRAS" Style="{StaticResource SectionHdr}"/>
                                     <CheckBox x:Name="ChkBoonDraft" Style="{StaticResource Chk}" Content="Mantra draft between loops"/>
-                                    <CheckBox x:Name="ChkCurses" Style="{StaticResource Chk}" Content="Allow temptations"/>
+                                    <CheckBox x:Name="ChkCurses" Style="{StaticResource Chk}" Content="Allow sins"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                         <TextBlock Text="Loops" Foreground="{StaticResource TextDim}" FontSize="12" VerticalAlignment="Center" Width="50"/>
                                         <Button Style="{StaticResource Stepper}" Content="−" Tag="waves-" Click="Stepper_Click"/>

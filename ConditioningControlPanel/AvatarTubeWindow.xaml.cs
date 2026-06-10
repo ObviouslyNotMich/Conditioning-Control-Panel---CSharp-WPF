@@ -181,6 +181,11 @@ namespace ConditioningControlPanel
         private int _typewriterIndex;
         private int _typewriterGeneration;
 
+        // Lead-in: spoken (non-AI) lines defer their audio + bubble by this much so the talking
+        // animation's mouth starts BEFORE the voice instead of lagging behind it.
+        private const double SpeechLeadInSeconds = 0.6;
+        private DispatcherTimer? _speechLeadInTimer;
+
         // Speech delay constants
         private const double MinSpeechDelaySeconds = 2.0;      // Minimum delay between any speech
         private const double AiSpeechBonusSeconds = 5.0;       // Extra delay after AI responses (users need time to read)
@@ -355,6 +360,11 @@ namespace ConditioningControlPanel
                 _selectedAvatarSet = supportedSetsInit[supportedSetsInit.Length - 1];
                 _currentAvatarSet = _selectedAvatarSet;
             }
+
+            // Mods with a single animated emote avatar (BambiSleep, Sissy): lock to that set, ignoring
+            // the saved/level-based selection — there's no picker, just the one animated avatar.
+            if (IsSingleEmoteAvatarMod(out int emoteOnlySetInit))
+                _currentAvatarSet = _selectedAvatarSet = emoteOnlySetInit;
 
             // Check if this avatar set has an animated version available
             _useAnimatedAvatar = HasAnimatedAvatar(_currentAvatarSet);
@@ -1114,20 +1124,29 @@ namespace ConditioningControlPanel
                 // Reload video links for companion speech bubbles
                 ReloadVideoLinks();
 
-                // Validate current avatar set is supported by the new mod — if not, fall back
+                // Validate current avatar set is supported by the new mod — if not, fall back.
                 int playerLevel = App.Settings?.Current?.PlayerLevel ?? 1;
-                var supportedSets = GetUnlockedAvatarSets(playerLevel);
-                if (supportedSets.Length > 0 && !supportedSets.Contains(_currentAvatarSet))
+                if (IsSingleEmoteAvatarMod(out int emoteOnlySet))
                 {
-                    var oldSet = _currentAvatarSet;
-                    _currentAvatarSet = supportedSets[0];
-                    _selectedAvatarSet = _currentAvatarSet;
-                    if (App.Settings?.Current != null)
+                    // BambiSleep / Sissy: single animated avatar, no picker — lock to that set. Don't
+                    // persist it, so the level selection is preserved for mods that still use the picker.
+                    _currentAvatarSet = _selectedAvatarSet = emoteOnlySet;
+                }
+                else
+                {
+                    var supportedSets = GetUnlockedAvatarSets(playerLevel);
+                    if (supportedSets.Length > 0 && !supportedSets.Contains(_currentAvatarSet))
                     {
-                        App.Settings.Current.SelectedAvatarSet = _selectedAvatarSet;
+                        var oldSet = _currentAvatarSet;
+                        _currentAvatarSet = supportedSets[0];
+                        _selectedAvatarSet = _currentAvatarSet;
+                        if (App.Settings?.Current != null)
+                        {
+                            App.Settings.Current.SelectedAvatarSet = _selectedAvatarSet;
+                        }
+                        App.Logger?.Information("Avatar set {OldSet} not supported by new mod, switched to {NewSet}",
+                            oldSet, _currentAvatarSet);
                     }
-                    App.Logger?.Information("Avatar set {OldSet} not supported by new mod, switched to {NewSet}",
-                        oldSet, _currentAvatarSet);
                 }
 
                 // Check if the new mod has an animated version for this set
@@ -1264,6 +1283,10 @@ namespace ConditioningControlPanel
         /// </summary>
         private int[] EffectiveAvatarSets()
         {
+            // Mods whose only avatar is a single animated emote (BambiSleep, Sissy): one fixed set,
+            // no picker — overrides portrait skins and level-gated sets so the nav arrows hide.
+            if (IsSingleEmoteAvatarMod(out int onlySet)) return new[] { onlySet };
+
             if (_portraitMode && _portraitSet != null && _portraitSet.SkinCount > 0)
             {
                 var arr = new int[_portraitSet.SkinCount];
@@ -1363,14 +1386,29 @@ namespace ConditioningControlPanel
             ContentRendered -= OnFirstContentRendered;
             try
             {
-                // Toggle SizeToContent to force WPF to re-measure the window
-                // against the now-composed Viewbox content and resize the
-                // layered surface to match. Without this, the layered surface
-                // stays at its pre-content size and renders blank until the
-                // user moves the window (which triggers WM_NCCALCSIZE → resize).
-                var sc = SizeToContent;
+                // The window has now auto-sized (SizeToContent=WidthAndHeight) to the correct
+                // dimensions against the composed Viewbox. Capture that size and turn auto-sizing
+                // OFF permanently.
+                //
+                // WHY: this is a layered window (AllowsTransparency=True). While SizeToContent is
+                // active, WPF hooks HwndSource.OnLayoutUpdated → Resize, and for a layered window that
+                // resize runs a SYNCHRONOUS HwndTarget.OnResize → MediaContext.CompleteRender() — a
+                // blocking present that waits on the render thread. When the render thread is busy
+                // (e.g. the avatar emote GIF crossfade: two ~1.8 MB layers at 15 fps with blurred drop
+                // shadows on a CPU-composited surface), that present deadlocks and the whole app hangs
+                // ("not responding"), then Windows force-closes it. Diagnosed 2026-06-10 from live hang
+                // dumps: every emote-mode mod/set switch could freeze the UI in CompleteRender.
+                //
+                // The window's size is driven explicitly by ContentViewbox.Width/Height (DPI × user
+                // scale) — see CalculateScaleFactor()/ApplyScale() — so auto-sizing is unnecessary.
+                // The toggle below also doubles as the original first-paint re-measure that flushes the
+                // layered surface (it was previously toggled Manual→back; now it stays Manual).
+                if (ActualWidth > 0 && ActualHeight > 0)
+                {
+                    Width = ActualWidth;
+                    Height = ActualHeight;
+                }
                 SizeToContent = SizeToContent.Manual;
-                SizeToContent = sc;
 
                 // Belt-and-suspenders: also flush the Win32 frame so the
                 // layered window picks up any cached style/size deltas from
@@ -1393,6 +1431,18 @@ namespace ConditioningControlPanel
         {
             _tubeHandle = new WindowInteropHelper(this).Handle;
             _parentHandle = new WindowInteropHelper(_parentWindow).Handle;
+
+            // Once auto-sizing is turned off after first paint (OnFirstContentRendered), the window
+            // no longer follows its content, so keep its size pinned to the explicitly-sized Viewbox.
+            // This is what lets us run SizeToContent=Manual and avoid the layered-window
+            // OnResize→CompleteRender hang (see OnFirstContentRendered for the full rationale).
+            ContentViewbox.SizeChanged += (_, __) =>
+            {
+                if (SizeToContent != SizeToContent.Manual) return; // startup auto-size phase: let WPF do it
+                if (double.IsNaN(ContentViewbox.Width) || ContentViewbox.Width <= 0) return;
+                if (Width != ContentViewbox.Width) Width = ContentViewbox.Width;
+                if (Height != ContentViewbox.Height) Height = ContentViewbox.Height;
+            };
 
             // Hook window messages (minimal hook, no z-order forcing)
             _hwndSource = HwndSource.FromHwnd(_tubeHandle);
@@ -2754,6 +2804,10 @@ namespace ConditioningControlPanel
             // Bark hook: rolling 60s click count drives the click-escalation eggs.
             try { App.Bark?.NotifyAvatarClicked(); } catch { }
 
+            // Animated avatar: a click rotates to a rare affectionate emote (3s cooldown). No-op for
+            // static/portrait avatars or while cooling down.
+            try { CirceClickEmote(); } catch { }
+
             // 1 in 25 chance to play a pop sound
             if (_random.Next(25) == 0)
             {
@@ -3459,125 +3513,148 @@ namespace ConditioningControlPanel
             // below, which otherwise wouldn't stop an in-flight voiceline → overlap).
             StopSpokenAudio();
 
-            // Play sound for the speech bubble
-            if (phraseAudioPath != null)
+            // The spoken part — audio + bubble. Deferred behind SpeechLeadInSeconds for non-AI lines so
+            // the talking animation (already started above) leads the voice instead of lagging it.
+            bool isThinking = source == SpeechSource.AI && _isWaitingForAi;
+            bool slowType = source != SpeechSource.AI; // bark/preset/trigger type slower than AI replies
+            Action speak = () =>
             {
-                // Custom phrase audio overrides default sounds. Bark voicelines play through the
-                // companion-voice path (MasterVolume-gated), not the SubAudio-gated phrase path.
-                if (barkVoice)
-                    PlayBarkVoice(phraseAudioPath);
-                else
-                    PlayPhraseAudio(phraseAudioPath);
-            }
-            else if (playSound)
-            {
-                // Explicitly requested giggle sound (AI responses, etc.)
-                PlayGiggleSound();
-            }
-            else if (source != SpeechSource.AI)
-            {
-                // Fallback sound for regular bubbles (skip for AI thinking — response will play its own)
-                PlayFallbackBubbleSound();
-            }
+                if (!_isGiggling) return; // a newer bubble took over during the lead-in
 
-            // Populate bubble with text and clickable hyperlinks.
-            // For AI *replies*, type the text out char-by-char. PopulateSpeechBubble
-            // runs again at the end of the typewriter so video-name links still get
-            // wired up. The thinking animation's first frame also has source=AI but
-            // _isWaitingForAi is true at that point — skip typewriter, the thinking
-            // tick keeps updating the bubble directly.
-            if (source == SpeechSource.AI && !_isWaitingForAi)
+                // Play sound for the speech bubble
+                if (phraseAudioPath != null)
+                {
+                    // Custom phrase audio overrides default sounds. Bark voicelines play through the
+                    // companion-voice path (MasterVolume-gated), not the SubAudio-gated phrase path.
+                    if (barkVoice)
+                        PlayBarkVoice(phraseAudioPath);
+                    else
+                        PlayPhraseAudio(phraseAudioPath);
+                }
+                else if (playSound)
+                {
+                    // Explicitly requested giggle sound (AI responses, etc.)
+                    PlayGiggleSound();
+                }
+                else if (source != SpeechSource.AI)
+                {
+                    // Fallback sound for regular bubbles (skip for AI thinking — response will play its own)
+                    PlayFallbackBubbleSound();
+                }
+
+                // Type the text out char-by-char for every bubble (AI replies fast, everything else
+                // slower). The AI "thinking" frame skips it — its tick updates the bubble directly.
+                // PopulateSpeechBubble runs again at the end of the typewriter so links stay clickable.
+                if (!isThinking)
+                    StartTypewriter(text, slowType);
+                else
+                    PopulateSpeechBubble(text);
+
+                // Strip markdown links for size calculation (use plain text length)
+                var plainText = MarkdownLinkRegex.Replace(text ?? "", "$1");
+
+                // Adjust bubble size based on text length
+                AdjustBubbleSize(plainText);
+
+                // Force layout update before showing to prevent flickering
+                SpeechBubble.UpdateLayout();
+                SpeechBubble.Visibility = Visibility.Visible;
+
+                // Start z-order refresh to keep bubble on top of main window
+                // Skip all z-order work when pop quiz is open — must not cover the quiz
+                if (!(PopQuizWindow.IsOpen || QuizWindow.IsOpen))
+                {
+                    StartZOrderRefreshTimer();
+                    BringAttachedPairToFront();
+                }
+
+                // Display duration is user-controlled via Companion tab slider (1-10s, default 2).
+                // Long AI replies are still readable: hovering keeps the bubble open, and
+                // "Show chat history" preserves the full conversation for re-reading.
+                double userSetting = Math.Clamp(App.Settings?.Current?.BubbleDurationSeconds ?? 2.0, 1.0, 10.0);
+                double displayDuration = userSetting;
+
+                // The typewriter eats into the visible window. Add its estimated runtime (every bubble
+                // types now) so the slider value reflects fully-rendered reading time, not open time.
+                if (!isThinking)
+                {
+                    double typewriterSec = EstimateTypewriterDurationMs((text ?? "").Length, slowType) / 1000.0;
+                    displayDuration += typewriterSec;
+
+                    if (source == SpeechSource.AI)
+                    {
+                        // Floor for long replies: the user's slider value is sensible for the short
+                        // trigger-style bubbles it was designed for, but a 200-char AI reply at
+                        // userSetting=2 leaves only 2 seconds of reading time after typing (bug #193).
+                        // Apply ~12 chars/sec ESL-friendly reading speed as a minimum post-typewriter
+                        // dwell, capped at 30s so a runaway long reply doesn't pin the bubble forever.
+                        const double charsPerSecond = 12.0;
+                        const double maxPostTypeSec = 30.0;
+                        double readingFloorSec = Math.Min(maxPostTypeSec, (text ?? "").Length / charsPerSecond);
+                        double minTotalSec = typewriterSec + Math.Max(userSetting, readingFloorSec);
+                        if (minTotalSec > displayDuration) displayDuration = minTotalSec;
+                    }
+                }
+
+                // Hide after calculated duration
+                _speechTimer?.Stop();
+                _speechTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(displayDuration) };
+
+                // Capture current speech properties for delay calculation
+                var currentSource = source;
+                var currentLength = (text ?? "").Length;
+
+                _speechTimer.Tick += (s, e) =>
+                {
+                    // If mouse is over speech bubble, keep it open - recheck in 1 second
+                    if (_isMouseOverSpeechBubble)
+                    {
+                        _speechTimer.Interval = TimeSpan.FromSeconds(1);
+                        return; // Don't stop timer, keep checking
+                    }
+
+                    _speechTimer.Stop();
+                    StopZOrderRefreshTimer();
+                    SpeechBubble.Visibility = Visibility.Collapsed;
+                    _isShowingAiBubble = false; // Clear AI bubble flag when any bubble hides
+
+                    // Track this speech's properties for delay calculation on next speech
+                    _lastSpeechEndTime = DateTime.Now;
+                    _lastSpeechSource = currentSource;
+                    _lastSpeechLength = currentLength;
+
+                    // Process next speech with proper delay handling
+                    ProcessNextSpeech();
+                };
+                _speechTimer.Start();
+
+                // Reset idle timer when speaking
+                ResetIdleTimer();
+
+                App.Logger?.Debug("Companion says ({Source}, {Chars} chars, {Duration:F1}s): {Text}",
+                    source, (text ?? "").Length, displayDuration, text);
+            };
+
+            _speechLeadInTimer?.Stop();
+            _speechLeadInTimer = null;
+            if (source != SpeechSource.AI)
             {
-                StartTypewriter(text);
+                // Spoken line: hold the audio + bubble back so the mouth leads the voice. In emote mode this
+                // is the chosen talk clip's measured mouth-open time (per-clip); otherwise the flat lead-in.
+                _speechLeadInTimer = new DispatcherTimer
+                { Interval = TimeSpan.FromSeconds(EmoteAudioLeadInSeconds(SpeechLeadInSeconds)) };
+                _speechLeadInTimer.Tick += (s, e) =>
+                {
+                    _speechLeadInTimer?.Stop();
+                    _speechLeadInTimer = null;
+                    speak();
+                };
+                _speechLeadInTimer.Start();
             }
             else
             {
-                PopulateSpeechBubble(text);
+                speak(); // AI replies are already gated by inference latency — no lead-in
             }
-
-            // Strip markdown links for size calculation (use plain text length)
-            var plainText = MarkdownLinkRegex.Replace(text ?? "", "$1");
-
-            // Adjust bubble size based on text length
-            AdjustBubbleSize(plainText);
-
-            // Force layout update before showing to prevent flickering
-            SpeechBubble.UpdateLayout();
-            SpeechBubble.Visibility = Visibility.Visible;
-
-            // Start z-order refresh to keep bubble on top of main window
-            // Skip all z-order work when pop quiz is open — must not cover the quiz
-            if (!(PopQuizWindow.IsOpen || QuizWindow.IsOpen))
-            {
-                StartZOrderRefreshTimer();
-                BringAttachedPairToFront();
-            }
-
-            // Display duration is user-controlled via Companion tab slider (1-10s, default 2).
-            // Long AI replies are still readable: hovering keeps the bubble open, and
-            // "Show chat history" preserves the full conversation for re-reading.
-            double userSetting = Math.Clamp(App.Settings?.Current?.BubbleDurationSeconds ?? 2.0, 1.0, 10.0);
-            double displayDuration = userSetting;
-
-            // The typewriter eats into the visible window. Add its estimated runtime so the
-            // slider value reflects fully-rendered reading time, not raw bubble-open time.
-            if (source == SpeechSource.AI && !_isWaitingForAi)
-            {
-                double typewriterSec = EstimateTypewriterDurationMs(text.Length) / 1000.0;
-                displayDuration += typewriterSec;
-
-                // Floor for long replies: the user's slider value is sensible for the short
-                // trigger-style bubbles it was designed for, but a 200-char AI reply at
-                // userSetting=2 leaves only 2 seconds of reading time after typing - which
-                // is what bug report #193 ("text disappears as soon as it's finished being
-                // written") was about. Apply ~12 chars/sec ESL-friendly reading speed as a
-                // minimum post-typewriter dwell, capped at 30s so a runaway long reply
-                // doesn't pin the bubble forever. Anyone who explicitly wants short dwell
-                // can still hover the bubble or open the chat history.
-                const double charsPerSecond = 12.0;
-                const double maxPostTypeSec = 30.0;
-                double readingFloorSec = Math.Min(maxPostTypeSec, text.Length / charsPerSecond);
-                double minTotalSec = typewriterSec + Math.Max(userSetting, readingFloorSec);
-                if (minTotalSec > displayDuration) displayDuration = minTotalSec;
-            }
-
-            // Hide after calculated duration
-            _speechTimer?.Stop();
-            _speechTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(displayDuration) };
-
-            // Capture current speech properties for delay calculation
-            var currentSource = source;
-            var currentLength = text.Length;
-
-            _speechTimer.Tick += (s, e) =>
-            {
-                // If mouse is over speech bubble, keep it open - recheck in 1 second
-                if (_isMouseOverSpeechBubble)
-                {
-                    _speechTimer.Interval = TimeSpan.FromSeconds(1);
-                    return; // Don't stop timer, keep checking
-                }
-
-                _speechTimer.Stop();
-                StopZOrderRefreshTimer();
-                SpeechBubble.Visibility = Visibility.Collapsed;
-                _isShowingAiBubble = false; // Clear AI bubble flag when any bubble hides
-
-                // Track this speech's properties for delay calculation on next speech
-                _lastSpeechEndTime = DateTime.Now;
-                _lastSpeechSource = currentSource;
-                _lastSpeechLength = currentLength;
-
-                // Process next speech with proper delay handling
-                ProcessNextSpeech();
-            };
-            _speechTimer.Start();
-
-            // Reset idle timer when speaking
-            ResetIdleTimer();
-
-            App.Logger?.Debug("Companion says ({Source}, {Chars} chars, {Duration:F1}s): {Text}",
-                source, text.Length, displayDuration, text);
         }
 
         private DispatcherTimer? _mutedIndicatorTimer;
@@ -4782,67 +4859,87 @@ namespace ConditioningControlPanel
                 return;
             }
 
-            // Play trigger audio only when avatar is visible
-            App.Subliminal?.PlayTriggerAudio(trigger);
-
             _isGiggling = true;
-            PopulateSpeechBubble(trigger);
-            var plainText = MarkdownLinkRegex.Replace(trigger ?? "", "$1");
-            AdjustBubbleSize(plainText);
 
-            // Force layout update before showing to prevent flickering
-            SpeechBubble.UpdateLayout();
-            SpeechBubble.Visibility = Visibility.Visible;
-
-            // Start z-order refresh to keep bubble on top of main window
-            // Skip all z-order work when pop quiz is open — must not cover the quiz
-            if (!(PopQuizWindow.IsOpen || QuizWindow.IsOpen))
+            // Defer the trigger audio + bubble by the same lead-in as spoken lines, and type the word
+            // out with the slow (non-AI) typewriter.
+            Action speak = () =>
             {
-                StartZOrderRefreshTimer();
-                BringAttachedPairToFront();
-            }
+                if (!_isGiggling) return; // a newer bubble took over during the lead-in
 
-            App.Logger?.Information("TriggerMode: Displayed trigger '{Trigger}'", trigger);
+                // Play trigger audio only when avatar is visible
+                App.Subliminal?.PlayTriggerAudio(trigger);
 
-            // Calculate display duration based on text length
-            double baseDuration = 5.0;
-            double perCharDuration = 0.05;
-            double calculatedDuration = baseDuration + (trigger.Length * perCharDuration);
-            double displayDuration = Math.Clamp(calculatedDuration, 5.0, 14.0);
+                StartTypewriter(trigger, slow: true);
+                var plainText = MarkdownLinkRegex.Replace(trigger ?? "", "$1");
+                AdjustBubbleSize(plainText);
 
-            // Hide after calculated duration
-            _speechTimer?.Stop();
-            _speechTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(displayDuration) };
+                // Force layout update before showing to prevent flickering
+                SpeechBubble.UpdateLayout();
+                SpeechBubble.Visibility = Visibility.Visible;
 
-            // Capture trigger length for delay calculation
-            var triggerLength = trigger.Length;
-
-            _speechTimer.Tick += (s, e) =>
-            {
-                // If mouse is over speech bubble, keep it open - recheck in 1 second
-                if (_isMouseOverSpeechBubble)
+                // Start z-order refresh to keep bubble on top of main window
+                // Skip all z-order work when pop quiz is open — must not cover the quiz
+                if (!(PopQuizWindow.IsOpen || QuizWindow.IsOpen))
                 {
-                    _speechTimer.Interval = TimeSpan.FromSeconds(1);
-                    return; // Don't stop timer, keep checking
+                    StartZOrderRefreshTimer();
+                    BringAttachedPairToFront();
                 }
 
-                _speechTimer.Stop();
-                StopZOrderRefreshTimer();
-                SpeechBubble.Visibility = Visibility.Collapsed;
-                _isShowingAiBubble = false; // Clear AI bubble flag when any bubble hides
+                App.Logger?.Information("TriggerMode: Displayed trigger '{Trigger}'", trigger);
 
-                // Track this speech's properties for delay calculation on next speech
-                _lastSpeechEndTime = DateTime.Now;
-                _lastSpeechSource = SpeechSource.Trigger;
-                _lastSpeechLength = triggerLength;
+                // Calculate display duration based on text length (+ typewriter runtime so the word
+                // doesn't vanish before it's finished typing).
+                double baseDuration = 5.0;
+                double perCharDuration = 0.05;
+                double calculatedDuration = baseDuration + (trigger.Length * perCharDuration);
+                double displayDuration = Math.Clamp(calculatedDuration, 5.0, 14.0)
+                                         + EstimateTypewriterDurationMs(trigger.Length, slow: true) / 1000.0;
 
-                // Process next speech with proper delay handling
-                ProcessNextSpeech();
+                // Hide after calculated duration
+                _speechTimer?.Stop();
+                _speechTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(displayDuration) };
+
+                // Capture trigger length for delay calculation
+                var triggerLength = trigger.Length;
+
+                _speechTimer.Tick += (s, e) =>
+                {
+                    // If mouse is over speech bubble, keep it open - recheck in 1 second
+                    if (_isMouseOverSpeechBubble)
+                    {
+                        _speechTimer.Interval = TimeSpan.FromSeconds(1);
+                        return; // Don't stop timer, keep checking
+                    }
+
+                    _speechTimer.Stop();
+                    StopZOrderRefreshTimer();
+                    SpeechBubble.Visibility = Visibility.Collapsed;
+                    _isShowingAiBubble = false; // Clear AI bubble flag when any bubble hides
+
+                    // Track this speech's properties for delay calculation on next speech
+                    _lastSpeechEndTime = DateTime.Now;
+                    _lastSpeechSource = SpeechSource.Trigger;
+                    _lastSpeechLength = triggerLength;
+
+                    // Process next speech with proper delay handling
+                    ProcessNextSpeech();
+                };
+                _speechTimer.Start();
+
+                // Reset idle timer when speaking
+                ResetIdleTimer();
             };
-            _speechTimer.Start();
 
-            // Reset idle timer when speaking
-            ResetIdleTimer();
+            _speechLeadInTimer?.Stop();
+            _speechLeadInTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(SpeechLeadInSeconds) };
+            _speechLeadInTimer.Tick += (s, e) =>
+            {
+                _speechLeadInTimer?.Stop();
+                _speechLeadInTimer = null;
+                speak();
+            };
+            _speechLeadInTimer.Start();
         }
 
         /// <summary>
@@ -6271,6 +6368,16 @@ namespace ConditioningControlPanel
         private const int TypewriterMaxStepMs = 30;
         private const int TypewriterTotalBudgetMs = 2000;
 
+        // Slower profile for non-AI bubbles (barks, presets, triggers) — deliberately more leisurely
+        // than AI replies so short lines still read as "typed out".
+        private const int TypewriterSlowMinStepMs = 24;
+        private const int TypewriterSlowMaxStepMs = 75;
+        private const int TypewriterSlowTotalBudgetMs = 7000;
+
+        private static (int min, int max, int budget) TypewriterProfile(bool slow) => slow
+            ? (TypewriterSlowMinStepMs, TypewriterSlowMaxStepMs, TypewriterSlowTotalBudgetMs)
+            : (TypewriterMinStepMs, TypewriterMaxStepMs, TypewriterTotalBudgetMs);
+
         /// <summary>
         /// Types <paramref name="fullText"/> into the speech bubble character by character.
         /// On completion, calls <see cref="PopulateSpeechBubble"/> for the final pass so
@@ -6282,17 +6389,17 @@ namespace ConditioningControlPanel
         /// Used by <see cref="ShowGiggle"/> to compensate the bubble timer so the slider
         /// value reflects readable time rather than bubble-open time.
         /// </summary>
-        private static int EstimateTypewriterDurationMs(int length)
+        private static int EstimateTypewriterDurationMs(int length, bool slow = false)
         {
             if (length <= 0) return 0;
+            var (min, max, budget) = TypewriterProfile(slow);
             int charsPerTick = Math.Max(1, length / 100);
-            int stepMs = Math.Min(TypewriterMaxStepMs,
-                Math.Max(TypewriterMinStepMs, TypewriterTotalBudgetMs / Math.Max(1, length)));
+            int stepMs = Math.Min(max, Math.Max(min, budget / Math.Max(1, length)));
             int ticks = (int)Math.Ceiling((double)length / charsPerTick);
             return stepMs * ticks;
         }
 
-        private void StartTypewriter(string fullText)
+        private void StartTypewriter(string fullText, bool slow = false)
         {
             StopTypewriter();
 
@@ -6315,8 +6422,8 @@ namespace ConditioningControlPanel
                 return;
             }
 
-            var stepMs = Math.Min(TypewriterMaxStepMs,
-                Math.Max(TypewriterMinStepMs, TypewriterTotalBudgetMs / Math.Max(1, _typewriterFullText.Length)));
+            var (min, max, budget) = TypewriterProfile(slow);
+            var stepMs = Math.Min(max, Math.Max(min, budget / Math.Max(1, _typewriterFullText.Length)));
 
             _typewriterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(stepMs) };
             _typewriterTimer.Tick += (s, e) =>
@@ -6736,6 +6843,8 @@ namespace ConditioningControlPanel
 
                 ContentViewbox.Width = newWidth;
                 ContentViewbox.Height = newHeight;
+                // Window follows via the ContentViewbox.SizeChanged handler wired in OnLoaded
+                // (auto-sizing is off after first paint — see OnFirstContentRendered).
             }
             catch (Exception ex)
             {

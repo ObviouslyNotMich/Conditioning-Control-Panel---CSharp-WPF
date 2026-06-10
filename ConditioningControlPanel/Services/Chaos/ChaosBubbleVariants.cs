@@ -143,7 +143,7 @@ public static class ChaosBubbleVariants
         "braindrain"  => "DRAIN",
         "bambifreeze" => "FREEZE",
         "video"       => "WATCH",
-        "htlink"      => "LINK",
+        "htlink"      => "RAIN",
         _             => ""
     };
 
@@ -157,7 +157,7 @@ public static class ChaosBubbleVariants
         "braindrain"  => "Live and large. Slow but heavy. Detonates into a creeping mind-mist.",
         "bambifreeze" => "A good pickup. Catch it to freeze the whole field — bubbles hold in place and fuses pause for a few seconds.",
         "video"       => "Live and rare. A long fuse, but it opens a mandatory video if it goes off.",
-        "htlink"      => "Live and rare. Detonates into a HypnoTube link, fullscreen.",
+        "htlink"      => "Live and rare. Defuse it or it detonates into a rain of gifs sliding down the screen.",
         "darter"      => "A fast, bouncing flash target. Catch it for points and a micro flash. Harmless if missed.",
         _             => ""
     };
@@ -194,7 +194,8 @@ public static class ChaosBubbleVariants
             false, 190, 250, ChaosMotion.FloatUp,    Color.FromRgb(0x8A,0xE6,0xFF), "❄",  1.0, 0.15, 0, 0),
         new("video",      "Video",       EffectBubblePayloadKind.Video,      null,
             true,  240, 300, ChaosMotion.RainDown,   Color.FromRgb(0xE0,0x40,0x4D), "▶",  0.5, 0.50, 5000, 7000),
-        new("htlink",     "HT Link",     EffectBubblePayloadKind.HtLink,     null,
+        // Keeps the "HT" sprite/tint, but its effect is now a rain of gifs (see GifCascadePayload).
+        new("htlink",     "HT Link",     EffectBubblePayloadKind.GifCascade, null,
             true,  200, 280, ChaosMotion.FloatUp,    Color.FromRgb(0xFF,0xC8,0x3D), "HT", 0.45,0.60, 4500, 6500),
     };
 

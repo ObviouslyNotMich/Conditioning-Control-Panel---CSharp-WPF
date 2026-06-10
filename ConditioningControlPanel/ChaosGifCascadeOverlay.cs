@@ -24,18 +24,26 @@ public sealed class ChaosGifCascadeOverlay : Window
     private static readonly string[] Extensions =
         { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp" };
 
+    /// <summary>
+    /// Hard ceiling on clips alive at once. Animated GIFs are decoded frame-by-frame at full
+    /// native resolution by XamlAnimatedGif, so a pile-up of large gifs can exhaust memory and
+    /// hard-crash the process (no managed exception). This cap makes that impossible regardless
+    /// of spawn rate / fall speed.
+    /// </summary>
+    private const int MAX_CONCURRENT = 14;
+
     private static ChaosGifCascadeOverlay? _active;
     private static readonly Random _rng = new();
 
     /// <summary>Spawn a falling cascade of flash-pool images. All knobs come from the payload's named consts.</summary>
-    public static void Show(double spawnRatePerSec, double durationSec, double gifSize, double fallSpeed, double opacity)
+    public static void Show(double spawnRatePerSec, double durationSec, double gifSize, double fallSpeed, double opacity, double startScale = 1.0)
     {
         try
         {
             var files = PickFiles();
             if (files.Count == 0) return;
             _active?.CloseNow();
-            _active = new ChaosGifCascadeOverlay(files, spawnRatePerSec, durationSec, gifSize, fallSpeed, opacity);
+            _active = new ChaosGifCascadeOverlay(files, spawnRatePerSec, durationSec, gifSize, fallSpeed, opacity, startScale);
             ((Window)_active).Show();
         }
         catch (Exception ex) { App.Logger?.Debug("ChaosGifCascadeOverlay.Show: {E}", ex.Message); }
@@ -49,21 +57,23 @@ public sealed class ChaosGifCascadeOverlay : Window
     private readonly double _gifSize;
     private readonly double _fallSpeed;
     private readonly double _opacity;
+    private readonly double _startScale;   // <1: clips spawn small at the top and grow toward _gifSize as they slide down
     private readonly List<Faller> _fallers = new();
     private readonly DispatcherTimer _spawn;
     private readonly DispatcherTimer _anim;
     private readonly DispatcherTimer _life;
     private bool _spawning = true;
 
-    private sealed class Faller { public Image Img = null!; public double Y; public double X; public double Speed; }
+    private sealed class Faller { public Image Img = null!; public double Y; public double CenterX; public double Speed; }
 
     private ChaosGifCascadeOverlay(List<string> files, double spawnRatePerSec, double durationSec,
-                                   double gifSize, double fallSpeed, double opacity)
+                                   double gifSize, double fallSpeed, double opacity, double startScale)
     {
         _files = files;
         _gifSize = Math.Clamp(gifSize, 40, 600);
         _fallSpeed = Math.Clamp(fallSpeed, 0.5, 30);
         _opacity = Math.Clamp(opacity, 0.05, 1.0);
+        _startScale = Math.Clamp(startScale, 0.1, 1.0);
 
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -100,10 +110,11 @@ public sealed class ChaosGifCascadeOverlay : Window
     private void SpawnOne()
     {
         if (!_spawning) return;
+        if (_fallers.Count >= MAX_CONCURRENT) return;   // never let clips pile up into an OOM
         try
         {
             string path = _files[_rng.Next(_files.Count)];
-            var img = new Image { Width = _gifSize, Stretch = Stretch.Uniform, Opacity = _opacity };
+            var img = new Image { Stretch = Stretch.Uniform, Opacity = _opacity };
             if (path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
             {
                 AnimationBehavior.SetRepeatBehavior(img, System.Windows.Media.Animation.RepeatBehavior.Forever);
@@ -122,32 +133,51 @@ public sealed class ChaosGifCascadeOverlay : Window
                 img.Source = bmp;
             }
 
-            double x = _rng.NextDouble() * Math.Max(1, Width - _gifSize);
+            // Center-anchored so a clip grows about its own centre as it descends (reads as "approaching").
+            double centerX = _gifSize / 2 + _rng.NextDouble() * Math.Max(1, Width - _gifSize);
             double y = -_gifSize;
-            Canvas.SetLeft(img, x);
+            double w0 = _gifSize * ScaleAt(y);
+            img.Width = w0;
+            Canvas.SetLeft(img, centerX - w0 / 2);
             Canvas.SetTop(img, y);
             _canvas.Children.Add(img);
-            _fallers.Add(new Faller { Img = img, X = x, Y = y, Speed = _fallSpeed * (0.7 + _rng.NextDouble() * 0.6) });
+            _fallers.Add(new Faller { Img = img, CenterX = centerX, Y = y, Speed = _fallSpeed * (0.7 + _rng.NextDouble() * 0.6) });
         }
         catch (Exception ex) { App.Logger?.Debug("GifCascade spawn: {E}", ex.Message); }
     }
 
     private void Step()
     {
-        for (int i = _fallers.Count - 1; i >= 0; i--)
+        try
         {
-            var f = _fallers[i];
-            f.Y += f.Speed;
-            Canvas.SetTop(f.Img, f.Y);
-            if (f.Y > Height + _gifSize)
+            for (int i = _fallers.Count - 1; i >= 0; i--)
             {
-                try { AnimationBehavior.SetSourceUri(f.Img, null); f.Img.Source = null; } catch { }
-                _canvas.Children.Remove(f.Img);
-                _fallers.RemoveAt(i);
+                var f = _fallers[i];
+                f.Y += f.Speed;
+                double w = _gifSize * ScaleAt(f.Y);
+                f.Img.Width = w;
+                Canvas.SetLeft(f.Img, f.CenterX - w / 2);
+                Canvas.SetTop(f.Img, f.Y);
+                if (f.Y > Height + _gifSize)
+                {
+                    try { AnimationBehavior.SetSourceUri(f.Img, null); f.Img.Source = null; } catch { }
+                    _canvas.Children.Remove(f.Img);
+                    _fallers.RemoveAt(i);
+                }
             }
+            // Cascade fully drained after the spawn window closed → close the overlay.
+            if (!_spawning && _fallers.Count == 0) CloseNow();
         }
-        // Cascade fully drained after the spawn window closed → close the overlay.
-        if (!_spawning && _fallers.Count == 0) CloseNow();
+        catch (Exception ex) { App.Logger?.Debug("GifCascade step: {E}", ex.Message); }
+    }
+
+    /// <summary>Grow factor for a clip at vertical position <paramref name="y"/>: starts at
+    /// <see cref="_startScale"/> up top and eases to full by ~75% of the way down.</summary>
+    private double ScaleAt(double y)
+    {
+        if (_startScale >= 1.0) return 1.0;
+        double p = Math.Clamp(y / Math.Max(1.0, Height * 0.75), 0, 1);
+        return _startScale + (1.0 - _startScale) * p;
     }
 
     private void CloseNow()

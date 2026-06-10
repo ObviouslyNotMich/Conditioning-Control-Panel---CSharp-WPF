@@ -258,12 +258,13 @@ public sealed class GifCascadePayload : EffectPayload
     public override string DisplayName => "gif cascade";
     public override EffectBubblePayloadKind Kind => EffectBubblePayloadKind.GifCascade;
 
-    // ---- named tunables (conservative defaults) ----
-    public const double SPAWN_RATE_PER_SEC = 0.8;   // images per second
-    public const double DURATION_SEC       = 20.0;  // total cascade lifetime
-    public const double GIF_SIZE           = 200;   // px (max dimension)
-    public const double FALL_SPEED         = 2.5;   // DIPs per ~16ms frame
-    public const double OPACITY            = 0.85;  // per-image opacity
+    // ---- named tunables (the "to start with" defaults — boons will tune these later) ----
+    public const double SPAWN_RATE_PER_SEC = 0.5;   // ~1 clip every 2s (halved while we watch memory)
+    public const double DURATION_SEC       = 10.0;  // spawn window
+    public const double GIF_SIZE           = 360;   // px (max dimension) — 2x bigger by default
+    public const double START_SCALE        = 0.45;  // clips spawn small at the top and grow as they slide down
+    public const double FALL_SPEED         = 2.4;   // DIPs per ~16ms frame — a smooth, seamless slide
+    public const double OPACITY            = 0.9;   // per-image opacity
 
     public override void Fire()
     {
@@ -274,7 +275,8 @@ public sealed class GifCascadePayload : EffectPayload
                 durationSec: DURATION_SEC * GlobalDurationMult,
                 gifSize: GIF_SIZE,
                 fallSpeed: FALL_SPEED,
-                opacity: OPACITY);
+                opacity: OPACITY,
+                startScale: START_SCALE);
         }
         catch (Exception ex) { App.Logger?.Debug("GifCascadePayload: {E}", ex.Message); }
     }

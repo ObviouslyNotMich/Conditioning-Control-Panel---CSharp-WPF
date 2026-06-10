@@ -21,6 +21,5 @@
     "hypnotic": "entrancing", "dreamy": "entrancing", "guiding": "entrancing", "intense": "entrancing", "dark": "entrancing", "deepening": "entrancing", "commanding": "entrancing",
     "curious": "talkA", "intrigued": "talkA"
   },
-  "_layout_comment": "Level avatars (sets 2-4): ~5.5% smaller + 7px left + 10px higher vs the mod TubeLayout (0.864/10/45/330/15). Level 1 keeps the mod default.",
-  "layout": { "scale": 0.8165, "offsetX": 3, "offsetY": 55, "detachedX": 323, "detachedY": 25 }
+  "layout": { "scale": 0.93 }
 }

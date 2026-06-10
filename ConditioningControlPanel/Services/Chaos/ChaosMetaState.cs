@@ -22,6 +22,12 @@ public sealed class ChaosMetaState
     /// <summary>Codex entries the player has encountered (prefixed: "bubble:{id}" / "boon:{id}").</summary>
     public HashSet<string> DiscoveredCodexIds { get; set; } = new();
 
+    /// <summary>Lifetime-boon levels (Skills/Accessories/Utility): id -> level (>=1 means unlocked). 0/absent = locked.</summary>
+    public Dictionary<string, int> LifetimeBoonLevels { get; set; } = new();
+
+    /// <summary>Lifetime-boon ids currently toggled on (applied to a run at start, icon shown in the HUD strip).</summary>
+    public HashSet<string> ActiveLifetimeBoons { get; set; } = new();
+
     // lifetime stats (consumed by the Stats tab in a later session)
     public int RunsCompleted { get; set; } = 0;
     public long BestScore { get; set; } = 0;
