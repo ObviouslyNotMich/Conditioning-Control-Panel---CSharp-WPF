@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
@@ -76,16 +76,19 @@ public sealed class ChaosModeService
         if (_manualPaused)
         {
             // Freeze the whole field: stop spawning, hold the clock (RunTick early-returns),
-            // and freeze every bubble's motion + fuse so nothing detonates while paused.
+            // freeze every bubble's motion + fuse, and swallow clicks — a paused field
+            // can't be farmed for pops.
             _spawnTimer?.Stop();
             App.Bubbles?.SetChaosFrozen(true);
-            _state?.PushEvent("⏸ paused — frozen");
+            App.Bubbles?.SetChaosInputLocked(true);
+            _state?.PushEvent("⏸ held. the hole waits.");
         }
         else
         {
+            App.Bubbles?.SetChaosInputLocked(false);
             App.Bubbles?.SetChaosFrozen(false);
             _spawnTimer?.Start();
-            _state?.PushEvent("▶ resumed");
+            _state?.PushEvent("▶ sinking again");
         }
     }
 
@@ -94,6 +97,14 @@ public sealed class ChaosModeService
     public void StartRun(ChaosRunConfig? config = null, bool isRestart = false)
     {
         if (_active) return;
+
+        // A chaos run takes over the screen with its own overlays/HUD; stop any running
+        // conditioning engine or AI session first so the two don't fight over the display.
+        // (Self-guards — a no-op when nothing is running.)
+        if (App.IsEngineRunning || App.IsSessionRunning)
+            App.MainWindowRef?.StopEngineAndSession("Chaos");
+
+        CloseLoadoutSidebar();   // the Warren-phase sidebar hands off to the real run HUD
         var cfg = config ?? ChaosRunConfig.FromSettings();
 
         try
@@ -105,10 +116,15 @@ public sealed class ChaosModeService
             _hud = new ChaosHudWindow(_state, this);
             _hud.Show();
 
+            // In-run sidebar stays collapsed unless hovered — the pre-run glance already happened
+            // beside the Warren, so the descent starts with a clean screen.
+            RefreshSidebarLoadout();
+
             _overlay = new ChaosOverlayWindow();
             _overlay.OnRunAgain = RunAgain;
             _overlay.OnDismissed = OnOverlayClosed;
             _overlay.Show();
+            if (!isRestart) ChaosSfx.Play("fall_in", 0.55f);   // the falling whoosh under the countdown
             _overlay.ShowCountdown(BeginRun, shortFlash: isRestart);   // 1s flash on RunAgain
 
             // The run's topmost windows (overlay/FX/payload washes/bubbles) would otherwise bury an
@@ -120,7 +136,7 @@ public sealed class ChaosModeService
             App.Logger?.Error(ex, "ChaosModeService.StartRun failed");
             CleanupAfterRun();
             App.Bubbles?.Resume();
-            MessageBox.Show("Couldn't start Chaos Mode:\n\n" + ex, "Chaos Mode",
+            MessageBox.Show("Couldn't open the Rabbit Hole:\n\n" + ex, "The Rabbit Hole",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -130,15 +146,36 @@ public sealed class ChaosModeService
         if (!_active || _state == null) return;
 
         App.Bubbles?.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated, OnDarterCaught, OnFreezeCaught,
-            chainReach: () => _state?.ChainReactionReach ?? 0);
+            chainReach: () => _state?.ChainReactionReach ?? 0,
+            hitboxScale: () => _state?.Config?.HitboxScale ?? 1.0,
+            bubbleOpacity: () => _state?.BlindfoldActive == true ? _state.BlindfoldOpacity : 1.0,
+            wandShimmer: () => false,   // magic_wand retired 2026-06-10 (BubbleService hook kept for reuse)
+            cursorPull: () => (_state?.CursorPullStrength ?? 0) - (_state?.CamGirlFlee ?? 0),   // Cam Girl flees; The Pull fights back
+            rabbitHoming: () => (_state?.CursorPullStrength ?? 0) > 0,
+            spankerOn: () => _state?.SpankerActive == true,
+            spankGrow: () => _state?.SpankGrowFactor ?? 1.0,
+            onTreatExpired: OnTreatExpired,
+            onEStimArc: OnEStimArc,
+            rabbitTrailSec: () => _state?.RabbitTrailSec ?? 0,
+            electrifiedRabbits: () => _state?.ElectrifiedRabbits == true);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
-        _state.PushEvent("⚡ run started");
+        _state.PushEvent("🐇 the descent begins");
         _runDetonations = 0;
         _lastComboBigFired = 0;
         _lastActFired = 1;
         _lastHeatTint = -1;
         EndSlowMo(); EndFreeze();   // clean power-up state for the new run (no leak across runs)
+        _snapFlashRemainingSec = 0; _rabbitStormRemainingSec = 0; _rabbitStormAccumSec = 0; _thoughtAccumSec = 0;
+        _pendulumRolledWave = 0;   // pendulum event re-rolls its beat for wave 1
+        _heartRolledWave = 0; _heartArmedThisWave = false;   // pop-up heart re-rolls too
+        _spawnSerial = 0; _pendulumSlowActive = false; _afterglowApplied = false;   // run-boon transient state
+        _heavyUntilUtc = DateTime.MinValue; _chaosVideoCapUtc = DateTime.MinValue;   // heavy gate never leaks across runs
+        // The Spanker capstone gate — each DVD/thought logo samples this when it spawns.
+        ChaosDvdOverlay.SpankerRedirect = () => _state?.SpankerActive == true
+                                             && _state?.MaxedBoons.Contains("the_spanker") == true;
         App.Overlay?.WarmSpiralCache();   // pre-decode the spiral off-thread so its first show doesn't hitch
+        ChaosEffectBannerOverlay.EnsureCreated();   // birth the banner window NOW, not mid-chaos
+        ChaosFieldFxOverlay.EnsureCreated();        // ripples/residue/trails are drafted mid-run — pre-create always
 
         // Loadout: a pre-equipped start boon enters the run already active (before wave 1).
         var equipped = ChaosMeta.State.EquippedStartBoon;
@@ -147,11 +184,46 @@ public sealed class ChaosModeService
             var boon = ChaosBoonPool.All.FirstOrDefault(b => b.Id == equipped);
             if (boon != null) { _state.ApplyBoon(boon); ChaosMeta.MarkDiscovered("boon:" + boon.Id); }
         }
+        // Welcome Shower equipped as the start boon: the very first GO! gets its treat dump too.
+        if (_state.WelcomeShowerEnabled) SpawnWelcomeShower();
 
         // Lifetime boons (Skills/Accessories/Utility): apply active ones at their level, then
-        // mirror them into the HUD strip as icons.
+        // mirror them into the HUD strip as icons. The pre-run glance is over: the loadout
+        // locks in and the pinned-open panel folds away.
         ChaosMeta.ApplyLifetimeBoons(_state);
-        BuildSidebarBoons();
+        RefreshSidebarLoadout();
+        _hud?.SetPreRunExpanded(false);
+        // Pocket Watch gates ALL timekeeping: the sidebar run clock + fill bar only show with the charm.
+        _hud?.SetClockVisible(_state.ShowWaveTimer);
+
+        // Pocket Watch: birth the wave-countdown window NOW (keep-alive contract — never mid-run).
+        if (_state.ShowWaveTimer) ChaosWaveTimerOverlay.EnsureCreated();
+        // Rabbit Caller equipped: pre-create the cursor-glow halo for the summon-at-click.
+        if (ChaosMeta.IsBoonActive("rabbit_caller")) ChaosCursorGlowOverlay.EnsureCreated();
+        if (ChaosMeta.IsBoonActive("e_stim")) ChaosEStimOverlay.EnsureCreated();
+        // VibePopping equipped: pre-create the pointer glow + trail for the buzz window.
+        if (ChaosMeta.IsBoonActive("vibe_popping")) ChaosVibeTrailOverlay.EnsureCreated();
+
+        // Muscle Memory regen caps at the resistance you descended with (capstone: +1 above it).
+        _state.StartShields = _state.Shields;
+        _regenPopCount = 0;
+        _heartbeatCooldownSec = 0;
+
+        // Active skills (toys): build their state, listen for keybinds, and park one big
+        // hero button per toy at the bottom-left of the screen (clickable at a glance).
+        _vibeRemainingSec = 0;
+        BuildActiveToys();
+        StartKeyHook();
+        for (int i = 0; i < _state.ActiveToys.Count; i++)
+        {
+            try
+            {
+                var btn = new ChaosToyButtonWindow(_state.ActiveToys[i], this, i);
+                btn.Show();
+                _toyButtons.Add(btn);
+            }
+            catch (Exception ex) { App.Logger?.Debug("Toy button: {E}", ex.Message); }
+        }
 
         _spawning = true;
 
@@ -159,6 +231,7 @@ public sealed class ChaosModeService
 
         // A mandatory-video payload can fire mid-run; keep the gameplay layer above it (see handler).
         if (App.Video != null) App.Video.VideoStarted += OnVideoStartedDuringRun;
+        if (App.Video != null) App.Video.VideoEnded += OnVideoEndedDuringRun;
 
         _runTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _runTimer.Tick += RunTick;
@@ -169,20 +242,148 @@ public sealed class ChaosModeService
         _spawnTimer.Start();
     }
 
-    /// <summary>Populate the HUD strip's active-lifetime-boon icons (art if present, else the boon's glyph).</summary>
-    private void BuildSidebarBoons()
+    // ---- pre-run loadout sidebar (shown beside the Warren hub, before any run exists) ----
+    private ChaosHudWindow? _preHud;
+    private ChaosRunState? _preState;
+
+    /// <summary>The loadout is editable while the Warren sidebar is up or from FALL IN until
+    /// SINK fires (boons apply at BeginRun).</summary>
+    public bool CanEditLoadout => !_spawning && (_active || _preHud != null);
+
+    /// <summary>Open the loadout sidebar next to the Warren: the run HUD, pinned open, pockets
+    /// editable. Lives until the hub closes (a started run swaps in the real HUD).</summary>
+    public void ShowLoadoutSidebar()
     {
-        if (_state == null) return;
-        _state.ActiveSidebarBoons.Clear();
-        foreach (var b in ChaosLifetimeBoons.All)
+        if (_active || _preHud != null) return;
+        try
+        {
+            _preState = new ChaosRunState(ChaosRunConfig.FromSettings());
+            _preHud = new ChaosHudWindow(_preState, this);
+            _preHud.Show();
+            RefreshSidebarLoadout();
+            _preHud.SetHeroMode(preRun: true);   // hero button reads FALL IN until the run takes over
+            _preHud.SetPreRunExpanded(true);
+        }
+        catch (Exception ex) { App.Logger?.Debug("ShowLoadoutSidebar: {E}", ex.Message); }
+    }
+
+    /// <summary>Close the Warren-phase sidebar (hub closed or a run is taking over).</summary>
+    public void CloseLoadoutSidebar()
+    {
+        try { _preHud?.Close(); } catch { }
+        _preHud = null;
+        _preState = null;
+    }
+
+    /// <summary>A pocket tile was clicked in the HUD during the pre-run glance: take the boon off.</summary>
+    public void UnequipFromSidebar(string id)
+    {
+        if (!CanEditLoadout || string.IsNullOrEmpty(id)) return;
+        if (!ChaosMeta.IsBoonActive(id)) return;
+        ChaosMeta.SetBoonActive(id, false);
+        RefreshSidebarLoadout();
+        (_state ?? _preState)?.PushEvent("👝 left behind: " + (ChaosLifetimeBoons.ById(id)?.Name ?? id));
+        ChaosHubWindow.Current?.RefreshAfterExternalLoadoutChange();   // keep the open Warren in sync
+    }
+
+    /// <summary>The Warren changed the loadout while the pre-run glance is up — mirror it.</summary>
+    public void NotifyLoadoutChanged()
+    {
+        if (CanEditLoadout) RefreshSidebarLoadout();
+    }
+
+    /// <summary>An empty "+" pocket tile was clicked in the sidebar: take the player shopping —
+    /// bring the open Warren forward on the right tab (no-op mid-run, when no Warren exists).</summary>
+    public void OpenWarrenAt(string tab) => ChaosHubWindow.Current?.NavigateTo(tab);
+
+    /// <summary>The sidebar's pre-run ✖: leave the rabbit hole — close the Warren, which folds
+    /// the sidebar away with it (no-op once a run is live; the pause flow owns exits then).</summary>
+    public void CloseWarrenPhase()
+    {
+        if (_active) return;
+        if (ChaosHubWindow.Current != null) ChaosHubWindow.Current.Close();
+        else CloseLoadoutSidebar();
+    }
+
+    /// <summary>The sidebar's FALL IN hero button: start the descent. Goes through the open
+    /// Warren when there is one (so the run setup saves), else starts directly.</summary>
+    public void StartRunFromSidebar()
+    {
+        if (_active) return;
+        if (ChaosHubWindow.Current != null) ChaosHubWindow.Current.FallIn();
+        else StartRun();
+    }
+
+    /// <summary>Populate the HUD's pocket loadout — equipped lifetime boons in slot order, with dim
+    /// empty-slot tiles for unfilled pockets (the pre-run glance) — plus the passive modifier list
+    /// (owned always-on upgrades shaping this run).</summary>
+    private void RefreshSidebarLoadout()
+    {
+        var st = _state ?? _preState;   // live run, or the Warren-phase preview state
+        if (st == null) return;
+        st.ActiveSidebarBoons.Clear();
+        foreach (var cat in new[] { ChaosBoonCategory.Skill, ChaosBoonCategory.Accessory })
+        {
+            int filled = 0;
+            foreach (var b in ChaosLifetimeBoons.InCategory(cat))
+            {
+                if (!ChaosMeta.IsBoonActive(b.Id)) continue;
+                int lvl = ChaosMeta.BoonLevel(b.Id);
+                st.ActiveSidebarBoons.Add(new ChaosSidebarBoon
+                {
+                    Id = b.Id,
+                    Icon = ChaosArt.Resolve("boons", b.Id),
+                    Glyph = b.Glyph,
+                    Name = b.Name,
+                    Level = lvl,
+                    Desc = b.Desc,
+                    Extra = lvl >= b.MaxLevel && !string.IsNullOrEmpty(b.CapstoneDesc) ? "max: " + b.CapstoneDesc : "",
+                });
+                filled++;
+            }
+            // Empty "+" slots only exist during the Warren-phase glance (clicking one jumps the
+            // Warren to Enhancements). Mid-run the loadout is locked — don't render dead tiles.
+            if (_preHud != null)
+                for (int i = filled; i < ChaosMeta.SlotsFor(cat); i++)
+                    st.ActiveSidebarBoons.Add(new ChaosSidebarBoon
+                    {
+                        IsEmptySlot = true,
+                        Glyph = "+",
+                        Name = cat == ChaosBoonCategory.Skill ? "empty skill pocket" : "empty accessory pocket",
+                        Desc = "click to go shopping in the warren.",
+                    });
+        }
+        st.RunModifiers.Clear();
+        foreach (var id in ChaosMeta.State.PurchasedUpgrades)
+        {
+            if (!ChaosMeta.IsUpgradeActive(id)) continue;   // switched-off habits sit out the run
+            var u = ChaosUpgrades.ById(id);
+            if (u == null) continue;
+            st.RunModifiers.Add(new ChaosSidebarBoon
+            {
+                Icon = u.IconPath != null ? ChaosArt.TryLoad(u.IconPath) : ChaosArt.Resolve("upgrades", u.Id),
+                Glyph = u.Glyph,
+                Name = u.Name,
+                Desc = u.Desc,
+                IsModifier = true,
+            });
+        }
+        // Worn leveled habits (Utility lifetime boons — Rabbit's Foot etc.) are modifiers
+        // too, not pocket gear: they list here beside the other always-on passives.
+        foreach (var b in ChaosLifetimeBoons.InCategory(ChaosBoonCategory.Utility))
         {
             if (!ChaosMeta.IsBoonActive(b.Id)) continue;
-            _state.ActiveSidebarBoons.Add(new ChaosSidebarBoon
+            int lvl = ChaosMeta.BoonLevel(b.Id);
+            st.RunModifiers.Add(new ChaosSidebarBoon
             {
+                Id = b.Id,
                 Icon = ChaosArt.Resolve("boons", b.Id),
                 Glyph = b.Glyph,
-                Name = b.Name,
-                Level = ChaosMeta.BoonLevel(b.Id),
+                Name = $"{b.Name} · L{lvl}",
+                Level = lvl,
+                Desc = b.Desc,
+                Extra = lvl >= b.MaxLevel && !string.IsNullOrEmpty(b.CapstoneDesc) ? "max: " + b.CapstoneDesc : "",
+                IsModifier = true,
             });
         }
     }
@@ -203,6 +404,7 @@ public sealed class ChaosModeService
             App.Bubbles?.BringAllToFront();
             try { _fx?.RaiseToTopmost(); } catch { }
             try { _hud?.RaiseToTopmost(); } catch { }
+            foreach (var b in _toyButtons) { try { b.RaiseToTopmost(); } catch { } }
         }
         var disp = Application.Current?.Dispatcher;
         if (disp == null) return;
@@ -239,11 +441,50 @@ public sealed class ChaosModeService
             if (_freezeRemainingSec <= 0) EndFreeze();
         }
 
-        if (elapsed >= _state.RunDurationSec) { EndRun(); return; }
+        TickBlindfoldHeartbeat(dt);   // Blindfold capstone: the closest fuse gets a pulse
+        TickActiveToys(dt);           // toy cooldowns + the VibePopping buzz window
+
+        // Mandatory-video hard caps: a chaos-fired video never runs past its 15s slice, and
+        // never into the run's final 3s (the recap should never land on top of a playing tape).
+        if (_chaosVideoCapUtc != DateTime.MinValue)
+        {
+            bool capHit = DateTime.UtcNow >= _chaosVideoCapUtc;
+            bool runClosing = _state.RunDurationSec - elapsed <= 3;
+            if (App.Video?.IsPlaying == true && (capHit || runClosing))
+            {
+                _chaosVideoCapUtc = DateTime.MinValue;
+                try { App.Video?.ForceCleanup(); } catch (Exception ex) { App.Logger?.Debug("Chaos video cap: {E}", ex.Message); }
+                ExtendHeavyQuarantine(VIDEO_TEARDOWN_QUARANTINE_SEC);   // ForceCleanup may not raise VideoEnded
+                _state.PushEvent("▶ the tape snaps off");
+            }
+            else if (App.Video?.IsPlaying != true && capHit)
+            {
+                _chaosVideoCapUtc = DateTime.MinValue;   // ended on its own — clear the cap
+                ExtendHeavyQuarantine(VIDEO_TEARDOWN_QUARANTINE_SEC);
+            }
+        }
+
+        if (elapsed >= _state.RunDurationSec)
+        {
+            // Relapse sin: the hole isn't done with you — one more loop, paying double drops + gold.
+            if (_state.RelapseLoopArmed && !_state.RelapseLoopActive)
+            {
+                _state.ExtendOneLoop();
+                ChaosAnnouncerOverlay.Announce("☠ RELAPSE — one more loop", ChaosAnnounceKind.Temptation);
+                ChaosSfx.Play("sin_accept", 0.6f);
+                _state.PushEvent("☠ relapse. one more loop — everything drips double");
+                App.Bark?.NotifyChaosWaveEscalated(_state.WaveIndex + 1);
+            }
+            else { EndRun(); return; }
+        }
 
         double waveLen = (double)_state.RunDurationSec / _state.WaveCount;
         int newWave = Math.Min(_state.WaveCount, 1 + (int)(elapsed / waveLen));
         _state.WaveProgress = (elapsed % waveLen) / waveLen;
+
+        // Pocket Watch: the wave countdown at the top of the screen.
+        if (_state.ShowWaveTimer)
+            ChaosWaveTimerOverlay.Update(newWave, _state.WaveCount, waveLen - (elapsed % waveLen));
 
         if (newWave > _state.WaveIndex) BeginWaveTransition(newWave);
     }
@@ -258,20 +499,63 @@ public sealed class ChaosModeService
         double effIntensity = Math.Clamp(intensity + (cfg.DifficultyMult - 1.0) * 0.15, 0, 1);
         double diffFactor = cfg.DifficultyMult;
 
-        int maxConcurrent = (int)Math.Round((4 + intensity * 7) * Math.Sqrt(diffFactor)) + cfg.MaxBubblesBonus;
+        int maxConcurrent = (int)Math.Round((4 + intensity * 7) * Math.Sqrt(diffFactor));
         if ((App.Bubbles?.ActiveBubbles ?? 0) < maxConcurrent)
         {
-            var spec = ChaosBubbleVariants.Pick(effIntensity, _state.FuseTimeMult,
-                cfg.MotionOverride, cfg.EnabledVariants, cfg.EffectIntensity);
+            // Be gentle with the tape: no video bubble while a heavy effect (video/cascade) is
+            // running, and none when the loop or run is too close to its end for the bubble's
+            // fuse plus the 15s video slice to fit.
+            IReadOnlyCollection<string>? enabled = cfg.EnabledVariants;
+            double waveLen = (double)_state.RunDurationSec / _state.WaveCount;
+            double waveLeft = waveLen - (_state.ElapsedSec % waveLen);
+            double runLeft = _state.RunDurationSec - _state.ElapsedSec;
+            if (enabled != null && enabled.Contains("video")
+                && (HeavyEffectActive || waveLeft < 20 || runLeft < 25))
+            {
+                enabled = enabled.Where(id => id != "video").ToList();
+            }
+
+            // Heavy Drop: every Nth ordinary spawn swaps for a giant, slow, triple-pay treat.
+            EffectBubbleSpec spec;
+            if (_state.HeavyDropEvery > 0 && ++_spawnSerial % _state.HeavyDropEvery == 0)
+            {
+                spec = ChaosBubbleVariants.BuildHeavy(effIntensity, cfg.EffectIntensity, _state.BubbleScale);
+            }
+            else
+            {
+                spec = ChaosBubbleVariants.Pick(effIntensity, _state.FuseTimeMult,
+                    cfg.MotionOverride, enabled, cfg.EffectIntensity, _state.BubbleScale);
+            }
             ChaosMeta.MarkDiscovered("bubble:" + spec.VariantId);
             App.Bubbles?.SpawnChaosBubble(spec);
+
+            // Lucky golden bubble: a rare bonus roll riding every ordinary spawn (base 0.5%;
+            // Rabbit's Foot raises it). Pays real gold — Sparks — the moment it's popped.
+            if (Random.Shared.NextDouble() < _state.GoldenChance)
+            {
+                ChaosMeta.MarkDiscovered("bubble:golden");
+                App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildGolden());
+                App.Bubbles?.PlayChime(0.30f);   // a soft chime so a sharp ear catches the chance
+            }
+
+            // "Look at the bright colors..." sin: sometimes a mimic prism drifts in.
+            if (_state.PrismChance > 0 && Random.Shared.NextDouble() < _state.PrismChance)
+            {
+                ChaosMeta.MarkDiscovered("bubble:prism");
+                App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildPrism(effIntensity, cfg.EffectIntensity));
+            }
         }
 
         // Darters spawn on their own intensity-scaled roll, independent of the bubble cap.
+        // (Tunnel Vision habit cut 2026-06-10 — the spotlight viz lives on in the variant builder.)
         if (cfg.DartersEnabled)
         {
-            var darter = ChaosBubbleVariants.RollDarter(effIntensity);
-            if (darter != null) { ChaosMeta.MarkDiscovered("bubble:darter"); App.Bubbles?.SpawnChaosBubble(darter); }
+            var darter = ChaosBubbleVariants.RollDarter(effIntensity, _state.RabbitRateMult, spotlight: false);
+            if (darter != null)
+            {
+                ChaosMeta.MarkDiscovered("bubble:darter");
+                App.Bubbles?.SpawnChaosBubble(darter);
+            }
         }
 
         double interval = (1300 - intensity * 850) / diffFactor;
@@ -298,6 +582,7 @@ public sealed class ChaosModeService
 
         _paused = true;
         _spawnTimer?.Stop();
+        ChaosWaveTimerOverlay.Clear();   // the watch blanks while the draft table is out
         // Clear the field so live fuses don't tick (and detonate) behind the draft overlay,
         // with a single burst cue as everything pops.
         App.Bubbles?.PopAllBubbles();
@@ -314,9 +599,34 @@ public sealed class ChaosModeService
         _pendingWave = newWave;
         App.Bark?.NotifyChaosWaveEscalated(newWave);
 
-        var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices);
+        // Surrender capstone: every draft carries a sin (only while the user allows sins at all).
+        var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices,
+            guaranteeCurse: _state.MaxedBoons.Contains("surrender"), takenIds: TakenBoonIds());
         foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
-        _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen, _state.Config.DraftAutoResumeSec);
+        _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen, _state.Config.DraftAutoResumeSec,
+            rerollsLeft: _state.RerollsLeft, onReroll: RerollDraft);
+    }
+
+    /// <summary>Run-boon ids already drafted this descent (unique cards sit the rest out).</summary>
+    private System.Collections.Generic.HashSet<string> TakenBoonIds()
+    {
+        var taken = new System.Collections.Generic.HashSet<string>();
+        if (_state == null) return taken;
+        foreach (var b in _state.ActiveBoons) taken.Add(b.Id);
+        foreach (var b in _state.ActiveCurses) taken.Add(b.Id);
+        return taken;
+    }
+
+    /// <summary>Taking Chances: spend one reroll for a fresh deal at the draft table. Null = none left.</summary>
+    private (System.Collections.Generic.List<ChaosBoon> options, int rerollsLeft)? RerollDraft()
+    {
+        if (_state == null || _state.RerollsLeft <= 0) return null;
+        _state.RerollsLeft--;
+        _state.PushEvent("🎲 tempted fate again");
+        var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices,
+            guaranteeCurse: _state.MaxedBoons.Contains("surrender"), takenIds: TakenBoonIds());
+        foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
+        return (options, _state.RerollsLeft);
     }
 
     private void OnBoonChosen(ChaosBoon? boon)
@@ -325,11 +635,29 @@ public sealed class ChaosModeService
 
         if (boon != null)
         {
-            _state.ApplyBoon(boon);
+            // Surrender capstone: the FIRST sin of the descent keeps its sweetness, loses its sting.
+            bool sinShielded = boon.IsCurse && _state.MaxedBoons.Contains("surrender") && !_state.SurrenderShieldUsed;
+            if (sinShielded) _state.SurrenderShieldUsed = true;
+
+            _state.ApplyBoon(boon, shieldDrawback: sinShielded);
             if (boon.Id == "extra_shield") Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);   // +2 shields cue
             if (boon.IsCurse)
             {
+                // Surrender: each accepted sin sweetens the multiplier; at max, saying yes gives back.
+                if (_state.SinExtraMult > 0)
+                {
+                    _state.BoonMult += _state.SinExtraMult;
+                    _state.PushEvent($"🕯 sin embraced (+{_state.SinExtraMult:0.00}x)");
+                }
+                if (sinShielded) _state.PushEvent("🕯 the candle took the sting (no drawback)");
+                if (_state.MaxedBoons.Contains("surrender"))
+                {
+                    _state.Shields += 1;
+                    _state.PushEvent("🕯 you said yes. it gave back (+1 resistance)");
+                    Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);
+                }
                 App.Bark?.NotifyChaosCursePicked(boon.Name, boon.Rarity.ToString(), boon.RunMultBonus);
+                ChaosSfx.Play("sin_accept", 0.6f);
                 ChaosAnnouncerOverlay.Announce($"☠ {boon.Name}", ChaosAnnounceKind.Temptation);
             }
             else
@@ -341,11 +669,10 @@ public sealed class ChaosModeService
         else
         {
             _state.Shields += 1;
-            _state.PushEvent("⛊ skipped → +1 willpower");
-            // Shield-gain cue (+1 from skip) — pulse + bark.
+            _state.PushEvent("♥ resisted → +1 resistance");
             Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);
             App.Bark?.NotifyChaosBoonSkipped(_state.Shields);
-            ChaosAnnouncerOverlay.Announce("+1 WILLPOWER", ChaosAnnounceKind.Willpower);
+            ChaosAnnouncerOverlay.Announce("+1 RESISTANCE", ChaosAnnounceKind.Willpower);
         }
 
         if (_state.DoubleOrNothingArmed)
@@ -369,11 +696,36 @@ public sealed class ChaosModeService
     {
         _paused = false;
         if (_spawning) _spawnTimer?.Start();
+        // Welcome Shower: every loop's GO! dumps a quick rain of treats from the top.
+        if (_state?.WelcomeShowerEnabled == true) SpawnWelcomeShower();
+    }
+
+    /// <summary>Welcome Shower: dump a handful of treats (flash/subliminal) raining from the top.</summary>
+    private void SpawnWelcomeShower()
+    {
+        if (_state == null) return;
+        try
+        {
+            int count = 6;
+            for (int i = 0; i < count; i++)
+            {
+                var variant = ChaosBubbleVariants.All[Random.Shared.Next(2)];   // rows 0/1 = the treats
+                var spec = ChaosBubbleVariants.Build(variant, _state.RunIntensity, _state.FuseTimeMult,
+                    ChaosMotion.RainDown, _state.Config.EffectIntensity, _state.BubbleScale);
+                App.Bubbles?.SpawnChaosBubble(spec);
+            }
+            App.Bubbles?.PlayChime(0.25f);
+            _state.PushEvent("🚿 welcome shower — treats from above");
+        }
+        catch (Exception ex) { App.Logger?.Debug("SpawnWelcomeShower: {E}", ex.Message); }
     }
 
     // ============================ bubble callbacks ============================
 
     private double BasePoints(int strength) => 40 + strength * 1.6; // 40..200
+
+    /// <summary>Lifetime-boon payout layer on bubble pops: Blindfold's pay multiplier (1.0 unworn).</summary>
+    private double BoonPayMult => _state?.BlindfoldPayMult ?? 1.0;
 
     // Config-gated juice helpers (no-op when the user disabled that feedback).
     private void Pulse(Color color, double strength)
@@ -387,40 +739,227 @@ public sealed class ChaosModeService
             App.ScreenShake?.Shake(Math.Clamp(baseIntensity * cfg.ShakeIntensity, 0, 1), durMs);
     }
 
+    /// <summary>Blank Eyes: float the pop's real payout (mults, flips and all) just under the
+    /// pop word, anchored at the popped bubble's centre (written by Bubble.Pop a moment ago).</summary>
+    private void ShowPopScore(double pts)
+    {
+        if (_state?.ShowPopScores != true || pts <= 0) return;
+        ChaosPopText.Show(BubbleService.ChaosLastPopXDip, BubbleService.ChaosLastPopYDip + 30,
+            "+" + ((long)pts).ToString("N0"), Color.FromRgb(0xFF, 0xE9, 0xA0));
+    }
+
+    /// <summary>Taking Chances: every pop is a coin flip — x2 with the level's odds, else x0.5. 1.0 when unworn.</summary>
+    private double ChanceFlip() =>
+        _state?.ChanceDoubleOdds > 0 ? (Random.Shared.NextDouble() < _state.ChanceDoubleOdds ? 2.0 : 0.5) : 1.0;
+
+    /// <summary>"Focus here...": x3 while the pendulum's slow swing holds (1.0 otherwise).</summary>
+    private double PendulumFactor() =>
+        _pendulumSlowActive && _state?.PendulumPayMult > 1 ? _state.PendulumPayMult : 1.0;
+
+    /// <summary>Relapse's bonus loop pays double gold — every gold bank routes through here.</summary>
+    private int GoldScaled(int gold) => _state?.RelapseLoopActive == true ? gold * 2 : gold;
+
+    /// <summary>Drip Feed drops per pop, doubled during the Relapse bonus loop.</summary>
+    private int DropsPerPopNow() => (_state?.DropPerPop ?? 0) * (_state?.RelapseLoopActive == true ? 2 : 1);
+
+    /// <summary>Cam Girl: any pop can tip gold. Banked in memory; the end-of-run award persists it.</summary>
+    private void RollCamGirlTip()
+    {
+        if (_state == null || _state.CamGirlTipChance <= 0) return;
+        if (Random.Shared.NextDouble() >= _state.CamGirlTipChance) return;
+        int tip = GoldScaled(Random.Shared.Next(2, 5));
+        ChaosMeta.State.Sparks += tip;
+        _state.PushEvent($"💸 tipped +{tip} gold");
+    }
+
     private void OnBenignPopped(EffectBubbleSpec spec)
     {
-        if (_state == null || _paused) return;
+        if (_state == null || _paused || _manualPaused) return;
+        CountRegenPop();   // Slow Recovery: every pop feeds the regen counter
+
+        // Lucky golden bubble: pure treasure — real gold (Sparks) banked instantly, outside
+        // the score/combo economy entirely (so coin flips, mults and streaks never touch it).
+        // Pop-up Notification heart: pure kindness — +1 resistance, outside the score/combo
+        // economy entirely (no points, no streak, no payload).
+        if (spec.IsHeart)
+        {
+            _state.Shields += 1;
+            _state.PushEvent("💖 pop-up notification! +1 resistance");
+            ChaosAnnouncerOverlay.Announce("💖 +1 resistance", ChaosAnnounceKind.PowerUp);
+            Pulse(SHIELD_GAIN_COLOR, 0.25);
+            ChaosSfx.Play("resist_absorb", 0.55f);
+            return;
+        }
+
+        // Gold Digger droplet: a few Sparks per bead, outside the score economy like its parent.
+        if (spec.IsDroplet)
+        {
+            int dGold = GoldScaled(Random.Shared.Next(3, 8));
+            ChaosMeta.State.Sparks += dGold;
+            _state.PushEvent($"✧ droplet +{dGold} gold");
+            Pulse(Color.FromRgb(255, 215, 0), 0.12);
+            ChaosSfx.Play("golden_pop", 0.35f);
+            return;
+        }
+
+        if (spec.IsGolden)
+        {
+            // Rabbit's Foot scales the gold per level (10–20 unworn … 20–40 at the capstone).
+            int lvl = ChaosMeta.IsBoonActive("rabbits_foot") ? ChaosMeta.BoonLevel("rabbits_foot") : 0;
+            var (gMin, gMax) = ChaosLifetimeBoons.GoldenPayRange(lvl);
+            int gold = GoldScaled(Random.Shared.Next(gMin, gMax + 1));
+            ChaosMeta.State.Sparks += gold;
+            ChaosMeta.Save();
+            _state.PushEvent($"🍀 lucky bubble! +{gold} gold");
+            ChaosAnnouncerOverlay.Announce($"🍀 +{gold} gold", ChaosAnnounceKind.PowerUp);
+            Pulse(Color.FromRgb(255, 215, 0), 0.35);
+            ChaosSfx.Play("golden_pop", 0.6f);   // coins spill — real gold just landed
+            // Gold Digger: the lucky bubble bursts into 3 falling droplets at the pop point.
+            if (_state.GoldDiggerEnabled)
+            {
+                for (int i = 0; i < 3; i++)
+                    App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildGoldDroplet(
+                        BubbleService.ChaosLastPopXPx + Random.Shared.Next(-50, 51),
+                        BubbleService.ChaosLastPopYPx + Random.Shared.Next(-20, 21)));
+                _state.PushEvent("⛏ gold digger — it spills");
+            }
+            return;
+        }
+
+        // Mimic prism ("Look at the bright colors..."): 10x pay — and the copied effect fires.
+        if (spec.IsPrism)
+        {
+            FireScaledPayload(spec.Payload);
+            _state.EffectsFired++;
+            _state.Combo++;
+            _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
+            double prismPts = BasePoints(spec.Strength) * 10.0 * _state.TotalMult * BoonPayMult;
+            _state.Score += prismPts;
+            ShowPopScore(prismPts);
+            ChaosAnnouncerOverlay.Announce($"🔮 the colors! 10x — it was {spec.Payload.DisplayName}", ChaosAnnounceKind.Temptation);
+            _state.PushEvent($"🔮 prism! 10x · {spec.Payload.DisplayName} fires");
+            Pulse(Color.FromRgb(0xC8, 0xA8, 0xFF), 0.40);
+            App.Achievements?.TrackBubblePopped();
+            RollCamGirlTip();
+            CheckComboMilestone();
+            return;
+        }
+
         spec.Payload.Fire();                 // benign pop = a treat
         _state.EffectsFired++;
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.04);
-        // golden_touch upgrade bumps benign-pop scoring (0.4 → 0.6); neutral when unowned.
-        double benignMult = _state.Config.GoldenTouchBaseline ? 0.6 : 0.4;
-        _state.Score += BasePoints(spec.Strength) * benignMult * _state.TotalMult;
+        // Golden Touch charm raises the calm-pop baseline (0.4 unworn → 0.45–0.60 by level).
+        double benignMult = _state.BenignBaseline;
+        double pts = BasePoints(spec.Strength) * benignMult * spec.PayMult * PendulumFactor()
+                     * ChanceFlip() * _state.TotalMult * BoonPayMult;
+        _state.Score += pts;
+        if (_state.DropPerPop > 0) _state.TrickleDrops += DropsPerPopNow();   // Drip Feed (x2 in the relapse loop)
+        ShowPopScore(pts);                                                     // Blank Eyes
         App.Achievements?.TrackBubblePopped();
         Pulse(BENIGN_POP_COLOR, BENIGN_POP_PULSE);   // the most-frequent action now has a tiny pop pulse
+        if (spec.PayMult > 1) _state.PushEvent("🪨 heavy drop! x3");
+        RollCamGirlTip();
+        // Body Buzz: one pop in eight detonates an electric shockwave — the ring strikes every
+        // bubble it covers. Shockwave pops re-enter here and re-roll, but 1/8 damps the cascade.
+        if (_state.EStimShockwaveChance > 0 && Random.Shared.NextDouble() < _state.EStimShockwaveChance)
+        {
+            App.Bubbles?.TriggerEStimShockwave(new System.Windows.Point(
+                BubbleService.ChaosLastPopXPx, BubbleService.ChaosLastPopYPx));
+            Pulse(Color.FromRgb(0x7A, 0xE0, 0xFF), 0.25);
+            _state.PushEvent("⚡ body buzz — the current spreads");
+        }
+        // GG make more GG: sometimes a popped treat bursts into 3 wild sweeper rabbits.
+        if (_state.GgRabbitChance > 0 && Random.Shared.NextDouble() < _state.GgRabbitChance)
+        {
+            for (int i = 0; i < 3; i++)
+                App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildDarter(_state.RunIntensity, spotlight: false,
+                    BubbleService.ChaosLastPopXPx + Random.Shared.Next(-40, 41),
+                    BubbleService.ChaosLastPopYPx + Random.Shared.Next(-40, 41),
+                    sweeper: true));
+            ChaosSfx.Play("rabbit_spawn", 0.5f);
+            _state.PushEvent("🐇 GG! they multiply");
+        }
         App.Bark?.NotifyChaosBenignPopped(spec.VariantId, spec.Payload.DisplayName, _state.Combo);
         _state.PushEvent($"○ popped {spec.Payload.DisplayName}");
         CheckComboMilestone();
     }
 
-    private void OnDefused(EffectBubbleSpec spec)
+    /// <summary>A treat (flash/subliminal/golden) sat unpopped past its 5s screen life: it
+    /// dissolved — no pop, no payload — and the streak HALVES. Letting rewards rot really
+    /// hurts now, which keeps the player chasing the good bubbles too.</summary>
+    private void OnTreatExpired(EffectBubbleSpec spec)
     {
-        if (_state == null || _paused) return;
+        if (_state == null || _paused || _manualPaused) return;
+        string name = spec.IsGolden ? "lucky bubble" : spec.Payload.DisplayName;
+        if (_state.Combo > 1)
+        {
+            _state.Combo /= 2;
+            _state.PushEvent($"💨 {name} faded… streak halved to x{_state.Combo}");
+        }
+        else
+        {
+            _state.Combo = 0;
+            _state.PushEvent($"💨 {name} faded away");
+        }
+        Pulse(Color.FromRgb(150, 150, 175), 0.10);   // faint grey sigh — a reward slipped by
+    }
+
+    private void OnDefused(EffectBubbleSpec spec, double fuseSecLeft)
+    {
+        if (_state == null || _paused || _manualPaused) return;
+        CountRegenPop();   // Slow Recovery: snaps count toward the regen threshold too
         _state.Defused++;
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.07);
-        _state.Score += BasePoints(spec.Strength) * 1.0 * _state.TotalMult;
+        // Last Breath: snapping at the very brink pays fortunes (window + payout scale by level).
+        double lastBreath = _state.LastBreathWindowSec > 0 && fuseSecLeft <= _state.LastBreathWindowSec
+            ? _state.LastBreathPayMult : 1.0;
+        // Slowburner capstone: a snap inside the trance's final 1.5 seconds pays triple.
+        double slowburn = fuseSecLeft <= 1.5 && _state.MaxedBoons.Contains("slowburner") ? 3.0 : 1.0;
+        double pts = BasePoints(spec.Strength) * 1.0 * lastBreath * slowburn * PendulumFactor()
+                     * ChanceFlip() * _state.TotalMult * BoonPayMult;
+        _state.Score += pts;
+        if (_state.DropPerPop > 0) _state.TrickleDrops += DropsPerPopNow();   // Drip Feed (x2 in the relapse loop)
+        ShowPopScore(pts);                                                     // Blank Eyes
         App.Achievements?.TrackBubblePopped();
+        RollCamGirlTip();
+        // Playing with fire: a snap inside the final second pays gold on the spot.
+        if (_state.LastSecondGoldEnabled && fuseSecLeft <= 1.0)
+        {
+            int fGold = GoldScaled(Random.Shared.Next(5, 10));
+            ChaosMeta.State.Sparks += fGold;
+            _state.PushEvent($"🔥 playing with fire +{fGold} gold");
+            Pulse(Color.FromRgb(255, 140, 60), 0.30);
+        }
+        // Aftermath: a brink-snap leaves 2s of crackling residue at the pop point.
+        if (_state.AftermathEnabled && fuseSecLeft <= 1.5)
+        {
+            App.Bubbles?.AddChaosResidue(new Point(BubbleService.ChaosLastPopXPx, BubbleService.ChaosLastPopYPx));
+            _state.PushEvent("⚡ aftermath — the air still crackles");
+        }
+        // Size Queen: every snap rings outward and pops the treats it touches.
+        if (_state.RippleEnabled)
+            App.Bubbles?.TriggerChaosRipple(new Point(BubbleService.ChaosLastPopXPx, BubbleService.ChaosLastPopYPx));
         App.Bark?.NotifyChaosBubbleDefused(_state.Combo, spec.VariantId, _state.Config.Difficulty.ToString());
-        Pulse(Color.FromRgb(90, 255, 150), 0.16);   // soft green confirm
+        if (lastBreath > 1)
+        {
+            _state.PushEvent($"⏱ last breath! x{lastBreath:0}");
+            ChaosAnnouncerOverlay.Announce($"⏱ last breath x{lastBreath:0}", ChaosAnnounceKind.PowerUp);
+            Pulse(Color.FromRgb(255, 215, 0), 0.40);   // gold flash — you earned it
+        }
+        else
+        {
+            Pulse(Color.FromRgb(90, 255, 150), 0.16);  // soft green confirm
+        }
+        if (slowburn > 1) _state.PushEvent("🐌 slow burn! x3");
         _state.PushEvent($"✔ snapped {spec.Payload.DisplayName}");
         CheckComboMilestone();
     }
 
     private void OnDetonated(EffectBubbleSpec spec)
     {
-        if (_state == null || _paused) return;
+        if (_state == null || _paused || _manualPaused) return;
         FirePayloadForDetonation(spec);      // the threat goes off (ambient mode may soften it)
         _state.EffectsFired++;
         _state.Detonated++;
@@ -434,10 +973,31 @@ public sealed class ChaosModeService
         {
             _state.Shields -= shieldCost;
             _state.Heat = Math.Max(0, _state.Heat - 0.2);
-            _state.PushEvent($"🛡 absorbed {spec.Payload.DisplayName}!");
+            _state.PushEvent($"♥ resistance crumbles ({spec.Payload.DisplayName})");
+            // The last point of resistance going has its own, sadder cue.
+            ChaosSfx.Play(_state.Shields == 0 ? "resist_crumble" : "resist_absorb", 0.6f);
             Pulse(Color.FromRgb(80, 160, 255), 0.28);    // blue shield-save
             Shake(0.25 + s * 0.3, 280);
             // Clutch shield-save branch — distinct trigger so the matcher can praise it.
+            App.Bark?.NotifyChaosBubbleDetonatedAbsorbed(variant, spec.Strength, _runDetonations, _state.Combo, diff, _state.Shields);
+        }
+        else if (_state.CollarSaves > 0)
+        {
+            // Collar: out of resistance, but the streak is held — combo and lust survive the hit.
+            // The payload still fired above; the collar protects the chain, not the screen.
+            _state.CollarSaves--;
+            _state.PushEvent($"📿 the collar holds ({_state.CollarSaves} left)");
+            ChaosSfx.Play("collar_save", 0.6f);
+            Pulse(Color.FromRgb(255, 215, 0), 0.32);             // gold save flash
+            Shake(0.25 + s * 0.3, 280);
+            // Unleashed: the save ITSELF strikes back — a golden shockwave snaps every live bubble.
+            if (_state.UnleashedEnabled)
+            {
+                App.Bubbles?.DefuseAllLive();
+                ChaosAnnouncerOverlay.Announce("📿 UNLEASHED", ChaosAnnounceKind.PowerUp);
+                _state.PushEvent("📿 unleashed — the field lets go");
+                Pulse(Color.FromRgb(255, 215, 0), 0.50);
+            }
             App.Bark?.NotifyChaosBubbleDetonatedAbsorbed(variant, spec.Strength, _runDetonations, _state.Combo, diff, _state.Shields);
         }
         else
@@ -447,6 +1007,7 @@ public sealed class ChaosModeService
             _lastComboBigFired = 0;                // combo broke → reset ComboBig crossing tracking
             _state.Heat = 0;
             _state.PushEvent($"💥 {spec.Payload.DisplayName} triggered!");
+            ChaosSfx.Play("trigger", 0.55f);                     // the muffled boom under the payload stinger
             Pulse(Color.FromRgb(255, 50, 50), 0.4 + s * 0.35);   // red malus
             Shake(0.4 + s * 0.5, 380);                           // the malus jolt
             // Real-hit branch (unshielded only now).
@@ -460,22 +1021,104 @@ public sealed class ChaosModeService
     /// background run never yanks a fullscreen video/browser over the user's work.
     /// Outside ambient mode the payload fires exactly as built (neutral invariant).
     /// </summary>
+    // ---- heavy-payload gate (video + gif cascade): ONE at a time, never queued ----
+    // Stacked LibVLC players + cascade windows is what crashed the app (2026-06-10): while a
+    // heavy effect runs, any further heavy detonation is simply dropped — no queue, no stack.
+    private DateTime _heavyUntilUtc = DateTime.MinValue;     // expected end of the running heavy effect
+    private DateTime _chaosVideoCapUtc = DateTime.MinValue;  // hard stop for a chaos-fired video
+    private const double VIDEO_HARD_CAP_SEC = 15;            // = VideoPayload.SEGMENT_SEC (random 15s slice)
+
+    /// <summary>True while a mandatory video or gif cascade is (still) running. The cascade is
+    /// checked for REAL (slow clips can outlive the time estimate); the timer remains as a floor
+    /// covering window-open latency and the post-video teardown quarantine.</summary>
+    private bool HeavyEffectActive =>
+        App.Video?.IsPlaying == true || ChaosGifCascadeOverlay.IsRaining || DateTime.UtcNow < _heavyUntilUtc;
+
+    /// <summary>Seconds the heavy gate stays shut AFTER a video ends. Closing the fullscreen
+    /// video windows + disposing LibVLC players runs async for several seconds; raising the
+    /// cascade's layered window into that churn wedged the render thread twice (22:41, 22:50
+    /// freezes — both were "cascade ~4s after video teardown").</summary>
+    private const double VIDEO_TEARDOWN_QUARANTINE_SEC = 6;
+
+    private void ExtendHeavyQuarantine(double sec)
+    {
+        var until = DateTime.UtcNow.AddSeconds(sec);
+        if (until > _heavyUntilUtc) _heavyUntilUtc = until;
+    }
+
+    /// <summary>Any video ending during a run (natural end, attention-check retry, cap) starts
+    /// the teardown quarantine so no cascade rises into the LibVLC disposal churn.</summary>
+    private void OnVideoEndedDuringRun(object? sender, EventArgs e) =>
+        ExtendHeavyQuarantine(VIDEO_TEARDOWN_QUARANTINE_SEC);
+
+    /// <summary>Fire a payload under "Playing with fire": detonation durations scale by the sin's
+    /// knob for exactly this call (GlobalDurationMult is shared with slow-mo/freeze — scope it).</summary>
+    private void FireScaledPayload(EffectPayload payload)
+    {
+        double m = _state?.DetonationDurationMult ?? 1.0;
+        if (m == 1.0) { payload.Fire(); return; }
+        EffectPayload.GlobalDurationMult *= m;
+        try { payload.Fire(); }
+        finally { EffectPayload.GlobalDurationMult /= m; }
+    }
+
     private void FirePayloadForDetonation(EffectBubbleSpec spec)
     {
         try
         {
             if (_state?.Config?.AmbientMode == true && IsIntrusivePayload(spec.Payload.Kind))
             {
-                EffectPayload soft = _ambientRng.NextDouble() < 0.5
-                    ? new BouncingTextPayload()
-                    : new GifCascadePayload();
+                // Soft remap. While a heavy effect runs the coin always lands on text — never a
+                // second cascade on top of a running one.
+                bool cascade = !HeavyEffectActive && _ambientRng.NextDouble() < 0.5;
+                EffectPayload soft = cascade ? new GifCascadePayload() : new BouncingTextPayload();
                 soft.Strength = spec.Payload.Strength;
-                soft.Fire();
+                if (cascade)
+                    _heavyUntilUtc = DateTime.UtcNow.AddSeconds(GifCascadePayload.DURATION_SEC + 5);
+                PlayPayloadStinger(cascade ? "fx_rain_start" : "fx_text");
+                FireScaledPayload(soft);
                 return;
             }
         }
         catch (Exception ex) { App.Logger?.Debug("Chaos ambient remap: {E}", ex.Message); }
-        spec.Payload.Fire();
+
+        // ONE heavy effect at a time: a video/cascade detonating while another heavy effect is
+        // up gets dropped on the floor (the shield/streak consequences upstream still applied).
+        var kind = spec.Payload.Kind;
+        bool heavy = kind == EffectBubblePayloadKind.Video || kind == EffectBubblePayloadKind.GifCascade;
+        if (heavy && HeavyEffectActive)
+        {
+            App.Logger?.Information("Chaos: dropped {Kind} detonation — a heavy effect is already running", kind);
+            _state?.PushEvent($"▶ the deep is busy — {spec.Payload.DisplayName} fizzles");
+            return;
+        }
+        if (kind == EffectBubblePayloadKind.Video)
+        {
+            _chaosVideoCapUtc = DateTime.UtcNow.AddSeconds(VIDEO_HARD_CAP_SEC);
+            _heavyUntilUtc = DateTime.UtcNow.AddSeconds(VIDEO_HARD_CAP_SEC + 3);   // cap + open/close slack
+        }
+        else if (kind == EffectBubblePayloadKind.GifCascade)
+        {
+            // Spawn window + the last clips' ride to the bottom of the screen.
+            _heavyUntilUtc = DateTime.UtcNow.AddSeconds(GifCascadePayload.DURATION_SEC + 5);
+        }
+        PlayPayloadStinger(StingerForVariant(spec.VariantId));
+        FireScaledPayload(spec.Payload);   // Playing with fire: detonations linger 50% longer
+    }
+
+    /// <summary>Flavor stinger over the detonation boom — one per payload family. Video, flash,
+    /// and subliminal payloads carry their own audio, so they get no stinger.</summary>
+    private static string StingerForVariant(string variantId) => variantId switch
+    {
+        "braindrain" => "fx_drain",
+        "bambifreeze" => "fx_freeze",
+        "htlink" => "fx_rain_start",
+        _ => "",
+    };
+
+    private static void PlayPayloadStinger(string name)
+    {
+        if (name.Length > 0) ChaosSfx.Play(name, 0.45f);
     }
 
     private static bool IsIntrusivePayload(EffectBubblePayloadKind k) =>
@@ -485,7 +1128,7 @@ public sealed class ChaosModeService
 
     private void OnDarterCaught(EffectBubbleSpec spec, bool quick)
     {
-        if (_state == null || _paused) return;
+        if (_state == null || _paused || _manualPaused) return;
         int pts = ChaosBubbleVariants.DARTER_BASE_POINTS + (quick ? ChaosBubbleVariants.DARTER_QUICK_BONUS : 0);
         _state.Score += pts * _state.TotalMult;
         _state.Combo++;
@@ -495,7 +1138,7 @@ public sealed class ChaosModeService
         ActivateSlowMo();
         Pulse(Color.FromRgb(120, 200, 255), quick ? 0.32 : 0.24);   // icy slow-mo flash
         App.Bark?.NotifyChaosDarterCaught(pts, _state.Combo, quick);
-        _state.PushEvent(quick ? "⚡ quick catch — time slows!" : "⏳ darter caught — time slows!");
+        _state.PushEvent(quick ? "⚡ quick catch! time slows" : "🐇 white rabbit caught! time slows");
         CheckComboMilestone();
     }
 
@@ -504,14 +1147,14 @@ public sealed class ChaosModeService
     /// with a held white-blue edge glow and per-bubble blue auras. Refreshes on each catch.</summary>
     private void OnFreezeCaught(EffectBubbleSpec spec)
     {
-        if (_state == null || _paused) return;
+        if (_state == null || _paused || _manualPaused) return;
         _state.Score += FREEZE_BASE_POINTS * _state.TotalMult;
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
         App.Achievements?.TrackBubblePopped();
         ActivateFreeze();
         App.Bark?.NotifyChaosFreezeCaught(FREEZE_BASE_POINTS * _state.TotalMult, _state.Combo);
-        _state.PushEvent("❄ frozen — the field holds!");
+        _state.PushEvent("❄ frozen. the field holds");
         CheckComboMilestone();
     }
 
@@ -521,19 +1164,498 @@ public sealed class ChaosModeService
     private double _slowMoRemainingSec;
 
     /// <summary>Catching a darter slows the whole field: bubbles drift slower, live fuses last
-    /// longer, spawns stretch out, and flash/overlay payloads linger. Refreshes on each catch.</summary>
-    private void ActivateSlowMo()
+    /// longer, spawns stretch out, and flash/overlay payloads linger. Refreshes on each catch.
+    /// Default duration is base + the Pendulum boon's bonus; pass an explicit duration to
+    /// override (the Collar capstone's short recovery beat).</summary>
+    private bool _slowMoCueOn;   // an in-cue played; the matching out-cue is owed on end
+
+    private void ActivateSlowMo(double? durationSec = null, string bannerLabel = "Time Slow")
     {
-        _slowMoRemainingSec = SLOWMO_DURATION_SEC;
+        _slowMoRemainingSec = durationSec ?? (SLOWMO_DURATION_SEC + (_state?.SlowMoBonusSec ?? 0));
+        // "Focus here...": triple pay rides ONLY the pendulum's own swing — a darter slow-mo
+        // refreshing over it hands the window back to normal scoring.
+        _pendulumSlowActive = bannerLabel == "Pendulum";
         App.Bubbles?.SetChaosTimeScale(SLOWMO_FACTOR);
+        ChaosEffectBannerOverlay.Show("slowmo", bannerLabel, Color.FromRgb(0x7A, 0xE0, 0xFF));
         EffectPayload.GlobalDurationMult = 1.0 / SLOWMO_FACTOR;
+        if (!_slowMoCueOn) ChaosSfx.Play("time_slow_in", 0.5f);   // refreshes shouldn't re-warp
+        _slowMoCueOn = true;
+    }
+
+    // ---- Slow Recovery charm: resistance regen EARNED by pops (time-based habit retired 2026-06-10) ----
+    private int _regenPopCount;
+
+    /// <summary>Every pop (treat, golden, or snap) feeds Slow Recovery: once
+    /// <see cref="ChaosRunState.ShieldRegenPops"/> pops accumulate while you're below the
+    /// resistance you descended with, one point knits back and the count restarts.</summary>
+    private void CountRegenPop()
+    {
+        if (_state == null || _state.ShieldRegenPops <= 0) return;
+        if (_state.Shields >= _state.StartShields) { _regenPopCount = 0; return; }
+        if (++_regenPopCount < _state.ShieldRegenPops) return;
+        _regenPopCount = 0;
+        _state.Shields += 1;
+        _state.PushEvent("♥ resistance regrows");
+        Pulse(SHIELD_GAIN_COLOR, 0.18);
+    }
+
+    // ---- Blindfold capstone: one global heartbeat tracking the field's closest fuse ----
+    private double _heartbeatCooldownSec;
+
+    private void TickBlindfoldHeartbeat(double dt)
+    {
+        if (_state == null || !_state.MaxedBoons.Contains("blindfold")) return;
+        _heartbeatCooldownSec -= dt;
+        if (_heartbeatCooldownSec > 0) return;
+        var fuse = App.Bubbles?.MinChaosFuseSec();
+        if (fuse == null || fuse > 4.0) { _heartbeatCooldownSec = 0; return; }
+        // Quickens as the nearest detonation closes in: ~1/s at 4s out, capped at ~3/s.
+        _heartbeatCooldownSec = Math.Clamp(fuse.Value / 4.0, 0.33, 1.0);
+        try
+        {
+            var path = ModResourceResolver.ResolveAudioPath("chaos/heartbeat.mp3");
+            App.Bubbles?.PlayCue(path, 0.5f);   // File.Exists-guarded: silent until the asset ships
+        }
+        catch (Exception ex) { App.Logger?.Debug("Blindfold heartbeat: {E}", ex.Message); }
     }
 
     private void EndSlowMo()
     {
         _slowMoRemainingSec = 0;
+        _pendulumSlowActive = false;
         App.Bubbles?.SetChaosTimeScale(1.0);
+        ChaosEffectBannerOverlay.End("slowmo");
+        if (_slowMoCueOn) ChaosSfx.Play("time_slow_out", 0.45f);
+        _slowMoCueOn = false;
         if (_freezeRemainingSec <= 0) EffectPayload.GlobalDurationMult = 1.0;   // don't clobber an active freeze
+    }
+
+    // ============================ active skills (toys you press) ============================
+    // Equipped active-use Skills fire on their keybind (pass-through global hook, run-scoped)
+    // or their HUD button. Cooldowns/charges live per run on ChaosToyState (HUD binds them).
+
+    private Services.GlobalKeyboardHook? _keyHook;
+    private double _vibeRemainingSec;   // VibePopping buzz window (real clock, like the power-ups)
+    private bool _dvdBannerOn;          // the "PORN DVD" banner is up; drop it when the last logo lands
+    private readonly System.Collections.Generic.List<ChaosToyButtonWindow> _toyButtons = new();
+
+    private void CloseToyButtons()
+    {
+        foreach (var b in _toyButtons.ToArray())
+            try { b.Close(); } catch { }
+        _toyButtons.Clear();
+    }
+
+    /// <summary>Build the HUD button/keybind state for equipped active-use skills. Slot order =
+    /// catalogue order; slot 1 fires on ChaosAccessoryKey1 (slot 2 arrives with the second pocket).</summary>
+    private void BuildActiveToys()
+    {
+        if (_state == null) return;
+        _state.ActiveToys.Clear();
+        var s = App.Settings?.Current;
+        string[] keys = { s?.ChaosAccessoryKey1 ?? "Q", s?.ChaosAccessoryKey2 ?? "E" };
+        int slot = 0;
+        foreach (var b in ChaosLifetimeBoons.All)
+        {
+            if (!b.IsActiveUse || !ChaosMeta.IsBoonActive(b.Id)) continue;
+            if (!_state.ToyPower.TryGetValue(b.Id, out var power)) continue;
+            var toy = new ChaosToyState
+            {
+                Id = b.Id, Name = b.Name, Glyph = b.Glyph, Desc = b.Desc, CapstoneDesc = b.CapstoneDesc,
+                KeyLabel = slot < keys.Length ? keys[slot] : "",
+                CooldownSec = b.UseCooldownSec,
+            };
+            if (b.UseCooldownSec <= 0) toy.ChargesLeft = (int)power;   // charge-based (Freeze Trigger)
+            _state.ActiveToys.Add(toy);
+            slot++;
+        }
+    }
+
+    private void StartKeyHook()
+    {
+        if (_state == null || _state.ActiveToys.Count == 0) return;
+        try
+        {
+            _keyHook = new Services.GlobalKeyboardHook();
+            _keyHook.KeyPressed += OnToyKey;
+            _keyHook.Start();
+        }
+        catch (Exception ex) { App.Logger?.Debug("Chaos toy key hook: {E}", ex.Message); }
+    }
+
+    private void StopKeyHook()
+    {
+        try
+        {
+            if (_keyHook != null)
+            {
+                _keyHook.KeyPressed -= OnToyKey;
+                _keyHook.Dispose();
+            }
+        }
+        catch { }
+        _keyHook = null;
+    }
+
+    /// <summary>Hook callback → marshal to the dispatcher. Keys pass through to whatever has
+    /// focus (the hook never swallows); cooldowns absorb accidental fires while typing.</summary>
+    private void OnToyKey(System.Windows.Input.Key key)
+    {
+        var disp = Application.Current?.Dispatcher;
+        if (disp == null || disp.HasShutdownStarted) return;
+        disp.BeginInvoke(new Action(() =>
+        {
+            if (!_spawning || _state == null || _paused || _manualPaused) return;
+            string name = key >= System.Windows.Input.Key.D0 && key <= System.Windows.Input.Key.D9
+                ? ((int)(key - System.Windows.Input.Key.D0)).ToString()
+                : key.ToString();
+            foreach (var toy in _state.ActiveToys)
+                if (!string.IsNullOrEmpty(toy.KeyLabel) &&
+                    toy.KeyLabel.Equals(name, StringComparison.OrdinalIgnoreCase))
+                { UseToy(toy); break; }
+        }));
+    }
+
+    /// <summary>HUD button entry point.</summary>
+    public void UseToyById(string id)
+    {
+        if (_state == null) return;
+        foreach (var t in _state.ActiveToys)
+            if (t.Id == id) { UseToy(t); return; }
+    }
+
+    private void UseToy(ChaosToyState toy)
+    {
+        if (_state == null || !_spawning || _paused || _manualPaused) return;
+        // The urge sin: your toys are off-limits for the rest of the run.
+        if (_state.ActivesDisabled)
+        {
+            ChaosSfx.Play("toy_denied", 0.4f);
+            _state.PushEvent("🫦 the urge holds your hands — no toys");
+            return;
+        }
+        if (!toy.IsReady) { ChaosSfx.Play("toy_denied", 0.4f); return; }
+        double power = _state.ToyPower.TryGetValue(toy.Id, out var p) ? p : 0;
+        bool maxed = _state.MaxedBoons.Contains(toy.Id);
+
+        switch (toy.Id)
+        {
+            case "vibe_popping":
+                // Hold the button and sweep: everything the cursor passes over pops, live ones snap.
+                // Capstone: the hold isn't needed — hovering alone pops.
+                App.Bubbles?.SetVibePop(true, hoverPops: maxed);
+                _vibeRemainingSec = Math.Max(1, power);
+                _afterglowApplied = false;   // each buzz earns one fresh afterglow window
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                ChaosVibeTrailOverlay.Start();   // pointer glow + trail while the buzz runs
+                ChaosEffectBannerOverlay.Show("vibe", "VibePopping", Color.FromRgb(0xFF, 0xB0, 0x3A));
+                _state.PushEvent("🔸 it buzzes. hold and sweep");
+                break;
+
+            case "freeze_trigger":
+                if (toy.ChargesLeft <= 0) { ChaosSfx.Play("toy_denied", 0.4f); return; }
+                toy.ChargesLeft--;
+                ChaosSfx.Play("freeze_trigger", 0.6f);
+                ActivateFreeze();   // identical to catching a freeze bubble (shows the FREEZE banner)
+                if (maxed) App.Bubbles?.DefuseAllLive();
+                toy.CooldownRemainingSec = 3;   // anti-doubletap between charges
+                toy.IsEffectActive = true;
+                _state.PushEvent("❄ everything holds still");
+                break;
+
+            case "porn_dvd":
+                int lvl = ChaosMeta.BoonLevel(toy.Id);
+                double speed = lvl switch { 1 => 0.7, 2 => 0.85, _ => 1.0 };
+                double scale = lvl switch { 1 => 0.8, 2 => 0.9, _ => 1.0 };
+                ChaosDvdOverlay.Launch(Math.Max(5, power), speed, scale, count: maxed ? 2 : 1,
+                    splitBounces: _state.DvdSplitBounces);   // Casting Couch: 2, then 4
+                ChaosSfx.Play("dvd_launch", 0.55f);
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                ChaosEffectBannerOverlay.Show("dvd", "Porn DVD", Color.FromRgb(0xFF, 0x69, 0xB4));
+                _dvdBannerOn = true;
+                _state.PushEvent("📀 now loading");
+                break;
+
+            case "snap_field":
+                // One clean snap: every live bubble on screen lets go. Capstone clears EVERYTHING.
+                if (maxed) App.Bubbles?.PopAllBubbles();
+                else App.Bubbles?.DefuseAllLive();
+                ChaosSfx.Play("freeze_trigger", 0.5f);
+                toy.CooldownRemainingSec = Math.Max(5, power);   // level value IS the cooldown (60/45/30s)
+                _snapFlashRemainingSec = 1.0;                    // brief glow on the hero button
+                toy.IsEffectActive = true;
+                Pulse(Color.FromRgb(150, 220, 255), 0.35);
+                _state.PushEvent(maxed ? "✋ snapped. all of it." : "✋ snapped — every live one let go");
+                break;
+
+            case "rabbit_caller":
+                // Whistle, then point: the cursor glows and the rabbits (plus the capstone
+                // storm) arrive wherever the player clicks next — see RabbitAimTick.
+                ArmRabbitCall(Math.Max(1, (int)power), maxed);
+                ChaosSfx.Play("toy_ready", 0.5f);
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                _state.PushEvent("🐇 the whistle hangs — your next click calls them");
+                break;
+
+            case "e_stim":
+                // Charge up: the next N clicks on good bubbles discharge lightning into the
+                // bubbles around them. Capstone turns each charged pop into a chain reaction.
+                // Overload mantra: the charge runs double.
+                int charges = Math.Max(1, (int)power) * Math.Max(1, _state.EStimChargeMult);
+                App.Bubbles?.ArmEStim(charges, maxed);
+                ChaosEStimOverlay.Arm();   // violet halo rides the cursor while charges wait
+                ChaosSfx.Play("toy_ready", 0.5f);
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                ChaosEffectBannerOverlay.Show("estim", "E-Stim", Color.FromRgb(0x9C, 0x5C, 0xFF));
+                Pulse(Color.FromRgb(0x9C, 0x5C, 0xFF), 0.25);
+                _state.PushEvent(maxed
+                    ? $"⚡ charged — your next {charges} pops chain-react"
+                    : $"⚡ charged — your next {charges} pops conduct");
+                break;
+        }
+    }
+
+    /// <summary>A charged E-Stim pop just discharged (per-arc juice lives here; the bolts and
+    /// the staggered pops are BubbleService's). Drops the banner once the last charge is spent.</summary>
+    private void OnEStimArc(int chargesLeft)
+    {
+        if (_state == null) return;
+        ChaosSfx.Play("estim_zap", 0.6f);   // the lightning arc cracks
+        Pulse(Color.FromRgb(0x9C, 0x5C, 0xFF), 0.25);
+        if (chargesLeft > 0)
+        {
+            _state.PushEvent($"⚡ the current arcs ({chargesLeft} left)");
+        }
+        else
+        {
+            ChaosEffectBannerOverlay.End("estim");
+            ChaosEStimOverlay.Disarm();
+            _state.PushEvent("⚡ the charge is spent");
+        }
+    }
+
+    // ---- Snap Field / Rabbit Caller / Intrusive Thoughts transient state ----
+    private double _snapFlashRemainingSec;     // brief hero-button glow after a snap
+    private int _spawnSerial;                  // Heavy Drop: ordinary-spawn counter (every Nth goes giant)
+    private bool _pendulumSlowActive;          // the running slow-mo IS the pendulum ("Focus here..." pays now)
+    private bool _afterglowApplied;            // Afterglow: one lingering window per buzz
+    private int _pendulumRolledWave;           // Pendulum event: wave the swing was last rolled for
+    private double _pendulumFireAtProgress;    // 0..1 wave-progress beat the swing fires at
+    private bool _pendulumFiredThisWave;
+    private int _heartRolledWave;              // Pop-up Notification: wave the heart was last rolled for
+    private double _heartFireAtProgress;       // 0..1 wave-progress beat the heart drifts in at
+    private bool _heartArmedThisWave;          // this wave's 60% roll landed and hasn't fired yet
+    private double _rabbitStormRemainingSec;   // Rabbit Caller capstone: storm window
+    private double _rabbitStormAccumSec;       // spawns one rabbit every 1.25s while the storm runs
+    private double _thoughtAccumSec;           // Intrusive Thoughts: one bouncing text every 5s
+
+    /// <summary>Intrusive Thoughts: a phrase from the user's bouncing-text pool (fallback included).</summary>
+    private static string PickThoughtText()
+    {
+        try
+        {
+            var pool = App.Settings?.Current?.BouncingTextPool;
+            if (pool != null)
+            {
+                var enabled = pool.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+                if (enabled.Count > 0) return enabled[Random.Shared.Next(enabled.Count)];
+            }
+        }
+        catch { }
+        return "GIVE IN";
+    }
+
+    /// <summary>Force-spawn one white rabbit right now (Rabbit Caller; storm ticks reuse it).
+    /// Optional physical-px point pins the spawn there (the summon-at-click).</summary>
+    private void SpawnDarter(double? atPxX = null, double? atPxY = null)
+    {
+        if (_state == null) return;
+        var spec = ChaosBubbleVariants.BuildDarter(_state.RunIntensity, spotlight: false, atPxX, atPxY);
+        ChaosMeta.MarkDiscovered("bubble:darter");
+        App.Bubbles?.SpawnChaosBubble(spec);
+    }
+
+    // ---- Rabbit Caller: whistle, then point — the rabbits arrive at your next click ----
+    private System.Windows.Threading.DispatcherTimer? _rabbitAimTimer;
+    private int _rabbitCallPending;          // rabbits waiting on the click (0 = not armed)
+    private bool _rabbitCallMaxed;           // capstone storm rides the summon
+    private bool _rabbitAimPrevDown;         // press-edge detection (starts true: the arming click)
+
+    /// <summary>Arm the whistle: the cursor glows, and the next click summons the rabbits there.</summary>
+    private void ArmRabbitCall(int rabbits, bool maxed)
+    {
+        _rabbitCallPending = rabbits;
+        _rabbitCallMaxed = maxed;
+        _rabbitAimPrevDown = true;   // swallow the press that armed us (HUD/toy-button click)
+        ChaosCursorGlowOverlay.Arm();
+        if (_rabbitAimTimer == null)
+        {
+            _rabbitAimTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(25) };
+            _rabbitAimTimer.Tick += RabbitAimTick;
+        }
+        _rabbitAimTimer.Start();
+    }
+
+    /// <summary>Stand down without summoning (run end / teardown).</summary>
+    private void DisarmRabbitCall()
+    {
+        _rabbitCallPending = 0;
+        _rabbitAimTimer?.Stop();
+        ChaosCursorGlowOverlay.Disarm();
+    }
+
+    private void RabbitAimTick(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_rabbitCallPending <= 0 || _state == null || !_active)
+            {
+                DisarmRabbitCall();
+                return;
+            }
+            if (!GetCursorPos(out var cur)) return;
+            ChaosCursorGlowOverlay.MoveToPx(cur.X, cur.Y);
+
+            bool down = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+            bool pressed = down && !_rabbitAimPrevDown;
+            _rabbitAimPrevDown = down;
+            // The field must be live for the summon (drafts/pauses hold the whistle).
+            if (!pressed || _paused || _manualPaused || !_spawning) return;
+
+            int rabbits = _rabbitCallPending;
+            bool maxed = _rabbitCallMaxed;
+            DisarmRabbitCall();
+            for (int i = 0; i < rabbits; i++)
+            {
+                // A small scatter so a triple summon doesn't stack into one spot.
+                double jx = cur.X + Random.Shared.Next(-60, 61);
+                double jy = cur.Y + Random.Shared.Next(-60, 61);
+                SpawnDarter(jx, jy);
+            }
+            if (maxed)
+            {
+                _rabbitStormRemainingSec = 10.0;             // ~8 more over the next 10s
+                _rabbitStormAccumSec = 0;
+                ChaosEffectBannerOverlay.Show("rabbits", "Rabbit Storm", Color.FromRgb(0xFF, 0x4D, 0xC4));
+            }
+            ChaosSfx.Play("rabbit_spawn", 0.5f);
+            _state.PushEvent(maxed ? $"🐇 {rabbits} at your fingertip… and the warren is emptying"
+                                   : $"🐇 {rabbits} answered at your fingertip");
+        }
+        catch (Exception ex) { App.Logger?.Debug("RabbitAimTick: {E}", ex.Message); }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out System.Drawing.Point lpPoint);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+    private const int VK_LBUTTON = 0x01;
+
+    private void TickActiveToys(double dt)
+    {
+        if (_state == null) return;
+        if (_vibeRemainingSec > 0)
+        {
+            _vibeRemainingSec -= dt;
+            if (_vibeRemainingSec <= 0)
+            {
+                // Afterglow mantra: the buzz doesn't quite stop — hovering keeps popping and the
+                // trail keeps drawing for the lingering window, then it truly ends.
+                if (_state.AfterglowSec > 0 && !_afterglowApplied)
+                {
+                    _afterglowApplied = true;
+                    _vibeRemainingSec = _state.AfterglowSec;
+                    App.Bubbles?.SetVibePop(true, hoverPops: true);
+                    _state.PushEvent("🔸 afterglow — it lingers");
+                }
+                else
+                {
+                    App.Bubbles?.SetVibePop(false);
+                    ChaosVibeTrailOverlay.Stop();
+                    ChaosEffectBannerOverlay.End("vibe");
+                }
+            }
+        }
+        if (_snapFlashRemainingSec > 0) _snapFlashRemainingSec -= dt;
+        // Pendulum: a free once-per-loop random event (the habit retired 2026-06-10) — at a
+        // random beat of every loop the world dips into slow-mo on its own, announced on top.
+        if (_spawning && _state.WaveIndex != _pendulumRolledWave)
+        {
+            _pendulumRolledWave = _state.WaveIndex;
+            _pendulumFireAtProgress = 0.15 + Random.Shared.NextDouble() * 0.65;   // somewhere mid-loop
+            _pendulumFiredThisWave = false;
+        }
+        if (_spawning && !_pendulumFiredThisWave && _state.WaveProgress >= _pendulumFireAtProgress
+            && _freezeRemainingSec <= 0 && _slowMoRemainingSec <= 0)
+        {
+            _pendulumFiredThisWave = true;
+            ActivateSlowMo(2.5, bannerLabel: "Pendulum");   // so the swing reads as ITS OWN event, not a darter
+            ChaosSfx.PlayTickTock();   // tick-tock underlay while time hangs (silent until the asset ships)
+            ChaosAnnouncerOverlay.Announce(_state.PendulumPayMult > 1
+                ? "🕰 FOCUS HERE — everything pays x3"      // the mantra turns the swing into a scoring window
+                : "🕰 the pendulum swings", ChaosAnnounceKind.PowerUp);
+            _state.PushEvent("🕰 the pendulum swings");
+        }
+        // Pop-up Notification habit: once per loop, sometimes (60%), a little heart drifts
+        // down at a random beat. Catch = +1 resistance; a miss just exits the bottom.
+        if (_state.Config.PopupHeartEnabled && _spawning && _state.WaveIndex != _heartRolledWave)
+        {
+            _heartRolledWave = _state.WaveIndex;
+            _heartArmedThisWave = Random.Shared.NextDouble() < 0.60;
+            _heartFireAtProgress = 0.20 + Random.Shared.NextDouble() * 0.60;
+        }
+        if (_heartArmedThisWave && _spawning && _state.WaveProgress >= _heartFireAtProgress)
+        {
+            _heartArmedThisWave = false;
+            App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildHeart());
+            App.Bubbles?.PlayChime(0.22f);   // the soft ping — a notification, after all
+        }
+        // Rabbit Caller capstone storm: one more rabbit every 1.25s for the window's length.
+        if (_rabbitStormRemainingSec > 0)
+        {
+            _rabbitStormRemainingSec -= dt;
+            _rabbitStormAccumSec += dt;
+            if (_rabbitStormAccumSec >= 1.25) { _rabbitStormAccumSec = 0; SpawnDarter(); }
+            if (_rabbitStormRemainingSec <= 0) ChaosEffectBannerOverlay.End("rabbits");
+        }
+        // Intrusive Thoughts: every 5s a bouncing text races across on its own (30% faster than
+        // the DVD's; level sets its 3/4/5s life). Holds its tongue while time is frozen.
+        if (_state.IntrusiveThoughtsSec > 0 && _freezeRemainingSec <= 0)
+        {
+            _thoughtAccumSec += dt;
+            if (_thoughtAccumSec >= 5.0)
+            {
+                _thoughtAccumSec = 0;
+                ChaosDvdOverlay.Launch(_state.IntrusiveThoughtsSec, 1.3, 0.8, count: 1,
+                    text: PickThoughtText(),
+                    splitOnRabbit: _state.MaxedBoons.Contains("intrusive_thoughts"));
+            }
+        }
+        foreach (var t in _state.ActiveToys)
+        {
+            if (t.CooldownRemainingSec > 0)
+            {
+                t.CooldownRemainingSec -= dt;
+                // Ready-again ding the instant the cooldown lapses (spent charge-toys stay quiet).
+                if (t.CooldownRemainingSec <= 0 && t.ChargesLeft != 0) ChaosSfx.Play("toy_ready", 0.45f);
+            }
+            // Glow state: each toy knows whether its own temporary effect is still running.
+            t.IsEffectActive = t.Id switch
+            {
+                "vibe_popping" => _vibeRemainingSec > 0,
+                "freeze_trigger" => _freezeRemainingSec > 0,
+                "porn_dvd" => ChaosDvdOverlay.AnyToyActive,
+                "snap_field" => _snapFlashRemainingSec > 0,
+                "rabbit_caller" => _rabbitCallPending > 0 || _rabbitStormRemainingSec > 0,
+                "e_stim" => (App.Bubbles?.EStimChargesLeft ?? 0) > 0,
+                _ => false,
+            };
+        }
+        if (_dvdBannerOn && !ChaosDvdOverlay.AnyToyActive) { ChaosEffectBannerOverlay.End("dvd"); _dvdBannerOn = false; }
     }
 
     // ---- freeze-bubble power-up ----
@@ -547,8 +1669,10 @@ public sealed class ChaosModeService
     private void ActivateFreeze()
     {
         _freezeRemainingSec = FREEZE_DURATION_SEC;
+        _freezeCueOn = true;   // the catch/toy cue covers the way in; the shatter covers the way out
         App.Bubbles?.SetChaosFrozen(true);
         App.Bubbles?.VibrateAllForFreeze(FREEZE_VIBRATE_MS);
+        ChaosEffectBannerOverlay.Show("freeze", "Freeze", Color.FromRgb(0x96, 0xD2, 0xFF));
         EffectPayload.GlobalDurationMult = FREEZE_DURATION_MULT;
         if (_state?.Config?.ColorFlashesEnabled == true)
         {
@@ -558,10 +1682,15 @@ public sealed class ChaosModeService
         Shake(0.3, FREEZE_VIBRATE_MS);
     }
 
+    private bool _freezeCueOn;   // the field is audibly frozen; the shatter is owed on release
+
     private void EndFreeze()
     {
         _freezeRemainingSec = 0;
         App.Bubbles?.SetChaosFrozen(false);
+        ChaosEffectBannerOverlay.End("freeze");
+        if (_freezeCueOn) ChaosSfx.Play("freeze_shatter", 0.5f);
+        _freezeCueOn = false;
         if (_slowMoRemainingSec <= 0) EffectPayload.GlobalDurationMult = 1.0;   // don't clobber an active slow-mo
         _fx?.EndEdgeHold();
     }
@@ -580,6 +1709,7 @@ public sealed class ChaosModeService
                 _lastComboBigFired = t;
                 _state.PushEvent($"🔥🔥 STREAK x{combo}!");
                 App.Bark?.NotifyChaosComboBig(combo, t);
+                ChaosSfx.Play("streak_milestone", 0.5f);
                 ChaosAnnouncerOverlay.Announce($"STREAK ×{t}", ChaosAnnounceKind.Streak);
                 Pulse(COMBO_BIG_COLOR, COMBO_BIG_PULSE);   // distinct bigger beat
             }
@@ -608,6 +1738,7 @@ public sealed class ChaosModeService
         {
             _lastActFired = _state.ActIndex;
             App.Bark?.NotifyChaosActChanged(_state.ActIndex, _state.WaveIndex);
+            ChaosSfx.Play("depth_change", 0.55f);
             ChaosAnnouncerOverlay.Announce($"DEPTH {_state.ActIndex}", ChaosAnnounceKind.Depth);
         }
     }
@@ -651,10 +1782,20 @@ public sealed class ChaosModeService
         _spawnTimer?.Stop();
         try { App.Bubbles?.EndChaosMode(); } catch { }
         try { App.Bubbles?.Resume(); } catch { }
+        StopKeyHook();
+        CloseToyButtons();
         EndSlowMo(); EndFreeze();
         try { ChaosFlashOverlay.CloseActive(); } catch { }
         try { ChaosGifCascadeOverlay.CloseActive(); } catch { }
         try { ChaosAnnouncerOverlay.CloseActive(); } catch { }
+        try { ChaosDvdOverlay.CloseActive(); } catch { }
+        try { ChaosEffectBannerOverlay.CloseActive(); } catch { }
+        try { ChaosWaveTimerOverlay.CloseActive(); } catch { }
+        try { DisarmRabbitCall(); ChaosCursorGlowOverlay.CloseActive(); } catch { }
+        try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
+        try { ChaosEStimOverlay.CloseActive(); } catch { }
+        try { ChaosFieldFxOverlay.CloseActive(); } catch { }
+        try { ChaosPopText.ShutdownPool(); } catch { }
         try { _fx?.Close(); } catch { }
         if (_overlay != null)
         {
@@ -671,13 +1812,24 @@ public sealed class ChaosModeService
         if (!_spawning || _state == null) return;
         _spawning = false;
         if (App.Video != null) App.Video.VideoStarted -= OnVideoStartedDuringRun;
+        if (App.Video != null) App.Video.VideoEnded -= OnVideoEndedDuringRun;
         _runTimer?.Stop();
         _spawnTimer?.Stop();
+        StopKeyHook();
+        CloseToyButtons();
         App.Bubbles?.EndChaosMode();
         EndSlowMo(); EndFreeze();
         try { ChaosFlashOverlay.CloseActive(); } catch { }
         try { ChaosGifCascadeOverlay.CloseActive(); } catch { }
         try { ChaosAnnouncerOverlay.CloseActive(); } catch { }
+        try { ChaosDvdOverlay.CloseActive(); } catch { }
+        try { ChaosEffectBannerOverlay.CloseActive(); } catch { }
+        try { ChaosWaveTimerOverlay.CloseActive(); } catch { }
+        try { DisarmRabbitCall(); ChaosCursorGlowOverlay.CloseActive(); } catch { }
+        try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
+        try { ChaosEStimOverlay.CloseActive(); } catch { }
+        try { ChaosFieldFxOverlay.CloseActive(); } catch { }
+        try { ChaosPopText.ShutdownPool(); } catch { }
         try { _fx?.Close(); } catch { }
         _fx = null;
 
@@ -694,7 +1846,8 @@ public sealed class ChaosModeService
         long previousBest = ChaosMeta.State.BestScore;
 
         // Meta-progression: bank Sparks + update lifetime stats (separate from XP payout).
-        try { ChaosMeta.AwardRunRewards(_state); }
+        int sparksEarned = 0;
+        try { sparksEarned = ChaosMeta.AwardRunRewards(_state); }
         catch (Exception ex) { App.Logger?.Debug("Chaos meta award: {E}", ex.Message); }
 
         string diff = _state.Config.Difficulty.ToString();
@@ -702,7 +1855,7 @@ public sealed class ChaosModeService
 
         _hud?.Close();
         _hud = null;
-        _overlay?.ShowResults(_state, baseXp, skillMult, finalXp, previousBest);
+        _overlay?.ShowResults(_state, baseXp, skillMult, finalXp, previousBest, sparksEarned);
 
         App.Bubbles?.Resume();
         App.Logger?.Information("Chaos run complete: base {Base:0} x skill {Mult:0.0} = {Final:0} XP (defused {D}, detonated {Det})",
@@ -734,6 +1887,17 @@ public sealed class ChaosModeService
     private void CleanupAfterRun()
     {
         if (App.Video != null) App.Video.VideoStarted -= OnVideoStartedDuringRun;   // belt-and-suspenders (mid-run close)
+        if (App.Video != null) App.Video.VideoEnded -= OnVideoEndedDuringRun;
+        StopKeyHook();   // idempotent; covers the overlay-closed-mid-run path
+        CloseToyButtons();
+        try { ChaosDvdOverlay.CloseActive(); } catch { }
+        try { ChaosEffectBannerOverlay.CloseActive(); } catch { }
+        try { ChaosWaveTimerOverlay.CloseActive(); } catch { }
+        try { DisarmRabbitCall(); ChaosCursorGlowOverlay.CloseActive(); } catch { }
+        try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
+        try { ChaosEStimOverlay.CloseActive(); } catch { }
+        try { ChaosFieldFxOverlay.CloseActive(); } catch { }
+        try { ChaosPopText.ShutdownPool(); } catch { }
         App.AvatarWindow?.SetChaosRunActive(false);   // restore the avatar's normal attached z-order
         _runTimer = null;
         _spawnTimer = null;

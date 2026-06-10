@@ -55,11 +55,47 @@ public class BubbleService : IDisposable
 
     // ---- Chaos Mode hooks (set by ChaosModeService via BeginChaosMode) ----
     private Action<EffectBubbleSpec>? _chaosOnBenignPop;
-    private Action<EffectBubbleSpec>? _chaosOnDefuse;
+    private Action<EffectBubbleSpec, double>? _chaosOnDefuse;   // (spec, fuse seconds left at the snap)
     private Action<EffectBubbleSpec>? _chaosOnDetonate;
+    private Action<EffectBubbleSpec>? _chaosOnTreatExpired;
+    private Action<int>? _chaosOnEStimArc;   // a charged pop just arced; arg = charges remaining
     private Action<EffectBubbleSpec, bool>? _chaosOnDarterCaught;
     private Action<EffectBubbleSpec>? _chaosOnFreezeCaught;
     private Func<double>? _chaosChainReach;   // Chain Reaction boon: burst reach as a box-multiple (<=1 = off)
+    private Func<double>? _chaosHitboxScale;  // Magic Wand boon + Mesmer Reach upgrade: hitbox multiple, sampled at spawn
+    private Func<double>? _chaosBubbleOpacity; // Blindfold boon: effect-bubble opacity multiplier, sampled at spawn
+    private Func<bool>? _chaosWandShimmer;    // Magic Wand capstone: in-reach bubbles shimmer
+    private Func<double>? _chaosCursorPull;   // The Pull: per-frame drift bias toward the cursor (0 = off)
+    private Func<bool>? _chaosRabbitHoming;   // The Pull: darters steer toward the cursor
+    private Func<bool>? _chaosSpankerOn;      // The Spanker: clicking a darter redirects it instead of catching
+    private Func<double>? _chaosSpankGrow;    // The Spanker: growth factor applied per smack
+    private Func<double>? _chaosRabbitTrailSec; // Tail-Plug: trail seconds rabbits drag (0 = off)
+    private Func<bool>? _chaosElectrified;      // Electrified Rabbits: spank victims discharge free arcs
+    // Cursor sample (physical px) shared by every bubble's shimmer check; written once per anim tick.
+    internal static double CursorPxX, CursorPxY;
+    internal static bool WandShimmerOn;
+    // The Pull / The Spanker — sampled once per anim tick (cheap shared reads in AnimateFrame).
+    internal static double ChaosCursorPullNow;
+    internal static bool ChaosRabbitHomingNow;
+    internal static bool ChaosSpankerOnNow;
+    internal static double ChaosSpankGrowNow = 1.0;
+    // Blank Eyes: the centre (DIPs) of the chaos bubble that popped most recently — written in
+    // Bubble.Pop just before the callbacks fire, read by ChaosModeService to float "+score" there.
+    internal static double ChaosLastPopXDip, ChaosLastPopYDip;
+    // Same anchor in physical px — Gold Digger droplets and GG sweeper rabbits spawn at the pop.
+    internal static double ChaosLastPopXPx, ChaosLastPopYPx;
+    // Tail-Plug: seconds of treat-popping trail rabbits drag (0 = boon not taken). Sampled per tick.
+    internal static double ChaosRabbitTrailSecNow;
+    // Electrified Rabbits (Spanker + E-Stim duo): spank victims discharge free arcs. Sampled per tick.
+    internal static bool ChaosElectrifiedNow;
+    // VibePopping active skill: while the buzz is on and the mouse button is HELD, the cursor pops
+    // everything it sweeps over — live ones snap too. Capstone: hovering alone pops, no hold needed.
+    internal static bool VibePopOn;
+    internal static bool VibeHoverPops;
+    internal static bool VibeMouseHeld;
+    // Manual pause: chaos bubbles ignore clicks entirely (distinct from the freeze power-up,
+    // where popping the held field is the reward).
+    internal static bool ChaosInputLocked;
     private bool _chaosActive;
     private bool _chaosFrozen;   // freeze-bubble power-up: holds all bubble motion + fuses in place
     private double _freezeVibrateRemainingMs;   // brief shudder applied to every bubble as the freeze lands
@@ -118,6 +154,226 @@ public class BubbleService : IDisposable
     /// <summary>Time-scale for chaos bubble motion + fuses (the darter slow-mo power-up). 1 = normal, &lt;1 = slow.</summary>
     public void SetChaosTimeScale(double scale) => _chaosTimeScale = Math.Clamp(scale, 0.05, 1.0);
 
+    /// <summary>Lock/unlock chaos bubble clicks (manual pause). A locked bubble swallows the click.</summary>
+    public void SetChaosInputLocked(bool locked) => ChaosInputLocked = locked;
+
+    /// <summary>VibePopping buzz on/off. While on, holding the mouse button sweeps pops over
+    /// everything the cursor passes (live ones snap). <paramref name="hoverPops"/> (the capstone)
+    /// drops the hold requirement: hovering alone pops.</summary>
+    public void SetVibePop(bool on, bool hoverPops = false)
+    {
+        VibePopOn = on && _chaosActive;
+        VibeHoverPops = on && hoverPops;
+        if (!VibePopOn) VibeMouseHeld = false;
+    }
+
+    /// <summary>Pop the benign chaos bubble nearest the cursor (VibePopping's opening shot).
+    /// Darters/freeze bubbles excluded — catching those stays a manual skill.</summary>
+    public void PopNearestBenign()
+    {
+        if (!_chaosActive || !GetCursorPos(out var cur)) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            Bubble? best = null;
+            double bestD = double.MaxValue;
+            foreach (var b in _bubbles.ToArray())
+            {
+                if (!b.IsAlive || b.Spec == null) continue;
+                if (b.Spec.IsLive || b.Spec.IsDarter || b.Spec.IsFreeze) continue;
+                double d = b.DistDipSqToPx(cur.X, cur.Y);
+                if (d < bestD) { bestD = d; best = b; }
+            }
+            best?.Pop();
+        });
+    }
+
+    /// <summary>Snap (defuse) every live chaos bubble on screen — Freeze Trigger capstone.
+    /// <see cref="Bubble.Pop"/> already routes live bubbles through the defuse path (full pay).</summary>
+    public void DefuseAllLive()
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            foreach (var b in _bubbles.ToArray())
+                if (b.IsAlive && b.Spec != null && b.Spec.IsLive && !b.Spec.IsDarter && !b.Spec.IsFreeze)
+                    b.Pop();
+        });
+    }
+
+    /// <summary>Pop every chaos bubble whose box intersects <paramref name="rectDips"/> — the Porn DVD
+    /// collider (treats pop with payloads, live ones snap). Darters/freeze bubbles are never swept.
+    /// Called from the overlay's own UI-thread timer.</summary>
+    public void PopBubblesInRect(Rect rectDips)
+    {
+        if (!_chaosActive) return;
+        foreach (var b in _bubbles.ToArray())
+        {
+            if (!b.IsAlive || b.Spec == null) continue;
+            if (b.Spec.IsDarter || b.Spec.IsFreeze) continue;
+            if (rectDips.IntersectsWith(b.BoundingBox)) b.Pop();
+        }
+    }
+
+    // ---- E-Stim (charged lightning clicks) ----
+    private const int ESTIM_ARCS_PER_POP = 3;     // non-capstone: arcs per charged pop
+    private const double ESTIM_RANGE_DIP = 600;   // "close enough" — max arc reach (DIPs)
+    private const int ESTIM_HOP_MS = 70;          // delay per hop so the current reads as travel
+    private const int ESTIM_CHAIN_CAP = 40;       // capstone ripple sanity cap
+
+    private int _estimChargesLeft;
+    private bool _estimFork;
+
+    /// <summary>Charged E-Stim clicks still waiting (0 = not armed). The toy-button glow reads this.</summary>
+    public int EStimChargesLeft => _chaosActive ? _estimChargesLeft : 0;
+
+    /// <summary>E-Stim pressed: the player's next <paramref name="charges"/> treat-clicks conduct.
+    /// <paramref name="fork"/> (capstone) makes every charged pop a full chain reaction.</summary>
+    public void ArmEStim(int charges, bool fork)
+    {
+        if (!_chaosActive) return;
+        _estimChargesLeft = Math.Max(1, charges);
+        _estimFork = fork;
+    }
+
+    /// <summary>
+    /// A genuine player click landed a pop (never chain/sweep/skill pops — see Bubble.PopByClick).
+    /// While E-Stim is charged, a click on a treat (the good ones — never rabbits, freeze pickups
+    /// or live threats) discharges into nearby suitable bubbles: treats pop, live ones snap.
+    /// Non-capstone arcs to the few nearest in reach; the capstone ripples breadth-first through
+    /// every suitable bubble close enough to the last one struck. A pop with no conductor in
+    /// range keeps its charge — the current waits. UI thread (mouse event).
+    /// </summary>
+    private void OnChaosBubbleClicked(Bubble source)
+    {
+        if (!_chaosActive || _estimChargesLeft <= 0) return;
+        var spec = source.Spec;
+        if (spec == null || spec.IsLive || spec.IsDarter || spec.IsFreeze) return;   // only the good ones conduct
+
+        static Point CenterDip(Bubble b) { var r = b.BoundingBox; return new Point(r.X + r.Width / 2, r.Y + r.Height / 2); }
+        static double DistSq(Point a, Point b) { double dx = a.X - b.X, dy = a.Y - b.Y; return dx * dx + dy * dy; }
+        static bool Suitable(Bubble b) => b.IsChainable && b.Spec != null && !b.Spec.IsDarter && !b.Spec.IsFreeze;
+
+        var pool = new List<Bubble>();
+        foreach (var b in _bubbles.ToArray())
+            if (!ReferenceEquals(b, source) && Suitable(b)) pool.Add(b);
+
+        double rangeSq = ESTIM_RANGE_DIP * ESTIM_RANGE_DIP;
+        var bolts = new List<(Point From, Point To)>();
+        var hits = new List<(Bubble Target, int DelayMs)>();
+
+        if (!_estimFork)
+        {
+            // Up to N nearest suitable bubbles within reach of the popped one.
+            var src = CenterDip(source);
+            pool.Sort((x, y) => DistSq(CenterDip(x), src).CompareTo(DistSq(CenterDip(y), src)));
+            foreach (var t in pool)
+            {
+                if (hits.Count >= ESTIM_ARCS_PER_POP) break;
+                if (DistSq(CenterDip(t), src) > rangeSq) break;   // sorted — everything after is farther
+                bolts.Add((source.CenterPx, t.CenterPx));
+                hits.Add((t, ESTIM_HOP_MS * (hits.Count + 1)));
+            }
+        }
+        else
+        {
+            // Capstone chain reaction: breadth-first ripple — every struck bubble conducts onward
+            // to ALL suitable bubbles within its own reach, until the cluster is spent.
+            var frontier = new Queue<(Bubble B, int Depth)>();
+            frontier.Enqueue((source, 0));
+            var taken = new HashSet<Bubble> { source };
+            while (frontier.Count > 0 && hits.Count < ESTIM_CHAIN_CAP)
+            {
+                var (cur, depth) = frontier.Dequeue();
+                var curDip = CenterDip(cur);
+                foreach (var t in pool)
+                {
+                    if (taken.Contains(t) || DistSq(CenterDip(t), curDip) > rangeSq) continue;
+                    taken.Add(t);
+                    bolts.Add((cur.CenterPx, t.CenterPx));
+                    hits.Add((t, ESTIM_HOP_MS * (depth + 1)));
+                    frontier.Enqueue((t, depth + 1));
+                    if (hits.Count >= ESTIM_CHAIN_CAP) break;
+                }
+            }
+        }
+
+        if (bolts.Count == 0) return;   // nothing in reach — the charge holds for the next pop
+
+        _estimChargesLeft--;
+        if (_estimChargesLeft <= 0) _estimFork = false;
+
+        foreach (var (target, delayMs) in hits)
+        {
+            var t = target;
+            var hop = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Max(1, delayMs)) };
+            hop.Tick += (_, _) =>
+            {
+                hop.Stop();
+                try { if (t.IsAlive) t.Pop(); } catch { }
+            };
+            hop.Start();
+        }
+        ChaosEStimOverlay.Strike(bolts);
+        _chaosOnEStimArc?.Invoke(_estimChargesLeft);
+    }
+
+    // Free synergy discharges (Electrified Rabbits / Body Buzz): same look as a charged pop,
+    // but no charge is consumed and the arcs never chain onward.
+    private const double ESTIM_BURST_RANGE_PX = 620;
+    private DateTime _lastBurstZap;   // a mowing rabbit fires bursts per victim — keep the crack from machine-gunning
+
+    /// <summary>Discharge free E-Stim bolts from <paramref name="fromPx"/> into up to
+    /// <paramref name="maxArcs"/> nearest suitable bubbles (treats pop, live ones snap;
+    /// rabbits and freeze pickups don't conduct). UI thread.</summary>
+    private void EStimBurstAt(Point fromPx, int maxArcs, double rangePx = ESTIM_BURST_RANGE_PX)
+    {
+        if (!_chaosActive || maxArcs <= 0) return;
+        static double DistSq(Point a, Point b) { double dx = a.X - b.X, dy = a.Y - b.Y; return dx * dx + dy * dy; }
+
+        var pool = new List<Bubble>();
+        double rangeSq = rangePx * rangePx;
+        foreach (var b in _bubbles.ToArray())
+            if (b.IsChainable && b.Spec != null && !b.Spec.IsDarter && !b.Spec.IsFreeze
+                && DistSq(b.CenterPx, fromPx) <= rangeSq) pool.Add(b);
+        if (pool.Count == 0) return;
+
+        pool.Sort((x, y) => DistSq(x.CenterPx, fromPx).CompareTo(DistSq(y.CenterPx, fromPx)));
+        var bolts = new List<(Point From, Point To)>();
+        for (int i = 0; i < pool.Count && i < maxArcs; i++)
+        {
+            var target = pool[i];
+            bolts.Add((fromPx, target.CenterPx));
+            var hop = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ESTIM_HOP_MS * (i + 1)) };
+            hop.Tick += (_, _) =>
+            {
+                hop.Stop();
+                try { if (target.IsAlive) target.Pop(); } catch { }
+            };
+            hop.Start();
+        }
+        ChaosEStimOverlay.Strike(bolts);
+        var now = DateTime.UtcNow;
+        if ((now - _lastBurstZap).TotalMilliseconds >= 140)
+        {
+            _lastBurstZap = now;
+            PlayChaosCue("estim_zap", 0.45f);
+        }
+    }
+
+    /// <summary>Body Buzz (Poppers + E-Stim duo): an electric shockwave at <paramref name="centerPx"/> —
+    /// expanding ring + the current leaping into every bubble inside it. Any thread.</summary>
+    public void TriggerEStimShockwave(Point centerPx)
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            ChaosFieldFxOverlay.Ripple(centerPx, SHOCKWAVE_RADIUS_PX, 450);
+            EStimBurstAt(centerPx, maxArcs: 8, rangePx: SHOCKWAVE_RADIUS_PX);
+        });
+    }
+
+    private const double SHOCKWAVE_RADIUS_PX = 440;
+
     private void AnimateAllBubbles(object? sender, EventArgs e)
     {
         // NOTE: a freeze does NOT skip this loop — bubbles must keep rendering so the freeze aura
@@ -126,12 +382,28 @@ public class BubbleService : IDisposable
         if (_freezeVibrateRemainingMs > 0) _freezeVibrateRemainingMs -= 32;
         if (_bubbles.Count == 0) return;
 
+        // Wand shimmer / VibePopping / The Pull / The Spanker: sample the cursor + boon knobs once
+        // per tick (one P/Invoke); every bubble reads the shared fields instead of asking Win32 itself.
+        WandShimmerOn = _chaosActive && (_chaosWandShimmer?.Invoke() ?? false);
+        ChaosCursorPullNow = _chaosActive ? (_chaosCursorPull?.Invoke() ?? 0) : 0;
+        ChaosRabbitHomingNow = _chaosActive && (_chaosRabbitHoming?.Invoke() ?? false);
+        ChaosSpankerOnNow = _chaosActive && (_chaosSpankerOn?.Invoke() ?? false);
+        ChaosSpankGrowNow = _chaosActive ? Math.Max(1.0, _chaosSpankGrow?.Invoke() ?? 1.0) : 1.0;
+        ChaosRabbitTrailSecNow = _chaosActive ? Math.Max(0, _chaosRabbitTrailSec?.Invoke() ?? 0) : 0;
+        ChaosElectrifiedNow = _chaosActive && (_chaosElectrified?.Invoke() ?? false);
+        // Cam Girl's flee is a NEGATIVE pull, so the cursor sample keys off "any pull at all".
+        if ((WandShimmerOn || VibePopOn || ChaosCursorPullNow != 0 || ChaosRabbitHomingNow) && GetCursorPos(out var cur))
+        { CursorPxX = cur.X; CursorPxY = cur.Y; }
+        if (VibePopOn) VibeMouseHeld = ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_RBUTTON)) & 0x8000) != 0;
+
         // Animate all bubbles in a single pass - iterate by index to avoid allocation
         for (int i = _bubbles.Count - 1; i >= 0; i--)
         {
             if (i < _bubbles.Count)
                 _bubbles[i].AnimateFrame();
         }
+
+        TickFieldHazards();   // Size Queen ripples / Aftermath residue / Tail-Plug trails
     }
 
     public void Stop()
@@ -369,16 +641,43 @@ public class BubbleService : IDisposable
     // pop game above is untouched — these only run while a chaos run is active.
 
     /// <summary>Enter chaos mode: install effect callbacks + ensure the shared animation timer runs.</summary>
-    public void BeginChaosMode(Action<EffectBubbleSpec> onBenignPop, Action<EffectBubbleSpec> onDefuse, Action<EffectBubbleSpec> onDetonate,
+    public void BeginChaosMode(Action<EffectBubbleSpec> onBenignPop, Action<EffectBubbleSpec, double> onDefuse, Action<EffectBubbleSpec> onDetonate,
                                Action<EffectBubbleSpec, bool>? onDarterCaught = null, Action<EffectBubbleSpec>? onFreezeCaught = null,
-                               Func<double>? chainReach = null)
+                               Func<double>? chainReach = null, Func<double>? hitboxScale = null,
+                               Func<double>? bubbleOpacity = null, Func<bool>? wandShimmer = null,
+                               Func<double>? cursorPull = null, Func<bool>? rabbitHoming = null,
+                               Func<bool>? spankerOn = null, Func<double>? spankGrow = null,
+                               Action<EffectBubbleSpec>? onTreatExpired = null, Action<int>? onEStimArc = null,
+                               Func<double>? rabbitTrailSec = null, Func<bool>? electrifiedRabbits = null)
     {
         _chaosChainReach = chainReach;
+        _chaosRabbitTrailSec = rabbitTrailSec;
+        _chaosElectrified = electrifiedRabbits;
+        ChaosRabbitTrailSecNow = 0;
+        ChaosElectrifiedNow = false;
+        _ripples.Clear();
+        _residues.Clear();
+        _chaosHitboxScale = hitboxScale;
+        _chaosBubbleOpacity = bubbleOpacity;
+        _chaosWandShimmer = wandShimmer;
+        _chaosCursorPull = cursorPull;
+        _chaosRabbitHoming = rabbitHoming;
+        _chaosSpankerOn = spankerOn;
+        _chaosSpankGrow = spankGrow;
+        ChaosCursorPullNow = 0; ChaosRabbitHomingNow = false; ChaosSpankerOnNow = false; ChaosSpankGrowNow = 1.0;
         _chaosOnBenignPop = onBenignPop;
         _chaosOnDefuse = onDefuse;
         _chaosOnDetonate = onDetonate;
+        _chaosOnTreatExpired = onTreatExpired;
+        _chaosOnEStimArc = onEStimArc;
+        _estimChargesLeft = 0;
+        _estimFork = false;
         _chaosOnDarterCaught = onDarterCaught;
         _chaosOnFreezeCaught = onFreezeCaught;
+        ChaosInputLocked = false;
+        VibePopOn = false;
+        VibeHoverPops = false;
+        VibeMouseHeld = false;
         _chaosActive = true;
         DispatcherHelper.RunOnUI(() =>
         {
@@ -402,19 +701,28 @@ public class BubbleService : IDisposable
                 var screens = settings.DualMonitorEnabled
                     ? App.GetAllScreensCached()
                     : new[] { System.Windows.Forms.Screen.PrimaryScreen! };
-                var screen = screens[_random.Next(screens.Length)];
+                // A pinned spawn (Rabbit Caller's summon-at-click) lands on the screen that
+                // actually contains the point; everything else scatters randomly.
+                var screen = spec.SpawnAtPxX is double sax && spec.SpawnAtPxY is double say
+                    ? System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)sax, (int)say))
+                    : screens[_random.Next(screens.Length)];
 
                 var bubble = new Bubble(screen, _bubbleImage, _random, null, null, OnDestroy, isClickable: true,
                     spec: spec,
                     onBenignPop: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnBenignPop?.Invoke(b.Spec); },
-                    onDefuse:    b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec); },
+                    onDefuse:    b => { PlayChaosCue("snap", 0.6f); if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec, b.FuseSecLeft); },
                     onDetonate:  b => { if (b.Spec != null) _chaosOnDetonate?.Invoke(b.Spec); },
-                    onDarterCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); },
-                    onFreezeCaught: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnFreezeCaught?.Invoke(b.Spec); },
+                    onDarterCaught: b => { PlayChaosCue("rabbit_catch", 0.6f); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); },
+                    onFreezeCaught: b => { PlayChaosCue("freeze_catch", 0.6f); if (b.Spec != null) _chaosOnFreezeCaught?.Invoke(b.Spec); },
                     isChaosFrozen: () => _chaosFrozen,
                     timeScale: () => _chaosTimeScale,
                     freezeVibrateMs: () => _freezeVibrateRemainingMs,
-                    onChainTrigger: ChainPopNeighbors);
+                    onChainTrigger: ChainPopNeighbors,
+                    hitboxScale: _chaosHitboxScale?.Invoke() ?? 1.0,
+                    opacityMult: _chaosBubbleOpacity?.Invoke() ?? 1.0,
+                    onSpankSweep: SpankSweepFromDarter,
+                    onTreatExpired: b => { if (b.Spec != null) _chaosOnTreatExpired?.Invoke(b.Spec); },
+                    onClickPop: OnChaosBubbleClicked);
                 _bubbles.Add(bubble);
             }
             catch (Exception ex)
@@ -422,6 +730,140 @@ public class BubbleService : IDisposable
                 App.Logger?.Error("SpawnChaosBubble failed: {Error}", ex.Message);
             }
         });
+    }
+
+    // ======================= chaos field hazards (run-boon FX) =======================
+    // Size Queen ripples, Aftermath residue and Tail-Plug trails all pop bubbles from the
+    // shared anim tick — pure px-space distance checks against tiny lists, no extra timers.
+
+    private const double RIPPLE_RADIUS_PX = 430;    // Size Queen: full ring reach
+    private const double RIPPLE_LIFE_MS = 550;      // expansion time (matches the drawn ring)
+    private const double RESIDUE_RADIUS_PX = 170;   // Aftermath: crackle zone reach
+    private const double RESIDUE_LIFE_MS = 2000;
+    private const double TRAIL_POP_RADIUS_PX = 46;  // Tail-Plug: per-point brush reach
+
+    private readonly List<(Point CenterPx, double AgeMs)> _ripples = new();
+    private readonly List<(Point CenterPx, DateTime Until)> _residues = new();
+
+    /// <summary>Size Queen: an expanding ring from a snapped live bubble — pops every treat it
+    /// touches as it grows. Draws via the field-FX overlay; popping happens on the anim tick.</summary>
+    public void TriggerChaosRipple(Point centerPx)
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            _ripples.Add((centerPx, 0));
+            ChaosFieldFxOverlay.Ripple(centerPx, RIPPLE_RADIUS_PX, RIPPLE_LIFE_MS);
+        });
+    }
+
+    /// <summary>Aftermath: a 2s crackling residue zone at a brink-snap — bubbles drifting
+    /// through pop themselves (treats pop, live ones snap; rabbits/freeze immune).</summary>
+    public void AddChaosResidue(Point centerPx)
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            _residues.Add((centerPx, DateTime.UtcNow.AddMilliseconds(RESIDUE_LIFE_MS)));
+            ChaosFieldFxOverlay.Residue(centerPx, RESIDUE_RADIUS_PX, RESIDUE_LIFE_MS);
+        });
+    }
+
+    /// <summary>Advance ripples/residue/trails one anim tick and pop whatever they reach.</summary>
+    private void TickFieldHazards()
+    {
+        if (!_chaosActive || _chaosFrozen) return;
+        if (_ripples.Count == 0 && _residues.Count == 0 && ChaosRabbitTrailSecNow <= 0) return;
+
+        static double DistSq(Point a, Point b) { double dx = a.X - b.X, dy = a.Y - b.Y; return dx * dx + dy * dy; }
+        var snapshot = _bubbles.ToArray();
+
+        // Size Queen ripples: only treats pop (the ring is a reward wave, never a threat trigger).
+        for (int i = _ripples.Count - 1; i >= 0; i--)
+        {
+            var (c, age) = _ripples[i];
+            age += 32;
+            double r = RIPPLE_RADIUS_PX * Math.Min(1.0, age / RIPPLE_LIFE_MS);
+            foreach (var b in snapshot)
+            {
+                if (!b.IsAlive || b.Spec == null) continue;
+                if (b.Spec.IsLive || b.Spec.IsDarter || b.Spec.IsFreeze) continue;
+                if (DistSq(b.CenterPx, c) <= r * r) b.Pop();
+            }
+            if (age >= RIPPLE_LIFE_MS) _ripples.RemoveAt(i);
+            else _ripples[i] = (c, age);
+        }
+
+        // Aftermath residue: anything drifting through pops (treats fire, live ones snap),
+        // with a little E-Stim crackle from the zone to each victim.
+        var now = DateTime.UtcNow;
+        for (int i = _residues.Count - 1; i >= 0; i--)
+        {
+            var (c, until) = _residues[i];
+            if (now >= until) { _residues.RemoveAt(i); continue; }
+            foreach (var b in snapshot)
+            {
+                if (!b.IsAlive || b.Spec == null) continue;
+                if (b.Spec.IsDarter || b.Spec.IsFreeze) continue;
+                if (DistSq(b.CenterPx, c) <= RESIDUE_RADIUS_PX * RESIDUE_RADIUS_PX)
+                {
+                    ChaosEStimOverlay.Strike(new[] { (c, b.CenterPx) });
+                    b.Pop();
+                }
+            }
+        }
+
+        // Tail-Plug: every rabbit's recorded trail brushes treats AND live bubbles open.
+        if (ChaosRabbitTrailSecNow > 0)
+        {
+            foreach (var darter in snapshot)
+            {
+                if (darter.Spec?.IsDarter != true || darter.TrailPoints.Count == 0) continue;
+                foreach (var b in snapshot)
+                {
+                    if (!b.IsAlive || b.Spec == null || ReferenceEquals(b, darter)) continue;
+                    if (b.Spec.IsDarter || b.Spec.IsFreeze) continue;
+                    foreach (var (px, _) in darter.TrailPoints)
+                    {
+                        if (DistSq(b.CenterPx, px) <= TRAIL_POP_RADIUS_PX * TRAIL_POP_RADIUS_PX)
+                        { b.Pop(); break; }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>A spanked rabbit's body mows plain bubbles (live ones snap, treats pop). Other
+    /// darters and freeze pickups are immune. Per-frame from the darter's AnimateFrame.
+    /// Electrified Rabbits: each victim also discharges free E-Stim arcs into its neighbours.</summary>
+    private void SpankSweepFromDarter(Bubble darter)
+    {
+        if (!_chaosActive) return;
+        var reach = darter.SpankReach;
+        foreach (var b in _bubbles.ToArray())
+        {
+            if (!b.IsAlive || b.Spec == null || ReferenceEquals(b, darter)) continue;
+            if (b.Spec.IsDarter || b.Spec.IsFreeze) continue;
+            if (reach.IntersectsWith(b.BoundingBox))
+            {
+                var victimPx = b.CenterPx;
+                b.Pop();
+                if (ChaosElectrifiedNow) EStimBurstAt(victimPx, ESTIM_ARCS_PER_POP);
+            }
+        }
+    }
+
+    /// <summary>True when any live darter's body overlaps <paramref name="rectDips"/> — the
+    /// Intrusive Thoughts capstone's split trigger (read-only; the rabbit is unharmed).</summary>
+    public bool AnyDarterIntersects(Rect rectDips)
+    {
+        if (!_chaosActive) return false;
+        foreach (var b in _bubbles)
+        {
+            if (!b.IsAlive || b.Spec == null || !b.Spec.IsDarter) continue;
+            if (rectDips.IntersectsWith(b.BoundingBox)) return true;
+        }
+        return false;
     }
 
     /// <summary>Stagger between chain hops (ms) so a cluster ripples outward instead of vanishing in one frame.</summary>
@@ -432,8 +874,9 @@ public class BubbleService : IDisposable
     /// box overlaps the burst, rippling through a cluster. Each chained pop re-enters here (via the
     /// same <c>onChainTrigger</c> hook), so the cascade is self-propagating; the per-bubble
     /// <c>_isPopping</c> guard stops anything popping twice and ends the chain at the cluster edge.
-    /// Darters (a precision catch power-up) neither seed nor are swept by chains. The reach is the
-    /// boon's level-driven box-multiple (<=1 = off). Runs on the UI thread (from <see cref="Bubble.Pop"/>).
+    /// Darters chain like everything else — a chained darter counts as a catch (slow-mo fires)
+    /// and its big burst seeds the next hop. The reach is the boon's level-driven box-multiple
+    /// (<=1 = off). Runs on the UI thread (from <see cref="Bubble.Pop"/>).
     /// </summary>
     private void ChainPopNeighbors(Bubble source)
     {
@@ -441,7 +884,7 @@ public class BubbleService : IDisposable
         {
             double reachMult = _chaosChainReach?.Invoke() ?? 0;
             if (reachMult <= 1.0) return;
-            if (source.Spec == null || source.Spec.IsDarter) return;
+            if (source.Spec == null) return;
             var reach = source.ChainReach(reachMult);
             foreach (var b in _bubbles.ToArray())
             {
@@ -482,13 +925,100 @@ public class BubbleService : IDisposable
         _chaosFrozen = false;
         _freezeVibrateRemainingMs = 0;
         _chaosTimeScale = 1.0;
-        _chaosOnBenignPop = _chaosOnDefuse = _chaosOnDetonate = null;
+        _chaosOnBenignPop = _chaosOnDetonate = null;
+        _chaosOnTreatExpired = null;
+        _chaosOnEStimArc = null;
+        _estimChargesLeft = 0;
+        _estimFork = false;
+        _chaosOnDefuse = null;
         _chaosOnDarterCaught = null;
         _chaosOnFreezeCaught = null;
         _chaosChainReach = null;
+        _chaosHitboxScale = null;
+        _chaosBubbleOpacity = null;
+        _chaosWandShimmer = null;
+        _chaosCursorPull = null;
+        _chaosRabbitHoming = null;
+        _chaosSpankerOn = null;
+        _chaosSpankGrow = null;
+        _chaosRabbitTrailSec = null;
+        _chaosElectrified = null;
+        ChaosCursorPullNow = 0; ChaosRabbitHomingNow = false; ChaosSpankerOnNow = false; ChaosSpankGrowNow = 1.0;
+        ChaosRabbitTrailSecNow = 0;
+        ChaosElectrifiedNow = false;
+        _ripples.Clear();
+        _residues.Clear();
+        WandShimmerOn = false;
+        VibePopOn = false;
+        VibeHoverPops = false;
+        VibeMouseHeld = false;
+        ChaosInputLocked = false;
         PopAllBubbles();
         DispatcherHelper.RunOnUI(StopAnimationTimerIfIdle);
     }
+
+    /// <summary>
+    /// Smallest remaining fuse (in seconds) across live, un-popped chaos bubbles, or null when
+    /// nothing is armed. Polled by the Blindfold capstone heartbeat (UI thread, ~4x/s, tiny list).
+    /// </summary>
+    public double? MinChaosFuseSec()
+    {
+        double best = double.MaxValue;
+        foreach (var b in _bubbles)
+        {
+            var ms = b.LiveFuseRemainingMs;
+            if (ms.HasValue && ms.Value < best) best = ms.Value;
+        }
+        return best == double.MaxValue ? null : best / 1000.0;
+    }
+
+    /// <summary>Soft chime one-shot (reuses the lucky-pop chime files). Tunnel Vision capstone spawn cue.</summary>
+    public void PlayChime(float volumeScale = 0.3f)
+    {
+        try
+        {
+            var chimeFiles = new[] { "chime1.mp3", "chime2.mp3", "chime3.mp3" };
+            var chimePath = ModResourceResolver.ResolveAudioPath(chimeFiles[_random.Next(chimeFiles.Length)]);
+            if (!File.Exists(chimePath)) return;
+            var masterVolume = App.Settings.Current.MasterVolume / 100f;
+            var bubblesVolume = App.Settings.Current.BubblesVolume / 100f;
+            PlaySoundAsync(chimePath, (float)Math.Pow(masterVolume * bubblesVolume, 1.5) * volumeScale);
+        }
+        catch (Exception ex) { App.Logger?.Debug("PlayChime: {E}", ex.Message); }
+    }
+
+    /// <summary>Chaos bubble-outcome cue: the dedicated chaos SFX when shipped, else the ambient pop.</summary>
+    private void PlayChaosCue(string name, float volumeScale)
+    {
+        var path = Chaos.ChaosSfx.ResolvePath(name);
+        if (path.Length > 0) PlayCue(path, volumeScale);
+        else PlayPopSound(false);
+    }
+
+    /// <summary>Play an arbitrary one-shot cue (absolute path) through the pooled audio devices.
+    /// Silent no-op when the file is missing — new chaos cues ship code-first, assets later.</summary>
+    public void PlayCue(string absolutePath, float volumeScale = 0.5f)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(absolutePath) || !File.Exists(absolutePath)) return;
+            var masterVolume = App.Settings.Current.MasterVolume / 100f;
+            var bubblesVolume = App.Settings.Current.BubblesVolume / 100f;
+            PlaySoundAsync(absolutePath, (float)Math.Pow(masterVolume * bubblesVolume, 1.5) * volumeScale);
+        }
+        catch (Exception ex) { App.Logger?.Debug("PlayCue: {E}", ex.Message); }
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct Win32CursorPoint { public int X; public int Y; }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out Win32CursorPoint pt);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+    private const int VK_LBUTTON = 0x01;
+    private const int VK_RBUTTON = 0x02;   // right button is the comfy sweep choice (no stray desktop clicks)
 
     /// <summary>Ensure the shared 30fps animation timer is running (used by chaos + SpawnOnce).</summary>
     private void EnsureAnimationTimer()
@@ -735,10 +1265,22 @@ internal class Bubble
     private readonly Action<Bubble>? _onDarterCaught;
     private readonly Action<Bubble>? _onFreezeCaught;
     private readonly Action<Bubble>? _onChainTrigger;   // Chain Reaction boon: fired on pop so the service can sweep neighbours
+    private readonly Action<Bubble>? _onSpankSweep;     // The Spanker: fired per frame while spanked so the service can mow bubbles
+    private readonly Action<Bubble>? _onTreatExpired;   // treat ran out its screen time → dissolved unpopped (streak cost service-side)
+    private readonly Action<Bubble>? _onClickPop;       // a GENUINE player click popped this (E-Stim charges key off it)
     private readonly Func<bool>? _isChaosFrozen;   // true while the field is frozen (freeze-bubble power-up)
     private readonly Func<double>? _timeScaleFn;   // <1 = slow-mo (darter power-up); 1 = normal speed
     private readonly Func<double>? _freezeVibrateMsFn;   // >0 = whole-field shudder remaining (freeze impact)
     private double TimeScale => _spec != null ? Math.Max(0.0, _timeScaleFn?.Invoke() ?? 1.0) : 1.0;
+
+    // ---- treat-lifetime state (benign reward bubbles: flash/subliminal/golden) ----
+    /// <summary>How long a treat may sit on screen before it dissolves away unpopped.</summary>
+    private const double TREAT_LIFETIME_MS = 5000;
+    /// <summary>Last window (ms) of a treat's life over which it breathes faster (reuses _dangerFactor).</summary>
+    private const double TREAT_FADE_TELEGRAPH_MS = 1500;
+    private readonly bool _isTreat;                // benign chaos treat (not live, not darter, not freeze)
+    private double _treatLifeRemainingMs;
+    private bool _isDissolving;                    // expired treat: quiet shrink+fade instead of the pop burst
 
     // ---- freeze-bubble state ----
     private readonly bool _isFreeze;               // this bubble is the "good" freeze pickup
@@ -753,6 +1295,7 @@ internal class Bubble
     /// <summary>Actual per-bubble margin; darters need far more so their big catch-explosion doesn't clip.</summary>
     private readonly int _winPad;
     private double _dangerFactor;   // 0 outside the telegraph window, ramps to 1 at detonation (visual only)
+    private readonly double _dangerWobbleMult = 1.0;   // video/gif-rain breathe 60% calmer near fuse-out
     private System.Windows.Shapes.Ellipse? _fuseRing;
     // Mutable (unfrozen) brush reused for the fuse ring so its colour can be tweaked every
     // frame without allocating a new SolidColorBrush per tick (GC pressure at 30fps).
@@ -761,6 +1304,12 @@ internal class Bubble
     private double _screenBottom, _screenLeft, _screenRight;   // motion bounds (DIPs)
 
     private bool _hasVariantSprite;   // a per-variant sprite replaced the tinted bubble.png
+
+    // ---- lifetime-boon extensions (neutral defaults; chaos effect bubbles only) ----
+    private readonly int _hitSize;         // Magic Wand / Mesmer Reach: enlarged click target (>= _size)
+    private readonly double _baseOpacity;  // Blindfold: spawn-time opacity multiplier (1.0 = off)
+    private readonly double _dpiScale;     // this screen's DPI scale, kept for cursor px → DIP conversion
+    private double _shimmerPhase;          // Magic Wand capstone: in-reach shimmer oscillator
 
     // ---- darter state (only when _spec.IsDarter) ----
     private readonly bool _isDarter;
@@ -773,15 +1322,41 @@ internal class Bubble
     private bool _darterEscaping;          // past its bounces → flying off-screen to despawn
     private double _darterThrobPhase;      // continuous throb oscillator
     private double _darterThrobPunch;      // transient scale bump injected on each wall bounce (decays)
+    // ---- The Spanker (rabbits become allies instead of catches) ----
+    private bool _isSpanked;               // smacked at least once: pink glow + body pops plain bubbles
+    private double _spankGrowth = 1.0;     // one-time level-scaled swell on the FIRST smack only
+    private double _spankCooldownMs;       // re-smack guard — the vibe sweep overlaps every frame
+    // ---- Tail-Plug (rabbits drag a treat-popping sparkle trail) ----
+    private readonly List<(Point Px, DateTime T)> _trailPts = new();
+    private Point _lastTrailEmitPx = new(double.MinValue, double.MinValue);
+    // ---- prism shadow pop ("Look at the bright colors...") ----
+    private Image? _prismGhost;            // the copied bubble's sprite, revealed under the pop
+
+    /// <summary>Tail-Plug: this rabbit's recent trail points (physical px + birth time).
+    /// The service sweeps treats against these each anim tick while the boon holds.</summary>
+    internal IReadOnlyList<(Point Px, DateTime T)> TrailPoints => _trailPts;
 
     /// <summary>The chaos spec this bubble carries (null for ambient pop-game bubbles).</summary>
     public EffectBubbleSpec? Spec => _spec;
 
-    /// <summary>Eligible to be swept up by a Chain Reaction pop: a live, un-popped, non-darter chaos bubble.</summary>
-    public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null && !_isDarter;
+    /// <summary>Eligible to be swept up by a Chain Reaction pop: any live, un-popped chaos bubble
+    /// (darters included — a chained darter counts as a catch and fires its slow-mo).</summary>
+    public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null;
 
     /// <summary>This bubble's on-screen box in DIPs (the bubble.png footprint, sans window pad).</summary>
     public Rect BoundingBox => new Rect(_posX, _posY, _size, _size);
+
+    /// <summary>This bubble's centre in physical screen px — the cross-screen-safe currency
+    /// (per-screen DIPs diverge under mixed DPI). Feeds E-Stim targeting + its lightning overlay.</summary>
+    internal Point CenterPx => new((_posX + _size / 2.0) * _dpiScale, (_posY + _size / 2.0) * _dpiScale);
+
+    /// <summary>Squared distance (DIPs) from this bubble's centre to a physical-pixel point.</summary>
+    internal double DistDipSqToPx(double pxX, double pxY)
+    {
+        double dx = pxX / _dpiScale - (_posX + _size / 2.0);
+        double dy = pxY / _dpiScale - (_posY + _size / 2.0);
+        return dx * dx + dy * dy;
+    }
 
     /// <summary>The box grown by <paramref name="expand"/> about its centre — the reach of its pop burst.</summary>
     public Rect ChainReach(double expand)
@@ -792,6 +1367,18 @@ internal class Bubble
 
     /// <summary>True if this darter was caught within its quick-catch window. Valid after Pop().</summary>
     public bool WasQuickCatch => _wasQuickCatch;
+
+    /// <summary>A spanked rabbit's pop swath — its (grown) body box.</summary>
+    internal Rect SpankReach => ChainReach(Math.Max(1.0, _spankGrowth));
+
+    /// <summary>Remaining fuse (ms) while this is an armed, un-popped live chaos bubble; else null.
+    /// Read by <see cref="BubbleService.MinChaosFuseSec"/> for the Blindfold heartbeat.</summary>
+    internal double? LiveFuseRemainingMs =>
+        _spec?.IsLive == true && _isAlive && !_isDestroyed && !_isPopping ? _fuseRemainingMs : null;
+
+    /// <summary>Fuse seconds left at the moment of the snap (valid inside the defuse callback,
+    /// where _isPopping is already set) — feeds the Last Breath brink-bonus check.</summary>
+    public double FuseSecLeft => Math.Max(0, _fuseRemainingMs) / 1000.0;
 
     private struct SparkleParticle
     {
@@ -807,7 +1394,9 @@ internal class Bubble
                   Action<Bubble>? onBenignPop = null, Action<Bubble>? onDefuse = null, Action<Bubble>? onDetonate = null,
                   Action<Bubble>? onDarterCaught = null, Func<bool>? isChaosFrozen = null,
                   Func<double>? timeScale = null, Action<Bubble>? onFreezeCaught = null,
-                  Func<double>? freezeVibrateMs = null, Action<Bubble>? onChainTrigger = null)
+                  Func<double>? freezeVibrateMs = null, Action<Bubble>? onChainTrigger = null,
+                  double hitboxScale = 1.0, double opacityMult = 1.0, Action<Bubble>? onSpankSweep = null,
+                  Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null)
     {
         _random = random;
         _onPop = onPop;
@@ -821,26 +1410,56 @@ internal class Bubble
         _onDarterCaught = onDarterCaught;
         _onFreezeCaught = onFreezeCaught;
         _onChainTrigger = onChainTrigger;
+        _onSpankSweep = onSpankSweep;
+        _onTreatExpired = onTreatExpired;
+        _onClickPop = onClickPop;
         _isChaosFrozen = isChaosFrozen;
         _timeScaleFn = timeScale;
         _freezeVibrateMsFn = freezeVibrateMs;
         _isDarter = spec?.IsDarter == true;
         _isFreeze = spec?.IsFreeze == true;
+        // Treats (flash/subliminal/golden) rot: only so long on screen before they dissolve.
+        // Hearts don't rot — they drift down once and exit; missing one carries no sting.
+        // Gold Digger droplets don't either: pure bonus, no penalty for letting them fall away.
+        _isTreat = spec != null && !spec.IsLive && !_isDarter && !_isFreeze
+                   && spec.IsHeart != true && spec.IsDroplet != true;
+        if (_isTreat) _treatLifeRemainingMs = spec!.TreatLifeMs > 0 ? spec.TreatLifeMs : TREAT_LIFETIME_MS;
+        // The two giants read frantic when they breathe at full danger amplitude — calm them 60%.
+        if (spec?.VariantId is "video" or "htlink") _dangerWobbleMult = 0.4;
 
         // Random properties (size/motion overridden for chaos effect bubbles)
         _size = spec != null ? Math.Max(60, (int)Math.Round(spec.SizePx)) : random.Next(150, 250);
+        // Magic Wand boon / Mesmer Reach upgrade: enlarge the click target around the visual.
+        // Darters/freeze pickups keep their natural hitbox (precision catches stay precision).
+        // Blindfold: effect bubbles render translucent; pickups stay fully visible (they're rewards).
+        bool plainEffectBubble = spec != null && !_isDarter && !_isFreeze && !spec.IsGolden && !spec.IsHeart
+                                 && !spec.IsDroplet && !spec.IsPrism;   // pickups + the prism stay fully visible
+        _hitSize = plainEffectBubble ? Math.Max(_size, (int)Math.Round(_size * Math.Clamp(hitboxScale, 1.0, 2.0))) : _size;
+        _baseOpacity = plainEffectBubble ? Math.Clamp(opacityMult, 0.2, 1.0) : 1.0;
         // Darters explode to ~3x on catch (slower + bigger pop), so give them a generous window
         // so the burst + glow don't clip against the window edge.
-        _winPad = _isDarter ? Math.Max(WindowPad, (int)Math.Round(_size * 1.3)) : WindowPad;
+        //
+        // Normal/chaos bubbles expand about their centre when popped (the pop scale grows to
+        // ~1.6x, ~1.9x on a lucky pop). The window must reserve that much headroom around the
+        // sprite or the growing image clips the window edge — full-bleed mod art (e.g. Circe)
+        // shows this immediately, where sprites with a transparent margin hide it. popPad covers
+        // the worst-case pop scale; the hit-ellipse term is kept as a floor (Wand/Mesmer Reach).
+        const double PopScaleHeadroom = 1.9;
+        int popPad = (int)Math.Ceiling(_size * (PopScaleHeadroom - 1.0) / 2.0);
+        _winPad = _isDarter
+            ? Math.Max(WindowPad, (int)Math.Round(_size * 1.3))
+            : Math.Max(WindowPad + (_hitSize - _size + 1) / 2, popPad);
         _speed = 1.0 + random.NextDouble() * 1.0; // 1.0 to 2.0 px/frame
         if (spec != null) // bigger chaos bubbles drift a little slower (more reachable)
             _speed *= Math.Clamp(1.4 - (_size - 150) / 220.0, 0.6, 1.4);
+        if (spec != null) _speed *= Math.Max(0.1, spec.SpeedMult);   // golden bubbles fly
         _animType = random.Next(4);
         _wobbleOffset = random.NextDouble() * 100;
         _angle = random.Next(360);
 
         // Get DPI scale for this specific screen
         var dpiScale = GetDpiForScreen(screen);
+        _dpiScale = dpiScale;
 
         var area = screen.WorkingArea;
         _screenLeft = area.X / dpiScale;
@@ -867,6 +1486,14 @@ internal class Bubble
             default: // FloatUp
                 _posY = (area.Y + area.Height) / dpiScale;          // start at the bottom
                 break;
+        }
+
+        // Pinned spawn (Rabbit Caller): materialise centred on the given physical-px point,
+        // overriding the motion's usual origin. Velocity/bounce behaviour is untouched.
+        if (spec?.SpawnAtPxX is double spawnPx && spec.SpawnAtPxY is double spawnPy)
+        {
+            _startX = _posX = spawnPx / dpiScale - _size / 2.0;
+            _posY = spawnPy / dpiScale - _size / 2.0;
         }
 
         // Live chaos bubbles arm a fuse.
@@ -934,8 +1561,8 @@ internal class Bubble
         // This ensures clicks anywhere in the circular bubble area register
         var hitArea = new System.Windows.Shapes.Ellipse
         {
-            Width = _size,
-            Height = _size,
+            Width = _hitSize,
+            Height = _hitSize,
             Fill = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)), // Nearly invisible but captures hits on transparent windows
             IsHitTestVisible = _isClickable,
             Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow
@@ -945,7 +1572,7 @@ internal class Bubble
         {
             hitArea.MouseLeftButtonDown += (s, e) =>
             {
-                Pop();
+                PopByClick();
                 e.Handled = true;
             };
         }
@@ -958,11 +1585,12 @@ internal class Bubble
             IsHitTestVisible = false
         };
 
-        // Create container grid with hit area behind the bubble image
+        // Create container grid with hit area behind the bubble image. Sized to the (possibly
+        // wand-enlarged) hit ellipse; the image keeps its own size and centres inside.
         _grid = new Grid
         {
-            Width = _size,
-            Height = _size,
+            Width = _hitSize,
+            Height = _hitSize,
             Background = Brushes.Transparent,
             IsHitTestVisible = _isClickable
         };
@@ -976,7 +1604,7 @@ internal class Bubble
         {
             _grid.MouseLeftButtonDown += (s, e) =>
             {
-                Pop();
+                PopByClick();
                 e.Handled = true;
             };
         }
@@ -997,13 +1625,46 @@ internal class Bubble
             Top = _posY - _winPad,
             Content = _grid,
             Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow,
-            IsHitTestVisible = _isClickable
+            IsHitTestVisible = _isClickable,
+            // Blindfold dims per-frame in AnimateFrame — seed it here too, or the window's
+            // first frame flashes at full opacity before the first tick lands.
+            Opacity = _baseOpacity
         };
 
         // Window click as final backup (only if clickable)
         if (_isClickable)
         {
-            _window.MouseLeftButtonDown += (s, e) => Pop();
+            _window.MouseLeftButtonDown += (s, e) => PopByClick();
+        }
+
+        // Tunnel Vision capstone: spotlight rabbits glow gold (skipped on the Performance tier,
+        // radius capped otherwise — same gating as lucky-pop glow).
+        if (spec?.Spotlight == true)
+        {
+            var glowTier = PerformanceProfile.CurrentTier;
+            if (PerformanceProfile.AllowGlow(glowTier))
+            {
+                try
+                {
+                    _window.Effect = new DropShadowEffect
+                    {
+                        Color = Color.FromRgb(0xFF, 0xD7, 0x00),
+                        BlurRadius = Math.Min(40, PerformanceProfile.MaxGlowBlurRadius(glowTier)),
+                        ShadowDepth = 0,
+                        Opacity = 0.85
+                    };
+                }
+                catch { }
+            }
+        }
+
+        // GG make more GG: sweeper rabbits are born spanked — ally-pink glow, body mows
+        // bubbles from the first frame, and they can never be caught (clicks re-smack them).
+        if (spec?.IsSweeper == true)
+        {
+            _isSpanked = true;
+            _spankGrowth = 1.0;
+            try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x14, 0x93), BlurRadius = 34, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
         }
 
         // Show window
@@ -1029,7 +1690,13 @@ internal class Bubble
 
         if (_isPopping)
         {
-            if (_isDarter)
+            if (_isDissolving)
+            {
+                // Expired treat: a quiet dissolve — shrink + fade in place, no burst, no spin.
+                _scale = Math.Max(0.1, _scale - 0.02);
+                _fadeAlpha -= 0.05;
+            }
+            else if (_isDarter)
             {
                 // Darter explosion: enlarge slowly, then dissipate (slower + bigger than a normal pop).
                 _scale += 0.07;
@@ -1092,7 +1759,9 @@ internal class Bubble
             // skips its own wobble for darters so this isn't doubled).
             _darterThrobPhase += 0.5 * Math.Max(ts, 0.4);
             if (_darterThrobPunch > 0) _darterThrobPunch = Math.Max(0, _darterThrobPunch - 0.05);
-            _scale = 1.0 + 0.10 * Math.Sin(_darterThrobPhase) + _darterThrobPunch;
+            // Breath + punch are ABSOLUTE (±0.10) on top of the swell — a grown ally shouldn't
+            // wobble proportionally harder than a normal rabbit.
+            _scale = _spankGrowth + 0.10 * Math.Sin(_darterThrobPhase) + _darterThrobPunch;
 
             if (_telegraphRemainingMs > 0)
             {
@@ -1110,6 +1779,26 @@ internal class Bubble
             else
             {
                 _darterActiveMs += 32;
+
+                // The Pull: rabbits fly AT you — steer toward the cursor with a capped turn rate.
+                if (BubbleService.ChaosRabbitHomingNow && !_darterEscaping)
+                {
+                    double hcx = BubbleService.CursorPxX / _dpiScale, hcy = BubbleService.CursorPxY / _dpiScale;
+                    double hdx = hcx - (_posX + _size / 2.0), hdy = hcy - (_posY + _size / 2.0);
+                    if (hdx * hdx + hdy * hdy > 1)
+                    {
+                        double want = Math.Atan2(hdy, hdx);
+                        double cur = Math.Atan2(_vy, _vx);
+                        double diff = want - cur;
+                        while (diff > Math.PI) diff -= 2 * Math.PI;
+                        while (diff < -Math.PI) diff += 2 * Math.PI;
+                        double maxTurn = 0.065 * Math.Max(ts, 0.4);   // ~3.7°/frame, softer in slow-mo
+                        double na = cur + Math.Clamp(diff, -maxTurn, maxTurn);
+                        double spd = Math.Sqrt(_vx * _vx + _vy * _vy);
+                        _vx = Math.Cos(na) * spd; _vy = Math.Sin(na) * spd;
+                    }
+                }
+
                 _posX += _vx * ts;
                 _posY += _vy * ts;
                 double topB = _screenTop + _size + 50, botB = _screenBottom - _size - 50;
@@ -1139,6 +1828,30 @@ internal class Bubble
                     { Destroy(); return; }
                 }
             }
+            if (_spankCooldownMs > 0) _spankCooldownMs -= 32;
+            // The Spanker: a smacked rabbit is an ally — its body pops every plain bubble it crosses.
+            if (_isSpanked && !_isPopping) _onSpankSweep?.Invoke(this);
+
+            // Tail-Plug: while the boon holds, every rabbit drags a sparkle trail — record a
+            // point each ~40 DIPs of travel (the service pops treats against them; the field-FX
+            // overlay mirrors each point as a fading spark). Old points age out here.
+            double trailSec = BubbleService.ChaosRabbitTrailSecNow;
+            if (trailSec > 0 && _telegraphRemainingMs <= 0 && !_isPopping)
+            {
+                var nowPx = CenterPx;
+                double tdx = nowPx.X - _lastTrailEmitPx.X, tdy = nowPx.Y - _lastTrailEmitPx.Y;
+                if (tdx * tdx + tdy * tdy >= 40 * 40 * _dpiScale * _dpiScale)
+                {
+                    _lastTrailEmitPx = nowPx;
+                    _trailPts.Add((nowPx, DateTime.UtcNow));
+                    ChaosFieldFxOverlay.TrailDot(nowPx, trailSec);
+                }
+                var cutoff = DateTime.UtcNow.AddSeconds(-trailSec);
+                while (_trailPts.Count > 0 && _trailPts[0].T < cutoff) _trailPts.RemoveAt(0);
+                if (_trailPts.Count > 60) _trailPts.RemoveAt(0);   // hard cap, just in case
+            }
+            else if (_trailPts.Count > 0) _trailPts.Clear();
+
             _darterLifeRemainingMs -= 32;
             if (_darterLifeRemainingMs <= 0) { Destroy(); return; }   // safety backstop only
         }
@@ -1183,6 +1896,41 @@ internal class Bubble
                     break;
             }
 
+            // The Pull: the whole field leans toward the cursor (chaos bubbles only; ambient
+            // untouched). Cam Girl flips the sign — bubbles FLEE a nearby cursor (and with both
+            // active the two simply cancel toward zero: the tug-of-war is the content).
+            double pull = BubbleService.ChaosCursorPullNow;
+            if (pull > 0 && _spec != null && !_isPopping)
+            {
+                double pcx = BubbleService.CursorPxX / _dpiScale, pcy = BubbleService.CursorPxY / _dpiScale;
+                double pdx = pcx - (_posX + _size / 2.0), pdy = pcy - (_posY + _size / 2.0);
+                double pd = Math.Sqrt(pdx * pdx + pdy * pdy);
+                if (pd > 30)   // dead zone — no jitter right under the cursor
+                {
+                    double step = pull * ts;
+                    _posX += pdx / pd * step;
+                    _posY += pdy / pd * step;
+                    _startX += pdx / pd * step;   // Float/Rain re-base X from _startX — keep the drift
+                }
+            }
+            else if (pull < 0 && _spec != null && !_isPopping)
+            {
+                // Cam Girl: repulsion only bites when the cursor closes in, and fades with distance
+                // — bubbles squirm out from under the pointer rather than racing off-screen.
+                const double FLEE_RADIUS = 260;
+                double fcx = BubbleService.CursorPxX / _dpiScale, fcy = BubbleService.CursorPxY / _dpiScale;
+                double fdx = (_posX + _size / 2.0) - fcx, fdy = (_posY + _size / 2.0) - fcy;
+                double fd = Math.Sqrt(fdx * fdx + fdy * fdy);
+                if (fd < FLEE_RADIUS && fd > 1)
+                {
+                    double step = -pull * ts * (1.0 - fd / FLEE_RADIUS);
+                    // Clamp inside the screen so the flee can't shove a bubble out of reach for good.
+                    _posX = Math.Clamp(_posX + fdx / fd * step, _screenLeft, _screenRight);
+                    _posY = Math.Clamp(_posY + fdy / fd * step, _screenTop + _size, _screenBottom - _size);
+                    _startX = Math.Clamp(_startX + fdx / fd * step, _screenLeft, _screenRight);   // Float/Rain re-base X from _startX
+                }
+            }
+
             // Fuse countdown for live chaos bubbles.
             if (_spec != null && _spec.IsLive && _fuseRemainingMs > 0)
             {
@@ -1223,6 +1971,18 @@ internal class Bubble
                 if (_fuseRemainingMs <= 0) { Detonate(); return; }
             }
 
+            // Treat lifetime: a benign reward bubble only gets so long on screen. It breathes
+            // faster over its final stretch (the same danger ramp live fuses use), then
+            // dissolves away unpopped — no payload, and the service docks a streak.
+            if (_isTreat)
+            {
+                _treatLifeRemainingMs -= 32 * ts;
+                _dangerFactor = _treatLifeRemainingMs < TREAT_FADE_TELEGRAPH_MS
+                    ? Math.Clamp(1.0 - _treatLifeRemainingMs / TREAT_FADE_TELEGRAPH_MS, 0, 1)
+                    : 0.0;
+                if (_treatLifeRemainingMs <= 0) { Dissolve(); return; }
+            }
+
             if (exited)
             {
                 if (_spec == null) { _onMiss?.Invoke(this); Destroy(); return; }
@@ -1242,8 +2002,8 @@ internal class Bubble
             // Update scale wobble (scaled for 30fps). Darters drive their own throb into _scale,
             // so skip the ambient wobble for them to avoid doubling it. Live bubbles in the danger
             // window breathe faster + deeper as _dangerFactor (from the fuse countdown) ramps to 1.
-            double breatheFreq = 7.5 + _dangerFactor * 9.0;
-            double breatheAmp = 0.06 + _dangerFactor * 0.0225;
+            double breatheFreq = 7.5 + _dangerFactor * 9.0 * _dangerWobbleMult;
+            double breatheAmp = 0.06 + _dangerFactor * 0.0225 * _dangerWobbleMult;
             var wobble = _isDarter ? 0.0 : breatheAmp * Math.Sin(_timeAlive * breatheFreq + _wobbleOffset);
             var currentScale = (_scale + wobble) * _gazeDwellScale;
 
@@ -1279,7 +2039,34 @@ internal class Bubble
                 jy = (_random.NextDouble() - 0.5) * 8;
             }
 
-            _window.Opacity = _fadeAlpha;
+            // VibePopping buzz: while the button is held, everything the cursor sweeps over pops
+            // itself — live ones snap, darters count as catches (slow-mo fires). Same shared
+            // cursor sample as the wand shimmer; Pop()'s own guards handle pause-lock and
+            // double-pops. Freeze pickups stay manual (triggering the freeze is a timing choice).
+            if (BubbleService.VibePopOn && _spec != null && !_isFreeze && !_isPopping
+                && (BubbleService.VibeMouseHeld || BubbleService.VibeHoverPops))
+            {
+                double bx = BubbleService.CursorPxX / _dpiScale - (_posX + _size / 2.0);
+                double by = BubbleService.CursorPxY / _dpiScale - (_posY + _size / 2.0);
+                double brushReach = _hitSize / 2.0;
+                if (bx * bx + by * by <= brushReach * brushReach) Pop();
+            }
+
+            // Blindfold: translucent effect bubbles. Magic Wand capstone: bubbles inside your
+            // (enlarged) reach shimmer — cursor was sampled once for the whole tick.
+            double opacity = _fadeAlpha * _baseOpacity;
+            if (BubbleService.WandShimmerOn && _spec != null && !_isDarter && !_isPopping)
+            {
+                double cx = BubbleService.CursorPxX / _dpiScale, cy = BubbleService.CursorPxY / _dpiScale;
+                double dx = cx - (_posX + _size / 2.0), dy = cy - (_posY + _size / 2.0);
+                double reach = _hitSize / 2.0;
+                if (dx * dx + dy * dy <= reach * reach)
+                {
+                    _shimmerPhase += 0.35;
+                    opacity *= 0.85 + 0.13 * Math.Sin(_shimmerPhase);
+                }
+            }
+            _window.Opacity = opacity;
             _window.Left = _posX - _winPad + jx;
             _window.Top = _posY - _winPad + jy;
         }
@@ -1363,14 +2150,55 @@ internal class Bubble
         }
     }
 
+    /// <summary>Player-click entry (all three click paths route here): pops as usual, then —
+    /// only if the pop actually landed (not swallowed by pause-lock, a spank, or a double-pop
+    /// guard) — tells the service it was a genuine click. Chain hops, vibe sweeps, gaze and
+    /// skill pops all call <see cref="Pop"/> directly, so E-Stim charges never burn on them.</summary>
+    private void PopByClick()
+    {
+        bool wasPopping = _isPopping;
+        Pop();
+        if (!wasPopping && _isPopping && _spec != null) _onClickPop?.Invoke(this);
+    }
+
     public void Pop()
     {
         if (!_isAlive || _isPopping) return;
+        // Manual pause: the field is held AND untouchable — swallow every click path
+        // (hit area, window backup, gaze, chain hops) until the run resumes.
+        if (_spec != null && BubbleService.ChaosInputLocked) return;
+        // The Spanker: rabbits aren't caught anymore — every pop path (click, vibe sweep,
+        // chain hop) smacks them into allies instead. No catch, no slow-mo: that's the trade.
+        // GG sweepers are NEVER catchable — a click only ever re-smacks them onward.
+        if (_spec != null && _isDarter && (BubbleService.ChaosSpankerOnNow || _spec.IsSweeper)) { Spank(); return; }
         // NOTE: frozen bubbles ARE poppable — the freeze is a reward (a calm window to pop/defuse
         // for free while fuses are paused). The pop animation runs even while the field is frozen.
         _isPopping = true;
         if (_spec != null)
         {
+            // Anchor for service-side floating text (Blank Eyes pop scores): this bubble's
+            // on-screen centre in DIPs, read by ChaosModeService right after the callback.
+            try
+            {
+                BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
+                BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+                // Physical-px anchor too — droplet bursts / GG rabbits spawn AT the pop.
+                var popPx = CenterPx;
+                BubbleService.ChaosLastPopXPx = popPx.X;
+                BubbleService.ChaosLastPopYPx = popPx.Y;
+            }
+            catch { }
+            // Mimic prism: the shadow pop — the copied bubble ghosts out underneath the burst.
+            if (_spec.IsPrism && _prismGhost != null)
+            {
+                try
+                {
+                    _prismGhost.Opacity = 0.6;
+                    _prismGhost.BeginAnimation(UIElement.OpacityProperty,
+                        new System.Windows.Media.Animation.DoubleAnimation(0.6, 0, TimeSpan.FromMilliseconds(650)));
+                }
+                catch { }
+            }
             // Chaos bubble: a live bubble clicked in time is a DEFUSE (reward, no payload);
             // a darter caught is its own reward path; a benign bubble is a treat.
             if (_isDarter)
@@ -1389,6 +2217,48 @@ internal class Bubble
             _onPop?.Invoke(this);
         }
         // Don't call Destroy() here - let AnimateFrame() handle the burst animation.
+    }
+
+    /// <summary>The Spanker: smack this rabbit — new heading (+18% pace per smack, capped),
+    /// fresh bounces, hot-pink glow, and a ONE-TIME level-scaled swell on the first smack.
+    /// From now on its body pops every plain bubble it crosses. Lifetime is untouched,
+    /// so it still expires as usual.</summary>
+    private void Spank()
+    {
+        if (_spankCooldownMs > 0) return;
+        _spankCooldownMs = 250;
+        double spd = Math.Sqrt(_vx * _vx + _vy * _vy);
+        if (spd < 0.01) spd = _spec?.DarterSpeed ?? 9.0;
+        // Each smack also stings it faster (+18%), capped at ~2.2x its natural pace.
+        spd = Math.Min(spd * 1.18, (_spec?.DarterSpeed ?? 9.0) * 2.2);
+        double a = _random.NextDouble() * Math.PI * 2;
+        _vx = Math.Cos(a) * spd;
+        _vy = Math.Sin(a) * spd;
+        _darterEscaping = false;
+        _darterBounces = 0;
+        _darterThrobPunch = 0.35;
+        if (!_isSpanked)
+        {
+            _isSpanked = true;
+            // The swell happens ONCE, on the first smack (level-scaled); re-smacks only
+            // steer and hurry it — no compounding back up to comedy size.
+            _spankGrowth = Math.Max(1.0, BubbleService.ChaosSpankGrowNow);
+            // It changes color: the chase-glow deepens to a hot ally-pink.
+            try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x14, 0x93), BlurRadius = 34, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
+            ShowChaosLabel("SPANKED", Color.FromRgb(0xFF, 0x4D, 0xC4));
+        }
+    }
+
+    /// <summary>A treat ran out its on-screen lifetime: it dissolves away — no pop, no payload.
+    /// The service-side callback docks one streak for letting the reward rot.</summary>
+    private void Dissolve()
+    {
+        if (!_isAlive || _isPopping) return;
+        _isPopping = true;
+        _isDissolving = true;
+        ShowChaosLabel("FADED", Color.FromRgb(0xB8, 0xB8, 0xD0));
+        _onTreatExpired?.Invoke(this);
+        // Shrink/fade animation + Destroy handled by AnimateFrame().
     }
 
     /// <summary>Live chaos bubble reached fuse-out / escaped undefused → fire its payload.</summary>
@@ -1502,6 +2372,34 @@ internal class Bubble
                 RenderTransform = new ScaleTransform(1, 1)
             };
             _grid.Children.Add(_fuseRing);
+        }
+
+        // Golden lucky bubble: a faint warm glow so it reads as treasure on the way past.
+        if (_spec.IsGolden)
+            _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(255, 215, 0), BlurRadius = 20, ShadowDepth = 0, Opacity = 0.55 };
+
+        // Mimic prism: pre-build the copied bubble's "shadow pop" ghost — hidden under the
+        // prism art, revealed the instant it pops so the player SEES whose soul it wore.
+        if (_spec.IsPrism && !string.IsNullOrEmpty(_spec.MimicVariantId))
+        {
+            var ghostSprite = ChaosArt.Resolve("bubbles", _spec.MimicVariantId);
+            if (ghostSprite != null)
+            {
+                _prismGhost = new Image
+                {
+                    Source = ghostSprite,
+                    Width = _size * 0.9,
+                    Height = _size * 0.9,
+                    Stretch = Stretch.Uniform,
+                    IsHitTestVisible = false,
+                    Opacity = 0,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 14, 0, 0),   // peeks out from UNDER the burst
+                };
+                int imgIdx = _grid.Children.IndexOf(_bubbleImage);
+                _grid.Children.Insert(Math.Max(0, imgIdx), _prismGhost);
+            }
         }
 
         // Darter: a soft glow so the fast bounce stays trackable, plus a telegraph flare

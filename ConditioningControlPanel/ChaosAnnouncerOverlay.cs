@@ -16,11 +16,13 @@ public enum ChaosAnnounceKind { Mantra, Temptation, Willpower, Depth, Streak, It
 /// <summary>
 /// Full-screen, click-through overlay that flashes a fast bordered "subtitle" line in the
 /// upper third of the screen to announce a Chaos pickup/beat (mantra drafted, temptation
-/// taken, willpower gained, depth reached, streak milestone). Modeled on
-/// <see cref="ChaosFlashOverlay"/>: transparent topmost window, hit-test invisible, lives a
-/// fraction of a second then closes. Announcements queue so two back-to-back beats play in
-/// sequence instead of stomping each other. Master-gated on
+/// taken, willpower gained, depth reached, streak milestone). Announcements queue so two
+/// back-to-back beats play in sequence instead of stomping each other. Master-gated on
 /// <c>AppSettings.ChaosAnnouncerEnabled</c> so the whole feature is one switch.
+/// ONE window is created on first use and KEPT ALIVE between announcements (each one just
+/// swaps the label) — announcing churns constantly mid-run, and creating/closing a layered
+/// window mid-run can wedge the shared WPF render thread (Application Hang 1002 — see
+/// ChaosEffectBannerOverlay). Closed only at run teardown via <see cref="CloseActive"/>.
 /// </summary>
 public sealed class ChaosAnnouncerOverlay : Window
 {
@@ -29,7 +31,7 @@ public sealed class ChaosAnnouncerOverlay : Window
     private const int HOLD_MS       = 650;    // dwell
     private const int OUT_MS        = 240;    // fade-out ("fades almost immediately")
     private const double FONT_SIZE  = 60;
-    private const double TOP_FRACTION = 0.26; // vertical anchor (upper third, clear of bubbles/HUD)
+    private const double TOP_OFFSET_DIP = 92; // sits right under the effect-banner strip (wa.Top+6, 80 tall)
 
     private static ChaosAnnouncerOverlay? _active;
     private static readonly Queue<(string text, ChaosAnnounceKind kind)> _queue = new();
@@ -53,7 +55,7 @@ public sealed class ChaosAnnouncerOverlay : Window
         catch (Exception ex) { App.Logger?.Debug("ChaosAnnouncer.Announce: {E}", ex.Message); }
     }
 
-    /// <summary>Drop any queued/visible announcement (run teardown).</summary>
+    /// <summary>Drop any queued/visible announcement and tear the window down (run teardown).</summary>
     public static void CloseActive()
     {
         try { _queue.Clear(); _showing = false; _active?.CloseNow(); } catch { }
@@ -66,9 +68,9 @@ public sealed class ChaosAnnouncerOverlay : Window
         var (text, kind) = _queue.Dequeue();
         try
         {
-            _active?.CloseNow();
-            _active = new ChaosAnnouncerOverlay(text, kind);
-            ((Window)_active).Show();
+            if (_active == null) { _active = new ChaosAnnouncerOverlay(); ((Window)_active).Show(); }
+            else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between announcements
+            _active.Display(text, kind);
         }
         catch (Exception ex)
         {
@@ -77,9 +79,11 @@ public sealed class ChaosAnnouncerOverlay : Window
         }
     }
 
+    private readonly Grid _host;
     private readonly DispatcherTimer _life;
+    private (string text, ChaosAnnounceKind kind)? _pending;   // first Display can land before Loaded
 
-    private ChaosAnnouncerOverlay(string text, ChaosAnnounceKind kind)
+    private ChaosAnnouncerOverlay()
     {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -97,6 +101,41 @@ public sealed class ChaosAnnouncerOverlay : Window
         Height = SystemParameters.VirtualScreenHeight;
         Opacity = 0;
 
+        _host = new Grid();
+        Content = _host;
+
+        SourceInitialized += (_, _) => ApplyExStyles();
+        Loaded += (_, _) =>
+        {
+            if (_pending is { } p) { _pending = null; DisplayCore(p.text, p.kind); }
+        };
+
+        _life = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(IN_MS + HOLD_MS) };
+        _life.Tick += (_, _) =>
+        {
+            _life.Stop();
+            var fade = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(OUT_MS));
+            fade.Completed += (_, _) =>
+            {
+                try { _host.Children.Clear(); } catch { }   // window stays — only content goes
+                // Nothing queued → hide until the next announcement (an idle visible
+                // full-virtual-screen layered surface taxes DWM composition every frame).
+                if (_queue.Count == 0) { try { Hide(); } catch { } }
+                ShowNext();
+            };
+            BeginAnimation(OpacityProperty, fade);
+        };
+    }
+
+    private void Display(string text, ChaosAnnounceKind kind)
+    {
+        if (!IsLoaded) { _pending = (text, kind); return; }
+        DisplayCore(text, kind);
+    }
+
+    private void DisplayCore(string text, ChaosAnnounceKind kind)
+    {
+        _life.Stop();
         var (fill, stroke) = Palette(kind);
         var scale = new ScaleTransform(0.85, 0.85);
         var label = new OutlinedText
@@ -110,36 +149,27 @@ public sealed class ChaosAnnouncerOverlay : Window
             VerticalAlignment = VerticalAlignment.Top,
             RenderTransformOrigin = new Point(0.5, 0.5),
             RenderTransform = scale,
+            // Anchored just under the effect-banner strip at the top of the primary work area
+            // (this window spans the virtual screen, which may start above the work area).
+            Margin = new Thickness(0,
+                Math.Max(0, SystemParameters.WorkArea.Top - SystemParameters.VirtualScreenTop) + TOP_OFFSET_DIP, 0, 0),
         };
-        Content = new Grid { Children = { label } };
+        label.Build();
+        _host.Children.Clear();
+        _host.Children.Add(label);
 
-        SourceInitialized += (_, _) => ApplyExStyles();
-        Loaded += (_, _) =>
-        {
-            label.Build();
-            label.Margin = new Thickness(0, Math.Max(0, Height * TOP_FRACTION), 0, 0);
-
-            BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(IN_MS)));
-            var pop = new DoubleAnimation(0.85, 1.0, TimeSpan.FromMilliseconds(IN_MS + 70))
-            { EasingFunction = new BackEase { Amplitude = 0.6, EasingMode = EasingMode.EaseOut } };
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
-            _life.Start();
-        };
-
-        _life = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(IN_MS + HOLD_MS) };
-        _life.Tick += (_, _) =>
-        {
-            _life.Stop();
-            var fade = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(OUT_MS));
-            fade.Completed += (_, _) => { CloseNow(); ShowNext(); };
-            BeginAnimation(OpacityProperty, fade);
-        };
+        BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(IN_MS)));
+        var pop = new DoubleAnimation(0.85, 1.0, TimeSpan.FromMilliseconds(IN_MS + 70))
+        { EasingFunction = new BackEase { Amplitude = 0.6, EasingMode = EasingMode.EaseOut } };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        _life.Start();
     }
 
     private void CloseNow()
     {
         try { _life.Stop(); } catch { }
+        try { _host.Children.Clear(); } catch { }
         if (ReferenceEquals(_active, this)) _active = null;
         try { Close(); } catch { }
     }

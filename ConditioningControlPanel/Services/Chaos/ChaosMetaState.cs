@@ -14,6 +14,8 @@ public sealed class ChaosMetaState
 
     public int Sparks { get; set; } = 0;
     public HashSet<string> PurchasedUpgrades { get; set; } = new();
+    /// <summary>Trained habits the player has switched OFF (absent = on, so old saves stay fully active).</summary>
+    public HashSet<string> DisabledUpgrades { get; set; } = new();
     public bool ExtremeUnlocked { get; set; } = false;
 
     /// <summary>Boon id pre-equipped to apply at run start (Loadout tab). Null = none.</summary>
@@ -33,4 +35,6 @@ public sealed class ChaosMetaState
     public long BestScore { get; set; } = 0;
     public int BestCombo { get; set; } = 0;
     public long TotalDefused { get; set; } = 0;
+    /// <summary>Total time spent down the hole across all completed descents, in seconds.</summary>
+    public double TotalRunSeconds { get; set; } = 0;
 }

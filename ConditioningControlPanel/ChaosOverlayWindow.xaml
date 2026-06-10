@@ -1,7 +1,7 @@
 <Window x:Class="ConditioningControlPanel.ChaosOverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Chaos"
+        Title="The Rabbit Hole"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False"
         ResizeMode="NoResize" WindowStartupLocation="Manual" FontFamily="Segoe UI">
@@ -39,32 +39,68 @@
                            HorizontalAlignment="Center" Margin="0,0,0,18"/>
                 <StackPanel x:Name="BoonCardHost" Orientation="Horizontal" HorizontalAlignment="Center"/>
                 <Grid Margin="0,18,0,0">
-                    <Button x:Name="BtnSkipBoon" Content="skip → +1 willpower" Click="BtnSkipBoon_Click"
-                            HorizontalAlignment="Left" Padding="12,6" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button x:Name="BtnSkipBoon" Content="resist → +1 resistance (for now)" Click="BtnSkipBoon_Click"
+                                Padding="12,6" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
+                        <!-- Taking Chances: re-draw the options; visible only while rerolls remain. -->
+                        <Button x:Name="BtnReroll" Content="🎲 tempt fate again" Click="BtnReroll_Click" Visibility="Collapsed"
+                                Margin="10,0,0,0" Padding="12,6" Background="#338B5CF6" Foreground="White" BorderThickness="0"/>
+                    </StackPanel>
                     <TextBlock x:Name="DraftCountdown" Foreground="{StaticResource TextDim}" FontSize="13"
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                    <!-- Appears after a pick: commits the boon and closes the draft. -->
-                    <Button x:Name="BtnContinue" Content="Continue ▸" Click="BtnContinue_Click"
-                            Visibility="Collapsed" Opacity="0" HorizontalAlignment="Right" Padding="20,8"
-                            Background="{StaticResource Pink}" Foreground="White" FontWeight="Bold" BorderThickness="0"
-                            RenderTransformOrigin="0.5,0.5"/>
                 </Grid>
             </StackPanel>
         </Border>
 
-        <!-- RESULTS -->
+        <!-- RESULTS: hero-banner recap card. The art ships at assets/Chaos/recap.png
+             (ChaosArt.ResolveRecap); until it exists the gradient wash underneath shows. -->
         <Border x:Name="ResultsPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="{StaticResource PanelBg}" BorderBrush="{StaticResource Pink}" BorderThickness="2"
-                CornerRadius="16" Padding="34" MinWidth="520">
+                Background="{StaticResource PanelBg}" BorderBrush="{StaticResource Pink}" BorderThickness="3"
+                CornerRadius="16" Width="560">
             <StackPanel>
-                <TextBlock Text="CHAOS RUN COMPLETE" Foreground="{StaticResource Pink}" FontWeight="Bold"
-                           FontSize="22" HorizontalAlignment="Center" Margin="0,0,0,18"/>
-                <StackPanel x:Name="ResultsBody"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
-                    <Button x:Name="BtnRunAgain" Content="▸ RUN AGAIN" Click="BtnRunAgain_Click"
-                            Padding="18,10" Margin="0,0,12,0" Background="{StaticResource Pink}" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
-                    <Button x:Name="BtnClose" Content="back to desktop" Click="BtnClose_Click"
-                            Padding="18,10" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
+                <!-- HERO: full-bleed banner, top corners clipped inside the card ring;
+                     the clip rect runs taller than the banner so only the top rounds. -->
+                <Grid Height="190">
+                    <Grid.Clip>
+                        <RectangleGeometry Rect="0,0,554,300" RadiusX="13" RadiusY="13"/>
+                    </Grid.Clip>
+                    <Border>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#FF221340" Offset="0"/>
+                                <GradientStop Color="#FF44195C" Offset="0.55"/>
+                                <GradientStop Color="#FF7E2A6E" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Image x:Name="ResultsHero" Stretch="UniformToFill"/>
+                    <!-- scrim so the title reads over any art -->
+                    <Border>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#00000000" Offset="0.30"/>
+                                <GradientStop Color="#E0120F22" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <StackPanel VerticalAlignment="Bottom" Margin="26,0,26,13">
+                        <TextBlock Text="YOU SURFACE" Foreground="White" FontWeight="Bold" FontSize="30">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="#FFFF69B4" BlurRadius="24" ShadowDepth="0" Opacity="0.85"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        <TextBlock Text="it lets you go. for now." Foreground="#D8FFD7EF"
+                                   FontSize="12" FontStyle="Italic" Margin="2,1,0,0"/>
+                    </StackPanel>
+                </Grid>
+                <StackPanel Margin="28,18,28,26">
+                    <StackPanel x:Name="ResultsBody"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                        <Button x:Name="BtnRunAgain" Content="▸ FALL DEEPER" Click="BtnRunAgain_Click"
+                                Padding="18,10" Margin="0,0,12,0" Background="{StaticResource Pink}" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                        <Button x:Name="BtnClose" Content="wake up" Click="BtnClose_Click"
+                                Padding="18,10" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
         </Border>

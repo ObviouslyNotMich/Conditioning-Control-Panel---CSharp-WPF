@@ -17,8 +17,13 @@ public class BouncingTextService : IDisposable
 {
     private readonly Random _random = new();
     private readonly List<BouncingTextWindow> _windows = new();
-    private DispatcherTimer? _animTimer;
     private bool _isRunning;
+
+    // Composition-clock state. We drive motion off CompositionTarget.Rendering
+    // (vsync-aligned, one callback per rendered frame) rather than a DispatcherTimer
+    // (quantized to the ~15.6ms OS tick, which beats against the display refresh and
+    // produces "low frame rate" judder). _lastRenderTime feeds delta-time movement.
+    private TimeSpan _lastRenderTime = TimeSpan.MinValue;
     
     // Current text state
     private string _currentText = "";
@@ -44,8 +49,9 @@ public class BouncingTextService : IDisposable
     private DateTime _bounceXpMinuteStart = DateTime.MinValue;
     private const int MaxBounceXpPerMinute = 150;
     
-    // Z-order re-assertion counter (every ~30 ticks = ~500ms at 60 FPS)
-    private int _topmostTickCount;
+    // Z-order re-assertion accumulator (re-assert topmost every ~0.5s of real time;
+    // frame-rate-independent now that the tick rate varies with the display refresh).
+    private double _zReassertAccum;
 
     public bool IsRunning => _isRunning;
 
@@ -117,9 +123,11 @@ public class BouncingTextService : IDisposable
         _posX = _minX + _random.NextDouble() * Math.Max(1, (_maxX - _minX - _textWidth));
         _posY = _minY + _random.NextDouble() * Math.Max(1, (_maxY - _minY - _textHeight));
         
-        // Random velocity (speed based on setting)
+        // Random velocity in DIP/second (speed based on setting). The base is the
+        // old 3-5 px/tick value scaled by 60 so the on-screen feel is unchanged at
+        // 60 FPS, but motion is now delta-time driven so it stays correct at any rate.
         var speed = settings.BouncingTextSpeed / 10.0; // 1-10 maps to 0.1-1.0 multiplier
-        var baseSpeed = 3.0 + _random.NextDouble() * 2.0; // 3-5 base speed
+        var baseSpeed = (3.0 + _random.NextDouble() * 2.0) * 60.0; // 180-300 DIP/sec
         _velX = baseSpeed * speed * (_random.Next(2) == 0 ? 1 : -1);
         _velY = baseSpeed * speed * (_random.Next(2) == 0 ? 1 : -1);
         
@@ -129,13 +137,12 @@ public class BouncingTextService : IDisposable
         // Create windows for each screen
         CreateWindows(settings.DualMonitorEnabled, settings.BouncingTextOpacity);
 
-        // Start animation timer (~60 FPS) - use Send priority so it doesn't throttle when main window is minimized
-        _animTimer = new DispatcherTimer(DispatcherPriority.Send)
-        {
-            Interval = TimeSpan.FromMilliseconds(16)
-        };
-        _animTimer.Tick += Animate;
-        _animTimer.Start();
+        // Drive motion off the composition clock (vsync-aligned, one callback per
+        // rendered frame) instead of a DispatcherTimer — see _lastRenderTime note.
+        _lastRenderTime = TimeSpan.MinValue;
+        _zReassertAccum = 0;
+        CompositionTarget.Rendering -= Animate; // guard against a double subscribe
+        CompositionTarget.Rendering += Animate;
         
         App.Logger?.Information("BouncingTextService started - Text: {Text}, Size: {W}x{H}", 
             _currentText, _textWidth, _textHeight);
@@ -145,9 +152,8 @@ public class BouncingTextService : IDisposable
     {
         _isRunning = false;
         
-        _animTimer?.Stop();
-        _animTimer = null;
-        
+        CompositionTarget.Rendering -= Animate;
+
         // Always close and clear windows, even if we thought we weren't running
         foreach (var window in _windows)
         {
@@ -258,6 +264,23 @@ public class BouncingTextService : IDisposable
     {
         if (!_isRunning) return;
 
+        // Delta time from the composition clock. Establish a baseline on the first
+        // frame, ignore duplicate callbacks, and clamp after a stall so the text
+        // never teleports across the screen.
+        double dt = 1.0 / 60.0;
+        if (e is RenderingEventArgs r)
+        {
+            if (_lastRenderTime == TimeSpan.MinValue)
+            {
+                _lastRenderTime = r.RenderingTime;
+                return;
+            }
+            dt = (r.RenderingTime - _lastRenderTime).TotalSeconds;
+            _lastRenderTime = r.RenderingTime;
+            if (dt <= 0) return;
+            if (dt > 0.1) dt = 0.1;
+        }
+
         // Hide bouncing text while a mandatory video is playing
         if (App.Video?.IsPlaying == true)
         {
@@ -269,9 +292,9 @@ public class BouncingTextService : IDisposable
             foreach (var w in _windows) { if (!w.IsVisible) w.Show(); }
         }
 
-        // Move
-        _posX += _velX;
-        _posY += _velY;
+        // Move (delta-time based; velocities are DIP/second)
+        _posX += _velX * dt;
+        _posY += _velY * dt;
         
         bool bouncedX = false;
         bool bouncedY = false;
@@ -367,10 +390,10 @@ public class BouncingTextService : IDisposable
         
         // Re-assert z-order every ~500ms — bouncing text is long-lived and will
         // lose topmost when competing with flash/video/overlay windows
-        _topmostTickCount++;
-        if (_topmostTickCount >= 30)
+        _zReassertAccum += dt;
+        if (_zReassertAccum >= 0.5)
         {
-            _topmostTickCount = 0;
+            _zReassertAccum = 0;
             foreach (var window in _windows)
                 window.ReassertTopmost();
         }
@@ -456,7 +479,7 @@ public class BouncingTextService : IDisposable
         // Update speed
         var speed = settings.BouncingTextSpeed / 10.0;
         var currentSpeed = Math.Sqrt(_velX * _velX + _velY * _velY);
-        var targetSpeed = (3.0 + _random.NextDouble() * 2.0) * speed;
+        var targetSpeed = (3.0 + _random.NextDouble() * 2.0) * 60.0 * speed; // DIP/sec
         var scale = targetSpeed / Math.Max(0.1, currentSpeed);
         _velX *= scale;
         _velY *= scale;

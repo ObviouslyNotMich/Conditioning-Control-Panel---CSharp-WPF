@@ -17,7 +17,10 @@ namespace ConditioningControlPanel;
 /// Full-screen, click-through overlay for the Chaos "GifCascade" payload: images/gifs spawn at the top
 /// of the screen on a timer and fall/cascade downward, then despawn off the bottom. Sources images from
 /// the SAME pool the flash/braindrain payloads draw on (<c>EffectiveAssetsPath/images</c>). Silent no-op
-/// if the pool is empty. One instance at a time; a new Show() replaces any active cascade.
+/// if the pool is empty. One window, KEPT ALIVE between cascades and only closed at run teardown
+/// (<see cref="CloseActive"/>): creating/closing a layered window mid-run can wedge the shared WPF
+/// render thread (Application Hang 1002 — see ChaosEffectBannerOverlay). A new Show() restarts the
+/// cascade in the existing window.
 /// </summary>
 public sealed class ChaosGifCascadeOverlay : Window
 {
@@ -32,6 +35,16 @@ public sealed class ChaosGifCascadeOverlay : Window
     /// </summary>
     private const int MAX_CONCURRENT = 14;
 
+    /// <summary>
+    /// Budget on clips that actually ANIMATE. XamlAnimatedGif decodes every frame at native
+    /// resolution on the UI thread — the 2026-06-10 cascade retune (10 clips / 6s) tripled
+    /// concurrency and a pool of heavy gifs froze the UI for 15s+ (AppHangB1, watchdog log).
+    /// Clips beyond this budget (or over the byte cap) fall as display-size STILLS instead —
+    /// same look in motion, none of the decode cost.
+    /// </summary>
+    private const int MAX_ANIMATED = 3;
+    private const long ANIMATED_MAX_BYTES = 3_000_000;
+
     private static ChaosGifCascadeOverlay? _active;
     private static readonly Random _rng = new();
 
@@ -42,9 +55,9 @@ public sealed class ChaosGifCascadeOverlay : Window
         {
             var files = PickFiles();
             if (files.Count == 0) return;
-            _active?.CloseNow();
-            _active = new ChaosGifCascadeOverlay(files, spawnRatePerSec, durationSec, gifSize, fallSpeed, opacity, startScale);
-            ((Window)_active).Show();
+            if (_active == null) { _active = new ChaosGifCascadeOverlay(); ((Window)_active).Show(); }
+            else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between cascades
+            _active.Restart(files, spawnRatePerSec, durationSec, gifSize, fallSpeed, opacity, startScale);
         }
         catch (Exception ex) { App.Logger?.Debug("ChaosGifCascadeOverlay.Show: {E}", ex.Message); }
     }
@@ -52,29 +65,41 @@ public sealed class ChaosGifCascadeOverlay : Window
     /// <summary>Close any active cascade immediately (run teardown).</summary>
     public static void CloseActive() { try { _active?.CloseNow(); } catch { } }
 
+    /// <summary>True while a cascade is actually in flight (spawning or clips still falling).
+    /// The chaos heavy gate and VideoService both read this — a mandatory video opening over
+    /// a falling cascade is the proven UI-thread killer, so REALITY gates it, not estimates.</summary>
+    public static bool IsRaining
+    {
+        get { try { var a = _active; return a != null && (a._spawning || a._fallers.Count > 0); } catch { return false; } }
+    }
+
     private readonly Canvas _canvas;
-    private readonly List<string> _files;
-    private readonly double _gifSize;
-    private readonly double _fallSpeed;
-    private readonly double _opacity;
-    private readonly double _startScale;   // <1: clips spawn small at the top and grow toward _gifSize as they slide down
+    private List<string> _files = new();
+    private double _gifSize = 200;
+    private double _fallSpeed = 4;
+    private double _opacity = 1.0;
+    private double _startScale = 1.0;   // <1: clips spawn small at the top and grow toward _gifSize as they slide down
     private readonly List<Faller> _fallers = new();
     private readonly DispatcherTimer _spawn;
-    private readonly DispatcherTimer _anim;
     private readonly DispatcherTimer _life;
-    private bool _spawning = true;
+    private bool _spawning;
+    // Motion runs off the composition clock (vsync-aligned) instead of a 16ms
+    // DispatcherTimer, whose OS-quantized cadence beat against the refresh and made
+    // the cascade judder. _lastRender feeds a delta-time frame scale.
+    private TimeSpan _lastRender = TimeSpan.MinValue;
 
-    private sealed class Faller { public Image Img = null!; public double Y; public double CenterX; public double Speed; }
-
-    private ChaosGifCascadeOverlay(List<string> files, double spawnRatePerSec, double durationSec,
-                                   double gifSize, double fallSpeed, double opacity, double startScale)
+    private sealed class Faller
     {
-        _files = files;
-        _gifSize = Math.Clamp(gifSize, 40, 600);
-        _fallSpeed = Math.Clamp(fallSpeed, 0.5, 30);
-        _opacity = Math.Clamp(opacity, 0.05, 1.0);
-        _startScale = Math.Clamp(startScale, 0.1, 1.0);
+        public Image Img = null!; public double Y; public double CenterX; public double Speed; public bool Animated;
+        // Motion + growth ride RENDER transforms: layout-property animation (Width /
+        // Canvas.Left/Top per frame) forces a full layout pass over the giant layered
+        // window every frame — the 2026-06-10 mid-cascade UI freezes (Hang 1002).
+        public TranslateTransform Move = null!; public ScaleTransform Grow = null!;
+    }
+    private int _animatedAlive;   // clips currently running the full XamlAnimatedGif decode
 
+    private ChaosGifCascadeOverlay()
+    {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
@@ -94,17 +119,31 @@ public sealed class ChaosGifCascadeOverlay : Window
         Content = _canvas;
         SourceInitialized += (_, _) => ApplyExStyles();
 
-        double interval = 1000.0 / Math.Max(0.05, spawnRatePerSec);
-        _spawn = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(interval) };
+        _spawn = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _spawn.Tick += (_, _) => SpawnOne();
 
-        _anim = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
-        _anim.Tick += (_, _) => Step();
-
-        _life = new DispatcherTimer { Interval = TimeSpan.FromSeconds(Math.Max(1.0, durationSec)) };
+        _life = new DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
         _life.Tick += (_, _) => { _life.Stop(); _spawning = false; _spawn.Stop(); };  // stop spawning; let in-flight fall out
+    }
 
-        Loaded += (_, _) => { SpawnOne(); _spawn.Start(); _anim.Start(); _life.Start(); };
+    /// <summary>(Re)start a cascade in the existing window — any in-flight clips are replaced.</summary>
+    private void Restart(List<string> files, double spawnRatePerSec, double durationSec,
+                         double gifSize, double fallSpeed, double opacity, double startScale)
+    {
+        StopAndClear();
+        _files = files;
+        _gifSize = Math.Clamp(gifSize, 40, 600);
+        _fallSpeed = Math.Clamp(fallSpeed, 0.5, 30);
+        _opacity = Math.Clamp(opacity, 0.05, 1.0);
+        _startScale = Math.Clamp(startScale, 0.1, 1.0);
+        _spawn.Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(0.05, spawnRatePerSec));
+        _life.Interval = TimeSpan.FromSeconds(Math.Max(1.0, durationSec));
+        _spawning = true;
+        SpawnOne();
+        _spawn.Start(); _life.Start();
+        _lastRender = TimeSpan.MinValue;
+        CompositionTarget.Rendering -= OnRender; // guard against a double subscribe
+        CompositionTarget.Rendering += OnRender;
     }
 
     private void SpawnOne()
@@ -115,58 +154,114 @@ public sealed class ChaosGifCascadeOverlay : Window
         {
             string path = _files[_rng.Next(_files.Count)];
             var img = new Image { Stretch = Stretch.Uniform, Opacity = _opacity };
-            if (path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
+            // A gif only animates while the animated budget has room and it isn't huge;
+            // otherwise it falls as a still (BitmapImage on a .gif decodes the first frame).
+            bool animate = false;
+            if (path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) && _animatedAlive < MAX_ANIMATED)
             {
+                long len = 0;
+                try { len = new FileInfo(path).Length; } catch { }
+                animate = len > 0 && len <= ANIMATED_MAX_BYTES;
+            }
+            if (animate)
+            {
+                _animatedAlive++;
                 AnimationBehavior.SetRepeatBehavior(img, System.Windows.Media.Animation.RepeatBehavior.Forever);
                 AnimationBehavior.SetAutoStart(img, true);
                 AnimationBehavior.SetSourceUri(img, new Uri(path, UriKind.Absolute));
             }
             else
             {
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.DecodePixelWidth = (int)_gifSize;   // decode at display size — cheap
-                bmp.UriSource = new Uri(path, UriKind.Absolute);
-                bmp.EndInit();
-                if (bmp.CanFreeze) bmp.Freeze();
-                img.Source = bmp;
+                // Decode OFF the UI thread (a big still parsed synchronously at spawn was part of
+                // the mid-cascade freezes); frozen bitmaps cross threads safely. The clip falls
+                // empty for the few frames the decode takes — invisible in the rain.
+                int decodeWidth = (int)_gifSize;
+                string file = path;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.DecodePixelWidth = decodeWidth;   // decode at display size — cheap
+                        bmp.UriSource = new Uri(file, UriKind.Absolute);
+                        bmp.EndInit();
+                        if (bmp.CanFreeze) bmp.Freeze();
+                        Application.Current?.Dispatcher.BeginInvoke(() => { try { img.Source = bmp; } catch { } });
+                    }
+                    catch (Exception ex) { App.Logger?.Debug("GifCascade decode: {E}", ex.Message); }
+                });
             }
 
-            // Center-anchored so a clip grows about its own centre as it descends (reads as "approaching").
+            // Fixed layout (Width + Canvas slot set ONCE); per-frame motion/growth are pure
+            // render transforms, so no layout pass ever runs during the fall.
             double centerX = _gifSize / 2 + _rng.NextDouble() * Math.Max(1, Width - _gifSize);
             double y = -_gifSize;
-            double w0 = _gifSize * ScaleAt(y);
-            img.Width = w0;
-            Canvas.SetLeft(img, centerX - w0 / 2);
-            Canvas.SetTop(img, y);
+            var move = new TranslateTransform(0, y);
+            var grow = new ScaleTransform(ScaleAt(y), ScaleAt(y));
+            var tg = new TransformGroup();
+            tg.Children.Add(grow);
+            tg.Children.Add(move);
+            img.Width = _gifSize;
+            img.RenderTransformOrigin = new Point(0.5, 0.5);
+            img.RenderTransform = tg;
+            Canvas.SetLeft(img, centerX - _gifSize / 2);
+            Canvas.SetTop(img, 0);
             _canvas.Children.Add(img);
-            _fallers.Add(new Faller { Img = img, CenterX = centerX, Y = y, Speed = _fallSpeed * (0.7 + _rng.NextDouble() * 0.6) });
+            _fallers.Add(new Faller
+            {
+                Img = img, CenterX = centerX, Y = y,
+                Speed = _fallSpeed * (0.7 + _rng.NextDouble() * 0.6),
+                Animated = animate, Move = move, Grow = grow,
+            });
         }
         catch (Exception ex) { App.Logger?.Debug("GifCascade spawn: {E}", ex.Message); }
     }
 
-    private void Step()
+    private void OnRender(object? sender, EventArgs e)
     {
         try
         {
+            // Vsync-aligned delta time, expressed as frames-worth of motion at the
+            // old 16ms cadence so fall speeds keep their tuned feel.
+            double frameScale = 1.0;
+            if (e is RenderingEventArgs r)
+            {
+                if (_lastRender == TimeSpan.MinValue) { _lastRender = r.RenderingTime; return; }
+                double dt = (r.RenderingTime - _lastRender).TotalSeconds;
+                _lastRender = r.RenderingTime;
+                if (dt <= 0) return;
+                if (dt > 0.1) dt = 0.1;
+                frameScale = dt / 0.016;
+            }
+
             for (int i = _fallers.Count - 1; i >= 0; i--)
             {
                 var f = _fallers[i];
-                f.Y += f.Speed;
-                double w = _gifSize * ScaleAt(f.Y);
-                f.Img.Width = w;
-                Canvas.SetLeft(f.Img, f.CenterX - w / 2);
-                Canvas.SetTop(f.Img, f.Y);
+                f.Y += f.Speed * frameScale;
+                double s = ScaleAt(f.Y);
+                f.Grow.ScaleX = s;
+                f.Grow.ScaleY = s;
+                f.Move.Y = f.Y;
                 if (f.Y > Height + _gifSize)
                 {
                     try { AnimationBehavior.SetSourceUri(f.Img, null); f.Img.Source = null; } catch { }
+                    if (f.Animated) _animatedAlive = Math.Max(0, _animatedAlive - 1);
                     _canvas.Children.Remove(f.Img);
                     _fallers.RemoveAt(i);
                 }
             }
-            // Cascade fully drained after the spawn window closed → close the overlay.
-            if (!_spawning && _fallers.Count == 0) CloseNow();
+            // Cascade fully drained after the spawn window closed → idle the timers. The (now
+            // empty, fully transparent) window stays alive until run teardown — mid-run Close()
+            // of a layered window is the render-thread deadlock trigger.
+            if (!_spawning && _fallers.Count == 0)
+            {
+                GoIdle();
+                // Cascade over: hide the window (kept alive for the next payload) — an idle
+                // visible full-virtual-screen layered surface taxes DWM composition every frame.
+                try { Hide(); } catch { }
+            }
         }
         catch (Exception ex) { App.Logger?.Debug("GifCascade step: {E}", ex.Message); }
     }
@@ -180,16 +275,28 @@ public sealed class ChaosGifCascadeOverlay : Window
         return _startScale + (1.0 - _startScale) * p;
     }
 
-    private void CloseNow()
+    private void GoIdle()
     {
         try { _spawn.Stop(); } catch { }
-        try { _anim.Stop(); } catch { }
+        try { CompositionTarget.Rendering -= OnRender; } catch { }
         try { _life.Stop(); } catch { }
+    }
+
+    private void StopAndClear()
+    {
+        GoIdle();
         foreach (var f in _fallers)
         {
             try { AnimationBehavior.SetSourceUri(f.Img, null); f.Img.Source = null; } catch { }
         }
         _fallers.Clear();
+        _animatedAlive = 0;
+        try { _canvas.Children.Clear(); } catch { }
+    }
+
+    private void CloseNow()
+    {
+        StopAndClear();
         if (ReferenceEquals(_active, this)) _active = null;
         try { Close(); } catch { }
     }

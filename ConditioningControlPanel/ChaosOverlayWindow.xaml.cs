@@ -64,7 +64,7 @@ public partial class ChaosOverlayWindow : Window
     /// (RunAgain); otherwise the full 3·2·1·GO. Skippable on click/keypress in both cases.</summary>
     public void ShowCountdown(Action onComplete, bool shortFlash = false)
     {
-        string[] steps = shortFlash ? new[] { "GO!" } : new[] { "3", "2", "1", "GO!" };
+        string[] steps = shortFlash ? new[] { "SINK" } : new[] { "3", "2", "1", "SINK" };
         int interval = shortFlash ? ChaosModeService.ChaosRestartCountdownMs : 750;
         ShowCountdownSteps(steps, interval, onComplete);
     }
@@ -72,7 +72,7 @@ public partial class ChaosOverlayWindow : Window
     /// <summary>A short "Ready? :3" → "GO!" beat after a mantra pick, using the same flashing
     /// countdown display as the run start, so play resumes with a moment to settle. Skippable.</summary>
     public void ShowReadyGo(Action onComplete)
-        => ShowCountdownSteps(new[] { "Ready? :3", "GO!" }, 800, onComplete);
+        => ShowCountdownSteps(new[] { "ready? :3", "SINK" }, 800, onComplete);
 
     private void ShowCountdownSteps(string[] steps, int interval, Action onComplete)
     {
@@ -169,8 +169,9 @@ public partial class ChaosOverlayWindow : Window
 
     private void ShowCountdownStep(string text)
     {
+        ChaosSfx.Play(text == "SINK" ? "sink" : "countdown_tick", text == "SINK" ? 0.6f : 0.45f);
         CountdownText.Text = text;
-        CountdownText.Foreground = text == "GO!" ? new SolidColorBrush(Color.FromRgb(120, 255, 160)) : Brushes.White;
+        CountdownText.Foreground = text == "SINK" ? new SolidColorBrush(Color.FromRgb(120, 255, 160)) : Brushes.White;
         var pop = new DoubleAnimation(1.5, 1.0, TimeSpan.FromMilliseconds(350)) { EasingFunction = new BackEase { Amplitude = 0.4, EasingMode = EasingMode.EaseOut } };
         var fade = new DoubleAnimation(0.2, 1.0, TimeSpan.FromMilliseconds(200));
         CountdownScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
@@ -181,15 +182,25 @@ public partial class ChaosOverlayWindow : Window
     // ============================ boon draft ============================
 
     private DispatcherTimer? _autoResumeTimer;
+    private DispatcherTimer? _confirmTimer;     // post-pick beat before the draft commits itself
     private int _autoResumeRemainingSec;
+    private int _draftWave;
+    private Func<(List<ChaosBoon> options, int rerollsLeft)?>? _rerollFunc;   // Taking Chances
 
-    public void ShowBoonDraft(int waveJustCleared, List<ChaosBoon> options, Action<ChaosBoon?> onPick, int autoResumeSec = 0)
+    public void ShowBoonDraft(int waveJustCleared, List<ChaosBoon> options, Action<ChaosBoon?> onPick, int autoResumeSec = 0,
+                              int rerollsLeft = 0, Func<(List<ChaosBoon> options, int rerollsLeft)?>? onReroll = null)
     {
         _onBoonPick = onPick;
         _selectedBoon = null;
         _selectionMade = false;
+        _draftWave = waveJustCleared;
+        _rerollFunc = onReroll;
+        BtnReroll.Visibility = rerollsLeft > 0 && onReroll != null ? Visibility.Visible : Visibility.Collapsed;
+        BtnReroll.Content = rerollsLeft > 1 ? $"🎲 tempt fate again ({rerollsLeft} left)" : "🎲 tempt fate again";
         _autoResumeTimer?.Stop();
         _autoResumeTimer = null;
+        _confirmTimer?.Stop();
+        _confirmTimer = null;
         _autoResumeRemainingSec = autoResumeSec;
         SetClickThrough(false);
         CountdownBox.Visibility = Visibility.Collapsed;
@@ -198,11 +209,14 @@ public partial class ChaosOverlayWindow : Window
         DraftPanel.Visibility = Visibility.Visible;
         BringToFront();
 
-        DraftTitle.Text = $"LOOP {waveJustCleared} CLEARED · CHOOSE A MANTRA";
+        ChaosSfx.Play("cards_in", 0.5f);   // the fan whoosh under the per-card reveals
+
+        bool hasSin = options.Exists(o => o.IsCurse);
+        DraftTitle.Text = hasSin
+            ? $"LOOP {waveJustCleared} CLEARED · CHOOSE A MANTRA... OR DON'T"
+            : $"LOOP {waveJustCleared} CLEARED · CHOOSE A MANTRA";
         DraftCountdown.Text = "";
         BtnSkipBoon.Visibility = Visibility.Visible;
-        BtnContinue.Visibility = Visibility.Collapsed;
-        BtnContinue.Opacity = 0;
 
         // Build every card hidden, then reveal them one at a time (each with a per-rarity cue:
         // a bright "dling" for rare, a dull "thud" otherwise). Picks are disabled until revealed.
@@ -228,7 +242,7 @@ public partial class ChaosOverlayWindow : Window
                 if (!_selectionMade)
                 {
                     if (_autoResumeRemainingSec > 0) StartAutoResume();
-                    else DraftCountdown.Text = "field frozen — take your time";
+                    else DraftCountdown.Text = "the field holds. take your time.";
                 }
                 return;
             }
@@ -249,7 +263,8 @@ public partial class ChaosOverlayWindow : Window
         { EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut } };
         dc.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
         dc.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
-        ChaosSfx.PlayBoonReveal(dc.Boon.Rarity == ChaosRarity.Rare);
+        if (dc.Boon.IsCurse) ChaosSfx.Play("sin_reveal", 0.55f);   // a sin lands with its own drone
+        else ChaosSfx.PlayBoonReveal(dc.Boon.Rarity == ChaosRarity.Rare);
     }
 
     private void HideDraft()
@@ -258,19 +273,35 @@ public partial class ChaosOverlayWindow : Window
         _revealTimer = null;
         _autoResumeTimer?.Stop();
         _autoResumeTimer = null;
+        _confirmTimer?.Stop();
+        _confirmTimer = null;
         _draftCards.Clear();
         _selectedBoon = null;
         _selectionMade = false;
+        _rerollFunc = null;
+        BtnReroll.Visibility = Visibility.Collapsed;
         DraftPanel.Visibility = Visibility.Collapsed;
         Backdrop.Visibility = Visibility.Collapsed;
         SetClickThrough(true);
+    }
+
+    /// <summary>Taking Chances: spend a reroll and re-deal the table (no-op once a pick is made).</summary>
+    private void BtnReroll_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectionMade) return;
+        var pick = _onBoonPick;
+        var result = _rerollFunc?.Invoke();
+        if (pick == null || result == null) { BtnReroll.Visibility = Visibility.Collapsed; return; }
+        ChaosSfx.PlayBoonReveal(true);
+        ShowBoonDraft(_draftWave, result.Value.options, pick, _autoResumeRemainingSec,
+                      result.Value.rerollsLeft, _rerollFunc);
     }
 
     /// <summary>Auto-resume: an untouched draft ticks down, then auto-takes the SKIP (+1 shield) and
     /// resumes the run so an unattended run never freezes forever. Any pick cancels it (see SelectBoon).</summary>
     private void StartAutoResume()
     {
-        DraftCountdown.Text = $"auto-skip in {_autoResumeRemainingSec}s — pick to keep playing";
+        DraftCountdown.Text = $"auto-resist in {_autoResumeRemainingSec}s. pick to keep playing";
         _autoResumeTimer?.Stop();
         _autoResumeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _autoResumeTimer.Tick += (_, _) =>
@@ -283,14 +314,17 @@ public partial class ChaosOverlayWindow : Window
                 ChooseBoon(null);   // auto-skip → +1 shield + ChaosBoonSkipped fired by the service
                 return;
             }
-            DraftCountdown.Text = $"auto-skip in {_autoResumeRemainingSec}s — pick to keep playing";
+            DraftCountdown.Text = $"auto-resist in {_autoResumeRemainingSec}s. pick to keep playing";
         };
         _autoResumeTimer.Start();
     }
 
     private DraftCard BuildBoonCard(ChaosBoon boon)
     {
-        var accent = boon.IsCurse ? Color.FromRgb(255, 120, 120) : Color.FromRgb(156, 232, 160);
+        // Sins red, synergy duos gold (their partner gear is equipped), plain mantras green.
+        var accent = boon.IsCurse ? Color.FromRgb(255, 120, 120)
+                   : boon.RequiresAny != null || boon.RequiresAll != null ? Color.FromRgb(255, 215, 0)
+                   : Color.FromRgb(156, 232, 160);
         var accentBrush = new SolidColorBrush(accent);
 
         var panel = new StackPanel { Width = 190 };
@@ -317,6 +351,7 @@ public partial class ChaosOverlayWindow : Window
                 Foreground = new SolidColorBrush(Color.FromArgb(90, accent.R, accent.G, accent.B)),
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             };
+        Services.Chaos.ChaosTips.Attach(art, boon.Name, boon.Desc, accent: accent);
         panel.Children.Add(art);
 
         panel.Children.Add(new TextBlock
@@ -339,7 +374,7 @@ public partial class ChaosOverlayWindow : Window
         var pickScale = new ScaleTransform(1, 1);
         var pick = new Button
         {
-            Content = boon.IsCurse ? "RISK" : "PICK",
+            Content = boon.IsCurse ? "GIVE IN" : "ACCEPT",
             Padding = new Thickness(0, 8, 0, 8), Background = accentBrush, Foreground = Brushes.Black,
             FontWeight = FontWeights.Bold, BorderThickness = new Thickness(0),
             Cursor = System.Windows.Input.Cursors.Hand,
@@ -359,6 +394,9 @@ public partial class ChaosOverlayWindow : Window
 
         var dc = new DraftCard { Card = card, Pick = pick, Scale = scale, Boon = boon, Art = art, ArtBorder = artBorderBrush };
         pick.Click += (_, _) => SelectBoon(dc);
+        // The art square picks too — same gating as the button (disabled until revealed).
+        art.Cursor = System.Windows.Input.Cursors.Hand;
+        art.MouseLeftButtonUp += (_, _) => { if (dc.Pick.IsEnabled) SelectBoon(dc); };
         return dc;
     }
 
@@ -370,7 +408,7 @@ public partial class ChaosOverlayWindow : Window
         _ => "◆"
     };
 
-    /// <summary>A card was picked: dissolve the others, highlight + bounce this one, reveal Continue.</summary>
+    /// <summary>A card was picked: dissolve the others, highlight + bounce this one, then auto-commit after a beat.</summary>
     private void SelectBoon(DraftCard chosen)
     {
         if (_selectionMade) return;
@@ -378,7 +416,8 @@ public partial class ChaosOverlayWindow : Window
         _selectedBoon = chosen.Boon;
         _revealTimer?.Stop();
         _autoResumeTimer?.Stop();
-        ChaosSfx.PlayBoonPicked();
+        // Mantras get the warm confirm; sins and skips have their own cues (service-side).
+        if (chosen != null && !chosen.Boon.IsCurse) ChaosSfx.PlayBoonPicked();
 
         foreach (var dc in _draftCards)
         {
@@ -425,14 +464,20 @@ public partial class ChaosOverlayWindow : Window
         }
         chosen.Pick.Content = "✓ CHOSEN";
 
-        // Swap skip → Continue.
+        // No Continue button: hold the glowing pick for a short beat, then commit on its own.
         BtnSkipBoon.Visibility = Visibility.Collapsed;
+        BtnReroll.Visibility = Visibility.Collapsed;   // the die is cast — no rerolling a made choice
         DraftCountdown.Text = "";
-        BtnContinue.Visibility = Visibility.Visible;
-        BtnContinue.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
+        _confirmTimer?.Stop();
+        _confirmTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        _confirmTimer.Tick += (_, _) =>
+        {
+            _confirmTimer?.Stop();
+            _confirmTimer = null;
+            ChooseBoon(_selectedBoon);
+        };
+        _confirmTimer.Start();
     }
-
-    private void BtnContinue_Click(object sender, RoutedEventArgs e) => ChooseBoon(_selectedBoon);
 
     private void ChooseBoon(ChaosBoon? boon)
     {
@@ -447,7 +492,7 @@ public partial class ChaosOverlayWindow : Window
 
     // ============================ results ============================
 
-    public void ShowResults(ChaosRunState s, double baseXp, double skillMult, double finalXp, long previousBest)
+    public void ShowResults(ChaosRunState s, double baseXp, double skillMult, double finalXp, long previousBest, int sparksEarned)
     {
         SetClickThrough(false);
         CountdownBox.Visibility = Visibility.Collapsed;
@@ -456,23 +501,53 @@ public partial class ChaosOverlayWindow : Window
         ResultsPanel.Visibility = Visibility.Visible;
         BringToFront();
 
+        ResultsHero.Source = ChaosArt.ResolveRecap();   // null = the gradient wash shows instead
+
         // PB / delta-vs-best (best already updated by AwardRunRewards; compare run score to the prior best).
         double score = s.Score;
         double pbDelta = score - previousBest;
         bool isPb = score > previousBest;
+        BtnClose.Content = isPb ? "wake up (you'll be back)" : "wake up";
+
+        // Breaking the surface; a PB earns its fanfare once the whoosh has landed.
+        ChaosSfx.Play("surface", 0.55f);
+        if (isPb)
+        {
+            var pbTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
+            pbTimer.Tick += (_, _) => { pbTimer.Stop(); ChaosSfx.Play("pb_fanfare", 0.6f); };
+            pbTimer.Start();
+        }
+
+        var dim = new SolidColorBrush(Color.FromRgb(170, 170, 200));
+        var gold = new SolidColorBrush(Color.FromRgb(255, 215, 90));
+        var pink = new SolidColorBrush(Color.FromRgb(255, 105, 180));
 
         ResultsBody.Children.Clear();
-        AddResultLine($"Reached DEPTH {Roman(s.ActIndex)} · L{s.WaveIndex}    Best streak x{s.BestCombo}    Survived {(int)s.ElapsedSec / 60:00}:{(int)s.ElapsedSec % 60:00}", 14, Brushes.White, FontWeights.SemiBold);
-        AddResultLine($"snapped {s.Defused} · triggered {s.Detonated} · effects fired {s.EffectsFired}", 13, new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontWeights.Normal);
-        AddResultLine($"score {score:N0}", 14, Brushes.White, FontWeights.SemiBold);
-        // Compulsion hook: a personal-best / delta line.
+
+        // Row of three stat chips: how deep, how clean, how long.
+        ResultsBody.Children.Add(ChipRow(
+            StatChip("DEPTH", $"{Roman(s.ActIndex)} · L{s.WaveIndex}"),
+            StatChip("BEST STREAK", $"x{s.BestCombo}"),
+            StatChip("SURVIVED", $"{(int)s.ElapsedSec / 60:00}:{(int)s.ElapsedSec % 60:00}")));
+
+        AddResultLine($"snapped {s.Defused} · triggered {s.Detonated} · effects fired {s.EffectsFired}",
+            12, dim, FontWeights.Normal);
+
+        ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
+
+        // Score + the compulsion hook (PB / delta-vs-best).
+        AddResultLine($"score {score:N0}", 24, Brushes.White, FontWeights.Bold);
         if (isPb)
-            AddResultLine($"★ NEW BEST  (+{pbDelta:N0} over {previousBest:N0})", 14, new SolidColorBrush(Color.FromRgb(255, 215, 90)), FontWeights.Bold);
+            AddResultLine($"★ NEW BEST  (+{pbDelta:N0} over {previousBest:N0})", 14, gold, FontWeights.Bold);
         else
-            AddResultLine($"best {previousBest:N0}   ({pbDelta:N0} vs best)", 13, new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontWeights.Normal);
-        ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(85, 255, 105, 180)), Margin = new Thickness(0, 12, 0, 12) });
-        AddResultLine($"base {baseXp:N0}  ×  skill x{skillMult:0.0}", 14, Brushes.White, FontWeights.Normal);
-        AddResultLine($"TOTAL  {finalXp:N0} XP ✦", 22, new SolidColorBrush(Color.FromRgb(255, 105, 180)), FontWeights.Bold);
+            AddResultLine($"best {previousBest:N0}   ({pbDelta:N0} vs best)", 12, dim, FontWeights.Normal);
+
+        ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
+
+        // The take-home: XP and gold, side by side.
+        ResultsBody.Children.Add(ChipRow(
+            StatChip("XP", $"✦ {finalXp:N0}", pink, $"base {baseXp:N0} × skill x{skillMult:0.0}"),
+            StatChip("GOLD", $"{sparksEarned:N0}", gold, "banked in the warren")));
 
         // Bark over the results (+ PB fields for the compulsion line).
         App.Bark?.NotifyChaosResultsShown(score, ChaosMeta.State.BestScore, pbDelta, isPb,
@@ -487,6 +562,54 @@ public partial class ChaosOverlayWindow : Window
             HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center,
             Margin = new Thickness(0, 3, 0, 3), TextWrapping = TextWrapping.Wrap
         });
+    }
+
+    /// <summary>Equal-width row of stat chips for the recap card.</summary>
+    private static Grid ChipRow(params Border[] chips)
+    {
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+        for (int i = 0; i < chips.Length; i++)
+        {
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            chips[i].Margin = new Thickness(i == 0 ? 0 : 8, 0, 0, 0);
+            Grid.SetColumn(chips[i], i);
+            row.Children.Add(chips[i]);
+        }
+        return row;
+    }
+
+    /// <summary>One recap stat chip: small dim label, bold value, optional sub-line.</summary>
+    private static Border StatChip(string label, string value, Brush? valueBrush = null, string? sub = null)
+    {
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = label, FontSize = 10, FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(140, 138, 178)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = value, FontSize = 19, FontWeight = FontWeights.Bold,
+            Foreground = valueBrush ?? Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 1, 0, 0),
+        });
+        if (sub != null)
+            stack.Children.Add(new TextBlock
+            {
+                Text = sub, FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromRgb(150, 148, 186)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 1, 0, 0),
+            });
+        return new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 0x22, 0x1E, 0x3E)),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(10, 8, 10, 8),
+            Child = stack,
+        };
     }
 
     private static string Roman(int n) => n switch

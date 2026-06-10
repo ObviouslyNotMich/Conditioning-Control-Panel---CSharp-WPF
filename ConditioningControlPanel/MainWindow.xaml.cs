@@ -9029,14 +9029,17 @@ namespace ConditioningControlPanel
         /// Lab → Chaos Mode hero card. Opens the setup/lobby window where the user
         /// configures the run; BEGIN CHAOS there persists settings and launches via
         /// <see cref="App.Chaos"/> (which owns the countdown, HUD and loop).
+        /// Modeless on purpose: ShowDialog would disable every other app window,
+        /// including the loadout sidebar that opens beside the Warren.
         /// </summary>
         private void BtnStartChaos_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 if (App.Chaos == null || App.Chaos.IsRunning) return;
+                if (ChaosHubWindow.Current != null) { ChaosHubWindow.Current.Activate(); return; }
                 var hub = new ChaosHubWindow { Owner = this };
-                hub.ShowDialog();
+                hub.Show();
             }
             catch (Exception ex)
             {
@@ -15514,11 +15517,15 @@ namespace ConditioningControlPanel
             }
         }
 
-        internal void StopSessionFromRemote()
+        internal void StopSessionFromRemote() => StopEngineAndSession("RemoteControl");
+
+        /// <summary>Stop the running session + main engine from an external trigger (remote control,
+        /// or diving into a Chaos run). Safe to call when nothing is running — it self-guards.</summary>
+        internal void StopEngineAndSession(string source)
         {
             try
             {
-                App.Logger?.Information("[RemoteControl] StopSessionFromRemote called");
+                App.Logger?.Information("[{Source}] StopEngineAndSession called", source);
                 if (_sessionEngine?.IsRunning == true)
                     _sessionEngine.StopSession();
 
@@ -15527,13 +15534,13 @@ namespace ConditioningControlPanel
                 // Also stop the main engine to reset services and _isRunning state
                 if (_isRunning)
                 {
-                    App.Logger?.Information("[RemoteControl] Also stopping main engine");
+                    App.Logger?.Information("[{Source}] Also stopping main engine", source);
                     StopEngine();
                 }
             }
             catch (Exception ex)
             {
-                App.Logger?.Error(ex, "[RemoteControl] Failed to stop session from remote");
+                App.Logger?.Error(ex, "[{Source}] Failed to stop engine/session", source);
             }
         }
 

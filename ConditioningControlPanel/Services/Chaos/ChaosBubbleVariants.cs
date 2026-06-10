@@ -36,9 +36,36 @@ public sealed class EffectBubbleSpec
     /// <summary>True for the freeze bubble: a good pickup — catching it freezes the whole field.</summary>
     public bool IsFreeze { get; init; }
 
+    /// <summary>True for the lucky golden bubble: benign, fast, pays real gold (Sparks) on pop.</summary>
+    public bool IsGolden { get; init; }
+    /// <summary>True for the Pop-up Notification heart: a gentle once-per-loop pickup worth +1 resistance.</summary>
+    public bool IsHeart { get; init; }
+    /// <summary>Gold Digger: a small falling gold droplet (banks a few Sparks on catch, no score).</summary>
+    public bool IsDroplet { get; init; }
+    /// <summary>"Look at the bright colors..." sin: a mimic prism — pays 10x and fires the copied effect.</summary>
+    public bool IsPrism { get; init; }
+    /// <summary>Prism only: the variant id whose soul it copied (its payload + the shadow-pop ghost).</summary>
+    public string MimicVariantId { get; init; } = "";
+    /// <summary>GG make more GG: an uncatchable sweeper rabbit — born spanked, mows what it crosses.</summary>
+    public bool IsSweeper { get; init; }
+    /// <summary>Benign-pop score multiplier carried by special treats (Heavy Drop pays 3x). 1 = normal.</summary>
+    public double PayMult { get; init; } = 1.0;
+    /// <summary>Treat-rot override in ms (0 = the standard 5s). Heavy Drops drift slowly — they get longer.</summary>
+    public int TreatLifeMs { get; init; }
+    /// <summary>Multiplier on the bubble's natural drift speed (the golden bubble flies).</summary>
+    public double SpeedMult { get; init; } = 1.0;
+
+    /// <summary>Optional spawn point (physical screen px). When set, the bubble materialises
+    /// centred there (on the screen containing the point) instead of at its motion's usual
+    /// origin — Rabbit Caller summons rabbits at the player's click.</summary>
+    public double? SpawnAtPxX { get; init; }
+    public double? SpawnAtPxY { get; init; }
+
     // ---- darter (bouncing-flash catch target) ----
     /// <summary>True for a darter: small, fast, telegraphed, self-expiring benign reward target.</summary>
     public bool IsDarter { get; init; }
+    /// <summary>Tunnel Vision capstone: this darter spawned bigger + gold-glowing (glow is perf-gated).</summary>
+    public bool Spotlight { get; init; }
     /// <summary>Active lifetime in ms after the telegraph; on expiry the darter vanishes harmlessly.</summary>
     public int LifetimeMs { get; init; }
     /// <summary>Telegraph (flare) duration in ms before the darter starts moving.</summary>
@@ -97,32 +124,200 @@ public static class ChaosBubbleVariants
     /// Per-spawn-tick roll for a darter. Density climbs with run intensity (present from
     /// early waves, denser late). Returns a built darter spec, or null on a no-spawn roll.
     /// </summary>
-    public static EffectBubbleSpec? RollDarter(double intensity)
+    public static EffectBubbleSpec? RollDarter(double intensity, double rateMult = 1.0, bool spotlight = false)
     {
-        double chance = 0.10 + Math.Clamp(intensity, 0, 1) * 0.22;  // ~0.10 early → ~0.32 late
+        double chance = (0.05 + Math.Clamp(intensity, 0, 1) * 0.12) * Math.Max(0, rateMult);  // ~0.05 early → ~0.17 late (halved 2026-06-10: field felt overrun)
         if (_rng.NextDouble() >= chance) return null;
-        return BuildDarter(intensity);
+        return BuildDarter(intensity, spotlight);
     }
 
-    /// <summary>Build a darter spec (benign, no fuse; carries a brief micro-flash payload).</summary>
-    public static EffectBubbleSpec BuildDarter(double intensity)
+    /// <summary>Build a darter spec (benign, no fuse; carries a brief micro-flash payload).
+    /// <paramref name="atPxX"/>/<paramref name="atPxY"/> (physical px) pin the spawn point
+    /// — Rabbit Caller's summon-at-click.</summary>
+    public static EffectBubbleSpec BuildDarter(double intensity, bool spotlight = false,
+                                               double? atPxX = null, double? atPxY = null,
+                                               bool sweeper = false)
     {
         double size = DARTER_SIZE_MIN + (DARTER_SIZE_MAX - DARTER_SIZE_MIN) * _rng.NextDouble();
+        if (spotlight) size *= 1.15;   // Tunnel Vision capstone: rabbits run bigger
         return new EffectBubbleSpec
         {
+            SpawnAtPxX = atPxX,
+            SpawnAtPxY = atPxY,
             VariantId = "darter",
             Payload = new FlashPayload { Strength = 8 },  // a brief micro-flash on catch
             SizePx = size,
+            Spotlight = spotlight,
             Tint = DarterTint,
             Label = "",
             IsLive = false,
             FuseMs = 0,
             Motion = ChaosMotion.RoamBounce,              // bounce style; darter path overrides speed
             IsDarter = true,
+            IsSweeper = sweeper,                          // GG make more GG: born spanked, never caught
             LifetimeMs = DARTER_LIFETIME_MS,
-            TelegraphMs = DARTER_TELEGRAPH_MS,
+            TelegraphMs = sweeper ? 150 : DARTER_TELEGRAPH_MS,   // sweepers bolt almost immediately
             QuickWindowMs = DARTER_QUICK_WINDOW_MS,
             DarterSpeed = DARTER_SPEED,
+        };
+    }
+
+    // ---- Lucky golden bubble tuning ----
+    public const double GOLDEN_SIZE_MIN   = 110;
+    public const double GOLDEN_SIZE_MAX   = 140;
+    public const double GOLDEN_SPEED_MULT = 2.8;   // faster than everything else — blink and it's gone
+    private static readonly Color GoldenTint = Color.FromRgb(0xFF, 0xD7, 0x00);
+
+    /// <summary>
+    /// Build a lucky golden bubble: benign, small, quick, vertical (rises from the bottom or
+    /// falls from the top, 50/50) and gone fast. Popping it pays real gold (Sparks) on the
+    /// spot — the payout lives in ChaosModeService.OnBenignPopped, keyed off IsGolden.
+    /// </summary>
+    public static EffectBubbleSpec BuildGolden()
+    {
+        double size = GOLDEN_SIZE_MIN + (GOLDEN_SIZE_MAX - GOLDEN_SIZE_MIN) * _rng.NextDouble();
+        return new EffectBubbleSpec
+        {
+            VariantId = "golden",
+            Payload = new FlashPayload { Strength = 0 },   // no payload — the gold IS the treat
+            SizePx = size,
+            Tint = GoldenTint,
+            Label = "✦",
+            IsLive = false,
+            FuseMs = 0,
+            Motion = _rng.NextDouble() < 0.5 ? ChaosMotion.FloatUp : ChaosMotion.RainDown,
+            IsGolden = true,
+            SpeedMult = GOLDEN_SPEED_MULT,
+        };
+    }
+
+    // ---- Pop-up Notification heart tuning ----
+    public const double HEART_SIZE_MIN   = 88;
+    public const double HEART_SIZE_MAX   = 110;
+    public const double HEART_SPEED_MULT = 0.8;    // a lazy drift — kind, but you still have to notice it
+    private static readonly Color HeartTint = Color.FromRgb(0xFF, 0x4D, 0x6E);
+
+    /// <summary>
+    /// Build the Pop-up Notification heart: a small benign pickup that drifts down from the
+    /// top once per loop (when the habit is trained and the roll lands). Catching it grants
+    /// +1 resistance — the payout lives in ChaosModeService.OnBenignPopped, keyed off IsHeart.
+    /// Missing it costs nothing; it just exits the bottom.
+    /// </summary>
+    public static EffectBubbleSpec BuildHeart()
+    {
+        double size = HEART_SIZE_MIN + (HEART_SIZE_MAX - HEART_SIZE_MIN) * _rng.NextDouble();
+        return new EffectBubbleSpec
+        {
+            VariantId = "heart",
+            Payload = new FlashPayload { Strength = 0 },   // no payload — the heart IS the treat
+            SizePx = size,
+            Tint = HeartTint,
+            Label = "💖",
+            IsLive = false,
+            FuseMs = 0,
+            Motion = ChaosMotion.RainDown,
+            IsHeart = true,
+            SpeedMult = HEART_SPEED_MULT,
+        };
+    }
+
+    // ---- Gold Digger droplet tuning ----
+    public const double DROPLET_SIZE_MIN   = 58;
+    public const double DROPLET_SIZE_MAX   = 74;
+    public const double DROPLET_SPEED_MULT = 2.2;   // they fall fast — lean in or lose them
+
+    /// <summary>
+    /// Build one Gold Digger droplet: a small gold bead that bursts out of a popped lucky
+    /// bubble (pinned at the pop point in physical px) and rains straight down. Catching it
+    /// banks a few Sparks — the payout lives in ChaosModeService.OnBenignPopped (IsDroplet).
+    /// </summary>
+    public static EffectBubbleSpec BuildGoldDroplet(double atPxX, double atPxY)
+    {
+        double size = DROPLET_SIZE_MIN + (DROPLET_SIZE_MAX - DROPLET_SIZE_MIN) * _rng.NextDouble();
+        return new EffectBubbleSpec
+        {
+            SpawnAtPxX = atPxX,
+            SpawnAtPxY = atPxY,
+            VariantId = "gold_droplet",
+            Payload = new FlashPayload { Strength = 0 },
+            SizePx = size,
+            Tint = GoldenTint,
+            Label = "✧",
+            IsLive = false,
+            FuseMs = 0,
+            Motion = ChaosMotion.RainDown,
+            IsDroplet = true,
+            SpeedMult = DROPLET_SPEED_MULT,
+        };
+    }
+
+    // ---- Heavy Drop tuning ----
+    public const double HEAVY_SIZE_MULT  = 1.55;   // on top of the treat's max band (a true giant)
+    public const double HEAVY_SPEED_MULT = 0.45;   // slow, stately, unmissable
+    public const double HEAVY_PAY_MULT   = 3.0;
+
+    /// <summary>
+    /// Build a Heavy Drop: every ~10th bubble swaps for a giant, slow treat (flash or
+    /// subliminal, 50/50) that pays triple on pop (spec.PayMult, read in OnBenignPopped).
+    /// </summary>
+    public static EffectBubbleSpec BuildHeavy(double intensity, double effectIntensity = 1.0, double sizeScale = 1.0)
+    {
+        var variant = All[_rng.Next(2)];   // rows 0/1 = the flash + subliminal treats
+        double classic = variant.MaxSize;  // top of the band → Strength near the band's ceiling
+        int strength = (int)Math.Round(Math.Clamp((classic - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        var payload = EffectPayloadFactory.Build(variant.PayloadKind);
+        payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
+        return new EffectBubbleSpec
+        {
+            VariantId = variant.Id,
+            Payload = payload,
+            SizePx = classic * GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale) * HEAVY_SIZE_MULT,
+            Tint = variant.Tint,
+            Label = variant.Label,
+            IsLive = false,
+            FuseMs = 0,
+            Motion = ChaosMotion.RainDown,   // it DROPS — heavy, after all
+            SpeedMult = HEAVY_SPEED_MULT,
+            PayMult = HEAVY_PAY_MULT,
+            TreatLifeMs = 9000,              // slow faller — give it time to be reached
+        };
+    }
+
+    // ---- "Look at the bright colors..." prism tuning ----
+    public const double PRISM_SIZE_MIN   = 165;
+    public const double PRISM_SIZE_MAX   = 215;
+    public const double PRISM_SPEED_MULT = 0.7;    // a lazy, mesmerising drift
+    private static readonly Color PrismTint = Color.FromRgb(0xC8, 0xA8, 0xFF);
+
+    /// <summary>
+    /// Build the mimic prism: a swirling iridescent ball wearing another bubble's soul.
+    /// Popping it pays 10x — and fires the copied variant's payload (the sin). The copied
+    /// bubble's sprite ghosts out underneath as it pops (the "shadow pop", BubbleService).
+    /// Video is excluded from the mimic pool — a surprise fullscreen tape is too much hijack.
+    /// </summary>
+    public static EffectBubbleSpec BuildPrism(double intensity, double effectIntensity = 1.0)
+    {
+        var pool = All.Where(v => v.Id != "video" && v.PayloadKind != EffectBubblePayloadKind.BambiFreeze).ToList();
+        var mimic = pool[_rng.Next(pool.Count)];
+        double size = PRISM_SIZE_MIN + (PRISM_SIZE_MAX - PRISM_SIZE_MIN) * _rng.NextDouble();
+        int strength = (int)Math.Round(Math.Clamp((size - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        EffectPayload payload = mimic.PayloadKind == EffectBubblePayloadKind.Overlay && mimic.OverlayKind != null
+            ? new OverlayPayload(mimic.OverlayKind)
+            : EffectPayloadFactory.Build(mimic.PayloadKind);
+        payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
+        return new EffectBubbleSpec
+        {
+            VariantId = "prism",
+            Payload = payload,
+            SizePx = size * GLOBAL_SIZE_SCALE,
+            Tint = PrismTint,
+            Label = "❂",
+            IsLive = false,
+            FuseMs = 0,
+            Motion = _rng.NextDouble() < 0.5 ? ChaosMotion.RainDown : ChaosMotion.RoamBounce,
+            IsPrism = true,
+            MimicVariantId = mimic.Id,
+            SpeedMult = PRISM_SPEED_MULT,
         };
     }
 
@@ -144,21 +339,28 @@ public static class ChaosBubbleVariants
         "bambifreeze" => "FREEZE",
         "video"       => "WATCH",
         "htlink"      => "RAIN",
+        "golden"      => "LUCKY",
+        "heart"       => "RESIST",
+        "gold_droplet"=> "GOLD",
+        "prism"       => "10x!",
         _             => ""
     };
 
     /// <summary>Codex blurb for a bubble variant (plain, understated). Empty for unknown ids.</summary>
     public static string DescriptionFor(string id) => id switch
     {
-        "flash"       => "A benign treat. Pop it for a quick flash burst and a little score.",
-        "subliminal"  => "A benign treat. Pop it to flash a subliminal from the active pool.",
-        "pink"        => "Live. Defuse before the fuse runs out, or it snaps a pink filter over the screen.",
-        "spiral"      => "Live. Roams and bounces. Defuse it or it drops a spiral overlay.",
-        "braindrain"  => "Live and large. Slow but heavy. Detonates into a creeping mind-mist.",
-        "bambifreeze" => "A good pickup. Catch it to freeze the whole field — bubbles hold in place and fuses pause for a few seconds.",
-        "video"       => "Live and rare. A long fuse, but it opens a mandatory video if it goes off.",
-        "htlink"      => "Live and rare. Defuse it or it detonates into a rain of gifs sliding down the screen.",
-        "darter"      => "A fast, bouncing flash target. Catch it for points and a micro flash. Harmless if missed.",
+        "flash"       => "A benign treat. Pop it for a quick flash burst and a little score. Ignore it and it fades in seconds — and your streak halves.",
+        "subliminal"  => "A benign treat. Pop it to flash a subliminal from the active pool. Ignore it and it fades in seconds — and your streak halves.",
+        "pink"        => "Live. Snap it before the trance runs out, or a pink filter settles over the screen.",
+        "spiral"      => "Live. Roams and bounces. Snap it or it drops a spiral overlay.",
+        "braindrain"  => "Live and large. Slow but heavy. Triggers into a creeping mind-mist.",
+        "bambifreeze" => "A good pickup. Catch it to freeze the whole field. Bubbles hold in place and trances pause for a few seconds.",
+        "video"       => "Live and rare. A long trance, but it opens a mandatory video if it goes off.",
+        "htlink"      => "Live and rare. Snap it or it triggers a rain of gifs sliding down the screen.",
+        "darter"      => "A white rabbit. Fast, bouncing, always late. Catch it for points and a micro flash. Harmless if it gets away.",
+        "golden"      => "A lucky bubble. Rare, quick, gone before you know it. Pop it for real gold, banked on the spot. Let it fade and your streak halves.",
+        "gold_droplet"=> "A gold bead spilled from a lucky bubble. Falls fast. Catch it for a few Sparks; missing it costs nothing.",
+        "prism"       => "A swirling prism wearing another bubble's soul. Pops for 10x — and fires the copied effect. The shadow underneath tells you what it was.",
         _             => ""
     };
 
@@ -194,9 +396,10 @@ public static class ChaosBubbleVariants
             false, 190, 250, ChaosMotion.FloatUp,    Color.FromRgb(0x8A,0xE6,0xFF), "❄",  1.0, 0.15, 0, 0),
         new("video",      "Video",       EffectBubblePayloadKind.Video,      null,
             true,  240, 300, ChaosMotion.RainDown,   Color.FromRgb(0xE0,0x40,0x4D), "▶",  0.5, 0.50, 5000, 7000),
-        // Keeps the "HT" sprite/tint, but its effect is now a rain of gifs (see GifCascadePayload).
-        new("htlink",     "HT Link",     EffectBubblePayloadKind.GifCascade, null,
-            true,  200, 280, ChaosMotion.FloatUp,    Color.FromRgb(0xFF,0xC8,0x3D), "HT", 0.45,0.60, 4500, 6500),
+        // Display renamed HT Link → Gif Rain (2026-06-10): the hypnotube-link payload is long
+        // gone — it rains gifs (GifCascadePayload). Id "htlink" is save/discovery-persisted, keep it.
+        new("htlink",     "Gif Rain",    EffectBubblePayloadKind.GifCascade, null,
+            true,  200, 280, ChaosMotion.FloatUp,    Color.FromRgb(0xFF,0xC8,0x3D), "▼", 0.45,0.60, 4500, 6500),
     };
 
     /// <summary>
@@ -206,7 +409,8 @@ public static class ChaosBubbleVariants
     /// live fuses (boons); <paramref name="motionOverride"/> forces a motion if set.
     /// </summary>
     public static EffectBubbleSpec Pick(double intensity, double fuseTimeMult = 1.0, ChaosMotion? motionOverride = null,
-                                        IReadOnlyCollection<string>? enabledIds = null, double effectIntensity = 1.0)
+                                        IReadOnlyCollection<string>? enabledIds = null, double effectIntensity = 1.0,
+                                        double sizeScale = 1.0)
     {
         var pool = All.Where(v => intensity >= v.MinIntensity && v.Weight > 0
                                   && (enabledIds == null || enabledIds.Contains(v.Id))).ToList();
@@ -224,16 +428,27 @@ public static class ChaosBubbleVariants
             if (roll <= 0) { variant = v; break; }
         }
 
-        return Build(variant, intensity, fuseTimeMult, motionOverride, effectIntensity);
+        return Build(variant, intensity, fuseTimeMult, motionOverride, effectIntensity, sizeScale);
     }
 
+    /// <summary>Global field shrink (2026-06-10): every variant bubble renders 25% smaller than
+    /// its classic band; Breast Enlargement swells them back up via <c>sizeScale</c>.</summary>
+    public const double GLOBAL_SIZE_SCALE = 0.75;
+    /// <summary>The two giants (video + gif rain) run a further 30% smaller still.</summary>
+    public const double GIANT_SIZE_SCALE = 0.70;
+
     public static EffectBubbleSpec Build(ChaosBubbleVariant variant, double intensity, double fuseTimeMult = 1.0,
-                                         ChaosMotion? motionOverride = null, double effectIntensity = 1.0)
+                                         ChaosMotion? motionOverride = null, double effectIntensity = 1.0,
+                                         double sizeScale = 1.0)
     {
-        // Size: random across the band, nudged upward by run intensity.
+        // Size: random across the band, nudged upward by run intensity. Strength is keyed to
+        // the CLASSIC (unscaled) size so visual sizing never weakens payloads or scoring.
         double t = Math.Clamp(_rng.NextDouble() * 0.7 + intensity * 0.45, 0, 1);
         double size = variant.MinSize + (variant.MaxSize - variant.MinSize) * t;
         int strength = (int)Math.Round(Math.Clamp((size - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        double visual = GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale);
+        if (variant.Id is "video" or "htlink") visual *= GIANT_SIZE_SCALE;
+        size *= visual;
 
         EffectPayload payload = variant.PayloadKind == EffectBubblePayloadKind.Overlay && variant.OverlayKind != null
             ? new OverlayPayload(variant.OverlayKind)

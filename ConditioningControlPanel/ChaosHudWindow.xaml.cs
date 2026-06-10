@@ -20,11 +20,26 @@ public partial class ChaosHudWindow : Window
     private readonly ChaosModeService _chaos;
     private bool _expanded;
 
+    private int _lastShields;
+
     public ChaosHudWindow(ChaosRunState state, ChaosModeService chaos)
     {
         InitializeComponent();
         _chaos = chaos;
         DataContext = state;
+
+        // Muscle Memory capstone feedback: pulse the resistance hearts whenever they GROW
+        // (regen or a boon) so the player always knows a point came back. Window outlives no
+        // run (closed in CleanupAfterRun), so no unsubscribe bookkeeping is needed.
+        _lastShields = state.Shields;
+        state.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(ChaosRunState.Shields)) return;
+            int now = state.Shields;
+            bool grew = now > _lastShields;
+            _lastShields = now;
+            if (grew) PulseShields();
+        };
 
         // Top-anchored and ~60% of the work-area height, so it doesn't span the whole
         // screen (shrinks from the bottom up).
@@ -47,21 +62,81 @@ public partial class ChaosHudWindow : Window
         if (src == null) PortraitHost.Visibility = Visibility.Collapsed;
     }
 
+    private bool _pinnedOpen;   // pre-run loadout glance: panel stays open until SINK fires
+
     private void Hud_MouseEnter(object sender, MouseEventArgs e)
     {
         if (_expanded) return;
         _expanded = true;
         Panel.Visibility = Visibility.Visible;
+        Strip.Visibility = Visibility.Hidden;   // the panel is translucent — don't let the strip bleed through
         Animate(0);
     }
 
     private void Hud_MouseLeave(object sender, MouseEventArgs e)
     {
+        if (_pinnedOpen) return;
+        Collapse();
+    }
+
+    private void Collapse()
+    {
         if (!_expanded) return;
         _expanded = false;
         var slide = new DoubleAnimation(-300, TimeSpan.FromMilliseconds(180));
-        slide.Completed += (_, _) => { if (!_expanded) Panel.Visibility = Visibility.Collapsed; };
+        slide.Completed += (_, _) =>
+        {
+            if (_expanded) return;
+            Panel.Visibility = Visibility.Collapsed;
+            Strip.Visibility = Visibility.Visible;
+        };
         PanelSlide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slide);
+    }
+
+    /// <summary>Pin the panel open for the pre-run loadout glance (FALL IN → countdown), then
+    /// release it when the run begins — it folds away unless the mouse is parked on it.</summary>
+    public void SetPreRunExpanded(bool pinned)
+    {
+        _pinnedOpen = pinned;
+        if (pinned)
+        {
+            _expanded = true;
+            Panel.Visibility = Visibility.Visible;
+            Strip.Visibility = Visibility.Hidden;
+            Animate(0);
+        }
+        else if (!Panel.IsMouseOver)
+        {
+            Collapse();
+        }
+    }
+
+    /// <summary>Pocket Watch gate: the run clock + its fill bar only exist for players wearing
+    /// the charm — without it, how long you've been under stays a mystery.</summary>
+    public void SetClockVisible(bool on) =>
+        TxtRunTime.Visibility = BarRunProgress.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+
+    private bool _preRunMode;
+
+    /// <summary>Warren-phase sidebar: the hero button reads FALL IN and starts the run from here;
+    /// on the in-run HUD it reads PAUSE (and pausing asks continue-or-wake-up).</summary>
+    public void SetHeroMode(bool preRun)
+    {
+        _preRunMode = preRun;
+        BtnHero.Content = preRun ? "▶ FALL IN" : "⏸ PAUSE";
+        BtnHero.Visibility = Visibility.Visible;
+        BtnCloseMode.Visibility = preRun ? Visibility.Visible : Visibility.Collapsed;
+        PauseChoiceRow.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>A pocket tile was clicked: a filled tile unequips its boon (the service ignores
+    /// it once SINK has fired); an empty "+" tile brings the Warren forward on Enhancements.</summary>
+    private void PocketTile_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string id } && !string.IsNullOrEmpty(id))
+            _chaos.UnequipFromSidebar(id);
+        else
+            _chaos.OpenWarrenAt("enhance");
     }
 
     private void Animate(double toX)
@@ -70,12 +145,42 @@ public partial class ChaosHudWindow : Window
         PanelSlide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slide);
     }
 
-    private void BtnPause_Click(object sender, RoutedEventArgs e)
+    /// <summary>Brief scale pop on the resistance hearts (a regen/gain just landed).</summary>
+    private void PulseShields()
     {
-        _chaos.ToggleManualPause();
-        BtnPause.Content = _chaos.IsManuallyPaused ? "▶ resume" : "⏸ pause";
+        try
+        {
+            if (TxtShields.RenderTransform is not System.Windows.Media.ScaleTransform st) return;
+            var pulse = new DoubleAnimation(1.35, 1.0, TimeSpan.FromMilliseconds(420))
+            {
+                EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 5 }
+            };
+            st.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, pulse);
+            st.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, pulse);
+        }
+        catch { }
     }
-    private void BtnStop_Click(object sender, RoutedEventArgs e) => _chaos.RequestStop();
+
+    private void BtnHero_Click(object sender, RoutedEventArgs e)
+    {
+        if (_preRunMode) { _chaos.StartRunFromSidebar(); return; }
+        // Pause the descent and ask what they actually want.
+        if (!_chaos.IsManuallyPaused) _chaos.ToggleManualPause();
+        BtnHero.Visibility = Visibility.Collapsed;
+        PauseChoiceRow.Visibility = Visibility.Visible;
+    }
+
+    private void BtnResume_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chaos.IsManuallyPaused) _chaos.ToggleManualPause();
+        BtnHero.Visibility = Visibility.Visible;
+        PauseChoiceRow.Visibility = Visibility.Collapsed;
+    }
+
+    private void BtnExit_Click(object sender, RoutedEventArgs e) => _chaos.RequestStop();
+
+    /// <summary>Pre-run ✖ beside FALL IN: leave the rabbit hole entirely (Warren + sidebar).</summary>
+    private void BtnCloseMode_Click(object sender, RoutedEventArgs e) => _chaos.CloseWarrenPhase();
 
     // Don't steal focus / show in Alt+Tab. (No WS_EX_TRANSPARENT — the HUD must be
     // interactive; the unpainted alpha-0 region is click-through automatically.)

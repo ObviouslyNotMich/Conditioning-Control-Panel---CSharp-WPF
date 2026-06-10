@@ -32,6 +32,28 @@ public static class ChaosSfx
     public static void PlayBoonPicked() =>
         PlayFirstAvailable(new[] { "chaos/boon_pick.mp3", "chime2.mp3" }, 0.7f);
 
+    /// <summary>Pendulum capstone: tick-tock underlay as slow-mo lands (silent until the asset ships).</summary>
+    public static void PlayTickTock() =>
+        PlayFirstAvailable(new[] { "chaos/ticktock.mp3" }, 0.45f);
+
+    /// <summary>Generic one-shot cue: plays <c>Resources/sounds/chaos/{name}.mp3</c> if it exists
+    /// (mod-overridable, silent no-op otherwise). For rare moments — high-frequency cues (pops,
+    /// snaps) should go through <see cref="BubbleService.PlayCue"/>'s pooled devices instead.</summary>
+    public static void Play(string name, float scale = 0.6f) =>
+        PlayFirstAvailable(new[] { $"chaos/{name}.mp3" }, scale);
+
+    /// <summary>Resolve a chaos cue to an absolute path for the pooled bubble player
+    /// (empty string when the asset is absent).</summary>
+    public static string ResolvePath(string name)
+    {
+        try
+        {
+            var path = ModResourceResolver.ResolveAudioPath($"chaos/{name}.mp3");
+            return !string.IsNullOrEmpty(path) && File.Exists(path) ? path : "";
+        }
+        catch { return ""; }
+    }
+
     /// <summary>Resolve the first candidate that exists on disk and play it once.</summary>
     private static void PlayFirstAvailable(string[] candidates, float scale)
     {

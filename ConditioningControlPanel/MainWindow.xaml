@@ -6422,7 +6422,7 @@
                                     <TextBlock x:Name="TxtIdleIntervalCompanion" Text="{loc:Str label_120s}" Foreground="{DynamicResource PinkBrush}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                 </Grid>
                                 <Slider x:Name="SliderIdleIntervalCompanion" Style="{StaticResource PinkSlider}"
-                                        Minimum="5" Maximum="300" Value="120" Margin="0,6,0,12"
+                                        Minimum="20" Maximum="300" Value="120" Margin="0,6,0,12"
                                         ValueChanged="SliderIdleInterval_ValueChanged"/>
 
                                 <Grid Margin="0,4,0,0">
@@ -7501,7 +7501,7 @@
                             <!-- left: title + blurb -->
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <TextBlock Text="⚡ CHAOS MODE" Foreground="White" FontSize="24" FontWeight="Bold">
+                                    <TextBlock Text="🐇 THE RABBIT HOLE" Foreground="White" FontSize="24" FontWeight="Bold">
                                         <TextBlock.Effect>
                                             <DropShadowEffect Color="#FFFF69B4" BlurRadius="22" ShadowDepth="0" Opacity="0.7"/>
                                         </TextBlock.Effect>
@@ -7511,13 +7511,13 @@
                                         <TextBlock Text="NEW" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="10"/>
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Text="Bubbles rain down carrying live effects — flashes, videos, links, overlays. Snap them in time, or brace for impact. Stack streaks, draft mantras, ride the multiplier."
+                                <TextBlock Text="it's right there. it's always been right there. bubbles drift up carrying flashes, videos, overlays. snap them in time or let them trigger you. stack streaks, accept mantras, sink deeper."
                                            Foreground="{DynamicResource TextMutedBrush}" FontSize="13" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"/>
                             </StackPanel>
 
                             <!-- right: launch -->
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="24,0,0,0">
-                                <Button x:Name="BtnStartChaos" Content="▶ START CHAOS" Cursor="Hand"
+                                <Button x:Name="BtnStartChaos" Content="▶ FALL IN" Cursor="Hand" ToolTip="you were always going to."
                                         Background="{DynamicResource PinkBrush}" Foreground="White" FontWeight="Bold" FontSize="16"
                                         BorderThickness="0" Padding="30,14" HorizontalAlignment="Right"
                                         Click="BtnStartChaos_Click">
@@ -7526,14 +7526,14 @@
                                     </Button.Effect>
                                     <Button.Resources>
                                         <Style TargetType="Border">
-                                            <Setter Property="CornerRadius" Value="12"/>
+                                            <Setter Property="CornerRadius" Value="14"/>
                                         </Style>
                                     </Button.Resources>
                                 </Button>
-                                <Button x:Name="BtnQuickStartChaos" Content="⚡ Quick Start" Cursor="Hand"
+                                <Button x:Name="BtnQuickStartChaos" Content="💧 Quick Drop" Cursor="Hand"
                                         Background="Transparent" Foreground="{DynamicResource PinkBrush}" FontWeight="SemiBold" FontSize="12"
                                         BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" Padding="14,6" Margin="0,8,0,0"
-                                        HorizontalAlignment="Right" ToolTip="Skip the hub — start a run with your saved settings"
+                                        HorizontalAlignment="Right" ToolTip="skip the warren. fall straight in with your saved settings"
                                         Click="BtnQuickStartChaos_Click">
                                     <Button.Resources>
                                         <Style TargetType="Border">
@@ -7545,7 +7545,7 @@
                                           IsChecked="{Binding Source={x:Static local:App.Settings}, Path=Current.ChaosAnnouncerEnabled, Mode=TwoWay}"
                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Cursor="Hand"
                                           HorizontalAlignment="Right" Margin="0,10,0,0"
-                                          ToolTip="Flash on-screen subtitle announcements (mantra, willpower, depth, streak) during a run"/>
+                                          ToolTip="Flash on-screen subtitle announcements (mantra, resistance, depth, streak) during a descent"/>
                             </StackPanel>
                         </Grid>
                     </Border>

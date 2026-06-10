@@ -42,6 +42,7 @@ public static class ChaosMetaStore
                 return new ChaosMetaState();
             }
             state.PurchasedUpgrades ??= new();
+            state.DisabledUpgrades ??= new();
             return state;
         }
         catch (Exception ex)

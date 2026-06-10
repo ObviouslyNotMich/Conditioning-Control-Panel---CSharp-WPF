@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,6 +17,13 @@ namespace ConditioningControlPanel;
 /// geometry-stroked <see cref="OutlinedText"/> (no pixel-shader effects) so several at once
 /// stay cheap. Master-gated on the same <c>ChaosAnnouncerEnabled</c> switch as the big
 /// announcer, so on-screen Chaos text is one toggle.
+///
+/// Windows are POOLED, never created/closed per word: with Blank Eyes every benign pop
+/// floats a score, and per-word layered-window churn on top of bubble churn is exactly the
+/// pattern that wedges the WPF render thread (Application Hang 1002 — see the keep-alive
+/// contract on the chaos overlays). A retired window hides and returns to the pool; the
+/// hwnd lives until <see cref="ShutdownPool"/> at chaos teardown. Past the pool cap the
+/// word is simply dropped — losing a floater beats freezing the app.
 /// </summary>
 public sealed class ChaosPopText : Window
 {
@@ -28,6 +36,11 @@ public sealed class ChaosPopText : Window
     private const double RISE_DIP   = 22;    // how far the word drifts upward over its life
     private const double WIN_W      = 280;
     private const double WIN_H      = 88;
+    private const int    POOL_MAX   = 14;    // hard cap on live floater windows
+
+    // ---- pool (UI thread only) ----
+    private static readonly Stack<ChaosPopText> _pool = new();
+    private static readonly List<ChaosPopText> _all = new();
 
     /// <summary>
     /// Flash <paramref name="text"/> at a screen point (DIPs, matching bubble-window coords),
@@ -44,14 +57,41 @@ public sealed class ChaosPopText : Window
             if (disp == null || disp.HasShutdownStarted) return;
             disp.BeginInvoke(new Action(() =>
             {
-                try { new ChaosPopText(anchorXDip, anchorYDip, text, color).Show(); }
+                try
+                {
+                    ChaosPopText? w = null;
+                    if (_pool.Count > 0) w = _pool.Pop();
+                    else if (_all.Count < POOL_MAX) { w = new ChaosPopText(); _all.Add(w); }
+                    w?.Play(anchorXDip, anchorYDip, text, color);   // null = pool exhausted: drop the word
+                }
                 catch (Exception ex) { App.Logger?.Debug("ChaosPopText.Show inner: {E}", ex.Message); }
             }));
         }
         catch (Exception ex) { App.Logger?.Debug("ChaosPopText.Show: {E}", ex.Message); }
     }
 
-    private ChaosPopText(double anchorXDip, double anchorYDip, string text, Color color)
+    /// <summary>Close every pooled window (chaos teardown — the only place these hwnds die).</summary>
+    public static void ShutdownPool()
+    {
+        try
+        {
+            var disp = Application.Current?.Dispatcher;
+            if (disp == null || disp.HasShutdownStarted) return;
+            disp.BeginInvoke(new Action(() =>
+            {
+                foreach (var w in _all) { try { w.Close(); } catch { } }
+                _all.Clear();
+                _pool.Clear();
+            }));
+        }
+        catch { }
+    }
+
+    private readonly Grid _root = new();
+    private readonly System.Windows.Threading.DispatcherTimer _holdTimer;
+    private bool _closed;
+
+    private ChaosPopText()
     {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -65,9 +105,28 @@ public sealed class ChaosPopText : Window
         WindowStartupLocation = WindowStartupLocation.Manual;
         Width = WIN_W;
         Height = WIN_H;
+        Opacity = 0;
+        Content = _root;
+
+        _holdTimer = new System.Windows.Threading.DispatcherTimer
+        { Interval = TimeSpan.FromMilliseconds(IN_MS + HOLD_MS) };
+        _holdTimer.Tick += (_, _) =>
+        {
+            _holdTimer.Stop();
+            var outAnim = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(OUT_MS));
+            outAnim.Completed += (_, _) => Retire();
+            BeginAnimation(OpacityProperty, outAnim);
+        };
+
+        SourceInitialized += (_, _) => ApplyExStyles();
+    }
+
+    /// <summary>Show one word at the anchor, animate, then hide and return to the pool.</summary>
+    private void Play(double anchorXDip, double anchorYDip, string text, Color color)
+    {
+        if (_closed) return;
         Left = anchorXDip - WIN_W / 2;
         Top = anchorYDip - WIN_H / 2;
-        Opacity = 0;
 
         var (fill, stroke) = Palette(color);
         var rise = new TranslateTransform(0, 6);
@@ -82,35 +141,43 @@ public sealed class ChaosPopText : Window
             VerticalAlignment = VerticalAlignment.Center,
             RenderTransform = rise,
         };
-        Content = new Grid { Children = { label } };
+        _root.Children.Clear();
+        _root.Children.Add(label);
 
-        SourceInitialized += (_, _) => ApplyExStyles();
-        Loaded += (_, _) =>
-        {
-            label.Build();
+        BeginAnimation(OpacityProperty, null);
+        Opacity = 0;
+        Show();                 // first call creates the hwnd; re-shows just unhide it
+        label.Build();
 
-            // Fade in fast; a one-shot timer holds, then fades out and closes.
-            BeginAnimation(OpacityProperty, new DoubleAnimation(0, PEAK_OPAC, TimeSpan.FromMilliseconds(IN_MS)));
-            var timer = new System.Windows.Threading.DispatcherTimer
-            { Interval = TimeSpan.FromMilliseconds(IN_MS + HOLD_MS) };
-            timer.Tick += (_, _) =>
-            {
-                timer.Stop();
-                var outAnim = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(OUT_MS));
-                outAnim.Completed += (_, _) => CloseNow();
-                BeginAnimation(OpacityProperty, outAnim);
-            };
-            timer.Start();
+        BeginAnimation(OpacityProperty, new DoubleAnimation(0, PEAK_OPAC, TimeSpan.FromMilliseconds(IN_MS)));
+        _holdTimer.Stop();
+        _holdTimer.Start();
 
-            // Gentle upward drift across the whole life so the word reads as a rising pop.
-            rise.BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(6, -RISE_DIP, TimeSpan.FromMilliseconds(IN_MS + HOLD_MS + OUT_MS)));
-        };
+        // Gentle upward drift across the whole life so the word reads as a rising pop.
+        rise.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(6, -RISE_DIP, TimeSpan.FromMilliseconds(IN_MS + HOLD_MS + OUT_MS)));
     }
 
-    private void CloseNow()
+    private void Retire()
     {
-        try { Close(); } catch { }
+        if (_closed) return;
+        try
+        {
+            _holdTimer.Stop();
+            BeginAnimation(OpacityProperty, null);
+            Opacity = 0;
+            _root.Children.Clear();
+            Hide();
+        }
+        catch { }
+        _pool.Push(this);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _closed = true;
+        try { _holdTimer.Stop(); } catch { }
+        base.OnClosed(e);
     }
 
     /// <summary>Lift the bubble's tint toward white so the faint word still reads over any desktop.</summary>

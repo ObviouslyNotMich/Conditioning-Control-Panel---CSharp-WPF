@@ -733,6 +733,28 @@ namespace ConditioningControlPanel
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Render-thread deadlock guard (see avatar-tube-render-deadlock memory): the avatar
+            // tube is a layered window sharing WPF's single render thread; a layered ComboBox
+            // dropdown resizing/closing while the tube animates can wedge that thread
+            // (Application Hang 1002 — reproduced 4x on 2026-06-10 around mod switches).
+            // De-layer every ComboBox popup so the dropdown is a plain window: square corners,
+            // no shadow, no deadlock. Tooltips were de-layered the same way in App.xaml.
+            EventManager.RegisterClassHandler(typeof(System.Windows.Controls.ComboBox), FrameworkElement.LoadedEvent,
+                new RoutedEventHandler((s, _) =>
+                {
+                    try
+                    {
+                        if (s is System.Windows.Controls.ComboBox cb &&
+                            cb.Template?.FindName("PART_Popup", cb) is System.Windows.Controls.Primitives.Popup p &&
+                            !p.IsOpen)
+                        {
+                            p.AllowsTransparency = false;
+                            p.PopupAnimation = System.Windows.Controls.Primitives.PopupAnimation.None;
+                        }
+                    }
+                    catch { }
+                }));
+
             // Show splash screen IMMEDIATELY - before anything else
             // This ensures users see feedback right away after update/launch
             _splash = new SplashScreen();
@@ -845,6 +867,11 @@ namespace ConditioningControlPanel
                 .CreateLogger();
 
             Logger.Information("Application starting...");
+
+            // Hang forensics: the recurring freezes are render-thread deadlocks (Application
+            // Hang 1002, nothing in crash.log). The watchdog writes one minidump per session
+            // to the logs folder when the dispatcher stops responding for 10s.
+            Services.UiHangWatchdog.Start(Dispatcher);
 
             splash.SetProgress(0.1, "Initializing...");
 

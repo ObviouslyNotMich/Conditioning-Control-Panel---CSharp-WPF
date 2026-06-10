@@ -2088,6 +2088,22 @@ namespace ConditioningControlPanel.Models
             get => _chaosAnnouncerEnabled;
             set { _chaosAnnouncerEnabled = value; OnPropertyChanged(); }
         }
+
+        private string _chaosAccessoryKey1 = "Q";
+        /// <summary>Keybind for accessory pocket 1 (reserved: active-use accessories are a future system).</summary>
+        public string ChaosAccessoryKey1
+        {
+            get => _chaosAccessoryKey1;
+            set { _chaosAccessoryKey1 = value; OnPropertyChanged(); }
+        }
+
+        private string _chaosAccessoryKey2 = "E";
+        /// <summary>Keybind for accessory pocket 2 (reserved: active-use accessories are a future system).</summary>
+        public string ChaosAccessoryKey2
+        {
+            get => _chaosAccessoryKey2;
+            set { _chaosAccessoryKey2 = value; OnPropertyChanged(); }
+        }
         #endregion
 
         #region Lock Card (Unlocks Lv.35)
@@ -2507,14 +2523,14 @@ namespace ConditioningControlPanel.Models
             set { _aiChatEnabled = value; OnPropertyChanged(); }
         }
 
-        private int _idleGiggleIntervalSeconds = 25; // 10-600 seconds; default 25s on average, user can slide faster/slower
+        private int _idleGiggleIntervalSeconds = 120; // 20-600 seconds; drives the idle BARK cadence (AvatarTubeWindow.OnIdleTick → BarkService.DispatchIdle)
         /// <summary>
         /// How often the companion speaks when idle (in seconds)
         /// </summary>
         public int IdleGiggleIntervalSeconds
         {
             get => _idleGiggleIntervalSeconds;
-            set { _idleGiggleIntervalSeconds = Math.Clamp(value, 10, 600); OnPropertyChanged(); }
+            set { _idleGiggleIntervalSeconds = Math.Clamp(value, 20, 600); OnPropertyChanged(); }
         }
 
         private double _bubbleDurationSeconds = 2.0;

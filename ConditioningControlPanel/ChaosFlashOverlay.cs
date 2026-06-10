@@ -19,6 +19,10 @@ namespace ConditioningControlPanel;
 /// image from the same pool the flashes draw on (<c>EffectiveAssetsPath/images</c>) and holds
 /// it over the whole desktop at a low opacity for a few seconds, fading in then back out.
 /// Animated GIFs loop; static images are shown frozen. Silent no-op if the pool is empty.
+/// ONE window is created on first use and KEPT ALIVE between washes (a new Show() swaps the
+/// image) — creating/closing a layered window mid-run can wedge the shared WPF render thread
+/// (Application Hang 1002 — see ChaosEffectBannerOverlay). Closed only at run teardown via
+/// <see cref="CloseActive"/>.
 /// </summary>
 public sealed class ChaosFlashOverlay : Window
 {
@@ -39,9 +43,9 @@ public sealed class ChaosFlashOverlay : Window
         {
             var pick = PickImage();
             if (pick == null) return;
-            _active?.CloseNow();
-            _active = new ChaosFlashOverlay(pick, durationMs, opacity);
-            ((Window)_active).Show();
+            if (_active == null) { _active = new ChaosFlashOverlay(); ((Window)_active).Show(); }
+            else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between washes
+            _active.Display(pick, durationMs, opacity);
         }
         catch (Exception ex) { App.Logger?.Debug("ChaosFlashOverlay.Show: {E}", ex.Message); }
     }
@@ -51,8 +55,9 @@ public sealed class ChaosFlashOverlay : Window
 
     private readonly Image _img;
     private readonly DispatcherTimer _life;
+    private (string path, int durationMs, double opacity)? _pending;   // first Display can land before Loaded
 
-    private ChaosFlashOverlay(string path, int durationMs, double opacity)
+    private ChaosFlashOverlay()
     {
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -71,6 +76,38 @@ public sealed class ChaosFlashOverlay : Window
         Opacity = 0;
 
         _img = new Image { Stretch = Stretch.UniformToFill };
+        Content = _img;
+
+        SourceInitialized += (_, _) => ApplyExStyles();
+        Loaded += (_, _) =>
+        {
+            if (_pending is { } p) { _pending = null; DisplayCore(p.path, p.durationMs, p.opacity); }
+        };
+
+        _life = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(DEFAULT_DURATION_MS) };
+        _life.Tick += (_, _) =>
+        {
+            _life.Stop();
+            var fade = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(700));
+            // Window stays alive but HIDES between washes. Mid-run Close() of a layered
+            // window is the render-thread deadlock trigger; an idle-but-visible full-screen
+            // layered surface costs DWM composition every frame and stutters the GIF flashes.
+            fade.Completed += (_, _) => { ClearImage(); try { Hide(); } catch { } };
+            BeginAnimation(OpacityProperty, fade);
+        };
+    }
+
+    private void Display(string path, int durationMs, double opacity)
+    {
+        if (!IsLoaded) { _pending = (path, durationMs, opacity); return; }
+        DisplayCore(path, durationMs, opacity);
+    }
+
+    private void DisplayCore(string path, int durationMs, double opacity)
+    {
+        _life.Stop();
+        ClearImage();
+
         if (path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
         {
             AnimationBehavior.SetRepeatBehavior(_img, RepeatBehavior.Forever);
@@ -87,28 +124,23 @@ public sealed class ChaosFlashOverlay : Window
             if (bmp.CanFreeze) bmp.Freeze();
             _img.Source = bmp;
         }
-        Content = _img;
 
         double peak = Math.Clamp(opacity, 0.02, 1.0);
-        SourceInitialized += (_, _) => ApplyExStyles();
-        Loaded += (_, _) => BeginAnimation(OpacityProperty, new DoubleAnimation(0, peak, TimeSpan.FromMilliseconds(500)));
-
-        _life = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Max(600, durationMs)) };
-        _life.Tick += (_, _) =>
-        {
-            _life.Stop();
-            var fade = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(700));
-            fade.Completed += (_, _) => CloseNow();
-            BeginAnimation(OpacityProperty, fade);
-        };
+        BeginAnimation(OpacityProperty, new DoubleAnimation(0, peak, TimeSpan.FromMilliseconds(500)));
+        _life.Interval = TimeSpan.FromMilliseconds(Math.Max(600, durationMs));
         _life.Start();
+    }
+
+    private void ClearImage()
+    {
+        try { AnimationBehavior.SetSourceUri(_img, null); } catch { }
+        try { _img.Source = null; } catch { }
     }
 
     private void CloseNow()
     {
         try { _life.Stop(); } catch { }
-        try { AnimationBehavior.SetSourceUri(_img, null); } catch { }
-        try { _img.Source = null; } catch { }
+        ClearImage();
         if (ReferenceEquals(_active, this)) _active = null;
         try { Close(); } catch { }
     }

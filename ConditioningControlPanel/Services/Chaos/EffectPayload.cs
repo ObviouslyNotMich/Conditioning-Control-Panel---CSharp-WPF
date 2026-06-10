@@ -71,7 +71,9 @@ public sealed class FlashPayload : EffectPayload
         try
         {
             int amount = Scale(1, 3);
-            int duration = (int)(Scale(250, 700) * GlobalDurationMult);
+            // Was 250–700ms — flashes barely registered mid-run. Long enough to actually
+            // be seen (plus the fade tail), still well under the bubble cadence.
+            int duration = (int)(Scale(900, 2000) * GlobalDurationMult);
             int size = Scale(45, 95);
             App.Flash?.TriggerFlashOnce(amount, duration, size, suppressHaptic: false);
         }
@@ -127,9 +129,16 @@ public sealed class VideoPayload : EffectPayload
     public override string DisplayName => "video";
     public override EffectBubblePayloadKind Kind => EffectBubblePayloadKind.Video;
 
+    /// <summary>Seconds of video the chaos tape shows — a random slice, ended by the chaos hard cap.</summary>
+    public const double SEGMENT_SEC = 15;
+
     public override void Fire()
     {
-        try { App.Video?.TriggerVideo(silentIfEmpty: true); }
+        try
+        {
+            App.Video?.ArmRandomSegment(SEGMENT_SEC);   // a random 15s slice, not always the opening
+            App.Video?.TriggerVideo(silentIfEmpty: true);
+        }
         catch (Exception ex) { App.Logger?.Debug("VideoPayload: {E}", ex.Message); }
     }
 }
@@ -259,11 +268,11 @@ public sealed class GifCascadePayload : EffectPayload
     public override EffectBubblePayloadKind Kind => EffectBubblePayloadKind.GifCascade;
 
     // ---- named tunables (the "to start with" defaults — boons will tune these later) ----
-    public const double SPAWN_RATE_PER_SEC = 0.5;   // ~1 clip every 2s (halved while we watch memory)
-    public const double DURATION_SEC       = 10.0;  // spawn window
-    public const double GIF_SIZE           = 360;   // px (max dimension) — 2x bigger by default
+    public const double SPAWN_RATE_PER_SEC = 1.67;  // ~10 clips across the 6s window (2026-06-10: denser, shorter)
+    public const double DURATION_SEC       = 6.0;   // spawn window
+    public const double GIF_SIZE           = 400;   // px (max dimension)
     public const double START_SCALE        = 0.45;  // clips spawn small at the top and grow as they slide down
-    public const double FALL_SPEED         = 2.4;   // DIPs per ~16ms frame — a smooth, seamless slide
+    public const double FALL_SPEED         = 3.6;   // DIPs per ~16ms frame — a quick, lively slide
     public const double OPACITY            = 0.9;   // per-image opacity
 
     public override void Fire()
