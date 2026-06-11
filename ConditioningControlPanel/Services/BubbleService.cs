@@ -1003,6 +1003,14 @@ public class BubbleService : IDisposable
     private void TickBoundPairs()
     {
         if (!_chaosActive) return;
+        // A freeze (power-up or manual pause) holds the enrage CLOCK, not just the check —
+        // shift every open window's start forward so frozen seconds never count against the
+        // survivor. Without this, a 3.5s freeze would expire the window the instant it ends.
+        if (_chaosFrozen && _boundFirstResolved.Count > 0)
+        {
+            foreach (var key in new List<int>(_boundFirstResolved.Keys))
+                _boundFirstResolved[key] = _boundFirstResolved[key].AddMilliseconds(32);
+        }
         if (_boundFirstResolved.Count == 0 && _boundTetherKeys.Count == 0)
         {
             // Cheap pre-check: anything bound on the field at all?
@@ -2614,6 +2622,16 @@ internal class Bubble
     /// </summary>
     private void TickChannel()
     {
+        // Manual pause: the hold quietly CANCELS — no detonation, no completion against the
+        // wall clock (a paused field can't be farmed OR lost). The trance is still intact and
+        // resumes with the run; the player simply presses again.
+        if (BubbleService.ChaosInputLocked)
+        {
+            _isChanneling = false;
+            _channelScale = 1.0;
+            return;
+        }
+
         double elapsedMs = (DateTime.UtcNow - _channelStartUtc).TotalMilliseconds;
 
         double cdx = BubbleService.CursorPxX / _dpiScale - (_posX + _size / 2.0);
