@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -64,6 +65,15 @@ public sealed class ChaosFieldFxOverlay : Window
     /// <summary>Tail-Plug: drop one fading sparkle at a rabbit's trail point.</summary>
     public static void TrailDot(Point centerPx, double lifeSec) =>
         OnUi(w => w.DrawTrailDot(centerPx, lifeSec));
+
+    /// <summary>The Bound: create/update the elastic thread between a tethered pair (keyed by
+    /// PairId; endpoints in physical px). Updated every anim tick while both halves live.</summary>
+    public static void SetTether(int key, Point aPx, Point bPx) =>
+        OnUi(w => w.UpdateTether(key, aPx, bPx));
+
+    /// <summary>The Bound: the pair resolved (or one half did) — drop its thread.</summary>
+    public static void ClearTether(int key) =>
+        OnUi(w => w.RemoveTether(key));
 
     /// <summary>Instant teardown (run end / shutdown) — the only place this hwnd dies.</summary>
     public static void CloseActive()
@@ -236,6 +246,51 @@ public sealed class ChaosFieldFxOverlay : Window
         zone.BeginAnimation(OpacityProperty, flicker);
     }
 
+    // ---- The Bound: elastic tether lines, one per live pair ----
+    private readonly Dictionary<int, Line> _tethers = new();
+    private static readonly Brush TetherBrush = Frozen(Color.FromArgb(150, 0xFF, 0x69, 0xB4));
+
+    private static Brush Frozen(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
+
+    private void UpdateTether(int key, Point aPx, Point bPx)
+    {
+        if (Local(aPx) is not Point a || Local(bPx) is not Point b) return;
+        if (!_tethers.TryGetValue(key, out var line))
+        {
+            line = new Line
+            {
+                Stroke = TetherBrush,
+                StrokeThickness = 3.5,
+                StrokeDashArray = new DoubleCollection { 4, 3 },
+                StrokeDashCap = PenLineCap.Round,
+                IsHitTestVisible = false,
+                Opacity = 0.55,
+            };
+            _tethers[key] = line;
+            _canvas.Children.Add(line);
+        }
+        line.X1 = a.X; line.Y1 = a.Y;
+        line.X2 = b.X; line.Y2 = b.Y;
+        // Elastic read: the further it stretches, the thinner the thread.
+        double dx = b.X - a.X, dy = b.Y - a.Y;
+        double dist = Math.Sqrt(dx * dx + dy * dy);
+        line.StrokeThickness = Math.Clamp(5.0 - dist / 250.0, 1.5, 5.0);
+    }
+
+    private void RemoveTether(int key)
+    {
+        if (_tethers.TryGetValue(key, out var line))
+        {
+            try { _canvas.Children.Remove(line); } catch { }
+            _tethers.Remove(key);
+        }
+        if (_transientCount == 0 && _tethers.Count == 0
+            && Services.BubbleService.ChaosRabbitTrailSecNow <= 0)
+        {
+            try { Hide(); } catch { }
+        }
+    }
+
     private void DrawTrailDot(Point centerPx, double lifeSec)
     {
         if (Local(centerPx) is not Point c) return;
@@ -251,7 +306,7 @@ public sealed class ChaosFieldFxOverlay : Window
         var fade = new DoubleAnimation(0.65, 0, dur);
         fade.Completed += (_, _) =>
         {
-            if (_transientCount == 0 && Services.BubbleService.ChaosRabbitTrailSecNow <= 0)
+            if (_transientCount == 0 && _tethers.Count == 0 && Services.BubbleService.ChaosRabbitTrailSecNow <= 0)
             {
                 try { Hide(); } catch { }   // boon gone / run over — don't idle visible
             }
@@ -268,7 +323,7 @@ public sealed class ChaosFieldFxOverlay : Window
     {
         try { _canvas.Children.Remove(el); } catch { }
         _transientCount = Math.Max(0, _transientCount - 1);
-        if (_transientCount == 0 && Services.BubbleService.ChaosRabbitTrailSecNow <= 0)
+        if (_transientCount == 0 && _tethers.Count == 0 && Services.BubbleService.ChaosRabbitTrailSecNow <= 0)
         {
             try { Hide(); } catch { }
         }

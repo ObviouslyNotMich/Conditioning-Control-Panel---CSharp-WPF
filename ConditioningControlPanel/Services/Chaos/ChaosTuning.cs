@@ -73,4 +73,15 @@ public static class ChaosTuning
     /// fall back to a still + shimmer (XamlAnimatedGif decodes native-res frames on the UI thread).</summary>
     public const int TEASE_MAX_ANIMATED = 2;
     public const long TEASE_ANIMATED_MAX_BYTES = 3_000_000;
+
+    // ---- The Bound: two lives on one elastic tether — both must go, and quickly ----
+    public const double BOUND_SPAWN_CHANCE = 0.03;
+    /// <summary>The second channel must COMPLETE within this window of the first one
+    /// completing, or the survivor enrages. One half triggering enrages the other instantly.</summary>
+    public const int BOUND_WINDOW_MS = 2500;
+    /// <summary>Per-half defuse cost — the pair totals one normal defuse.</summary>
+    public const double DEFUSE_COST_BOUND = 15;
+    public const double BOUND_SEPARATION_DIP = 250;
+    /// <summary>Enrage: remaining trance halves and speed scales by this.</summary>
+    public const double BOUND_ENRAGE_SPEED_MULT = 1.4;
 }

@@ -75,6 +75,11 @@ public sealed class EffectBubbleSpec
     /// <summary>The Tease: ANY mouse-down triggers it (payload + streak halves); ignored to
     /// expiry it pays the DENIED bonus. Immune to toys/chains — only touch or time ends it.</summary>
     public bool IsTease { get; init; }
+    /// <summary>The Bound: one half of a tethered live pair — both must be defused, the second
+    /// within the window of the first, or the survivor enrages. Each half costs half focus.</summary>
+    public bool IsBoundHalf { get; init; }
+    /// <summary>Bound pair link id (also keys the tether line in the field-FX overlay).</summary>
+    public int PairId { get; init; }
 
     // ---- darter (bouncing-flash catch target) ----
     /// <summary>True for a darter: small, fast, telegraphed, self-expiring benign reward target.</summary>
@@ -436,6 +441,47 @@ public static class ChaosBubbleVariants
         };
     }
 
+    // ---- The Bound tuning ----
+    private static int _nextBoundPairId = 1;
+
+    /// <summary>
+    /// Build The Bound: two tethered live bubbles (light trio, independently rolled) sharing a
+    /// PairId. BubbleService.SpawnChaosBoundPair places them ~250 DIP apart on one screen with
+    /// loosely mirrored drift and draws the elastic thread between them. Both must be defused —
+    /// the second within BOUND_WINDOW_MS of the first — or the survivor enrages.
+    /// </summary>
+    public static (EffectBubbleSpec A, EffectBubbleSpec B) BuildBoundPair(
+        double intensity, double fuseTimeMult = 1.0, double effectIntensity = 1.0,
+        double sizeScale = 1.0, double fuseMult = 1.0)
+    {
+        int pairId = _nextBoundPairId++;
+        EffectBubbleSpec One()
+        {
+            var v = All[2 + _rng.Next(3)];   // pink / spiral / braindrain
+            double t = Math.Clamp(_rng.NextDouble() * 0.7 + intensity * 0.45, 0, 1);
+            double size = v.MinSize + (v.MaxSize - v.MinSize) * t;
+            int strength = (int)Math.Round(Math.Clamp((size - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+            EffectPayload payload = v.OverlayKind != null ? new OverlayPayload(v.OverlayKind) : EffectPayloadFactory.Build(v.PayloadKind);
+            payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
+            int baseFuse = v.FuseMinMs + _rng.Next(Math.Max(1, v.FuseMaxMs - v.FuseMinMs));
+            int fuse = (int)Math.Max(1200, baseFuse * (1.0 - intensity * 0.25) * fuseTimeMult * Math.Max(0.1, fuseMult));
+            return new EffectBubbleSpec
+            {
+                VariantId = v.Id,
+                Payload = payload,
+                SizePx = size * GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale),
+                Tint = v.Tint,
+                Label = v.Label,
+                IsLive = true,
+                FuseMs = fuse,
+                Motion = ChaosMotion.RoamBounce,
+                IsBoundHalf = true,
+                PairId = pairId,
+            };
+        }
+        return (One(), One());
+    }
+
     // ---- The Chaperone tuning ----
     public const double ESCORT_SIZE_MIN = 95;
     public const double ESCORT_SIZE_MAX = 120;
@@ -534,6 +580,7 @@ public static class ChaosBubbleVariants
         "echo"        => "Live, and not quite singular. Trigger it — by timeout, a tap, or letting go — and it splits into two smaller, faster ones. Hold it all the way down and there's only ever the one.",
         "chaperone"   => "Live, but spoken for. While its little escort circles, nothing touches it. Pop the escort first — then it's alone, and yours to hold.",
         "tease"       => "It wants your hand. Don't. Touch it once and it fires — and your streak halves. Let it leave unanswered and it pays you for the restraint. Toys slide right off it.",
+        "bound"       => "Two of them, one thread. Each costs half a hold — but the second must come down quick, or the one left waiting turns furious: half the trance, half again the speed.",
         _             => ""
     };
 

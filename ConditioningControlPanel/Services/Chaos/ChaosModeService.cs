@@ -161,7 +161,8 @@ public sealed class ChaosModeService
             canChannelDefuse: CanChannelDefuse,
             onChannelBroken: OnChannelBroken,
             onTeaseTouched: OnTeaseTouched,
-            onTeaseDenied: OnTeaseDenied);
+            onTeaseDenied: OnTeaseDenied,
+            onBoundEnraged: OnBoundEnraged);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("🐇 the descent begins");
         _runDetonations = 0;
@@ -648,6 +649,24 @@ public sealed class ChaosModeService
             return true;
         }
 
+        // The Bound (Relentless+): two lives, one thread — both must come down quickly.
+        if (cfg.Difficulty >= ChaosDifficulty.Hard
+            && Random.Shared.NextDouble() < ChaosTuning.BOUND_SPAWN_CHANCE)
+        {
+            bool debut = !ChaosMeta.State.SeenBound;
+            if (debut)
+            {
+                ChaosMeta.State.SeenBound = true; ChaosMeta.Save();
+                ChaosAnnouncerOverlay.Announce("⛓ THE BOUND — both, and quickly", ChaosAnnounceKind.Item);
+                _state.PushEvent("⛓ two of them, one thread");
+            }
+            var (a, b) = ChaosBubbleVariants.BuildBoundPair(effIntensity, _state.FuseTimeMult,
+                cfg.EffectIntensity, _state.BubbleScale, debut ? ChaosTuning.DEBUT_FUSE_MULT : 1.0);
+            ChaosMeta.MarkDiscovered("bubble:bound");
+            App.Bubbles?.SpawnChaosBoundPair(a, b);
+            return true;
+        }
+
         // The Tease (Slipping rank, 10 descents): the one you beat by NOT touching it.
         if (ChaosMeta.State.RunsCompleted >= 10
             && Random.Shared.NextDouble() < ChaosTuning.TEASE_SPAWN_CHANCE)
@@ -704,6 +723,16 @@ public sealed class ChaosModeService
         _state.PushEvent($"✖ you touched it. it laughs — streak halves to x{_state.Combo}");
         Pulse(Color.FromRgb(0xFF, 0x3D, 0x5A), 0.38);
         App.Bark?.NotifyChaosTeaseClicked();
+    }
+
+    /// <summary>A Bound survivor's tether snapped (window lapsed or its partner triggered) —
+    /// it enraged: half the trance left, half again the speed. The juice lives here.</summary>
+    private void OnBoundEnraged(EffectBubbleSpec spec)
+    {
+        if (_state == null) return;
+        ChaosSfx.Play("toy_denied", 0.5f);   // a sharp denial sting until a dedicated cue ships
+        Pulse(Color.FromRgb(0xFF, 0x4A, 0x4A), 0.30);
+        _state.PushEvent("⛓ the tether snaps — it enrages");
     }
 
     /// <summary>The Tease expired untouched: restraint pays — gold, score AND focus.</summary>
@@ -1098,8 +1127,10 @@ public sealed class ChaosModeService
     private double _focusLowAccumSec;                        // rh_focus_low: dry-spell stopwatch
     private bool _focusLowBarkFired;                         // once per run max
 
-    /// <summary>Defuse cost for one channel on this bubble (Bound halves pay half each).</summary>
-    private double DefuseCostFor(EffectBubbleSpec spec) => ChaosTuning.DEFUSE_COST;
+    /// <summary>Defuse cost for one channel on this bubble (Bound halves pay half each,
+    /// so the pair totals one normal defuse).</summary>
+    private double DefuseCostFor(EffectBubbleSpec spec) =>
+        spec.IsBoundHalf ? ChaosTuning.DEFUSE_COST_BOUND : ChaosTuning.DEFUSE_COST;
 
     /// <summary>May the player's press start a defuse channel? Frozen fields channel for free —
     /// otherwise the focus must cover the bubble's cost (deducted on COMPLETION, not here).</summary>

@@ -387,7 +387,13 @@ public class BubbleService : IDisposable
         // pulses, the shudder plays, and any in-flight pop finishes. Each bubble holds its own
         // motion/fuse while frozen (see Bubble.AnimateFrame).
         if (_freezeVibrateRemainingMs > 0) _freezeVibrateRemainingMs -= 32;
-        if (_bubbles.Count == 0) return;
+        if (_bubbles.Count == 0)
+        {
+            // A field clear (wave draft) force-destroys bound halves without their callbacks —
+            // don't leave their tether lines hanging over the draft table.
+            if (_boundTetherKeys.Count > 0 || _boundFirstResolved.Count > 0) ClearBoundState();
+            return;
+        }
 
         // Wand shimmer / VibePopping / The Pull / The Spanker: sample the cursor + boon knobs once
         // per tick (one P/Invoke); every bubble reads the shared fields instead of asking Win32 itself.
@@ -414,6 +420,7 @@ public class BubbleService : IDisposable
         }
 
         TickFieldHazards();   // Size Queen ripples / Aftermath residue / Tail-Plug trails
+        TickBoundPairs();     // The Bound: tether lines + the enrage window
     }
 
     public void Stop()
@@ -662,10 +669,13 @@ public class BubbleService : IDisposable
                                Func<EffectBubbleSpec, bool>? canChannelDefuse = null,
                                Action<EffectBubbleSpec, string>? onChannelBroken = null,
                                Action<EffectBubbleSpec>? onTeaseTouched = null,
-                               Action<EffectBubbleSpec>? onTeaseDenied = null)
+                               Action<EffectBubbleSpec>? onTeaseDenied = null,
+                               Action<EffectBubbleSpec>? onBoundEnraged = null)
     {
         _chaosOnTeaseTouched = onTeaseTouched;
         _chaosOnTeaseDenied = onTeaseDenied;
+        _chaosOnBoundEnraged = onBoundEnraged;
+        ClearBoundState();
         _chaosChainReach = chainReach;
         _chaosRabbitTrailSec = rabbitTrailSec;
         _chaosElectrified = electrifiedRabbits;
@@ -754,6 +764,43 @@ public class BubbleService : IDisposable
         });
     }
 
+    /// <summary>The Bound: materialise a tethered live pair ~250 DIP apart on ONE screen with
+    /// loosely mirrored drift. The tether line + the enrage window run on the anim tick.</summary>
+    public void SpawnChaosBoundPair(EffectBubbleSpec specA, EffectBubbleSpec specB)
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            try
+            {
+                if (_bubbleImage == null) LoadBubbleImage();
+                EnsureAnimationTimer();
+                var screen = PickScreenFor(specA);
+                double dpi = Bubble.GetDpiForScreen(screen);
+                var wa = screen.WorkingArea;
+                double sepPx = ChaosTuning.BOUND_SEPARATION_DIP * dpi;
+                // Anchor with margins so both halves land comfortably on-screen.
+                double mx = sepPx / 2 + 120;
+                double ax = wa.X + mx + _random.NextDouble() * Math.Max(1, wa.Width - 2 * mx);
+                double ay = wa.Y + 160 + _random.NextDouble() * Math.Max(1, wa.Height - 320);
+                double ang = _random.NextDouble() * Math.PI;
+                double ox = Math.Cos(ang) * sepPx / 2;
+                double oy = Math.Sin(ang) * sepPx / 2 * 0.6;   // flatten the spread a little
+                specA.SpawnAtPxX = ax - ox; specA.SpawnAtPxY = ay - oy;
+                specB.SpawnAtPxX = ax + ox; specB.SpawnAtPxY = ay + oy;
+                var a = CreateChaosBubble(specA, screen);
+                _bubbles.Add(a);
+                var b = CreateChaosBubble(specB, screen);
+                b.MirrorVelocityFrom(a);   // loosely mirrored drift — they pull against the thread
+                _bubbles.Add(b);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error("SpawnChaosBoundPair failed: {Error}", ex.Message);
+            }
+        });
+    }
+
     /// <summary>A pinned spawn (Rabbit Caller's summon-at-click etc.) lands on the screen that
     /// actually contains the point; everything else scatters randomly.</summary>
     private System.Windows.Forms.Screen PickScreenFor(EffectBubbleSpec spec)
@@ -781,10 +828,15 @@ public class BubbleService : IDisposable
                         bool hiss = b.DefusedViaChannel && Chaos.ChaosSfx.ResolvePath("defuse_hiss").Length > 0;
                         PlayChaosCue(hiss ? "defuse_hiss" : "snap", 0.6f);
                         if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec, b.DefuseJudgeFuseSec, b.DefusedViaChannel);
+                        if (b.Spec?.IsBoundHalf == true) OnBoundHalfResolved(b, defused: true);
                     },
                     canChannelDefuse: b => b.Spec == null || (_chaosCanChannel?.Invoke(b.Spec) ?? true),
                     onChannelBroken: (b, reason) => { if (b.Spec != null) _chaosOnChannelBroken?.Invoke(b.Spec, reason); },
-                    onDetonate:  b => { if (b.Spec != null) _chaosOnDetonate?.Invoke(b.Spec); },
+                    onDetonate:  b =>
+                    {
+                        if (b.Spec != null) _chaosOnDetonate?.Invoke(b.Spec);
+                        if (b.Spec?.IsBoundHalf == true) OnBoundHalfResolved(b, defused: false);
+                    },
                     onDarterCaught: b => { PlayChaosCue("rabbit_catch", 0.6f); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); },
                     onFreezeCaught: b => { PlayChaosCue("freeze_catch", 0.6f); if (b.Spec != null) _chaosOnFreezeCaught?.Invoke(b.Spec); },
                     isChaosFrozen: () => _chaosFrozen,
@@ -901,6 +953,99 @@ public class BubbleService : IDisposable
         }
     }
 
+    // ======================= The Bound (tethered live pairs) =======================
+    // First half defused → a window opens; the second half must COMPLETE inside it or the
+    // survivor enrages (trance halves, +40% speed). One half TRIGGERING enrages the other
+    // instantly. Toy/chain defuses count as completions (a sweep catching both clears clean).
+
+    private readonly Dictionary<int, DateTime> _boundFirstResolved = new();   // pairId → first-defuse time
+    private readonly HashSet<int> _boundTetherKeys = new();                   // tether lines currently drawn
+    private readonly Dictionary<int, Bubble> _boundScan = new();              // per-tick scratch
+    private Action<EffectBubbleSpec>? _chaosOnBoundEnraged;
+
+    /// <summary>The partner half of <paramref name="except"/>'s pair, if it's still standing.</summary>
+    private Bubble? FindBoundPartner(int pairId, Bubble except)
+    {
+        foreach (var b in _bubbles)
+            if (!ReferenceEquals(b, except) && b.IsAlive && !b.IsPopping
+                && b.Spec?.IsBoundHalf == true && b.Spec.PairId == pairId)
+                return b;
+        return null;
+    }
+
+    /// <summary>One half of a bound pair just resolved (from the defuse/detonate wrappers).</summary>
+    private void OnBoundHalfResolved(Bubble half, bool defused)
+    {
+        int pairId = half.Spec!.PairId;
+        var partner = FindBoundPartner(pairId, half);
+        if (partner == null)
+        {
+            // Pair complete (second inside the window, or after an enrage) — clean the books.
+            _boundFirstResolved.Remove(pairId);
+            if (_boundTetherKeys.Remove(pairId)) ChaosFieldFxOverlay.ClearTether(pairId);
+            return;
+        }
+        if (!defused)
+        {
+            // One half triggered: the survivor enrages on the spot.
+            _boundFirstResolved.Remove(pairId);
+            if (_boundTetherKeys.Remove(pairId)) ChaosFieldFxOverlay.ClearTether(pairId);
+            partner.Enrage();
+            if (partner.Spec != null) _chaosOnBoundEnraged?.Invoke(partner.Spec);
+            return;
+        }
+        // First defuse of the pair: the window opens.
+        if (!_boundFirstResolved.ContainsKey(pairId)) _boundFirstResolved[pairId] = DateTime.UtcNow;
+    }
+
+    /// <summary>Per anim tick: redraw tethers for intact pairs; enrage lone survivors whose
+    /// window lapsed. The window holds its breath while the field is frozen.</summary>
+    private void TickBoundPairs()
+    {
+        if (!_chaosActive) return;
+        if (_boundFirstResolved.Count == 0 && _boundTetherKeys.Count == 0)
+        {
+            // Cheap pre-check: anything bound on the field at all?
+            bool any = false;
+            foreach (var b in _bubbles)
+                if (b.Spec?.IsBoundHalf == true) { any = true; break; }
+            if (!any) return;
+        }
+
+        _boundScan.Clear();
+        foreach (var b in _bubbles)
+        {
+            if (b.Spec?.IsBoundHalf != true || !b.IsAlive || b.IsPopping) continue;
+            int id = b.Spec.PairId;
+            if (_boundScan.TryGetValue(id, out var first))
+            {
+                ChaosFieldFxOverlay.SetTether(id, first.CenterPx, b.CenterPx);
+                _boundTetherKeys.Add(id);
+                _boundScan.Remove(id);   // drawn — anything left over after the loop is a lone half
+            }
+            else _boundScan[id] = b;
+        }
+        foreach (var kv in _boundScan)
+        {
+            if (_boundTetherKeys.Remove(kv.Key)) ChaosFieldFxOverlay.ClearTether(kv.Key);
+            if (!_chaosFrozen && _boundFirstResolved.TryGetValue(kv.Key, out var t)
+                && (DateTime.UtcNow - t).TotalMilliseconds > ChaosTuning.BOUND_WINDOW_MS)
+            {
+                _boundFirstResolved.Remove(kv.Key);
+                kv.Value.Enrage();
+                if (kv.Value.Spec != null) _chaosOnBoundEnraged?.Invoke(kv.Value.Spec);
+            }
+        }
+    }
+
+    /// <summary>Drop every tether + window (field cleared / run over).</summary>
+    private void ClearBoundState()
+    {
+        foreach (var key in _boundTetherKeys) ChaosFieldFxOverlay.ClearTether(key);
+        _boundTetherKeys.Clear();
+        _boundFirstResolved.Clear();
+    }
+
     /// <summary>A spanked rabbit's body mows plain bubbles (live ones snap, treats pop). Other
     /// darters and freeze pickups are immune. Per-frame from the darter's AnimateFrame.
     /// Electrified Rabbits: each victim also discharges free E-Stim arcs into its neighbours.</summary>
@@ -1000,6 +1145,8 @@ public class BubbleService : IDisposable
         _chaosOnTreatExpired = null;
         _chaosOnTeaseTouched = null;
         _chaosOnTeaseDenied = null;
+        _chaosOnBoundEnraged = null;
+        ClearBoundState();
         _chaosOnEStimArc = null;
         _estimChargesLeft = 0;
         _estimFork = false;
@@ -1459,6 +1606,32 @@ internal class Bubble
 
     /// <summary>Link the live onto its escort (live side). UI thread, at pair spawn.</summary>
     internal void AttachEscort(Bubble escort) => _escort = escort;
+
+    /// <summary>The Bound: loosely mirrored drift — this half pulls against its partner.</summary>
+    internal void MirrorVelocityFrom(Bubble other)
+    {
+        _vx = -other._vx;
+        _vy = -other._vy;
+    }
+
+    /// <summary>The Bound: the tether snapped (window lapsed, or the partner triggered) — the
+    /// survivor turns furious: remaining trance halves, speed +40%, red flare. Still a normal
+    /// defusable live afterwards.</summary>
+    internal void Enrage()
+    {
+        if (!_isAlive || _isDestroyed || _isPopping || _spec?.IsLive != true) return;
+        _fuseRemainingMs = Math.Max(600, _fuseRemainingMs / 2);
+        _speed *= ChaosTuning.BOUND_ENRAGE_SPEED_MULT;
+        _vx *= ChaosTuning.BOUND_ENRAGE_SPEED_MULT;
+        _vy *= ChaosTuning.BOUND_ENRAGE_SPEED_MULT;
+        try
+        {
+            _bubbleImage.Effect = new DropShadowEffect
+            { Color = Color.FromRgb(0xFF, 0x2D, 0x2D), BlurRadius = 30, ShadowDepth = 0, Opacity = 0.95 };
+        }
+        catch { }
+        ShowChaosLabel("ENRAGED", Color.FromRgb(0xFF, 0x5A, 0x5A));
+    }
     // ---- prism shadow pop ("Look at the bright colors...") ----
     private Image? _prismGhost;            // the copied bubble's sprite, revealed under the pop
 
@@ -3072,7 +3245,7 @@ internal class Bubble
 
     #region Win32
 
-    private static double GetDpiForScreen(System.Windows.Forms.Screen screen)
+    internal static double GetDpiForScreen(System.Windows.Forms.Screen screen)
     {
         try
         {
