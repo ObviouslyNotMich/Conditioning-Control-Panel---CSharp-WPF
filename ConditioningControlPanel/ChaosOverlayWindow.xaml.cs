@@ -575,7 +575,7 @@ public partial class ChaosOverlayWindow : Window
 
         ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
 
-        // The take-home: XP and drops, side by side. Glyph canon: 🕰 xp, ✦ drops, 🐇 gold —
+        // The take-home: XP and drops, side by side. Glyph canon: 🕰 xp, ✦ drops, 🪙 gold —
         // the run award banks as DROPS (gold only ever lands instantly, mid-run).
         ResultsBody.Children.Add(ChipRow(
             StatChip("XP", $"{ChaosGlyphs.Xp} {finalXp:N0}", pink, $"base {baseXp:N0} x{skillMult:0.0}"),

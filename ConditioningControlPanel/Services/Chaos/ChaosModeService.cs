@@ -2033,7 +2033,7 @@ public sealed class ChaosModeService
                 ChaosEffectBannerOverlay.Show("rabbits", "Rabbit Storm", Color.FromRgb(0xFF, 0x4D, 0xC4));
             }
             ChaosSfx.Play("rabbit_spawn", 0.5f);
-            _state.PushEvent(maxed ? $"🐇 {rabbits} at your fingertip… and the warren is emptying"
+            _state.PushEvent(maxed ? $"🐇 {rabbits} at your fingertip… and the burrow is emptying"
                                    : $"🐇 {rabbits} answered at your fingertip");
         }
         catch (Exception ex) { App.Logger?.Debug("RabbitAimTick: {E}", ex.Message); }
