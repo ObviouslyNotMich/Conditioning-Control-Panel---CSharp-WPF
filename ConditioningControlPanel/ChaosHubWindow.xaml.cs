@@ -40,17 +40,20 @@ public partial class ChaosHubWindow : Window
         TitleBar.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) { try { DragMove(); } catch { } } };
 
         LoadFromSettings();
+        InitRevealMap();
         BuildHabits();
         BuildLifetimeBoons();
         BuildLoadoutTiles();
-        BuildImprovements();
+        BuildBench();
         BuildMantras();
         BuildDiary();
         RefreshTopBar();
         RefreshStats();
         ApplyUnlocks();
+        ApplyReveals();
         LoadBanner();
         ShowTab("loadout");
+        Loaded += (_, _) => OnHubOpenedReveals();
         _uiSoundsReady = true;
     }
 
@@ -82,6 +85,8 @@ public partial class ChaosHubWindow : Window
     {
         // The old Habits tab folded into the Toybox; external callers may still ask for it.
         if (tag == "habits") tag = "enhance";
+        // The Looking Glass stays out of reach until its reveal flips.
+        if (tag == "improve" && TabImprove.Visibility != Visibility.Visible) tag = "loadout";
 
         PanelLoadout.Visibility = tag == "loadout" ? Visibility.Visible : Visibility.Collapsed;
         PanelEnhance.Visibility = tag == "enhance" ? Visibility.Visible : Visibility.Collapsed;
@@ -278,6 +283,9 @@ public partial class ChaosHubWindow : Window
             BuildLoadoutTiles();   // the habit grid lights up
             RefreshTopBar();
             RefreshStats();
+            RevealService.Sync("purchase");   // extreme_tier flips the Inescapable pill reveal
+            ApplyReveals();
+            RunRevealFlashes("purchase");
         }
         else ChaosSfx.Play("ui_denied", 0.45f);
     }
@@ -571,10 +579,20 @@ public partial class ChaosHubWindow : Window
     /// <summary>The whole glance page: pocket slots + accessory/skill/habit tile grids.</summary>
     private void BuildLoadoutTiles()
     {
-        // ---- pocket slots (big tiles, one group per category) ----
+        // ---- pocket slots (big tiles, one group per category; unsewn categories don't render) ----
         PocketSlotsHost.Children.Clear();
-        PocketSlotsHost.Children.Add(PocketGroup("TOY", ChaosBoonCategory.Skill));
-        PocketSlotsHost.Children.Add(PocketGroup("ACCESSORY", ChaosBoonCategory.Accessory));
+        var toyGroup = PocketGroup("TOY", ChaosBoonCategory.Skill);
+        if (toyGroup != null) PocketSlotsHost.Children.Add(toyGroup);
+        var accGroup = PocketGroup("ACCESSORY", ChaosBoonCategory.Accessory);
+        if (accGroup != null) PocketSlotsHost.Children.Add(accGroup);
+        if (PocketSlotsHost.Children.Count == 0)
+            PocketSlotsHost.Children.Add(new TextBlock
+            {
+                Text = "no pockets sewn yet.",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90)),
+                FontSize = 12,
+                Margin = new Thickness(0, 2, 0, 2),
+            });
 
         // ---- collections ----
         FillCategoryTiles(TilesAccessories, ChaosBoonCategory.Accessory, padTo: 8);
@@ -639,9 +657,11 @@ public partial class ChaosHubWindow : Window
         TxtHabitCount.Text = $"{switchedOn} on · {trained}/{shown} trained";
     }
 
-    /// <summary>One labelled pocket column: equipped boon as a big gold tile, plus + tiles for free slots.</summary>
-    private FrameworkElement PocketGroup(string label, ChaosBoonCategory cat)
+    /// <summary>One labelled pocket column: equipped boon as a big gold tile, plus + tiles for
+    /// free slots. Null when the category has no pockets sewn (and nothing stale equipped).</summary>
+    private FrameworkElement? PocketGroup(string label, ChaosBoonCategory cat)
     {
+        if (ChaosMeta.SlotsFor(cat) <= 0 && ChaosMeta.EquippedCountIn(cat) == 0) return null;
         var col = new StackPanel { Margin = new Thickness(0, 0, 30, 0) };
         col.Children.Add(new TextBlock
         {
@@ -818,36 +838,7 @@ public partial class ChaosHubWindow : Window
     }
 
     // ============================ improvements tab ============================
-
-    /// <summary>The seamstress's bench: permanent meta unlocks. Placeholder rows until the
-    /// second-pocket pass lands — the shelf exists so they have somewhere to live.</summary>
-    private void BuildImprovements()
-    {
-        ImprovementsHost.Children.Clear();
-        ImprovementsHost.Children.Add(ImprovementRow("👝", "a second skill pocket", "not yet sewn. the seamstress takes her time."));
-        ImprovementsHost.Children.Add(ImprovementRow("👝", "a second accessory pocket", "not yet sewn. she only has two hands."));
-    }
-
-    private Border ImprovementRow(string glyph, string name, string desc)
-    {
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new TextBlock { Text = glyph, FontSize = 16, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Opacity = 0.5 });
-        var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        mid.Children.Add(new TextBlock { Text = name, Foreground = new SolidColorBrush(Color.FromRgb(0x9A, 0x9A, 0xB8)), FontSize = 12, FontWeight = FontWeights.SemiBold });
-        mid.Children.Add(new TextBlock { Text = desc, Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
-        row.Children.Add(mid);
-        return new Border
-        {
-            Child = row,
-            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(30, 0xE8, 0x43, 0x93)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(10),
-            Margin = new Thickness(0, 0, 0, 6),
-            Opacity = 0.8
-        };
-    }
+    // Her bench (the gold shop) lives in ChaosHubWindow.Bench.cs — see BuildBench().
 
     // ============================ mantras box ============================
 
@@ -975,7 +966,7 @@ public partial class ChaosHubWindow : Window
         var host = new StackPanel { Margin = new Thickness(18, 14, 18, 18) };
         host.Children.Add(new TextBlock
         {
-            Text = "DIARY — what you've met down there",
+            Text = "DIARY · what you've met down there",
             Foreground = new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)),
             FontFamily = new FontFamily("Consolas"), FontWeight = FontWeights.Bold, FontSize = 13,
             Margin = new Thickness(0, 0, 0, 12)
@@ -1184,10 +1175,12 @@ public partial class ChaosHubWindow : Window
 
     private void BtnRandomize_Click(object sender, RoutedEventArgs e)
     {
-        var diffs = ChaosMeta.State.ExtremeUnlocked
-            ? new[] { "Easy", "Medium", "Hard", "Extreme" }
-            : new[] { "Easy", "Medium", "Hard" };
-        SetSegment(GrpDifficulty, diffs[_rng.Next(diffs.Length)]);
+        // Only difficulties whose pills are revealed can roll (the saved setting is untouched).
+        var diffs = new List<string> { "Easy" };
+        if (SegMedium.Visibility == Visibility.Visible) diffs.Add("Medium");
+        if (SegHard.Visibility == Visibility.Visible) diffs.Add("Hard");
+        if (ChaosMeta.State.ExtremeUnlocked) diffs.Add("Extreme");
+        SetSegment(GrpDifficulty, diffs[_rng.Next(diffs.Count)]);
         SetSegment(GrpLength, new[] { "120", "180", "300" }[_rng.Next(3)]);
         SetSegment(GrpMotion, new[] { "Mixed", "FloatUp", "RainDown", "RoamBounce" }[_rng.Next(4)]);
         var pool = GrpPool.Children.OfType<ToggleButton>().ToList();

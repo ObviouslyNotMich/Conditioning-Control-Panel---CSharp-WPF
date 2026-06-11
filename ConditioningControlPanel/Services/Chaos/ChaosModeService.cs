@@ -65,6 +65,33 @@ public sealed class ChaosModeService
     private const double HEAT_TINT_MAX_OPACITY = 0.30;  // peak held-edge opacity at full heat
     private double _lastHeatTint = -1;               // last applied heat-tint level (avoid churn)
 
+    public ChaosModeService()
+    {
+        // Unlock toast: when something reveals mid-run, one quiet line in the event feed.
+        RevealService.Pending += OnRevealPending;
+    }
+
+    private DateTime _lastRevealToastUtc = DateTime.MinValue;
+
+    /// <summary>One event-feed line per reveal batch (Sync raises Pending per id; the
+    /// debounce window collapses a batch to a single line). Run-active only.</summary>
+    private void OnRevealPending(string id)
+    {
+        var disp = Application.Current?.Dispatcher;
+        if (disp == null || disp.HasShutdownStarted) return;
+        disp.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                if (!_spawning || _state == null) return;
+                if ((DateTime.UtcNow - _lastRevealToastUtc).TotalSeconds < 8) return;
+                _lastRevealToastUtc = DateTime.UtcNow;
+                _state.PushEvent("something new in the dollhouse.");
+            }
+            catch { }
+        }));
+    }
+
     public bool IsRunning => _active;
 
     public bool IsManuallyPaused => _manualPaused;
@@ -1604,11 +1631,16 @@ public sealed class ChaosModeService
     {
         if (_state == null) return;
         _state.ActiveToys.Clear();
+        // Pockets are sewn at her bench: zero pockets = no toy buttons, no keybinds —
+        // even if a stale save still has an active toy flagged.
+        int pockets = ChaosMeta.SlotsFor(ChaosBoonCategory.Skill);
+        if (pockets <= 0) return;
         var s = App.Settings?.Current;
         string[] keys = { s?.ChaosAccessoryKey1 ?? "Q", s?.ChaosAccessoryKey2 ?? "E" };
         int slot = 0;
         foreach (var b in ChaosLifetimeBoons.All)
         {
+            if (slot >= pockets) break;
             if (!b.IsActiveUse || !ChaosMeta.IsBoonActive(b.Id)) continue;
             if (!_state.ToyPower.TryGetValue(b.Id, out var power)) continue;
             var toy = new ChaosToyState
@@ -2201,6 +2233,9 @@ public sealed class ChaosModeService
         int sparksEarned = 0;
         try { sparksEarned = ChaosMeta.AwardRunRewards(_state); }
         catch (Exception ex) { App.Logger?.Debug("Chaos meta award: {E}", ex.Message); }
+
+        // RunsCompleted just moved — queue any freshly crossed reveals for the next dollhouse open.
+        try { RevealService.Sync("run_end"); } catch { }
 
         string diff = _state.Config.Difficulty.ToString();
         App.Bark?.NotifyChaosRunCompleted((int)finalXp, diff);

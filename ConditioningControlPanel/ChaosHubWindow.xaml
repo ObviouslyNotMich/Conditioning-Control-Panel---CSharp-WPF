@@ -164,12 +164,12 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <TextBlock Text="POCKETS" Style="{StaticResource SectionHdr}" Margin="0,0,0,2"/>
-                                <TextBlock Text="what you take down with you. one toy, one accessory. choose like it matters."
+                                <TextBlock x:Name="TxtPocketsSub" Text="what you take down with you. choose like it matters."
                                            Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="PocketSlotsHost" Orientation="Horizontal"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardStyle}">
+                        <Border x:Name="CardBagAccessories" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid Margin="0,0,0,10">
                                     <TextBlock Text="ACCESSORIES" Style="{StaticResource SectionHdr}" Margin="0"/>
@@ -178,7 +178,7 @@
                                 <UniformGrid x:Name="TilesAccessories" Columns="4" HorizontalAlignment="Stretch"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource CardStyle}">
+                        <Border x:Name="CardBagToys" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid Margin="0,0,0,10">
                                     <TextBlock Text="TOYS" Style="{StaticResource SectionHdr}" Margin="0"/>
@@ -207,10 +207,30 @@
                         <TextBlock Text="the Toybox" Style="{StaticResource SectionHdr}" FontSize="20" Margin="2,0,0,2"/>
                         <TextBlock Text="everything ordered here comes in an anonymous sealed package ;)"
                                    Foreground="{StaticResource TextMut}" FontSize="11" Margin="2,0,0,14"/>
-                        <TextBlock Text="Toys" Style="{StaticResource SectionHdr}" FontSize="20" Margin="2,0,0,10"/>
+                        <Border x:Name="HerCornerCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="her corner" Style="{StaticResource SectionHdr}" Margin="0,0,0,2"/>
+                                <TextBlock Text="a little table by the door. she takes gold."
+                                           Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="HerCornerHost"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock x:Name="HdrToys" Text="Toys" Style="{StaticResource SectionHdr}" FontSize="20" Margin="2,0,0,10"/>
                         <StackPanel x:Name="BoonHostSkills"/>
-                        <TextBlock Text="Accessories" Style="{StaticResource SectionHdr}" FontSize="20" Margin="2,14,0,10"/>
+                        <Border x:Name="StubToys" Visibility="Collapsed"
+                                Background="{StaticResource Card2}" BorderThickness="1" CornerRadius="8"
+                                Padding="10" Margin="0,0,0,6" Opacity="0.55">
+                            <Border.BorderBrush><SolidColorBrush Color="#1EE84393"/></Border.BorderBrush>
+                            <TextBlock Text="???" Foreground="{StaticResource TextMut}" FontSize="12" FontWeight="SemiBold"/>
+                        </Border>
+                        <TextBlock x:Name="HdrAccessories" Text="Accessories" Style="{StaticResource SectionHdr}" FontSize="20" Margin="2,14,0,10"/>
                         <StackPanel x:Name="BoonHostAccessories"/>
+                        <Border x:Name="StubAccessories" Visibility="Collapsed"
+                                Background="{StaticResource Card2}" BorderThickness="1" CornerRadius="8"
+                                Padding="10" Margin="0,8,0,6" Opacity="0.55">
+                            <Border.BorderBrush><SolidColorBrush Color="#1EE84393"/></Border.BorderBrush>
+                            <TextBlock Text="???" Foreground="{StaticResource TextMut}" FontSize="12" FontWeight="SemiBold"/>
+                        </Border>
                         <TextBlock Text="Habits" Style="{StaticResource SectionHdr}" FontSize="20" Margin="2,14,0,2"/>
                         <TextBlock Text="spend your drops. once trained they're yours for good. switch them on or off between descents."
                                    Foreground="{StaticResource TextMut}" FontSize="11" Margin="2,0,0,10"/>
@@ -230,8 +250,8 @@
                                     <TextBlock Text="Difficulty" Style="{StaticResource Lbl}"/>
                                     <StackPanel x:Name="GrpDifficulty" Orientation="Horizontal">
                                         <ToggleButton Style="{StaticResource Seg}" Tag="Easy" Content="Gentle" Click="Segment_Click"/>
-                                        <ToggleButton Style="{StaticResource Seg}" Tag="Medium" Content="Teasing" Click="Segment_Click"/>
-                                        <ToggleButton Style="{StaticResource Seg}" Tag="Hard" Content="Relentless" Click="Segment_Click"/>
+                                        <ToggleButton x:Name="SegMedium" Style="{StaticResource Seg}" Tag="Medium" Content="Teasing" Click="Segment_Click"/>
+                                        <ToggleButton x:Name="SegHard" Style="{StaticResource Seg}" Tag="Hard" Content="Relentless" Click="Segment_Click"/>
                                         <ToggleButton x:Name="SegExtreme" Style="{StaticResource Seg}" Tag="Extreme" Content="Inescapable 🔒" Click="Segment_Click"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -312,16 +332,16 @@
                             </Border>
                         </Grid>
 
-                        <Border Style="{StaticResource CardStyle}">
+                        <Border x:Name="CardKeybinds" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <TextBlock Text="KEYBINDS" Style="{StaticResource SectionHdr}" Margin="0,0,0,2"/>
-                                <TextBlock Text="your equipped toy fires on this, mid-descent. the second pocket isn't sewn yet."
+                                <TextBlock x:Name="TxtKeybindsSub" Text="your equipped toy fires on this, mid-descent. the second pocket isn't sewn yet."
                                            Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <StackPanel x:Name="RowToyKey1" Orientation="Horizontal" Margin="0,0,0,8">
                                     <TextBlock Text="Toy 1" Style="{StaticResource Lbl}"/>
                                     <ComboBox x:Name="CmbAccKey1" Width="70" SelectionChanged="AccKey_Changed"/>
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel x:Name="RowToyKey2" Orientation="Horizontal">
                                     <TextBlock Text="Toy 2" Style="{StaticResource Lbl}"/>
                                     <ComboBox x:Name="CmbAccKey2" Width="70" SelectionChanged="AccKey_Changed"/>
                                 </StackPanel>
@@ -357,7 +377,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,6,12">
+                        <Border x:Name="CardMantras" Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,6,12">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -380,7 +400,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="HOW FAR YOU'VE FALLEN" Style="{StaticResource SectionHdr}"/>
+                                <TextBlock x:Name="HdrStats" Grid.Row="0" Text="HOW FAR YOU'VE FALLEN" Style="{StaticResource SectionHdr}"/>
                                 <Grid Grid.Row="1" x:Name="StatsGrid" Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -403,8 +423,8 @@
                                     <TextBlock Grid.Row="5" Grid.Column="0" Text="Total snapped" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
                                     <TextBlock Grid.Row="5" Grid.Column="1" x:Name="StDefused" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
                                 </Grid>
-                                <TextBlock Grid.Row="2" Text="DIARY — what you've met down there · click to pop out ⤢" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,4,0,6"/>
-                                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut">
+                                <TextBlock x:Name="HdrDiary" Grid.Row="2" Text="DIARY · what you've met down there · click to pop out ⤢" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,4,0,6"/>
+                                <ScrollViewer x:Name="DiaryScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut">
                                     <StackPanel x:Name="DiaryHost"/>
                                 </ScrollViewer>
                             </Grid>
