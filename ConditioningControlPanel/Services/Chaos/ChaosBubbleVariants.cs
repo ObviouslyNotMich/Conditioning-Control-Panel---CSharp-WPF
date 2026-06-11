@@ -44,8 +44,12 @@ public sealed class EffectBubbleSpec
     public bool IsDroplet { get; init; }
     /// <summary>"Look at the bright colors..." sin: a mimic prism — pays 10x and fires the copied effect.</summary>
     public bool IsPrism { get; init; }
-    /// <summary>Prism only: the variant id whose soul it copied (its payload + the shadow-pop ghost).</summary>
+    /// <summary>Prism/Brittle: the variant id whose soul it copied (its payload + the shadow-pop ghost).</summary>
     public string MimicVariantId { get; init; } = "";
+    /// <summary>The Brittle: thin glass carrying a random LIVE effect — the cursor merely
+    /// touching it shatters it and fires the payload. Immune to toys/chains/sweeps; safe
+    /// to cross while the field is frozen; drifts off-screen harmlessly if dodged.</summary>
+    public bool IsBrittle { get; init; }
     /// <summary>GG make more GG: an uncatchable sweeper rabbit — born spanked, mows what it crosses.</summary>
     public bool IsSweeper { get; init; }
     /// <summary>Benign-pop score multiplier carried by special treats (Heavy Drop pays 3x). 1 = normal.</summary>
@@ -341,6 +345,43 @@ public static class ChaosBubbleVariants
         };
     }
 
+    // ---- The Brittle tuning ----
+    public const double BRITTLE_SIZE_MIN = 150;
+    public const double BRITTLE_SIZE_MAX = 185;
+    private static readonly Color BrittleTint = Color.FromRgb(0xD9, 0xEF, 0xFF);   // cold thin glass
+
+    /// <summary>
+    /// Build The Brittle: a glass mine wearing a random LIVE bubble's effect (video and gif
+    /// rain included — the whole live pool). The cursor merely brushing it shatters it: the
+    /// payload fires and the mimic's sprite ghosts out underneath (the prism's shadow pop).
+    /// Vertical drift only, so a dodged one always clears the screen on its own.
+    /// </summary>
+    public static EffectBubbleSpec BuildBrittle(double intensity, double effectIntensity = 1.0, double sizeScale = 1.0)
+    {
+        var pool = All.Where(v => v.IsLive).ToList();
+        var mimic = pool[_rng.Next(pool.Count)];
+        double size = BRITTLE_SIZE_MIN + (BRITTLE_SIZE_MAX - BRITTLE_SIZE_MIN) * _rng.NextDouble();
+        int strength = (int)Math.Round(Math.Clamp((size - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        EffectPayload payload = mimic.PayloadKind == EffectBubblePayloadKind.Overlay && mimic.OverlayKind != null
+            ? new OverlayPayload(mimic.OverlayKind)
+            : EffectPayloadFactory.Build(mimic.PayloadKind);
+        payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
+        return new EffectBubbleSpec
+        {
+            VariantId = "brittle",
+            Payload = payload,
+            SizePx = size * GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale),
+            Tint = BrittleTint,
+            Label = "◇",
+            IsLive = false,            // no fuse — its trigger is your own hand straying
+            FuseMs = 0,
+            Motion = _rng.NextDouble() < 0.5 ? ChaosMotion.FloatUp : ChaosMotion.RainDown,
+            IsBrittle = true,
+            MimicVariantId = mimic.Id,
+            SpeedMult = ChaosTuning.BRITTLE_SPEED_MULT,
+        };
+    }
+
     // ---- The Echo tuning ----
     public const double ECHO_SIZE_MIN = 180;
     public const double ECHO_SIZE_MAX = 240;
@@ -558,6 +599,7 @@ public static class ChaosBubbleVariants
         "heart"       => "RESIST",
         "gold_droplet"=> "GOLD",
         "prism"       => "10x!",
+        "brittle"     => "SHATTER",
         "echo"        => "SPLIT",
         _             => ""
     };
@@ -577,6 +619,7 @@ public static class ChaosBubbleVariants
         "golden"      => "A lucky bubble. Rare, quick, gone before you know it. Pop it for real gold, banked on the spot. Let it fade and your streak halves.",
         "gold_droplet"=> "A gold bead spilled from a lucky bubble. Falls fast. Catch it for a few Sparks; missing it costs nothing.",
         "prism"       => "A swirling prism wearing another bubble's soul. Pops for 10x — and fires the copied effect. The shadow underneath tells you what it was.",
+        "brittle"     => "Thin glass with something live sealed inside. Your cursor brushing it is enough — it shatters, and whatever it held fires. Toys slide around it; a frozen field is safe to cross. Steer wide.",
         "echo"        => "Live, and not quite singular. Trigger it — by timeout, a tap, or letting go — and it splits into two smaller, faster ones. Hold it all the way down and there's only ever the one.",
         "chaperone"   => "Live, but spoken for. While its little escort circles, nothing touches it. Pop the escort first — then it's alone, and yours to hold.",
         "tease"       => "It wants your hand. Don't. Touch it once and it fires — and your streak halves. Let it leave unanswered and it pays you for the restraint. Toys slide right off it.",

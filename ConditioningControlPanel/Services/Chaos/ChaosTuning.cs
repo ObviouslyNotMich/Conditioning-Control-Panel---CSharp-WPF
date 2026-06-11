@@ -74,6 +74,14 @@ public static class ChaosTuning
     public const int TEASE_MAX_ANIMATED = 2;
     public const long TEASE_ANIMATED_MAX_BYTES = 3_000_000;
 
+    // ---- The Brittle: a glass mine — HOVERING over it shatters it and fires a random
+    //      live-pool effect (the mimic's ghost reveals underneath, prism-style). It can't
+    //      be popped by toys/chains/sweeps; a frozen field is safe to cross. ----
+    public const double BRITTLE_SPAWN_CHANCE = 0.035;   // rider roll per ordinary spawn tick (not on Gentle)
+    /// <summary>Spawn grace before the glass arms — forgives materialising under the cursor.</summary>
+    public const int BRITTLE_ARM_MS = 900;
+    public const double BRITTLE_SPEED_MULT = 0.85;      // a slow drifting mine you steer around
+
     // ---- The Bound: two lives on one elastic tether — both must go, and quickly ----
     public const double BOUND_SPAWN_CHANCE = 0.03;
     /// <summary>The second channel must COMPLETE within this window of the first one

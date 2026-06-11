@@ -162,7 +162,8 @@ public sealed class ChaosModeService
             onChannelBroken: OnChannelBroken,
             onTeaseTouched: OnTeaseTouched,
             onTeaseDenied: OnTeaseDenied,
-            onBoundEnraged: OnBoundEnraged);
+            onBoundEnraged: OnBoundEnraged,
+            onBrittleShattered: OnBrittleShattered);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("🐇 the descent begins");
         _runDetonations = 0;
@@ -584,6 +585,22 @@ public sealed class ChaosModeService
                 ChaosMeta.MarkDiscovered("bubble:prism");
                 App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildPrism(effIntensity, cfg.EffectIntensity));
             }
+
+            // The Brittle (not on Gentle): a glass mine rides in alongside the field — the
+            // cursor merely brushing it shatters it and a random live effect fires.
+            if (cfg.Difficulty != ChaosDifficulty.Easy
+                && Random.Shared.NextDouble() < ChaosTuning.BRITTLE_SPAWN_CHANCE)
+            {
+                if (!ChaosMeta.State.SeenBrittle)
+                {
+                    ChaosMeta.State.SeenBrittle = true; ChaosMeta.Save();
+                    ChaosAnnouncerOverlay.Announce("◇ THE BRITTLE — don't even hover", ChaosAnnounceKind.Temptation);
+                    _state.PushEvent("◇ thin glass drifts in. steer around it.");
+                }
+                ChaosMeta.MarkDiscovered("bubble:brittle");
+                App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildBrittle(effIntensity,
+                    cfg.EffectIntensity, _state.BubbleScale));
+            }
         }
 
         // Darters spawn on their own intensity-scaled roll, independent of the bubble cap.
@@ -723,6 +740,34 @@ public sealed class ChaosModeService
         _state.PushEvent($"✖ you touched it. it laughs — streak halves to x{_state.Combo}");
         Pulse(Color.FromRgb(0xFF, 0x3D, 0x5A), 0.38);
         App.Bark?.NotifyChaosTeaseClicked();
+    }
+
+    /// <summary>The Brittle shattered — the cursor brushed (or pressed) the glass. The mimic's
+    /// live effect fires; resistance can absorb the payload (a strayed hand is an accident,
+    /// like touching the Tease) but unlike the Tease the streak is spared — the effect itself
+    /// is the whole price. Never counts as a missed trance.</summary>
+    private void OnBrittleShattered(EffectBubbleSpec spec)
+    {
+        if (_state == null || _paused || _manualPaused) return;
+        ChaosSfx.Play(ChaosSfx.ResolvePath("glass_shatter").Length > 0 ? "glass_shatter" : "trigger", 0.55f);
+
+        int shieldCost = _state.DoubleOrNothingActive ? 2 : 1;
+        if (_state.Shields >= shieldCost)
+        {
+            _state.Shields -= shieldCost;
+            _state.Heat = Math.Max(0, _state.Heat - 0.2);
+            ChaosSfx.Play(_state.Shields == 0 ? "resist_crumble" : "resist_absorb", 0.6f);
+            _state.PushEvent($"♥ resistance takes the shards ({spec.Payload.DisplayName})");
+        }
+        else
+        {
+            FirePayloadForDetonation(spec);
+            _state.EffectsFired++;
+            double s = spec.Strength / 100.0;
+            Shake(0.25 + s * 0.35, 300);
+            _state.PushEvent($"◇ it shatters — {spec.Payload.DisplayName} was inside");
+        }
+        Pulse(Color.FromRgb(0xBF, 0xE6, 0xFF), 0.32);
     }
 
     /// <summary>A Bound survivor's tether snapped (window lapsed or its partner triggered) —

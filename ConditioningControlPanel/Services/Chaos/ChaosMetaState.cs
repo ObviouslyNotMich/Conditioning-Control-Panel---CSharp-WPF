@@ -42,6 +42,7 @@ public sealed class ChaosMetaState
     public bool SeenChaperone { get; set; } = false;
     public bool SeenTease { get; set; } = false;
     public bool SeenBound { get; set; } = false;
+    public bool SeenBrittle { get; set; } = false;
 
     // lifetime stats (consumed by the Stats tab in a later session)
     public int RunsCompleted { get; set; } = 0;

@@ -966,6 +966,8 @@ public partial class ChaosHubWindow : Window
             ChaosArt.Resolve("bubbles", "tease"), "✖", Color.FromRgb(0xB3, 0x0E, 0x2E), maxWidth));
         host.Children.Add(CodexRow("bubble:bound", "The Bound", ChaosBubbleVariants.DescriptionFor("bound"),
             ChaosArt.Resolve("bubbles", "bound"), "⛓", Color.FromRgb(0xFF, 0x69, 0xB4), maxWidth));
+        host.Children.Add(CodexRow("bubble:brittle", "The Brittle", ChaosBubbleVariants.DescriptionFor("brittle"),
+            ChaosArt.Resolve("bubbles", "brittle"), "◇", Color.FromRgb(0xD9, 0xEF, 0xFF), maxWidth));
     }
 
     private Window? _diaryPopout;

@@ -62,6 +62,7 @@ public class BubbleService : IDisposable
     private Action<EffectBubbleSpec>? _chaosOnTreatExpired;
     private Action<EffectBubbleSpec>? _chaosOnTeaseTouched;   // The Tease: a mouse-down landed on it
     private Action<EffectBubbleSpec>? _chaosOnTeaseDenied;    // The Tease: it expired untouched (the bonus)
+    private Action<EffectBubbleSpec>? _chaosOnBrittleShattered; // The Brittle: the cursor touched the glass
     private Action<int>? _chaosOnEStimArc;   // a charged pop just arced; arg = charges remaining
     private Action<EffectBubbleSpec, bool>? _chaosOnDarterCaught;
     private Action<EffectBubbleSpec>? _chaosOnFreezeCaught;
@@ -670,11 +671,13 @@ public class BubbleService : IDisposable
                                Action<EffectBubbleSpec, string>? onChannelBroken = null,
                                Action<EffectBubbleSpec>? onTeaseTouched = null,
                                Action<EffectBubbleSpec>? onTeaseDenied = null,
-                               Action<EffectBubbleSpec>? onBoundEnraged = null)
+                               Action<EffectBubbleSpec>? onBoundEnraged = null,
+                               Action<EffectBubbleSpec>? onBrittleShattered = null)
     {
         _chaosOnTeaseTouched = onTeaseTouched;
         _chaosOnTeaseDenied = onTeaseDenied;
         _chaosOnBoundEnraged = onBoundEnraged;
+        _chaosOnBrittleShattered = onBrittleShattered;
         ClearBoundState();
         _chaosChainReach = chainReach;
         _chaosRabbitTrailSec = rabbitTrailSec;
@@ -849,7 +852,8 @@ public class BubbleService : IDisposable
                     onTreatExpired: b => { if (b.Spec != null) _chaosOnTreatExpired?.Invoke(b.Spec); },
                     onClickPop: OnChaosBubbleClicked,
                     onTeaseTouched: b => { if (b.Spec != null) _chaosOnTeaseTouched?.Invoke(b.Spec); },
-                    onTeaseDenied: b => { if (b.Spec != null) _chaosOnTeaseDenied?.Invoke(b.Spec); });
+                    onTeaseDenied: b => { if (b.Spec != null) _chaosOnTeaseDenied?.Invoke(b.Spec); },
+                    onBrittleShattered: b => { if (b.Spec != null) _chaosOnBrittleShattered?.Invoke(b.Spec); });
     }
 
     // ======================= chaos field hazards (run-boon FX) =======================
@@ -1154,6 +1158,7 @@ public class BubbleService : IDisposable
         _chaosOnTeaseTouched = null;
         _chaosOnTeaseDenied = null;
         _chaosOnBoundEnraged = null;
+        _chaosOnBrittleShattered = null;
         ClearBoundState();
         _chaosOnEStimArc = null;
         _estimChargesLeft = 0;
@@ -1590,6 +1595,12 @@ internal class Bubble
     private static string[]? _teaseGifPool;               // cached listing of EffectiveAssetsPath/teasebubble
     private static DateTime _teasePoolScanUtc;
     private static int _teaseAnimatedAlive;               // process-wide animated decode budget
+
+    // ---- The Brittle (glass mine: the cursor alone breaks it; the mimic ghost reveals) ----
+    private readonly bool _isBrittle;
+    private double _brittleArmRemainingMs;                 // spawn grace before hover can shatter it
+    private Canvas? _brittleCracks;                        // hairline cracks — faint until armed
+    private readonly Action<Bubble>? _onBrittleShattered;
     private static readonly Dictionary<string, BitmapImage> _teaseStillCache = new();   // display-size stills, reused across spawns
 
     // ---- The Chaperone (a live bubble shielded by an orbiting escort treat) ----
@@ -1654,7 +1665,7 @@ internal class Bubble
     /// (darters included — a chained darter counts as a catch and fires its slow-mo). A shielded
     /// Chaperone live is excluded — chains and arcs route around it (its escort conducts fine).</summary>
     public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null
-                               && !IsChaperoneShielded && !_spec.IsTease;
+                               && !IsChaperoneShielded && !_spec.IsTease && !_spec.IsBrittle;
 
     /// <summary>This bubble's on-screen box in DIPs (the bubble.png footprint, sans window pad).</summary>
     public Rect BoundingBox => new Rect(_posX, _posY, _size, _size);
@@ -1711,7 +1722,8 @@ internal class Bubble
                   double hitboxScale = 1.0, double opacityMult = 1.0, Action<Bubble>? onSpankSweep = null,
                   Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null,
                   Func<Bubble, bool>? canChannelDefuse = null, Action<Bubble, string>? onChannelBroken = null,
-                  Action<Bubble>? onTeaseTouched = null, Action<Bubble>? onTeaseDenied = null)
+                  Action<Bubble>? onTeaseTouched = null, Action<Bubble>? onTeaseDenied = null,
+                  Action<Bubble>? onBrittleShattered = null)
     {
         _random = random;
         _onPop = onPop;
@@ -1732,6 +1744,7 @@ internal class Bubble
         _onChannelBroken = onChannelBroken;
         _onTeaseTouched = onTeaseTouched;
         _onTeaseDenied = onTeaseDenied;
+        _onBrittleShattered = onBrittleShattered;
         _isChaosFrozen = isChaosFrozen;
         _timeScaleFn = timeScale;
         _freezeVibrateMsFn = freezeVibrateMs;
@@ -1739,14 +1752,17 @@ internal class Bubble
         _isFreeze = spec?.IsFreeze == true;
         _isTease = spec?.IsTease == true;
         if (_isTease) _teaseLifeRemainingMs = ChaosTuning.TEASE_LIFE_MS;
+        _isBrittle = spec?.IsBrittle == true;
+        if (_isBrittle) _brittleArmRemainingMs = ChaosTuning.BRITTLE_ARM_MS;
         // Treats (flash/subliminal/golden) rot: only so long on screen before they dissolve.
         // Hearts don't rot — they drift down once and exit; missing one carries no sting.
         // Gold Digger droplets don't either: pure bonus, no penalty for letting them fall away.
         // Chaperone escorts don't either: the shield mechanic would dismantle itself in 5s.
         // The Tease isn't a treat either — it runs its own expiry (the DENIED bonus, no streak dock).
+        // Nor is the Brittle: a dodged glass mine just drifts off-screen, no rot, no sting.
         _isTreat = spec != null && !spec.IsLive && !_isDarter && !_isFreeze
                    && spec.IsHeart != true && spec.IsDroplet != true && spec.IsEscort != true
-                   && spec.IsTease != true;
+                   && spec.IsTease != true && spec.IsBrittle != true;
         if (_isTreat) _treatLifeRemainingMs = spec!.TreatLifeMs > 0 ? spec.TreatLifeMs : TREAT_LIFETIME_MS;
         // The two giants read frantic when they breathe at full danger amplitude — calm them 60%.
         if (spec?.VariantId is "video" or "htlink") _dangerWobbleMult = 0.4;
@@ -1758,7 +1774,8 @@ internal class Bubble
         // Blindfold: effect bubbles render translucent; pickups stay fully visible (they're rewards).
         bool plainEffectBubble = spec != null && !_isDarter && !_isFreeze && !spec.IsGolden && !spec.IsHeart
                                  && !spec.IsDroplet && !spec.IsPrism && !spec.IsEscort
-                                 && !spec.IsTease;   // pickups, prism, escorts + the tease stay fully visible (it must be READ to be denied)
+                                 && !spec.IsTease    // pickups, prism, escorts + the tease stay fully visible (it must be READ to be denied)
+                                 && !spec.IsBrittle; // the Brittle too: an invisible hover-mine would be unfair — and it keeps its NATURAL hitbox (dodging stays precision)
         _hitSize = plainEffectBubble ? Math.Max(_size, (int)Math.Round(_size * Math.Clamp(hitboxScale, 1.0, 2.0))) : _size;
         _baseOpacity = plainEffectBubble ? Math.Clamp(opacityMult, 0.2, 1.0) : 1.0;
         // Darters explode to ~3x on catch (slower + bigger pop), so give them a generous window
@@ -2327,6 +2344,22 @@ internal class Bubble
                 }
             }
 
+            // The Brittle: thin glass — the cursor ALONE breaks it (no press needed). The arm
+            // grace forgives a spawn under the pointer; a frozen field is solid and safe to
+            // cross; manual pause never shatters anything. Reach is the NATURAL visual circle
+            // (no Wand/Mesmer enlargement), so dodging stays a precision act.
+            if (_isBrittle && !_isPopping)
+            {
+                if (_brittleArmRemainingMs > 0) _brittleArmRemainingMs -= 32;
+                else if (!BubbleService.ChaosInputLocked && _isChaosFrozen?.Invoke() != true)
+                {
+                    double gx = BubbleService.CursorPxX / _dpiScale - (_posX + _size / 2.0);
+                    double gy = BubbleService.CursorPxY / _dpiScale - (_posY + _size / 2.0);
+                    double reach = _size / 2.0;
+                    if (gx * gx + gy * gy <= reach * reach) { Shatter(); return; }
+                }
+            }
+
             // Fuse countdown for live chaos bubbles. A defuse channel PAUSES the trance for
             // the hold's duration (releasing early triggers immediately — it never resumes).
             if (_spec != null && _spec.IsLive && _fuseRemainingMs > 0 && !_isChanneling)
@@ -2433,6 +2466,18 @@ internal class Bubble
                     _freezeAura.Opacity = 0.1125 + 0.0875 * Math.Sin(_freezePulsePhase);
                 }
                 else if (_freezeAura.Opacity > 0) _freezeAura.Opacity = 0;
+            }
+
+            // The Brittle's cracks: faint while the arm grace runs, then a sharp glassy pulse
+            // — the visible tell that hovering is now lethal. Calm (steady, dimmer) while the
+            // field is frozen: solid glass, safe to cross.
+            if (_brittleCracks != null)
+            {
+                bool armed = _brittleArmRemainingMs <= 0;
+                bool frozenSafe = _spec != null && _isChaosFrozen?.Invoke() == true;
+                _brittleCracks.Opacity = !armed ? 0.25
+                    : frozenSafe ? 0.45
+                    : 0.70 + 0.25 * Math.Sin(_timeAlive * 6);
             }
 
             // The Tease's glossy shine slides — the cheap shimmer that also stands in for
@@ -2589,6 +2634,15 @@ internal class Bubble
             return;
         }
 
+        // The Brittle: a deliberate press is glass under a finger — it shatters exactly like
+        // a hover would (the arm grace forgives accidents, not intent; freeze doesn't either).
+        if (_isBrittle)
+        {
+            if (!_isAlive || _isPopping || BubbleService.ChaosInputLocked) return;
+            Shatter();
+            return;
+        }
+
         // Everything that isn't a live threat keeps the old one-press behavior.
         if (_spec == null || !_spec.IsLive || _isDarter || _isFreeze) { PopByClick(); return; }
 
@@ -2701,6 +2755,9 @@ internal class Bubble
         // logos, residue, ripples all slide right off it. Only a direct touch (TouchTease)
         // or its expiry (Denied) ends it.
         if (_isTease) return;
+        // The Brittle too: toys never hurt the player, so no sweep/arc/chain may break the
+        // glass FOR you. Only your own cursor (hover or press → Shatter) ends it.
+        if (_isBrittle) return;
         // Manual pause: the field is held AND untouchable — swallow every click path
         // (hit area, window backup, gaze, chain hops) until the run resumes.
         if (_spec != null && BubbleService.ChaosInputLocked) return;
@@ -2807,6 +2864,36 @@ internal class Bubble
         catch { }
         ShowChaosLabel("✖", Color.FromRgb(0xFF, 0x3D, 0x5A));
         _onTeaseTouched?.Invoke(this);
+    }
+
+    /// <summary>The Brittle broke — the cursor brushed (or pressed) the glass. The mimic's
+    /// sprite ghosts out underneath (the prism's shadow pop) so the player SEES what was
+    /// sealed inside, and the copied live effect fires via the service callback.</summary>
+    private void Shatter()
+    {
+        if (!_isAlive || _isPopping) return;
+        _isPopping = true;
+        try
+        {
+            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
+            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            var px = CenterPx;
+            BubbleService.ChaosLastPopXPx = px.X;
+            BubbleService.ChaosLastPopYPx = px.Y;
+        }
+        catch { }
+        if (_prismGhost != null)
+        {
+            try
+            {
+                _prismGhost.Opacity = 0.6;
+                _prismGhost.BeginAnimation(UIElement.OpacityProperty,
+                    new System.Windows.Media.Animation.DoubleAnimation(0.6, 0, TimeSpan.FromMilliseconds(650)));
+            }
+            catch { }
+        }
+        ShowChaosLabel("SHATTER", Color.FromRgb(0xCF, 0xEC, 0xFF));
+        _onBrittleShattered?.Invoke(this);
     }
 
     /// <summary>The Tease expired untouched: restraint pays. A satisfied gold shimmer-out
@@ -3004,13 +3091,54 @@ internal class Bubble
             _grid.Children.Add(_shieldRing);
         }
 
+        // The Brittle: hairline cracks over the glass + a cold glow (the placeholder read until
+        // a dedicated sprite ships). The cracks sit faint through the arm grace and sharpen
+        // once a hover can break it (AnimateFrame drives _brittleCracks.Opacity).
+        if (_spec.IsBrittle)
+        {
+            _bubbleImage.Effect = new DropShadowEffect
+            { Color = Color.FromRgb(0xBF, 0xE6, 0xFF), BlurRadius = 22, ShadowDepth = 0, Opacity = 0.6 };
+            _brittleCracks = new Canvas
+            {
+                Width = _size, Height = _size,
+                IsHitTestVisible = false,
+                Opacity = 0.25,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var crackBrush = new SolidColorBrush(Color.FromArgb(0xD8, 0xEC, 0xF7, 0xFF));
+            crackBrush.Freeze();
+            double c = _size / 2.0;
+            for (int i = 0; i < 3; i++)
+            {
+                // Each crack: a jagged 3-segment polyline from near the centre out to the rim.
+                double a = _random.NextDouble() * Math.PI * 2;
+                double r1 = _size * 0.12, r2 = _size * 0.27, r3 = _size * 0.44;
+                double kink1 = a + (_random.NextDouble() - 0.5) * 0.7;
+                double kink2 = kink1 + (_random.NextDouble() - 0.5) * 0.7;
+                _brittleCracks.Children.Add(new System.Windows.Shapes.Polyline
+                {
+                    Points = new PointCollection
+                    {
+                        new Point(c + Math.Cos(a) * r1,     c + Math.Sin(a) * r1),
+                        new Point(c + Math.Cos(kink1) * r2, c + Math.Sin(kink1) * r2),
+                        new Point(c + Math.Cos(kink2) * r3, c + Math.Sin(kink2) * r3),
+                    },
+                    Stroke = crackBrush,
+                    StrokeThickness = 1.6,
+                    IsHitTestVisible = false,
+                });
+            }
+            _grid.Children.Add(_brittleCracks);
+        }
+
         // Golden lucky bubble: a faint warm glow so it reads as treasure on the way past.
         if (_spec.IsGolden)
             _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(255, 215, 0), BlurRadius = 20, ShadowDepth = 0, Opacity = 0.55 };
 
-        // Mimic prism: pre-build the copied bubble's "shadow pop" ghost — hidden under the
-        // prism art, revealed the instant it pops so the player SEES whose soul it wore.
-        if (_spec.IsPrism && !string.IsNullOrEmpty(_spec.MimicVariantId))
+        // Mimic prism + the Brittle: pre-build the copied bubble's "shadow pop" ghost — hidden
+        // under the art, revealed the instant it pops/shatters so the player SEES whose soul it wore.
+        if ((_spec.IsPrism || _spec.IsBrittle) && !string.IsNullOrEmpty(_spec.MimicVariantId))
         {
             var ghostSprite = ChaosArt.Resolve("bubbles", _spec.MimicVariantId);
             if (ghostSprite != null)
@@ -3188,7 +3316,7 @@ internal class Bubble
     /// paid in focus — a gaze dwell would be a free instant snap around the whole economy.
     /// </summary>
     public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable
-                              && (_spec == null || (!_spec.IsLive && !_spec.IsTease));
+                              && (_spec == null || (!_spec.IsLive && !_spec.IsTease && !_spec.IsBrittle));
 
     /// <summary>
     /// Bubble window bounds in WPF DIPs (matches the coordinate space of
