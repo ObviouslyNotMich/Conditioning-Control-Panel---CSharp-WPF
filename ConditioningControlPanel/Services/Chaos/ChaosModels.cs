@@ -156,6 +156,10 @@ public sealed class ChaosRunConfig
     /// <summary>Chance the dedicated sin slot rolls in a draft (was a 0.5 literal). The happy
     /// path debuts sins at 0.25 on run 3 and ramps to 0.5 by Slipping.</summary>
     public double SinChance { get; set; } = 0.5;
+    /// <summary>The scripted very-first descent (RunsCompleted == 0): a code-built naked run —
+    /// behavioral bubbles, the start boon and the BeginRun defuse teach all stand down so
+    /// <see cref="ChaosHappyPath"/> can run its beats. Default false = every other run unchanged.</summary>
+    public bool ScriptedFirstRun { get; set; } = false;
 
     public static ChaosRunConfig FromSettings()
     {

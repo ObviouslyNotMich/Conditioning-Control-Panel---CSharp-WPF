@@ -145,6 +145,10 @@ public static class ChaosFirstTimes
     /// <summary>Raised after a first-time awards (bonus_id) so the run HUD can toast it.</summary>
     public static event Action<string, int>? Awarded;
 
+    /// <summary>Cheap pre-check so hot paths can skip the call once a bonus is banked.</summary>
+    public static bool IsAwarded(string bonusId) =>
+        ChaosMeta.State.FirstTimesAwarded != null && ChaosMeta.State.FirstTimesAwarded.Contains(bonusId);
+
     /// <summary>Award once: banks drops immediately, persists, fires bark + toast event.</summary>
     public static bool TryAward(string bonusId)
     {

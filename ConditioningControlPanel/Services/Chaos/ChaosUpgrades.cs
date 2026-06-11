@@ -86,10 +86,23 @@ public static class ChaosMeta
 {
     public static ChaosMetaState State { get; private set; } = new();
 
+    /// <summary>One-time "first fall" bonus on the very first completed descent
+    /// (banked in <see cref="AwardRunRewards"/>, named on the recap card).</summary>
+    public const int FIRST_FALL_BONUS = 25;
+
     public static void Init()
     {
         State = ChaosMetaStore.Load();
         RefundRetiredBoons();
+    }
+
+    /// <summary>DEBUG ONLY (CCP_CHAOS_DEBUG dev strip): throw the meta state away and start
+    /// fresh, persisted. Never called by gameplay code.</summary>
+    public static void DebugResetState()
+    {
+        State = new ChaosMetaState();
+        Save();
+        App.Logger?.Warning("ChaosMeta: state RESET via debug strip");
     }
 
     /// <summary>Cumulative Spark cost by level (unlock + upgrades) for boons removed from the
@@ -321,10 +334,23 @@ public static class ChaosMeta
         return c.HasValue && State.Sparks >= c.Value;
     }
 
+    /// <summary>Happy path: until the_spanker is owned it is the ONLY buyable ACCESSORY —
+    /// the others hang locked on the shelf (toys and charms are unaffected). One small,
+    /// scripted first purchase so the duo-demo beat has its anchor.</summary>
+    public static bool IsAccessoryScriptLocked(string id)
+    {
+        var b = ChaosLifetimeBoons.ById(id);
+        return b != null
+            && b.Category == ChaosBoonCategory.Accessory
+            && b.Id != "the_spanker"
+            && !IsBoonUnlocked("the_spanker");
+    }
+
     /// <summary>Validate + buy level 1: deduct Sparks, record level, auto-activate, persist.</summary>
     public static bool TryUnlockBoon(string id)
     {
         if (ChaosLessons.IsLessonBlocked(id)) return false;   // the lesson comes before the drops
+        if (IsAccessoryScriptLocked(id)) return false;        // the spanker comes first (happy path)
         var c = UnlockCostOf(id);
         if (!c.HasValue || State.Sparks < c.Value) return false;
         State.Sparks -= c.Value;
@@ -407,7 +433,6 @@ public static class ChaosMeta
 
         const double COMPLETION_BONUS_BASE = 35.0;   // bumped 25→35: raises the predictable Spark floor
         const double SPARK_SCORE_DIVISOR = 100.0;
-        const int FIRST_SPARK_BONUS = 25;            // one-time "First Spark" on the very first completed run
 
         double difficultyMult = run.Config.DifficultyMult;
         double completionBonus = COMPLETION_BONUS_BASE * difficultyMult;
@@ -419,8 +444,9 @@ public static class ChaosMeta
         sparks += (int)Math.Max(0, run.TrickleDrops);
         if (run.MaxedBoons.Contains("drip_feed")) sparks = (int)Math.Round(sparks * 1.10);
 
-        // One-time cold-start kindness: +25 the first time RunsCompleted goes 0→1 (guarded so it only ever applies once).
-        if (State.RunsCompleted == 0) sparks += FIRST_SPARK_BONUS;
+        // One-time cold-start kindness ("first fall"): +25 the first time RunsCompleted
+        // goes 0→1 (guarded so it only ever applies once). Displayed on the recap card.
+        if (State.RunsCompleted == 0) sparks += FIRST_FALL_BONUS;
 
         State.Sparks += Math.Max(0, sparks);
         State.RunsCompleted += 1;

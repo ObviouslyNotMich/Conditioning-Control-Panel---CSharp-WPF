@@ -307,6 +307,8 @@ namespace ConditioningControlPanel.Services
         public void NotifyChaosGoldFirst() => Raise("ChaosGoldFirst");
         /// <summary>The dollhouse opened for the very first time.</summary>
         public void NotifyChaosDollhouseFirstOpen() => Raise("ChaosDollhouseFirstOpen");
+        /// <summary>An untouched draft timed out before the skip is revealed: it autopicked a card.</summary>
+        public void NotifyChaosDraftAutopick() => Raise("ChaosDraftAutopick");
 
         // Reflection cache so a numeric-setting read on every PropertyChanged stays cheap.
         private static readonly Dictionary<string, System.Reflection.PropertyInfo?> _settingPropCache = new(StringComparer.Ordinal);

@@ -777,5 +777,230 @@
         "text": "personal best. your finest surrender yet. i'm so proud of my little toy."
       }
     ]
+  },
+  {
+    "id": "chaos_rank_up_tempted",
+    "trigger": "ChaosRankUp",
+    "conditions": {
+      "rank_eq": "tempted"
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "quiet, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] tempted. three falls. it has a word for you now."
+      },
+      {
+        "text": "[PLACEHOLDER] it gave you a name. you earned it quietly."
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_slipping",
+    "trigger": "ChaosRankUp",
+    "conditions": {
+      "rank_eq": "slipping"
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "quiet, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] slipping. ten times down. the word fits, doesn't it."
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_entranced",
+    "trigger": "ChaosRankUp",
+    "conditions": {
+      "rank_eq": "entranced"
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "soft, certain",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] entranced. you don't visit anymore. you return."
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_devoted",
+    "trigger": "ChaosRankUp",
+    "conditions": {
+      "rank_eq": "devoted"
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "warm, possessive",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] devoted. fifty descents. it keeps a room warm for you."
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_claimed",
+    "trigger": "ChaosRankUp",
+    "conditions": {
+      "rank_eq": "claimed"
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "still, final",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] claimed. there's no word after this one."
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_flash",
+    "trigger": "ChaosRevealFlash",
+    "priority": 310,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "quiet, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "a new room. it was always there. you just weren't."
+      }
+    ]
+  },
+  {
+    "id": "chaos_lesson_complete",
+    "trigger": "ChaosLessonComplete",
+    "priority": 315,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving, soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] you learned something down there. the shelf noticed."
+      },
+      {
+        "text": "[PLACEHOLDER] lesson done. now it will sell you the thing."
+      }
+    ]
+  },
+  {
+    "id": "chaos_gift_given",
+    "trigger": "ChaosGiftGiven",
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "flustered, fond",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "I covered the rest, dont think I'm a sugar daddy or anything..."
+      }
+    ]
+  },
+  {
+    "id": "chaos_first_time",
+    "trigger": "ChaosFirstTime",
+    "priority": 312,
+    "cooldown_ms": 8000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pleased, quiet",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] a first. it pays attention to firsts."
+      },
+      {
+        "text": "[PLACEHOLDER] you hadn't done that before. it counts."
+      }
+    ]
+  },
+  {
+    "id": "chaos_duo_demo",
+    "trigger": "ChaosDuoDemo",
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "delighted, conspiratorial",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] both toys on at once. look what the table dealt you."
+      }
+    ]
+  },
+  {
+    "id": "chaos_gold_first",
+    "trigger": "ChaosGoldFirst",
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "quiet, explaining",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] that's gold. it lands in your hand, not the bank. she takes it at her bench."
+      },
+      {
+        "text": "[PLACEHOLDER] gold. it buys comforts, not power. spend it like it's yours."
+      }
+    ]
+  },
+  {
+    "id": "chaos_dollhouse_first_open",
+    "trigger": "ChaosDollhouseFirstOpen",
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "welcoming, sly",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "[PLACEHOLDER] so you found the dollhouse. take your time. the rooms aren't going anywhere."
+      },
+      {
+        "text": "[PLACEHOLDER] welcome to the dollhouse. most of it is still closed. for now."
+      }
+    ]
+  },
+  {
+    "id": "chaos_draft_autopick",
+    "trigger": "ChaosDraftAutopick",
+    "priority": 315,
+    "cooldown_ms": 45000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "you didn't choose. it chose. it usually does."
+      }
+    ]
   }
 ]

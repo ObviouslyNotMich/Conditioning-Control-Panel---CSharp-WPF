@@ -43,6 +43,8 @@ public sealed class ChaosMetaState
     public bool SeenTease { get; set; } = false;
     public bool SeenBound { get; set; } = false;
     public bool SeenBrittle { get; set; } = false;
+    /// <summary>Braindrain's happy-path debut on the second descent (spawn alone + announce).</summary>
+    public bool SeenBraindrain { get; set; } = false;
 
     // ---- two-currency split (2026-06-11): Sparks (code name frozen) is the DROPS balance,
     // banked end-of-run; Gold is the instant in-run balance, spent only at her bench ----

@@ -9037,6 +9037,13 @@ namespace ConditioningControlPanel
             try
             {
                 if (App.Chaos == null || App.Chaos.IsRunning) return;
+                // Happy path run 1: the Dollhouse stays shut until the first descent is done.
+                // FALL IN drops straight into the scripted naked run instead.
+                if (Services.Chaos.ChaosMeta.State.RunsCompleted == 0)
+                {
+                    App.Chaos.StartRun(Services.Chaos.ChaosHappyPath.BuildFirstRunConfig());
+                    return;
+                }
                 if (ChaosHubWindow.Current != null) { ChaosHubWindow.Current.Activate(); return; }
                 var hub = new ChaosHubWindow { Owner = this };
                 hub.Show();
@@ -9059,6 +9066,12 @@ namespace ConditioningControlPanel
             try
             {
                 if (App.Chaos == null || App.Chaos.IsRunning) return;
+                // Happy path run 1: the quick start drops into the same scripted naked run.
+                if (Services.Chaos.ChaosMeta.State.RunsCompleted == 0)
+                {
+                    App.Chaos.StartRun(Services.Chaos.ChaosHappyPath.BuildFirstRunConfig());
+                    return;
+                }
                 App.Chaos.StartRun();
             }
             catch (Exception ex)

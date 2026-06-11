@@ -69,6 +69,27 @@ public sealed class ChaosModeService
     {
         // Unlock toast: when something reveals mid-run, one quiet line in the event feed.
         RevealService.Pending += OnRevealPending;
+        // First-times toast: "+N ✦ {label}" floats at the pop point + one feed line.
+        ChaosFirstTimes.Awarded += OnFirstTimeAwarded;
+    }
+
+    /// <summary>A first-times bonus just banked: float it where the hand was, plus a feed line.</summary>
+    private void OnFirstTimeAwarded(string bonusId, int amount)
+    {
+        var disp = Application.Current?.Dispatcher;
+        if (disp == null || disp.HasShutdownStarted) return;
+        disp.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                if (_state == null) return;
+                string label = ChaosFirstTimes.Labels.TryGetValue(bonusId, out var l) ? l : bonusId;
+                _state.PushEvent($"+{amount} {ChaosGlyphs.Drops} {label}");
+                ChaosPopText.Show(BubbleService.ChaosLastPopXDip, BubbleService.ChaosLastPopYDip - 30,
+                    $"+{amount} {ChaosGlyphs.Drops} {label}", Color.FromRgb(0xC8, 0xA8, 0xFF));
+            }
+            catch { }
+        }));
     }
 
     private DateTime _lastRevealToastUtc = DateTime.MinValue;
@@ -212,7 +233,8 @@ public sealed class ChaosModeService
         ChaosFieldFxOverlay.EnsureCreated();        // ripples/residue/trails are drafted mid-run — pre-create always
 
         // Loadout: a pre-equipped start boon enters the run already active (before wave 1).
-        var equipped = ChaosMeta.State.EquippedStartBoon;
+        // The scripted first descent falls in bare — no start boon, whatever a stale save says.
+        var equipped = _state.Config.ScriptedFirstRun ? null : ChaosMeta.State.EquippedStartBoon;
         if (!string.IsNullOrEmpty(equipped))
         {
             var boon = ChaosBoonPool.All.FirstOrDefault(b => b.Id == equipped);
@@ -249,8 +271,12 @@ public sealed class ChaosModeService
         _invulnUntilUtc = DateTime.MinValue;
         _teaseDeniedThisRun = 0;
         _teaseDeniedStreakBarked = false;
+        // Happy path: the scripted-run director resets its beat trackers with the run.
+        ChaosHappyPath.OnRunStarted(_state, this);
+
         // First descent since the verb changed: one quiet line so the hold isn't a mystery.
-        if (!ChaosMeta.State.SeenDefuseTutorial)
+        // The scripted run 1 holds this back — ChaosHappyPath fires it at the lone-threat beat.
+        if (!ChaosMeta.State.SeenDefuseTutorial && !_state.Config.ScriptedFirstRun)
         {
             ChaosMeta.State.SeenDefuseTutorial = true;
             ChaosMeta.Save();
@@ -493,6 +519,7 @@ public sealed class ChaosModeService
         TickBlindfoldHeartbeat(dt);   // Blindfold capstone: the closest fuse gets a pulse
         TickActiveToys(dt);           // toy cooldowns + the VibePopping buzz window
         ChaosLessonHooks.SampleCursor();   // the_pull lesson: cheap, self-disabling once learned
+        ChaosHappyPath.Tick(dt);           // happy path: scripted teach beats (no-op past run 2)
 
         // rh_focus_low: focus has sat below a defuse's price while live threats hang on screen.
         // Once per run — a nudge toward farming treats, not a nag.
@@ -649,6 +676,9 @@ public sealed class ChaosModeService
         }
 
         double interval = (1300 - intensity * 850) / diffFactor;
+        // SpawnRateMult scales SPAWNS, so it divides the interval: 0.6 rate = fewer
+        // spawns = a LONGER gap between ticks (the scripted run 1 breathes at ~0.6).
+        interval /= Math.Clamp(cfg.SpawnRateMult, 0.1, 10.0);
         if (_slowMoRemainingSec > 0) interval /= SLOWMO_FACTOR;   // slow-mo stretches the spawn cadence
         _spawnTimer!.Interval = TimeSpan.FromMilliseconds(Math.Max(280, interval));
     }
@@ -664,6 +694,7 @@ public sealed class ChaosModeService
     private bool TrySpawnBehavioralBubble(ChaosRunConfig cfg, double effIntensity)
     {
         if (_state == null) return false;
+        if (cfg.ScriptedFirstRun) return false;   // run 1 is scripted: no behavioral bubbles at all
         if (cfg.Difficulty == ChaosDifficulty.Easy) return false;   // Gentle: none of them spawn
 
         // The Echo (Teasing+): trigger it and it multiplies; only the held defuse is clean.
@@ -893,9 +924,30 @@ public sealed class ChaosModeService
         var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices,
             guaranteeCurse: _state.MaxedBoons.Contains("surrender"), takenIds: TakenBoonIds(),
             sinChance: _state.Config.SinChance);
+        ChaosHappyPath.RigDraft(options, _state);   // run-4 first sin / duo demo (first draft only)
         foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
         _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen, _state.Config.DraftAutoResumeSec,
             rerollsLeft: _state.RerollsLeft, onReroll: RerollDraft);
+    }
+
+    /// <summary>
+    /// Happy path (run 1): the ONE scripted draft, fired mid-run by <see cref="ChaosHappyPath"/>
+    /// while the config's draft flag is off. Same pause/clear/resume choreography as a wave
+    /// draft, but the wave doesn't advance — the table simply interrupts the fall.
+    /// </summary>
+    internal bool TriggerScriptedDraft(System.Collections.Generic.List<ChaosBoon> options)
+    {
+        if (_state == null || !_spawning || _paused || _manualPaused) return false;
+        if (options == null || options.Count == 0) return false;
+        _paused = true;
+        _spawnTimer?.Stop();
+        ChaosWaveTimerOverlay.Clear();
+        App.Bubbles?.PopAllBubbles();
+        ChaosSfx.PlayWaveClear();
+        _pendingWave = _state.WaveIndex;   // OnBoonChosen re-applies the SAME wave
+        foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
+        _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen, _state.Config.DraftAutoResumeSec);
+        return true;
     }
 
     /// <summary>Run-boon ids already drafted this descent (unique cards sit the rest out).</summary>
@@ -924,12 +976,19 @@ public sealed class ChaosModeService
     private void OnBoonChosen(ChaosBoon? boon)
     {
         if (_state == null) return;
+        ChaosHappyPath.OnDraftResolved();   // the run-4 first-sin beat is spent either way
 
         if (boon != null)
         {
             // Surrender capstone: the FIRST sin of the descent keeps its sweetness, loses its sting.
             bool sinShielded = boon.IsCurse && _state.MaxedBoons.Contains("surrender") && !_state.SurrenderShieldUsed;
             if (sinShielded) _state.SurrenderShieldUsed = true;
+            // Happy path: the run-4 demo sin is rigged shielded once — its downside cannot fire.
+            if (!sinShielded && boon.IsCurse && ChaosHappyPath.ShouldShieldSin(boon.Id)) sinShielded = true;
+
+            // First-times: the first card ever taken, and the first sin ever accepted.
+            if (!ChaosFirstTimes.IsAwarded(ChaosFirstTimes.Whisper)) ChaosFirstTimes.TryAward(ChaosFirstTimes.Whisper);
+            if (boon.IsCurse && !ChaosFirstTimes.IsAwarded(ChaosFirstTimes.Yes)) ChaosFirstTimes.TryAward(ChaosFirstTimes.Yes);
 
             ChaosLessonHooks.OnDraftCardTaken(boon.IsCurse);   // draft4 (any card) + surrender (sins)
             _state.ApplyBoon(boon, shieldDrawback: sinShielded);
@@ -1165,6 +1224,7 @@ public sealed class ChaosModeService
         }
 
         spec.Payload.Fire();                 // benign pop = a treat
+        if (!ChaosFirstTimes.IsAwarded(ChaosFirstTimes.Taste)) ChaosFirstTimes.TryAward(ChaosFirstTimes.Taste);
         ChaosLessonHooks.OnTreatPopped(spec);   // vibe_popping / chain_reaction / the_pull / intrusive_thoughts
         _state.EffectsFired++;
         _state.Combo++;
@@ -1304,6 +1364,8 @@ public sealed class ChaosModeService
         if (_state.DefuseInvulnMs > 0)
             _invulnUntilUtc = DateTime.UtcNow.AddMilliseconds(_state.DefuseInvulnMs);
         CountRegenPop();   // Slow Recovery: snaps count toward the regen threshold too
+        if (!ChaosFirstTimes.IsAwarded(ChaosFirstTimes.Snap)) ChaosFirstTimes.TryAward(ChaosFirstTimes.Snap);
+        ChaosHappyPath.OnDefuseCompleted();   // run 1: the lone threat's defuse opens the live whitelist
         ChaosLessonHooks.OnDefuseCompleted(fuseSecLeft, viaChannel);   // snap_field / blindfold / last_breath / slow_fuses
         _state.Defused++;
         _state.Combo++;
@@ -1842,6 +1904,9 @@ public sealed class ChaosModeService
                     : $"⚡ charged — your next {charges} pops conduct");
                 break;
         }
+
+        // First-times: the first toy ever fired.
+        if (!ChaosFirstTimes.IsAwarded(ChaosFirstTimes.Play)) ChaosFirstTimes.TryAward(ChaosFirstTimes.Play);
     }
 
     /// <summary>A charged E-Stim pop just discharged (per-arc juice lives here; the bolts and
@@ -2341,6 +2406,7 @@ public sealed class ChaosModeService
         try { ChaosFieldFxOverlay.CloseActive(); } catch { }
         try { ChaosPopText.ShutdownPool(); } catch { }
         App.AvatarWindow?.SetChaosRunActive(false);   // restore the avatar's normal attached z-order
+        ChaosHappyPath.OnRunEnded();   // the script never outlives its run (idempotent)
         _runTimer = null;
         _spawnTimer = null;
         _hud = null;

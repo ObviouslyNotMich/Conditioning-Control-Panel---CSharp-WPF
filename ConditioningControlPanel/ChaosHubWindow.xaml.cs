@@ -52,6 +52,7 @@ public partial class ChaosHubWindow : Window
         ApplyUnlocks();
         ApplyReveals();
         LoadBanner();
+        BuildDebugStrip();   // CCP_CHAOS_DEBUG=1 only — a normal launch builds nothing
         ShowTab("loadout");
         Loaded += (_, _) => OnHubOpenedReveals();
         _uiSoundsReady = true;
@@ -163,6 +164,14 @@ public partial class ChaosHubWindow : Window
         _                   => "DEPTH",
     };
 
+    // ---- happy path: the Toybox starter view (after run 1, before run 2) ----
+    // Exactly three rows: two cheap lessonless charms + the one habit whose lesson
+    // already shows what run 1 banked. Full shelves render from RunsCompleted >= 2.
+    private static readonly string[] StarterShelfIds = { "start_resistance", "blank_eyes", "slow_fuses" };
+
+    private static bool OnShelfNow(string id) =>
+        ChaosMeta.State.RunsCompleted >= 2 || Array.IndexOf(StarterShelfIds, id) >= 0;
+
     /// <summary>One grouped list (RESTRAINT / CRAVING / DEPTH) of the trainable passives —
     /// untrained rows sell, trained rows toggle on/off.</summary>
     private void BuildHabits()
@@ -171,9 +180,9 @@ public partial class ChaosHubWindow : Window
         // then the leveled ones (Utility lifetime boons — Rabbit's Foot etc.), unlabeled.
         HabitsHost.Children.Clear();
         foreach (var u in ChaosUpgrades.All)
-            HabitsHost.Children.Add(BuildUpgradeRow(u));
+            if (OnShelfNow(u.Id)) HabitsHost.Children.Add(BuildUpgradeRow(u));
         foreach (var b in ChaosLifetimeBoons.InCategory(ChaosBoonCategory.Utility))
-            HabitsHost.Children.Add(BuildLifetimeBoonRow(b));
+            if (OnShelfNow(b.Id)) HabitsHost.Children.Add(BuildLifetimeBoonRow(b));
     }
 
     /// <summary>One habit card, in the same dress as the boon rows (72px art, big card,
@@ -476,9 +485,23 @@ public partial class ChaosHubWindow : Window
         }
 
         if (!unlocked)
-            right.Children.Add(ChaosLessons.IsLessonBlocked(b.Id)
-                ? BuildLessonLockPanel(b.Id, BoonAccent)   // the lesson gates the unlock — no buy button
-                : BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, ChaosMeta.CanAffordUnlock(b.Id), BoonUnlock_Click));
+        {
+            // Happy path: until the_spanker is owned, every OTHER accessory hangs locked —
+            // even with its lesson complete. ChaosMeta.TryUnlockBoon enforces the same gate.
+            if (ChaosMeta.IsAccessoryScriptLocked(b.Id))
+            {
+                var held = BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, false, BoonUnlock_Click);
+                held.ToolTip = "she sells these in an order of her own.";
+                ToolTipService.SetShowOnDisabled(held, true);
+                right.Children.Add(held);
+            }
+            else
+            {
+                right.Children.Add(ChaosLessons.IsLessonBlocked(b.Id)
+                    ? BuildLessonLockPanel(b.Id, BoonAccent)   // the lesson gates the unlock — no buy button
+                    : BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, ChaosMeta.CanAffordUnlock(b.Id), BoonUnlock_Click));
+            }
+        }
         else if (maxed)
             right.Children.Add(new TextBlock { Text = "MAX  ✓", Foreground = new SolidColorBrush(Color.FromRgb(0x5A, 0xE0, 0x96)), FontSize = 13, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right });
         else
@@ -632,7 +655,7 @@ public partial class ChaosHubWindow : Window
 
         // ---- habits 4x4 (trained = on/off toggle; click an untrained one to go train it) ----
         TilesHabits.Children.Clear();
-        var habits = ChaosUpgrades.All.ToList();
+        var habits = ChaosUpgrades.All.Where(u => OnShelfNow(u.Id)).ToList();
         int trained = 0, switchedOn = 0;
         foreach (var u in habits)
         {
@@ -654,7 +677,7 @@ public partial class ChaosHubWindow : Window
         }
         // Charms (Utility lifetime boons — Rabbit's Foot etc.) live with the habits:
         // leveled, always-on once worn, toggled exactly like a trained habit.
-        var charms = ChaosLifetimeBoons.InCategory(ChaosBoonCategory.Utility).ToList();
+        var charms = ChaosLifetimeBoons.InCategory(ChaosBoonCategory.Utility).Where(b => OnShelfNow(b.Id)).ToList();
         foreach (var b in charms)
         {
             string bid = b.Id;

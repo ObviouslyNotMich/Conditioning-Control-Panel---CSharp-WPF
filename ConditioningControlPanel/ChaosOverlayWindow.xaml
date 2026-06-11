@@ -100,6 +100,9 @@
                                 Padding="18,10" Margin="0,0,12,0" Background="{StaticResource Pink}" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
                         <Button x:Name="BtnClose" Content="wake up" Click="BtnClose_Click"
                                 Padding="18,10" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
+                        <!-- the door: from run 1 onward the recap always offers the Dollhouse -->
+                        <Button x:Name="BtnDollhouse" Content="the dollhouse" Click="BtnDollhouse_Click" Visibility="Collapsed"
+                                Padding="18,10" Margin="12,0,0,0" Background="#338B5CF6" Foreground="White" BorderThickness="0"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>

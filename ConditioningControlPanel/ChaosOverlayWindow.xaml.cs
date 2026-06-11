@@ -186,6 +186,9 @@ public partial class ChaosOverlayWindow : Window
     private int _autoResumeRemainingSec;
     private int _draftWave;
     private Func<(List<ChaosBoon> options, int rerollsLeft)?>? _rerollFunc;   // Taking Chances
+    /// <summary>Skip reveal state captured per deal: true = timeout skips (+1 resistance),
+    /// false = the table has no skip and a timeout autopicks a card.</summary>
+    private bool _skipAllowed = true;
 
     public void ShowBoonDraft(int waveJustCleared, List<ChaosBoon> options, Action<ChaosBoon?> onPick, int autoResumeSec = 0,
                               int rerollsLeft = 0, Func<(List<ChaosBoon> options, int rerollsLeft)?>? onReroll = null)
@@ -216,7 +219,16 @@ public partial class ChaosOverlayWindow : Window
             ? $"LOOP {waveJustCleared} CLEARED · CHOOSE A MANTRA... OR DON'T"
             : $"LOOP {waveJustCleared} CLEARED · CHOOSE A MANTRA";
         DraftCountdown.Text = "";
-        BtnSkipBoon.Visibility = Visibility.Visible;
+        // Happy path: the skip affordance stays hidden until its reveal flips (run 3).
+        // Before that an untouched draft AUTOPICKS instead of skipping (see StartAutoResume).
+        _skipAllowed = RevealService.IsUnlocked(RevealIds.DraftSkip);
+        BtnSkipBoon.Visibility = _skipAllowed ? Visibility.Visible : Visibility.Collapsed;
+        if (_skipAllowed && !ChaosMeta.State.SeenSkipDebut)
+        {
+            ChaosMeta.State.SeenSkipDebut = true;
+            ChaosMeta.Save();
+            ChaosAnnouncerOverlay.Announce("you're allowed to refuse now.", ChaosAnnounceKind.Willpower);
+        }
 
         // Build every card hidden, then reveal them one at a time (each with a per-rarity cue:
         // a bright "dling" for rare, a dull "thud" otherwise). Picks are disabled until revealed.
@@ -297,11 +309,16 @@ public partial class ChaosOverlayWindow : Window
                       result.Value.rerollsLeft, _rerollFunc);
     }
 
-    /// <summary>Auto-resume: an untouched draft ticks down, then auto-takes the SKIP (+1 shield) and
-    /// resumes the run so an unattended run never freezes forever. Any pick cancels it (see SelectBoon).</summary>
+    /// <summary>Auto-resume: an untouched draft ticks down, then resolves itself so an
+    /// unattended run never freezes forever. With the skip revealed it auto-takes the SKIP
+    /// (+1 shield); before that (runs 1 and 2) it AUTOPICKS a random card — the hole chooses.
+    /// Any pick cancels it (see SelectBoon).</summary>
     private void StartAutoResume()
     {
-        DraftCountdown.Text = $"auto-resist in {_autoResumeRemainingSec}s. pick to keep playing";
+        string CountText() => _skipAllowed
+            ? $"auto-resist in {_autoResumeRemainingSec}s. pick to keep playing"
+            : $"it chooses in {_autoResumeRemainingSec}s. pick first if you'd rather";
+        DraftCountdown.Text = CountText();
         _autoResumeTimer?.Stop();
         _autoResumeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _autoResumeTimer.Tick += (_, _) =>
@@ -311,12 +328,25 @@ public partial class ChaosOverlayWindow : Window
             if (_autoResumeRemainingSec <= 0)
             {
                 _autoResumeTimer?.Stop();
-                ChooseBoon(null);   // auto-skip → +1 shield + ChaosBoonSkipped fired by the service
+                if (_skipAllowed) ChooseBoon(null);   // auto-skip → +1 shield + ChaosBoonSkipped fired by the service
+                else AutopickRandom();                 // no skip yet: it chose for you
                 return;
             }
-            DraftCountdown.Text = $"auto-resist in {_autoResumeRemainingSec}s. pick to keep playing";
+            DraftCountdown.Text = CountText();
         };
         _autoResumeTimer.Start();
+    }
+
+    /// <summary>The timed-out, skipless table picks for the player: a random revealed card
+    /// runs the normal pick beat (glow + commit), with its own bark.</summary>
+    private void AutopickRandom()
+    {
+        if (_selectionMade || _draftCards.Count == 0) return;
+        var revealed = _draftCards.FindAll(dc => dc.Pick.IsEnabled);
+        var pool = revealed.Count > 0 ? revealed : _draftCards;
+        var chosen = pool[Random.Shared.Next(pool.Count)];
+        try { App.Bark?.NotifyChaosDraftAutopick(); } catch { }
+        SelectBoon(chosen);
     }
 
     private DraftCard BuildBoonCard(ChaosBoon boon)
@@ -551,6 +581,18 @@ public partial class ChaosOverlayWindow : Window
             StatChip("XP", $"{ChaosGlyphs.Xp} {finalXp:N0}", pink, $"base {baseXp:N0} x{skillMult:0.0}"),
             StatChip("DROPS", $"{ChaosGlyphs.Drops} {sparksEarned:N0}", gold, "banked in the dollhouse")));
 
+        // First completion ("first fall"): name the one-time bonus already inside the haul.
+        if (ChaosMeta.State.RunsCompleted == 1)
+            AddResultLine($"{ChaosGlyphs.Drops} +{ChaosMeta.FIRST_FALL_BONUS} first fall, counted in",
+                11, gold, FontWeights.Normal);
+
+        // Run 2 done: one quiet nudge toward her corner (the gold has somewhere to go now).
+        if (ChaosMeta.State.RunsCompleted == 2)
+            AddResultLine("she set up a small corner in the toybox.", 11, dim, FontWeights.Normal);
+
+        // The door: from the first completed fall onward, the recap always offers the dollhouse.
+        BtnDollhouse.Visibility = ChaosMeta.State.RunsCompleted >= 1 ? Visibility.Visible : Visibility.Collapsed;
+
         // Bark over the results (+ PB fields for the compulsion line).
         App.Bark?.NotifyChaosResultsShown(score, ChaosMeta.State.BestScore, pbDelta, isPb,
             s.Defused, s.Detonated, s.BestCombo, s.Config.Difficulty.ToString());
@@ -685,6 +727,25 @@ public partial class ChaosOverlayWindow : Window
 
     private void BtnRunAgain_Click(object sender, RoutedEventArgs e) { OnRunAgain?.Invoke(); }
     private void BtnClose_Click(object sender, RoutedEventArgs e) { Close(); }
+
+    /// <summary>The recap's door: dismiss the recap, then open the Dollhouse (same single-
+    /// instance discipline as the Lab card's entry).</summary>
+    private void BtnDollhouse_Click(object sender, RoutedEventArgs e)
+    {
+        Close();   // OnDismissed → the service tears the run windows down first
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                if (App.Chaos == null || App.Chaos.IsRunning) return;
+                if (ChaosHubWindow.Current != null) { ChaosHubWindow.Current.Activate(); return; }
+                var hub = new ChaosHubWindow();
+                if (App.MainWindowRef != null) hub.Owner = App.MainWindowRef;
+                hub.Show();
+            }
+            catch (Exception ex) { App.Logger?.Warning("Recap dollhouse door failed ({E})", ex.Message); }
+        }));
+    }
 
     protected override void OnClosed(EventArgs e)
     {
