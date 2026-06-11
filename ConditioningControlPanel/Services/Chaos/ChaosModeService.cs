@@ -159,7 +159,9 @@ public sealed class ChaosModeService
             rabbitTrailSec: () => _state?.RabbitTrailSec ?? 0,
             electrifiedRabbits: () => _state?.ElectrifiedRabbits == true,
             canChannelDefuse: CanChannelDefuse,
-            onChannelBroken: OnChannelBroken);
+            onChannelBroken: OnChannelBroken,
+            onTeaseTouched: OnTeaseTouched,
+            onTeaseDenied: OnTeaseDenied);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("🐇 the descent begins");
         _runDetonations = 0;
@@ -215,6 +217,8 @@ public sealed class ChaosModeService
         _focusLowAccumSec = 0;
         _focusLowBarkFired = false;
         _invulnUntilUtc = DateTime.MinValue;
+        _teaseDeniedThisRun = 0;
+        _teaseDeniedStreakBarked = false;
         // First descent since the verb changed: one quiet line so the hold isn't a mystery.
         if (!ChaosMeta.State.SeenDefuseTutorial)
         {
@@ -644,7 +648,83 @@ public sealed class ChaosModeService
             return true;
         }
 
+        // The Tease (Slipping rank, 10 descents): the one you beat by NOT touching it.
+        if (ChaosMeta.State.RunsCompleted >= 10
+            && Random.Shared.NextDouble() < ChaosTuning.TEASE_SPAWN_CHANCE)
+        {
+            bool debut = !ChaosMeta.State.SeenTease;
+            if (debut)
+            {
+                ChaosMeta.State.SeenTease = true; ChaosMeta.Save();
+                ChaosAnnouncerOverlay.Announce("✖ THE TEASE — whatever you do, don't", ChaosAnnounceKind.Temptation);
+                _state.PushEvent("✖ it wants your hand. don't.");
+                App.Bark?.NotifyChaosTeaseDebut();
+            }
+            ChaosMeta.MarkDiscovered("bubble:tease");
+            App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildTease(effIntensity,
+                cfg.EffectIntensity, _state.BubbleScale));
+            return true;
+        }
+
         return false;
+    }
+
+    // ---- The Tease: touch + denial outcomes ----
+    private int _teaseDeniedThisRun;
+    private bool _teaseDeniedStreakBarked;
+
+    /// <summary>A mouse-down landed on a Tease: its payload fires (resistance can absorb THAT,
+    /// nothing else) and the streak HALVES no matter what — that's the price of touching.</summary>
+    private void OnTeaseTouched(EffectBubbleSpec spec)
+    {
+        if (_state == null || _paused || _manualPaused) return;
+        _state.Detonated++;
+        _runDetonations++;
+        double s = spec.Strength / 100.0;
+
+        int shieldCost = _state.DoubleOrNothingActive ? 2 : 1;
+        if (_state.Shields >= shieldCost)
+        {
+            // Resistance prevents only the payload — the streak still pays below.
+            _state.Shields -= shieldCost;
+            _state.Heat = Math.Max(0, _state.Heat - 0.2);
+            ChaosSfx.Play(_state.Shields == 0 ? "resist_crumble" : "resist_absorb", 0.6f);
+            _state.PushEvent($"♥ resistance takes the sting ({spec.Payload.DisplayName})");
+        }
+        else
+        {
+            FirePayloadForDetonation(spec);
+            _state.EffectsFired++;
+            ChaosSfx.Play("trigger", 0.55f);
+            Shake(0.3 + s * 0.4, 320);
+        }
+
+        _state.Combo = _state.Combo > 1 ? _state.Combo / 2 : 0;
+        _lastComboBigFired = 0;
+        _state.PushEvent($"✖ you touched it. it laughs — streak halves to x{_state.Combo}");
+        Pulse(Color.FromRgb(0xFF, 0x3D, 0x5A), 0.38);
+        App.Bark?.NotifyChaosTeaseClicked();
+    }
+
+    /// <summary>The Tease expired untouched: restraint pays — gold, score AND focus.</summary>
+    private void OnTeaseDenied(EffectBubbleSpec spec)
+    {
+        if (_state == null || _paused || _manualPaused) return;
+        int gold = GoldScaled(Random.Shared.Next(ChaosTuning.TEASE_GOLD_MIN, ChaosTuning.TEASE_GOLD_MAX + 1));
+        ChaosMeta.State.Sparks += gold;
+        double pts = ChaosTuning.TEASE_DENIED_SCORE * _state.TotalMult * BoonPayMult;
+        _state.Score += pts;
+        _state.Focus += ChaosTuning.FOCUS_PER_DENIED;   // restraint feeds focus like a treat would
+        ShowPopScore(pts);
+        _state.PushEvent($"🤍 denied. it pays +{gold} gold");
+        ChaosAnnouncerOverlay.Announce($"DENIED — +{gold} gold", ChaosAnnounceKind.PowerUp);
+        Pulse(Color.FromRgb(0xFF, 0xD7, 0x00), 0.25);
+        App.Bark?.NotifyChaosTeaseDenied(++_teaseDeniedThisRun);
+        if (_teaseDeniedThisRun >= ChaosTuning.TEASE_DENIED_STREAK_COUNT && !_teaseDeniedStreakBarked)
+        {
+            _teaseDeniedStreakBarked = true;
+            App.Bark?.NotifyChaosTeaseDeniedStreak(_teaseDeniedThisRun);
+        }
     }
 
     /// <summary>The Echo triggered: NO payload — two smaller, faster lives burst out at its

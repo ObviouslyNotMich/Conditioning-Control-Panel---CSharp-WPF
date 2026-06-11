@@ -58,4 +58,19 @@ public static class ChaosTuning
     public const double CHAPERONE_SPAWN_CHANCE = 0.04;
     public const double CHAPERONE_ORBIT_RADIUS_DIP = 80;
     public const double CHAPERONE_ORBIT_PERIOD_SEC = 2.5;
+
+    // ---- The Tease: don't touch it. Any mouse-down triggers it AND halves the streak;
+    //      ignoring it to expiry pays the DENIED bonus. Immune to every instant-defuse source. ----
+    public const double TEASE_SPAWN_CHANCE = 0.03;
+    public const int TEASE_LIFE_MS = 6000;
+    public const int TEASE_GOLD_MIN = 5;
+    public const int TEASE_GOLD_MAX = 10;
+    public const double TEASE_DENIED_SCORE = 120;       // base points for a denial (multipliers apply)
+    public const double FOCUS_PER_DENIED = 10;          // restraint feeds focus like a treat would
+    public const double TEASE_CENTER_PULL_DIP = 0.55;   // per-frame drift toward its screen's center
+    public const int TEASE_DENIED_STREAK_COUNT = 5;     // rh_tease_denied_streak threshold (per run)
+    /// <summary>Perf budget: tease bubbles running a REAL animated-gif decode at once; the rest
+    /// fall back to a still + shimmer (XamlAnimatedGif decodes native-res frames on the UI thread).</summary>
+    public const int TEASE_MAX_ANIMATED = 2;
+    public const long TEASE_ANIMATED_MAX_BYTES = 3_000_000;
 }

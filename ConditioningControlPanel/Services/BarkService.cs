@@ -268,6 +268,16 @@ namespace ConditioningControlPanel.Services
         public void NotifyChaosClickDetonate() => Raise("ChaosClickDetonate");
         /// <summary>Focus sat below a defuse's cost for 8s+ while lives were on screen.</summary>
         public void NotifyChaosFocusLow() => Raise("ChaosFocusLow");
+        /// <summary>The Tease's first-ever appearance (debut spawn).</summary>
+        public void NotifyChaosTeaseDebut() => Raise("ChaosTeaseDebut");
+        /// <summary>A Tease expired untouched — the DENIED bonus paid. ctx: denied_count (this run).</summary>
+        public void NotifyChaosTeaseDenied(int deniedCount) =>
+            Raise("ChaosTeaseDenied", c => c.Set("denied_count", (double)deniedCount));
+        /// <summary>The player touched a Tease — payload + streak halve. </summary>
+        public void NotifyChaosTeaseClicked() => Raise("ChaosTeaseClicked");
+        /// <summary>5+ Teases denied in a single run. ctx: denied_count.</summary>
+        public void NotifyChaosTeaseDeniedStreak(int deniedCount) =>
+            Raise("ChaosTeaseDeniedStreak", c => c.Set("denied_count", (double)deniedCount));
         /// <summary>The results screen was shown. ctx: score, best_score, pb_delta, is_pb, defused, detonated, best_combo, difficulty.</summary>
         public void NotifyChaosResultsShown(double score, double bestScore, double pbDelta, bool isPb,
                                             double defused, double detonated, int bestCombo, string difficulty) =>

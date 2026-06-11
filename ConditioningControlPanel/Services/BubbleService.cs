@@ -60,6 +60,8 @@ public class BubbleService : IDisposable
     private Action<EffectBubbleSpec, string>? _chaosOnChannelBroken;  // "click" | "release" | "nofocus" — the trigger follows via onDetonate
     private Action<EffectBubbleSpec>? _chaosOnDetonate;
     private Action<EffectBubbleSpec>? _chaosOnTreatExpired;
+    private Action<EffectBubbleSpec>? _chaosOnTeaseTouched;   // The Tease: a mouse-down landed on it
+    private Action<EffectBubbleSpec>? _chaosOnTeaseDenied;    // The Tease: it expired untouched (the bonus)
     private Action<int>? _chaosOnEStimArc;   // a charged pop just arced; arg = charges remaining
     private Action<EffectBubbleSpec, bool>? _chaosOnDarterCaught;
     private Action<EffectBubbleSpec>? _chaosOnFreezeCaught;
@@ -658,8 +660,12 @@ public class BubbleService : IDisposable
                                Action<EffectBubbleSpec>? onTreatExpired = null, Action<int>? onEStimArc = null,
                                Func<double>? rabbitTrailSec = null, Func<bool>? electrifiedRabbits = null,
                                Func<EffectBubbleSpec, bool>? canChannelDefuse = null,
-                               Action<EffectBubbleSpec, string>? onChannelBroken = null)
+                               Action<EffectBubbleSpec, string>? onChannelBroken = null,
+                               Action<EffectBubbleSpec>? onTeaseTouched = null,
+                               Action<EffectBubbleSpec>? onTeaseDenied = null)
     {
+        _chaosOnTeaseTouched = onTeaseTouched;
+        _chaosOnTeaseDenied = onTeaseDenied;
         _chaosChainReach = chainReach;
         _chaosRabbitTrailSec = rabbitTrailSec;
         _chaosElectrified = electrifiedRabbits;
@@ -789,7 +795,9 @@ public class BubbleService : IDisposable
                     opacityMult: _chaosBubbleOpacity?.Invoke() ?? 1.0,
                     onSpankSweep: SpankSweepFromDarter,
                     onTreatExpired: b => { if (b.Spec != null) _chaosOnTreatExpired?.Invoke(b.Spec); },
-                    onClickPop: OnChaosBubbleClicked);
+                    onClickPop: OnChaosBubbleClicked,
+                    onTeaseTouched: b => { if (b.Spec != null) _chaosOnTeaseTouched?.Invoke(b.Spec); },
+                    onTeaseDenied: b => { if (b.Spec != null) _chaosOnTeaseDenied?.Invoke(b.Spec); });
     }
 
     // ======================= chaos field hazards (run-boon FX) =======================
@@ -990,6 +998,8 @@ public class BubbleService : IDisposable
         _chaosOnChannelBroken = null;
         ChaosMouseHeld = false;
         _chaosOnTreatExpired = null;
+        _chaosOnTeaseTouched = null;
+        _chaosOnTeaseDenied = null;
         _chaosOnEStimArc = null;
         _estimChargesLeft = 0;
         _estimFork = false;
@@ -1415,6 +1425,18 @@ internal class Bubble
     private readonly List<(Point Px, DateTime T)> _trailPts = new();
     private Point _lastTrailEmitPx = new(double.MinValue, double.MinValue);
 
+    // ---- The Tease (don't touch it: any press triggers; expiry pays the DENIED bonus) ----
+    private readonly bool _isTease;
+    private double _teaseLifeRemainingMs;
+    private System.Windows.Shapes.Ellipse? _teaseShine;   // glossy highlight — pulsed as the perf-safe shimmer
+    private bool _teaseAnimated;                          // holds one of the animated-gif budget slots
+    private readonly Action<Bubble>? _onTeaseTouched;
+    private readonly Action<Bubble>? _onTeaseDenied;
+    private static string[]? _teaseGifPool;               // cached listing of EffectiveAssetsPath/teasebubble
+    private static DateTime _teasePoolScanUtc;
+    private static int _teaseAnimatedAlive;               // process-wide animated decode budget
+    private static readonly Dictionary<string, BitmapImage> _teaseStillCache = new();   // display-size stills, reused across spawns
+
     // ---- The Chaperone (a live bubble shielded by an orbiting escort treat) ----
     private Bubble? _orbitTarget;          // escort only: the live it circles
     private Bubble? _escort;               // chaperone live only: its shield-bearer
@@ -1450,7 +1472,8 @@ internal class Bubble
     /// <summary>Eligible to be swept up by a Chain Reaction pop: any live, un-popped chaos bubble
     /// (darters included — a chained darter counts as a catch and fires its slow-mo). A shielded
     /// Chaperone live is excluded — chains and arcs route around it (its escort conducts fine).</summary>
-    public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null && !IsChaperoneShielded;
+    public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null
+                               && !IsChaperoneShielded && !_spec.IsTease;
 
     /// <summary>This bubble's on-screen box in DIPs (the bubble.png footprint, sans window pad).</summary>
     public Rect BoundingBox => new Rect(_posX, _posY, _size, _size);
@@ -1506,7 +1529,8 @@ internal class Bubble
                   Func<double>? freezeVibrateMs = null, Action<Bubble>? onChainTrigger = null,
                   double hitboxScale = 1.0, double opacityMult = 1.0, Action<Bubble>? onSpankSweep = null,
                   Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null,
-                  Func<Bubble, bool>? canChannelDefuse = null, Action<Bubble, string>? onChannelBroken = null)
+                  Func<Bubble, bool>? canChannelDefuse = null, Action<Bubble, string>? onChannelBroken = null,
+                  Action<Bubble>? onTeaseTouched = null, Action<Bubble>? onTeaseDenied = null)
     {
         _random = random;
         _onPop = onPop;
@@ -1525,17 +1549,23 @@ internal class Bubble
         _onClickPop = onClickPop;
         _canChannelDefuse = canChannelDefuse;
         _onChannelBroken = onChannelBroken;
+        _onTeaseTouched = onTeaseTouched;
+        _onTeaseDenied = onTeaseDenied;
         _isChaosFrozen = isChaosFrozen;
         _timeScaleFn = timeScale;
         _freezeVibrateMsFn = freezeVibrateMs;
         _isDarter = spec?.IsDarter == true;
         _isFreeze = spec?.IsFreeze == true;
+        _isTease = spec?.IsTease == true;
+        if (_isTease) _teaseLifeRemainingMs = ChaosTuning.TEASE_LIFE_MS;
         // Treats (flash/subliminal/golden) rot: only so long on screen before they dissolve.
         // Hearts don't rot — they drift down once and exit; missing one carries no sting.
         // Gold Digger droplets don't either: pure bonus, no penalty for letting them fall away.
         // Chaperone escorts don't either: the shield mechanic would dismantle itself in 5s.
+        // The Tease isn't a treat either — it runs its own expiry (the DENIED bonus, no streak dock).
         _isTreat = spec != null && !spec.IsLive && !_isDarter && !_isFreeze
-                   && spec.IsHeart != true && spec.IsDroplet != true && spec.IsEscort != true;
+                   && spec.IsHeart != true && spec.IsDroplet != true && spec.IsEscort != true
+                   && spec.IsTease != true;
         if (_isTreat) _treatLifeRemainingMs = spec!.TreatLifeMs > 0 ? spec.TreatLifeMs : TREAT_LIFETIME_MS;
         // The two giants read frantic when they breathe at full danger amplitude — calm them 60%.
         if (spec?.VariantId is "video" or "htlink") _dangerWobbleMult = 0.4;
@@ -1546,7 +1576,8 @@ internal class Bubble
         // Darters/freeze pickups keep their natural hitbox (precision catches stay precision).
         // Blindfold: effect bubbles render translucent; pickups stay fully visible (they're rewards).
         bool plainEffectBubble = spec != null && !_isDarter && !_isFreeze && !spec.IsGolden && !spec.IsHeart
-                                 && !spec.IsDroplet && !spec.IsPrism && !spec.IsEscort;   // pickups, the prism + escorts stay fully visible
+                                 && !spec.IsDroplet && !spec.IsPrism && !spec.IsEscort
+                                 && !spec.IsTease;   // pickups, prism, escorts + the tease stay fully visible (it must be READ to be denied)
         _hitSize = plainEffectBubble ? Math.Max(_size, (int)Math.Round(_size * Math.Clamp(hitboxScale, 1.0, 2.0))) : _size;
         _baseOpacity = plainEffectBubble ? Math.Clamp(opacityMult, 0.2, 1.0) : 1.0;
         // Darters explode to ~3x on catch (slower + bigger pop), so give them a generous window
@@ -2018,6 +2049,27 @@ internal class Bubble
                 goto Visuals;
             }
 
+            // The Tease ignores its motion row: it wiggles in place and leans toward its
+            // screen's center over its life — it wants to be seen (and touched). Its own
+            // expiry clock runs here; running out pays the DENIED bonus.
+            if (_isTease)
+            {
+                double ccx = (_screenLeft + _screenRight) / 2.0, ccy = (_screenTop + _screenBottom) / 2.0;
+                double ddx = ccx - _posX, ddy = ccy - _posY;
+                double dd = Math.Sqrt(ddx * ddx + ddy * ddy);
+                if (dd > 8)
+                {
+                    _posX += ddx / dd * ChaosTuning.TEASE_CENTER_PULL_DIP * ts;
+                    _posY += ddy / dd * ChaosTuning.TEASE_CENTER_PULL_DIP * ts;
+                }
+                _posX += Math.Sin(_timeAlive * 9) * 1.6;
+                _posY += Math.Cos(_timeAlive * 7) * 1.2;
+
+                _teaseLifeRemainingMs -= 32 * ts;
+                if (_teaseLifeRemainingMs <= 0) { Denied(); return; }
+                goto Visuals;
+            }
+
             // Horizontal wobble shared by Float/Rain (gives the lively drift)
             double offset = 0;
             switch (_animType)
@@ -2170,7 +2222,10 @@ internal class Bubble
             // window breathe faster + deeper as _dangerFactor (from the fuse countdown) ramps to 1.
             double breatheFreq = 7.5 + _dangerFactor * 9.0 * _dangerWobbleMult;
             double breatheAmp = 0.06 + _dangerFactor * 0.0225 * _dangerWobbleMult;
-            var wobble = _isDarter ? 0.0 : breatheAmp * Math.Sin(_timeAlive * breatheFreq + _wobbleOffset);
+            // The Tease pulses deeper than anything else — it's advertising.
+            var wobble = _isDarter ? 0.0
+                : _isTease ? 0.10 * Math.Sin(_timeAlive * 5.2)
+                : breatheAmp * Math.Sin(_timeAlive * breatheFreq + _wobbleOffset);
             // _channelScale: the hold-to-defuse shrink (1.0 idle; eases to CHANNEL_MIN_SCALE
             // over the hold; the deflate animation inherits the shrunken scale seamlessly).
             var currentScale = (_scale + wobble) * _gazeDwellScale * _channelScale;
@@ -2198,6 +2253,11 @@ internal class Bubble
                 }
                 else if (_freezeAura.Opacity > 0) _freezeAura.Opacity = 0;
             }
+
+            // The Tease's glossy shine slides — the cheap shimmer that also stands in for
+            // animation when the gif inside fell back to a still (perf budget).
+            if (_teaseShine != null)
+                _teaseShine.Opacity = 0.16 + 0.14 * (0.5 + 0.5 * Math.Sin(_timeAlive * 5.2));
 
             // Chaperone shield ring: steady glow while the escort lives, a bright flare on a
             // bounced press, gone the moment the escort pops.
@@ -2339,6 +2399,15 @@ internal class Bubble
     /// </summary>
     private void OnPlayerPress()
     {
+        // The Tease: ANY mouse-down is the mistake — click or attempted hold, it triggers.
+        // (Hovering never counts; this only runs on a real press.)
+        if (_isTease)
+        {
+            if (!_isAlive || _isPopping || BubbleService.ChaosInputLocked) return;
+            TouchTease();
+            return;
+        }
+
         // Everything that isn't a live threat keeps the old one-press behavior.
         if (_spec == null || !_spec.IsLive || _isDarter || _isFreeze) { PopByClick(); return; }
 
@@ -2437,6 +2506,10 @@ internal class Bubble
     public void Pop()
     {
         if (!_isAlive || _isPopping) return;
+        // The Tease is immune to every instant-pop source — sweeps, arcs, chain hops, DVD
+        // logos, residue, ripples all slide right off it. Only a direct touch (TouchTease)
+        // or its expiry (Denied) ends it.
+        if (_isTease) return;
         // Manual pause: the field is held AND untouchable — swallow every click path
         // (hit area, window backup, gaze, chain hops) until the run resumes.
         if (_spec != null && BubbleService.ChaosInputLocked) return;
@@ -2524,6 +2597,36 @@ internal class Bubble
             try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x14, 0x93), BlurRadius = 34, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
             ShowChaosLabel("SPANKED", Color.FromRgb(0xFF, 0x4D, 0xC4));
         }
+    }
+
+    /// <summary>The Tease was touched: it triggers — payload + streak consequences live in the
+    /// service callback. Bursts like a detonation (it IS one, of your own making).</summary>
+    private void TouchTease()
+    {
+        if (!_isAlive || _isPopping) return;
+        _isPopping = true;
+        try
+        {
+            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
+            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            var px = CenterPx;
+            BubbleService.ChaosLastPopXPx = px.X;
+            BubbleService.ChaosLastPopYPx = px.Y;
+        }
+        catch { }
+        ShowChaosLabel("✖", Color.FromRgb(0xFF, 0x3D, 0x5A));
+        _onTeaseTouched?.Invoke(this);
+    }
+
+    /// <summary>The Tease expired untouched: restraint pays. A satisfied gold shimmer-out
+    /// (the quiet dissolve animation) — the bonus itself lands in the service callback.</summary>
+    private void Denied()
+    {
+        if (!_isAlive || _isPopping) return;
+        _isPopping = true;
+        _isDissolving = true;
+        ShowChaosLabel("DENIED", Color.FromRgb(0xFF, 0xD7, 0x00));
+        _onTeaseDenied?.Invoke(this);
     }
 
     /// <summary>The Chaperone's shield: a press/pop arriving while the escort lives bounces off
@@ -2642,6 +2745,10 @@ internal class Bubble
             });
         }
 
+        // The Tease: a glossy dark face wearing a gif clipped inside the bubble circle — the
+        // bait. Sits over the tint, under the pulsing ✖ label.
+        if (_spec.IsTease) BuildTeaseFace();
+
         // Label / emoji — skipped when a per-variant sprite is present (the sprite carries its
         // own glyph, so drawing the label too would double the icon). Absent a sprite the bubble
         // falls back to bubble.png + tint + this glyph, so the variant stays readable either way.
@@ -2755,13 +2862,142 @@ internal class Bubble
     }
 
     /// <summary>
+    /// The Tease's face: a dark glossy circle wearing a clip from the dedicated
+    /// <c>EffectiveAssetsPath/teasebubble</c> pool, ellipse-clipped inside the bubble.
+    /// Perf-safe by construction (render-thread deadlock history): at most
+    /// TEASE_MAX_ANIMATED bubbles run a real XamlAnimatedGif decode at once — the rest
+    /// (and oversized gifs) show a display-size still decoded OFF the UI thread and cached
+    /// across spawns, with the sliding shine as their shimmer. No pool folder → just the
+    /// glossy face + ✖ (the bubble still reads).
+    /// </summary>
+    private void BuildTeaseFace()
+    {
+        double inner = _size * 0.86;
+        var face = new Grid
+        {
+            Width = inner, Height = inner,
+            IsHitTestVisible = false,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Clip = new EllipseGeometry(new Point(inner / 2, inner / 2), inner / 2, inner / 2),
+        };
+        face.Children.Add(new System.Windows.Shapes.Ellipse
+        {
+            Width = inner, Height = inner,
+            Fill = new SolidColorBrush(Color.FromRgb(0x14, 0x07, 0x0C)),
+            IsHitTestVisible = false,
+        });
+
+        string? path = PickTeaseGif();
+        if (path != null)
+        {
+            var img = new Image
+            {
+                Width = inner, Height = inner,
+                Stretch = Stretch.UniformToFill,
+                IsHitTestVisible = false,
+                Opacity = 0.92,
+            };
+            RenderOptions.SetBitmapScalingMode(img, PerformanceProfile.ScalingMode(PerformanceProfile.CurrentTier));
+            bool animate = false;
+            if (path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)
+                && _teaseAnimatedAlive < ChaosTuning.TEASE_MAX_ANIMATED)
+            {
+                long len = 0;
+                try { len = new FileInfo(path).Length; } catch { }
+                animate = len > 0 && len <= ChaosTuning.TEASE_ANIMATED_MAX_BYTES;
+            }
+            if (animate)
+            {
+                _teaseAnimated = true;
+                _teaseAnimatedAlive++;
+                XamlAnimatedGif.AnimationBehavior.SetRepeatBehavior(img, System.Windows.Media.Animation.RepeatBehavior.Forever);
+                XamlAnimatedGif.AnimationBehavior.SetAutoStart(img, true);
+                XamlAnimatedGif.AnimationBehavior.SetSourceUri(img, new Uri(path, UriKind.Absolute));
+            }
+            else
+            {
+                BitmapImage? cached = null;
+                lock (_teaseStillCache) _teaseStillCache.TryGetValue(path, out cached);
+                if (cached != null) img.Source = cached;
+                else
+                {
+                    int decodeWidth = Math.Max(64, (int)inner);
+                    string file = path;
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            var bmp = new BitmapImage();
+                            bmp.BeginInit();
+                            bmp.CacheOption = BitmapCacheOption.OnLoad;
+                            bmp.DecodePixelWidth = decodeWidth;   // decode at display size — cheap
+                            bmp.UriSource = new Uri(file, UriKind.Absolute);
+                            bmp.EndInit();
+                            if (bmp.CanFreeze) bmp.Freeze();
+                            lock (_teaseStillCache)
+                            {
+                                if (_teaseStillCache.Count > 12) _teaseStillCache.Clear();
+                                _teaseStillCache[file] = bmp;
+                            }
+                            Application.Current?.Dispatcher.BeginInvoke(() => { try { img.Source = bmp; } catch { } });
+                        }
+                        catch { }
+                    });
+                }
+            }
+            face.Children.Add(img);
+        }
+
+        // Glossy diagonal shine — pulsed per frame; doubles as the still-image shimmer.
+        _teaseShine = new System.Windows.Shapes.Ellipse
+        {
+            Width = inner, Height = inner,
+            IsHitTestVisible = false,
+            Opacity = 0.22,
+            Fill = new LinearGradientBrush(
+                Color.FromArgb(150, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 35),
+        };
+        face.Children.Add(_teaseShine);
+        _grid.Children.Add(face);
+    }
+
+    /// <summary>One random clip from the teasebubble pool folder (listing cached, rescanned
+    /// at most every 2 minutes). Null when the folder is absent or empty.</summary>
+    private static string? PickTeaseGif()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            if (_teaseGifPool == null || (now - _teasePoolScanUtc).TotalSeconds > 120)
+            {
+                _teasePoolScanUtc = now;
+                var dir = Path.Combine(App.EffectiveAssetsPath, "teasebubble");
+                if (Directory.Exists(dir))
+                {
+                    var list = new List<string>();
+                    foreach (var f in Directory.GetFiles(dir))
+                    {
+                        var ext = Path.GetExtension(f).ToLowerInvariant();
+                        if (ext is ".gif" or ".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp") list.Add(f);
+                    }
+                    _teaseGifPool = list.ToArray();
+                }
+                else _teaseGifPool = Array.Empty<string>();
+            }
+            return _teaseGifPool.Length == 0 ? null : _teaseGifPool[Random.Shared.Next(_teaseGifPool.Length)];
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
     /// Whether this bubble can currently be popped via Focus Gaze.
     /// False once popping has started or the bubble has been destroyed.
     /// Live chaos bubbles are excluded (2026-06-11 verb rework): defusing is a HELD channel
     /// paid in focus — a gaze dwell would be a free instant snap around the whole economy.
     /// </summary>
     public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable
-                              && (_spec == null || !_spec.IsLive);
+                              && (_spec == null || (!_spec.IsLive && !_spec.IsTease));
 
     /// <summary>
     /// Bubble window bounds in WPF DIPs (matches the coordinate space of
@@ -2806,6 +3042,9 @@ internal class Bubble
         if (_isDestroyed) return;
         _isDestroyed = true;
         _isAlive = false;
+
+        // Release this tease's animated-gif budget slot (process-wide cap).
+        if (_teaseAnimated) { _teaseAnimated = false; _teaseAnimatedAlive = Math.Max(0, _teaseAnimatedAlive - 1); }
 
         try { _window.Close(); } catch { }
 

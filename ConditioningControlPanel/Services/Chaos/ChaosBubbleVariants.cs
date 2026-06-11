@@ -72,6 +72,9 @@ public sealed class EffectBubbleSpec
     /// <summary>The Chaperone's escort: a treat orbiting its live — pop it to drop the shield.
     /// Never rots; dissolves quietly when its live resolves first.</summary>
     public bool IsEscort { get; init; }
+    /// <summary>The Tease: ANY mouse-down triggers it (payload + streak halves); ignored to
+    /// expiry it pays the DENIED bonus. Immune to toys/chains — only touch or time ends it.</summary>
+    public bool IsTease { get; init; }
 
     // ---- darter (bouncing-flash catch target) ----
     /// <summary>True for a darter: small, fast, telegraphed, self-expiring benign reward target.</summary>
@@ -398,6 +401,41 @@ public static class ChaosBubbleVariants
         };
     }
 
+    // ---- The Tease tuning ----
+    public const double TEASE_SIZE_MIN = 170;
+    public const double TEASE_SIZE_MAX = 210;
+    private static readonly Color TeaseTint = Color.FromRgb(0xB3, 0x0E, 0x2E);   // glossy wet red on black
+
+    /// <summary>
+    /// Build The Tease: a glossy black/red bubble marked with a pulsing ✖ that wiggles toward
+    /// the screen's center, wanting attention. It CANNOT be defused — any mouse-down triggers
+    /// its payload AND halves the streak; left alone it expires into the DENIED bonus. The
+    /// payload comes from the standard table (video + freeze excluded, like the prism's pool).
+    /// </summary>
+    public static EffectBubbleSpec BuildTease(double intensity, double effectIntensity = 1.0, double sizeScale = 1.0)
+    {
+        var pool = All.Where(v => v.Id != "video" && v.PayloadKind != EffectBubblePayloadKind.BambiFreeze).ToList();
+        var v = pool[_rng.Next(pool.Count)];
+        double size = TEASE_SIZE_MIN + (TEASE_SIZE_MAX - TEASE_SIZE_MIN) * _rng.NextDouble();
+        int strength = (int)Math.Round(Math.Clamp((size - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        EffectPayload payload = v.PayloadKind == EffectBubblePayloadKind.Overlay && v.OverlayKind != null
+            ? new OverlayPayload(v.OverlayKind)
+            : EffectPayloadFactory.Build(v.PayloadKind);
+        payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
+        return new EffectBubbleSpec
+        {
+            VariantId = "tease",
+            Payload = payload,
+            SizePx = size * GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale),
+            Tint = TeaseTint,
+            Label = "✖",
+            IsLive = false,            // its own life/expiry path — not a trance, not a treat
+            FuseMs = 0,
+            Motion = ChaosMotion.RoamBounce,   // drift handled per-frame (center pull + wiggle)
+            IsTease = true,
+        };
+    }
+
     // ---- The Chaperone tuning ----
     public const double ESCORT_SIZE_MIN = 95;
     public const double ESCORT_SIZE_MAX = 120;
@@ -495,6 +533,7 @@ public static class ChaosBubbleVariants
         "prism"       => "A swirling prism wearing another bubble's soul. Pops for 10x — and fires the copied effect. The shadow underneath tells you what it was.",
         "echo"        => "Live, and not quite singular. Trigger it — by timeout, a tap, or letting go — and it splits into two smaller, faster ones. Hold it all the way down and there's only ever the one.",
         "chaperone"   => "Live, but spoken for. While its little escort circles, nothing touches it. Pop the escort first — then it's alone, and yours to hold.",
+        "tease"       => "It wants your hand. Don't. Touch it once and it fires — and your streak halves. Let it leave unanswered and it pays you for the restraint. Toys slide right off it.",
         _             => ""
     };
 
