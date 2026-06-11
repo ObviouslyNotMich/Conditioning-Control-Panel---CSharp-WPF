@@ -9044,7 +9044,7 @@ namespace ConditioningControlPanel
             catch (Exception ex)
             {
                 App.Logger?.Error(ex, "BtnStartChaos_Click failed");
-                MessageBox.Show("Couldn't start Chaos Mode:\n\n" + ex.Message, "Chaos Mode",
+                MessageBox.Show("Couldn't start Down the Rabbit Hole:\n\n" + ex.Message, "Down the Rabbit Hole",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -9064,7 +9064,7 @@ namespace ConditioningControlPanel
             catch (Exception ex)
             {
                 App.Logger?.Error(ex, "BtnQuickStartChaos_Click failed");
-                MessageBox.Show("Couldn't start Chaos Mode:\n\n" + ex.Message, "Chaos Mode",
+                MessageBox.Show("Couldn't start Down the Rabbit Hole:\n\n" + ex.Message, "Down the Rabbit Hole",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }

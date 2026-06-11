@@ -206,7 +206,7 @@ public static class ChaosBubbleVariants
             Payload = new FlashPayload { Strength = 0 },   // no payload — the gold IS the treat
             SizePx = size,
             Tint = GoldenTint,
-            Label = "✦",
+            Label = "🍀",   // lucky-clover mark (✦ is drops only)
             IsLive = false,
             FuseMs = 0,
             Motion = _rng.NextDouble() < 0.5 ? ChaosMotion.FloatUp : ChaosMotion.RainDown,
@@ -617,7 +617,7 @@ public static class ChaosBubbleVariants
         "htlink"      => "Live and rare. Snap it or it triggers a rain of gifs sliding down the screen.",
         "darter"      => "A white rabbit. Fast, bouncing, always late. Catch it for points and a micro flash. Harmless if it gets away.",
         "golden"      => "A lucky bubble. Rare, quick, gone before you know it. Pop it for real gold, banked on the spot. Let it fade and your streak halves.",
-        "gold_droplet"=> "A gold bead spilled from a lucky bubble. Falls fast. Catch it for a few Sparks; missing it costs nothing.",
+        "gold_droplet"=> "A gold bead spilled from a lucky bubble. Falls fast. Catch it for a few drops; missing it costs nothing.",
         "prism"       => "A swirling prism wearing another bubble's soul. Pops for 10x — and fires the copied effect. The shadow underneath tells you what it was.",
         "brittle"     => "Thin glass with something live sealed inside. Your cursor brushing it is enough — it shatters, and whatever it held fires. Toys slide around it; a frozen field is safe to cross. Steer wide.",
         "echo"        => "Live, and not quite singular. Trigger it — by timeout, a tap, or letting go — and it splits into two smaller, faster ones. Hold it all the way down and there's only ever the one.",

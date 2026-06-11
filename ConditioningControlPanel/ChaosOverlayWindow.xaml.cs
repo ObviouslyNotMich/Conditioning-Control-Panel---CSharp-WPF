@@ -544,10 +544,10 @@ public partial class ChaosOverlayWindow : Window
 
         ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
 
-        // The take-home: XP and gold, side by side.
+        // The take-home: XP and gold, side by side. Glyph canon: 🕰 xp, 🐇 gold (✦ is drops only).
         ResultsBody.Children.Add(ChipRow(
-            StatChip("XP", $"✦ {finalXp:N0}", pink, $"base {baseXp:N0} × skill x{skillMult:0.0}"),
-            StatChip("GOLD", $"{sparksEarned:N0}", gold, "banked in the warren")));
+            StatChip("XP", $"{ChaosGlyphs.Xp} {finalXp:N0}", pink, $"base {baseXp:N0} x{skillMult:0.0}"),
+            StatChip("GOLD", $"{ChaosGlyphs.Gold} {sparksEarned:N0}", gold, "banked in the dollhouse")));
 
         // Bark over the results (+ PB fields for the compulsion line).
         App.Bark?.NotifyChaosResultsShown(score, ChaosMeta.State.BestScore, pbDelta, isPb,

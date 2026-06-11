@@ -11,18 +11,17 @@ using ConditioningControlPanel.Services.Chaos;
 namespace ConditioningControlPanel;
 
 /// <summary>
-/// The Rabbit Hole hub ("The Warren"): opened from the Lab card. Four tabs:
-/// LOADOUT (pocket slots + the whole collection as clickable tiles), ENHANCEMENTS
-/// (unlock/deepen skills &amp; accessories), THE DESCENT (run setup + Habit training —
-/// the always-on passives), IMPROVEMENTS (future meta unlocks + start-mantra picker +
-/// stats and diary). Improvements unlocks after the first completed descent.
+/// The Down the Rabbit Hole hub ("the Dollhouse"): opened from the Lab card. Four tabs:
+/// BAG (pocket slots + the whole collection as clickable tiles), THE TOYBOX
+/// (unlock/deepen toys, accessories and habits), SETTINGS (run setup), and
+/// THE LOOKING GLASS (stats + diary + start-mantra picker + the seamstress's bench).
 /// </summary>
 public partial class ChaosHubWindow : Window
 {
     private static readonly Random _rng = new();
     private int _waves = 5;
 
-    /// <summary>The open Warren, if any — lets the loadout sidebar push unequips back into it.</summary>
+    /// <summary>The open Dollhouse, if any. Lets the loadout sidebar push unequips back into it.</summary>
     public static ChaosHubWindow? Current { get; private set; }
 
     private bool _uiSoundsReady;   // suppress cues while the ctor builds the initial view
@@ -65,19 +64,12 @@ public partial class ChaosHubWindow : Window
 
     private void ApplyUnlocks()
     {
-        // Loadout/Enhancements/Descent are open from the first visit (the Sparks cost is the
-        // real gate, and run setup must be reachable before run #1). The bench waits one descent.
-        int runs = ChaosMeta.State.RunsCompleted;
+        // All four tabs render from the first visit (the drops cost is the real gate, and
+        // run setup must be reachable before run #1). Gating returns with the reveal framework.
         TabLoadout.IsEnabled = true;
         TabEnhance.IsEnabled = true;
         TabRun.IsEnabled = true;
-        SetTabEnabled(TabImprove, runs >= ChaosMeta.UNLOCK_STATS_RUNS);
-    }
-
-    private static void SetTabEnabled(ToggleButton tab, bool enabled)
-    {
-        tab.IsEnabled = enabled;
-        tab.ToolTip = enabled ? null : "finish a descent to unlock";
+        TabImprove.IsEnabled = true;
     }
 
     private void Tab_Click(object sender, RoutedEventArgs e)
@@ -88,15 +80,16 @@ public partial class ChaosHubWindow : Window
 
     private void ShowTab(string tag)
     {
+        // The old Habits tab folded into the Toybox; external callers may still ask for it.
+        if (tag == "habits") tag = "enhance";
+
         PanelLoadout.Visibility = tag == "loadout" ? Visibility.Visible : Visibility.Collapsed;
         PanelEnhance.Visibility = tag == "enhance" ? Visibility.Visible : Visibility.Collapsed;
-        PanelHabits.Visibility  = tag == "habits"  ? Visibility.Visible : Visibility.Collapsed;
         PanelRun.Visibility     = tag == "run"     ? Visibility.Visible : Visibility.Collapsed;
         PanelImprove.Visibility = tag == "improve" ? Visibility.Visible : Visibility.Collapsed;
 
         TabLoadout.IsChecked = tag == "loadout";
         TabEnhance.IsChecked = tag == "enhance";
-        TabHabits.IsChecked  = tag == "habits";
         TabRun.IsChecked     = tag == "run";
         TabImprove.IsChecked = tag == "improve";
 
@@ -104,7 +97,6 @@ public partial class ChaosHubWindow : Window
         {
             "loadout" => "click a tile to slip it into a pocket. + takes you where it's sold.",
             "enhance" => "spend your drops. deepen what you like.",
-            "habits"  => "train once, keep forever. switch them on or off between descents.",
             "run"     => "dress up the fall, then FALL IN.",
             "improve" => "the bench, the mantras, the diary.",
             _ => "",
@@ -115,7 +107,7 @@ public partial class ChaosHubWindow : Window
     private void JumpToTab(string tag) => ShowTab(tag);
 
     /// <summary>External navigation (the loadout sidebar's empty "+" tiles): switch tab and
-    /// bring the Warren forward.</summary>
+    /// bring the Dollhouse forward.</summary>
     public void NavigateTo(string tag)
     {
         ShowTab(tag);
@@ -371,7 +363,7 @@ public partial class ChaosHubWindow : Window
         mid.Children.Add(new TextBlock { Text = b.Name, Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
         mid.Children.Add(new TextBlock { Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
 
-        // Active-use skills carry their trigger: the keybind (when equipped) or a generic hint.
+        // Active-use toys carry their trigger: the keybind (when equipped) or a generic hint.
         if (b.IsActiveUse)
         {
             string key = App.Settings?.Current?.ChaosAccessoryKey1 ?? "Q";
@@ -379,7 +371,7 @@ public partial class ChaosHubWindow : Window
             mid.Children.Add(new TextBlock
             {
                 Text = active ? $"ACTIVE · fires on {key} mid-descent · {useHint}"
-                              : $"ACTIVE · fires on your skill key mid-descent · {useHint}",
+                              : $"ACTIVE · fires on your toy key mid-descent · {useHint}",
                 Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)),
                 FontSize = 10.5, FontWeight = FontWeights.Bold,
                 Margin = new Thickness(0, 3, 0, 0)
@@ -464,7 +456,7 @@ public partial class ChaosHubWindow : Window
         else
         {
             int cost = ChaosMeta.NextUpgradeCostOf(b.Id) ?? 0;
-            right.Children.Add(BuyButton($"Upgrade  ✦{cost}", b.Id, ChaosMeta.CanAffordUpgrade(b.Id), BoonUpgrade_Click));
+            right.Children.Add(BuyButton($"deepen  ✦{cost}", b.Id, ChaosMeta.CanAffordUpgrade(b.Id), BoonUpgrade_Click));
         }
         Grid.SetColumn(right, 2);
         grid.Children.Add(right);
@@ -581,7 +573,7 @@ public partial class ChaosHubWindow : Window
     {
         // ---- pocket slots (big tiles, one group per category) ----
         PocketSlotsHost.Children.Clear();
-        PocketSlotsHost.Children.Add(PocketGroup("SKILL", ChaosBoonCategory.Skill));
+        PocketSlotsHost.Children.Add(PocketGroup("TOY", ChaosBoonCategory.Skill));
         PocketSlotsHost.Children.Add(PocketGroup("ACCESSORY", ChaosBoonCategory.Accessory));
 
         // ---- collections ----
@@ -603,9 +595,9 @@ public partial class ChaosHubWindow : Window
             if (on) switchedOn++;
             Action onClick = owned
                 ? () => { ChaosMeta.SetUpgradeActive(id, !ChaosMeta.IsUpgradeActive(id)); BuildHabits(); BuildLoadoutTiles(); App.Chaos?.NotifyLoadoutChanged(); }
-                : () => JumpToTab("habits");
+                : () => JumpToTab("enhance");
             TilesHabits.Children.Add(LoadoutTile(u.Glyph, u.Name, u.Desc,
-                on ? "click to switch off" : owned ? "click to switch on" : $"train for ✦{u.Cost} in HABITS",
+                on ? "click to switch off" : owned ? "click to switch on" : $"train for ✦{u.Cost} in the Toybox",
                 BranchColor(u.Branch),
                 on ? TileState.Equipped : owned ? TileState.Owned : TileState.Locked,
                 onClick,
@@ -629,9 +621,9 @@ public partial class ChaosHubWindow : Window
                       ChaosSfx.Play(ChaosMeta.IsBoonActive(bid) ? "ui_equip" : "ui_unequip", 0.45f);
                       BuildHabits(); BuildLoadoutTiles(); App.Chaos?.NotifyLoadoutChanged();
                   }
-                : () => JumpToTab("habits");
+                : () => JumpToTab("enhance");
             TilesHabits.Children.Add(LoadoutTile(b.Glyph, unlocked ? $"{b.Name} · L{ChaosMeta.BoonLevel(bid)}" : b.Name, b.Desc,
-                active ? "click to switch off" : unlocked ? "click to switch on" : $"unlock for ✦{b.UnlockCost} in HABITS",
+                active ? "click to switch off" : unlocked ? "click to switch on" : $"unlock for ✦{b.UnlockCost} in the Toybox",
                 BoonAccent,
                 active ? TileState.Equipped : unlocked ? TileState.Owned : TileState.Locked,
                 onClick,
@@ -672,7 +664,7 @@ public partial class ChaosHubWindow : Window
         for (int i = equipped.Count; i < ChaosMeta.SlotsFor(cat); i++)
         {
             var cell = LoadoutTile("+", $"empty {label.ToLowerInvariant()} pocket",
-                "pick one from the shelf below, or go shopping in ENHANCEMENTS.", null,
+                "pick one from the shelf below, or go shopping in the Toybox.", null,
                 BoonAccent, TileState.Empty, () => JumpToTab("enhance"), size: 114, caption: "empty");
             cell.Margin = new Thickness(0, 0, 24, 0);
             row.Children.Add(cell);
@@ -700,7 +692,7 @@ public partial class ChaosHubWindow : Window
                 : () => JumpToTab("enhance");
             string extra = active ? "click to unequip"
                 : unlocked ? "click to equip"
-                : $"unlock for ✦{b.UnlockCost} in ENHANCEMENTS";
+                : $"unlock for ✦{b.UnlockCost} in the Toybox";
             host.Children.Add(LoadoutTile(b.Glyph, unlocked ? $"{b.Name} · L{level}" : b.Name,
                 b.Desc, extra, BoonAccent, state, onClick,
                 cornerBadge: active ? "★" : null, art: ChaosArt.Resolve("boons", id)));
@@ -708,7 +700,7 @@ public partial class ChaosHubWindow : Window
         int target = Math.Max(padTo, ((boons.Count + 3) / 4) * 4);
         for (int i = boons.Count; i < target; i++)
             host.Children.Add(LoadoutTile("+",
-                cat == ChaosBoonCategory.Skill ? "another skill is being stitched" : "another accessory is being stitched",
+                cat == ChaosBoonCategory.Skill ? "another toy is being stitched" : "another accessory is being stitched",
                 "it'll hang here when it's ready.", null,
                 Color.FromRgb(0xB8, 0xB8, 0xD0), TileState.Empty, null));
     }
@@ -955,9 +947,9 @@ public partial class ChaosHubWindow : Window
                 ChaosArt.Resolve("bubbles", v.Id), "●", Color.FromRgb(v.Tint.R, v.Tint.G, v.Tint.B), maxWidth));
         // Not part of the weighted pool table; listed explicitly.
         host.Children.Add(CodexRow("bubble:darter", "White Rabbit", ChaosBubbleVariants.DescriptionFor("darter"),
-            ChaosArt.Resolve("bubbles", "darter"), "✦", Color.FromRgb(0xFF, 0x4D, 0xC4), maxWidth));
+            ChaosArt.Resolve("bubbles", "darter"), "✧", Color.FromRgb(0xFF, 0x4D, 0xC4), maxWidth));
         host.Children.Add(CodexRow("bubble:golden", "Lucky Bubble", ChaosBubbleVariants.DescriptionFor("golden"),
-            ChaosArt.Resolve("bubbles", "golden"), "✦", Color.FromRgb(0xFF, 0xD7, 0x00), maxWidth));
+            ChaosArt.Resolve("bubbles", "golden"), "🍀", Color.FromRgb(0xFF, 0xD7, 0x00), maxWidth));
         host.Children.Add(CodexRow("bubble:echo", "The Echo", ChaosBubbleVariants.DescriptionFor("echo"),
             ChaosArt.Resolve("bubbles", "echo"), "◌", Color.FromRgb(0xC9, 0xC4, 0xE8), maxWidth));
         host.Children.Add(CodexRow("bubble:chaperone", "The Chaperone", ChaosBubbleVariants.DescriptionFor("chaperone"),

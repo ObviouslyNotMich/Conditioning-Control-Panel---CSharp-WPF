@@ -370,8 +370,8 @@ public sealed class ChaosModeService
                     {
                         IsEmptySlot = true,
                         Glyph = "+",
-                        Name = cat == ChaosBoonCategory.Skill ? "empty skill pocket" : "empty accessory pocket",
-                        Desc = "click to go shopping in the warren.",
+                        Name = cat == ChaosBoonCategory.Skill ? "empty toy pocket" : "empty accessory pocket",
+                        Desc = "click to go shopping in the dollhouse.",
                     });
         }
         st.RunModifiers.Clear();
@@ -918,7 +918,7 @@ public sealed class ChaosModeService
             else
             {
                 App.Bark?.NotifyChaosBoonPicked(boon.Name);
-                ChaosAnnouncerOverlay.Announce($"✦ {boon.Name}", ChaosAnnounceKind.Mantra);
+                ChaosAnnouncerOverlay.Announce($"◈ {boon.Name}", ChaosAnnounceKind.Mantra);   // ◈ mantra mark (✦ is drops only)
             }
         }
         else
