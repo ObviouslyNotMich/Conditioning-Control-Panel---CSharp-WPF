@@ -238,6 +238,7 @@ public static class ChaosMeta
     {
         var u = ChaosUpgrades.ById(id);
         if (u == null) return false;
+        if (ChaosLessons.IsLessonBlocked(id)) return false;   // the lesson comes before the drops
         if (State.PurchasedUpgrades.Contains(id)) return false;
         if (State.Sparks < u.Cost) return false;
 
@@ -321,6 +322,7 @@ public static class ChaosMeta
     /// <summary>Validate + buy level 1: deduct Sparks, record level, auto-activate, persist.</summary>
     public static bool TryUnlockBoon(string id)
     {
+        if (ChaosLessons.IsLessonBlocked(id)) return false;   // the lesson comes before the drops
         var c = UnlockCostOf(id);
         if (!c.HasValue || State.Sparks < c.Value) return false;
         State.Sparks -= c.Value;

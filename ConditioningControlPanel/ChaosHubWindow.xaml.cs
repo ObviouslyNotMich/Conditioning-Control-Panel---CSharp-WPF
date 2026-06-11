@@ -131,6 +131,7 @@ public partial class ChaosHubWindow : Window
         StBestScore.Text = s.BestScore.ToString("N0");
         StBestCombo.Text = s.BestCombo.ToString("N0");
         StDefused.Text = s.TotalDefused.ToString("N0");
+        StTimeHeld.Text = FormatPlaytime(s.TotalChannelSeconds);
     }
 
     private static string FormatPlaytime(double seconds)
@@ -247,7 +248,9 @@ public partial class ChaosHubWindow : Window
         }
         else
         {
-            right.Children.Add(BuyButton($"Train  ✦{u.Cost}", u.Id, afford, Buy_Click));
+            right.Children.Add(ChaosLessons.IsLessonBlocked(u.Id)
+                ? BuildLessonLockPanel(u.Id, accent)   // the lesson gates the training — no buy button
+                : BuyButton($"Train  ✦{u.Cost}", u.Id, afford, Buy_Click));
         }
         Grid.SetColumn(right, 2);
         grid.Children.Add(right);
@@ -450,7 +453,9 @@ public partial class ChaosHubWindow : Window
         }
 
         if (!unlocked)
-            right.Children.Add(BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, ChaosMeta.CanAffordUnlock(b.Id), BoonUnlock_Click));
+            right.Children.Add(ChaosLessons.IsLessonBlocked(b.Id)
+                ? BuildLessonLockPanel(b.Id, BoonAccent)   // the lesson gates the unlock — no buy button
+                : BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, ChaosMeta.CanAffordUnlock(b.Id), BoonUnlock_Click));
         else if (maxed)
             right.Children.Add(new TextBlock { Text = "MAX  ✓", Foreground = new SolidColorBrush(Color.FromRgb(0x5A, 0xE0, 0x96)), FontSize = 13, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right });
         else

@@ -86,4 +86,7 @@ public sealed class ChaosMetaState
     public long TotalDefused { get; set; } = 0;
     /// <summary>Total time spent down the hole across all completed descents, in seconds.</summary>
     public double TotalRunSeconds { get; set; } = 0;
+    /// <summary>Lifetime seconds spent holding defuse channels ("time holding on" in the
+    /// Looking Glass). Keeps accumulating after the slow_fuses lesson completes.</summary>
+    public double TotalChannelSeconds { get; set; } = 0;
 }

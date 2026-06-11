@@ -170,6 +170,7 @@ public sealed class ChaosModeService
         _lastComboBigFired = 0;
         _lastActFired = 1;
         _lastHeatTint = -1;
+        ChaosLessonHooks.OnRunStarted();   // lessons: fresh per-run trackers
         EndSlowMo(); EndFreeze();   // clean power-up state for the new run (no leak across runs)
         _snapFlashRemainingSec = 0; _rabbitStormRemainingSec = 0; _rabbitStormAccumSec = 0; _thoughtAccumSec = 0;
         _pendulumRolledWave = 0;   // pendulum event re-rolls its beat for wave 1
@@ -464,6 +465,7 @@ public sealed class ChaosModeService
 
         TickBlindfoldHeartbeat(dt);   // Blindfold capstone: the closest fuse gets a pulse
         TickActiveToys(dt);           // toy cooldowns + the VibePopping buzz window
+        ChaosLessonHooks.SampleCursor();   // the_pull lesson: cheap, self-disabling once learned
 
         // rh_focus_low: focus has sat below a defuse's price while live threats hang on screen.
         // Once per run — a nudge toward farming treats, not a nag.
@@ -493,11 +495,15 @@ public sealed class ChaosModeService
                 try { App.Video?.ForceCleanup(); } catch (Exception ex) { App.Logger?.Debug("Chaos video cap: {E}", ex.Message); }
                 ExtendHeavyQuarantine(VIDEO_TEARDOWN_QUARANTINE_SEC);   // ForceCleanup may not raise VideoEnded
                 _state.PushEvent("▶ the tape snaps off");
+                // porn_dvd lesson: the full slice ran (the 15s cap IS the slice length);
+                // a run-closing cut before the cap is an abort and doesn't count.
+                if (capHit) ChaosLessonHooks.OnVideoEndured();
             }
             else if (App.Video?.IsPlaying != true && capHit)
             {
                 _chaosVideoCapUtc = DateTime.MinValue;   // ended on its own — clear the cap
                 ExtendHeavyQuarantine(VIDEO_TEARDOWN_QUARANTINE_SEC);
+                ChaosLessonHooks.OnVideoEndured();   // porn_dvd lesson: endured to its natural end
             }
         }
 
@@ -716,6 +722,7 @@ public sealed class ChaosModeService
         if (_state == null || _paused || _manualPaused) return;
         _state.Detonated++;
         _runDetonations++;
+        ChaosLessonHooks.OnDetonation();   // silk_touch: a touched Tease dirties the loop too
         double s = spec.Strength / 100.0;
 
         int shieldCost = _state.DoubleOrNothingActive ? 2 : 1;
@@ -821,6 +828,7 @@ public sealed class ChaosModeService
     private void BeginWaveTransition(int newWave)
     {
         if (_state == null) return;
+        ChaosLessonHooks.OnLoopCompleted();   // lessons: judge silk_touch, reset per-loop tallies
 
         // Drafts disabled → roll straight into the next wave with no pause.
         if (!_state.Config.BoonDraftEnabled)
@@ -894,6 +902,7 @@ public sealed class ChaosModeService
             bool sinShielded = boon.IsCurse && _state.MaxedBoons.Contains("surrender") && !_state.SurrenderShieldUsed;
             if (sinShielded) _state.SurrenderShieldUsed = true;
 
+            ChaosLessonHooks.OnDraftCardTaken(boon.IsCurse);   // draft4 (any card) + surrender (sins)
             _state.ApplyBoon(boon, shieldDrawback: sinShielded);
             if (boon.Id == "extra_shield") Pulse(SHIELD_GAIN_COLOR, SHIELD_GAIN_PULSE);   // +2 shields cue
             if (boon.IsCurse)
@@ -1087,6 +1096,7 @@ public sealed class ChaosModeService
         // Mimic prism ("Look at the bright colors..."): 10x pay — and the copied effect fires.
         if (spec.IsPrism)
         {
+            ChaosLessonHooks.OnPrismPopped();   // taking_chances lesson
             _state.Focus += ChaosTuning.FOCUS_PER_PRISM;
             FireScaledPayload(spec.Payload);
             _state.EffectsFired++;
@@ -1105,6 +1115,7 @@ public sealed class ChaosModeService
         }
 
         spec.Payload.Fire();                 // benign pop = a treat
+        ChaosLessonHooks.OnTreatPopped(spec);   // vibe_popping / chain_reaction / the_pull / intrusive_thoughts
         _state.EffectsFired++;
         _state.Combo++;
         // Focus economy: every treat-class pop refuels the hand, REGARDLESS of source (a
@@ -1182,8 +1193,9 @@ public sealed class ChaosModeService
     private bool CanChannelDefuse(EffectBubbleSpec spec)
     {
         if (_state == null) return false;
-        if (_freezeRemainingSec > 0) return true;
-        return _state.Focus >= DefuseCostFor(spec);
+        bool ok = _freezeRemainingSec > 0 || _state.Focus >= DefuseCostFor(spec);
+        if (ok) ChaosLessonHooks.OnChannelStarted();   // slow_fuses: the hold's clock starts now
+        return ok;
     }
 
     /// <summary>A channel never completed — the bubble is already triggering (onDetonate carries
@@ -1191,6 +1203,7 @@ public sealed class ChaosModeService
     private void OnChannelBroken(EffectBubbleSpec spec, string reason)
     {
         if (_state == null) return;
+        ChaosLessonHooks.OnChannelBroken();   // slow_fuses: bank the partial hold ("nofocus" never started one)
         switch (reason)
         {
             case "nofocus":
@@ -1241,6 +1254,7 @@ public sealed class ChaosModeService
         if (_state.DefuseInvulnMs > 0)
             _invulnUntilUtc = DateTime.UtcNow.AddMilliseconds(_state.DefuseInvulnMs);
         CountRegenPop();   // Slow Recovery: snaps count toward the regen threshold too
+        ChaosLessonHooks.OnDefuseCompleted(fuseSecLeft, viaChannel);   // snap_field / blindfold / last_breath / slow_fuses
         _state.Defused++;
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.07);
@@ -1303,6 +1317,7 @@ public sealed class ChaosModeService
         }
         _state.Detonated++;
         _runDetonations++;
+        ChaosLessonHooks.OnDetonation();   // silk_touch: the loop is no longer clean
 
         string variant = spec.VariantId;     // payload ctx = variant id (e.g. "braindrain","video")
         string diff = _state.Config.Difficulty.ToString();
@@ -1406,6 +1421,7 @@ public sealed class ChaosModeService
     /// knob for exactly this call (GlobalDurationMult is shared with slow-mo/freeze — scope it).</summary>
     private void FireScaledPayload(EffectPayload payload)
     {
+        ChaosLessonHooks.OnPayloadFired(payload.Kind);   // blindfold: the screen turns busy
         double m = _state?.DetonationDurationMult ?? 1.0;
         if (m == 1.0) { payload.Fire(); return; }
         EffectPayload.GlobalDurationMult *= m;
@@ -1486,6 +1502,7 @@ public sealed class ChaosModeService
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
         App.Achievements?.TrackBubblePopped();
+        ChaosLessonHooks.OnRabbitCaught();   // rabbit_caller lesson
         // The darter is a utility pickup: catching it slows time (no conditioning jolt).
         ActivateSlowMo();
         Pulse(Color.FromRgb(120, 200, 255), quick ? 0.32 : 0.24);   // icy slow-mo flash
@@ -1504,6 +1521,7 @@ public sealed class ChaosModeService
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
         App.Achievements?.TrackBubblePopped();
+        ChaosLessonHooks.OnFreezeCaught();   // freeze_trigger lesson (pickups only, not the toy)
         ActivateFreeze();
         App.Bark?.NotifyChaosFreezeCaught(FREEZE_BASE_POINTS * _state.TotalMult, _state.Combo);
         _state.PushEvent("❄ frozen. the field holds");
@@ -2162,6 +2180,10 @@ public sealed class ChaosModeService
     private void EndRun()
     {
         if (!_spawning || _state == null) return;
+        // Lessons: final-loop + end-of-descent judgments (popup_notification / extreme_tier /
+        // silk_touch). A quit mid-fall (RequestStop) didn't run the full course.
+        ChaosLessonHooks.OnRunCompleted(_state.Shields, _state.Config.Difficulty,
+            ranFullCourse: _state.ElapsedSec >= _state.RunDurationSec);
         _spawning = false;
         if (App.Video != null) App.Video.VideoStarted -= OnVideoStartedDuringRun;
         if (App.Video != null) App.Video.VideoEnded -= OnVideoEndedDuringRun;
