@@ -137,6 +137,7 @@ public partial class ChaosHubWindow : Window
         StBestScore.Text = s.BestScore.ToString("N0");
         StBestCombo.Text = s.BestCombo.ToString("N0");
         StDefused.Text = s.TotalDefused.ToString("N0");
+        StTimeHeld.Text = FormatPlaytime(s.TotalChannelSeconds);
     }
 
     private static string FormatPlaytime(double seconds)
@@ -253,15 +254,23 @@ public partial class ChaosHubWindow : Window
         }
         else
         {
-            // Rank-floored purchases (extreme_tier needs Devoted) stay visible but locked.
-            bool rankLocked = ChaosMeta.IsPurchaseRankLocked(u.Id);
-            var train = BuyButton($"Train  ✦{u.Cost}", u.Id, afford && !rankLocked, Buy_Click);
-            if (rankLocked)
+            if (ChaosLessons.IsLessonBlocked(u.Id))
             {
-                train.ToolTip = ChaosRanks.RankLockedTip;
-                ToolTipService.SetShowOnDisabled(train, true);
+                // the lesson gates the training — no buy button
+                right.Children.Add(BuildLessonLockPanel(u.Id, accent));
             }
-            right.Children.Add(train);
+            else
+            {
+                // Rank-floored purchases (extreme_tier needs Devoted) stay visible but locked.
+                bool rankLocked = ChaosMeta.IsPurchaseRankLocked(u.Id);
+                var train = BuyButton($"Train  ✦{u.Cost}", u.Id, afford && !rankLocked, Buy_Click);
+                if (rankLocked)
+                {
+                    train.ToolTip = ChaosRanks.RankLockedTip;
+                    ToolTipService.SetShowOnDisabled(train, true);
+                }
+                right.Children.Add(train);
+            }
         }
         Grid.SetColumn(right, 2);
         grid.Children.Add(right);
@@ -467,7 +476,9 @@ public partial class ChaosHubWindow : Window
         }
 
         if (!unlocked)
-            right.Children.Add(BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, ChaosMeta.CanAffordUnlock(b.Id), BoonUnlock_Click));
+            right.Children.Add(ChaosLessons.IsLessonBlocked(b.Id)
+                ? BuildLessonLockPanel(b.Id, BoonAccent)   // the lesson gates the unlock — no buy button
+                : BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, ChaosMeta.CanAffordUnlock(b.Id), BoonUnlock_Click));
         else if (maxed)
             right.Children.Add(new TextBlock { Text = "MAX  ✓", Foreground = new SolidColorBrush(Color.FromRgb(0x5A, 0xE0, 0x96)), FontSize = 13, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right });
         else

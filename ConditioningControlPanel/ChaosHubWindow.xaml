@@ -416,6 +416,7 @@
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Drops" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4" Width="175"/>
                                     <TextBlock Grid.Row="0" Grid.Column="1" x:Name="StSparks" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
@@ -429,6 +430,8 @@
                                     <TextBlock Grid.Row="4" Grid.Column="1" x:Name="StBestCombo" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
                                     <TextBlock Grid.Row="5" Grid.Column="0" Text="Total snapped" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
                                     <TextBlock Grid.Row="5" Grid.Column="1" x:Name="StDefused" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Time holding on" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="StTimeHeld" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
                                 </Grid>
                                 <TextBlock x:Name="HdrDiary" Grid.Row="2" Text="DIARY · what you've met down there · click to pop out ⤢" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,4,0,6"/>
                                 <ScrollViewer x:Name="DiaryScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut">
