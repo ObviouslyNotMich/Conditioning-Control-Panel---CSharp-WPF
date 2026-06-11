@@ -150,6 +150,12 @@ public sealed class ChaosRunConfig
     public double HitboxScale { get; set; } = 1.0;
     /// <summary>Pop-up Notification habit: once per loop, sometimes, a heart drifts down (+1 resistance on catch).</summary>
     public bool PopupHeartEnabled { get; set; } = false;
+    /// <summary>Scales the spawn-tick rate (1.0 = current behavior). The scripted first descent
+    /// runs gentler (~0.6) so the teach beats land in quiet air.</summary>
+    public double SpawnRateMult { get; set; } = 1.0;
+    /// <summary>Chance the dedicated sin slot rolls in a draft (was a 0.5 literal). The happy
+    /// path debuts sins at 0.25 on run 3 and ramps to 0.5 by Slipping.</summary>
+    public double SinChance { get; set; } = 0.5;
 
     public static ChaosRunConfig FromSettings()
     {

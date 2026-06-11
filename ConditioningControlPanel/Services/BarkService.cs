@@ -253,9 +253,11 @@ namespace ConditioningControlPanel.Services
             Raise("ChaosActChanged", c => c.Set("act", (double)act).Set("wave", (double)wave));
         /// <summary>The field was cleared at a wave boundary. ctx: wave (the wave just cleared).</summary>
         public void NotifyChaosWaveCleared(int wave) => Raise("ChaosWaveCleared", c => c.Set("wave", (double)wave));
-        /// <summary>The run finished. ctx: xp (final payout), difficulty.</summary>
+        /// <summary>The run finished. ctx: xp (final payout), difficulty, runs_completed, rank.</summary>
         public void NotifyChaosRunCompleted(int xp, string difficulty) =>
-            Raise("ChaosRunCompleted", c => c.Set("xp", (double)xp).Set("difficulty", difficulty));
+            Raise("ChaosRunCompleted", c => c.Set("xp", (double)xp).Set("difficulty", difficulty)
+                .Set("runs_completed", (double)(Services.Chaos.ChaosMeta.State?.RunsCompleted ?? 0))
+                .Set("rank", Services.Chaos.ChaosRanks.NameLower(Services.Chaos.ChaosMeta.RankIndex)));
         // ---- hold-to-defuse verb rework (2026-06-11). First-time gating lives in
         // ChaosModeService (chaos_meta.json flags); rh_focus_low is once per run there too. ----
         /// <summary>First ever completed defuse channel.</summary>
@@ -284,7 +286,27 @@ namespace ConditioningControlPanel.Services
             Raise("ChaosResultsShown", c => c
                 .Set("score", score).Set("best_score", bestScore).Set("pb_delta", pbDelta).Set("is_pb", isPb)
                 .Set("defused", defused).Set("detonated", detonated).Set("best_combo", (double)bestCombo)
-                .Set("difficulty", difficulty));
+                .Set("difficulty", difficulty)
+                .Set("runs_completed", (double)(Services.Chaos.ChaosMeta.State?.RunsCompleted ?? 0))
+                .Set("rank", Services.Chaos.ChaosRanks.NameLower(Services.Chaos.ChaosMeta.RankIndex)));
+
+        // ---- Down the Rabbit Hole progression triggers (2026-06-11) ----
+        /// <summary>Rank increased on run completion. ctx: rank (lowercase word).</summary>
+        public void NotifyChaosRankUp(string rank) => Raise("ChaosRankUp", c => c.Set("rank", rank));
+        /// <summary>A pending reveal flashed on dollhouse open (once per batch). ctx: element (reveal id).</summary>
+        public void NotifyChaosRevealFlash(string element) => Raise("ChaosRevealFlash", c => c.Set("element", element));
+        /// <summary>A lesson completed. ctx: lesson_id.</summary>
+        public void NotifyChaosLessonComplete(string lessonId) => Raise("ChaosLessonComplete", c => c.Set("lesson_id", lessonId));
+        /// <summary>She auto-covered a short balance on the first toy pocket attempt (one-time).</summary>
+        public void NotifyChaosGiftGiven() => Raise("ChaosGiftGiven");
+        /// <summary>A one-time first-times bonus awarded. ctx: bonus_id.</summary>
+        public void NotifyChaosFirstTime(string bonusId) => Raise("ChaosFirstTime", c => c.Set("bonus_id", bonusId));
+        /// <summary>First run with both e_stim + the_spanker: the scripted duo draft fired.</summary>
+        public void NotifyChaosDuoDemo() => Raise("ChaosDuoDemo");
+        /// <summary>First gold income ever (gold explained).</summary>
+        public void NotifyChaosGoldFirst() => Raise("ChaosGoldFirst");
+        /// <summary>The dollhouse opened for the very first time.</summary>
+        public void NotifyChaosDollhouseFirstOpen() => Raise("ChaosDollhouseFirstOpen");
 
         // Reflection cache so a numeric-setting read on every PropertyChanged stays cheap.
         private static readonly Dictionary<string, System.Reflection.PropertyInfo?> _settingPropCache = new(StringComparer.Ordinal);

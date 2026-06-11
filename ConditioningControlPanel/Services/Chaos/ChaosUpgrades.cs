@@ -164,15 +164,31 @@ public static class ChaosMeta
     public const int UNLOCK_LOADOUT_RUNS  = 3;
 
     /// <summary>Rank derived from lifetime <see cref="ChaosMetaState.RunsCompleted"/> (monotonic, simple).</summary>
-    public static string Rank => State.RunsCompleted switch
+    public static string Rank => ChaosRanks.Name(RankIndex);
+
+    /// <summary>The rank spine — every progression gate reads this (or RunsCompleted), nothing else.</summary>
+    public static ChaosRank RankIndex => ChaosRanks.For(State.RunsCompleted);
+
+    public static bool AtLeast(ChaosRank rank) => RankIndex >= rank;
+
+    // ---- gold (instant in-run currency; spent only at her bench) ----
+
+    /// <summary>Bank gold immediately (instant in-run payouts persist like instant drops did).</summary>
+    public static void AddGold(int amount)
     {
-        >= 100 => "Claimed",
-        >= 50  => "Devoted",
-        >= 25  => "Entranced",
-        >= 10  => "Slipping",
-        >= 3   => "Tempted",
-        _      => "Curious"
-    };
+        if (amount <= 0) return;
+        State.Gold += amount;
+        Save();
+    }
+
+    /// <summary>Validate + spend gold. Returns false (no mutation) when short.</summary>
+    public static bool TrySpendGold(int amount)
+    {
+        if (amount < 0 || State.Gold < amount) return false;
+        State.Gold -= amount;
+        Save();
+        return true;
+    }
 
     /// <summary>Equip (or clear, with null) the pre-drafted start boon and persist.</summary>
     public static void EquipStartBoon(string? boonId)
@@ -246,10 +262,15 @@ public static class ChaosMeta
     // Skills and Accessories are pocket-slotted (2 each) — you choose what you take down.
     // Utility is uncapped. They carry no run-mult (utility, not score).
 
-    /// <summary>Equip slots for a category: 1 skill + 1 accessory for now (second slots will be
-    /// Improvements meta-unlocks in a later pass); Utility toggles are uncapped.</summary>
-    public static int SlotsFor(ChaosBoonCategory cat) =>
-        cat == ChaosBoonCategory.Utility ? int.MaxValue : 1;
+    /// <summary>Equip pockets for a category: purchase-driven (her bench sews them), starting
+    /// at ZERO toys / ZERO accessories on a fresh save; Utility toggles are uncapped.</summary>
+    public static int SlotsFor(ChaosBoonCategory cat) => cat switch
+    {
+        ChaosBoonCategory.Utility   => int.MaxValue,
+        ChaosBoonCategory.Skill     => State.ToyPockets,
+        ChaosBoonCategory.Accessory => State.AccessoryPockets,
+        _ => 0,
+    };
 
     /// <summary>How many boons of this category are currently equipped (active).</summary>
     public static int EquippedCountIn(ChaosBoonCategory cat) =>

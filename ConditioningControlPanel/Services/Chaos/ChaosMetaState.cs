@@ -44,6 +44,41 @@ public sealed class ChaosMetaState
     public bool SeenBound { get; set; } = false;
     public bool SeenBrittle { get; set; } = false;
 
+    // ---- two-currency split (2026-06-11): Sparks (code name frozen) is the DROPS balance,
+    // banked end-of-run; Gold is the instant in-run balance, spent only at her bench ----
+    public int Gold { get; set; } = 0;
+
+    // ---- pockets are purchase-driven now: counts start at zero, her bench sews more ----
+    public int ToyPockets { get; set; } = 0;
+    public int AccessoryPockets { get; set; } = 0;
+
+    /// <summary>Gold purchases at her bench (non-power conveniences): id -> owned.</summary>
+    public HashSet<string> BenchPurchases { get; set; } = new();
+
+    /// <summary>One-time auto-cover of a short balance on the first toy pocket attempt.</summary>
+    public bool GiftGiven { get; set; } = false;
+
+    // ---- lessons (challenge-gated buyability): id == purchasable id ----
+    public Dictionary<string, long> LessonProgress { get; set; } = new();
+    public HashSet<string> LessonsComplete { get; set; } = new();
+
+    // ---- reveal framework: element ids pending their dollhouse flash / already flashed ----
+    public HashSet<string> PendingReveals { get; set; } = new();
+    public HashSet<string> SeenReveals { get; set; } = new();
+
+    // ---- first-times bonuses (drops, one-time each): first_taste/first_snap/first_whisper/first_yes/first_play ----
+    public HashSet<string> FirstTimesAwarded { get; set; } = new();
+
+    // ---- happy-path scripted beats ----
+    public bool SeenDuoDemo { get; set; } = false;
+    public bool SeenSkipDebut { get; set; } = false;
+    public bool SeenGoldFirst { get; set; } = false;
+    public bool SeenDollhouse { get; set; } = false;
+    public bool SeenFirstSin { get; set; } = false;
+
+    /// <summary>Highest rank index the player has been shown a rank card for (0 = curious).</summary>
+    public int LastRankSeen { get; set; } = 0;
+
     // lifetime stats (consumed by the Stats tab in a later session)
     public int RunsCompleted { get; set; } = 0;
     public long BestScore { get; set; } = 0;
