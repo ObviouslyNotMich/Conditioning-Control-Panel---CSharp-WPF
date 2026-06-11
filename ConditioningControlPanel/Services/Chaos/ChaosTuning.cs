@@ -37,4 +37,25 @@ public static class ChaosTuning
     /// <summary>rh_focus_low: seconds of "focus below cost while lives hang on screen" before
     /// the once-per-run warning bark fires.</summary>
     public const double FOCUS_LOW_BARK_SEC = 8;
+
+    // ============================ behavioral bubbles ============================
+    // Spawn rolls REPLACE an ordinary spawn slot (field density stays sane). Gating:
+    // none on Gentle; Echo + Chaperone from Teasing; Tease from the Slipping rank
+    // (10 descents); Bound from Relentless.
+
+    /// <summary>First-ever encounter of each behavioral bubble: it spawns alone (its roll
+    /// consumes the whole spawn tick) with a gentler, longer trance.</summary>
+    public const double DEBUT_FUSE_MULT = 1.5;
+
+    // ---- The Echo: triggers split it into two smaller, faster lives; a held defuse is clean ----
+    public const double ECHO_SPAWN_CHANCE = 0.05;
+    public const double ECHO_CHILD_SCALE = 0.6;        // children render at this fraction of the parent
+    public const double ECHO_CHILD_SPEED_MULT = 1.5;
+    public const int ECHO_CHILD_FUSE_MIN_MS = 2500;
+    public const int ECHO_CHILD_FUSE_MAX_MS = 3000;
+
+    // ---- The Chaperone: a live bubble shielded by an orbiting escort treat ----
+    public const double CHAPERONE_SPAWN_CHANCE = 0.04;
+    public const double CHAPERONE_ORBIT_RADIUS_DIP = 80;
+    public const double CHAPERONE_ORBIT_PERIOD_SEC = 2.5;
 }

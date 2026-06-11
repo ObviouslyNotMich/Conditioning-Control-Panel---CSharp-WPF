@@ -57,9 +57,21 @@ public sealed class EffectBubbleSpec
 
     /// <summary>Optional spawn point (physical screen px). When set, the bubble materialises
     /// centred there (on the screen containing the point) instead of at its motion's usual
-    /// origin — Rabbit Caller summons rabbits at the player's click.</summary>
-    public double? SpawnAtPxX { get; init; }
-    public double? SpawnAtPxY { get; init; }
+    /// origin — Rabbit Caller summons rabbits at the player's click. Settable (not init):
+    /// pair spawners pin the second bubble onto the first AFTER it materialises.</summary>
+    public double? SpawnAtPxX { get; set; }
+    public double? SpawnAtPxY { get; set; }
+
+    // ---- behavioral bubbles (2026-06-11) ----
+    /// <summary>The Echo: triggering it fires NO payload — it splits into two smaller, faster
+    /// lives instead. A completed defuse deflates it cleanly (the verb is the counterplay).</summary>
+    public bool IsEcho { get; init; }
+    /// <summary>The Chaperone's live half: SHIELDED (every pop path bounces off) while its
+    /// orbiting escort treat lives.</summary>
+    public bool IsChaperoneLive { get; init; }
+    /// <summary>The Chaperone's escort: a treat orbiting its live — pop it to drop the shield.
+    /// Never rots; dissolves quietly when its live resolves first.</summary>
+    public bool IsEscort { get; init; }
 
     // ---- darter (bouncing-flash catch target) ----
     /// <summary>True for a darter: small, fast, telegraphed, self-expiring benign reward target.</summary>
@@ -321,6 +333,125 @@ public static class ChaosBubbleVariants
         };
     }
 
+    // ---- The Echo tuning ----
+    public const double ECHO_SIZE_MIN = 180;
+    public const double ECHO_SIZE_MAX = 240;
+    private static readonly Color EchoTint = Color.FromRgb(0xC9, 0xC4, 0xE8);   // pale ghost-lavender
+
+    /// <summary>
+    /// Build The Echo: a live bubble with a doubled, ghosted outline and a stuttering float.
+    /// Its payload never fires — TRIGGERING it (timeout, click, early release, no-focus touch)
+    /// splits it into two children instead (ChaosModeService.OnDetonated). A completed defuse
+    /// deflates it cleanly. <paramref name="fuseMult"/> &gt; 1 = the gentler debut trance.
+    /// </summary>
+    public static EffectBubbleSpec BuildEcho(double intensity, double fuseTimeMult = 1.0,
+                                             double sizeScale = 1.0, double fuseMult = 1.0)
+    {
+        double t = Math.Clamp(_rng.NextDouble() * 0.7 + intensity * 0.45, 0, 1);
+        double size = ECHO_SIZE_MIN + (ECHO_SIZE_MAX - ECHO_SIZE_MIN) * t;
+        int baseFuse = 3500 + _rng.Next(1500);
+        int fuse = (int)Math.Max(1200, baseFuse * (1.0 - intensity * 0.25) * fuseTimeMult * Math.Max(0.1, fuseMult));
+        return new EffectBubbleSpec
+        {
+            VariantId = "echo",
+            Payload = new FlashPayload { Strength = 0 },   // never fires — the split IS the trigger
+            SizePx = size * GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale),
+            Tint = EchoTint,
+            Label = "◌",
+            IsLive = true,
+            FuseMs = fuse,
+            Motion = ChaosMotion.FloatUp,
+            IsEcho = true,
+        };
+    }
+
+    /// <summary>
+    /// Build one Echo split-child at the parent's pop point: a NORMAL live from the light trio
+    /// (pink/spiral/braindrain — the giants would be absurd at 0.6x), smaller, faster, with a
+    /// short trance. Children carry no IsEcho flag, so they never re-split.
+    /// </summary>
+    public static EffectBubbleSpec BuildEchoChild(double parentVisualSizePx, double atPxX, double atPxY,
+                                                  double effectIntensity = 1.0)
+    {
+        var v = All[2 + _rng.Next(3)];   // rows 2..4 = pink / spiral / braindrain
+        double size = Math.Max(60, parentVisualSizePx * ChaosTuning.ECHO_CHILD_SCALE);
+        // Strength keyed back through the global shrink so a child hits like a small classic bubble.
+        double classicEq = size / GLOBAL_SIZE_SCALE;
+        int strength = (int)Math.Round(Math.Clamp((classicEq - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        EffectPayload payload = v.OverlayKind != null ? new OverlayPayload(v.OverlayKind) : EffectPayloadFactory.Build(v.PayloadKind);
+        payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
+        int fuse = ChaosTuning.ECHO_CHILD_FUSE_MIN_MS
+                   + _rng.Next(Math.Max(1, ChaosTuning.ECHO_CHILD_FUSE_MAX_MS - ChaosTuning.ECHO_CHILD_FUSE_MIN_MS));
+        return new EffectBubbleSpec
+        {
+            SpawnAtPxX = atPxX,
+            SpawnAtPxY = atPxY,
+            VariantId = v.Id,
+            Payload = payload,
+            SizePx = size,
+            Tint = v.Tint,
+            Label = v.Label,
+            IsLive = true,
+            FuseMs = fuse,
+            Motion = ChaosMotion.RoamBounce,   // they scatter from the split point
+            SpeedMult = ChaosTuning.ECHO_CHILD_SPEED_MULT,
+        };
+    }
+
+    // ---- The Chaperone tuning ----
+    public const double ESCORT_SIZE_MIN = 95;
+    public const double ESCORT_SIZE_MAX = 120;
+
+    /// <summary>
+    /// Build The Chaperone: a live bubble (light trio) plus a small escort treat that orbits it.
+    /// While the escort lives the live is SHIELDED — every pop path bounces off. Pop the escort
+    /// (a normal treat: score AND focus) and the live becomes a standard defusable bubble.
+    /// BubbleService.SpawnChaosChaperone materialises the pair on one screen and links them.
+    /// </summary>
+    public static (EffectBubbleSpec Live, EffectBubbleSpec Escort) BuildChaperonePair(
+        double intensity, double fuseTimeMult = 1.0, double effectIntensity = 1.0,
+        double sizeScale = 1.0, double fuseMult = 1.0)
+    {
+        var v = All[2 + _rng.Next(3)];   // pink / spiral / braindrain
+        double t = Math.Clamp(_rng.NextDouble() * 0.7 + intensity * 0.45, 0, 1);
+        double size = v.MinSize + (v.MaxSize - v.MinSize) * t;
+        int strength = (int)Math.Round(Math.Clamp((size - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        EffectPayload payload = v.OverlayKind != null ? new OverlayPayload(v.OverlayKind) : EffectPayloadFactory.Build(v.PayloadKind);
+        payload.Strength = (int)Math.Clamp(strength * effectIntensity, 0, 100);
+        int baseFuse = v.FuseMinMs + _rng.Next(Math.Max(1, v.FuseMaxMs - v.FuseMinMs));
+        int fuse = (int)Math.Max(1200, baseFuse * (1.0 - intensity * 0.25) * fuseTimeMult * Math.Max(0.1, fuseMult));
+        var live = new EffectBubbleSpec
+        {
+            VariantId = v.Id,
+            Payload = payload,
+            SizePx = size * GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale),
+            Tint = v.Tint,
+            Label = v.Label,
+            IsLive = true,
+            FuseMs = fuse,
+            Motion = ChaosMotion.RoamBounce,   // the pair roams together — orbit reads best in motion
+            IsChaperoneLive = true,
+        };
+
+        var ev = All[_rng.Next(2)];   // flash / subliminal escort
+        double esize = ESCORT_SIZE_MIN + (ESCORT_SIZE_MAX - ESCORT_SIZE_MIN) * _rng.NextDouble();
+        int estrength = (int)Math.Round(Math.Clamp((esize - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
+        var epayload = EffectPayloadFactory.Build(ev.PayloadKind);
+        epayload.Strength = (int)Math.Clamp(Math.Max(10, estrength) * effectIntensity, 0, 100);
+        var escort = new EffectBubbleSpec
+        {
+            VariantId = ev.Id,
+            Payload = epayload,
+            SizePx = esize * GLOBAL_SIZE_SCALE * Math.Max(0.5, sizeScale),
+            Tint = ev.Tint,
+            Label = ev.Label,
+            IsLive = false,
+            IsEscort = true,
+            Motion = ChaosMotion.RoamBounce,   // motion is overridden by the orbit while linked
+        };
+        return (live, escort);
+    }
+
     /// <summary>All variant ids, in table order.</summary>
     public static List<string> AllIds() => All.Select(v => v.Id).ToList();
 
@@ -343,6 +474,7 @@ public static class ChaosBubbleVariants
         "heart"       => "RESIST",
         "gold_droplet"=> "GOLD",
         "prism"       => "10x!",
+        "echo"        => "SPLIT",
         _             => ""
     };
 
@@ -361,6 +493,8 @@ public static class ChaosBubbleVariants
         "golden"      => "A lucky bubble. Rare, quick, gone before you know it. Pop it for real gold, banked on the spot. Let it fade and your streak halves.",
         "gold_droplet"=> "A gold bead spilled from a lucky bubble. Falls fast. Catch it for a few Sparks; missing it costs nothing.",
         "prism"       => "A swirling prism wearing another bubble's soul. Pops for 10x — and fires the copied effect. The shadow underneath tells you what it was.",
+        "echo"        => "Live, and not quite singular. Trigger it — by timeout, a tap, or letting go — and it splits into two smaller, faster ones. Hold it all the way down and there's only ever the one.",
+        "chaperone"   => "Live, but spoken for. While its little escort circles, nothing touches it. Pop the escort first — then it's alone, and yours to hold.",
         _             => ""
     };
 

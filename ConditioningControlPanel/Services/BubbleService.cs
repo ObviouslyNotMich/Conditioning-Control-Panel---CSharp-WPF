@@ -709,18 +709,62 @@ public class BubbleService : IDisposable
             {
                 if (_bubbleImage == null) LoadBubbleImage();
                 EnsureAnimationTimer();
+                _bubbles.Add(CreateChaosBubble(spec, PickScreenFor(spec)));
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error("SpawnChaosBubble failed: {Error}", ex.Message);
+            }
+        });
+    }
 
-                var settings = App.Settings.Current;
-                var screens = settings.DualMonitorEnabled
-                    ? App.GetAllScreensCached()
-                    : new[] { System.Windows.Forms.Screen.PrimaryScreen! };
-                // A pinned spawn (Rabbit Caller's summon-at-click) lands on the screen that
-                // actually contains the point; everything else scatters randomly.
-                var screen = spec.SpawnAtPxX is double sax && spec.SpawnAtPxY is double say
-                    ? System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)sax, (int)say))
-                    : screens[_random.Next(screens.Length)];
+    /// <summary>The Chaperone: materialise the live + its escort treat ON ONE SCREEN and link
+    /// them — the escort orbits the live (shielding it) until one of the two resolves.</summary>
+    public void SpawnChaosChaperone(EffectBubbleSpec liveSpec, EffectBubbleSpec escortSpec)
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            try
+            {
+                if (_bubbleImage == null) LoadBubbleImage();
+                EnsureAnimationTimer();
+                var screen = PickScreenFor(liveSpec);
+                var live = CreateChaosBubble(liveSpec, screen);
+                _bubbles.Add(live);
+                // The escort materialises on its live (the orbit takes over next tick).
+                var lc = live.CenterPx;
+                escortSpec.SpawnAtPxX = lc.X;
+                escortSpec.SpawnAtPxY = lc.Y;
+                var escort = CreateChaosBubble(escortSpec, screen);
+                escort.AttachOrbit(live);
+                live.AttachEscort(escort);
+                _bubbles.Add(escort);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error("SpawnChaosChaperone failed: {Error}", ex.Message);
+            }
+        });
+    }
 
-                var bubble = new Bubble(screen, _bubbleImage, _random, null, null, OnDestroy, isClickable: true,
+    /// <summary>A pinned spawn (Rabbit Caller's summon-at-click etc.) lands on the screen that
+    /// actually contains the point; everything else scatters randomly.</summary>
+    private System.Windows.Forms.Screen PickScreenFor(EffectBubbleSpec spec)
+    {
+        var settings = App.Settings.Current;
+        var screens = settings.DualMonitorEnabled
+            ? App.GetAllScreensCached()
+            : new[] { System.Windows.Forms.Screen.PrimaryScreen! };
+        return spec.SpawnAtPxX is double sax && spec.SpawnAtPxY is double say
+            ? System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)sax, (int)say))
+            : screens[_random.Next(screens.Length)];
+    }
+
+    /// <summary>Construct one chaos bubble with the full service callback set (UI thread).</summary>
+    private Bubble CreateChaosBubble(EffectBubbleSpec spec, System.Windows.Forms.Screen screen)
+    {
+        return new Bubble(screen, _bubbleImage, _random, null, null, OnDestroy, isClickable: true,
                     spec: spec,
                     onBenignPop: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnBenignPop?.Invoke(b.Spec); },
                     onDefuse:    b =>
@@ -746,13 +790,6 @@ public class BubbleService : IDisposable
                     onSpankSweep: SpankSweepFromDarter,
                     onTreatExpired: b => { if (b.Spec != null) _chaosOnTreatExpired?.Invoke(b.Spec); },
                     onClickPop: OnChaosBubbleClicked);
-                _bubbles.Add(bubble);
-            }
-            catch (Exception ex)
-            {
-                App.Logger?.Error("SpawnChaosBubble failed: {Error}", ex.Message);
-            }
-        });
     }
 
     // ======================= chaos field hazards (run-boon FX) =======================
@@ -1377,6 +1414,29 @@ internal class Bubble
     // ---- Tail-Plug (rabbits drag a treat-popping sparkle trail) ----
     private readonly List<(Point Px, DateTime T)> _trailPts = new();
     private Point _lastTrailEmitPx = new(double.MinValue, double.MinValue);
+
+    // ---- The Chaperone (a live bubble shielded by an orbiting escort treat) ----
+    private Bubble? _orbitTarget;          // escort only: the live it circles
+    private Bubble? _escort;               // chaperone live only: its shield-bearer
+    private double _orbitPhase;            // escort orbit angle (radians)
+    private System.Windows.Shapes.Ellipse? _shieldRing;   // chaperone live: visible while shielded
+    private double _shieldFlashMs;         // bounce feedback: the ring flares briefly
+    private DateTime _bounceCueUtc;        // dull-thunk throttle (sweeps hit every frame)
+    private int _shimmerEmitCounter;       // escort: faint link sparkle cadence
+
+    /// <summary>Mid-pop/deflate/dissolve — used by partners to read each other's state.</summary>
+    internal bool IsPopping => _isPopping;
+
+    /// <summary>The Chaperone: while the escort treat lives, this live bubble is untouchable —
+    /// every pop path bounces off it with a shimmer (deliberately the one safe-to-misclick live).</summary>
+    internal bool IsChaperoneShielded =>
+        _spec?.IsChaperoneLive == true && _escort != null && _escort.IsAlive && !_escort.IsPopping;
+
+    /// <summary>Link the escort onto its live (escort side). UI thread, at pair spawn.</summary>
+    internal void AttachOrbit(Bubble target) => _orbitTarget = target;
+
+    /// <summary>Link the live onto its escort (live side). UI thread, at pair spawn.</summary>
+    internal void AttachEscort(Bubble escort) => _escort = escort;
     // ---- prism shadow pop ("Look at the bright colors...") ----
     private Image? _prismGhost;            // the copied bubble's sprite, revealed under the pop
 
@@ -1388,8 +1448,9 @@ internal class Bubble
     public EffectBubbleSpec? Spec => _spec;
 
     /// <summary>Eligible to be swept up by a Chain Reaction pop: any live, un-popped chaos bubble
-    /// (darters included — a chained darter counts as a catch and fires its slow-mo).</summary>
-    public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null;
+    /// (darters included — a chained darter counts as a catch and fires its slow-mo). A shielded
+    /// Chaperone live is excluded — chains and arcs route around it (its escort conducts fine).</summary>
+    public bool IsChainable => _isAlive && !_isDestroyed && !_isPopping && _spec != null && !IsChaperoneShielded;
 
     /// <summary>This bubble's on-screen box in DIPs (the bubble.png footprint, sans window pad).</summary>
     public Rect BoundingBox => new Rect(_posX, _posY, _size, _size);
@@ -1472,8 +1533,9 @@ internal class Bubble
         // Treats (flash/subliminal/golden) rot: only so long on screen before they dissolve.
         // Hearts don't rot — they drift down once and exit; missing one carries no sting.
         // Gold Digger droplets don't either: pure bonus, no penalty for letting them fall away.
+        // Chaperone escorts don't either: the shield mechanic would dismantle itself in 5s.
         _isTreat = spec != null && !spec.IsLive && !_isDarter && !_isFreeze
-                   && spec.IsHeart != true && spec.IsDroplet != true;
+                   && spec.IsHeart != true && spec.IsDroplet != true && spec.IsEscort != true;
         if (_isTreat) _treatLifeRemainingMs = spec!.TreatLifeMs > 0 ? spec.TreatLifeMs : TREAT_LIFETIME_MS;
         // The two giants read frantic when they breathe at full danger amplitude — calm them 60%.
         if (spec?.VariantId is "video" or "htlink") _dangerWobbleMult = 0.4;
@@ -1484,7 +1546,7 @@ internal class Bubble
         // Darters/freeze pickups keep their natural hitbox (precision catches stay precision).
         // Blindfold: effect bubbles render translucent; pickups stay fully visible (they're rewards).
         bool plainEffectBubble = spec != null && !_isDarter && !_isFreeze && !spec.IsGolden && !spec.IsHeart
-                                 && !spec.IsDroplet && !spec.IsPrism;   // pickups + the prism stay fully visible
+                                 && !spec.IsDroplet && !spec.IsPrism && !spec.IsEscort;   // pickups, the prism + escorts stay fully visible
         _hitSize = plainEffectBubble ? Math.Max(_size, (int)Math.Round(_size * Math.Clamp(hitboxScale, 1.0, 2.0))) : _size;
         _baseOpacity = plainEffectBubble ? Math.Clamp(opacityMult, 0.2, 1.0) : 1.0;
         // Darters explode to ~3x on catch (slower + bigger pop), so give them a generous window
@@ -1930,6 +1992,32 @@ internal class Bubble
             var motion = _spec?.Motion ?? ChaosMotion.FloatUp;
             double ts = TimeScale;   // 1 normally; <1 during a darter slow-mo (chaos bubbles only)
 
+            // The Chaperone's escort rides its live: position comes from the orbit, not the
+            // motion table — and when the live resolves first, the escort quietly dissolves
+            // (no rot penalty, no callback; it was never a free-standing treat).
+            if (_spec?.IsEscort == true)
+            {
+                if (_orbitTarget == null || !_orbitTarget.IsAlive || _orbitTarget.IsPopping)
+                {
+                    _isPopping = true;
+                    _isDissolving = true;
+                    return;
+                }
+                _orbitPhase += 2 * Math.PI * (0.032 / ChaosTuning.CHAPERONE_ORBIT_PERIOD_SEC) * Math.Max(ts, 0.15);
+                double tcx = _orbitTarget._posX + _orbitTarget._size / 2.0;
+                double tcy = _orbitTarget._posY + _orbitTarget._size / 2.0;
+                _posX = tcx + Math.Cos(_orbitPhase) * ChaosTuning.CHAPERONE_ORBIT_RADIUS_DIP - _size / 2.0;
+                _posY = tcy + Math.Sin(_orbitPhase) * ChaosTuning.CHAPERONE_ORBIT_RADIUS_DIP - _size / 2.0;
+                // Faint shimmer link: a spark drifts somewhere on the line between the two.
+                if (++_shimmerEmitCounter % 7 == 0)
+                {
+                    double lt = _random.NextDouble();
+                    var sa = CenterPx; var sb = _orbitTarget.CenterPx;
+                    ChaosFieldFxOverlay.TrailDot(new Point(sa.X + (sb.X - sa.X) * lt, sa.Y + (sb.Y - sa.Y) * lt), 0.35);
+                }
+                goto Visuals;
+            }
+
             // Horizontal wobble shared by Float/Rain (gives the lively drift)
             double offset = 0;
             switch (_animType)
@@ -1938,6 +2026,13 @@ internal class Bubble
                 case 1: offset = Math.Sin(_timeAlive * 7.5) * 30; _angle = (_angle + 0.14) % 360; break;
                 case 2: offset = Math.Cos(_timeAlive * 5.4) * 25; _angle = (_angle - 0.66) % 360; break;
                 case 3: offset = Math.Sin(_timeAlive * 3) * 30 + Math.Cos(_timeAlive * 6) * 15; _angle = (_angle + 0.54) % 360; break;
+            }
+
+            // The Echo: a doubled thing never floats clean — its drift stutters and skips.
+            if (_spec?.IsEcho == true)
+            {
+                offset += Math.Sin(_timeAlive * 27) * 3.5;
+                if (_random.NextDouble() < 0.05) _timeAlive += 0.05;
             }
 
             bool exited = false;
@@ -2063,6 +2158,8 @@ internal class Bubble
         }
 
         // Update visuals - wrapped in try-catch to handle disposed windows gracefully
+        // (the escort orbit path jumps straight here — it skips the motion table entirely)
+        Visuals:
         try
         {
             // Double-check we're still alive after calculations
@@ -2100,6 +2197,18 @@ internal class Bubble
                     _freezeAura.Opacity = 0.1125 + 0.0875 * Math.Sin(_freezePulsePhase);
                 }
                 else if (_freezeAura.Opacity > 0) _freezeAura.Opacity = 0;
+            }
+
+            // Chaperone shield ring: steady glow while the escort lives, a bright flare on a
+            // bounced press, gone the moment the escort pops.
+            if (_shieldRing != null)
+            {
+                if (IsChaperoneShielded)
+                {
+                    if (_shieldFlashMs > 0) _shieldFlashMs -= 32;
+                    _shieldRing.Opacity = _shieldFlashMs > 0 ? 0.95 : 0.45 + 0.10 * Math.Sin(_timeAlive * 4);
+                }
+                else if (_shieldRing.Opacity > 0) _shieldRing.Opacity = 0;
             }
 
             // Freeze-impact shudder: jitter the whole window for ~0.2s as the freeze lands.
@@ -2236,6 +2345,10 @@ internal class Bubble
         if (!_isAlive || _isPopping || _isChanneling) return;
         if (BubbleService.ChaosInputLocked) return;   // manual pause swallows every press
 
+        // The Chaperone: while the escort circles, clicks and holds just bounce off —
+        // shimmer + dull thunk, NO detonation (the one live that forgives a misclick).
+        if (IsChaperoneShielded) { BounceOff(); return; }
+
         if (_canChannelDefuse?.Invoke(this) == false)
         {
             // Intentionally harsh: never touch a live bubble you can't afford. Distinct
@@ -2331,6 +2444,10 @@ internal class Bubble
         // chain hop) smacks them into allies instead. No catch, no slow-mo: that's the trade.
         // GG sweepers are NEVER catchable — a click only ever re-smacks them onward.
         if (_spec != null && _isDarter && (BubbleService.ChaosSpankerOnNow || _spec.IsSweeper)) { Spank(); return; }
+        // The Chaperone: EVERY pop path bounces off a shielded live — toys, sweeps, DVD logos
+        // and chain hops included. They pop the escort if they touch it; then a second
+        // application can take the (now-ordinary) live.
+        if (_spec != null && IsChaperoneShielded) { BounceOff(); return; }
         // NOTE: frozen bubbles ARE poppable — the freeze is a reward (a calm window to pop/defuse
         // for free while fuses are paused). The pop animation runs even while the field is frozen.
         _isPopping = true;
@@ -2409,6 +2526,21 @@ internal class Bubble
         }
     }
 
+    /// <summary>The Chaperone's shield: a press/pop arriving while the escort lives bounces off
+    /// — shield shimmer + a dull thunk (throttled: sweeps re-touch every frame), nothing else.</summary>
+    private void BounceOff()
+    {
+        _shieldFlashMs = 320;
+        var now = DateTime.UtcNow;
+        if ((now - _bounceCueUtc).TotalMilliseconds >= 200)
+        {
+            _bounceCueUtc = now;
+            var path = Chaos.ChaosSfx.ResolvePath("shield_thunk");
+            if (path.Length == 0) path = Chaos.ChaosSfx.ResolvePath("toy_denied");
+            if (path.Length > 0) App.Bubbles?.PlayCue(path, 0.45f);
+        }
+    }
+
     /// <summary>A treat ran out its on-screen lifetime: it dissolves away — no pop, no payload.
     /// The service-side callback docks one streak for letting the reward rot.</summary>
     private void Dissolve()
@@ -2426,6 +2558,16 @@ internal class Bubble
     {
         if (!_isAlive || _isPopping) return;
         _isPopping = true;
+        // Anchor statics like Pop() does — Echo children and split FX spawn AT the detonation.
+        try
+        {
+            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
+            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            var detPx = CenterPx;
+            BubbleService.ChaosLastPopXPx = detPx.X;
+            BubbleService.ChaosLastPopYPx = detPx.Y;
+        }
+        catch { }
         ShowChaosEffectLabel();   // the live effect is firing → flash its color-coded word at the bubble
         _onDetonate?.Invoke(this);
         // Pop/burst animation + Destroy handled by AnimateFrame().
@@ -2532,6 +2674,36 @@ internal class Bubble
                 RenderTransform = new ScaleTransform(1, 1)
             };
             _grid.Children.Add(_fuseRing);
+        }
+
+        // The Echo: a doubled, ghosted outline — the second one is already in there.
+        if (_spec.IsEcho)
+        {
+            var gc = _spec.Tint;
+            _grid.Children.Add(new System.Windows.Shapes.Ellipse
+            {
+                Width = _size, Height = _size,
+                Stroke = new SolidColorBrush(Color.FromArgb(110, gc.R, gc.G, gc.B)),
+                StrokeThickness = 3,
+                IsHitTestVisible = false,
+                RenderTransform = new TranslateTransform(5, 4),
+            });
+        }
+
+        // The Chaperone's live: a dashed icy ring marks the shield (per-frame opacity in
+        // AnimateFrame tracks the escort; a bounced press flares it).
+        if (_spec.IsChaperoneLive)
+        {
+            _shieldRing = new System.Windows.Shapes.Ellipse
+            {
+                Width = _size + 12, Height = _size + 12,
+                Stroke = new SolidColorBrush(Color.FromRgb(0x9C, 0xE8, 0xFF)),
+                StrokeThickness = 3.5,
+                StrokeDashArray = new DoubleCollection { 3, 2 },
+                IsHitTestVisible = false,
+                Opacity = 0.45,
+            };
+            _grid.Children.Add(_shieldRing);
         }
 
         // Golden lucky bubble: a faint warm glow so it reads as treasure on the way past.

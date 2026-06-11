@@ -531,7 +531,11 @@ public sealed class ChaosModeService
         double diffFactor = cfg.DifficultyMult;
 
         int maxConcurrent = (int)Math.Round((4 + intensity * 7) * Math.Sqrt(diffFactor));
-        if ((App.Bubbles?.ActiveBubbles ?? 0) < maxConcurrent)
+        // Behavioral bubbles (Echo/Chaperone/Tease/Bound): each rolls to REPLACE this ordinary
+        // spawn slot, so the field density stays the same. Darters still roll below either way.
+        bool behavioralSpawned = (App.Bubbles?.ActiveBubbles ?? 0) < maxConcurrent
+                                 && TrySpawnBehavioralBubble(cfg, effIntensity);
+        if (!behavioralSpawned && (App.Bubbles?.ActiveBubbles ?? 0) < maxConcurrent)
         {
             // Be gentle with the tape: no video bubble while a heavy effect (video/cascade) is
             // running, and none when the loop or run is too close to its end for the bubble's
@@ -592,6 +596,72 @@ public sealed class ChaosModeService
         double interval = (1300 - intensity * 850) / diffFactor;
         if (_slowMoRemainingSec > 0) interval /= SLOWMO_FACTOR;   // slow-mo stretches the spawn cadence
         _spawnTimer!.Interval = TimeSpan.FromMilliseconds(Math.Max(280, interval));
+    }
+
+    // ============================ behavioral bubbles (Echo / Chaperone / Tease / Bound) ============================
+
+    /// <summary>
+    /// Roll the behavioral bubbles for this spawn slot. A hit REPLACES the ordinary spawn
+    /// (density stays sane; a debut also consumes the tick → it spawns alone). Gating:
+    /// none on Gentle; Echo + Chaperone from Teasing; Tease from the Slipping rank;
+    /// Bound from Relentless. Debuts get a gentler trance and announce themselves.
+    /// </summary>
+    private bool TrySpawnBehavioralBubble(ChaosRunConfig cfg, double effIntensity)
+    {
+        if (_state == null) return false;
+        if (cfg.Difficulty == ChaosDifficulty.Easy) return false;   // Gentle: none of them spawn
+
+        // The Echo (Teasing+): trigger it and it multiplies; only the held defuse is clean.
+        if (Random.Shared.NextDouble() < ChaosTuning.ECHO_SPAWN_CHANCE)
+        {
+            bool debut = !ChaosMeta.State.SeenEcho;
+            if (debut)
+            {
+                ChaosMeta.State.SeenEcho = true; ChaosMeta.Save();
+                ChaosAnnouncerOverlay.Announce("◌ THE ECHO — hold it down, or it multiplies", ChaosAnnounceKind.Item);
+                _state.PushEvent("◌ something doubled stirs below");
+            }
+            ChaosMeta.MarkDiscovered("bubble:echo");
+            App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildEcho(effIntensity, _state.FuseTimeMult,
+                _state.BubbleScale, debut ? ChaosTuning.DEBUT_FUSE_MULT : 1.0));
+            return true;
+        }
+
+        // The Chaperone (Teasing+): shielded while its escort circles — pop the escort first.
+        if (Random.Shared.NextDouble() < ChaosTuning.CHAPERONE_SPAWN_CHANCE)
+        {
+            bool debut = !ChaosMeta.State.SeenChaperone;
+            if (debut)
+            {
+                ChaosMeta.State.SeenChaperone = true; ChaosMeta.Save();
+                ChaosAnnouncerOverlay.Announce("💞 THE CHAPERONE — its little escort first", ChaosAnnounceKind.Item);
+                _state.PushEvent("💞 it brought company");
+            }
+            var (live, escort) = ChaosBubbleVariants.BuildChaperonePair(effIntensity, _state.FuseTimeMult,
+                cfg.EffectIntensity, _state.BubbleScale, debut ? ChaosTuning.DEBUT_FUSE_MULT : 1.0);
+            ChaosMeta.MarkDiscovered("bubble:chaperone");
+            App.Bubbles?.SpawnChaosChaperone(live, escort);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The Echo triggered: NO payload — two smaller, faster lives burst out at its
+    /// spot instead. Children are ordinary bubbles (light live trio) and never re-split.</summary>
+    private void SpawnEchoChildren(EffectBubbleSpec parent)
+    {
+        if (_state == null) return;
+        for (int i = 0; i < 2; i++)
+        {
+            var child = ChaosBubbleVariants.BuildEchoChild(parent.SizePx,
+                BubbleService.ChaosLastPopXPx + Random.Shared.Next(-70, 71),
+                BubbleService.ChaosLastPopYPx + Random.Shared.Next(-50, 51),
+                _state.Config.EffectIntensity);
+            App.Bubbles?.SpawnChaosBubble(child);
+        }
+        _state.PushEvent("◌ it splits — two more");
+        Pulse(Color.FromRgb(0xC9, 0xC4, 0xE8), 0.30);
     }
 
     private void BeginWaveTransition(int newWave)
@@ -1066,8 +1136,15 @@ public sealed class ChaosModeService
     private void OnDetonated(EffectBubbleSpec spec)
     {
         if (_state == null || _paused || _manualPaused) return;
-        FirePayloadForDetonation(spec);      // the threat goes off (ambient mode may soften it)
-        _state.EffectsFired++;
+        if (spec.IsEcho)
+        {
+            SpawnEchoChildren(spec);         // The Echo fires NO conditioning payload — it SPLITS
+        }
+        else
+        {
+            FirePayloadForDetonation(spec);  // the threat goes off (ambient mode may soften it)
+            _state.EffectsFired++;
+        }
         _state.Detonated++;
         _runDetonations++;
 
