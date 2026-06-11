@@ -157,7 +157,9 @@ public sealed class ChaosModeService
             onTreatExpired: OnTreatExpired,
             onEStimArc: OnEStimArc,
             rabbitTrailSec: () => _state?.RabbitTrailSec ?? 0,
-            electrifiedRabbits: () => _state?.ElectrifiedRabbits == true);
+            electrifiedRabbits: () => _state?.ElectrifiedRabbits == true,
+            canChannelDefuse: CanChannelDefuse,
+            onChannelBroken: OnChannelBroken);
         App.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty.ToString());
         _state.PushEvent("🐇 the descent begins");
         _runDetonations = 0;
@@ -208,6 +210,19 @@ public sealed class ChaosModeService
         _state.StartShields = _state.Shields;
         _regenPopCount = 0;
         _heartbeatCooldownSec = 0;
+
+        // Hold-to-defuse: fresh focus warning + Snap Chain invuln state for the new descent.
+        _focusLowAccumSec = 0;
+        _focusLowBarkFired = false;
+        _invulnUntilUtc = DateTime.MinValue;
+        // First descent since the verb changed: one quiet line so the hold isn't a mystery.
+        if (!ChaosMeta.State.SeenDefuseTutorial)
+        {
+            ChaosMeta.State.SeenDefuseTutorial = true;
+            ChaosMeta.Save();
+            ChaosAnnouncerOverlay.Announce("press and HOLD a live one to snap it", ChaosAnnounceKind.Willpower);
+            _state.PushEvent("✋ hold to snap. let go and it triggers.");
+        }
 
         // Active skills (toys): build their state, listen for keybinds, and park one big
         // hero button per toy at the bottom-left of the screen (clickable at a glance).
@@ -443,6 +458,22 @@ public sealed class ChaosModeService
 
         TickBlindfoldHeartbeat(dt);   // Blindfold capstone: the closest fuse gets a pulse
         TickActiveToys(dt);           // toy cooldowns + the VibePopping buzz window
+
+        // rh_focus_low: focus has sat below a defuse's price while live threats hang on screen.
+        // Once per run — a nudge toward farming treats, not a nag.
+        if (!_focusLowBarkFired)
+        {
+            if (_state.FocusLow && App.Bubbles?.MinChaosFuseSec() != null)
+            {
+                _focusLowAccumSec += dt;
+                if (_focusLowAccumSec >= ChaosTuning.FOCUS_LOW_BARK_SEC)
+                {
+                    _focusLowBarkFired = true;
+                    App.Bark?.NotifyChaosFocusLow();
+                }
+            }
+            else _focusLowAccumSec = 0;
+        }
 
         // Mandatory-video hard caps: a chaos-fired video never runs past its 15s slice, and
         // never into the run's final 3s (the recap should never land on top of a playing tape).
@@ -784,6 +815,7 @@ public sealed class ChaosModeService
         if (spec.IsHeart)
         {
             _state.Shields += 1;
+            _state.Focus += ChaosTuning.FOCUS_PER_HEART;
             _state.PushEvent("💖 pop-up notification! +1 resistance");
             ChaosAnnouncerOverlay.Announce("💖 +1 resistance", ChaosAnnounceKind.PowerUp);
             Pulse(SHIELD_GAIN_COLOR, 0.25);
@@ -794,6 +826,7 @@ public sealed class ChaosModeService
         // Gold Digger droplet: a few Sparks per bead, outside the score economy like its parent.
         if (spec.IsDroplet)
         {
+            _state.Focus += ChaosTuning.FOCUS_PER_DROPLET;
             int dGold = GoldScaled(Random.Shared.Next(3, 8));
             ChaosMeta.State.Sparks += dGold;
             _state.PushEvent($"✧ droplet +{dGold} gold");
@@ -804,6 +837,7 @@ public sealed class ChaosModeService
 
         if (spec.IsGolden)
         {
+            _state.Focus += ChaosTuning.FOCUS_PER_GOLDEN;
             // Rabbit's Foot scales the gold per level (10–20 unworn … 20–40 at the capstone).
             int lvl = ChaosMeta.IsBoonActive("rabbits_foot") ? ChaosMeta.BoonLevel("rabbits_foot") : 0;
             var (gMin, gMax) = ChaosLifetimeBoons.GoldenPayRange(lvl);
@@ -829,6 +863,7 @@ public sealed class ChaosModeService
         // Mimic prism ("Look at the bright colors..."): 10x pay — and the copied effect fires.
         if (spec.IsPrism)
         {
+            _state.Focus += ChaosTuning.FOCUS_PER_PRISM;
             FireScaledPayload(spec.Payload);
             _state.EffectsFired++;
             _state.Combo++;
@@ -848,6 +883,9 @@ public sealed class ChaosModeService
         spec.Payload.Fire();                 // benign pop = a treat
         _state.EffectsFired++;
         _state.Combo++;
+        // Focus economy: every treat-class pop refuels the hand, REGARDLESS of source (a
+        // rabbit mowing treats still feeds the player). Heavies refuel a little extra.
+        _state.Focus += spec.PayMult > 1 ? ChaosTuning.FOCUS_PER_HEAVY : ChaosTuning.FOCUS_PER_POP;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.04);
         // Golden Touch charm raises the calm-pop baseline (0.4 unworn → 0.45–0.60 by level).
         double benignMult = _state.BenignBaseline;
@@ -905,9 +943,77 @@ public sealed class ChaosModeService
         Pulse(Color.FromRgb(150, 150, 175), 0.10);   // faint grey sigh — a reward slipped by
     }
 
-    private void OnDefused(EffectBubbleSpec spec, double fuseSecLeft)
+    // ---- hold-to-defuse: the focus gate + channel feedback (BubbleService calls these) ----
+    private DateTime _invulnUntilUtc = DateTime.MinValue;   // Snap Chain: triggers bounce off inside this window
+    private double _focusLowAccumSec;                        // rh_focus_low: dry-spell stopwatch
+    private bool _focusLowBarkFired;                         // once per run max
+
+    /// <summary>Defuse cost for one channel on this bubble (Bound halves pay half each).</summary>
+    private double DefuseCostFor(EffectBubbleSpec spec) => ChaosTuning.DEFUSE_COST;
+
+    /// <summary>May the player's press start a defuse channel? Frozen fields channel for free —
+    /// otherwise the focus must cover the bubble's cost (deducted on COMPLETION, not here).</summary>
+    private bool CanChannelDefuse(EffectBubbleSpec spec)
+    {
+        if (_state == null) return false;
+        if (_freezeRemainingSec > 0) return true;
+        return _state.Focus >= DefuseCostFor(spec);
+    }
+
+    /// <summary>A channel never completed — the bubble is already triggering (onDetonate carries
+    /// the consequences); this is purely the "WHY it blew" feedback + first-time barks.</summary>
+    private void OnChannelBroken(EffectBubbleSpec spec, string reason)
+    {
+        if (_state == null) return;
+        switch (reason)
+        {
+            case "nofocus":
+                // Distinct cue + red flash so the lesson lands: you grabbed what you couldn't pay for.
+                ChaosSfx.Play("focus_empty", 0.55f);
+                Pulse(Color.FromRgb(255, 80, 80), 0.22);
+                _state.PushEvent("✋ no focus — it triggers in your grip");
+                if (!ChaosMeta.State.SeenBarkDefuseNoFocus)
+                {
+                    ChaosMeta.State.SeenBarkDefuseNoFocus = true; ChaosMeta.Save();
+                    App.Bark?.NotifyChaosDefuseNoFocus();
+                }
+                break;
+            case "click":
+                _state.PushEvent("💥 a tap isn't a hold");
+                if (!ChaosMeta.State.SeenBarkClickDetonate)
+                {
+                    ChaosMeta.State.SeenBarkClickDetonate = true; ChaosMeta.Save();
+                    App.Bark?.NotifyChaosClickDetonate();
+                }
+                break;
+            default:   // "release" (early let-go, or the cursor strayed off the bubble)
+                _state.PushEvent("💥 you let go");
+                if (!ChaosMeta.State.SeenBarkDefuseRelease)
+                {
+                    ChaosMeta.State.SeenBarkDefuseRelease = true; ChaosMeta.Save();
+                    App.Bark?.NotifyChaosDefuseRelease();
+                }
+                break;
+        }
+    }
+
+    private void OnDefused(EffectBubbleSpec spec, double fuseSecLeft, bool viaChannel)
     {
         if (_state == null || _paused || _manualPaused) return;
+        // The player's hand pays for its defuses; toys, chains and zones never do. A channel
+        // completed during a freeze is free (that's the freeze's reward).
+        if (viaChannel)
+        {
+            if (_freezeRemainingSec <= 0) _state.Focus -= DefuseCostFor(spec);
+            if (!ChaosMeta.State.SeenBarkDefuseFirst)
+            {
+                ChaosMeta.State.SeenBarkDefuseFirst = true; ChaosMeta.Save();
+                App.Bark?.NotifyChaosDefuseFirst();
+            }
+        }
+        // Snap Chain mantra: every completed defuse opens a brief invulnerability window.
+        if (_state.DefuseInvulnMs > 0)
+            _invulnUntilUtc = DateTime.UtcNow.AddMilliseconds(_state.DefuseInvulnMs);
         CountRegenPop();   // Slow Recovery: snaps count toward the regen threshold too
         _state.Defused++;
         _state.Combo++;
@@ -968,6 +1074,18 @@ public sealed class ChaosModeService
         string variant = spec.VariantId;     // payload ctx = variant id (e.g. "braindrain","video")
         string diff = _state.Config.Difficulty.ToString();
         double s = spec.Strength / 100.0;
+
+        // Snap Chain mantra: inside the post-snap invulnerability window a trigger can't take
+        // anything from you — the payload already fired above, but streak, lust and resistance
+        // all hold (and no shield is spent).
+        if (DateTime.UtcNow < _invulnUntilUtc)
+        {
+            _state.PushEvent($"⛓ snap chain holds ({spec.Payload.DisplayName})");
+            Pulse(Color.FromRgb(0x7A, 0xE0, 0xFF), 0.22);
+            App.Bark?.NotifyChaosBubbleDetonatedAbsorbed(variant, spec.Strength, _runDetonations, _state.Combo, diff, _state.Shields);
+            return;
+        }
+
         int shieldCost = _state.DoubleOrNothingActive ? 2 : 1;
         if (_state.Shields >= shieldCost)
         {
@@ -1131,6 +1249,7 @@ public sealed class ChaosModeService
         if (_state == null || _paused || _manualPaused) return;
         int pts = ChaosBubbleVariants.DARTER_BASE_POINTS + (quick ? ChaosBubbleVariants.DARTER_QUICK_BONUS : 0);
         _state.Score += pts * _state.TotalMult;
+        _state.Focus += ChaosTuning.FOCUS_PER_RABBIT;
         _state.Combo++;
         _state.Heat = Math.Min(1.0, _state.Heat + 0.05);
         App.Achievements?.TrackBubblePopped();

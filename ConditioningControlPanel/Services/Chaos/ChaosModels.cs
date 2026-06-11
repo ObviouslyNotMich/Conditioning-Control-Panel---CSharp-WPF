@@ -389,6 +389,18 @@ public sealed class ChaosRunState : INotifyPropertyChanged
 
     private int _shields;
     public int Shields { get => _shields; set { _shields = Math.Max(0, value); OnChanged(); OnChanged(nameof(ShieldText)); } }
+
+    // ---- focus (the defuse fuel: treat pops generate it, hold-channels spend it) ----
+    private double _focus = ChaosTuning.FOCUS_START;
+    public double FocusMax => ChaosTuning.FOCUS_MAX;
+    public double Focus
+    {
+        get => _focus;
+        set { _focus = Math.Clamp(value, 0, FocusMax); OnChanged(); OnChanged(nameof(FocusText)); OnChanged(nameof(FocusLow)); }
+    }
+    public string FocusText => $"{(int)Focus}";
+    /// <summary>Below the price of a defuse — the HUD bar dims and pulses ("don't touch lives").</summary>
+    public bool FocusLow => Focus < ChaosTuning.DEFUSE_COST;
     public string ShieldText => string.Concat(Enumerable.Repeat("♥", Shields)) + string.Concat(Enumerable.Repeat("♡", Math.Max(0, Config.StartingShields - Shields)));
 
     // ---- multiplier stack (chaos-local; skill/pink-rush applied once at payout) ----

@@ -55,7 +55,9 @@ public class BubbleService : IDisposable
 
     // ---- Chaos Mode hooks (set by ChaosModeService via BeginChaosMode) ----
     private Action<EffectBubbleSpec>? _chaosOnBenignPop;
-    private Action<EffectBubbleSpec, double>? _chaosOnDefuse;   // (spec, fuse seconds left at the snap)
+    private Action<EffectBubbleSpec, double, bool>? _chaosOnDefuse;   // (spec, fuse seconds at the judge point, via player channel)
+    private Func<EffectBubbleSpec, bool>? _chaosCanChannel;           // focus gate: may the player START a defuse channel?
+    private Action<EffectBubbleSpec, string>? _chaosOnChannelBroken;  // "click" | "release" | "nofocus" — the trigger follows via onDetonate
     private Action<EffectBubbleSpec>? _chaosOnDetonate;
     private Action<EffectBubbleSpec>? _chaosOnTreatExpired;
     private Action<int>? _chaosOnEStimArc;   // a charged pop just arced; arg = charges remaining
@@ -93,6 +95,9 @@ public class BubbleService : IDisposable
     internal static bool VibePopOn;
     internal static bool VibeHoverPops;
     internal static bool VibeMouseHeld;
+    // Hold-to-defuse: left-button state sampled once per anim tick — channels poll this
+    // instead of relying on per-window MouseUp (which is lost when the cursor strays).
+    internal static bool ChaosMouseHeld;
     // Manual pause: chaos bubbles ignore clicks entirely (distinct from the freeze power-up,
     // where popping the held field is the reward).
     internal static bool ChaosInputLocked;
@@ -391,9 +396,12 @@ public class BubbleService : IDisposable
         ChaosSpankGrowNow = _chaosActive ? Math.Max(1.0, _chaosSpankGrow?.Invoke() ?? 1.0) : 1.0;
         ChaosRabbitTrailSecNow = _chaosActive ? Math.Max(0, _chaosRabbitTrailSec?.Invoke() ?? 0) : 0;
         ChaosElectrifiedNow = _chaosActive && (_chaosElectrified?.Invoke() ?? false);
-        // Cam Girl's flee is a NEGATIVE pull, so the cursor sample keys off "any pull at all".
-        if ((WandShimmerOn || VibePopOn || ChaosCursorPullNow != 0 || ChaosRabbitHomingNow) && GetCursorPos(out var cur))
+        // The cursor + left-button samples feed wand shimmer, vibe sweeps, The Pull/Cam Girl,
+        // AND every hold-to-defuse channel — sample once per tick whenever a chaos run is live
+        // (one P/Invoke; ambient bubbles never read these).
+        if (_chaosActive && GetCursorPos(out var cur))
         { CursorPxX = cur.X; CursorPxY = cur.Y; }
+        ChaosMouseHeld = _chaosActive && (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
         if (VibePopOn) VibeMouseHeld = ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_RBUTTON)) & 0x8000) != 0;
 
         // Animate all bubbles in a single pass - iterate by index to avoid allocation
@@ -641,14 +649,16 @@ public class BubbleService : IDisposable
     // pop game above is untouched — these only run while a chaos run is active.
 
     /// <summary>Enter chaos mode: install effect callbacks + ensure the shared animation timer runs.</summary>
-    public void BeginChaosMode(Action<EffectBubbleSpec> onBenignPop, Action<EffectBubbleSpec, double> onDefuse, Action<EffectBubbleSpec> onDetonate,
+    public void BeginChaosMode(Action<EffectBubbleSpec> onBenignPop, Action<EffectBubbleSpec, double, bool> onDefuse, Action<EffectBubbleSpec> onDetonate,
                                Action<EffectBubbleSpec, bool>? onDarterCaught = null, Action<EffectBubbleSpec>? onFreezeCaught = null,
                                Func<double>? chainReach = null, Func<double>? hitboxScale = null,
                                Func<double>? bubbleOpacity = null, Func<bool>? wandShimmer = null,
                                Func<double>? cursorPull = null, Func<bool>? rabbitHoming = null,
                                Func<bool>? spankerOn = null, Func<double>? spankGrow = null,
                                Action<EffectBubbleSpec>? onTreatExpired = null, Action<int>? onEStimArc = null,
-                               Func<double>? rabbitTrailSec = null, Func<bool>? electrifiedRabbits = null)
+                               Func<double>? rabbitTrailSec = null, Func<bool>? electrifiedRabbits = null,
+                               Func<EffectBubbleSpec, bool>? canChannelDefuse = null,
+                               Action<EffectBubbleSpec, string>? onChannelBroken = null)
     {
         _chaosChainReach = chainReach;
         _chaosRabbitTrailSec = rabbitTrailSec;
@@ -667,7 +677,10 @@ public class BubbleService : IDisposable
         ChaosCursorPullNow = 0; ChaosRabbitHomingNow = false; ChaosSpankerOnNow = false; ChaosSpankGrowNow = 1.0;
         _chaosOnBenignPop = onBenignPop;
         _chaosOnDefuse = onDefuse;
+        _chaosCanChannel = canChannelDefuse;
+        _chaosOnChannelBroken = onChannelBroken;
         _chaosOnDetonate = onDetonate;
+        ChaosMouseHeld = false;
         _chaosOnTreatExpired = onTreatExpired;
         _chaosOnEStimArc = onEStimArc;
         _estimChargesLeft = 0;
@@ -710,7 +723,17 @@ public class BubbleService : IDisposable
                 var bubble = new Bubble(screen, _bubbleImage, _random, null, null, OnDestroy, isClickable: true,
                     spec: spec,
                     onBenignPop: b => { PlayPopSound(false); if (b.Spec != null) _chaosOnBenignPop?.Invoke(b.Spec); },
-                    onDefuse:    b => { PlayChaosCue("snap", 0.6f); if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec, b.FuseSecLeft); },
+                    onDefuse:    b =>
+                    {
+                        // A completed channel DEFLATES with a soft hiss; instant defuses (toys,
+                        // chains, zones) keep the sharp snap. Hiss falls back to snap until the
+                        // asset ships (ChaosSfx.ResolvePath is empty for missing cues).
+                        bool hiss = b.DefusedViaChannel && Chaos.ChaosSfx.ResolvePath("defuse_hiss").Length > 0;
+                        PlayChaosCue(hiss ? "defuse_hiss" : "snap", 0.6f);
+                        if (b.Spec != null) _chaosOnDefuse?.Invoke(b.Spec, b.DefuseJudgeFuseSec, b.DefusedViaChannel);
+                    },
+                    canChannelDefuse: b => b.Spec == null || (_chaosCanChannel?.Invoke(b.Spec) ?? true),
+                    onChannelBroken: (b, reason) => { if (b.Spec != null) _chaosOnChannelBroken?.Invoke(b.Spec, reason); },
                     onDetonate:  b => { if (b.Spec != null) _chaosOnDetonate?.Invoke(b.Spec); },
                     onDarterCaught: b => { PlayChaosCue("rabbit_catch", 0.6f); if (b.Spec != null) _chaosOnDarterCaught?.Invoke(b.Spec, b.WasQuickCatch); },
                     onFreezeCaught: b => { PlayChaosCue("freeze_catch", 0.6f); if (b.Spec != null) _chaosOnFreezeCaught?.Invoke(b.Spec); },
@@ -926,6 +949,9 @@ public class BubbleService : IDisposable
         _freezeVibrateRemainingMs = 0;
         _chaosTimeScale = 1.0;
         _chaosOnBenignPop = _chaosOnDetonate = null;
+        _chaosCanChannel = null;
+        _chaosOnChannelBroken = null;
+        ChaosMouseHeld = false;
         _chaosOnTreatExpired = null;
         _chaosOnEStimArc = null;
         _estimChargesLeft = 0;
@@ -1268,10 +1294,32 @@ internal class Bubble
     private readonly Action<Bubble>? _onSpankSweep;     // The Spanker: fired per frame while spanked so the service can mow bubbles
     private readonly Action<Bubble>? _onTreatExpired;   // treat ran out its screen time → dissolved unpopped (streak cost service-side)
     private readonly Action<Bubble>? _onClickPop;       // a GENUINE player click popped this (E-Stim charges key off it)
+    private readonly Func<Bubble, bool>? _canChannelDefuse;        // focus gate: may the player's press start a channel?
+    private readonly Action<Bubble, string>? _onChannelBroken;     // a channel failed ("click"/"release"/"nofocus") — the trigger follows
     private readonly Func<bool>? _isChaosFrozen;   // true while the field is frozen (freeze-bubble power-up)
     private readonly Func<double>? _timeScaleFn;   // <1 = slow-mo (darter power-up); 1 = normal speed
     private readonly Func<double>? _freezeVibrateMsFn;   // >0 = whole-field shudder remaining (freeze impact)
     private double TimeScale => _spec != null ? Math.Max(0.0, _timeScaleFn?.Invoke() ?? 1.0) : 1.0;
+
+    // ---- hold-to-defuse channel state (live chaos bubbles only) ----
+    // The player's hand on a live bubble: press starts a channel (the trance pauses, the bubble
+    // shrinks under the hold); holding DEFUSE_HOLD_MS completes it (deflate, full pay, focus
+    // spent service-side). Releasing early, straying off the hitbox, or pressing without the
+    // focus to pay all TRIGGER the bubble immediately. Toys/chains/zones never channel — they
+    // call Pop() directly, which stays the instant defuse path.
+    private bool _isChanneling;
+    private DateTime _channelStartUtc;
+    private double _channelStartFuseSec;   // brink windows are judged at channel START (the fuse pauses)
+    private double _channelScale = 1.0;    // 1.0 → CHANNEL_MIN_SCALE as the hold completes
+    private bool _isDeflating;             // completed defuse: rapid limp shrink + hiss, no burst
+
+    /// <summary>True when this bubble's defuse came from a completed player channel (vs an
+    /// instant toy/chain/zone defuse). Valid inside the defuse callback.</summary>
+    public bool DefusedViaChannel { get; private set; }
+
+    /// <summary>Fuse seconds to judge brink bonuses against: the CHANNEL-START fuse for a held
+    /// defuse (the trance pauses during the hold), the live fuse for an instant one.</summary>
+    public double DefuseJudgeFuseSec => DefusedViaChannel ? _channelStartFuseSec : FuseSecLeft;
 
     // ---- treat-lifetime state (benign reward bubbles: flash/subliminal/golden) ----
     /// <summary>How long a treat may sit on screen before it dissolves away unpopped.</summary>
@@ -1396,7 +1444,8 @@ internal class Bubble
                   Func<double>? timeScale = null, Action<Bubble>? onFreezeCaught = null,
                   Func<double>? freezeVibrateMs = null, Action<Bubble>? onChainTrigger = null,
                   double hitboxScale = 1.0, double opacityMult = 1.0, Action<Bubble>? onSpankSweep = null,
-                  Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null)
+                  Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null,
+                  Func<Bubble, bool>? canChannelDefuse = null, Action<Bubble, string>? onChannelBroken = null)
     {
         _random = random;
         _onPop = onPop;
@@ -1413,6 +1462,8 @@ internal class Bubble
         _onSpankSweep = onSpankSweep;
         _onTreatExpired = onTreatExpired;
         _onClickPop = onClickPop;
+        _canChannelDefuse = canChannelDefuse;
+        _onChannelBroken = onChannelBroken;
         _isChaosFrozen = isChaosFrozen;
         _timeScaleFn = timeScale;
         _freezeVibrateMsFn = freezeVibrateMs;
@@ -1572,7 +1623,7 @@ internal class Bubble
         {
             hitArea.MouseLeftButtonDown += (s, e) =>
             {
-                PopByClick();
+                OnPlayerPress();
                 e.Handled = true;
             };
         }
@@ -1604,7 +1655,7 @@ internal class Bubble
         {
             _grid.MouseLeftButtonDown += (s, e) =>
             {
-                PopByClick();
+                OnPlayerPress();
                 e.Handled = true;
             };
         }
@@ -1634,7 +1685,7 @@ internal class Bubble
         // Window click as final backup (only if clickable)
         if (_isClickable)
         {
-            _window.MouseLeftButtonDown += (s, e) => PopByClick();
+            _window.MouseLeftButtonDown += (s, e) => OnPlayerPress();
         }
 
         // Tunnel Vision capstone: spotlight rabbits glow gold (skipped on the Performance tier,
@@ -1684,13 +1735,30 @@ internal class Bubble
         // Early exit checks - must be first to avoid any work on destroyed bubbles
         if (!_isAlive || _isDestroyed) return;
 
+        // Hold-to-defuse channel: judged BEFORE the motion chain so it runs even while the
+        // field is frozen (defusing during a freeze is the reward — and it costs no focus).
+        if (_isChanneling && !_isPopping)
+        {
+            TickChannel();
+            if (!_isAlive || _isDestroyed) return;
+        }
+
         // Frozen field (freeze-bubble power-up): a chaos bubble that isn't mid-pop holds its
         // position + fuse, but still falls through to the visual block so its aura keeps pulsing.
         bool frozen = _spec != null && !_isPopping && _isChaosFrozen?.Invoke() == true;
 
         if (_isPopping)
         {
-            if (_isDissolving)
+            if (_isDeflating)
+            {
+                // Completed defuse: it DEFLATES — a rapid limp shrink, wobbling like air
+                // escaping, no burst, no spin-up. Starts from the channel's shrunken scale.
+                _timeAlive += 0.02;
+                _scale = Math.Max(0.05, _scale - 0.085);
+                _fadeAlpha -= 0.075;
+                _angle += Math.Sin(_timeAlive * 40) * 6;   // limp wobble
+            }
+            else if (_isDissolving)
             {
                 // Expired treat: a quiet dissolve — shrink + fade in place, no burst, no spin.
                 _scale = Math.Max(0.1, _scale - 0.02);
@@ -1931,8 +1999,9 @@ internal class Bubble
                 }
             }
 
-            // Fuse countdown for live chaos bubbles.
-            if (_spec != null && _spec.IsLive && _fuseRemainingMs > 0)
+            // Fuse countdown for live chaos bubbles. A defuse channel PAUSES the trance for
+            // the hold's duration (releasing early triggers immediately — it never resumes).
+            if (_spec != null && _spec.IsLive && _fuseRemainingMs > 0 && !_isChanneling)
             {
                 _fuseRemainingMs -= 32 * ts;   // slow-mo makes live fuses last longer
                 double frac = Math.Clamp(_fuseRemainingMs / Math.Max(1, _fuseTotalMs), 0, 1);
@@ -2005,7 +2074,9 @@ internal class Bubble
             double breatheFreq = 7.5 + _dangerFactor * 9.0 * _dangerWobbleMult;
             double breatheAmp = 0.06 + _dangerFactor * 0.0225 * _dangerWobbleMult;
             var wobble = _isDarter ? 0.0 : breatheAmp * Math.Sin(_timeAlive * breatheFreq + _wobbleOffset);
-            var currentScale = (_scale + wobble) * _gazeDwellScale;
+            // _channelScale: the hold-to-defuse shrink (1.0 idle; eases to CHANNEL_MIN_SCALE
+            // over the hold; the deflate animation inherits the shrunken scale seamlessly).
+            var currentScale = (_scale + wobble) * _gazeDwellScale * _channelScale;
 
             if (_bubbleImage.RenderTransform is TransformGroup tg && tg.Children.Count >= 2)
             {
@@ -2150,10 +2221,99 @@ internal class Bubble
         }
     }
 
-    /// <summary>Player-click entry (all three click paths route here): pops as usual, then —
-    /// only if the pop actually landed (not swallowed by pause-lock, a spank, or a double-pop
-    /// guard) — tells the service it was a genuine click. Chain hops, vibe sweeps, gaze and
-    /// skill pops all call <see cref="Pop"/> directly, so E-Stim charges never burn on them.</summary>
+    /// <summary>
+    /// Player mouse-down entry (all three click paths route here). Treats, rabbits and freeze
+    /// pickups pop/catch on the press exactly as before. LIVE chaos bubbles changed verb
+    /// (2026-06-11): a press starts a hold-to-defuse CHANNEL (if the focus gate allows) — the
+    /// trance pauses, the bubble shrinks under the hold, and only a completed hold defuses.
+    /// A press without the focus to pay triggers the bubble in your grip.
+    /// </summary>
+    private void OnPlayerPress()
+    {
+        // Everything that isn't a live threat keeps the old one-press behavior.
+        if (_spec == null || !_spec.IsLive || _isDarter || _isFreeze) { PopByClick(); return; }
+
+        if (!_isAlive || _isPopping || _isChanneling) return;
+        if (BubbleService.ChaosInputLocked) return;   // manual pause swallows every press
+
+        if (_canChannelDefuse?.Invoke(this) == false)
+        {
+            // Intentionally harsh: never touch a live bubble you can't afford. Distinct
+            // label here + a distinct cue/flash service-side so the player learns WHY.
+            ShowChaosLabel("NO FOCUS", Color.FromRgb(0xB8, 0xB8, 0xD0));
+            _onChannelBroken?.Invoke(this, "nofocus");
+            Detonate();
+            return;
+        }
+
+        _isChanneling = true;
+        _channelStartUtc = DateTime.UtcNow;
+        _channelStartFuseSec = FuseSecLeft;
+        _channelScale = 1.0;
+    }
+
+    /// <summary>
+    /// Advance the defuse channel one anim tick (~32ms): the hold must stay pressed AND on the
+    /// bubble (the enlarged hit ellipse counts, so Silk Touch applies) for the whole duration.
+    /// Runs even while the field is frozen — defusing during a freeze is the reward.
+    /// </summary>
+    private void TickChannel()
+    {
+        double elapsedMs = (DateTime.UtcNow - _channelStartUtc).TotalMilliseconds;
+
+        double cdx = BubbleService.CursorPxX / _dpiScale - (_posX + _size / 2.0);
+        double cdy = BubbleService.CursorPxY / _dpiScale - (_posY + _size / 2.0);
+        double reach = _hitSize / 2.0;
+        bool onBubble = cdx * cdx + cdy * cdy <= reach * reach;
+
+        if (!BubbleService.ChaosMouseHeld || !onBubble)
+        {
+            // Released early (or the cursor strayed): no partial refund, the fuse doesn't
+            // resume — it fires on release. A sub-threshold press reads as a plain click.
+            _isChanneling = false;
+            _channelScale = 1.0;
+            string reason = !BubbleService.ChaosMouseHeld && elapsedMs < ChaosTuning.CLICK_THRESHOLD_MS ? "click" : "release";
+            _onChannelBroken?.Invoke(this, reason);
+            Detonate();
+            return;
+        }
+
+        double t = Math.Clamp(elapsedMs / ChaosTuning.DEFUSE_HOLD_MS, 0, 1);
+        _channelScale = 1.0 - (1.0 - ChaosTuning.CHANNEL_MIN_SCALE) * t;
+
+        if (elapsedMs >= ChaosTuning.DEFUSE_HOLD_MS)
+        {
+            _isChanneling = false;
+            CompleteDefuse();
+        }
+    }
+
+    /// <summary>The hold completed: the bubble DEFLATES (limp shrink, no burst) and pays the
+    /// full snap. Focus is deducted service-side inside the defuse callback.</summary>
+    private void CompleteDefuse()
+    {
+        if (!_isAlive || _isPopping) return;
+        _isPopping = true;
+        _isDeflating = true;
+        DefusedViaChannel = true;
+        try
+        {
+            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
+            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            var popPx = CenterPx;
+            BubbleService.ChaosLastPopXPx = popPx.X;
+            BubbleService.ChaosLastPopYPx = popPx.Y;
+        }
+        catch { }
+        ShowChaosLabel("SNAP", SnapColor);
+        _onDefuse?.Invoke(this);
+        _onChainTrigger?.Invoke(this);   // a snap is still a pop — Poppers may sweep the cluster
+    }
+
+    /// <summary>Player-click pop for non-live bubbles: pops as usual, then — only if the pop
+    /// actually landed (not swallowed by pause-lock, a spank, or a double-pop guard) — tells
+    /// the service it was a genuine click. Chain hops, vibe sweeps, gaze and skill pops all
+    /// call <see cref="Pop"/> directly, so E-Stim charges never burn on them.</summary>
     private void PopByClick()
     {
         bool wasPopping = _isPopping;
@@ -2425,8 +2585,11 @@ internal class Bubble
     /// <summary>
     /// Whether this bubble can currently be popped via Focus Gaze.
     /// False once popping has started or the bubble has been destroyed.
+    /// Live chaos bubbles are excluded (2026-06-11 verb rework): defusing is a HELD channel
+    /// paid in focus — a gaze dwell would be a free instant snap around the whole economy.
     /// </summary>
-    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable;
+    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable
+                              && (_spec == null || !_spec.IsLive);
 
     /// <summary>
     /// Bubble window bounds in WPF DIPs (matches the coordinate space of

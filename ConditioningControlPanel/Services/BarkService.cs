@@ -256,6 +256,18 @@ namespace ConditioningControlPanel.Services
         /// <summary>The run finished. ctx: xp (final payout), difficulty.</summary>
         public void NotifyChaosRunCompleted(int xp, string difficulty) =>
             Raise("ChaosRunCompleted", c => c.Set("xp", (double)xp).Set("difficulty", difficulty));
+        // ---- hold-to-defuse verb rework (2026-06-11). First-time gating lives in
+        // ChaosModeService (chaos_meta.json flags); rh_focus_low is once per run there too. ----
+        /// <summary>First ever completed defuse channel.</summary>
+        public void NotifyChaosDefuseFirst() => Raise("ChaosDefuseFirst");
+        /// <summary>First time a live triggered because focus couldn't cover the channel.</summary>
+        public void NotifyChaosDefuseNoFocus() => Raise("ChaosDefuseNoFocus");
+        /// <summary>First time an early release (mid-channel let-go) detonated a live.</summary>
+        public void NotifyChaosDefuseRelease() => Raise("ChaosDefuseRelease");
+        /// <summary>First time a plain click detonated a live bubble.</summary>
+        public void NotifyChaosClickDetonate() => Raise("ChaosClickDetonate");
+        /// <summary>Focus sat below a defuse's cost for 8s+ while lives were on screen.</summary>
+        public void NotifyChaosFocusLow() => Raise("ChaosFocusLow");
         /// <summary>The results screen was shown. ctx: score, best_score, pb_delta, is_pb, defused, detonated, best_combo, difficulty.</summary>
         public void NotifyChaosResultsShown(double score, double bestScore, double pbDelta, bool isPb,
                                             double defused, double detonated, int bestCombo, string difficulty) =>

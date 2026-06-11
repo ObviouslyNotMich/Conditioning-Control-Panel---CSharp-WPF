@@ -34,12 +34,18 @@ public partial class ChaosHudWindow : Window
         _lastShields = state.Shields;
         state.PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName == nameof(ChaosRunState.FocusLow))
+            {
+                SetFocusLowVisual(state.FocusLow);
+                return;
+            }
             if (args.PropertyName != nameof(ChaosRunState.Shields)) return;
             int now = state.Shields;
             bool grew = now > _lastShields;
             _lastShields = now;
             if (grew) PulseShields();
         };
+        SetFocusLowVisual(state.FocusLow);
 
         // Top-anchored and ~60% of the work-area height, so it doesn't span the whole
         // screen (shrinks from the bottom up).
@@ -143,6 +149,38 @@ public partial class ChaosHudWindow : Window
     {
         var slide = new DoubleAnimation(toX, TimeSpan.FromMilliseconds(180)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
         PanelSlide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slide);
+    }
+
+    private bool _focusLowShown;
+
+    /// <summary>Focus below a defuse's cost: both bars dim and pulse softly — a readable
+    /// "don't touch the live ones" warning. Restores full opacity the moment focus recovers.</summary>
+    private void SetFocusLowVisual(bool low)
+    {
+        if (low == _focusLowShown) return;
+        _focusLowShown = low;
+        try
+        {
+            foreach (var el in new FrameworkElement[] { FocusStripBlock, FocusPanelBlock })
+            {
+                if (low)
+                {
+                    var pulse = new DoubleAnimation(0.75, 0.35, TimeSpan.FromMilliseconds(650))
+                    {
+                        AutoReverse = true,
+                        RepeatBehavior = RepeatBehavior.Forever,
+                        EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+                    };
+                    el.BeginAnimation(OpacityProperty, pulse);
+                }
+                else
+                {
+                    el.BeginAnimation(OpacityProperty, null);
+                    el.Opacity = 1.0;
+                }
+            }
+        }
+        catch { }
     }
 
     /// <summary>Brief scale pop on the resistance hearts (a regen/gain just landed).</summary>

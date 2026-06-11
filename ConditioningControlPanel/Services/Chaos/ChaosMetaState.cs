@@ -30,6 +30,19 @@ public sealed class ChaosMetaState
     /// <summary>Lifetime-boon ids currently toggled on (applied to a run at start, icon shown in the HUD strip).</summary>
     public HashSet<string> ActiveLifetimeBoons { get; set; } = new();
 
+    // ---- hold-to-defuse onboarding (2026-06-11 verb rework) — all default false so old saves load clean ----
+    public bool SeenDefuseTutorial { get; set; } = false;
+    public bool SeenBarkDefuseFirst { get; set; } = false;
+    public bool SeenBarkDefuseNoFocus { get; set; } = false;
+    public bool SeenBarkDefuseRelease { get; set; } = false;
+    public bool SeenBarkClickDetonate { get; set; } = false;
+
+    // ---- behavioral-bubble debuts: first encounter spawns alone with an extended trance ----
+    public bool SeenEcho { get; set; } = false;
+    public bool SeenChaperone { get; set; } = false;
+    public bool SeenTease { get; set; } = false;
+    public bool SeenBound { get; set; } = false;
+
     // lifetime stats (consumed by the Stats tab in a later session)
     public int RunsCompleted { get; set; } = 0;
     public long BestScore { get; set; } = 0;

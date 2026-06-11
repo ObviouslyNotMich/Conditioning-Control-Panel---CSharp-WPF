@@ -103,6 +103,17 @@
                 <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
 
+                <!-- FOCUS: the defuse fuel — a core resource like streak, so it lives on the
+                     always-visible strip too. Dims + pulses when below a defuse's cost. -->
+                <StackPanel x:Name="FocusStripBlock" Margin="0,14,0,0" HorizontalAlignment="Center">
+                    <TextBlock Text="FOCUS" Foreground="#FF9CE8FF" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <ProgressBar Width="86" Height="8" Minimum="0" Maximum="{Binding FocusMax, Mode=OneWay}"
+                                 Value="{Binding Focus, Mode=OneWay}" Margin="0,3,0,0"
+                                 Foreground="#FF5AC8FA" Background="#33000000" BorderThickness="0"/>
+                    <TextBlock Text="{Binding FocusText}" Foreground="White" FontWeight="Bold" FontSize="13"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                </StackPanel>
+
                 <!-- active lifetime boons (Skills/Accessories/Utility): art if present, else glyph + level -->
                 <ItemsControl ItemsSource="{Binding ActiveSidebarBoons}" Margin="0,18,0,0" HorizontalAlignment="Center">
                     <ItemsControl.ItemTemplate>
@@ -220,6 +231,18 @@
                                RenderTransformOrigin="0,0.5">
                         <TextBlock.RenderTransform><ScaleTransform/></TextBlock.RenderTransform>
                     </TextBlock>
+
+                    <!-- focus: pops fill it, hold-channels spend it. Low = dim + pulse warning. -->
+                    <TextBlock Text="FOCUS" Style="{StaticResource Hdr}"/>
+                    <StackPanel x:Name="FocusPanelBlock">
+                        <Grid>
+                            <TextBlock Text="pops fill it · a hold spends it" Foreground="{StaticResource TextDim}" FontSize="12"/>
+                            <TextBlock Text="{Binding FocusText}" Foreground="#FF9CE8FF" FontWeight="Bold" FontSize="13" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <ProgressBar Height="8" Minimum="0" Maximum="{Binding FocusMax, Mode=OneWay}"
+                                     Value="{Binding Focus, Mode=OneWay}" Margin="0,4,0,0"
+                                     Foreground="#FF5AC8FA" Background="#33000000" BorderThickness="0"/>
+                    </StackPanel>
 
                     <!-- loadout: what you took down with you (equipped lifetime boons). hover a tile for its card -->
                     <TextBlock Text="POCKETS" Style="{StaticResource Hdr}"/>
