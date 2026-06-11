@@ -119,6 +119,7 @@ public partial class ChaosHubWindow : Window
     private void RefreshTopBar()
     {
         TxtSparks.Text = ChaosMeta.State.Sparks.ToString("N0");
+        TxtGold.Text = ChaosMeta.State.Gold.ToString("N0");
         TxtRank.Text = ChaosMeta.Rank;
     }
 
@@ -247,7 +248,15 @@ public partial class ChaosHubWindow : Window
         }
         else
         {
-            right.Children.Add(BuyButton($"Train  ✦{u.Cost}", u.Id, afford, Buy_Click));
+            // Rank-floored purchases (extreme_tier needs Devoted) stay visible but locked.
+            bool rankLocked = ChaosMeta.IsPurchaseRankLocked(u.Id);
+            var train = BuyButton($"Train  ✦{u.Cost}", u.Id, afford && !rankLocked, Buy_Click);
+            if (rankLocked)
+            {
+                train.ToolTip = ChaosRanks.RankLockedTip;
+                ToolTipService.SetShowOnDisabled(train, true);
+            }
+            right.Children.Add(train);
         }
         Grid.SetColumn(right, 2);
         grid.Children.Add(right);
@@ -456,7 +465,17 @@ public partial class ChaosHubWindow : Window
         else
         {
             int cost = ChaosMeta.NextUpgradeCostOf(b.Id) ?? 0;
-            right.Children.Add(BuyButton($"deepen  ✦{cost}", b.Id, ChaosMeta.CanAffordUpgrade(b.Id), BoonUpgrade_Click));
+            // The capstone (final) level waits for the Devoted rank: the row stays visible,
+            // priced and locked, with her line on hover.
+            bool capLocked = ChaosMeta.IsCapstonePurchaseRankLocked(b.Id);
+            var deepen = BuyButton($"deepen  ✦{cost}", b.Id,
+                !capLocked && ChaosMeta.CanAffordUpgrade(b.Id), BoonUpgrade_Click);
+            if (capLocked)
+            {
+                deepen.ToolTip = ChaosRanks.CapstoneLockedTip;
+                ToolTipService.SetShowOnDisabled(deepen, true);
+            }
+            right.Children.Add(deepen);
         }
         Grid.SetColumn(right, 2);
         grid.Children.Add(right);

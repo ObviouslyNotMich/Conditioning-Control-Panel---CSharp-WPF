@@ -684,8 +684,8 @@ public sealed class ChaosModeService
             return true;
         }
 
-        // The Tease (Slipping rank, 10 descents): the one you beat by NOT touching it.
-        if (ChaosMeta.State.RunsCompleted >= 10
+        // The Tease (Slipping rank): the one you beat by NOT touching it.
+        if (ChaosMeta.AtLeast(ChaosRank.Slipping)
             && Random.Shared.NextDouble() < ChaosTuning.TEASE_SPAWN_CHANCE)
         {
             bool debut = !ChaosMeta.State.SeenTease;
@@ -785,13 +785,13 @@ public sealed class ChaosModeService
     {
         if (_state == null || _paused || _manualPaused) return;
         int gold = GoldScaled(Random.Shared.Next(ChaosTuning.TEASE_GOLD_MIN, ChaosTuning.TEASE_GOLD_MAX + 1));
-        ChaosMeta.State.Sparks += gold;
+        BankGold(gold);
         double pts = ChaosTuning.TEASE_DENIED_SCORE * _state.TotalMult * BoonPayMult;
         _state.Score += pts;
         _state.Focus += ChaosTuning.FOCUS_PER_DENIED;   // restraint feeds focus like a treat would
         ShowPopScore(pts);
-        _state.PushEvent($"🤍 denied. it pays +{gold} gold");
-        ChaosAnnouncerOverlay.Announce($"DENIED — +{gold} gold", ChaosAnnounceKind.PowerUp);
+        _state.PushEvent($"{ChaosGlyphs.Gold} denied. it pays +{gold} gold");
+        ChaosAnnouncerOverlay.Announce($"DENIED. +{gold} {ChaosGlyphs.Gold} gold", ChaosAnnounceKind.PowerUp);
         Pulse(Color.FromRgb(0xFF, 0xD7, 0x00), 0.25);
         App.Bark?.NotifyChaosTeaseDenied(++_teaseDeniedThisRun);
         if (_teaseDeniedThisRun >= ChaosTuning.TEASE_DENIED_STREAK_COUNT && !_teaseDeniedStreakBarked)
@@ -856,7 +856,8 @@ public sealed class ChaosModeService
 
         // Surrender capstone: every draft carries a sin (only while the user allows sins at all).
         var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices,
-            guaranteeCurse: _state.MaxedBoons.Contains("surrender"), takenIds: TakenBoonIds());
+            guaranteeCurse: _state.MaxedBoons.Contains("surrender"), takenIds: TakenBoonIds(),
+            sinChance: _state.Config.SinChance);
         foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
         _overlay?.ShowBoonDraft(_state.WaveIndex, options, OnBoonChosen, _state.Config.DraftAutoResumeSec,
             rerollsLeft: _state.RerollsLeft, onReroll: RerollDraft);
@@ -879,7 +880,8 @@ public sealed class ChaosModeService
         _state.RerollsLeft--;
         _state.PushEvent("🎲 tempted fate again");
         var options = ChaosBoonPool.Draft(_state.Config.AllowCurses, _state.Config.DraftChoices,
-            guaranteeCurse: _state.MaxedBoons.Contains("surrender"), takenIds: TakenBoonIds());
+            guaranteeCurse: _state.MaxedBoons.Contains("surrender"), takenIds: TakenBoonIds(),
+            sinChance: _state.Config.SinChance);
         foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
         return (options, _state.RerollsLeft);
     }
@@ -1014,17 +1016,39 @@ public sealed class ChaosModeService
     /// <summary>Relapse's bonus loop pays double gold — every gold bank routes through here.</summary>
     private int GoldScaled(int gold) => _state?.RelapseLoopActive == true ? gold * 2 : gold;
 
+    /// <summary>
+    /// Bank an instant in-run payout as GOLD (🐇, her bench's coin — never drops/✦).
+    /// Persists immediately via <see cref="ChaosMeta.AddGold"/>; the very first gold ever
+    /// also gets its quiet debut beat (flag + bark + one feed line). When
+    /// <paramref name="floatAtPop"/> is set, a small gold figure floats at the last pop point.
+    /// </summary>
+    private void BankGold(int gold, bool floatAtPop = false)
+    {
+        if (gold <= 0) return;
+        bool first = !ChaosMeta.State.SeenGoldFirst;
+        if (first) ChaosMeta.State.SeenGoldFirst = true;
+        ChaosMeta.AddGold(gold);   // persists the balance (and the first-gold flag with it)
+        if (floatAtPop)
+            ChaosPopText.Show(BubbleService.ChaosLastPopXDip, BubbleService.ChaosLastPopYDip + 30,
+                $"+{gold} {ChaosGlyphs.Gold}", Color.FromRgb(0xFF, 0xD7, 0x00));
+        if (first)
+        {
+            _state?.PushEvent($"{ChaosGlyphs.Gold} gold. she takes it at her bench.");
+            try { App.Bark?.NotifyChaosGoldFirst(); } catch { }
+        }
+    }
+
     /// <summary>Drip Feed drops per pop, doubled during the Relapse bonus loop.</summary>
     private int DropsPerPopNow() => (_state?.DropPerPop ?? 0) * (_state?.RelapseLoopActive == true ? 2 : 1);
 
-    /// <summary>Cam Girl: any pop can tip gold. Banked in memory; the end-of-run award persists it.</summary>
+    /// <summary>Cam Girl: any pop can tip gold (banked instantly at her bench's balance).</summary>
     private void RollCamGirlTip()
     {
         if (_state == null || _state.CamGirlTipChance <= 0) return;
         if (Random.Shared.NextDouble() >= _state.CamGirlTipChance) return;
         int tip = GoldScaled(Random.Shared.Next(2, 5));
-        ChaosMeta.State.Sparks += tip;
-        _state.PushEvent($"💸 tipped +{tip} gold");
+        BankGold(tip, floatAtPop: true);
+        _state.PushEvent($"{ChaosGlyphs.Gold} tipped +{tip} gold");
     }
 
     private void OnBenignPopped(EffectBubbleSpec spec)
@@ -1047,13 +1071,13 @@ public sealed class ChaosModeService
             return;
         }
 
-        // Gold Digger droplet: a few Sparks per bead, outside the score economy like its parent.
+        // Gold Digger droplet: a little gold per bead, outside the score economy like its parent.
         if (spec.IsDroplet)
         {
             _state.Focus += ChaosTuning.FOCUS_PER_DROPLET;
             int dGold = GoldScaled(Random.Shared.Next(3, 8));
-            ChaosMeta.State.Sparks += dGold;
-            _state.PushEvent($"✧ droplet +{dGold} gold");
+            BankGold(dGold, floatAtPop: true);
+            _state.PushEvent($"{ChaosGlyphs.Gold} droplet +{dGold} gold");
             Pulse(Color.FromRgb(255, 215, 0), 0.12);
             ChaosSfx.Play("golden_pop", 0.35f);
             return;
@@ -1066,10 +1090,9 @@ public sealed class ChaosModeService
             int lvl = ChaosMeta.IsBoonActive("rabbits_foot") ? ChaosMeta.BoonLevel("rabbits_foot") : 0;
             var (gMin, gMax) = ChaosLifetimeBoons.GoldenPayRange(lvl);
             int gold = GoldScaled(Random.Shared.Next(gMin, gMax + 1));
-            ChaosMeta.State.Sparks += gold;
-            ChaosMeta.Save();
-            _state.PushEvent($"🍀 lucky bubble! +{gold} gold");
-            ChaosAnnouncerOverlay.Announce($"🍀 +{gold} gold", ChaosAnnounceKind.PowerUp);
+            BankGold(gold, floatAtPop: true);
+            _state.PushEvent($"{ChaosGlyphs.Gold} lucky bubble! +{gold} gold");
+            ChaosAnnouncerOverlay.Announce($"{ChaosGlyphs.Gold} +{gold} gold", ChaosAnnounceKind.PowerUp);
             Pulse(Color.FromRgb(255, 215, 0), 0.35);
             ChaosSfx.Play("golden_pop", 0.6f);   // coins spill — real gold just landed
             // Gold Digger: the lucky bubble bursts into 3 falling droplets at the pop point.
@@ -1260,8 +1283,8 @@ public sealed class ChaosModeService
         if (_state.LastSecondGoldEnabled && fuseSecLeft <= 1.0)
         {
             int fGold = GoldScaled(Random.Shared.Next(5, 10));
-            ChaosMeta.State.Sparks += fGold;
-            _state.PushEvent($"🔥 playing with fire +{fGold} gold");
+            BankGold(fGold, floatAtPop: true);
+            _state.PushEvent($"{ChaosGlyphs.Gold} playing with fire +{fGold} gold");
             Pulse(Color.FromRgb(255, 140, 60), 0.30);
         }
         // Aftermath: a brink-snap leaves 2s of crackling residue at the pop point.
@@ -2202,12 +2225,22 @@ public sealed class ChaosModeService
         try { sparksEarned = ChaosMeta.AwardRunRewards(_state); }
         catch (Exception ex) { App.Logger?.Debug("Chaos meta award: {E}", ex.Message); }
 
+        // Rank spine: did this descent push the rank past the last card shown? Only the
+        // HIGHEST new rank gets a card (a debug fast-forward skips the ones in between).
+        ChaosRank? rankUp = null;
+        try
+        {
+            var nowRank = ChaosRanks.For(ChaosMeta.State.RunsCompleted);
+            if ((int)nowRank > ChaosMeta.State.LastRankSeen) rankUp = nowRank;
+        }
+        catch { }
+
         string diff = _state.Config.Difficulty.ToString();
         App.Bark?.NotifyChaosRunCompleted((int)finalXp, diff);
 
         _hud?.Close();
         _hud = null;
-        _overlay?.ShowResults(_state, baseXp, skillMult, finalXp, previousBest, sparksEarned);
+        _overlay?.ShowResults(_state, baseXp, skillMult, finalXp, previousBest, sparksEarned, rankUp);
 
         App.Bubbles?.Resume();
         App.Logger?.Information("Chaos run complete: base {Base:0} x skill {Mult:0.0} = {Final:0} XP (defused {D}, detonated {Det})",

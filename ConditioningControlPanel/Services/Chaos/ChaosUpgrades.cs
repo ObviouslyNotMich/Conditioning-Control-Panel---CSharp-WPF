@@ -157,12 +157,6 @@ public static class ChaosMeta
     /// <summary>Persist the current state (after a mutation made directly on State).</summary>
     public static void Save() => ChaosMetaStore.Save(State);
 
-    // ---- progressive hub unlocks (named thresholds, by lifetime RunsCompleted) ----
-    public const int UNLOCK_UPGRADES_RUNS = 1;
-    public const int UNLOCK_STATS_RUNS    = 1;
-    public const int UNLOCK_CODEX_RUNS    = 1;
-    public const int UNLOCK_LOADOUT_RUNS  = 3;
-
     /// <summary>Rank derived from lifetime <see cref="ChaosMetaState.RunsCompleted"/> (monotonic, simple).</summary>
     public static string Rank => ChaosRanks.Name(RankIndex);
 
@@ -229,10 +223,17 @@ public static class ChaosMeta
         return u != null && !IsOwned(id) && State.Sparks >= u.Cost;
     }
 
+    /// <summary>True while this habit's purchase sits above the player's rank (UI renders the
+    /// locked row with <see cref="ChaosRanks.RankLockedTip"/>). Only extreme_tier carries a
+    /// rank floor today (Devoted; a lesson gate stacks on top separately).</summary>
+    public static bool IsPurchaseRankLocked(string id) =>
+        id == "extreme_tier" && !IsOwned(id) && !AtLeast(ChaosRank.Devoted);
+
     /// <summary>
-    /// Validate + buy: checks the id exists, isn't already owned, and is affordable;
-    /// deducts the cost, records the purchase, sets <see cref="ChaosMetaState.ExtremeUnlocked"/>
-    /// for <c>extreme_tier</c>, persists, and returns whether it succeeded.
+    /// Validate + buy: checks the id exists, isn't already owned, is affordable, and clears
+    /// any rank floor; deducts the cost, records the purchase, sets
+    /// <see cref="ChaosMetaState.ExtremeUnlocked"/> for <c>extreme_tier</c>, persists, and
+    /// returns whether it succeeded.
     /// </summary>
     public static bool TryPurchase(string id)
     {
@@ -240,6 +241,7 @@ public static class ChaosMeta
         if (u == null) return false;
         if (State.PurchasedUpgrades.Contains(id)) return false;
         if (State.Sparks < u.Cost) return false;
+        if (IsPurchaseRankLocked(id)) return false;
 
         State.Sparks -= u.Cost;
         State.PurchasedUpgrades.Add(id);
@@ -334,12 +336,25 @@ public static class ChaosMeta
         return true;
     }
 
-    /// <summary>Validate + buy the next level: deduct Sparks, bump level (capped at max), persist.</summary>
+    /// <summary>True while this boon's NEXT purchase is its capstone (final) level and the
+    /// player is short of Devoted. The hub renders the deepen row locked with
+    /// <see cref="ChaosRanks.CapstoneLockedTip"/>.</summary>
+    public static bool IsCapstonePurchaseRankLocked(string id)
+    {
+        var b = ChaosLifetimeBoons.ById(id);
+        if (b == null) return false;
+        int lvl = BoonLevel(id);
+        return lvl >= 1 && lvl < b.MaxLevel && lvl + 1 >= b.MaxLevel && !AtLeast(ChaosRank.Devoted);
+    }
+
+    /// <summary>Validate + buy the next level: deduct Sparks, bump level (capped at max), persist.
+    /// The capstone (final) level additionally needs the Devoted rank.</summary>
     public static bool TryUpgradeBoon(string id)
     {
         var b = ChaosLifetimeBoons.ById(id);
         var c = NextUpgradeCostOf(id);
         if (b == null || !c.HasValue || State.Sparks < c.Value) return false;
+        if (BoonLevel(id) + 1 >= b.MaxLevel && !AtLeast(ChaosRank.Devoted)) return false;
         State.Sparks -= c.Value;
         State.LifetimeBoonLevels[id] = Math.Min(BoonLevel(id) + 1, b.MaxLevel);
         ChaosMetaStore.Save(State);
