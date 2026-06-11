@@ -97,9 +97,8 @@
                 <TextBlock Text="🐇" Foreground="{StaticResource Pink}" FontSize="30" HorizontalAlignment="Center"/>
                 <TextBlock Text="{Binding ClockText}" Foreground="White" FontFamily="Consolas" FontSize="17"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
-                <TextBlock Text="✦" Foreground="Gold" FontSize="15" HorizontalAlignment="Center" Margin="0,14,0,0"/>
                 <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="16"
-                           HorizontalAlignment="Center" TextAlignment="Center"/>
+                           HorizontalAlignment="Center" TextAlignment="Center" Margin="0,14,0,0"/>
                 <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
 
@@ -208,8 +207,7 @@
                     <ProgressBar x:Name="BarRunProgress" Minimum="0" Maximum="1" Value="{Binding RunProgress, Mode=OneWay}" Height="5" Margin="0,4,0,0"
                                  Foreground="#FF8A7DBD" Background="#33000000" BorderThickness="0" Visibility="Collapsed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <TextBlock Text="✦" Foreground="Gold" FontSize="19" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="22" Margin="6,0,16,0"/>
+                        <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="22" Margin="0,0,16,0"/>
                         <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="22" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>

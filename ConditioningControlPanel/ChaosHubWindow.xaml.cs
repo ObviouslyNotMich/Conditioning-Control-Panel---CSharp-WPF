@@ -1155,7 +1155,8 @@ public partial class ChaosHubWindow : Window
         var s = App.Settings?.Current;
         if (s == null) return;
 
-        s.ChaosDifficulty = GetSegment(GrpDifficulty) ?? "Easy";
+        // Reveal-gate fallbacks are visual only — never persist them over the saved choice.
+        if (!_diffAutoClamped) s.ChaosDifficulty = GetSegment(GrpDifficulty) ?? "Easy";
         if (int.TryParse(GetSegment(GrpLength), out var len)) s.ChaosRunDurationSec = len;
         s.ChaosMotionMode = GetSegment(GrpMotion) ?? "Mixed";
         s.ChaosWaveCount = _waves;
@@ -1183,6 +1184,7 @@ public partial class ChaosHubWindow : Window
         if (!btn.IsEnabled) { btn.IsChecked = false; return; }   // locked (Extreme)
         var grp = (Panel)btn.Parent;
         foreach (var t in grp.Children.OfType<ToggleButton>()) t.IsChecked = ReferenceEquals(t, btn);
+        if (ReferenceEquals(grp, GrpDifficulty)) _diffAutoClamped = false;   // a real choice again
     }
 
     private void Stepper_Click(object sender, RoutedEventArgs e)

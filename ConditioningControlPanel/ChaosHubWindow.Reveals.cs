@@ -24,6 +24,10 @@ public partial class ChaosHubWindow
 
     private bool _dollhouseBeatsFired;   // first-open beat fires once per window
 
+    /// <summary>True while the on-screen difficulty selection is a reveal-gate fallback,
+    /// not the player's choice — SaveToSettings must not persist it (clamp, never overwrite).</summary>
+    private bool _diffAutoClamped;
+
     /// <summary>Build the id→element map (static elements; bench rows re-register in BuildBench).</summary>
     private void InitRevealMap()
     {
@@ -79,9 +83,14 @@ public partial class ChaosHubWindow
             SegMedium.Visibility = teasing ? Visibility.Visible : Visibility.Collapsed;
             SegHard.Visibility = relentless ? Visibility.Visible : Visibility.Collapsed;
             // A hidden pill can't stay the visible selection — fall back to Gentle on
-            // screen only (the saved setting is untouched until the player falls in).
+            // screen only. _diffAutoClamped keeps SaveToSettings from persisting the
+            // fallback over the player's saved choice (clamp, never overwrite); a real
+            // click on a difficulty pill clears it.
             if ((!teasing && SegMedium.IsChecked == true) || (!relentless && SegHard.IsChecked == true))
+            {
                 SetSegment(GrpDifficulty, "Easy");
+                _diffAutoClamped = true;
+            }
 
             // ---- Looking Glass internals (bench purchases) ----
             CardMantras.Visibility = RevealService.IsUnlocked(RevealIds.StartPicker) ? Visibility.Visible : Visibility.Collapsed;

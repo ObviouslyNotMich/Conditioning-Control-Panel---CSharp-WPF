@@ -143,7 +143,7 @@
                     </Border>
                     <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🐇" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="🪙" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <TextBlock x:Name="TxtGold" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                             <TextBlock Text="gold" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
                         </StackPanel>

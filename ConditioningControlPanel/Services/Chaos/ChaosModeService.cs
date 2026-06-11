@@ -1053,7 +1053,7 @@ public sealed class ChaosModeService
     private int GoldScaled(int gold) => _state?.RelapseLoopActive == true ? gold * 2 : gold;
 
     /// <summary>
-    /// Bank an instant in-run payout as GOLD (🐇, her bench's coin — never drops/✦).
+    /// Bank an instant in-run payout as GOLD (ChaosGlyphs.Gold, her bench's coin; never drops/✦).
     /// Persists immediately via <see cref="ChaosMeta.AddGold"/>; the very first gold ever
     /// also gets its quiet debut beat (flag + bark + one feed line). When
     /// <paramref name="floatAtPop"/> is set, a small gold figure floats at the last pop point.
