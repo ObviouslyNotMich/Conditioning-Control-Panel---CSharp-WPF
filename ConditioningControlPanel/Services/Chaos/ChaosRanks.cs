@@ -52,6 +52,12 @@ public static class ChaosRanks
         _                   => "Curious",
     };
 
+    /// <summary>[LOCKED] generic tooltip for anything visible but above the player's rank. Ships verbatim.</summary>
+    public const string RankLockedTip = "she'll sell this to someone deeper.";
+
+    /// <summary>[LOCKED] tooltip for a capstone (final) boon level before Devoted. Ships verbatim.</summary>
+    public const string CapstoneLockedTip = "the last stitch is hers to give. she gives it to the devoted.";
+
     /// <summary>[LOCKED] one line under the bare rank word on the rank card. Ships verbatim.</summary>
     public static string Line(ChaosRank r) => r switch
     {

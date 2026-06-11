@@ -492,7 +492,8 @@ public partial class ChaosOverlayWindow : Window
 
     // ============================ results ============================
 
-    public void ShowResults(ChaosRunState s, double baseXp, double skillMult, double finalXp, long previousBest, int sparksEarned)
+    public void ShowResults(ChaosRunState s, double baseXp, double skillMult, double finalXp, long previousBest, int sparksEarned,
+                            ChaosRank? rankUp = null)
     {
         SetClickThrough(false);
         CountdownBox.Visibility = Visibility.Collapsed;
@@ -544,14 +545,79 @@ public partial class ChaosOverlayWindow : Window
 
         ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
 
-        // The take-home: XP and gold, side by side. Glyph canon: 🕰 xp, 🐇 gold (✦ is drops only).
+        // The take-home: XP and drops, side by side. Glyph canon: 🕰 xp, ✦ drops, 🐇 gold —
+        // the run award banks as DROPS (gold only ever lands instantly, mid-run).
         ResultsBody.Children.Add(ChipRow(
             StatChip("XP", $"{ChaosGlyphs.Xp} {finalXp:N0}", pink, $"base {baseXp:N0} x{skillMult:0.0}"),
-            StatChip("GOLD", $"{ChaosGlyphs.Gold} {sparksEarned:N0}", gold, "banked in the dollhouse")));
+            StatChip("DROPS", $"{ChaosGlyphs.Drops} {sparksEarned:N0}", gold, "banked in the dollhouse")));
 
         // Bark over the results (+ PB fields for the compulsion line).
         App.Bark?.NotifyChaosResultsShown(score, ChaosMeta.State.BestScore, pbDelta, isPb,
             s.Defused, s.Detonated, s.BestCombo, s.Config.Difficulty.ToString());
+
+        // Rank spine: once the tally has settled, the quiet rank-up beat.
+        if (rankUp.HasValue) ScheduleRankCard(rankUp.Value);
+    }
+
+    // ============================ rank card ============================
+
+    private DispatcherTimer? _rankBeatTimer;
+    private DispatcherTimer? _rankCardTimer;
+
+    /// <summary>
+    /// The rank-up beat, after the score tally has landed: the announcer murmurs the
+    /// [LOCKED] "it noticed." line, then the bare rank card fades into the recap —
+    /// no header, no fanfare. Bark, LastRankSeen and the reveal sync land with the card.
+    /// </summary>
+    private void ScheduleRankCard(ChaosRank rank)
+    {
+        _rankBeatTimer?.Stop();
+        _rankBeatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1800) };
+        _rankBeatTimer.Tick += (_, _) =>
+        {
+            _rankBeatTimer?.Stop();
+            _rankBeatTimer = null;
+            if (ResultsPanel.Visibility != Visibility.Visible) return;
+            ChaosAnnouncerOverlay.Announce("it noticed.", ChaosAnnounceKind.Temptation);
+            _rankCardTimer?.Stop();
+            _rankCardTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1100) };
+            _rankCardTimer.Tick += (_, _) =>
+            {
+                _rankCardTimer?.Stop();
+                _rankCardTimer = null;
+                ShowRankCard(rank);
+            };
+            _rankCardTimer.Start();
+        };
+        _rankBeatTimer.Start();
+    }
+
+    private void ShowRankCard(ChaosRank rank)
+    {
+        if (ResultsPanel.Visibility != Visibility.Visible) return;
+
+        // Bare and quiet: the rank word, huge and lowercase, one dim line under it.
+        var card = new StackPanel { Margin = new Thickness(0, 16, 0, 0), Opacity = 0 };
+        card.Children.Add(new TextBlock
+        {
+            Text = ChaosRanks.NameLower(rank),
+            FontSize = 46, FontWeight = FontWeights.Bold, Foreground = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center,
+        });
+        card.Children.Add(new TextBlock
+        {
+            Text = ChaosRanks.Line(rank),
+            FontSize = 12, Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 200)),
+            HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0),
+        });
+        ResultsBody.Children.Add(card);
+        card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(700)));
+
+        try { App.Bark?.NotifyChaosRankUp(ChaosRanks.NameLower(rank)); } catch { }
+        ChaosMeta.State.LastRankSeen = (int)rank;
+        ChaosMeta.Save();
+        RevealService.Sync("rank_up");
     }
 
     private void AddResultLine(string text, double size, Brush color, FontWeight weight)
@@ -624,6 +690,8 @@ public partial class ChaosOverlayWindow : Window
     {
         base.OnClosed(e);
         try { RemoveCountdownSkipHooks(); } catch { }
+        _rankBeatTimer?.Stop(); _rankBeatTimer = null;
+        _rankCardTimer?.Stop(); _rankCardTimer = null;
         OnDismissed?.Invoke();
     }
 

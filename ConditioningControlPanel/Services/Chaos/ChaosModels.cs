@@ -161,12 +161,14 @@ public sealed class ChaosRunConfig
     {
         var s = App.Settings?.Current;
         var cfg = new ChaosRunConfig();
+        cfg.SinChance = DefaultSinChance(ChaosMeta.State.RunsCompleted);
         if (s == null) { ChaosMeta.ApplyTo(cfg); return cfg; }
-        cfg.Difficulty = Enum.TryParse<ChaosDifficulty>(s.ChaosDifficulty, out var d) ? d : ChaosDifficulty.Easy;
+        var saved = Enum.TryParse<ChaosDifficulty>(s.ChaosDifficulty, out var d) ? d : ChaosDifficulty.Easy;
+        cfg.Difficulty = ClampDifficulty(saved);
         cfg.DurationSec = Math.Clamp(s.ChaosRunDurationSec, 60, 900);
         cfg.WaveCount = Math.Clamp(s.ChaosWaveCount, 1, 12);
         cfg.MotionOverride = Enum.TryParse<ChaosMotion>(s.ChaosMotionMode, out var m) ? m : (ChaosMotion?)null;
-        cfg.EnabledVariants = s.ChaosEnabledVariants;   // null = all
+        cfg.EnabledVariants = ClampVariants(s.ChaosEnabledVariants);   // null = all
         cfg.ScreenShakeEnabled = s.ChaosScreenShakeEnabled;
         cfg.ColorFlashesEnabled = s.ChaosColorFlashesEnabled;
         cfg.ShakeIntensity = Math.Clamp(s.ChaosShakeIntensity, 0.0, 1.0);
@@ -176,6 +178,59 @@ public sealed class ChaosRunConfig
         cfg.DartersEnabled = s.ChaosDartersEnabled;
         ChaosMeta.ApplyTo(cfg);   // owned permanent upgrades shape every run
         return cfg;
+    }
+
+    // ---- sin-slot ramp (tunable): sins debut on the 3rd descent at 25%, reaching the
+    // full 50% slot by Slipping. The AllowCurses user toggle still clamps on top. ----
+    private const int    SIN_DEBUT_RUNS  = 2;     // runs completed before sins deal at all
+    private const int    SIN_FULL_RUNS   = 10;    // runs completed when the ramp tops out (Slipping)
+    private const double SIN_CHANCE_DEBUT = 0.25;
+    private const double SIN_CHANCE_FULL  = 0.5;
+
+    /// <summary>Happy-path default for <see cref="SinChance"/> by lifetime completed descents:
+    /// 0 before the debut, then a linear 0.25 → 0.5 ramp between runs 2 and 10, then 0.5.</summary>
+    public static double DefaultSinChance(int runsCompleted)
+    {
+        if (runsCompleted < SIN_DEBUT_RUNS) return 0.0;
+        if (runsCompleted >= SIN_FULL_RUNS) return SIN_CHANCE_FULL;
+        double t = (runsCompleted - SIN_DEBUT_RUNS) / (double)(SIN_FULL_RUNS - SIN_DEBUT_RUNS);
+        return SIN_CHANCE_DEBUT + (SIN_CHANCE_FULL - SIN_CHANCE_DEBUT) * t;
+    }
+
+    /// <summary>
+    /// Rank clamp for the run's difficulty: if the SAVED pill is still locked, the run falls
+    /// back to the highest unlocked one. The saved setting is never written — unlocking
+    /// restores the user's own choice untouched. Gentle is always open; Teasing needs Tempted,
+    /// Relentless needs Entranced, Inescapable keeps its extreme_tier-ownership gate.
+    /// </summary>
+    private static ChaosDifficulty ClampDifficulty(ChaosDifficulty saved)
+    {
+        static bool Unlocked(ChaosDifficulty d) => d switch
+        {
+            ChaosDifficulty.Extreme => RevealService.IsUnlocked(RevealIds.PillInescapable),
+            ChaosDifficulty.Hard    => RevealService.IsUnlocked(RevealIds.PillRelentless),
+            ChaosDifficulty.Medium  => RevealService.IsUnlocked(RevealIds.PillTeasing),
+            _                       => true,
+        };
+        var d = saved;
+        while (d > ChaosDifficulty.Easy && !Unlocked(d)) d--;
+        return d;
+    }
+
+    /// <summary>
+    /// Rank clamp for the run's bubble pool: the <c>video</c> / <c>htlink</c> variants only
+    /// enter a run once their reveals unlock (Entranced). Returns the saved list untouched
+    /// when both are open; otherwise a NEW narrowed list — the saved setting is never mutated.
+    /// </summary>
+    private static List<string>? ClampVariants(List<string>? saved)
+    {
+        bool videoOk = RevealService.IsUnlocked(RevealIds.VariantVideo);
+        bool htOk = RevealService.IsUnlocked(RevealIds.VariantHtlink);
+        if (videoOk && htOk) return saved;
+        var list = new List<string>(saved ?? ChaosBubbleVariants.AllIds());
+        if (!videoOk) list.Remove("video");
+        if (!htOk) list.Remove("htlink");
+        return list;
     }
 
     /// <summary>Per-difficulty payout/intensity scalar baked into the multiplier stack.</summary>
@@ -276,7 +331,7 @@ public static class ChaosBoonPool
 
         // ---- sins — risk/reward: visible drawbacks, visible sweetness ----
         new("hair_trigger", "Hair Trigger", "−25% trance time, but +0.4x run multiplier.",
-            ChaosRarity.Rare, true, 0.40, s => s.FuseTimeMult *= 0.75),
+            ChaosRarity.Rare, true, 0.40, s => s.FuseTimeMult *= 0.75) { Unique = true },
         new("playing_fire", "Playing with fire", "Bomb effects last 50% longer… but snapping one in its final second pays gold.",
             ChaosRarity.Rare, true, 0.15, s => { s.DetonationDurationMult = 1.5; s.LastSecondGoldEnabled = true; })
             { Unique = true, ApplyShielded = s => s.LastSecondGoldEnabled = true },
@@ -299,23 +354,26 @@ public static class ChaosBoonPool
     /// Draft <paramref name="choices"/> options (default 3): mostly boons + occasionally a
     /// curse (unless curses are disabled). <paramref name="choices"/> comes from
     /// <c>ChaosRunConfig.DraftChoices</c> (the draft4 upgrade raises it to 4).
-    /// Duo cards (<see cref="ChaosBoon.RequiresAny"/>) only deal when their partner is
-    /// equipped; <see cref="ChaosBoon.Unique"/> cards already taken (<paramref name="takenIds"/>)
-    /// sit the rest of the run out.
+    /// Duo cards (<see cref="ChaosBoon.RequiresAny"/>/<see cref="ChaosBoon.RequiresAll"/>) only
+    /// deal when their partner is equipped AND the player is at least Entranced;
+    /// <see cref="ChaosBoon.Unique"/> cards already taken (<paramref name="takenIds"/>)
+    /// sit the rest of the run out. <paramref name="sinChance"/> is the dedicated sin-slot
+    /// roll (<c>ChaosRunConfig.SinChance</c> — the happy path ramps it in over the early runs).
     /// </summary>
     public static List<ChaosBoon> Draft(bool allowCurses = true, int choices = 3, bool guaranteeCurse = false,
-                                        IReadOnlyCollection<string>? takenIds = null)
+                                        IReadOnlyCollection<string>? takenIds = null, double sinChance = 0.5)
     {
         choices = Math.Clamp(choices, 2, 4);
         bool Draftable(ChaosBoon b) =>
-            (b.RequiresAny == null || b.RequiresAny.Any(ChaosMeta.IsBoonActive))
+            ((b.RequiresAny == null && b.RequiresAll == null) || ChaosMeta.AtLeast(ChaosRank.Entranced))
+            && (b.RequiresAny == null || b.RequiresAny.Any(ChaosMeta.IsBoonActive))
             && (b.RequiresAll == null || b.RequiresAll.All(ChaosMeta.IsBoonActive))
             && !(b.Unique && takenIds != null && takenIds.Contains(b.Id));
         var boons = All.Where(b => !b.IsCurse && Draftable(b)).OrderBy(_ => _rng.Next()).ToList();
         var curses = All.Where(b => b.IsCurse && Draftable(b)).OrderBy(_ => _rng.Next()).ToList();
 
         var draft = new List<ChaosBoon>();
-        bool includeCurse = allowCurses && (guaranteeCurse || _rng.NextDouble() < 0.5) && curses.Count > 0;
+        bool includeCurse = allowCurses && (guaranteeCurse || _rng.NextDouble() < sinChance) && curses.Count > 0;
         int boonCount = includeCurse ? choices - 1 : choices;
 
         draft.AddRange(boons.Take(Math.Min(boonCount, boons.Count)));
