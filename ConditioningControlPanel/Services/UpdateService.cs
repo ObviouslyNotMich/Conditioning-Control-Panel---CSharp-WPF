@@ -20,13 +20,13 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.1.0";
+        public const string AppVersion = "6.1.1";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.1.0 - Down the Rabbit Hole
+        public const string CurrentPatchNotes = @"v6.1.1 - Down the Rabbit Hole
 
 🐇 A new little game: ""Down the Rabbit Hole"" is available in testing for the
    Prime Subject.
