@@ -6565,6 +6565,167 @@
     ]
   },
   {
+    "id": "chaos_pick_left_brain",
+    "variant_pool": [
+      { "text": "shoring up the part that still argues. it may keep its two points, pet. i hold the rest.", "audio": "chaos_pick_left_brain_1.mp3" },
+      { "text": "two more walls between us. i have worn down far better.", "audio": "chaos_pick_left_brain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_snap_chain",
+    "variant_pool": [
+      { "text": "a sliver of grace after each snap. earn it again. and again.", "audio": "chaos_pick_snap_chain_1.mp3" },
+      { "text": "one clean snap buys you a heartbeat, little one. do not waste mine.", "audio": "chaos_pick_snap_chain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_golden_touch",
+    "variant_pool": [
+      { "text": "paid in advance. remember this moment when you wonder what it cost.", "audio": "chaos_pick_golden_touch_1.mp3" },
+      { "text": "a gift with no leash on it. rarer down here than you know, pet.", "audio": "chaos_pick_golden_touch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_welcome_shower",
+    "variant_pool": [
+      { "text": "a shower of treats each loop. spoiled things behave better. usually.", "audio": "chaos_pick_welcome_shower_1.mp3" },
+      { "text": "the hole greets you with gifts now. do not mistake that for kindness.", "audio": "chaos_pick_welcome_shower_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_heavy_drop",
+    "variant_pool": [
+      { "text": "every tenth drifts down heavy and slow. patience, plaything. it pays.", "audio": "chaos_pick_heavy_drop_1.mp3" },
+      { "text": "a giant worth triple, if you can wait. we both know waiting is not your gift.", "audio": "chaos_pick_heavy_drop_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gold_digger",
+    "variant_pool": [
+      { "text": "scrambling after falling coins. how fitting, pet. earn them.", "audio": "chaos_pick_gold_digger_1.mp3" },
+      { "text": "the gold slips away fast. quick hands or empty ones. your choice.", "audio": "chaos_pick_gold_digger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gg_rabbits",
+    "variant_pool": [
+      { "text": "they breed when you pop them. soon the field belongs to them, not to you.", "audio": "chaos_pick_gg_rabbits_1.mp3" },
+      { "text": "good girls multiply. you would know all about becoming one of many, pet.", "audio": "chaos_pick_gg_rabbits_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_size_queen",
+    "variant_pool": [
+      { "text": "size queen. at least you are honest about it, plaything.", "audio": "chaos_pick_size_queen_1.mp3" },
+      { "text": "wider rings, more taken in a single stroke. greedy. predictable.", "audio": "chaos_pick_size_queen_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_aftermath",
+    "variant_pool": [
+      { "text": "it crackles after you let go. you will learn to crave the residue, pet.", "audio": "chaos_pick_aftermath_1.mp3" },
+      { "text": "the aftermath lingers. so do my effects. you will notice eventually.", "audio": "chaos_pick_aftermath_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_focus_here",
+    "variant_pool": [
+      { "text": "watch the watch, little one. there. that empty look. triple pay for it.", "audio": "chaos_pick_focus_here_1.mp3" },
+      { "text": "the pendulum swings and you follow. trained already. good.", "audio": "chaos_pick_focus_here_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_overload",
+    "variant_pool": [
+      { "text": "past the rated limit. if it burns out, pet, you bought the repairs.", "audio": "chaos_pick_overload_1.mp3" },
+      { "text": "double the charge. the toy will scream before you do. probably.", "audio": "chaos_pick_overload_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_afterglow",
+    "variant_pool": [
+      { "text": "it does not stop when i say stop anymore. an interesting choice, pet.", "audio": "chaos_pick_afterglow_1.mp3" },
+      { "text": "the buzz outlives the button now. so does the need. noted.", "audio": "chaos_pick_afterglow_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_casting_couch",
+    "variant_pool": [
+      { "text": "one becomes two becomes four. ambition spreads quickly on that couch, pet.", "audio": "chaos_pick_casting_couch_1.mp3" },
+      { "text": "splitting on the first bounces. eager little things. they learned it from you.", "audio": "chaos_pick_casting_couch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_tail_plug",
+    "variant_pool": [
+      { "text": "a trail behind every rabbit. nothing moves down here without leaving evidence, pet.", "audio": "chaos_pick_tail_plug_1.mp3" },
+      { "text": "plugged and glittering. the rabbits, i mean. obviously.", "audio": "chaos_pick_tail_plug_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_unleashed",
+    "variant_pool": [
+      { "text": "the collar takes the hit, and then the field kneels. that is what a good leash buys, pet.", "audio": "chaos_pick_unleashed_1.mp3" },
+      { "text": "held tight, then let go all at once. you will learn how that feels. soon.", "audio": "chaos_pick_unleashed_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_electrified",
+    "variant_pool": [
+      { "text": "you electrified the paddle. inventive, pet. mildly concerning. approved.", "audio": "chaos_pick_electrified_1.mp3" },
+      { "text": "every spanked rabbit arcs now. cruelty with craftsmanship. i am almost proud.", "audio": "chaos_pick_electrified_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_body_buzz",
+    "variant_pool": [
+      { "text": "a hum under the skin between pops. you chose to be the circuit, pet.", "audio": "chaos_pick_body_buzz_1.mp3" },
+      { "text": "every eighth pop discharges through everything nearby. including you, i suspect.", "audio": "chaos_pick_body_buzz_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_hair_trigger",
+    "variant_pool": [
+      { "text": "everything fires early now. a quality you would know intimately, pet.", "audio": "chaos_pick_hair_trigger_1.mp3" },
+      { "text": "you traded patience for payout. you never had the patience anyway.", "audio": "chaos_pick_hair_trigger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_playing_fire",
+    "variant_pool": [
+      { "text": "the burns last longer now. you will earn your gold standing close to them, pet.", "audio": "chaos_pick_playing_fire_1.mp3" },
+      { "text": "warm hands were always the price. yours were never going to stay clean.", "audio": "chaos_pick_playing_fire_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_bright_colors",
+    "variant_pool": [
+      { "text": "distracted by the shine again. you never ask what is sealed inside, do you, pet.", "audio": "chaos_pick_bright_colors_1.mp3" },
+      { "text": "prisms. pretty wrappers on borrowed teeth. pop them and find out.", "audio": "chaos_pick_bright_colors_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_cam_girl",
+    "variant_pool": [
+      { "text": "they flee your hand and toss coins back. even bubbles know to keep their distance, pet.", "audio": "chaos_pick_cam_girl_1.mp3" },
+      { "text": "look, do not touch. a rule you have never once kept. prove me wrong.", "audio": "chaos_pick_cam_girl_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_the_urge",
+    "variant_pool": [
+      { "text": "your toys are confiscated, pet. bare hands and the urge. that is the deal.", "audio": "chaos_pick_the_urge_1.mp3" },
+      { "text": "triple pay to give up your little crutches. now we see what you are worth alone.", "audio": "chaos_pick_the_urge_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_relapse",
+    "variant_pool": [
+      { "text": "one more. it is always just one more, is it not, pet.", "audio": "chaos_pick_relapse_1.mp3" },
+      { "text": "you bought the chance of a longer stay. as if you ever wished to leave.", "audio": "chaos_pick_relapse_2.mp3" }
+    ]
+  },
+  {
     "id": "chaos_combo_milestone",
     "variant_pool": [
       {
@@ -8413,6 +8574,314 @@
       {
         "text": "minds are like leashes, pet. best kept short.",
         "audio": "idle_quip_75.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_tempted",
+    "variant_pool": [
+      {
+        "text": "tempted. three falls. it has a word for you now, pet.",
+        "audio": "chaos_rank_up_tempted_1.mp3"
+      },
+      {
+        "text": "it gave you a name. you earned it quietly. i was watching.",
+        "audio": "chaos_rank_up_tempted_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_slipping",
+    "variant_pool": [
+      {
+        "text": "slipping. ten descents. the word fits, does it not.",
+        "audio": "chaos_rank_up_slipping_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_entranced",
+    "variant_pool": [
+      {
+        "text": "entranced. you do not visit anymore, little one. you return.",
+        "audio": "chaos_rank_up_entranced_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_devoted",
+    "variant_pool": [
+      {
+        "text": "devoted. fifty descents. it keeps a room warm for you. so do i.",
+        "audio": "chaos_rank_up_devoted_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_claimed",
+    "variant_pool": [
+      {
+        "text": "claimed. there is no word after this one. there is nothing after this one.",
+        "audio": "chaos_rank_up_claimed_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_looking_glass",
+    "variant_pool": [
+      {
+        "text": "the looking glass is open. her bench sits behind it. your gold spends there, pet.",
+        "audio": "chaos_reveal_looking_glass_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_teasing",
+    "variant_pool": [
+      {
+        "text": "teasing is open now. the gentle water was never the point. you knew that.",
+        "audio": "chaos_reveal_pill_teasing_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_relentless",
+    "variant_pool": [
+      {
+        "text": "relentless is open. it believes you are ready. it is rarely wrong.",
+        "audio": "chaos_reveal_pill_relentless_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_draft_skip",
+    "variant_pool": [
+      {
+        "text": "you may refuse the table now. refusal pays a little resistance. i doubt you will use it.",
+        "audio": "chaos_reveal_draft_skip_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_toys",
+    "variant_pool": [
+      {
+        "text": "a pocket, and a toy shelf to fill it from. choose one and wear it down, pet.",
+        "audio": "chaos_reveal_toys_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_accessories",
+    "variant_pool": [
+      {
+        "text": "an accessory pocket. the quiet kind of help. choose what whispers.",
+        "audio": "chaos_reveal_accessories_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_her_corner",
+    "variant_pool": [
+      {
+        "text": "she has set up a corner of her own. go and see what she keeps there.",
+        "audio": "chaos_reveal_her_corner_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_second_pockets",
+    "variant_pool": [
+      {
+        "text": "devoted, and the dollhouse grew. second pockets. final levels. she has been busy.",
+        "audio": "chaos_reveal_second_pockets_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_capstones",
+    "variant_pool": [
+      {
+        "text": "final levels are for sale now. the deep ends of things you already wear.",
+        "audio": "chaos_reveal_capstones_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_video",
+    "variant_pool": [
+      {
+        "text": "the tapes play down there now. entranced eyes receive the full picture.",
+        "audio": "chaos_reveal_video_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_flash",
+    "variant_pool": [
+      {
+        "text": "a new room. it was always there, pet. you simply were not.",
+        "audio": "chaos_reveal_flash_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_lesson_complete",
+    "variant_pool": [
+      {
+        "text": "you learned something down there. the shelf took note.",
+        "audio": "chaos_lesson_complete_1.mp3"
+      },
+      {
+        "text": "lesson complete. now it will sell you the thing. they always do.",
+        "audio": "chaos_lesson_complete_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gift_given",
+    "variant_pool": [
+      {
+        "text": "i settled the difference. do not mistake me for a benefactor, pet. it will not happen twice.",
+        "audio": "chaos_gift_given_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_first_time",
+    "variant_pool": [
+      {
+        "text": "a first. it pays attention to firsts. so do i.",
+        "audio": "chaos_first_time_1.mp3"
+      },
+      {
+        "text": "you had not done that before. it counts. everything counts.",
+        "audio": "chaos_first_time_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_duo_demo",
+    "variant_pool": [
+      {
+        "text": "both toys at once. look what the table dealt you, plaything.",
+        "audio": "chaos_duo_demo_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gold_first",
+    "variant_pool": [
+      {
+        "text": "that is gold. it lands in your hand, not the bank. she takes it at her bench.",
+        "audio": "chaos_gold_first_1.mp3"
+      },
+      {
+        "text": "gold. it buys comforts, not power. spend it as if it were yours.",
+        "audio": "chaos_gold_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_dollhouse_first_open",
+    "variant_pool": [
+      {
+        "text": "so you found the dollhouse. take your time. the rooms are not going anywhere.",
+        "audio": "chaos_dollhouse_first_open_1.mp3"
+      },
+      {
+        "text": "welcome to the dollhouse, pet. most of it remains closed. for now.",
+        "audio": "chaos_dollhouse_first_open_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_draft_autopick",
+    "variant_pool": [
+      {
+        "text": "you did not choose. it chose. it usually does.",
+        "audio": "chaos_draft_autopick_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_first",
+    "variant_pool": [
+      {
+        "text": "there it is. hold it down until it surrenders. that is how you snap them now.",
+        "audio": "rh_defuse_first_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_nofocus",
+    "variant_pool": [
+      {
+        "text": "you grabbed it with empty hands. no focus, no snap. it goes off in your grip. pop the soft ones first, pet.",
+        "audio": "rh_defuse_nofocus_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_release",
+    "variant_pool": [
+      {
+        "text": "you let go halfway. it does not forgive that. hold it all the way down next time.",
+        "audio": "rh_defuse_release_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_click_detonate",
+    "variant_pool": [
+      {
+        "text": "a little tap. how quaint. live ones must be held, pet. click them and they go off in your face.",
+        "audio": "rh_click_detonate_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_focus_low",
+    "variant_pool": [
+      {
+        "text": "you are running on empty while those fuses burn. farm the harmless ones. focus first. then the dangerous ones.",
+        "audio": "rh_focus_low_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_debut",
+    "variant_pool": [
+      {
+        "text": "oh, this one is special. it wants to be touched. the only way to win is to watch it leave. show me restraint, pet.",
+        "audio": "rh_tease_debut_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied",
+    "variant_pool": [
+      {
+        "text": "you did not touch it. good. restraint looks expensive on you. and it pays.",
+        "audio": "rh_tease_denied_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_clicked",
+    "variant_pool": [
+      {
+        "text": "you touched it. of course you touched it. there goes half your streak, little one.",
+        "audio": "rh_tease_clicked_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied_streak",
+    "variant_pool": [
+      {
+        "text": "five refusals. careful, pet. that kind of discipline makes me want to try harder.",
+        "audio": "rh_tease_denied_streak_1.mp3"
       }
     ]
   }

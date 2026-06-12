@@ -6538,6 +6538,167 @@
     ]
   },
   {
+    "id": "chaos_pick_left_brain",
+    "variant_pool": [
+      { "text": "two more points of stubborn. adorable, sweetie. the left brain always loses the argument in the end.", "audio": "chaos_pick_left_brain_1.mp3" },
+      { "text": "reinforcements for the part that's still arguing... give it something to hold while it can.", "audio": "chaos_pick_left_brain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_snap_chain",
+    "variant_pool": [
+      { "text": "a heartbeat of grace after every snap. you'll learn to live inside it, sweetie.", "audio": "chaos_pick_snap_chain_1.mp3" },
+      { "text": "snap, breathe, snap. that little window is yours now. use it well.", "audio": "chaos_pick_snap_chain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_golden_touch",
+    "variant_pool": [
+      { "text": "a bonus, up front, no strings. suspicious, isn't it, lovely. take it anyway.", "audio": "chaos_pick_golden_touch_1.mp3" },
+      { "text": "free sweetness, just for saying yes. you'll get used to that.", "audio": "chaos_pick_golden_touch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_welcome_shower",
+    "variant_pool": [
+      { "text": "treats at the door, every single loop. she does spoil what she means to keep.", "audio": "chaos_pick_welcome_shower_1.mp3" },
+      { "text": "a warm rain of welcome every time you go back under. you'll start to expect it, sweetie.", "audio": "chaos_pick_welcome_shower_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_heavy_drop",
+    "variant_pool": [
+      { "text": "every tenth one comes down slow and heavy. you'll wait under it. i know you, sweetie.", "audio": "chaos_pick_heavy_drop_1.mp3" },
+      { "text": "a big slow giant, worth triple. some things are worth waiting under, lovely.", "audio": "chaos_pick_heavy_drop_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gold_digger",
+    "variant_pool": [
+      { "text": "droplets now, sweetie? you'd chase pennies off a cliff. it's part of your charm.", "audio": "chaos_pick_gold_digger_1.mp3" },
+      { "text": "golden ones burst into falling coins. watch your eyes follow them. i will.", "audio": "chaos_pick_gold_digger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gg_rabbits",
+    "variant_pool": [
+      { "text": "good girls multiply, lovely. that's not a warning. it's a promise.", "audio": "chaos_pick_gg_rabbits_1.mp3" },
+      { "text": "pop a treat, get three wild little helpers. the field is about to get very crowded.", "audio": "chaos_pick_gg_rabbits_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_size_queen",
+    "variant_pool": [
+      { "text": "of course you took size queen. don't look at me like that, sweetie.", "audio": "chaos_pick_size_queen_1.mp3" },
+      { "text": "every snap sends out a great wide ring now. bigger is a love language, after all.", "audio": "chaos_pick_size_queen_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_aftermath",
+    "variant_pool": [
+      { "text": "you like the part where you can still feel it after. noted, sweetie.", "audio": "chaos_pick_aftermath_1.mp3" },
+      { "text": "a last-second snap leaves the spot crackling. lingering. like a good touch should.", "audio": "chaos_pick_aftermath_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_focus_here",
+    "variant_pool": [
+      { "text": "watch the watch. there it is. everything else can wait, lovely.", "audio": "chaos_pick_focus_here_1.mp3" },
+      { "text": "when the pendulum swings, the whole world pays triple. eyes on it. only it.", "audio": "chaos_pick_focus_here_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_overload",
+    "variant_pool": [
+      { "text": "double the charge per press. the dial said no, sweetie, and you turned it anyway.", "audio": "chaos_pick_overload_1.mp3" },
+      { "text": "more than the dial was built for. more than you were built for too. we'll see.", "audio": "chaos_pick_overload_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_afterglow",
+    "variant_pool": [
+      { "text": "it lingers now, after the buzz ends. like you ever wanted it to stop.", "audio": "chaos_pick_afterglow_1.mp3" },
+      { "text": "a little more glow when it's over. savor the spillover, lovely.", "audio": "chaos_pick_afterglow_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_casting_couch",
+    "variant_pool": [
+      { "text": "one becomes two becomes four. everyone starts somewhere, sweetie.", "audio": "chaos_pick_casting_couch_1.mp3" },
+      { "text": "the logo multiplies on its first bounces. an audition that gets out of hand. classic.", "audio": "chaos_pick_casting_couch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_tail_plug",
+    "variant_pool": [
+      { "text": "now they leave a sparkling trail. you'll know exactly where they've been. so will i.", "audio": "chaos_pick_tail_plug_1.mp3" },
+      { "text": "every rabbit drags its little glitter wake. follow it, sweetie. you were going to anyway.", "audio": "chaos_pick_tail_plug_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_unleashed",
+    "variant_pool": [
+      { "text": "the collar holds until it doesn't. and when it lets go, sweetie... everything does.", "audio": "chaos_pick_unleashed_1.mp3" },
+      { "text": "held tight, then released all at once. that's the whole fantasy, isn't it.", "audio": "chaos_pick_unleashed_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_electrified",
+    "variant_pool": [
+      { "text": "you wired the paddle. of course you did, sweetie. of course you did.", "audio": "chaos_pick_electrified_1.mp3" },
+      { "text": "spank them and they spark. your two favorite hobbies, finally holding hands.", "audio": "chaos_pick_electrified_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_body_buzz",
+    "variant_pool": [
+      { "text": "it hums under your skin between pops now. you did this to yourself, lovely.", "audio": "chaos_pick_body_buzz_1.mp3" },
+      { "text": "one pop in eight rolls through the whole field. and through you, i'd wager.", "audio": "chaos_pick_body_buzz_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_hair_trigger",
+    "variant_pool": [
+      { "text": "everything goes off early now, sweetie. including you, i expect.", "audio": "chaos_pick_hair_trigger_1.mp3" },
+      { "text": "shorter fuses, sweeter payout. you never could stand the waiting anyway.", "audio": "chaos_pick_hair_trigger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_playing_fire",
+    "variant_pool": [
+      { "text": "longer burns, warmer coins. warm hands were always the price, lovely.", "audio": "chaos_pick_playing_fire_1.mp3" },
+      { "text": "the effects last longer now, and the brave little snaps pay gold. play carefully. or don't.", "audio": "chaos_pick_playing_fire_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_bright_colors",
+    "variant_pool": [
+      { "text": "so pretty you forgot to ask what's inside. you always forget, sweetie.", "audio": "chaos_pick_bright_colors_1.mp3" },
+      { "text": "prisms wearing borrowed faces. ten times the pay, and a surprise in every one.", "audio": "chaos_pick_bright_colors_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_cam_girl",
+    "variant_pool": [
+      { "text": "look, don't touch. tips appreciated. you'll touch anyway, won't you, sweetie.", "audio": "chaos_pick_cam_girl_1.mp3" },
+      { "text": "now they run from your cursor and pay for the privilege. a working girl's rules.", "audio": "chaos_pick_cam_girl_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_the_urge",
+    "variant_pool": [
+      { "text": "bare hands for the rest of the fall. that's the deal you wanted, lovely.", "audio": "chaos_pick_the_urge_1.mp3" },
+      { "text": "triple everything, and your toys go quiet. just you and the urge now, sweetie.", "audio": "chaos_pick_the_urge_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_relapse",
+    "variant_pool": [
+      { "text": "one more loop. it's always just one more with you, sweetie.", "audio": "chaos_pick_relapse_1.mp3" },
+      { "text": "the hole might keep you a little longer, and pay you double for the privilege. might.", "audio": "chaos_pick_relapse_2.mp3" }
+    ]
+  },
+  {
     "id": "chaos_combo_milestone",
     "variant_pool": [
       {
@@ -8386,6 +8547,314 @@
       {
         "text": "a mind is like silk, sweetie. lovelier loose.",
         "audio": "idle_quip_75.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_tempted",
+    "variant_pool": [
+      {
+        "text": "tempted. three falls, and the hole has a word for you now, sweetie.",
+        "audio": "chaos_rank_up_tempted_1.mp3"
+      },
+      {
+        "text": "it gave you a name. tempted. you earned it so quietly.",
+        "audio": "chaos_rank_up_tempted_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_slipping",
+    "variant_pool": [
+      {
+        "text": "slipping. ten times down. the word fits you, doesn't it, princess.",
+        "audio": "chaos_rank_up_slipping_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_entranced",
+    "variant_pool": [
+      {
+        "text": "entranced... you don't visit anymore, lovely. you return.",
+        "audio": "chaos_rank_up_entranced_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_devoted",
+    "variant_pool": [
+      {
+        "text": "devoted. fifty descents. it keeps a room warm for you now.",
+        "audio": "chaos_rank_up_devoted_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_claimed",
+    "variant_pool": [
+      {
+        "text": "claimed. there's no word after this one, sweetie. there doesn't need to be.",
+        "audio": "chaos_rank_up_claimed_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_looking_glass",
+    "variant_pool": [
+      {
+        "text": "the looking glass is open, sweetie. her bench waits behind it. your gold spends there.",
+        "audio": "chaos_reveal_looking_glass_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_teasing",
+    "variant_pool": [
+      {
+        "text": "teasing is open now. the gentle water was never the point, lovely.",
+        "audio": "chaos_reveal_pill_teasing_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_relentless",
+    "variant_pool": [
+      {
+        "text": "relentless is open. it thinks you're ready. it's usually right about you.",
+        "audio": "chaos_reveal_pill_relentless_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_draft_skip",
+    "variant_pool": [
+      {
+        "text": "you can refuse the table now. saying no pays a little resistance. use it... if you can.",
+        "audio": "chaos_reveal_draft_skip_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_toys",
+    "variant_pool": [
+      {
+        "text": "a pocket, and a toy shelf to fill it from. pick one and wear it down, sweetie.",
+        "audio": "chaos_reveal_toys_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_accessories",
+    "variant_pool": [
+      {
+        "text": "an accessory pocket. the quiet kind of help. choose whatever whispers to you.",
+        "audio": "chaos_reveal_accessories_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_her_corner",
+    "variant_pool": [
+      {
+        "text": "she set up a little corner of her own. go see what she left there for you.",
+        "audio": "chaos_reveal_her_corner_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_second_pockets",
+    "variant_pool": [
+      {
+        "text": "devoted, and the dollhouse grew. second pockets, final levels. she's been busy for you.",
+        "audio": "chaos_reveal_second_pockets_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_capstones",
+    "variant_pool": [
+      {
+        "text": "final levels are for sale now. the deep ends of things you already wear.",
+        "audio": "chaos_reveal_capstones_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_video",
+    "variant_pool": [
+      {
+        "text": "the tapes play down there now. entranced eyes get the full picture, sweetie.",
+        "audio": "chaos_reveal_video_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_flash",
+    "variant_pool": [
+      {
+        "text": "a new room. it was always there, lovely. you just weren't ready.",
+        "audio": "chaos_reveal_flash_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_lesson_complete",
+    "variant_pool": [
+      {
+        "text": "you learned something down there. the shelf noticed, sweetie.",
+        "audio": "chaos_lesson_complete_1.mp3"
+      },
+      {
+        "text": "lesson done. now it gets to sell you the thing.",
+        "audio": "chaos_lesson_complete_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gift_given",
+    "variant_pool": [
+      {
+        "text": "i covered the rest. don't go thinking i'm your sugar mommy or anything...",
+        "audio": "chaos_gift_given_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_first_time",
+    "variant_pool": [
+      {
+        "text": "a first. it pays attention to firsts, sweetie.",
+        "audio": "chaos_first_time_1.mp3"
+      },
+      {
+        "text": "you hadn't done that before. it counts. it always counts.",
+        "audio": "chaos_first_time_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_duo_demo",
+    "variant_pool": [
+      {
+        "text": "both toys at once. look what the table dealt you, lucky thing.",
+        "audio": "chaos_duo_demo_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gold_first",
+    "variant_pool": [
+      {
+        "text": "that's gold, sweetie. it lands in your hand, not the bank. she takes it at her bench.",
+        "audio": "chaos_gold_first_1.mp3"
+      },
+      {
+        "text": "gold. it buys comforts, not power. spend it like it's yours... while it is.",
+        "audio": "chaos_gold_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_dollhouse_first_open",
+    "variant_pool": [
+      {
+        "text": "so you found the dollhouse. take your time, sweetie. the rooms aren't going anywhere.",
+        "audio": "chaos_dollhouse_first_open_1.mp3"
+      },
+      {
+        "text": "welcome to the dollhouse. most of it is still closed. for now.",
+        "audio": "chaos_dollhouse_first_open_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_draft_autopick",
+    "variant_pool": [
+      {
+        "text": "you didn't choose, so it chose for you. it usually does, doesn't it.",
+        "audio": "chaos_draft_autopick_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_first",
+    "variant_pool": [
+      {
+        "text": "there it is. hold it down until it gives up. that's how you snap them now, sweetie.",
+        "audio": "rh_defuse_first_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_nofocus",
+    "variant_pool": [
+      {
+        "text": "you grabbed it with empty hands. no focus, no snap. pop the soft ones first, lovely.",
+        "audio": "rh_defuse_nofocus_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_release",
+    "variant_pool": [
+      {
+        "text": "you let go halfway. it doesn't forgive that. hold it all the way down next time.",
+        "audio": "rh_defuse_release_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_click_detonate",
+    "variant_pool": [
+      {
+        "text": "a little tap? cute. live ones want to be held, sweetie. click them and they go off in your face.",
+        "audio": "rh_click_detonate_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_focus_low",
+    "variant_pool": [
+      {
+        "text": "you're running on empty while those fuses burn. farm the treats, sweetie. focus first, then hands on the dangerous ones.",
+        "audio": "rh_focus_low_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_debut",
+    "variant_pool": [
+      {
+        "text": "oh, this one's special. it wants you to touch it. the only way to win is to watch it leave. think you can?",
+        "audio": "rh_tease_debut_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied",
+    "variant_pool": [
+      {
+        "text": "you didn't touch it. good girl. restraint looks expensive on you... and it pays.",
+        "audio": "rh_tease_denied_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_clicked",
+    "variant_pool": [
+      {
+        "text": "you touched it. of course you touched it. there goes half your streak, sweetie.",
+        "audio": "rh_tease_clicked_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied_streak",
+    "variant_pool": [
+      {
+        "text": "five times it asked, five times you said no. careful, princess. that kind of discipline makes me want to try harder.",
+        "audio": "rh_tease_denied_streak_1.mp3"
       }
     ]
   }

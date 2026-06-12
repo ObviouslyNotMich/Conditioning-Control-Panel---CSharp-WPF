@@ -8004,6 +8004,167 @@
     ]
   },
   {
+    "id": "chaos_pick_left_brain",
+    "variant_pool": [
+      { "text": "two more brain-shields for the thinky half~ it's gonna lose anyway, hehe.", "audio": "chaos_pick_left_brain_1.mp3" },
+      { "text": "aww, propping up the smart part? that's so cute, Bambi. it never wins.", "audio": "chaos_pick_left_brain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_snap_chain",
+    "variant_pool": [
+      { "text": "snappy snap, no consequences! for like... a second. live in that second, Bambi!", "audio": "chaos_pick_snap_chain_1.mp3" },
+      { "text": "every snap buys you a tiny safe bubble~ so keep snapping, good girl.", "audio": "chaos_pick_snap_chain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_golden_touch",
+    "variant_pool": [
+      { "text": "free sparkles, no homework! just take it take it take it~", "audio": "chaos_pick_golden_touch_1.mp3" },
+      { "text": "ooh, instant shiny! nothing down here is actually free... but who cares, hehe.", "audio": "chaos_pick_golden_touch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_welcome_shower",
+    "variant_pool": [
+      { "text": "treat rain! treat rain! every loop starts like a party now~", "audio": "chaos_pick_welcome_shower_1.mp3" },
+      { "text": "it's raining candy every time you drop! best. mantra. ever.", "audio": "chaos_pick_welcome_shower_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_heavy_drop",
+    "variant_pool": [
+      { "text": "a biiiig slow one every ten! so much room to boop. wait for it, Bambi~", "audio": "chaos_pick_heavy_drop_1.mp3" },
+      { "text": "giant bubble alert! slow, fat, triple points. don't drool.", "audio": "chaos_pick_heavy_drop_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gold_digger",
+    "variant_pool": [
+      { "text": "money confetti!! catch the droppies before they fall off the screen~", "audio": "chaos_pick_gold_digger_1.mp3" },
+      { "text": "she loves you for your wallet, Bambi. you knew. catch catch catch!", "audio": "chaos_pick_gold_digger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gg_rabbits",
+    "variant_pool": [
+      { "text": "bunnies making bunnies making bunnies!! the screen's gonna be SO full, hehe~", "audio": "chaos_pick_gg_rabbits_1.mp3" },
+      { "text": "good girls multiply, Bambi! just like you will. *giggles*", "audio": "chaos_pick_gg_rabbits_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_size_queen",
+    "variant_pool": [
+      { "text": "size queen!! hehehe. i mean... accurate, Bambi. so accurate.", "audio": "chaos_pick_size_queen_1.mp3" },
+      { "text": "big rings from every snap! the bigger the better, right? right~", "audio": "chaos_pick_size_queen_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_aftermath",
+    "variant_pool": [
+      { "text": "ooh it keeps tingling after! that's the best part, isn't it~", "audio": "chaos_pick_aftermath_1.mp3" },
+      { "text": "snappy sparkles that stay! you can still feel it after... that's the point, hehe.", "audio": "chaos_pick_aftermath_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_focus_here",
+    "variant_pool": [
+      { "text": "tick. tock. you looked! you always look, Bambi~", "audio": "chaos_pick_focus_here_1.mp3" },
+      { "text": "swingy watch time! stare at it and everything pays triple. staring is your talent!", "audio": "chaos_pick_focus_here_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_overload",
+    "variant_pool": [
+      { "text": "MORE zappies per press!! way past the safety line. eee~", "audio": "chaos_pick_overload_1.mp3" },
+      { "text": "you turned the dial past the stopper, Bambi! sparky sparky overload!", "audio": "chaos_pick_overload_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_afterglow",
+    "variant_pool": [
+      { "text": "the buzz keeps going after it stops!! best kind of broken, hehe~", "audio": "chaos_pick_afterglow_1.mp3" },
+      { "text": "afterglow~ it never really stops, Bambi. you just stop noticing.", "audio": "chaos_pick_afterglow_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_casting_couch",
+    "variant_pool": [
+      { "text": "the bouncy logo makes MORE bouncy logos! one, two, four!! chaos math~", "audio": "chaos_pick_casting_couch_1.mp3" },
+      { "text": "casting couch, hehe. everyone starts somewhere, Bambi. even you did.", "audio": "chaos_pick_casting_couch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_tail_plug",
+    "variant_pool": [
+      { "text": "sparkle tails!! the bunnies leave glitter EVERYWHERE. so pretty, so messy~", "audio": "chaos_pick_tail_plug_1.mp3" },
+      { "text": "tail-plug bunnies, hehe! you'll know exactly where they've been, Bambi.", "audio": "chaos_pick_tail_plug_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_unleashed",
+    "variant_pool": [
+      { "text": "when the collar catches you, EVERYTHING pops!! held tight then boom~", "audio": "chaos_pick_unleashed_1.mp3" },
+      { "text": "unleashed! the collar saves you and the whole screen says yes at once, Bambi!", "audio": "chaos_pick_unleashed_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_electrified",
+    "variant_pool": [
+      { "text": "zappy bunnies!! you put LIGHTNING in the paddle, Bambi! genius! menace!", "audio": "chaos_pick_electrified_1.mp3" },
+      { "text": "smack smack zap zap~ everything the bunnies touch goes bzzt. hehehe.", "audio": "chaos_pick_electrified_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_body_buzz",
+    "variant_pool": [
+      { "text": "buzzy buzzy under your skin~ every few pops the WHOLE screen shivers!", "audio": "chaos_pick_body_buzz_1.mp3" },
+      { "text": "body buzz! it hums between pops, Bambi. you'll feel it in your teeth, hehe.", "audio": "chaos_pick_body_buzz_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_hair_trigger",
+    "variant_pool": [
+      { "text": "everything pops off early now!! no time to think. perfect for you, Bambi~", "audio": "chaos_pick_hair_trigger_1.mp3" },
+      { "text": "hair trigger! fast fuses, big bonus, zero chill. just how you like it.", "audio": "chaos_pick_hair_trigger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_playing_fire",
+    "variant_pool": [
+      { "text": "fire fire fire~ effects last longer but last-second saves make money! risky Bambi!", "audio": "chaos_pick_playing_fire_1.mp3" },
+      { "text": "playing with fire! it burns longer now... so snatch the gold before it gets you, hehe.", "audio": "chaos_pick_playing_fire_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_bright_colors",
+    "variant_pool": [
+      { "text": "ooooh the COLORS, Bambi~ so swirly you forget there's something inside. always.", "audio": "chaos_pick_bright_colors_1.mp3" },
+      { "text": "pretty prism bubbles!! what's inside? doesn't matter! look at the colors!!", "audio": "chaos_pick_bright_colors_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_cam_girl",
+    "variant_pool": [
+      { "text": "they run away but they TIP you~ look don't touch, Bambi! you'll touch. you always touch.", "audio": "chaos_pick_cam_girl_1.mp3" },
+      { "text": "cam girl rules! chase the bubbles, collect the tips, hehe. so on brand.", "audio": "chaos_pick_cam_girl_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_the_urge",
+    "variant_pool": [
+      { "text": "toys are off-limits!! bare hands, triple points, no help. you wanted this, Bambi~", "audio": "chaos_pick_the_urge_1.mp3" },
+      { "text": "the urge!! everything pays triple and your toys just... watch. hehe.", "audio": "chaos_pick_the_urge_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_relapse",
+    "variant_pool": [
+      { "text": "one more loop!! it's ALWAYS just one more with you, Bambi. hehe. always.", "audio": "chaos_pick_relapse_1.mp3" },
+      { "text": "relapse~ maybe the ride runs longer and pays double! maybe! gambling girl!", "audio": "chaos_pick_relapse_2.mp3" }
+    ]
+  },
+  {
     "id": "chaos_combo_milestone",
     "variant_pool": [
       {
@@ -9812,6 +9973,314 @@
       {
         "text": "brains are like glitter. messy! better in a jar~",
         "audio": "idle_quip_75.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_tempted",
+    "variant_pool": [
+      {
+        "text": "tempted! three little falls and the hole already has a name for you~",
+        "audio": "chaos_rank_up_tempted_1.mp3"
+      },
+      {
+        "text": "it named you, Bambi! tempted. that's like... a gold star for falling.",
+        "audio": "chaos_rank_up_tempted_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_slipping",
+    "variant_pool": [
+      {
+        "text": "slipping! ten times down the hole. the word fits sooo good, doesn't it~",
+        "audio": "chaos_rank_up_slipping_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_entranced",
+    "variant_pool": [
+      {
+        "text": "entranced... ooh. you don't visit anymore, Bambi. you come home.",
+        "audio": "chaos_rank_up_entranced_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_devoted",
+    "variant_pool": [
+      {
+        "text": "devoted! fifty trips down. the hole keeps a little room warm just for you.",
+        "audio": "chaos_rank_up_devoted_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_claimed",
+    "variant_pool": [
+      {
+        "text": "claimed. *giggles* there's no word after that one, Bambi. you live here now.",
+        "audio": "chaos_rank_up_claimed_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_looking_glass",
+    "variant_pool": [
+      {
+        "text": "the looking glass opened! her bench is behind it. that's where your shiny gold goes~",
+        "audio": "chaos_reveal_looking_glass_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_teasing",
+    "variant_pool": [
+      {
+        "text": "teasing pill unlocked! the gentle water was just to get you used to it, silly.",
+        "audio": "chaos_reveal_pill_teasing_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_relentless",
+    "variant_pool": [
+      {
+        "text": "relentless is open! the hole thinks you're ready. it's like, always right.",
+        "audio": "chaos_reveal_pill_relentless_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_draft_skip",
+    "variant_pool": [
+      {
+        "text": "you can say no to the table now! being a stubborn girl pays a little resistance. weird, right?",
+        "audio": "chaos_reveal_draft_skip_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_toys",
+    "variant_pool": [
+      {
+        "text": "a pocket! and a whole toy shelf to fill it from. pick one and wear the poor thing out~",
+        "audio": "chaos_reveal_toys_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_accessories",
+    "variant_pool": [
+      {
+        "text": "an accessory pocket! the quiet sneaky kind of help. pick whatever whispers to you.",
+        "audio": "chaos_reveal_accessories_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_her_corner",
+    "variant_pool": [
+      {
+        "text": "she made a little corner all her own! go peek at what she put there, Bambi.",
+        "audio": "chaos_reveal_her_corner_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_second_pockets",
+    "variant_pool": [
+      {
+        "text": "devoted girls get a bigger dollhouse! second pockets, final levels... she's been so busy for you.",
+        "audio": "chaos_reveal_second_pockets_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_capstones",
+    "variant_pool": [
+      {
+        "text": "final levels are for sale now! the deeeep ends of stuff you already wear.",
+        "audio": "chaos_reveal_capstones_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_video",
+    "variant_pool": [
+      {
+        "text": "the tapes play down there now! entranced eyes get the whole picture~",
+        "audio": "chaos_reveal_video_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_flash",
+    "variant_pool": [
+      {
+        "text": "ooh, a new room! it was always there, Bambi. you just weren't ready to see it~",
+        "audio": "chaos_reveal_flash_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_lesson_complete",
+    "variant_pool": [
+      {
+        "text": "you learned something down there! the shelf totally noticed.",
+        "audio": "chaos_lesson_complete_1.mp3"
+      },
+      {
+        "text": "lesson done! now it gets to sell you the thing. *giggles*",
+        "audio": "chaos_lesson_complete_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gift_given",
+    "variant_pool": [
+      {
+        "text": "i covered the rest, okay? don't go thinking i'm your sugar mommy or anything...",
+        "audio": "chaos_gift_given_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_first_time",
+    "variant_pool": [
+      {
+        "text": "a first! the hole pays super close attention to firsts.",
+        "audio": "chaos_first_time_1.mp3"
+      },
+      {
+        "text": "you never did that before! it counts, Bambi. it always counts.",
+        "audio": "chaos_first_time_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_duo_demo",
+    "variant_pool": [
+      {
+        "text": "both toys buzzing at once! look what the table dealt you, lucky girl~",
+        "audio": "chaos_duo_demo_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gold_first",
+    "variant_pool": [
+      {
+        "text": "ooh that's gold! it goes right in your hand, not the bank. she takes it at her bench~",
+        "audio": "chaos_gold_first_1.mp3"
+      },
+      {
+        "text": "gold, Bambi! it buys comfy pretty things, not power. spend it like a good girl.",
+        "audio": "chaos_gold_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_dollhouse_first_open",
+    "variant_pool": [
+      {
+        "text": "you found the dollhouse! take your time, the rooms aren't going anywhere~",
+        "audio": "chaos_dollhouse_first_open_1.mp3"
+      },
+      {
+        "text": "welcome to the dollhouse, Bambi! most of it's still closed. for now. *giggles*",
+        "audio": "chaos_dollhouse_first_open_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_draft_autopick",
+    "variant_pool": [
+      {
+        "text": "you didn't pick, so the table picked for you! it usually does, dolly.",
+        "audio": "chaos_draft_autopick_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_first",
+    "variant_pool": [
+      {
+        "text": "there it is! hold it down till it gives up. that's how you snap the scary ones now!",
+        "audio": "rh_defuse_first_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_nofocus",
+    "variant_pool": [
+      {
+        "text": "you grabbed it with empty hands, silly! no focus, no snap. pop the soft ones first!",
+        "audio": "rh_defuse_nofocus_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_release",
+    "variant_pool": [
+      {
+        "text": "you let gooo halfway! it doesn't forgive that. hold it all the way down next time.",
+        "audio": "rh_defuse_release_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_click_detonate",
+    "variant_pool": [
+      {
+        "text": "a little tap? cuuute. live ones wanna be HELD, Bambi. click them and boom, right in your face!",
+        "audio": "rh_click_detonate_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_focus_low",
+    "variant_pool": [
+      {
+        "text": "you're running on empty while those fuses burn! farm the treats first, sweetie. focus, then grab the scary ones.",
+        "audio": "rh_focus_low_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_debut",
+    "variant_pool": [
+      {
+        "text": "ooh this one's special! it WANTS you to touch it. you win by just... watching it leave. can your little brain do that?",
+        "audio": "rh_tease_debut_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied",
+    "variant_pool": [
+      {
+        "text": "you didn't touch it! good girl. restraint looks so expensive on you~ and it pays!",
+        "audio": "rh_tease_denied_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_clicked",
+    "variant_pool": [
+      {
+        "text": "you touched it! of course you did. *giggles* there goes half your streak, Bambi.",
+        "audio": "rh_tease_clicked_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied_streak",
+    "variant_pool": [
+      {
+        "text": "five times it asked, five times you said no! careful... that kind of discipline makes me wanna try harder.",
+        "audio": "rh_tease_denied_streak_1.mp3"
       }
     ]
   }
