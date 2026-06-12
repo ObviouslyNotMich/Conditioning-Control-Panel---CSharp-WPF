@@ -12154,6 +12154,21 @@ namespace ConditioningControlPanel
         {
             if (TxtOpenAiHealthStatus == null) return;
 
+            // Flush any pending text box edits to settings before testing. The text boxes
+            // normally persist on LostFocus, but clicking the test button does not always
+            // move focus in time, so the service would otherwise read stale/empty values.
+            // The API key is left alone — it is already saved on PasswordChanged, and the
+            // PasswordBox is not pre-populated, so re-reading it here could wipe a saved key.
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s != null)
+            {
+                if (TxtOpenAiEndpoint != null)
+                    s.OpenAiCompatibleEndpoint = (TxtOpenAiEndpoint.Text ?? string.Empty).Trim();
+                if (TxtOpenAiModel != null)
+                    s.OpenAiCompatibleModel = (TxtOpenAiModel.Text ?? string.Empty).Trim();
+                App.Settings.Save();
+            }
+
             TxtOpenAiHealthStatus.Text = Loc.Get("label_status_testing");
             TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Gray);
 
