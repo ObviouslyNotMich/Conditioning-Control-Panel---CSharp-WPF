@@ -13,7 +13,11 @@ public enum ChaosMotion
     /// <summary>Falls from the top and exits the bottom.</summary>
     RainDown,
     /// <summary>Drifts and bounces off the screen edges; never exits on its own.</summary>
-    RoamBounce
+    RoamBounce,
+    /// <summary>Slides in from a random side edge, crosses horizontally (with the shared
+    /// vertical wobble) and exits the far side. Rolled in as a slice of the vertical
+    /// travellers so the field isn't a bottom-camp shooting gallery.</summary>
+    SideDrift
 }
 
 /// <summary>
@@ -318,10 +322,13 @@ public static class ChaosBubbleVariants
     /// Popping it pays 10x — and fires the copied variant's payload (the sin). The copied
     /// bubble's sprite ghosts out underneath as it pops (the "shadow pop", BubbleService).
     /// Video is excluded from the mimic pool — a surprise fullscreen tape is too much hijack.
+    /// <paramref name="treatOnly"/> (shielded bright_colors): only TREAT looks go in the pool,
+    /// so the x10 pay stays but nothing live is ever sealed inside.
     /// </summary>
-    public static EffectBubbleSpec BuildPrism(double intensity, double effectIntensity = 1.0)
+    public static EffectBubbleSpec BuildPrism(double intensity, double effectIntensity = 1.0, bool treatOnly = false)
     {
-        var pool = All.Where(v => v.Id != "video" && v.PayloadKind != EffectBubblePayloadKind.BambiFreeze).ToList();
+        var pool = All.Where(v => v.Id != "video" && v.PayloadKind != EffectBubblePayloadKind.BambiFreeze
+                                  && (!treatOnly || !v.IsLive)).ToList();
         var mimic = pool[_rng.Next(pool.Count)];
         double size = PRISM_SIZE_MIN + (PRISM_SIZE_MAX - PRISM_SIZE_MIN) * _rng.NextDouble();
         int strength = (int)Math.Round(Math.Clamp((size - SizeMinGlobal) / (SizeMaxGlobal - SizeMinGlobal), 0, 1) * 100);
@@ -634,7 +641,8 @@ public static class ChaosBubbleVariants
     {
         new("Balanced",   AllIds()),
         new("Tease",      new() { "flash", "subliminal", "pink", "spiral", "bambifreeze" }),
-        new("Overload",   AllIds()),
+        // ("Overload" preset removed 2026-06-12: its list was identical to Balanced — a
+        //  scarier-sounding button that changed nothing.)
         new("Flash-only", new() { "flash", "subliminal" }),
     };
 
@@ -673,7 +681,7 @@ public static class ChaosBubbleVariants
     /// </summary>
     public static EffectBubbleSpec Pick(double intensity, double fuseTimeMult = 1.0, ChaosMotion? motionOverride = null,
                                         IReadOnlyCollection<string>? enabledIds = null, double effectIntensity = 1.0,
-                                        double sizeScale = 1.0)
+                                        double sizeScale = 1.0, double sideDriftChance = 0.0)
     {
         var pool = All.Where(v => intensity >= v.MinIntensity && v.Weight > 0
                                   && (enabledIds == null || enabledIds.Contains(v.Id))).ToList();
@@ -691,7 +699,7 @@ public static class ChaosBubbleVariants
             if (roll <= 0) { variant = v; break; }
         }
 
-        return Build(variant, intensity, fuseTimeMult, motionOverride, effectIntensity, sizeScale);
+        return Build(variant, intensity, fuseTimeMult, motionOverride, effectIntensity, sizeScale, sideDriftChance);
     }
 
     /// <summary>Global field shrink (2026-06-10): every variant bubble renders 25% smaller than
@@ -702,7 +710,7 @@ public static class ChaosBubbleVariants
 
     public static EffectBubbleSpec Build(ChaosBubbleVariant variant, double intensity, double fuseTimeMult = 1.0,
                                          ChaosMotion? motionOverride = null, double effectIntensity = 1.0,
-                                         double sizeScale = 1.0)
+                                         double sizeScale = 1.0, double sideDriftChance = 0.0)
     {
         // Size: random across the band, nudged upward by run intensity. Strength is keyed to
         // the CLASSIC (unscaled) size so visual sizing never weakens payloads or scoring.
@@ -723,6 +731,11 @@ public static class ChaosBubbleVariants
         var motion = motionOverride ?? variant.Motion;
         bool isFreezeVariant = variant.PayloadKind == EffectBubblePayloadKind.BambiFreeze;
         if (isFreezeVariant && motion == ChaosMotion.RoamBounce) motion = ChaosMotion.FloatUp;
+        // Entry variety: on Mixed motion, a slice of the vertical travellers swap to drifting
+        // in from a side edge instead (SideDrift exits on its own, so freeze stays legal).
+        if (motionOverride == null && motion != ChaosMotion.RoamBounce
+            && sideDriftChance > 0 && _rng.NextDouble() < sideDriftChance)
+            motion = ChaosMotion.SideDrift;
 
         int fuse = 0;
         if (variant.IsLive)

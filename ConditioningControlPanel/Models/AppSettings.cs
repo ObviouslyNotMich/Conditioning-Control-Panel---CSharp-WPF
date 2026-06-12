@@ -2020,12 +2020,9 @@ namespace ConditioningControlPanel.Models
             get => _chaosMotionMode;
             set { _chaosMotionMode = value; OnPropertyChanged(); }
         }
-        private int _chaosStartingShields = 3;
-        public int ChaosStartingShields
-        {
-            get => _chaosStartingShields;
-            set { _chaosStartingShields = Math.Clamp(value, 0, 5); OnPropertyChanged(); }
-        }
+        // (ChaosStartingShields removed 2026-06-12: orphan since the 2026-06-10 resistance
+        //  redesign — base is 0, only the start_resistance charm grants any. Its stale
+        //  default of 3 was one accidental UI binding away from undoing that redesign.)
         private int _chaosWaveCount = 5;
         public int ChaosWaveCount
         {

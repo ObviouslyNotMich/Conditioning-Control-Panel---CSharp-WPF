@@ -128,6 +128,11 @@ public static class ChaosLessonHooks
     /// <summary>A white rabbit (darter) was caught.</summary>
     public static void OnRabbitCaught() => Safe(() => ChaosLessons.Tick("rabbit_caller"));
 
+    /// <summary>A rabbit took its FIRST smack (the Spanker equipped). Counts toward rabbit_caller:
+    /// with the Spanker on, rabbits can't be caught at all, and it's the scripted first accessory —
+    /// without this tick the lesson was unprovable for exactly the players being onboarded.</summary>
+    public static void OnRabbitSpanked() => Safe(() => ChaosLessons.Tick("rabbit_caller"));
+
     /// <summary>A freeze bubble was caught (the pickup, not the Freeze Trigger toy).</summary>
     public static void OnFreezeCaught() => Safe(() => ChaosLessons.Tick("freeze_trigger"));
 

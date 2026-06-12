@@ -110,6 +110,7 @@
     </Window.Resources>
 
     <Border CornerRadius="16" Background="{StaticResource Bg}" BorderBrush="{StaticResource Pink}" BorderThickness="2">
+        <Grid>
         <Grid Margin="22">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -120,37 +121,45 @@
 
             <!-- top bar -->
             <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent" Margin="0,0,0,14">
-                <Image x:Name="BannerImage" Stretch="UniformToFill" Opacity="0.30" Visibility="Collapsed"/>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="🐇 DOWN THE RABBIT HOLE" Foreground="White" FontSize="22" FontWeight="Bold">
-                        <TextBlock.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/></TextBlock.Effect>
-                    </TextBlock>
-                    <TextBlock Text="the dollhouse" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
+                <!-- Right-aligned decoration: Uniform keeps the art's full height visible at any
+                     window width (UniformToFill was eating the subject's bottom on wide bars);
+                     MaxHeight still guards the auto-sized title row against tall files. -->
+                <Image x:Name="BannerImage" Stretch="Uniform" HorizontalAlignment="Right"
+                       Opacity="0.30" Visibility="Collapsed" MaxHeight="120"/>
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🐇 DOWN THE RABBIT HOLE" Foreground="White" FontSize="22" FontWeight="Bold">
+                            <TextBlock.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/></TextBlock.Effect>
+                        </TextBlock>
+                        <TextBlock Text="the dollhouse" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
+                    </StackPanel>
+                    <!-- rank / drops / gold under the title, left side — the banner art owns the right -->
+                    <StackPanel Orientation="Horizontal" Margin="2,10,0,0">
+                        <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="RANK" Foreground="{StaticResource TextMut}" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="TxtRank" Text="Curious" Foreground="White" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="✦" Foreground="{StaticResource Purple}" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="TxtSparks" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="drops" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🪙" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="TxtGold" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="gold" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="RANK" Foreground="{StaticResource TextMut}" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock x:Name="TxtRank" Text="Curious" Foreground="White" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-                    <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="✦" Foreground="{StaticResource Purple}" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock x:Name="TxtSparks" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text="drops" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
-                        </StackPanel>
-                    </Border>
-                    <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🪙" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock x:Name="TxtGold" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text="gold" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
-                        </StackPanel>
-                    </Border>
-                    <Button x:Name="BtnCloseX" Content="✕" Click="BtnClose_Click"
-                            Width="28" Height="28" Background="#22FFFFFF" Foreground="White" BorderThickness="0" Cursor="Hand"/>
-                </StackPanel>
+                <Button x:Name="BtnCloseX" Content="✕" Click="BtnClose_Click"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Width="28" Height="28" Background="#22FFFFFF" Foreground="White" BorderThickness="0" Cursor="Hand"/>
             </Grid>
 
             <!-- tabs: BAG (glance: pockets + collections), the Toybox (toy/accessory/habit shop),
@@ -164,6 +173,12 @@
 
             <!-- content -->
             <Grid Grid.Row="2">
+
+                <!-- Faint dressing flourish behind every tab (assets/Chaos/hub/backdrop.png,
+                     loaded in LoadBanner; absent file = collapsed, the void returns). -->
+                <Image x:Name="HubBackdrop" Stretch="Uniform" MaxWidth="430" MaxHeight="430"
+                       HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,4"
+                       Opacity="0.12" IsHitTestVisible="False" Visibility="Collapsed"/>
 
                 <!-- BAG: the glance page (pockets up top, then the whole collection as tiles) -->
                 <ScrollViewer x:Name="PanelLoadout" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
@@ -286,58 +301,15 @@
 
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="BUBBLE POOL — what can drop" Style="{StaticResource SectionHdr}"/>
-                                <WrapPanel x:Name="GrpPool">
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="flash" Content="Flash" Margin="0,0,6,6"/>
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="subliminal" Content="Subliminal" Margin="0,0,6,6"/>
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="pink" Content="Pink Filter" Margin="0,0,6,6"/>
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="spiral" Content="Spiral" Margin="0,0,6,6"/>
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="braindrain" Content="BrainDrain" Margin="0,0,6,6"/>
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="bambifreeze" Content="Bambi Freeze" Margin="0,0,6,6"/>
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="video" Content="Video" Margin="0,0,6,6"/>
-                                    <ToggleButton Style="{StaticResource Seg}" Tag="htlink" Content="Gif Rain" Margin="0,0,6,6"/>
-                                </WrapPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                    <TextBlock Text="presets:" Foreground="{StaticResource TextMut}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <Button Content="Balanced" Tag="Balanced" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
-                                    <Button Content="Tease" Tag="Tease" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
-                                    <Button Content="Overload" Tag="Overload" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
-                                    <Button Content="Flash-only" Tag="Flash-only" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4"/>
-                                </StackPanel>
-                                <CheckBox x:Name="ChkDarters" Style="{StaticResource Chk}" Content="White rabbits (fast bonus catch targets)" Margin="0,12,0,0"/>
+                                <TextBlock Text="SENSATION" Style="{StaticResource SectionHdr}"/>
+                                <CheckBox x:Name="ChkShake" Style="{StaticResource Chk}" Content="Screen shake"/>
+                                <Slider x:Name="SldShake" Minimum="0" Maximum="1" Margin="0,0,0,6"/>
+                                <CheckBox x:Name="ChkFlashes" Style="{StaticResource Chk}" Content="Color flashes"/>
+                                <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
+                                <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
+                                <CheckBox x:Name="ChkAnnouncer" Style="{StaticResource Chk}" Content="Announcements" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,6,12">
-                                <StackPanel>
-                                    <TextBlock Text="SENSATION" Style="{StaticResource SectionHdr}"/>
-                                    <CheckBox x:Name="ChkShake" Style="{StaticResource Chk}" Content="Screen shake"/>
-                                    <Slider x:Name="SldShake" Minimum="0" Maximum="1" Margin="0,0,0,6"/>
-                                    <CheckBox x:Name="ChkFlashes" Style="{StaticResource Chk}" Content="Color flashes"/>
-                                    <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
-                                    <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
-                                    <CheckBox x:Name="ChkAnnouncer" Style="{StaticResource Chk}" Content="Announcements" Margin="0,8,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="6,0,0,12">
-                                <StackPanel>
-                                    <TextBlock Text="MANTRAS" Style="{StaticResource SectionHdr}"/>
-                                    <CheckBox x:Name="ChkBoonDraft" Style="{StaticResource Chk}" Content="Mantra draft between loops"/>
-                                    <CheckBox x:Name="ChkCurses" Style="{StaticResource Chk}" Content="Allow sins"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <TextBlock Text="Loops" Foreground="{StaticResource TextDim}" FontSize="12" VerticalAlignment="Center" Width="50"/>
-                                        <Button Style="{StaticResource Stepper}" Content="−" Tag="waves-" Click="Stepper_Click"/>
-                                        <TextBlock x:Name="TxtWaves" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
-                                        <Button Style="{StaticResource Stepper}" Content="+" Tag="waves+" Click="Stepper_Click"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
 
                         <Border x:Name="CardKeybinds" Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -355,10 +327,55 @@
                             </StackPanel>
                         </Border>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <Button Content="↻ Randomize" Click="BtnRandomize_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="12,8" Margin="0,0,8,0"/>
-                            <Button Content="Defaults" Click="BtnDefaults_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="12,8"/>
-                        </StackPanel>
+                        <!-- TESTING OPTIONS: dev/test knobs the descent normally tunes itself
+                             (bubble pool, mantra/sin toggles, loop count). Collapsed by default
+                             so the casual read is just difficulty + length + feel. -->
+                        <ToggleButton x:Name="TglTesting" Style="{StaticResource Seg}" Content="🧪 testing options ▸"
+                                      Click="TestingToggle_Click" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+                        <StackPanel x:Name="TestingBody" Visibility="Collapsed">
+
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="BUBBLE POOL — what can drop" Style="{StaticResource SectionHdr}"/>
+                                    <WrapPanel x:Name="GrpPool">
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="flash" Content="Flash" Margin="0,0,6,6"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="subliminal" Content="Subliminal" Margin="0,0,6,6"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="pink" Content="Pink Filter" Margin="0,0,6,6"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="spiral" Content="Spiral" Margin="0,0,6,6"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="braindrain" Content="BrainDrain" Margin="0,0,6,6"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="bambifreeze" Content="Bambi Freeze" Margin="0,0,6,6"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="video" Content="Video" Margin="0,0,6,6"/>
+                                        <ToggleButton Style="{StaticResource Seg}" Tag="htlink" Content="Gif Rain" Margin="0,0,6,6"/>
+                                    </WrapPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <TextBlock Text="presets:" Foreground="{StaticResource TextMut}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Button Content="Balanced" Tag="Balanced" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
+                                        <Button Content="Tease" Tag="Tease" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4" Margin="0,0,6,0"/>
+                                        <Button Content="Flash-only" Tag="Flash-only" Click="Preset_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="10,4"/>
+                                    </StackPanel>
+                                    <CheckBox x:Name="ChkDarters" Style="{StaticResource Chk}" Content="White rabbits (fast bonus catch targets)" Margin="0,12,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="MANTRAS &amp; LOOPS" Style="{StaticResource SectionHdr}"/>
+                                    <CheckBox x:Name="ChkBoonDraft" Style="{StaticResource Chk}" Content="Mantra draft between loops"/>
+                                    <CheckBox x:Name="ChkCurses" Style="{StaticResource Chk}" Content="Allow sins"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <TextBlock Text="Loops" Foreground="{StaticResource TextDim}" FontSize="12" VerticalAlignment="Center" Width="50"/>
+                                        <Button Style="{StaticResource Stepper}" Content="−" Tag="waves-" Click="Stepper_Click"/>
+                                        <TextBlock x:Name="TxtWaves" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
+                                        <Button Style="{StaticResource Stepper}" Content="+" Tag="waves+" Click="Stepper_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Button Content="↻ Randomize" Click="BtnRandomize_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="12,8" Margin="0,0,8,0"/>
+                                <Button Content="Defaults" Click="BtnDefaults_Click" Style="{StaticResource Stepper}" Width="Auto" Padding="12,8"/>
+                            </StackPanel>
+                        </StackPanel><!-- /TestingBody -->
                         </StackPanel><!-- /SetupBody -->
                     </StackPanel>
                 </ScrollViewer>
@@ -456,6 +473,9 @@
                     </Button.Resources>
                 </Button>
             </Grid>
+        </Grid>
+        <!-- unlock cards float top-center over everything; never blocks clicks (shopping continues under it) -->
+        <Grid x:Name="UnlockCardLayer" IsHitTestVisible="False"/>
         </Grid>
     </Border>
 </Window>

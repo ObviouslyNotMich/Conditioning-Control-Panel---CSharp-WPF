@@ -24,6 +24,7 @@ public sealed class ChaosSidebarBoon
     public string Name { get; init; } = "";
     public int Level { get; init; }
     public string Desc { get; init; } = "";
+    public string Flavor { get; init; } = "";
     /// <summary>Capstone line for the hover card (gold). Empty = hidden.</summary>
     public string Extra { get; init; } = "";
     public bool IsCurse { get; init; }
@@ -41,6 +42,7 @@ public sealed class ChaosSidebarBoon
     public string TipTitle => Level > 0 ? $"{Name} · L{Level}" : Name;
     public Visibility LevelBadgeVisibility => Level > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility DescVisibility => string.IsNullOrEmpty(Desc) ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility FlavorVisibility => string.IsNullOrEmpty(Flavor) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility ExtraVisibility => string.IsNullOrEmpty(Extra) ? Visibility.Collapsed : Visibility.Visible;
     public Brush AccentBrush => IsEmptySlot ? EmptyAccent : IsModifier ? ModAccent : IsCurse ? CurseAccent : Level > 0 ? PocketAccent : BoonAccent;
     public Brush TileBackBrush => IsEmptySlot ? Brushes.Transparent : IsModifier ? ModBack : IsCurse ? CurseBack : Level > 0 ? PocketBack : BoonBack;
@@ -68,6 +70,7 @@ public sealed class ChaosToyState : INotifyPropertyChanged
     public string Name { get; init; } = "";
     public string Glyph { get; init; } = "◈";
     public string Desc { get; init; } = "";
+    public string Flavor { get; init; } = "";
     public string CapstoneDesc { get; init; } = "";
     /// <summary>Key that fires this toy ("Q"). Shown on the HUD button.</summary>
     public string KeyLabel { get; init; } = "";
@@ -109,7 +112,6 @@ public sealed class ChaosRunConfig
     public ChaosDifficulty Difficulty { get; set; } = ChaosDifficulty.Easy;
     public int DurationSec { get; set; } = 180;
     public int WaveCount { get; set; } = 5;
-    public List<PayloadConfig> Payloads { get; set; } = EffectPayloadFactory.DefaultConfig();
 
     // ---- setup-window config ----
     /// <summary>Base resistance is ZERO (2026-06-10): the "It would never work on me..." charm
@@ -150,6 +152,8 @@ public sealed class ChaosRunConfig
     public double HitboxScale { get; set; } = 1.0;
     /// <summary>Pop-up Notification habit: once per loop, sometimes, a heart drifts down (+1 resistance on catch).</summary>
     public bool PopupHeartEnabled { get; set; } = false;
+    /// <summary>Pendulum habit: once per loop, at a random beat, 2.5s of slow motion.</summary>
+    public bool PendulumSwing { get; set; } = false;
     /// <summary>Scales the spawn-tick rate (1.0 = current behavior). The scripted first descent
     /// runs gentler (~0.6) so the teach beats land in quiet air.</summary>
     public double SpawnRateMult { get; set; } = 1.0;
@@ -267,6 +271,9 @@ public sealed record ChaosBoon(
     /// drawback, so a shielded pick skips it entirely (RunMultBonus still lands).</summary>
     public Action<ChaosRunState>? ApplyShielded { get; init; }
 
+    /// <summary>One flavorful line, rendered grey italic under the mechanics text.</summary>
+    public string Flavor { get; init; } = "";
+
     /// <summary>One-shot flag boons: once taken this run, never offered again.</summary>
     public bool Unique { get; init; }
 
@@ -287,69 +294,76 @@ public static class ChaosBoonPool
     {
         // (Slow Trance + Mesmer Pull benched 2026-06-11: their effects live on as the
         //  Slowburner/Silk Touch habits. Left Brain stays — a real decision at 0 base resistance.)
-        new("defuse_chain", "Snap Chain", "Each snap grants a brief invulnerability.",
-            ChaosRarity.Uncommon, false, 0.10, s => s.DefuseInvulnMs = 900),
-        new("golden_touch", "Golden Touch", "+15% run multiplier outright.",
-            ChaosRarity.Uncommon, false, 0.15, s => { /* RunMultBonus folds into BoonMult */ }),
-        new("extra_shield", "Left Brain", "Gain +2 resistance.",
-            ChaosRarity.Common, false, 0.0, s => s.Shields += 2),
+        new("defuse_chain", "Snap Chain", "for 0.9s after every snap, a trigger can't break your streak, feed your lust, or spend your resistance. +0.10x run multiplier.",
+            ChaosRarity.Uncommon, false, 0.10, s => s.DefuseInvulnMs = 900) { Flavor = "one clean snap buys a heartbeat of grace." },
+        new("golden_touch", "Golden Touch", "+0.15x run multiplier, immediately.",
+            ChaosRarity.Uncommon, false, 0.15, s => { /* RunMultBonus folds into BoonMult */ }) { Flavor = "nothing down here is actually free." },
+        new("extra_shield", "Left Brain", "+2 resistance, right now.",
+            ChaosRarity.Common, false, 0.0, s => s.Shields += 2) { Flavor = "the part still arguing. give it something to hold." },
 
         // ---- the visible pool (2026-06-11): entities, field FX, behaviors — not multipliers ----
-        new("gold_digger", "Gold Digger", "Lucky golden bubbles burst into 3 falling gold droplets. Catch them before they're gone.",
-            ChaosRarity.Uncommon, false, 0.0, s => s.GoldDiggerEnabled = true) { Unique = true },
-        new("welcome_shower", "Welcome Shower", "Every loop's GO! dumps a quick shower of treats from the top of the screen.",
-            ChaosRarity.Common, false, 0.0, s => s.WelcomeShowerEnabled = true) { Unique = true },
-        new("heavy_drop", "Heavy Drop", "Every ~10th bubble is a giant, slow treat that pays triple.",
-            ChaosRarity.Common, false, 0.0, s => s.HeavyDropEvery = 10) { Unique = true },
-        new("gg_rabbits", "GG make more GG", "Popped treats sometimes burst into 3 wild rabbits that mow everything in their path. You can't catch these — only smack them.",
-            ChaosRarity.Rare, false, 0.0, s => s.GgRabbitChance = 0.15) { Unique = true },
-        new("size_queen", "Size Queen", "Snapping a live bubble sends out an expanding ring that pops every treat it touches.",
-            ChaosRarity.Uncommon, false, 0.0, s => s.RippleEnabled = true) { Unique = true },
-        new("aftermath", "Aftermath", "Defusing a bomb in its final 1.5s leaves crackling residue for 2s — bubbles drifting through pop themselves.",
-            ChaosRarity.Uncommon, false, 0.0, s => s.AftermathEnabled = true) { Unique = true },
-        new("focus_here", "Focus here...", "Pops during the pendulum's slow swing pay triple.",
-            ChaosRarity.Uncommon, false, 0.0, s => s.PendulumPayMult = 3.0) { Unique = true },
+        new("gold_digger", "Gold Digger", "golden bubbles burst into 3 falling droplets worth 3-7 gold each. catch them before they slip off screen. a missed droplet costs nothing.",
+            ChaosRarity.Uncommon, false, 0.0, s => s.GoldDiggerEnabled = true) { Unique = true, Flavor = "she loves you for your wallet. you knew." },
+        new("welcome_shower", "Welcome Shower", "every loop opens with 6 treats raining from the top of the screen.",
+            ChaosRarity.Common, false, 0.0, s => s.WelcomeShowerEnabled = true) { Unique = true, Flavor = "a warm welcome, every time you go back under." },
+        new("heavy_drop", "Heavy Drop", "every 10th bubble is a giant: x1.55 size, drifts at half speed, lives 9s, pays x3.",
+            ChaosRarity.Common, false, 0.0, s => s.HeavyDropEvery = 10) { Unique = true, Flavor = "some things are worth waiting under." },
+        new("gg_rabbits", "GG make more GG", "15% of popped treats burst into 3 wild rabbits that mow down everything in their path. they can't be caught, only smacked along.",
+            ChaosRarity.Rare, false, 0.0, s => s.GgRabbitChance = 0.15) { Unique = true, Flavor = "good girls multiply." },
+        new("size_queen", "Size Queen", "every snap sends out an expanding ring, 430px wide, that pops every treat it touches.",
+            ChaosRarity.Uncommon, false, 0.0, s => s.RippleEnabled = true) { Unique = true, Flavor = "bigger is a love language." },
+        new("aftermath", "Aftermath", "snap a live bubble in its final 1.5s and the spot crackles for 2s: a 170px zone where anything drifting through pops itself.",
+            ChaosRarity.Uncommon, false, 0.0, s => s.AftermathEnabled = true) { Unique = true, Flavor = "you can still feel it after. that's the point." },
+        new("focus_here", "Focus here...", "the pendulum swings once per loop. pops during its 2.5s slow swing pay x3.",
+            ChaosRarity.Uncommon, false, 0.0, s => s.PendulumPayMult = 3.0)
+            { Unique = true, RequiresAny = new[] { "pendulum_swing" }, Flavor = "watch the watch. everything else can wait." },
 
         // ---- synergy duos: only drafted when the partner is equipped (gold frame) ----
-        new("overload", "Overload", "The charge runs hot: double the E-Stim uses per press.",
+        new("overload", "Overload", "the e-stim runs double charges per press: 6/8/10 charged pops by toy level.",
             ChaosRarity.Rare, false, 0.0, s => s.EStimChargeMult = 2)
-            { Unique = true, RequiresAny = new[] { "e_stim" } },
-        new("afterglow", "Afterglow", "The buzz doesn't quite stop: the vibe trail lingers 2.5s after it ends and keeps popping.",
+            { Unique = true, RequiresAny = new[] { "e_stim" }, Flavor = "more than the dial was built for." },
+        new("afterglow", "Afterglow", "when the buzz ends it lingers 2.5s more, still popping whatever you hover.",
             ChaosRarity.Rare, false, 0.0, s => s.AfterglowSec = 2.5)
-            { Unique = true, RequiresAny = new[] { "vibe_popping" } },
-        new("casting_couch", "Casting Couch", "The logo splits on the bounce — two, then four — before depleting.",
+            { Unique = true, RequiresAny = new[] { "vibe_popping" }, Flavor = "it never really stops. you just stop noticing." },
+        new("casting_couch", "Casting Couch", "the logo splits on its first two bounces: one becomes two, then four.",
             ChaosRarity.Rare, false, 0.0, s => s.DvdSplitBounces = 2)
-            { Unique = true, RequiresAny = new[] { "porn_dvd" } },
-        new("tail_plug", "Tail-Plug", "Rabbits drag a sparkling trail for 2s — it pops everything it brushes.",
+            { Unique = true, RequiresAny = new[] { "porn_dvd" }, Flavor = "everyone starts somewhere." },
+        new("tail_plug", "Tail-Plug", "every rabbit drags a sparkling trail for 2s that pops anything within 46px of it.",
             ChaosRarity.Rare, false, 0.0, s => s.RabbitTrailSec = 2.0)
-            { Unique = true, RequiresAny = new[] { "rabbit_caller", "the_pull", "the_spanker" } },
-        new("unleashed", "Unleashed", "When the collar holds your streak, a golden shockwave snaps every live bubble on screen.",
+            { Unique = true, RequiresAny = new[] { "rabbit_caller", "the_pull", "the_spanker" }, Flavor = "you'll know exactly where they've been." },
+        new("unleashed", "Unleashed", "each time the collar saves your streak, a golden shockwave snaps every live bubble on screen for full pay.",
             ChaosRarity.Rare, false, 0.0, s => s.UnleashedEnabled = true)
-            { Unique = true, RequiresAny = new[] { "collar" } },
-        new("electrified_rabbits", "Electrified Rabbits", "Spanked rabbits run hot — everything they smack discharges, and the lightning arcs into whatever's close.",
+            { Unique = true, RequiresAny = new[] { "collar" }, Flavor = "held tight, then let go all at once." },
+        new("electrified_rabbits", "Electrified Rabbits", "every bubble a spanked rabbit mows down discharges, arcing lightning into up to 3 bubbles within 620px.",
             ChaosRarity.Rare, false, 0.0, s => s.ElectrifiedRabbits = true)
-            { Unique = true, RequiresAll = new[] { "the_spanker", "e_stim" } },
-        new("body_buzz", "Body Buzz", "One bubble in eight pops with an electric shockwave — the current leaps into every bubble it touches.",
+            { Unique = true, RequiresAll = new[] { "the_spanker", "e_stim" }, Flavor = "you wired the paddle. of course you did." },
+        new("body_buzz", "Body Buzz", "1 treat pop in 8 fires a 440px shockwave, arcing lightning into up to 8 bubbles caught inside it.",
             ChaosRarity.Rare, false, 0.0, s => s.EStimShockwaveChance = 0.125)
-            { Unique = true, RequiresAll = new[] { "chain_reaction", "e_stim" } },
+            { Unique = true, RequiresAll = new[] { "chain_reaction", "e_stim" }, Flavor = "it hums under your skin between pops." },
 
         // ---- sins — risk/reward: visible drawbacks, visible sweetness ----
-        new("hair_trigger", "Hair Trigger", "−25% trance time, but +0.4x run multiplier.",
-            ChaosRarity.Rare, true, 0.40, s => s.FuseTimeMult *= 0.75) { Unique = true },
-        new("playing_fire", "Playing with fire", "Bomb effects last 50% longer… but snapping one in its final second pays gold.",
+        new("hair_trigger", "Hair Trigger", "every trance burns 25% faster. in exchange, +0.40x run multiplier.",
+            ChaosRarity.Rare, true, 0.40, s => s.FuseTimeMult *= 0.75) { Unique = true, Flavor = "everything goes off early. including you." },
+        new("playing_fire", "Playing with fire", "trigger effects last 50% longer. in exchange, snapping a live bubble in its final second tips 5-9 gold, plus +0.15x run multiplier.",
             ChaosRarity.Rare, true, 0.15, s => { s.DetonationDurationMult = 1.5; s.LastSecondGoldEnabled = true; })
-            { Unique = true, ApplyShielded = s => s.LastSecondGoldEnabled = true },
-        new("bright_colors", "Look at the bright colors...", "Sometimes a prism bubble drifts in wearing another bubble's soul. Popping it pays 10x — and fires the copied effect.",
-            ChaosRarity.Rare, true, 0.0, s => s.PrismChance = 0.05) { Unique = true },
-        new("cam_girl", "Cam Girl", "Bubbles flirt away from your cursor… but every pop can tip you gold.",
+            { Unique = true, ApplyShielded = s => s.LastSecondGoldEnabled = true, Flavor = "warm hands were always the price." },
+        // Shielded: the prisms still come and still pay x10 — they just only ever wear a TREAT's
+        // look. Apply IS this sin's upside, so a null handler here made the Surrender capstone
+        // hand out a literally blank card (and silently bricked the taking_chances grind).
+        new("bright_colors", "Look at the bright colors...", "5% of spawns are prism bubbles wearing another bubble's look. popping one pays x10 and fires the copied effect at full strength.",
+            ChaosRarity.Rare, true, 0.0, s => s.PrismChance = 0.05)
+            { Unique = true, ApplyShielded = s => { s.PrismChance = 0.05; s.PrismTreatOnly = true; }, Flavor = "so pretty you forget to ask what's inside." },
+        new("cam_girl", "Cam Girl", "bubbles flee your cursor, stronger than any pull. in exchange, 25% of pops tip 2-4 gold, plus +0.40x run multiplier.",
             ChaosRarity.Rare, true, 0.40, s => { s.CamGirlFlee = 1.6; s.CamGirlTipChance = 0.25; })
-            { Unique = true, ApplyShielded = s => s.CamGirlTipChance = 0.25 },
-        new("the_urge", "The urge", "The rest of the run pays 3x. Your toys are off-limits.",
+            { Unique = true, ApplyShielded = s => s.CamGirlTipChance = 0.25, Flavor = "look, don't touch. tips appreciated." },
+        new("the_urge", "The urge", "the rest of the descent pays x3 on everything. your toys are off-limits.",
             ChaosRarity.Rare, true, 0.0, s => { s.UrgeMult = 3.0; s.ActivesDisabled = true; })
-            { Unique = true, ApplyShielded = s => s.UrgeMult = 3.0 },
-        new("double_or_nothing", "Relapse", "The hole isn't done with you: you might descend one loop further — and that loop pays double drops and gold.",
+            // Shielded: toys stay usable, but the high softens to x2 — a waived drawback that
+            // kept the full x3 was a free permanent multiplier dwarfing every other card.
+            { Unique = true, ApplyShielded = s => s.UrgeMult = 2.0, Flavor = "bare hands. that's the deal." },
+        new("double_or_nothing", "Relapse", "60% chance the descent runs one loop longer than promised, and that loop pays double gold and double drops.",
             ChaosRarity.Rare, true, 0.0, s => s.RelapseLoopArmed = Random.Shared.NextDouble() < 0.6)
-            { Unique = true, ApplyShielded = s => s.RelapseLoopArmed = true },   // shielded: the extra loop is certain
+            { Unique = true, ApplyShielded = s => s.RelapseLoopArmed = true, Flavor = "one more. it's always just one more." },   // shielded: the extra loop is certain
     };
 
     private static readonly Random _rng = new();
@@ -358,8 +372,9 @@ public static class ChaosBoonPool
     /// Draft <paramref name="choices"/> options (default 3): mostly boons + occasionally a
     /// curse (unless curses are disabled). <paramref name="choices"/> comes from
     /// <c>ChaosRunConfig.DraftChoices</c> (the draft4 upgrade raises it to 4).
-    /// Duo cards (<see cref="ChaosBoon.RequiresAny"/>/<see cref="ChaosBoon.RequiresAll"/>) only
-    /// deal when their partner is equipped AND the player is at least Entranced;
+    /// Duo cards (<see cref="ChaosBoon.RequiresAny"/>/<see cref="ChaosBoon.RequiresAll"/>) deal
+    /// as soon as their partner is equipped — no rank gate on top (the old Entranced wall meant
+    /// the duo-demo rig teased cards at purchase, then revoked them for ~10 runs);
     /// <see cref="ChaosBoon.Unique"/> cards already taken (<paramref name="takenIds"/>)
     /// sit the rest of the run out. <paramref name="sinChance"/> is the dedicated sin-slot
     /// roll (<c>ChaosRunConfig.SinChance</c> — the happy path ramps it in over the early runs).
@@ -368,10 +383,12 @@ public static class ChaosBoonPool
                                         IReadOnlyCollection<string>? takenIds = null, double sinChance = 0.5)
     {
         choices = Math.Clamp(choices, 2, 4);
+        // A requirement id may name a lifetime boon (skill/accessory/charm) OR a trained habit
+        // (e.g. Focus here → the pendulum_swing habit).
+        static bool ReqMet(string id) => ChaosMeta.IsBoonActive(id) || ChaosMeta.IsUpgradeActive(id);
         bool Draftable(ChaosBoon b) =>
-            ((b.RequiresAny == null && b.RequiresAll == null) || ChaosMeta.AtLeast(ChaosRank.Entranced))
-            && (b.RequiresAny == null || b.RequiresAny.Any(ChaosMeta.IsBoonActive))
-            && (b.RequiresAll == null || b.RequiresAll.All(ChaosMeta.IsBoonActive))
+            (b.RequiresAny == null || b.RequiresAny.Any(ReqMet))
+            && (b.RequiresAll == null || b.RequiresAll.All(ReqMet))
             && !(b.Unique && takenIds != null && takenIds.Contains(b.Id));
         var boons = All.Where(b => !b.IsCurse && Draftable(b)).OrderBy(_ => _rng.Next()).ToList();
         var curses = All.Where(b => b.IsCurse && Draftable(b)).OrderBy(_ => _rng.Next()).ToList();
@@ -478,7 +495,7 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public double HeatMult => 1.0 + Heat * 1.0; // up to x2 at full heat
     private double _boonMult = 1.0;
     public double BoonMult { get => _boonMult; set { _boonMult = value; OnChanged(); OnChanged(nameof(TotalMult)); OnChanged(nameof(TotalMultText)); } }
-    public double TotalMult => BaseMult * ComboMult * DifficultyMult * HeatMult * BoonMult * UrgeMult * (DoubleOrNothingActive ? NextWavePayoutMult : 1.0);
+    public double TotalMult => BaseMult * ComboMult * DifficultyMult * HeatMult * BoonMult * UrgeMult;
     public string TotalMultText => $"x{TotalMult:0.0}";
 
     /// <summary>Skill-tree multiplier (incl. Pink Rush) — informational; applied once at payout.</summary>
@@ -523,6 +540,7 @@ public sealed class ChaosRunState : INotifyPropertyChanged
             Glyph = boon.IsCurse ? "☠" : "◈",
             Name = boon.Name,
             Desc = boon.Desc,
+            Flavor = boon.Flavor,
             IsCurse = boon.IsCurse,
         });
         PushEvent($"{(boon.IsCurse ? "☠" : "◈")} {boon.Name}");
@@ -532,9 +550,9 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public double FuseTimeMult = 1.0;
     public bool MagnetEnabled;
     public double DefuseInvulnMs;
-    public double NextWavePayoutMult = 1.0;
-    public bool DoubleOrNothingArmed;
-    public bool DoubleOrNothingActive;
+    // (NextWavePayoutMult / DoubleOrNothingArmed / DoubleOrNothingActive deleted 2026-06-12:
+    //  the original Double-or-Nothing wager never shipped — nothing ever armed it — and its
+    //  "double_or_nothing" id was reused by Relapse, which runs on RelapseLoopArmed/Active.)
     public bool AllLiveNextWave;
     /// <summary>Chain Reaction lifetime boon: a pop's burst pops neighbours within this box-multiple. 1.0 = off.</summary>
     public double ChainReactionReach = 1.0;
@@ -637,6 +655,8 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public bool LastSecondGoldEnabled;
     /// <summary>"Look at the bright colors...": chance per spawn tick a mimic prism drifts in. 0 = off.</summary>
     public double PrismChance;
+    /// <summary>Shielded bright_colors: prisms only ever mimic TREAT looks (no live payload sealed inside).</summary>
+    public bool PrismTreatOnly;
     /// <summary>Cam Girl: per-frame drift bias AWAY from the cursor (tug-of-war vs The Pull). 0 = off.</summary>
     public double CamGirlFlee;
     /// <summary>Cam Girl: chance any pop tips gold. 0 = off.</summary>

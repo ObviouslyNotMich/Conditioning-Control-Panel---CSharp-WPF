@@ -74,6 +74,7 @@ public class BubbleService : IDisposable
     private Func<bool>? _chaosRabbitHoming;   // The Pull: darters steer toward the cursor
     private Func<bool>? _chaosSpankerOn;      // The Spanker: clicking a darter redirects it instead of catching
     private Func<double>? _chaosSpankGrow;    // The Spanker: growth factor applied per smack
+    private Func<bool>? _chaosLiveMagnet;     // Silk Touch: near-miss on a LIVE still touches (wider hit ellipse), sampled at spawn
     private Func<double>? _chaosRabbitTrailSec; // Tail-Plug: trail seconds rabbits drag (0 = off)
     private Func<bool>? _chaosElectrified;      // Electrified Rabbits: spank victims discharge free arcs
     // Cursor sample (physical px) shared by every bubble's shimmer check; written once per anim tick.
@@ -204,6 +205,22 @@ public class BubbleService : IDisposable
         {
             foreach (var b in _bubbles.ToArray())
                 if (b.IsAlive && b.Spec != null && b.Spec.IsLive && !b.Spec.IsDarter && !b.Spec.IsFreeze)
+                    b.Pop();
+        });
+    }
+
+    /// <summary>Snap Field capstone: clear the whole field through the PAYING pop paths —
+    /// treats pop with payloads, lives snap (same per-bubble rules as the DVD collider).
+    /// Darters/freeze pickups are never swept; tease/brittle/chaperone keep their immunity
+    /// inside Pop(). PopAllBubbles is the silent wave-janitor wipe (ForceDestroy, zero pay,
+    /// zero callbacks) — never route a reward through it.</summary>
+    public void PopAllChaosPaid()
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            foreach (var b in _bubbles.ToArray())
+                if (b.IsAlive && b.Spec != null && !b.Spec.IsDarter && !b.Spec.IsFreeze)
                     b.Pop();
         });
     }
@@ -665,6 +682,7 @@ public class BubbleService : IDisposable
                                Func<double>? bubbleOpacity = null, Func<bool>? wandShimmer = null,
                                Func<double>? cursorPull = null, Func<bool>? rabbitHoming = null,
                                Func<bool>? spankerOn = null, Func<double>? spankGrow = null,
+                               Func<bool>? liveMagnet = null,
                                Action<EffectBubbleSpec>? onTreatExpired = null, Action<int>? onEStimArc = null,
                                Func<double>? rabbitTrailSec = null, Func<bool>? electrifiedRabbits = null,
                                Func<EffectBubbleSpec, bool>? canChannelDefuse = null,
@@ -693,6 +711,7 @@ public class BubbleService : IDisposable
         _chaosRabbitHoming = rabbitHoming;
         _chaosSpankerOn = spankerOn;
         _chaosSpankGrow = spankGrow;
+        _chaosLiveMagnet = liveMagnet;
         ChaosCursorPullNow = 0; ChaosRabbitHomingNow = false; ChaosSpankerOnNow = false; ChaosSpankGrowNow = 1.0;
         _chaosOnBenignPop = onBenignPop;
         _chaosOnDefuse = onDefuse;
@@ -751,14 +770,25 @@ public class BubbleService : IDisposable
                 var screen = PickScreenFor(liveSpec);
                 var live = CreateChaosBubble(liveSpec, screen);
                 _bubbles.Add(live);
-                // The escort materialises on its live (the orbit takes over next tick).
+                // The escort materialises already ON its orbit ring (matching the radius the
+                // orbit tick uses) — spawning at the live's centre flashed it behind the live.
                 var lc = live.CenterPx;
-                escortSpec.SpawnAtPxX = lc.X;
+                double dpi = Bubble.GetDpiForScreen(screen);
+                double ringDip = Math.Max(ChaosTuning.CHAPERONE_ORBIT_RADIUS_DIP,
+                    (liveSpec.SizePx + escortSpec.SizePx) / 2.0 + ChaosTuning.CHAPERONE_ORBIT_GAP_DIP);
+                escortSpec.SpawnAtPxX = lc.X + ringDip * dpi;
                 escortSpec.SpawnAtPxY = lc.Y;
+                // Tighten the live's roam box so the full orbit stays on-screen: the escort
+                // overhangs the live's centre by ring + its own radius.
+                live.InsetRoamBounds(ringDip + Math.Max(60, escortSpec.SizePx) / 2.0
+                                     - Math.Max(60, liveSpec.SizePx) / 2.0);
                 var escort = CreateChaosBubble(escortSpec, screen);
                 escort.AttachOrbit(live);
                 live.AttachEscort(escort);
                 _bubbles.Add(escort);
+                // Stack the escort above its live: if the windows ever overlap (wand-enlarged
+                // hitboxes), the click must land on the escort, not bounce off the shield.
+                escort.BringToFront();
             }
             catch (Exception ex)
             {
@@ -847,6 +877,7 @@ public class BubbleService : IDisposable
                     freezeVibrateMs: () => _freezeVibrateRemainingMs,
                     onChainTrigger: ChainPopNeighbors,
                     hitboxScale: _chaosHitboxScale?.Invoke() ?? 1.0,
+                    liveMagnet: _chaosLiveMagnet?.Invoke() ?? false,
                     opacityMult: _chaosBubbleOpacity?.Invoke() ?? 1.0,
                     onSpankSweep: SpankSweepFromDarter,
                     onTreatExpired: b => { if (b.Spec != null) _chaosOnTreatExpired?.Invoke(b.Spec); },
@@ -987,6 +1018,8 @@ public class BubbleService : IDisposable
             // Pair complete (second inside the window, or after an enrage) — clean the books.
             _boundFirstResolved.Remove(pairId);
             if (_boundTetherKeys.Remove(pairId)) ChaosFieldFxOverlay.ClearTether(pairId);
+            // Verb hint: the pair cleared by the player's own hold — the bound lesson is learned.
+            if (defused && half.DefusedViaChannel) Chaos.ChaosBubbleHints.MarkLearned("bound");
             return;
         }
         if (!defused)
@@ -1048,6 +1081,18 @@ public class BubbleService : IDisposable
                 if (kv.Value.Spec != null) _chaosOnBoundEnraged?.Invoke(kv.Value.Spec);
             }
         }
+    }
+
+    /// <summary>A verb hint was just learned (ChaosBubbleHints): strip its pill from every
+    /// bubble currently on the field so the whole screen un-clutters in the same instant.</summary>
+    public void HideChaosHints(string key)
+    {
+        try
+        {
+            foreach (var b in _bubbles)
+                if (b.HintKey == key) b.HideHint();
+        }
+        catch { }
     }
 
     /// <summary>Drop every tether + window (field cleared / run over).</summary>
@@ -1174,6 +1219,7 @@ public class BubbleService : IDisposable
         _chaosRabbitHoming = null;
         _chaosSpankerOn = null;
         _chaosSpankGrow = null;
+        _chaosLiveMagnet = null;
         _chaosRabbitTrailSec = null;
         _chaosElectrified = null;
         ChaosCursorPullNow = 0; ChaosRabbitHomingNow = false; ChaosSpankerOnNow = false; ChaosSpankGrowNow = 1.0;
@@ -1470,6 +1516,7 @@ internal class Bubble
 
     private double _posX, _posY;
     private double _startX;
+    private double _startY;   // SideDrift: the entry height the vertical wobble plays around
     private double _speed;
     private double _timeAlive;
     private double _wobbleOffset;
@@ -1485,7 +1532,7 @@ internal class Bubble
 
     private readonly Image _bubbleImage;
     private readonly int _size;
-    private readonly double _screenTop;
+    private double _screenTop;   // mutable: InsetRoamBounds tightens it for chaperone lives
     private readonly Canvas _sparkleCanvas;
     private readonly Grid _grid;
     private List<SparkleParticle>? _sparkles;
@@ -1623,6 +1670,22 @@ internal class Bubble
     /// <summary>Link the escort onto its live (escort side). UI thread, at pair spawn.</summary>
     internal void AttachOrbit(Bubble target) => _orbitTarget = target;
 
+    /// <summary>The Chaperone's live: shrink the roam box by the escort's orbit overhang so
+    /// the shield-bearer never swings off-screen (an unreachable escort = an undefusable live).</summary>
+    internal void InsetRoamBounds(double inset)
+    {
+        if (inset <= 0) return;
+        _screenLeft += inset;
+        _screenRight -= inset;
+        _screenTop += inset;
+        _screenBottom -= inset;
+        if (_screenRight < _screenLeft) _screenLeft = _screenRight = (_screenLeft + _screenRight) / 2.0;
+        // Pull the spawn position inside the tightened box (RoamBounce Y bounds are derived).
+        _posX = Math.Clamp(_posX, _screenLeft, Math.Max(_screenLeft, _screenRight));
+        double topB = _screenTop + _size + 50, botB = _screenBottom - _size - 50;
+        _posY = Math.Clamp(_posY, topB, Math.Max(topB, botB));
+    }
+
     /// <summary>Link the live onto its escort (live side). UI thread, at pair spawn.</summary>
     internal void AttachEscort(Bubble escort) => _escort = escort;
 
@@ -1719,7 +1782,7 @@ internal class Bubble
                   Action<Bubble>? onDarterCaught = null, Func<bool>? isChaosFrozen = null,
                   Func<double>? timeScale = null, Action<Bubble>? onFreezeCaught = null,
                   Func<double>? freezeVibrateMs = null, Action<Bubble>? onChainTrigger = null,
-                  double hitboxScale = 1.0, double opacityMult = 1.0, Action<Bubble>? onSpankSweep = null,
+                  double hitboxScale = 1.0, bool liveMagnet = false, double opacityMult = 1.0, Action<Bubble>? onSpankSweep = null,
                   Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null,
                   Func<Bubble, bool>? canChannelDefuse = null, Action<Bubble, string>? onChannelBroken = null,
                   Action<Bubble>? onTeaseTouched = null, Action<Bubble>? onTeaseDenied = null,
@@ -1776,7 +1839,12 @@ internal class Bubble
                                  && !spec.IsDroplet && !spec.IsPrism && !spec.IsEscort
                                  && !spec.IsTease    // pickups, prism, escorts + the tease stay fully visible (it must be READ to be denied)
                                  && !spec.IsBrittle; // the Brittle too: an invisible hover-mine would be unfair — and it keeps its NATURAL hitbox (dodging stays precision)
-        _hitSize = plainEffectBubble ? Math.Max(_size, (int)Math.Round(_size * Math.Clamp(hitboxScale, 1.0, 2.0))) : _size;
+        // Silk Touch magnet: a near-miss on a LIVE still counts as a touch — the invisible hit
+        // ellipse reaches ~40% past the sprite (treats keep the plain scale). Same 2.0 ceiling
+        // as the wand-enlarged hitbox so the window envelope never grows past the proven max.
+        double hitMult = Math.Clamp(hitboxScale, 1.0, 2.0);
+        if (liveMagnet && spec?.IsLive == true) hitMult = Math.Clamp(hitMult * 1.4, 1.0, 2.0);
+        _hitSize = plainEffectBubble ? Math.Max(_size, (int)Math.Round(_size * hitMult)) : _size;
         _baseOpacity = plainEffectBubble ? Math.Clamp(opacityMult, 0.2, 1.0) : 1.0;
         // Darters explode to ~3x on catch (slower + bigger pop), so give them a generous window
         // so the burst + glow don't clip against the window edge.
@@ -1795,6 +1863,7 @@ internal class Bubble
         if (spec != null) // bigger chaos bubbles drift a little slower (more reachable)
             _speed *= Math.Clamp(1.4 - (_size - 150) / 220.0, 0.6, 1.4);
         if (spec != null) _speed *= Math.Max(0.1, spec.SpeedMult);   // golden bubbles fly
+        if (spec != null) _speed *= ChaosTuning.CHAOS_SPEED_MULT;    // chaos pace bump: travel farther before rotting
         _animType = random.Next(4);
         _wobbleOffset = random.NextDouble() * 100;
         _angle = random.Next(360);
@@ -1824,6 +1893,15 @@ internal class Bubble
                 double roamSpeed = _speed * 1.4;
                 _vx = Math.Cos(ang) * roamSpeed;
                 _vy = Math.Sin(ang) * roamSpeed;
+                break;
+            case ChaosMotion.SideDrift:
+                // Slide in from a random side edge at a comfortable height; _vx carries the
+                // crossing speed, the shared wobble plays on Y around _startY.
+                _startY = (area.Y + random.Next(120, Math.Max(240, area.Height - _size - 120))) / dpiScale;
+                _posY = _startY;
+                bool fromLeft = random.Next(2) == 0;
+                _posX = _startX = fromLeft ? _screenLeft - _size : _screenRight + _size;
+                _vx = (fromLeft ? 1 : -1) * _speed * 1.15;
                 break;
             default: // FloatUp
                 _posY = (area.Y + area.Height) / dpiScale;          // start at the bottom
@@ -2040,6 +2118,18 @@ internal class Bubble
 
         if (_isPopping)
         {
+            // A resolving chaos bubble is a corpse: its burst can sprawl far past its body (a
+            // caught rabbit explodes to ~3x) and the window's opaque pixels keep eating clicks
+            // meant for live neighbours underneath. Under slow-mo neighbours barely drift clear
+            // of it, which read as "rabbits aren't poppable in slow-mo" — so the moment a bubble
+            // starts dying its window goes input-transparent at the Win32 level.
+            if (!_corpseClickThrough && _spec != null)
+            {
+                _corpseClickThrough = true;
+                MakeCorpseClickThrough();
+                HideHint();   // a dying bubble teaches nothing — drop the verb hint with it
+            }
+
             if (_isDeflating)
             {
                 // Completed defuse: it DEFLATES — a rapid limp shrink, wobbling like air
@@ -2101,10 +2191,13 @@ internal class Bubble
                 return;
             }
         }
-        else if (frozen)
+        else if (frozen || _isChanneling)
         {
             // Held in place — no motion, no fuse tick. The visual block below still runs so the
             // blue freeze aura pulses and the impact shudder plays.
+            // A defuse channel pins the bubble the same way: the player is holding it, so it
+            // must not drift out of its own hit circle mid-hold and break the channel "for free"
+            // (at field speed a live escaped a stationary cursor in under the 1s hold).
         }
         else if (_isDarter)
         {
@@ -2137,7 +2230,9 @@ internal class Bubble
             }
             else
             {
-                _darterActiveMs += 32;
+                // The quick-catch window tracks field pace too: a slow-mo rabbit has barely
+                // dashed in 500 real ms, so the bonus stays catchable relative to its motion.
+                _darterActiveMs += 32 * Math.Max(ts, 0.15);
 
                 // The Pull: rabbits fly AT you — steer toward the cursor with a capped turn rate.
                 if (BubbleService.ChaosRabbitHomingNow && !_darterEscaping)
@@ -2211,7 +2306,10 @@ internal class Bubble
             }
             else if (_trailPts.Count > 0) _trailPts.Clear();
 
-            _darterLifeRemainingMs -= 32;
+            // Life burns at the field's pace: in slow-mo a rabbit moves at ~12% speed, so an
+            // unscaled clock would expire it mid-screen having barely travelled — it vanished
+            // under the player's cursor and read as "rabbits aren't poppable in slow-mo".
+            _darterLifeRemainingMs -= 32 * Math.Max(ts, 0.15);
             if (_darterLifeRemainingMs <= 0) { Destroy(); return; }   // safety backstop only
         }
         else
@@ -2235,8 +2333,12 @@ internal class Bubble
                 _orbitPhase += 2 * Math.PI * (0.032 / ChaosTuning.CHAPERONE_ORBIT_PERIOD_SEC) * Math.Max(ts, 0.15);
                 double tcx = _orbitTarget._posX + _orbitTarget._size / 2.0;
                 double tcy = _orbitTarget._posY + _orbitTarget._size / 2.0;
-                _posX = tcx + Math.Cos(_orbitPhase) * ChaosTuning.CHAPERONE_ORBIT_RADIUS_DIP - _size / 2.0;
-                _posY = tcy + Math.Sin(_orbitPhase) * ChaosTuning.CHAPERONE_ORBIT_RADIUS_DIP - _size / 2.0;
+                // The ring must clear the live's rim or the escort hides behind/inside the big
+                // bubble and can't be clicked — scale the radius to the pair, constant is a floor.
+                double orbitR = Math.Max(ChaosTuning.CHAPERONE_ORBIT_RADIUS_DIP,
+                    (_orbitTarget._size + _size) / 2.0 + ChaosTuning.CHAPERONE_ORBIT_GAP_DIP);
+                _posX = tcx + Math.Cos(_orbitPhase) * orbitR - _size / 2.0;
+                _posY = tcy + Math.Sin(_orbitPhase) * orbitR - _size / 2.0;
                 // Faint shimmer link: a spark drifts somewhere on the line between the two.
                 if (++_shimmerEmitCounter % 7 == 0)
                 {
@@ -2301,6 +2403,11 @@ internal class Bubble
                     double topB = _screenTop + _size + 50, botB = _screenBottom - _size - 50;
                     if (_posY < topB) { _posY = topB; _vy = Math.Abs(_vy); }
                     else if (_posY > botB) { _posY = botB; _vy = -Math.Abs(_vy); }
+                    break;
+                case ChaosMotion.SideDrift:
+                    _posX += _vx * ts;
+                    _posY = _startY + offset;   // the Float/Rain wobble reads vertical here
+                    if (_vx > 0 ? _posX > _screenRight + _size : _posX < _screenLeft - _size) exited = true;
                     break;
                 default: // FloatUp
                     _posY -= _speed * ts;
@@ -2379,21 +2486,31 @@ internal class Bubble
                 {
                     double rs = 0.45 + 0.55 * frac;
                     fst.ScaleX = rs; fst.ScaleY = rs;
-                    byte gb = (byte)(70 + 120 * frac);
                     if (_fuseStrokeBrush != null)
                     {
-                        if (_dangerFactor > 0)
+                        // Three readable phases: YELLOW (burning, time to spare) →
+                        // YELLOW↔RED flash (act now) → SOLID RED (the brink window the
+                        // danger power-ups judge). Short fuses compress proportionally.
+                        double brinkMs = Math.Min(_fuseTotalMs * 0.30, ChaosTuning.RING_BRINK_MS);
+                        double flashMs = Math.Min(_fuseTotalMs * 0.65, ChaosTuning.RING_FLASH_FROM_MS);
+                        if (_fuseRemainingMs <= brinkMs)
                         {
-                            // Flash the ring toward bright white, faster as the fuse empties.
-                            double flash = 0.5 + 0.5 * Math.Sin(_timeAlive * (18.0 + _dangerFactor * 34.0));
-                            double lift = flash * _dangerFactor;
-                            byte ch = (byte)(gb + (255 - gb) * lift);
-                            _fuseStrokeBrush.Color = Color.FromRgb(255, ch, ch);
-                            _fuseRing!.Opacity = 0.65 + 0.35 * flash;
+                            // Solid red, with the urgency pulse speeding up to detonation.
+                            double pulse = 0.5 + 0.5 * Math.Sin(_timeAlive * (18.0 + _dangerFactor * 34.0));
+                            _fuseStrokeBrush.Color = Color.FromRgb(255, 45, 45);
+                            _fuseRing!.Opacity = 0.65 + 0.35 * pulse;
+                        }
+                        else if (_fuseRemainingMs <= flashMs)
+                        {
+                            // Alternate between the yellow and red poles.
+                            double f = 0.5 + 0.5 * Math.Sin(_timeAlive * 14.0);
+                            _fuseStrokeBrush.Color = Color.FromRgb(255,
+                                (byte)(45 + (210 - 45) * f), (byte)(45 + (40 - 45) * f));
+                            _fuseRing!.Opacity = 0.8 + 0.2 * f;
                         }
                         else
                         {
-                            _fuseStrokeBrush.Color = Color.FromRgb(255, gb, gb);
+                            _fuseStrokeBrush.Color = Color.FromRgb(255, 210, 40);
                             _fuseRing!.Opacity = 1.0;
                         }
                     }
@@ -2418,6 +2535,8 @@ internal class Bubble
                 if (_spec == null) { _onMiss?.Invoke(this); Destroy(); return; }
                 // Chaos: a live bubble that escaped undefused detonates; a benign one just leaves.
                 if (_spec.IsLive) { Detonate(); return; }
+                // A Brittle drifting off intact = the dodge succeeded — that IS playing it right.
+                if (_isBrittle) Chaos.ChaosBubbleHints.MarkLearned("brittle");
                 Destroy();
                 return;
             }
@@ -2657,7 +2776,9 @@ internal class Bubble
         {
             // Intentionally harsh: never touch a live bubble you can't afford. Distinct
             // label here + a distinct cue/flash service-side so the player learns WHY.
-            ShowChaosLabel("NO FOCUS", Color.FromRgb(0xB8, 0xB8, 0xD0));
+            // Red, and raised above the bubble — the detonation's own effect word pops at
+            // the centre an instant later, so the two must not overlap.
+            ShowChaosLabel("NO FOCUS", Color.FromRgb(0xFF, 0x46, 0x46), yOffsetDip: -(_size / 2.0 + 30));
             _onChannelBroken?.Invoke(this, "nofocus");
             Detonate();
             return;
@@ -2733,6 +2854,10 @@ internal class Bubble
         }
         catch { }
         ShowChaosLabel("SNAP", SnapColor);
+        // First-contact verb hints: a completed hold is the lesson (per-variant key). Bound
+        // pairs learn on the PAIR clearing (OnBoundHalfResolved) — one half held isn't enough.
+        if (_spec != null && !_spec.IsBoundHalf)
+            Chaos.ChaosBubbleHints.MarkLearned(Chaos.ChaosBubbleHints.KeyFor(_spec));
         _onDefuse?.Invoke(this);
         _onChainTrigger?.Invoke(this);   // a snap is still a pop — Poppers may sweep the cluster
     }
@@ -2745,7 +2870,14 @@ internal class Bubble
     {
         bool wasPopping = _isPopping;
         Pop();
-        if (!wasPopping && _isPopping && _spec != null) _onClickPop?.Invoke(this);
+        if (!wasPopping && _isPopping && _spec != null)
+        {
+            _onClickPop?.Invoke(this);
+            // First-contact verb hints: the click landed as intended — lesson learned forever.
+            // KeyFor resolves the archetype (rabbit/freeze/chaperone/golden/.../treat:variant);
+            // lives never learn here — their lesson is the completed hold (CompleteDefuse).
+            if (!_spec.IsLive) Chaos.ChaosBubbleHints.MarkLearned(Chaos.ChaosBubbleHints.KeyFor(_spec));
+        }
     }
 
     public void Pop()
@@ -2838,6 +2970,10 @@ internal class Bubble
         if (!_isSpanked)
         {
             _isSpanked = true;
+            // With the Spanker on, rabbits can never be CAUGHT — so the first smack is what
+            // counts toward the rabbit_caller lesson (sweepers are born spanked and never land
+            // here). Without this, the scripted first accessory made the lesson impossible.
+            ChaosLessonHooks.OnRabbitSpanked();
             // The swell happens ONCE, on the first smack (level-scaled); re-smacks only
             // steer and hurry it — no compounding back up to comedy size.
             _spankGrowth = Math.Max(1.0, BubbleService.ChaosSpankGrowNow);
@@ -2904,6 +3040,7 @@ internal class Bubble
         _isPopping = true;
         _isDissolving = true;
         ShowChaosLabel("DENIED", Color.FromRgb(0xFF, 0xD7, 0x00));
+        Chaos.ChaosBubbleHints.MarkLearned("tease");   // restraint demonstrated — hint retired
         _onTeaseDenied?.Invoke(this);
     }
 
@@ -2970,14 +3107,14 @@ internal class Bubble
     }
 
     /// <summary>Flash an explicit word + colour at this bubble's centre.</summary>
-    private void ShowChaosLabel(string word, Color color)
+    private void ShowChaosLabel(string word, Color color, double yOffsetDip = 0)
     {
         if (_spec == null || string.IsNullOrEmpty(word)) return;
         try
         {
             double cx = _window.Left + _window.Width / 2;
             double cy = _window.Top + _window.Height / 2;
-            ChaosPopText.Show(cx, cy, word, color);
+            ChaosPopText.Show(cx, cy + yOffsetDip, word, color);
         }
         catch { }
     }
@@ -3045,10 +3182,11 @@ internal class Bubble
             });
         }
 
-        // Fuse ring (live only) — shrinks + reddens as the fuse runs down.
+        // Fuse ring (live only) — shrinks as the fuse runs down; colour phases yellow →
+        // yellow/red flash → solid red (brink) so defuse timing reads at a glance.
         if (_spec.IsLive)
         {
-            _fuseStrokeBrush = new SolidColorBrush(Color.FromRgb(255, 190, 190));
+            _fuseStrokeBrush = new SolidColorBrush(Color.FromRgb(255, 210, 40));
             _fuseRing = new System.Windows.Shapes.Ellipse
             {
                 Width = _size, Height = _size,
@@ -3178,6 +3316,63 @@ internal class Bubble
             };
             _grid.Children.Add(_telegraphRing);
         }
+
+        // First-contact verb hint: a small pill floating just under the bubble teaching its
+        // interaction ("press and hold to snap" / "click to pop" / "do not touch..."), shown
+        // only until the player performs that verb correctly ONCE (persisted in chaos_meta).
+        // Spanker rabbits skip it — clicking smacks them, the catch lesson doesn't apply.
+        _hintKey = Chaos.ChaosBubbleHints.KeyFor(_spec);
+        if (_hintKey != null && !Chaos.ChaosBubbleHints.IsLearned(_hintKey)
+            && !(_isDarter && BubbleService.ChaosSpankerOnNow))
+        {
+            string hintText = Chaos.ChaosBubbleHints.TextFor(_spec);
+            if (!string.IsNullOrEmpty(hintText))
+            {
+                // Sits in the window's pop-headroom pad below the bubble; clamp so the pill
+                // never clips the window edge on small bubbles (droplets, escorts).
+                double yOff = _size / 2.0 + Math.Clamp(_winPad - 24.0, 2.0, 14.0);
+                _hintEl = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0xA0, 0x12, 0x0A, 0x18)),
+                    CornerRadius = new CornerRadius(9),
+                    Padding = new Thickness(8, 2, 8, 3),
+                    IsHitTestVisible = false,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    RenderTransform = new TranslateTransform(0, yOff),
+                    Child = new TextBlock
+                    {
+                        Text = hintText,
+                        Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xE2, 0xF2)),
+                        FontSize = 12.5,
+                        FontWeight = FontWeights.SemiBold,
+                        IsHitTestVisible = false,
+                        TextAlignment = TextAlignment.Center,
+                        Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 5, ShadowDepth = 0, Opacity = 0.9 }
+                    }
+                };
+                _grid.Children.Add(_hintEl);   // Grid doesn't clip — the pill renders in the pad
+                _hintEl.BeginAnimation(UIElement.OpacityProperty,
+                    new System.Windows.Media.Animation.DoubleAnimation(0.55, 1.0, TimeSpan.FromMilliseconds(800))
+                    { AutoReverse = true, RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever });
+            }
+        }
+    }
+
+    /// <summary>This bubble's verb-hint learned-key, if it's showing a hint right now.</summary>
+    internal string? HintKey => _hintEl != null ? _hintKey : null;
+
+    /// <summary>Drop the verb hint (verb learned elsewhere, or this bubble started dying).</summary>
+    internal void HideHint()
+    {
+        if (_hintEl == null) return;
+        try
+        {
+            _hintEl.BeginAnimation(UIElement.OpacityProperty, null);
+            _hintEl.Visibility = Visibility.Collapsed;
+        }
+        catch { }
+        _hintEl = null;
     }
 
     /// <summary>
@@ -3424,6 +3619,23 @@ internal class Bubble
 
     [System.Runtime.InteropServices.DllImport("shcore.dll")]
     private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    private bool _corpseClickThrough;   // set once when the death animation begins
+    private Border? _hintEl;            // first-contact verb hint pill (ChaosBubbleHints)
+    private string? _hintKey;           // its learned-set key
+
+    /// <summary>Win32-level click-through for a dying bubble's window, so clicks pass to the
+    /// live windows beneath it for the rest of the burst/deflate/dissolve animation.</summary>
+    private void MakeCorpseClickThrough()
+    {
+        try
+        {
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(_window).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_TRANSPARENT);
+        }
+        catch { }
+    }
 
     private void HideFromAltTab()
     {

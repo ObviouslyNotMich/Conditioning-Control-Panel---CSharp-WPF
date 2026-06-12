@@ -8,7 +8,10 @@ namespace ConditioningControlPanel.Services.Chaos;
 public sealed class ChaosLessonDef
 {
     public string Id = "";       // == purchasable id (toy / accessory / habit)
-    public string Text = "";     // shown on the locked shelf row
+    public string Text = "";     // shown on the locked shelf row (the mystery line)
+    /// <summary>The hover SPECIFICS: exactly what counts, the precise window/threshold, and
+    /// what doesn't count. The row keeps its mystery; the tooltip gives the math.</summary>
+    public string Detail = "";
     public long Target = 1;
     /// <summary>High-water lessons track a best-within-window value via <see cref="ChaosLessons.RaiseTo"/>
     /// instead of accumulating ticks.</summary>
@@ -46,25 +49,47 @@ public static class ChaosLessons
     /// <summary>Ids that never get a lesson (scripted first purchases).</summary>
     public static readonly HashSet<string> Lessonless = new() { "e_stim", "the_spanker" };
 
+    /// <summary>Lessons only provable with sins enabled (prisms ride the bright_colors sin;
+    /// surrender needs sins accepted). Waived while the user's curse toggle is off — the
+    /// proof is impossible, not failed, and a permanent brick punishes a comfort setting.</summary>
+    private static readonly HashSet<string> CurseBound = new() { "taking_chances", "surrender" };
+
     public static readonly IReadOnlyList<ChaosLessonDef> All = new List<ChaosLessonDef>
     {
-        new() { Id = "vibe_popping",        Text = "pop 10 treats inside 5 seconds",                Target = T_VIBE_POPPING, HighWater = true },
-        new() { Id = "freeze_trigger",      Text = "catch 15 freeze pickups",                       Target = T_FREEZE_TRIGGER },
-        new() { Id = "porn_dvd",            Text = "endure 10 videos to the end",                   Target = T_PORN_DVD },
-        new() { Id = "snap_field",          Text = "defuse 5 threats inside a single loop",         Target = T_SNAP_FIELD, HighWater = true },
-        new() { Id = "rabbit_caller",       Text = "catch 25 rabbits",                              Target = T_RABBIT_CALLER },
-        new() { Id = "chain_reaction",      Text = "land 50 interlaced pops",                       Target = T_CHAIN_REACTION },
-        new() { Id = "blindfold",           Text = "defuse 10 threats while the screen is busy",    Target = T_BLINDFOLD },
-        new() { Id = "last_breath",         Text = "start 10 defuses with under a second left",     Target = T_LAST_BREATH },
-        new() { Id = "taking_chances",      Text = "pop 8 prisms",                                  Target = T_TAKING_CHANCES },
-        new() { Id = "the_pull",            Text = "pop 15 bubbles without moving",                 Target = T_THE_PULL },
-        new() { Id = "intrusive_thoughts",  Text = "pop 50 whispering treats",                      Target = T_INTRUSIVE },
-        new() { Id = "surrender",           Text = "accept 5 sins",                                 Target = T_SURRENDER },
-        new() { Id = "slow_fuses",          Text = "spend a minute holding on",                     Target = T_SLOW_FUSES },
-        new() { Id = "silk_touch",          Text = "finish a loop without a single detonation",     Target = T_SILK_TOUCH },
-        new() { Id = "popup_notification",  Text = "end 3 descents with resistance still held",     Target = T_POPUP_NOTIF },
-        new() { Id = "draft4",              Text = "take 15 mantras",                               Target = T_DRAFT4 },
-        new() { Id = "extreme_tier",        Text = "finish 10 relentless descents",                 Target = T_EXTREME_TIER },
+        new() { Id = "vibe_popping",        Text = "pop 10 treats inside 5 seconds",                Target = T_VIBE_POPPING, HighWater = true,
+                Detail = "pop 10 treats inside one rolling 5-second window. flash and whisper treats count (specials don't). the bar keeps your best burst, so it never goes down." },
+        new() { Id = "freeze_trigger",      Text = "catch 15 freeze pickups",                       Target = T_FREEZE_TRIGGER,
+                Detail = "catch 15 freeze pickups (the ❄ bubble), lifetime. click it before it drifts off the screen." },
+        new() { Id = "porn_dvd",            Text = "endure 10 videos to the end",                   Target = T_PORN_DVD,
+                Detail = "sit through 10 video payloads to their natural end (or the 15 second cap). a tape cut short by waking up doesn't count." },
+        new() { Id = "snap_field",          Text = "defuse 5 threats inside a single loop",         Target = T_SNAP_FIELD, HighWater = true,
+                Detail = "snap 5 trances inside one loop. your own holds, toys, chains and zones all count. the bar keeps your best loop." },
+        new() { Id = "rabbit_caller",       Text = "catch 25 rabbits",                              Target = T_RABBIT_CALLER,
+                Detail = "catch 25 white rabbits, lifetime. with the spanker on, getting your hands on one — the first smack — counts too." },
+        new() { Id = "chain_reaction",      Text = "land 50 interlaced pops",                       Target = T_CHAIN_REACTION,
+                Detail = "50 interlaced pops, lifetime: pop a bubble while another burst from the last 0.4 seconds still glows within reach (about 170px). a tight cluster pays several at once." },
+        new() { Id = "blindfold",           Text = "defuse 10 threats while the screen is busy",    Target = T_BLINDFOLD,
+                Detail = "snap 10 trances while the screen is busy with an effect: a fresh flash or whisper, an overlay, a video, gif rain. lifetime." },
+        new() { Id = "last_breath",         Text = "start 10 defuses with under a second left",     Target = T_LAST_BREATH,
+                Detail = "complete 10 holds that STARTED with 0.8 seconds or less left on the trance. starting late is the skill; finishing the hold is the proof." },
+        new() { Id = "taking_chances",      Text = "pop 8 prisms",                                  Target = T_TAKING_CHANCES,
+                Detail = "pop 8 mimic prisms (the swirling ❂), lifetime. yes, the effect sealed inside fires every time." },
+        new() { Id = "the_pull",            Text = "pop 15 bubbles without moving",                 Target = T_THE_PULL,
+                Detail = "pop 15 treats with your cursor at rest (under ~3px of drift in the last half second). park the hand. let them come to you." },
+        new() { Id = "intrusive_thoughts",  Text = "pop 50 whispering treats",                      Target = T_INTRUSIVE,
+                Detail = "pop 50 whisper treats (the ♥ subliminal bubble), lifetime." },
+        new() { Id = "surrender",           Text = "accept 5 sins",                                 Target = T_SURRENDER,
+                Detail = "accept 5 sins at draft tables, lifetime. the first free taste counts too." },
+        new() { Id = "slow_fuses",          Text = "spend a minute holding on",                     Target = T_SLOW_FUSES,
+                Detail = "hold defuse channels for 60 seconds in total, lifetime. the clock only runs while your button is down on a live bubble; a full hold is about 1 second." },
+        new() { Id = "silk_touch",          Text = "finish a loop without a single detonation",     Target = T_SILK_TOUCH,
+                Detail = "finish one whole loop with zero detonations. a touched tease dirties it too. the run's final loop counts when the clock runs out." },
+        new() { Id = "popup_notification",  Text = "end 3 descents with resistance still held",     Target = T_POPUP_NOTIF,
+                Detail = "finish 3 descents to the buzzer with at least 1 resistance still held. waking up early doesn't count." },
+        new() { Id = "draft4",              Text = "take 15 mantras",                               Target = T_DRAFT4,
+                Detail = "take 15 cards at draft tables, lifetime. mantras and sins both count; skips don't." },
+        new() { Id = "extreme_tier",        Text = "finish 10 relentless descents",                 Target = T_EXTREME_TIER,
+                Detail = "finish 10 descents on Relentless or harder, full course to the buzzer. (the deeper door also wants the Devoted rank.)" },
     };
 
     private static readonly Dictionary<string, ChaosLessonDef> _byId = All.ToDictionary(l => l.Id);
@@ -73,7 +98,8 @@ public static class ChaosLessons
 
     /// <summary>True when this id's Unlock is still lesson-blocked.</summary>
     public static bool IsLessonBlocked(string id) =>
-        _byId.ContainsKey(id) && !Lessonless.Contains(id) && !IsComplete(id);
+        _byId.ContainsKey(id) && !Lessonless.Contains(id) && !IsComplete(id)
+        && !(CurseBound.Contains(id) && App.Settings?.Current?.ChaosAllowCurses == false);
 
     public static bool IsComplete(string id) =>
         !_byId.ContainsKey(id) || Lessonless.Contains(id) ||

@@ -275,7 +275,7 @@ public static class ChaosHappyPath
 
     /// <summary>
     /// Called right after every draft deal. The FIRST draft of a run can be rigged:
-    /// run 4 (RunsCompleted == 3, once) guarantees a SHIELDED double_or_nothing — the sin's
+    /// run 4+ (RunsCompleted >= 3, once) guarantees a SHIELDED double_or_nothing — the sin's
     /// demo where the downside cannot fire; gold-driven later, the first run with both
     /// the_spanker + e_stim equipped guarantees electrified_rabbits (the duo demo).
     /// </summary>
@@ -287,9 +287,11 @@ public static class ChaosHappyPath
             if (_draftsThisRun != 1 || options.Count == 0) return;
             var meta = ChaosMeta.State;
 
-            // run 4: the first sin, defanged once. Accept or decline, the beat is spent.
+            // run 4+: the first sin, defanged once. Accept or decline, the beat is spent.
+            // (>= 3, not == 3: SeenFirstSin keeps it one-shot, and a player past run 4 —
+            // sins toggled off early, or an older save — must still get the demo someday.)
             // The user's "allow sins" toggle wins — switched off, the beat waits for a later run.
-            if (_runsAtStart == 3 && !meta.SeenFirstSin && state.Config.AllowCurses)
+            if (_runsAtStart >= 3 && !meta.SeenFirstSin && state.Config.AllowCurses)
             {
                 var don = ChaosBoonPool.All.FirstOrDefault(b => b.Id == "double_or_nothing");
                 if (don == null) return;
@@ -301,6 +303,10 @@ public static class ChaosHappyPath
                 }
                 _shieldRigBoonId = don.Id;
                 _firstSinDraftPending = true;
+                // Say so out loud — without this line the player can't know the demo sin is
+                // defanged, and the whole teach reads as a normal gamble.
+                ChaosAnnouncerOverlay.Announce("☠ a sin is on the table. the first taste is free. this once.",
+                    ChaosAnnounceKind.Temptation);
                 return;
             }
 
