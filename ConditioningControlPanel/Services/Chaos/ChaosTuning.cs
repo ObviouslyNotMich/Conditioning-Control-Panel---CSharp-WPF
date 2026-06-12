@@ -55,8 +55,13 @@ public static class ChaosTuning
     public const int ECHO_CHILD_FUSE_MAX_MS = 3000;
 
     // ---- Field pace + entry variety (2026-06-11 first-session feedback) ----
-    /// <summary>Global chaos bubble speed bump — verticals travel farther before they rot.</summary>
-    public const double CHAOS_SPEED_MULT = 1.25;
+    /// <summary>Global chaos bubble speed bump — verticals travel farther before they rot.
+    /// (2026-06-12: +15% over the original 1.25 — field felt sluggish.)</summary>
+    public const double CHAOS_SPEED_MULT = 1.4375;
+
+    /// <summary>Hard cap on freeze pickups visible at once. A swarm of freezes let the player
+    /// chain near-permanent field holds; two on screen keeps it a scramble, not a guarantee.</summary>
+    public const int FREEZE_MAX_ON_SCREEN = 2;
     /// <summary>Chance an ordinary FloatUp/RainDown spawn swaps to drifting in from a side
     /// edge (Mixed motion only; an explicit motion setting is respected).</summary>
     public const double SIDE_DRIFT_CHANCE = 0.30;

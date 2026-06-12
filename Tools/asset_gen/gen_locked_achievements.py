@@ -124,6 +124,9 @@ ASSETS = [
      "A neon ringing alarm clock", "MORNING GLORY / 6:00AM"),
     ("Neon_obsession.png", (1024, 1024), SYMBOL, "RGB",
      "A neon mouse cursor/arrow with a click burst around it", "OBSESSION / x20"),
+    ("needy_doll.png", (1024, 1024), SYMBOL, "RGB",
+     "A glowing neon rag-doll / marionette figure hugging a bright heart, surrounded by many "
+     "small click-cursor arrows and tap ripples all reaching toward it", "NEEDY DOLL / 150"),
     ("not_a_video_editor.png", (1024, 1024), SYMBOL, "RGB",
      "A neon film clapperboard with a play triangle", "NOT A VIDEO EDITOR"),
     ("obedience_reflex.png", (1024, 1024), SYMBOL, "RGB",
@@ -142,6 +145,9 @@ ASSETS = [
      "A neon keyboard with the Alt and Tab keys crossed out", "PLAYER 2 DISCONNECTED / NO ALT+TAB"),
     ("pop_the_Thought.png", (1024, 1024), SYMBOL, "RGB",
      "Glowing magenta padlock-bubbles, one of them bursting/popping", "POP THE THOUGHT / 1000"),
+    ("bubble_pop.png", (1024, 1024), SYMBOL, "RGB",
+     "Glowing magenta soap bubbles floating upward, the largest one in the center bursting "
+     "into a bright sparkle pop burst", "POP!"),
     ("puppet_strings.png", (1024, 1024), SYMBOL, "RGB",
      "A neon marionette control bar with strings dangling down", "PUPPET STRINGS / 100"),
     ("relapse.png", (1024, 1024), SYMBOL, "RGB",

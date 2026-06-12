@@ -3519,8 +3519,9 @@ namespace ConditioningControlPanel
             // below, which otherwise wouldn't stop an in-flight voiceline → overlap).
             StopSpokenAudio();
 
-            // The spoken part — audio + bubble. Deferred behind SpeechLeadInSeconds for non-AI lines so
-            // the talking animation (already started above) leads the voice instead of lagging it.
+            // The spoken part — audio + bubble. For non-AI lines this is deferred behind
+            // EmoteAudioLeadInSeconds: ~0 in emote mode (voice-first; the talk clips join late and bow out
+            // early), else the flat SpeechLeadInSeconds so the static pose swap leads the voice.
             bool isThinking = source == SpeechSource.AI && _isWaitingForAi;
             bool slowType = source != SpeechSource.AI; // bark/preset/trigger type slower than AI replies
             Action speak = () =>
@@ -3645,8 +3646,9 @@ namespace ConditioningControlPanel
             _speechLeadInTimer = null;
             if (source != SpeechSource.AI)
             {
-                // Spoken line: hold the audio + bubble back so the mouth leads the voice. In emote mode this
-                // is the chosen talk clip's measured mouth-open time (per-clip); otherwise the flat lead-in.
+                // Spoken line: in emote mode the voice fires right away (~0 — the talk animation joins the
+                // line late instead); otherwise hold audio + bubble behind the flat lead-in so the static
+                // pose swap leads the voice.
                 _speechLeadInTimer = new DispatcherTimer
                 { Interval = TimeSpan.FromSeconds(EmoteAudioLeadInSeconds(SpeechLeadInSeconds)) };
                 _speechLeadInTimer.Tick += (s, e) =>

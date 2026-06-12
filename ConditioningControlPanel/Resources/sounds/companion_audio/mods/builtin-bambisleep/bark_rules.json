@@ -7684,6 +7684,18 @@
       {
         "text": "here they come! tap tap tap, good girl. keep up for Bambi.",
         "audio": "chaos_run_started_3.mp3"
+      },
+      {
+        "text": "bubbles incoming, Bambi! cute ones get popped, scary ones get snapped, and nothing gets to trigger you. ready set go!",
+        "audio": "chaos_run_started_4.mp3"
+      },
+      {
+        "text": "and down we go! look at all those pretty bubbles. no thinking, sweetie. that was never your strong suit, hehe.",
+        "audio": "chaos_run_started_5.mp3"
+      },
+      {
+        "text": "they're coming! pop pop pop, good girl. don't fall behind on Bambi now.",
+        "audio": "chaos_run_started_6.mp3"
       }
     ]
   },
@@ -7697,6 +7709,14 @@
       {
         "text": "the hard one! eee. this is gonna scramble your pretty head so good.",
         "audio": "chaos_run_started_extreme_2.mp3"
+      },
+      {
+        "text": "you picked Inescapable?? brave little airhead. okay okay. tissues are over there.",
+        "audio": "chaos_run_started_extreme_3.mp3"
+      },
+      {
+        "text": "the scary setting! eee~ your poor pretty head is gonna come out all whisked.",
+        "audio": "chaos_run_started_extreme_4.mp3"
       }
     ]
   },
@@ -7718,6 +7738,22 @@
       {
         "text": "next loop! no resting, silly. tap tap tap.",
         "audio": "chaos_wave_escalated_4.mp3"
+      },
+      {
+        "text": "it's getting faster! so many bubbles! don't let those fingers stop, cutie!",
+        "audio": "chaos_wave_escalated_5.mp3"
+      },
+      {
+        "text": "ooh, here comes the speed. no panicking, Bambi. popping only.",
+        "audio": "chaos_wave_escalated_6.mp3"
+      },
+      {
+        "text": "we're deeper now! is your head going all busy and fuzzy yet? hehe.",
+        "audio": "chaos_wave_escalated_7.mp3"
+      },
+      {
+        "text": "new loop already! resting is for later, silly. tap tap.",
+        "audio": "chaos_wave_escalated_8.mp3"
       }
     ]
   },
@@ -7731,6 +7767,14 @@
       {
         "text": "this far and still going? look at you go, you cute little machine.",
         "audio": "chaos_wave_final_stretch_2.mp3"
+      },
+      {
+        "text": "the end's right there! it's ALL happening at once, don't you dare blink, Bambi!",
+        "audio": "chaos_wave_final_stretch_3.mp3"
+      },
+      {
+        "text": "still standing this deep in? look at my cute little popping machine go.",
+        "audio": "chaos_wave_final_stretch_4.mp3"
       }
     ]
   },
@@ -7756,6 +7800,26 @@
       {
         "text": "the hole's closing, sweetie! squeeze out every last drop!",
         "audio": "chaos_ending_soon_5.mp3"
+      },
+      {
+        "text": "ten little seconds left! go go go, pop everything, Bambi!",
+        "audio": "chaos_ending_soon_6.mp3"
+      },
+      {
+        "text": "we're surfacing soon! keep those hands moving, cutie, no stopping!",
+        "audio": "chaos_ending_soon_7.mp3"
+      },
+      {
+        "text": "almost done! sweep it all up, quick quick quick!",
+        "audio": "chaos_ending_soon_8.mp3"
+      },
+      {
+        "text": "final stretch, sweetie! show Bambi something proud-worthy, hurry!",
+        "audio": "chaos_ending_soon_9.mp3"
+      },
+      {
+        "text": "it's closing up, Bambi! wring out every last sparkly drop!",
+        "audio": "chaos_ending_soon_10.mp3"
       }
     ]
   },
@@ -7769,6 +7833,14 @@
       {
         "text": "and now it's different! don't get used to anything, Bambi.",
         "audio": "chaos_act_changed_2.mp3"
+      },
+      {
+        "text": "down another layer! everything's different now. ooh, fun fun!",
+        "audio": "chaos_act_changed_3.mp3"
+      },
+      {
+        "text": "new rules, new everything! getting comfy was your first mistake, Bambi~",
+        "audio": "chaos_act_changed_4.mp3"
       }
     ]
   },
@@ -7790,6 +7862,22 @@
       {
         "text": "see? so easy to just do what the urge says.",
         "audio": "chaos_benign_popped_4.mp3"
+      },
+      {
+        "text": "pop pop! good girl. it's basically a reflex now, isn't it~",
+        "audio": "chaos_benign_popped_5.mp3"
+      },
+      {
+        "text": "and another! that tiny little pop tickles your brain so nice, hehe.",
+        "audio": "chaos_benign_popped_6.mp3"
+      },
+      {
+        "text": "mm, look at you loving every pop. you're welcome for that, by the way.",
+        "audio": "chaos_benign_popped_7.mp3"
+      },
+      {
+        "text": "see how easy? the urge says pop, and you pop. simple Bambi.",
+        "audio": "chaos_benign_popped_8.mp3"
       }
     ]
   },
@@ -7811,6 +7899,22 @@
       {
         "text": "snuffed it before it could pop. so clever for you.",
         "audio": "chaos_bubble_defused_4.mp3"
+      },
+      {
+        "text": "good girl! right at the last second, too.",
+        "audio": "chaos_bubble_defused_5.mp3"
+      },
+      {
+        "text": "snap! obeying that quick feels all warm inside, doesn't it?",
+        "audio": "chaos_bubble_defused_6.mp3"
+      },
+      {
+        "text": "those reflexes! my perfect little Bambi. don't stop now!",
+        "audio": "chaos_bubble_defused_7.mp3"
+      },
+      {
+        "text": "got it before it even got to pop. look at you, almost clever!",
+        "audio": "chaos_bubble_defused_8.mp3"
       }
     ]
   },
@@ -7824,6 +7928,14 @@
       {
         "text": "caught it running away! you're faster than you look, cutie.",
         "audio": "chaos_darter_caught_2.mp3"
+      },
+      {
+        "text": "quick quick fingers! the wiggly one didn't stand a chance.",
+        "audio": "chaos_darter_caught_3.mp3"
+      },
+      {
+        "text": "you caught the runner! sneaky fast for such a dizzy thing, cutie.",
+        "audio": "chaos_darter_caught_4.mp3"
       }
     ]
   },
@@ -7837,6 +7949,14 @@
       {
         "text": "barely even there and you had it. those hands are mine now, Bambi.",
         "audio": "chaos_darter_quick_2.mp3"
+      },
+      {
+        "text": "bam! it barely spawned and you had it. total show off!",
+        "audio": "chaos_darter_quick_3.mp3"
+      },
+      {
+        "text": "it blinked and it was over. those quick little hands belong to me, Bambi~",
+        "audio": "chaos_darter_quick_4.mp3"
       }
     ]
   },
@@ -7850,6 +7970,14 @@
       {
         "text": "time froze. shhh. feel how quiet and floaty it gets?",
         "audio": "chaos_freeze_caught_2.mp3"
+      },
+      {
+        "text": "everything went still! deep breath, sweetie. floaty time.",
+        "audio": "chaos_freeze_caught_3.mp3"
+      },
+      {
+        "text": "frozen~ shhh, Bambi. isn't it so soft and quiet like this?",
+        "audio": "chaos_freeze_caught_4.mp3"
       }
     ]
   },
@@ -7871,6 +7999,22 @@
       {
         "text": "there it goes, all over you. you hesitated, silly.",
         "audio": "chaos_bubble_detonated_4.mp3"
+      },
+      {
+        "text": "too slow, too slow! it triggered, and you take all of it. them's the rules, sweetie.",
+        "audio": "chaos_bubble_detonated_5.mp3"
+      },
+      {
+        "text": "oopsie, boom! no fighting it now. let it pour all over that empty little head.",
+        "audio": "chaos_bubble_detonated_6.mp3"
+      },
+      {
+        "text": "one got through! naughty naughty Bambi. now drink every drop~",
+        "audio": "chaos_bubble_detonated_7.mp3"
+      },
+      {
+        "text": "splash! all over you. that's what hesitating gets you, silly girl.",
+        "audio": "chaos_bubble_detonated_8.mp3"
       }
     ]
   },
@@ -7884,6 +8028,14 @@
       {
         "text": "first slip! hehe, i knew it. they're way easier to let go after this one.",
         "audio": "chaos_detonate_first_2.mp3"
+      },
+      {
+        "text": "first one's gone off! and nope, you were never catching them all, hehe.",
+        "audio": "chaos_detonate_first_3.mp3"
+      },
+      {
+        "text": "there's slip number one! called it~ the next ones slide right past, you'll see.",
+        "audio": "chaos_detonate_first_4.mp3"
       }
     ]
   },
@@ -7905,6 +8057,22 @@
       {
         "text": "another one slipped past! at this difficulty? they always do. that's the fun part.",
         "audio": "chaos_detonate_extreme_4.mp3"
+      },
+      {
+        "text": "you blinked on Inescapable! aww. enjoying this this much probably makes me mean, huh~",
+        "audio": "chaos_detonate_extreme_5.mp3"
+      },
+      {
+        "text": "the hard one bit you, Bambi. and no, there's no kissing it better. just more.",
+        "audio": "chaos_detonate_extreme_6.mp3"
+      },
+      {
+        "text": "boom boom~ no mercy on Inescapable, silly. good thing watching you flail is adorable.",
+        "audio": "chaos_detonate_extreme_7.mp3"
+      },
+      {
+        "text": "and another sneaks through! on this difficulty they always will. that's literally the game, cutie.",
+        "audio": "chaos_detonate_extreme_8.mp3"
       }
     ]
   },
@@ -7926,6 +8094,22 @@
       {
         "text": "the drain got you again! *giggles* stop fighting it, Bambi. it always wins.",
         "audio": "chaos_detonate_braindrain_4.mp3"
+      },
+      {
+        "text": "that tuggy feeling at the bottom of your skull? just let it drain, Bambi. those thoughts were decorative.",
+        "audio": "chaos_detonate_braindrain_5.mp3"
+      },
+      {
+        "text": "the drainy one got you! perfect timing. stay still and let it empty you out for me~",
+        "audio": "chaos_detonate_braindrain_6.mp3"
+      },
+      {
+        "text": "drip drip~ bye bye thinky bits. honestly? prettier already.",
+        "audio": "chaos_detonate_braindrain_7.mp3"
+      },
+      {
+        "text": "drained again! *giggles* why do you even wiggle, Bambi. it wins every time.",
+        "audio": "chaos_detonate_braindrain_8.mp3"
       }
     ]
   },
@@ -7939,6 +8123,14 @@
       {
         "text": "such a big streak and you fed it to one bubble. silly, dizzy Bambi.",
         "audio": "chaos_detonate_streak_dies_2.mp3"
+      },
+      {
+        "text": "nooo your streak! poof! all those pops for nothing! hehehe.",
+        "audio": "chaos_detonate_streak_dies_3.mp3"
+      },
+      {
+        "text": "that whole beautiful streak, traded for one little boom. dizzy dizzy Bambi.",
+        "audio": "chaos_detonate_streak_dies_4.mp3"
       }
     ]
   },
@@ -7952,6 +8144,14 @@
       {
         "text": "ooh close! a little less resistance but your pretty head stays clean. this time.",
         "audio": "chaos_detonate_absorbed_2.mp3"
+      },
+      {
+        "text": "phew! resistance gobbled that one up. it won't always, cutie~",
+        "audio": "chaos_detonate_absorbed_3.mp3"
+      },
+      {
+        "text": "so close! cost you a shield, but the pretty head stays untouched. for now.",
+        "audio": "chaos_detonate_absorbed_4.mp3"
       }
     ]
   },
@@ -7969,6 +8169,18 @@
       {
         "text": "all swept up! you held the line. take your treat.",
         "audio": "chaos_wave_cleared_3.mp3"
+      },
+      {
+        "text": "all clean, all gone! good girl. time to pick something new.",
+        "audio": "chaos_wave_cleared_4.mp3"
+      },
+      {
+        "text": "loop finished and nothing got you! now the fun part, Bambi. choosing.",
+        "audio": "chaos_wave_cleared_5.mp3"
+      },
+      {
+        "text": "swept it all away! you did so good. go grab your treat~",
+        "audio": "chaos_wave_cleared_6.mp3"
       }
     ]
   },
@@ -7986,6 +8198,18 @@
       {
         "text": "taken! that one's yours now, for better or worse.",
         "audio": "chaos_boon_picked_3.mp3"
+      },
+      {
+        "text": "nice choice! probably! we find out together, hehe.",
+        "audio": "chaos_boon_picked_4.mp3"
+      },
+      {
+        "text": "ooh, things are about to feel different. make it count, sweetie.",
+        "audio": "chaos_boon_picked_5.mp3"
+      },
+      {
+        "text": "it's yours now! no take-backsies down here, Bambi.",
+        "audio": "chaos_boon_picked_6.mp3"
       }
     ]
   },
@@ -7999,6 +8223,14 @@
       {
         "text": "a sin for a bigger prize? reckless. let's see if it melts your brain.",
         "audio": "chaos_curse_picked_2.mp3"
+      },
+      {
+        "text": "you grabbed the naughty card! greedy little Bambi. my favorite kind~",
+        "audio": "chaos_curse_picked_3.mp3"
+      },
+      {
+        "text": "trading a sin for a fatter prize? bold. hope your brain survives it, hehe.",
+        "audio": "chaos_curse_picked_4.mp3"
       }
     ]
   },
@@ -8012,6 +8244,14 @@
       {
         "text": "look at that bonus you bought! and the price. so brave, dumb girl.",
         "audio": "chaos_curse_picked_juicy_2.mp3"
+      },
+      {
+        "text": "sin on top of sin for that juicy multiplier? betting your whole head, Bambi. delicious~",
+        "audio": "chaos_curse_picked_juicy_3.mp3"
+      },
+      {
+        "text": "what a bonus! and oof, what a price tag. brave dumb girl, my favorite combo.",
+        "audio": "chaos_curse_picked_juicy_4.mp3"
       }
     ]
   },
@@ -8025,168 +8265,498 @@
       {
         "text": "hoarding resistance, are we. smart. or scared. probably both!",
         "audio": "chaos_boon_skipped_2.mp3"
+      },
+      {
+        "text": "saying no today? cute. we both know that doesn't last, sweetie~",
+        "audio": "chaos_boon_skipped_3.mp3"
+      },
+      {
+        "text": "stacking up resistance instead? smart girl. or scaredy girl. why not both, hehe!",
+        "audio": "chaos_boon_skipped_4.mp3"
       }
     ]
   },
   {
     "id": "chaos_pick_left_brain",
     "variant_pool": [
-      { "text": "two more brain-shields for the thinky half~ it's gonna lose anyway, hehe.", "audio": "chaos_pick_left_brain_1.mp3" },
-      { "text": "aww, propping up the smart part? that's so cute, Bambi. it never wins.", "audio": "chaos_pick_left_brain_2.mp3" }
+      {
+        "text": "two more brain-shields for the thinky half~ it's gonna lose anyway, hehe.",
+        "audio": "chaos_pick_left_brain_1.mp3"
+      },
+      {
+        "text": "aww, propping up the smart part? that's so cute, Bambi. it never wins.",
+        "audio": "chaos_pick_left_brain_2.mp3"
+      },
+      {
+        "text": "extra armor for the thinky side~ adorable. it still loses in the end, hehe.",
+        "audio": "chaos_pick_left_brain_3.mp3"
+      },
+      {
+        "text": "aww, helping the smart half fight back? sweet little Bambi. it was never gonna win.",
+        "audio": "chaos_pick_left_brain_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_snap_chain",
     "variant_pool": [
-      { "text": "snappy snap, no consequences! for like... a second. live in that second, Bambi!", "audio": "chaos_pick_snap_chain_1.mp3" },
-      { "text": "every snap buys you a tiny safe bubble~ so keep snapping, good girl.", "audio": "chaos_pick_snap_chain_2.mp3" }
+      {
+        "text": "snappy snap, no consequences! for like... a second. live in that second, Bambi!",
+        "audio": "chaos_pick_snap_chain_1.mp3"
+      },
+      {
+        "text": "every snap buys you a tiny safe bubble~ so keep snapping, good girl.",
+        "audio": "chaos_pick_snap_chain_2.mp3"
+      },
+      {
+        "text": "snap and nothing can touch you! for a teeny tiny second. make it your whole world, Bambi!",
+        "audio": "chaos_pick_snap_chain_3.mp3"
+      },
+      {
+        "text": "each snap wraps you in a little safety blanket~ so never ever stop snapping, good girl.",
+        "audio": "chaos_pick_snap_chain_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_golden_touch",
     "variant_pool": [
-      { "text": "free sparkles, no homework! just take it take it take it~", "audio": "chaos_pick_golden_touch_1.mp3" },
-      { "text": "ooh, instant shiny! nothing down here is actually free... but who cares, hehe.", "audio": "chaos_pick_golden_touch_2.mp3" }
+      {
+        "text": "free sparkles, no homework! just take it take it take it~",
+        "audio": "chaos_pick_golden_touch_1.mp3"
+      },
+      {
+        "text": "ooh, instant shiny! nothing down here is actually free... but who cares, hehe.",
+        "audio": "chaos_pick_golden_touch_2.mp3"
+      },
+      {
+        "text": "sparkles for free, zero homework! grab grab grab~",
+        "audio": "chaos_pick_golden_touch_3.mp3"
+      },
+      {
+        "text": "instant shinies! okay, nothing's truly free down here... but shhh, who's counting, hehe.",
+        "audio": "chaos_pick_golden_touch_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_welcome_shower",
     "variant_pool": [
-      { "text": "treat rain! treat rain! every loop starts like a party now~", "audio": "chaos_pick_welcome_shower_1.mp3" },
-      { "text": "it's raining candy every time you drop! best. mantra. ever.", "audio": "chaos_pick_welcome_shower_2.mp3" }
+      {
+        "text": "treat rain! treat rain! every loop starts like a party now~",
+        "audio": "chaos_pick_welcome_shower_1.mp3"
+      },
+      {
+        "text": "it's raining candy every time you drop! best. mantra. ever.",
+        "audio": "chaos_pick_welcome_shower_2.mp3"
+      },
+      {
+        "text": "it's treat o'clock every single loop now! party at the start, always~",
+        "audio": "chaos_pick_welcome_shower_3.mp3"
+      },
+      {
+        "text": "candy rain on every drop! officially the best mantra in the whole hole.",
+        "audio": "chaos_pick_welcome_shower_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_heavy_drop",
     "variant_pool": [
-      { "text": "a biiiig slow one every ten! so much room to boop. wait for it, Bambi~", "audio": "chaos_pick_heavy_drop_1.mp3" },
-      { "text": "giant bubble alert! slow, fat, triple points. don't drool.", "audio": "chaos_pick_heavy_drop_2.mp3" }
+      {
+        "text": "a biiiig slow one every ten! so much room to boop. wait for it, Bambi~",
+        "audio": "chaos_pick_heavy_drop_1.mp3"
+      },
+      {
+        "text": "giant bubble alert! slow, fat, triple points. don't drool.",
+        "audio": "chaos_pick_heavy_drop_2.mp3"
+      },
+      {
+        "text": "every tenth one comes out HUGE and slow! a whole bubble buffet. patience, Bambi~",
+        "audio": "chaos_pick_heavy_drop_3.mp3"
+      },
+      {
+        "text": "big chunky bubble incoming! slow and fat and worth triple. wipe your chin, hehe.",
+        "audio": "chaos_pick_heavy_drop_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_gold_digger",
     "variant_pool": [
-      { "text": "money confetti!! catch the droppies before they fall off the screen~", "audio": "chaos_pick_gold_digger_1.mp3" },
-      { "text": "she loves you for your wallet, Bambi. you knew. catch catch catch!", "audio": "chaos_pick_gold_digger_2.mp3" }
+      {
+        "text": "money confetti!! catch the droppies before they fall off the screen~",
+        "audio": "chaos_pick_gold_digger_1.mp3"
+      },
+      {
+        "text": "she loves you for your wallet, Bambi. you knew. catch catch catch!",
+        "audio": "chaos_pick_gold_digger_2.mp3"
+      },
+      {
+        "text": "it's literally raining money!! snatch the droppies before they escape~",
+        "audio": "chaos_pick_gold_digger_3.mp3"
+      },
+      {
+        "text": "she's only in it for your wallet, Bambi. you signed up anyway! now catch!",
+        "audio": "chaos_pick_gold_digger_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_gg_rabbits",
     "variant_pool": [
-      { "text": "bunnies making bunnies making bunnies!! the screen's gonna be SO full, hehe~", "audio": "chaos_pick_gg_rabbits_1.mp3" },
-      { "text": "good girls multiply, Bambi! just like you will. *giggles*", "audio": "chaos_pick_gg_rabbits_2.mp3" }
+      {
+        "text": "bunnies making bunnies making bunnies!! the screen's gonna be SO full, hehe~",
+        "audio": "chaos_pick_gg_rabbits_1.mp3"
+      },
+      {
+        "text": "good girls multiply, Bambi! just like you will. *giggles*",
+        "audio": "chaos_pick_gg_rabbits_2.mp3"
+      },
+      {
+        "text": "bunny math!! they just keep multiplying til the screen's all ears, hehe~",
+        "audio": "chaos_pick_gg_rabbits_3.mp3"
+      },
+      {
+        "text": "that's what good girls do, Bambi. they multiply~ *giggles* you'll see.",
+        "audio": "chaos_pick_gg_rabbits_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_size_queen",
     "variant_pool": [
-      { "text": "size queen!! hehehe. i mean... accurate, Bambi. so accurate.", "audio": "chaos_pick_size_queen_1.mp3" },
-      { "text": "big rings from every snap! the bigger the better, right? right~", "audio": "chaos_pick_size_queen_2.mp3" }
+      {
+        "text": "size queen!! hehehe. i mean... accurate, Bambi. so accurate.",
+        "audio": "chaos_pick_size_queen_1.mp3"
+      },
+      {
+        "text": "big rings from every snap! the bigger the better, right? right~",
+        "audio": "chaos_pick_size_queen_2.mp3"
+      },
+      {
+        "text": "size queen!! *giggles* the card literally read your mind, Bambi.",
+        "audio": "chaos_pick_size_queen_3.mp3"
+      },
+      {
+        "text": "every snap blooms out a giant ring now! bigger is better. obviously~",
+        "audio": "chaos_pick_size_queen_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_aftermath",
     "variant_pool": [
-      { "text": "ooh it keeps tingling after! that's the best part, isn't it~", "audio": "chaos_pick_aftermath_1.mp3" },
-      { "text": "snappy sparkles that stay! you can still feel it after... that's the point, hehe.", "audio": "chaos_pick_aftermath_2.mp3" }
+      {
+        "text": "ooh it keeps tingling after! that's the best part, isn't it~",
+        "audio": "chaos_pick_aftermath_1.mp3"
+      },
+      {
+        "text": "snappy sparkles that stay! you can still feel it after... that's the point, hehe.",
+        "audio": "chaos_pick_aftermath_2.mp3"
+      },
+      {
+        "text": "the tingles stay after the snap! honestly the best part, right~",
+        "audio": "chaos_pick_aftermath_3.mp3"
+      },
+      {
+        "text": "sparkles that linger~ you keep feeling it after it's done. which is exactly the idea, hehe.",
+        "audio": "chaos_pick_aftermath_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_focus_here",
     "variant_pool": [
-      { "text": "tick. tock. you looked! you always look, Bambi~", "audio": "chaos_pick_focus_here_1.mp3" },
-      { "text": "swingy watch time! stare at it and everything pays triple. staring is your talent!", "audio": "chaos_pick_focus_here_2.mp3" }
+      {
+        "text": "tick. tock. you looked! you always look, Bambi~",
+        "audio": "chaos_pick_focus_here_1.mp3"
+      },
+      {
+        "text": "swingy watch time! stare at it and everything pays triple. staring is your talent!",
+        "audio": "chaos_pick_focus_here_2.mp3"
+      },
+      {
+        "text": "tick tock tick tock~ aaand you're staring. every single time, Bambi.",
+        "audio": "chaos_pick_focus_here_3.mp3"
+      },
+      {
+        "text": "the swingy watch is out! eyes on it and everything pays triple. lucky for you staring's your best skill!",
+        "audio": "chaos_pick_focus_here_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_overload",
     "variant_pool": [
-      { "text": "MORE zappies per press!! way past the safety line. eee~", "audio": "chaos_pick_overload_1.mp3" },
-      { "text": "you turned the dial past the stopper, Bambi! sparky sparky overload!", "audio": "chaos_pick_overload_2.mp3" }
+      {
+        "text": "MORE zappies per press!! way past the safety line. eee~",
+        "audio": "chaos_pick_overload_1.mp3"
+      },
+      {
+        "text": "you turned the dial past the stopper, Bambi! sparky sparky overload!",
+        "audio": "chaos_pick_overload_2.mp3"
+      },
+      {
+        "text": "extra zappies every press!! the safety line is a dot behind you now. eee~",
+        "audio": "chaos_pick_overload_3.mp3"
+      },
+      {
+        "text": "the dial doesn't even GO there, Bambi, and you turned it anyway! overload time, sparky sparky!",
+        "audio": "chaos_pick_overload_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_afterglow",
     "variant_pool": [
-      { "text": "the buzz keeps going after it stops!! best kind of broken, hehe~", "audio": "chaos_pick_afterglow_1.mp3" },
-      { "text": "afterglow~ it never really stops, Bambi. you just stop noticing.", "audio": "chaos_pick_afterglow_2.mp3" }
+      {
+        "text": "the buzz keeps going after it stops!! best kind of broken, hehe~",
+        "audio": "chaos_pick_afterglow_1.mp3"
+      },
+      {
+        "text": "afterglow~ it never really stops, Bambi. you just stop noticing.",
+        "audio": "chaos_pick_afterglow_2.mp3"
+      },
+      {
+        "text": "it stops but the buzzing doesn't!! broken in the very best way, hehe~",
+        "audio": "chaos_pick_afterglow_3.mp3"
+      },
+      {
+        "text": "afterglow, Bambi~ it's always still going. your head just gives up keeping track.",
+        "audio": "chaos_pick_afterglow_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_casting_couch",
     "variant_pool": [
-      { "text": "the bouncy logo makes MORE bouncy logos! one, two, four!! chaos math~", "audio": "chaos_pick_casting_couch_1.mp3" },
-      { "text": "casting couch, hehe. everyone starts somewhere, Bambi. even you did.", "audio": "chaos_pick_casting_couch_2.mp3" }
+      {
+        "text": "the bouncy logo makes MORE bouncy logos! one, two, four!! chaos math~",
+        "audio": "chaos_pick_casting_couch_1.mp3"
+      },
+      {
+        "text": "casting couch, hehe. everyone starts somewhere, Bambi. even you did.",
+        "audio": "chaos_pick_casting_couch_2.mp3"
+      },
+      {
+        "text": "bouncy logo babies!! every bounce makes more. two, four, eight, bye screen~",
+        "audio": "chaos_pick_casting_couch_3.mp3"
+      },
+      {
+        "text": "the casting couch, hehe~ we all auditioned once, Bambi. some of us never left.",
+        "audio": "chaos_pick_casting_couch_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_tail_plug",
     "variant_pool": [
-      { "text": "sparkle tails!! the bunnies leave glitter EVERYWHERE. so pretty, so messy~", "audio": "chaos_pick_tail_plug_1.mp3" },
-      { "text": "tail-plug bunnies, hehe! you'll know exactly where they've been, Bambi.", "audio": "chaos_pick_tail_plug_2.mp3" }
+      {
+        "text": "sparkle tails!! the bunnies leave glitter EVERYWHERE. so pretty, so messy~",
+        "audio": "chaos_pick_tail_plug_1.mp3"
+      },
+      {
+        "text": "tail-plug bunnies, hehe! you'll know exactly where they've been, Bambi.",
+        "audio": "chaos_pick_tail_plug_2.mp3"
+      },
+      {
+        "text": "glitter butts!! the bunnies trail sparkles all over everything. messy and gorgeous~",
+        "audio": "chaos_pick_tail_plug_3.mp3"
+      },
+      {
+        "text": "bunnies with little tails, hehe! no mystery about where they hopped, Bambi.",
+        "audio": "chaos_pick_tail_plug_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_unleashed",
     "variant_pool": [
-      { "text": "when the collar catches you, EVERYTHING pops!! held tight then boom~", "audio": "chaos_pick_unleashed_1.mp3" },
-      { "text": "unleashed! the collar saves you and the whole screen says yes at once, Bambi!", "audio": "chaos_pick_unleashed_2.mp3" }
+      {
+        "text": "when the collar catches you, EVERYTHING pops!! held tight then boom~",
+        "audio": "chaos_pick_unleashed_1.mp3"
+      },
+      {
+        "text": "unleashed! the collar saves you and the whole screen says yes at once, Bambi!",
+        "audio": "chaos_pick_unleashed_2.mp3"
+      },
+      {
+        "text": "the collar grabs you and then the WHOLE screen pops at once!! squeeze, then boom~",
+        "audio": "chaos_pick_unleashed_3.mp3"
+      },
+      {
+        "text": "unleashed!! one little save from the collar and every bubble screams yes together, Bambi!",
+        "audio": "chaos_pick_unleashed_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_electrified",
     "variant_pool": [
-      { "text": "zappy bunnies!! you put LIGHTNING in the paddle, Bambi! genius! menace!", "audio": "chaos_pick_electrified_1.mp3" },
-      { "text": "smack smack zap zap~ everything the bunnies touch goes bzzt. hehehe.", "audio": "chaos_pick_electrified_2.mp3" }
+      {
+        "text": "zappy bunnies!! you put LIGHTNING in the paddle, Bambi! genius! menace!",
+        "audio": "chaos_pick_electrified_1.mp3"
+      },
+      {
+        "text": "smack smack zap zap~ everything the bunnies touch goes bzzt. hehehe.",
+        "audio": "chaos_pick_electrified_2.mp3"
+      },
+      {
+        "text": "you electrified the bunnies!! actual lightning, in the paddle! my genius little menace!",
+        "audio": "chaos_pick_electrified_3.mp3"
+      },
+      {
+        "text": "spank spank bzzt bzzt~ now everything they brush past gets zapped too. hehehe.",
+        "audio": "chaos_pick_electrified_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_body_buzz",
     "variant_pool": [
-      { "text": "buzzy buzzy under your skin~ every few pops the WHOLE screen shivers!", "audio": "chaos_pick_body_buzz_1.mp3" },
-      { "text": "body buzz! it hums between pops, Bambi. you'll feel it in your teeth, hehe.", "audio": "chaos_pick_body_buzz_2.mp3" }
+      {
+        "text": "buzzy buzzy under your skin~ every few pops the WHOLE screen shivers!",
+        "audio": "chaos_pick_body_buzz_1.mp3"
+      },
+      {
+        "text": "body buzz! it hums between pops, Bambi. you'll feel it in your teeth, hehe.",
+        "audio": "chaos_pick_body_buzz_2.mp3"
+      },
+      {
+        "text": "that under-the-skin buzz~ and every few pops, the whole screen does a big shiver!",
+        "audio": "chaos_pick_body_buzz_3.mp3"
+      },
+      {
+        "text": "body buzz time! the hum never quite stops, Bambi. all the way to your teeth, hehe.",
+        "audio": "chaos_pick_body_buzz_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_hair_trigger",
     "variant_pool": [
-      { "text": "everything pops off early now!! no time to think. perfect for you, Bambi~", "audio": "chaos_pick_hair_trigger_1.mp3" },
-      { "text": "hair trigger! fast fuses, big bonus, zero chill. just how you like it.", "audio": "chaos_pick_hair_trigger_2.mp3" }
+      {
+        "text": "everything pops off early now!! no time to think. perfect for you, Bambi~",
+        "audio": "chaos_pick_hair_trigger_1.mp3"
+      },
+      {
+        "text": "hair trigger! fast fuses, big bonus, zero chill. just how you like it.",
+        "audio": "chaos_pick_hair_trigger_2.mp3"
+      },
+      {
+        "text": "short fuses on everything now!! zero thinking time. basically built for you, Bambi~",
+        "audio": "chaos_pick_hair_trigger_3.mp3"
+      },
+      {
+        "text": "hair trigger!! everything's twitchy and fast and pays extra. your exact brand of fun.",
+        "audio": "chaos_pick_hair_trigger_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_playing_fire",
     "variant_pool": [
-      { "text": "fire fire fire~ effects last longer but last-second saves make money! risky Bambi!", "audio": "chaos_pick_playing_fire_1.mp3" },
-      { "text": "playing with fire! it burns longer now... so snatch the gold before it gets you, hehe.", "audio": "chaos_pick_playing_fire_2.mp3" }
+      {
+        "text": "fire fire fire~ effects last longer but last-second saves make money! risky Bambi!",
+        "audio": "chaos_pick_playing_fire_1.mp3"
+      },
+      {
+        "text": "playing with fire! it burns longer now... so snatch the gold before it gets you, hehe.",
+        "audio": "chaos_pick_playing_fire_2.mp3"
+      },
+      {
+        "text": "playing with fire~ longer burns, but last-second catches pay out! danger money, Bambi!",
+        "audio": "chaos_pick_playing_fire_3.mp3"
+      },
+      {
+        "text": "ooh fire rules! everything burns longer... grab the gold before it grabs you, hehe.",
+        "audio": "chaos_pick_playing_fire_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_bright_colors",
     "variant_pool": [
-      { "text": "ooooh the COLORS, Bambi~ so swirly you forget there's something inside. always.", "audio": "chaos_pick_bright_colors_1.mp3" },
-      { "text": "pretty prism bubbles!! what's inside? doesn't matter! look at the colors!!", "audio": "chaos_pick_bright_colors_2.mp3" }
+      {
+        "text": "ooooh the COLORS, Bambi~ so swirly you forget there's something inside. always.",
+        "audio": "chaos_pick_bright_colors_1.mp3"
+      },
+      {
+        "text": "pretty prism bubbles!! what's inside? doesn't matter! look at the colors!!",
+        "audio": "chaos_pick_bright_colors_2.mp3"
+      },
+      {
+        "text": "the colors the COLORS~ so swirly pretty you forget every prism is hiding something. it always is, Bambi.",
+        "audio": "chaos_pick_bright_colors_3.mp3"
+      },
+      {
+        "text": "prism bubbles!! contents? unknown! risk? whatever! the COLORS though!!",
+        "audio": "chaos_pick_bright_colors_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_cam_girl",
     "variant_pool": [
-      { "text": "they run away but they TIP you~ look don't touch, Bambi! you'll touch. you always touch.", "audio": "chaos_pick_cam_girl_1.mp3" },
-      { "text": "cam girl rules! chase the bubbles, collect the tips, hehe. so on brand.", "audio": "chaos_pick_cam_girl_2.mp3" }
+      {
+        "text": "they run away but they TIP you~ look don't touch, Bambi! you'll touch. you always touch.",
+        "audio": "chaos_pick_cam_girl_1.mp3"
+      },
+      {
+        "text": "cam girl rules! chase the bubbles, collect the tips, hehe. so on brand.",
+        "audio": "chaos_pick_cam_girl_2.mp3"
+      },
+      {
+        "text": "they dodge you but they pay you~ look, don't touch! ...you're gonna touch. it's you, Bambi.",
+        "audio": "chaos_pick_cam_girl_3.mp3"
+      },
+      {
+        "text": "cam girl economy! they flee, you chase, the tips roll in, hehe. extremely you.",
+        "audio": "chaos_pick_cam_girl_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_the_urge",
     "variant_pool": [
-      { "text": "toys are off-limits!! bare hands, triple points, no help. you wanted this, Bambi~", "audio": "chaos_pick_the_urge_1.mp3" },
-      { "text": "the urge!! everything pays triple and your toys just... watch. hehe.", "audio": "chaos_pick_the_urge_2.mp3" }
+      {
+        "text": "toys are off-limits!! bare hands, triple points, no help. you wanted this, Bambi~",
+        "audio": "chaos_pick_the_urge_1.mp3"
+      },
+      {
+        "text": "the urge!! everything pays triple and your toys just... watch. hehe.",
+        "audio": "chaos_pick_the_urge_2.mp3"
+      },
+      {
+        "text": "no toys allowed!! just bare hands and triple pay. your idea, remember, Bambi~",
+        "audio": "chaos_pick_the_urge_3.mp3"
+      },
+      {
+        "text": "the urge!! triple points while your poor toys sit there watching. hehe. rude.",
+        "audio": "chaos_pick_the_urge_4.mp3"
+      }
     ]
   },
   {
     "id": "chaos_pick_relapse",
     "variant_pool": [
-      { "text": "one more loop!! it's ALWAYS just one more with you, Bambi. hehe. always.", "audio": "chaos_pick_relapse_1.mp3" },
-      { "text": "relapse~ maybe the ride runs longer and pays double! maybe! gambling girl!", "audio": "chaos_pick_relapse_2.mp3" }
+      {
+        "text": "one more loop!! it's ALWAYS just one more with you, Bambi. hehe. always.",
+        "audio": "chaos_pick_relapse_1.mp3"
+      },
+      {
+        "text": "relapse~ maybe the ride runs longer and pays double! maybe! gambling girl!",
+        "audio": "chaos_pick_relapse_2.mp3"
+      },
+      {
+        "text": "just one more loop, she says!! every time, Bambi. every single time. hehe.",
+        "audio": "chaos_pick_relapse_3.mp3"
+      },
+      {
+        "text": "relapse~ maybe it goes longer and pays double, maybe it doesn't! spin the wheel, gambling girl!",
+        "audio": "chaos_pick_relapse_4.mp3"
+      }
     ]
   },
   {
@@ -8203,6 +8773,18 @@
       {
         "text": "still going up! don't you dare drop it now, Bambi.",
         "audio": "chaos_combo_milestone_3.mp3"
+      },
+      {
+        "text": "that streak though! absolutely on fire, good girl!",
+        "audio": "chaos_combo_milestone_4.mp3"
+      },
+      {
+        "text": "another ten, easy peasy! the multiplier is basically in love with you now.",
+        "audio": "chaos_combo_milestone_5.mp3"
+      },
+      {
+        "text": "it just keeps climbing! dropping it now would be SO embarrassing, Bambi~",
+        "audio": "chaos_combo_milestone_6.mp3"
       }
     ]
   },
@@ -8216,6 +8798,14 @@
       {
         "text": "a clean twenty-five! good girl. don't get cocky now.",
         "audio": "chaos_combo_25_2.mp3"
+      },
+      {
+        "text": "twenty-five, zero slips! you're in the groove now, cutie.",
+        "audio": "chaos_combo_25_3.mp3"
+      },
+      {
+        "text": "twenty-five, squeaky clean! good girl. cocky girls drop streaks though~",
+        "audio": "chaos_combo_25_4.mp3"
       }
     ]
   },
@@ -8229,6 +8819,14 @@
       {
         "text": "fifty in a row! your hands stopped asking your head. so good.",
         "audio": "chaos_combo_50_2.mp3"
+      },
+      {
+        "text": "fifty!! the thinking turned off ages ago, didn't it. pure popping. perfect Bambi.",
+        "audio": "chaos_combo_50_3.mp3"
+      },
+      {
+        "text": "a whole fifty straight! hands on autopilot, head on vacation. sooo good.",
+        "audio": "chaos_combo_50_4.mp3"
       }
     ]
   },
@@ -8242,6 +8840,14 @@
       {
         "text": "one hundred clean! nothing left in there saying no. just the popping. just me.",
         "audio": "chaos_combo_100_2.mp3"
+      },
+      {
+        "text": "one hundred!! flawless, flawless toy. honestly i'd watch this on loop forever.",
+        "audio": "chaos_combo_100_3.mp3"
+      },
+      {
+        "text": "a clean hundred! whatever used to say no in there is gone. it's just popping now. just me~",
+        "audio": "chaos_combo_100_4.mp3"
       }
     ]
   },
@@ -8259,6 +8865,18 @@
       {
         "text": "you surfaced! breathe, cutie. float for a while, you earned it.",
         "audio": "chaos_run_completed_3.mp3"
+      },
+      {
+        "text": "and done! look at everything you earned for me~ my good empty obedient little toy. hurry back.",
+        "audio": "chaos_run_completed_4.mp3"
+      },
+      {
+        "text": "the hole's done with you... for now. you let go so so sweetly down there, Bambi.",
+        "audio": "chaos_run_completed_5.mp3"
+      },
+      {
+        "text": "back up top! big breath, cutie. just float a bit, you totally earned it.",
+        "audio": "chaos_run_completed_6.mp3"
       }
     ]
   },
@@ -8272,6 +8890,14 @@
       {
         "text": "the hard one, all done! okay, you earned a little of my respect. a teeny bit.",
         "audio": "chaos_run_completed_extreme_2.mp3"
+      },
+      {
+        "text": "Inescapable, survived?! oh my gosh, Bambi. genuinely impressed. don't you dare get smug about it.",
+        "audio": "chaos_run_completed_extreme_3.mp3"
+      },
+      {
+        "text": "you finished the hard one! fiiine, you get some respect. a crumb. one crumb.",
+        "audio": "chaos_run_completed_extreme_4.mp3"
       }
     ]
   },
@@ -8285,6 +8911,14 @@
       {
         "text": "all the numbers! popped this many, triggered that many. now go beat it for me.",
         "audio": "chaos_results_shown_2.mp3"
+      },
+      {
+        "text": "score's up! pretty decent, sweetie. still not your best though. again!",
+        "audio": "chaos_results_shown_3.mp3"
+      },
+      {
+        "text": "look, numbers! so many pops, a few oopsies. now go top it for me~",
+        "audio": "chaos_results_shown_4.mp3"
       }
     ]
   },
@@ -8298,6 +8932,14 @@
       {
         "text": "personal best, Bambi! your bestest surrender yet. so proud of my little toy.",
         "audio": "chaos_results_pb_2.mp3"
+      },
+      {
+        "text": "new record!! aw, you went and outdid yourself for me. don't think i didn't notice~",
+        "audio": "chaos_results_pb_3.mp3"
+      },
+      {
+        "text": "a personal best, Bambi! your prettiest surrender so far. my little toy makes me so proud.",
+        "audio": "chaos_results_pb_4.mp3"
       }
     ]
   },
@@ -10011,6 +10653,14 @@
       {
         "text": "it named you, Bambi! tempted. that's like... a gold star for falling.",
         "audio": "chaos_rank_up_tempted_2.mp3"
+      },
+      {
+        "text": "tempted already! three falls in and the hole went and named you~",
+        "audio": "chaos_rank_up_tempted_3.mp3"
+      },
+      {
+        "text": "you got a title, Bambi! tempted. basically a gold star sticker for falling down good.",
+        "audio": "chaos_rank_up_tempted_4.mp3"
       }
     ]
   },
@@ -10020,6 +10670,10 @@
       {
         "text": "slipping! ten times down the hole. the word fits sooo good, doesn't it~",
         "audio": "chaos_rank_up_slipping_1.mp3"
+      },
+      {
+        "text": "slipping~ ten whole trips down. could a word fit you any better? nope!",
+        "audio": "chaos_rank_up_slipping_2.mp3"
       }
     ]
   },
@@ -10029,6 +10683,10 @@
       {
         "text": "entranced... ooh. you don't visit anymore, Bambi. you come home.",
         "audio": "chaos_rank_up_entranced_1.mp3"
+      },
+      {
+        "text": "entranced... hehe. visiting is over, Bambi. now it's just coming home.",
+        "audio": "chaos_rank_up_entranced_2.mp3"
       }
     ]
   },
@@ -10038,6 +10696,10 @@
       {
         "text": "devoted! fifty trips down. the hole keeps a little room warm just for you.",
         "audio": "chaos_rank_up_devoted_1.mp3"
+      },
+      {
+        "text": "devoted! fifty falls, Bambi. there's a cozy little spot down there with your name on it now.",
+        "audio": "chaos_rank_up_devoted_2.mp3"
       }
     ]
   },
@@ -10047,6 +10709,10 @@
       {
         "text": "claimed. *giggles* there's no word after that one, Bambi. you live here now.",
         "audio": "chaos_rank_up_claimed_1.mp3"
+      },
+      {
+        "text": "claimed~ *giggles* that's the last word there is, Bambi. the hole isn't somewhere you go anymore.",
+        "audio": "chaos_rank_up_claimed_2.mp3"
       }
     ]
   },
@@ -10056,6 +10722,10 @@
       {
         "text": "the looking glass opened! her bench is behind it. that's where your shiny gold goes~",
         "audio": "chaos_reveal_looking_glass_1.mp3"
+      },
+      {
+        "text": "ooh, the looking glass! she keeps her bench back there. all that shiny gold finally has somewhere to go~",
+        "audio": "chaos_reveal_looking_glass_2.mp3"
       }
     ]
   },
@@ -10065,6 +10735,10 @@
       {
         "text": "teasing pill unlocked! the gentle water was just to get you used to it, silly.",
         "audio": "chaos_reveal_pill_teasing_1.mp3"
+      },
+      {
+        "text": "you unlocked the teasing pill! gentle was just the warm-up lap, silly~",
+        "audio": "chaos_reveal_pill_teasing_2.mp3"
       }
     ]
   },
@@ -10074,6 +10748,10 @@
       {
         "text": "relentless is open! the hole thinks you're ready. it's like, always right.",
         "audio": "chaos_reveal_pill_relentless_1.mp3"
+      },
+      {
+        "text": "relentless just opened up! the hole decided you're ready. and it's never wrong about Bambis.",
+        "audio": "chaos_reveal_pill_relentless_2.mp3"
       }
     ]
   },
@@ -10083,6 +10761,10 @@
       {
         "text": "you can say no to the table now! being a stubborn girl pays a little resistance. weird, right?",
         "audio": "chaos_reveal_draft_skip_1.mp3"
+      },
+      {
+        "text": "the table takes no for an answer now! and saying it pays you resistance. stubborn finally pays, weird!",
+        "audio": "chaos_reveal_draft_skip_2.mp3"
       }
     ]
   },
@@ -10092,6 +10774,10 @@
       {
         "text": "a pocket! and a whole toy shelf to fill it from. pick one and wear the poor thing out~",
         "audio": "chaos_reveal_toys_1.mp3"
+      },
+      {
+        "text": "your first pocket! and a whole shelf of toys begging to fill it. pick one and be mean to it~",
+        "audio": "chaos_reveal_toys_2.mp3"
       }
     ]
   },
@@ -10101,6 +10787,10 @@
       {
         "text": "an accessory pocket! the quiet sneaky kind of help. pick whatever whispers to you.",
         "audio": "chaos_reveal_accessories_1.mp3"
+      },
+      {
+        "text": "an accessory pocket opened! the soft sneaky helpers live there. take the one that calls your name~",
+        "audio": "chaos_reveal_accessories_2.mp3"
       }
     ]
   },
@@ -10110,6 +10800,10 @@
       {
         "text": "she made a little corner all her own! go peek at what she put there, Bambi.",
         "audio": "chaos_reveal_her_corner_1.mp3"
+      },
+      {
+        "text": "she's got her own little corner now! go on, Bambi, peek at what she's been arranging~",
+        "audio": "chaos_reveal_her_corner_2.mp3"
       }
     ]
   },
@@ -10119,6 +10813,10 @@
       {
         "text": "devoted girls get a bigger dollhouse! second pockets, final levels... she's been so busy for you.",
         "audio": "chaos_reveal_second_pockets_1.mp3"
+      },
+      {
+        "text": "look what devotion buys! second pockets, the deep levels... she's been working so hard on your dollhouse.",
+        "audio": "chaos_reveal_second_pockets_2.mp3"
       }
     ]
   },
@@ -10128,6 +10826,10 @@
       {
         "text": "final levels are for sale now! the deeeep ends of stuff you already wear.",
         "audio": "chaos_reveal_capstones_1.mp3"
+      },
+      {
+        "text": "the final levels just hit the shelf! the very deepest ends of your favorite things~",
+        "audio": "chaos_reveal_capstones_2.mp3"
       }
     ]
   },
@@ -10137,6 +10839,10 @@
       {
         "text": "the tapes play down there now! entranced eyes get the whole picture~",
         "audio": "chaos_reveal_video_1.mp3"
+      },
+      {
+        "text": "the tapes are rolling down there now! eyes as entranced as yours get to watch everything~",
+        "audio": "chaos_reveal_video_2.mp3"
       }
     ]
   },
@@ -10146,6 +10852,10 @@
       {
         "text": "ooh, a new room! it was always there, Bambi. you just weren't ready to see it~",
         "audio": "chaos_reveal_flash_1.mp3"
+      },
+      {
+        "text": "another room just appeared! except it didn't, Bambi. it was waiting for you to be ready~",
+        "audio": "chaos_reveal_flash_2.mp3"
       }
     ]
   },
@@ -10159,6 +10869,14 @@
       {
         "text": "lesson done! now it gets to sell you the thing. *giggles*",
         "audio": "chaos_lesson_complete_2.mp3"
+      },
+      {
+        "text": "ooh, you learned a thing down there! and yep, the shelf was watching.",
+        "audio": "chaos_lesson_complete_3.mp3"
+      },
+      {
+        "text": "lesson complete! which means now it can sell you the thing, hehe. *giggles*",
+        "audio": "chaos_lesson_complete_4.mp3"
       }
     ]
   },
@@ -10168,6 +10886,10 @@
       {
         "text": "i covered the rest, okay? don't go thinking i'm your sugar mommy or anything...",
         "audio": "chaos_gift_given_1.mp3"
+      },
+      {
+        "text": "the difference is on me, okay?? it's not a sugar mommy thing, don't be weird about it...",
+        "audio": "chaos_gift_given_2.mp3"
       }
     ]
   },
@@ -10181,6 +10903,14 @@
       {
         "text": "you never did that before! it counts, Bambi. it always counts.",
         "audio": "chaos_first_time_2.mp3"
+      },
+      {
+        "text": "that was a first! and the hole writes down every single first, Bambi.",
+        "audio": "chaos_first_time_3.mp3"
+      },
+      {
+        "text": "brand new thing you just did! it counted. everything down here counts~",
+        "audio": "chaos_first_time_4.mp3"
       }
     ]
   },
@@ -10190,6 +10920,10 @@
       {
         "text": "both toys buzzing at once! look what the table dealt you, lucky girl~",
         "audio": "chaos_duo_demo_1.mp3"
+      },
+      {
+        "text": "two toys humming together! the table's feeling generous today, lucky girl~",
+        "audio": "chaos_duo_demo_2.mp3"
       }
     ]
   },
@@ -10203,6 +10937,14 @@
       {
         "text": "gold, Bambi! it buys comfy pretty things, not power. spend it like a good girl.",
         "audio": "chaos_gold_first_2.mp3"
+      },
+      {
+        "text": "gold!! that one skips the bank and lands right in your hand. she trades for it at her bench~",
+        "audio": "chaos_gold_first_3.mp3"
+      },
+      {
+        "text": "shiny gold, Bambi! for the pretty comfy stuff, not the powerful stuff. good girls spend it right~",
+        "audio": "chaos_gold_first_4.mp3"
       }
     ]
   },
@@ -10216,6 +10958,14 @@
       {
         "text": "welcome to the dollhouse, Bambi! most of it's still closed. for now. *giggles*",
         "audio": "chaos_dollhouse_first_open_2.mp3"
+      },
+      {
+        "text": "the dollhouse!! wander all you want, Bambi, the rooms will wait for you~",
+        "audio": "chaos_dollhouse_first_open_3.mp3"
+      },
+      {
+        "text": "welcome home, dolly! lots of doors still locked though. for now~ *giggles*",
+        "audio": "chaos_dollhouse_first_open_4.mp3"
       }
     ]
   },
@@ -10225,6 +10975,10 @@
       {
         "text": "you didn't pick, so the table picked for you! it usually does, dolly.",
         "audio": "chaos_draft_autopick_1.mp3"
+      },
+      {
+        "text": "too slow to choose, so the table chose for you! honestly, it ends up deciding most things, dolly~",
+        "audio": "chaos_draft_autopick_2.mp3"
       }
     ]
   },

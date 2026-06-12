@@ -361,9 +361,19 @@ public static class ChaosMeta
             && !IsBoonUnlocked("the_spanker");
     }
 
+    /// <summary>True while this habit's Unlock sits above the player's rank floor (the hub renders
+    /// the row locked with <see cref="ChaosRanks.RankLockedTip"/>). Lessons + cost stack on top.
+    /// Already-owned habits are never re-locked. (2026-06-12: staggers the catalogue by depth.)</summary>
+    public static bool IsBoonRankLocked(string id)
+    {
+        var b = ChaosLifetimeBoons.ById(id);
+        return b != null && !IsBoonUnlocked(id) && !AtLeast(b.RankFloor);
+    }
+
     /// <summary>Validate + buy level 1: deduct Sparks, record level, auto-activate, persist.</summary>
     public static bool TryUnlockBoon(string id)
     {
+        if (IsBoonRankLocked(id)) return false;               // not deep enough yet
         if (ChaosLessons.IsLessonBlocked(id)) return false;   // the lesson comes before the drops
         if (IsAccessoryScriptLocked(id)) return false;        // the spanker comes first (happy path)
         var c = UnlockCostOf(id);

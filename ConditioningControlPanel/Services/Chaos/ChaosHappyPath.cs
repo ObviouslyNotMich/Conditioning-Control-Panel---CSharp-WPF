@@ -124,7 +124,7 @@ public static class ChaosHappyPath
         if (!_streakTaught && s.Combo >= R1_STREAK_TEACH_COMBO)
         {
             _streakTaught = true;
-            ChaosAnnouncerOverlay.Announce("pops in a row build a streak. it pays more.", ChaosAnnounceKind.Streak);
+            ChaosAnnouncerOverlay.Announce("pops in a row build a streak. it pays more.", ChaosAnnounceKind.Streak, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
             s.PushEvent("🔥 a streak. keep it alive.");
         }
 
@@ -148,7 +148,7 @@ public static class ChaosHappyPath
             _darterSpawned = true;
             try
             {
-                ChaosAnnouncerOverlay.Announce("🐇 a white rabbit. catch it.", ChaosAnnounceKind.Item);
+                ChaosAnnouncerOverlay.Announce("🐇 a white rabbit. catch it.", ChaosAnnounceKind.Item, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
                 ChaosMeta.MarkDiscovered("bubble:darter");
                 App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildDarter(s.RunIntensity, spotlight: false));
             }
@@ -168,7 +168,7 @@ public static class ChaosHappyPath
             {
                 ChaosMeta.State.SeenDefuseTutorial = true;
                 ChaosMeta.Save();
-                ChaosAnnouncerOverlay.Announce("press and HOLD a live one to snap it", ChaosAnnounceKind.Willpower);
+                ChaosAnnouncerOverlay.Announce("press and HOLD a live one to snap it", ChaosAnnounceKind.Willpower, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
                 s.PushEvent("✋ hold to snap. let go and it triggers.");
             }
             var pink = ChaosBubbleVariants.All.FirstOrDefault(v => v.Id == "pink");
@@ -199,7 +199,7 @@ public static class ChaosHappyPath
                 if (!enabled.Contains("pink")) enabled.Add("pink");
                 if (!enabled.Contains("spiral")) enabled.Add("spiral");
             }
-            ChaosAnnouncerOverlay.Announce("pink and spiral drift in. hold them down too.", ChaosAnnounceKind.Item);
+            ChaosAnnouncerOverlay.Announce("pink and spiral drift in. hold them down too.", ChaosAnnounceKind.Item, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
             s.PushEvent("◉ more of them live now.");
         }
         catch (Exception ex) { App.Logger?.Debug("HappyPath defuse beat: {E}", ex.Message); }
@@ -241,7 +241,7 @@ public static class ChaosHappyPath
                     var v = ChaosBubbleVariants.All.FirstOrDefault(x => x.Id == "braindrain");
                     if (v != null)
                     {
-                        ChaosAnnouncerOverlay.Announce("◍ BRAINDRAIN. bigger. heavier. hold it down.", ChaosAnnounceKind.Item);
+                        ChaosAnnouncerOverlay.Announce("◍ BRAINDRAIN. bigger. heavier. hold it down.", ChaosAnnounceKind.Item, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
                         s.PushEvent("◍ something heavy sinks in beside you");
                         var spec = ChaosBubbleVariants.Build(v, s.RunIntensity,
                             s.FuseTimeMult * ChaosTuning.DEBUT_FUSE_MULT, null,
@@ -306,7 +306,7 @@ public static class ChaosHappyPath
                 // Say so out loud — without this line the player can't know the demo sin is
                 // defanged, and the whole teach reads as a normal gamble.
                 ChaosAnnouncerOverlay.Announce("☠ a sin is on the table. the first taste is free. this once.",
-                    ChaosAnnounceKind.Temptation);
+                    ChaosAnnounceKind.Temptation, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
                 return;
             }
 
@@ -320,7 +320,7 @@ public static class ChaosHappyPath
                     options[options.Count - 1] = duo;
                 meta.SeenDuoDemo = true;
                 ChaosMeta.Save();
-                ChaosAnnouncerOverlay.Announce("a gold card. your toys learned to work together.", ChaosAnnounceKind.Item);
+                ChaosAnnouncerOverlay.Announce("a gold card. your toys learned to work together.", ChaosAnnounceKind.Item, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
                 try { App.Bark?.NotifyChaosDuoDemo(); } catch { }
             }
         }

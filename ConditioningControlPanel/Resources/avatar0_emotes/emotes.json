@@ -26,7 +26,8 @@
     "pool": ["giggle", "sultry", "wink", "tease", "blowkiss", "adoring", "flirt", "shy"],
     "nonverbalMaxSec": 1.4
   },
-  "lineTailMs": 700,
+  "talkStartDelayMs": 1000,
+  "talkLeadOutMs": 500,
   "minClipMs": 2500,
   "clickEmotes": ["shy", "sultry", "adoring", "tender", "blowkiss"],
   "clipScale": {

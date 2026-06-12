@@ -23,6 +23,7 @@ namespace ConditioningControlPanel;
 public sealed class ChaosEffectBannerOverlay : Window
 {
     private const double FONT_SIZE = 34;
+    private const double ART_HEIGHT_DIP = 56;   // word-art banner height (≈ the 34px text line's presence)
     private const int FADE_IN_MS = 200;
     private const int FADE_OUT_MS = 380;
 
@@ -48,8 +49,12 @@ public sealed class ChaosEffectBannerOverlay : Window
         catch { }
     }
 
-    /// <summary>Show (or keep) the banner for an effect. Safe from any thread.</summary>
-    public static void Show(string id, string text, Color accent)
+    /// <summary>Show (or keep) the banner for an effect. Safe from any thread.
+    /// When <c>assets/Chaos/announce/{artKey ?? id}.png</c> exists (same neon word-art pool the
+    /// announcer draws from), the image replaces the text label; otherwise the text shows as
+    /// before. Pass <paramref name="artKey"/> only when the art name differs from the effect id
+    /// (e.g. the "slowmo" banner relabelled "Pendulum" uses the pendulum art).</summary>
+    public static void Show(string id, string text, Color accent, string? artKey = null)
     {
         try
         {
@@ -60,7 +65,7 @@ public sealed class ChaosEffectBannerOverlay : Window
                 try
                 {
                     if (_active == null) { _active = new ChaosEffectBannerOverlay(); ((Window)_active).Show(); }
-                    _active.AddEntry(id, text, accent);
+                    _active.AddEntry(id, text, accent, artKey);
                     ChaosWindowZ.RaiseAboveVideo(_active);   // keep-alive window — re-stack over a playing video
                 }
                 catch (Exception ex) { App.Logger?.Debug("ChaosEffectBanner.Show: {E}", ex.Message); }
@@ -123,28 +128,48 @@ public sealed class ChaosEffectBannerOverlay : Window
         SourceInitialized += (_, _) => ApplyExStyles();
     }
 
-    private void AddEntry(string id, string text, Color accent)
+    private void AddEntry(string id, string text, Color accent, string? artKey = null)
     {
         if (_entries.ContainsKey(id)) return;   // already on screen — let it ride
 
-        var fill = new SolidColorBrush(accent); if (fill.CanFreeze) fill.Freeze();
-        var stroke = new SolidColorBrush(Color.FromRgb(0x0B, 0x08, 0x12)); if (stroke.CanFreeze) stroke.Freeze();
-
         var throb = new ScaleTransform(1, 1);
-        var label = new OutlinedText
+        FrameworkElement label;
+        var art = Services.Chaos.ChaosArt.Resolve("announce", artKey ?? id);
+        if (art != null)
         {
-            Text = text.ToUpperInvariant(),
-            FontSize = FONT_SIZE,
-            Fill = fill,
-            Stroke = stroke,
-            StrokeThickness = 2.6,
-            Margin = new Thickness(18, 0, 18, 0),
-            VerticalAlignment = VerticalAlignment.Top,
-            RenderTransformOrigin = new Point(0.5, 0.5),
-            RenderTransform = throb,
-            Opacity = 0,
-        };
-        label.Build();
+            label = new Image
+            {
+                Source = art,
+                Height = ART_HEIGHT_DIP,
+                Stretch = Stretch.Uniform,
+                Margin = new Thickness(18, 0, 18, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = throb,
+                Opacity = 0,
+            };
+        }
+        else
+        {
+            var fill = new SolidColorBrush(accent); if (fill.CanFreeze) fill.Freeze();
+            var stroke = new SolidColorBrush(Color.FromRgb(0x0B, 0x08, 0x12)); if (stroke.CanFreeze) stroke.Freeze();
+
+            var outlined = new OutlinedText
+            {
+                Text = text.ToUpperInvariant(),
+                FontSize = FONT_SIZE,
+                Fill = fill,
+                Stroke = stroke,
+                StrokeThickness = 2.6,
+                Margin = new Thickness(18, 0, 18, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = throb,
+                Opacity = 0,
+            };
+            outlined.Build();
+            label = outlined;
+        }
         _entries[id] = label;
         _row.Children.Add(label);
 

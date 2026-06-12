@@ -28,7 +28,8 @@ public sealed class ChaosAnnouncerOverlay : Window
 {
     // ---- timing / layout tunables ----
     private const int IN_MS         = 110;    // scale-pop + fade-in
-    private const int HOLD_MS       = 650;    // dwell
+    private const int HOLD_MS       = 650;    // dwell (default — event beats: boon names, relapse, streaks)
+    public  const int TEACH_HOLD_MS = 3000;   // onboarding/help lines linger so they can actually be read
     private const int OUT_MS        = 240;    // fade-out ("fades almost immediately")
     private const double FONT_SIZE  = 60;
     private const double SUB_FONT_SIZE = 26;  // dynamic suffix under a banner image
@@ -36,7 +37,7 @@ public sealed class ChaosAnnouncerOverlay : Window
     private const double TOP_OFFSET_DIP = 92; // sits right under the effect-banner strip (wa.Top+6, 80 tall)
 
     private static ChaosAnnouncerOverlay? _active;
-    private static readonly Queue<(string text, ChaosAnnounceKind kind, string? artKey, string? subText)> _queue = new();
+    private static readonly Queue<(string text, ChaosAnnounceKind kind, string? artKey, string? subText, int holdMs)> _queue = new();
     private static bool _showing;
 
     /// <summary>
@@ -48,7 +49,7 @@ public sealed class ChaosAnnouncerOverlay : Window
     /// so unkeyed lines and missing art degrade gracefully.
     /// </summary>
     public static void Announce(string text, ChaosAnnounceKind kind,
-                                string? artKey = null, string? subText = null)
+                                string? artKey = null, string? subText = null, int? holdMs = null)
     {
         try
         {
@@ -58,7 +59,7 @@ public sealed class ChaosAnnouncerOverlay : Window
             if (disp == null || disp.HasShutdownStarted) return;
             disp.Invoke(() =>
             {
-                _queue.Enqueue((text, kind, artKey, subText));
+                _queue.Enqueue((text, kind, artKey, subText, holdMs ?? HOLD_MS));
                 if (!_showing) ShowNext();
             });
         }
@@ -78,13 +79,13 @@ public sealed class ChaosAnnouncerOverlay : Window
     {
         if (_queue.Count == 0) { _showing = false; return; }
         _showing = true;
-        var (text, kind, artKey, subText) = _queue.Dequeue();
+        var (text, kind, artKey, subText, holdMs) = _queue.Dequeue();
         try
         {
             if (_active == null) { _active = new ChaosAnnouncerOverlay(); ((Window)_active).Show(); }
             else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between announcements
             ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
-            _active.Display(text, kind, artKey, subText);
+            _active.Display(text, kind, artKey, subText, holdMs);
         }
         catch (Exception ex)
         {
@@ -95,7 +96,7 @@ public sealed class ChaosAnnouncerOverlay : Window
 
     private readonly Grid _host;
     private readonly DispatcherTimer _life;
-    private (string text, ChaosAnnounceKind kind, string? artKey, string? subText)? _pending;   // first Display can land before Loaded
+    private (string text, ChaosAnnounceKind kind, string? artKey, string? subText, int holdMs)? _pending;   // first Display can land before Loaded
 
     private ChaosAnnouncerOverlay()
     {
@@ -121,7 +122,7 @@ public sealed class ChaosAnnouncerOverlay : Window
         SourceInitialized += (_, _) => ApplyExStyles();
         Loaded += (_, _) =>
         {
-            if (_pending is { } p) { _pending = null; DisplayCore(p.text, p.kind, p.artKey, p.subText); }
+            if (_pending is { } p) { _pending = null; DisplayCore(p.text, p.kind, p.artKey, p.subText, p.holdMs); }
         };
 
         _life = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(IN_MS + HOLD_MS) };
@@ -141,15 +142,16 @@ public sealed class ChaosAnnouncerOverlay : Window
         };
     }
 
-    private void Display(string text, ChaosAnnounceKind kind, string? artKey, string? subText)
+    private void Display(string text, ChaosAnnounceKind kind, string? artKey, string? subText, int holdMs)
     {
-        if (!IsLoaded) { _pending = (text, kind, artKey, subText); return; }
-        DisplayCore(text, kind, artKey, subText);
+        if (!IsLoaded) { _pending = (text, kind, artKey, subText, holdMs); return; }
+        DisplayCore(text, kind, artKey, subText, holdMs);
     }
 
-    private void DisplayCore(string text, ChaosAnnounceKind kind, string? artKey, string? subText)
+    private void DisplayCore(string text, ChaosAnnounceKind kind, string? artKey, string? subText, int holdMs)
     {
         _life.Stop();
+        _life.Interval = TimeSpan.FromMilliseconds(IN_MS + Math.Max(0, holdMs));   // per-message dwell
         var (fill, stroke) = Palette(kind);
         var scale = new ScaleTransform(0.85, 0.85);
         var art = artKey != null ? Services.Chaos.ChaosArt.Resolve("announce", artKey) : null;
@@ -201,12 +203,23 @@ public sealed class ChaosAnnouncerOverlay : Window
         content.VerticalAlignment = VerticalAlignment.Top;
         content.RenderTransformOrigin = new Point(0.5, 0.5);
         content.RenderTransform = scale;
-        // Anchored just under the effect-banner strip at the top of the primary work area
-        // (this window spans the virtual screen, which may start above the work area).
-        content.Margin = new Thickness(0,
-            Math.Max(0, SystemParameters.WorkArea.Top - SystemParameters.VirtualScreenTop) + TOP_OFFSET_DIP, 0, 0);
+        // Anchored just under the effect-banner strip, centered over the PRIMARY work area.
+        // This window spans the whole virtual screen, so centering against the window itself
+        // drifts off the primary monitor whenever a second monitor extends the desktop
+        // (e.g. a screen to the left pulls the virtual center to the primary's left edge).
+        var wa = SystemParameters.WorkArea;
+        var anchor = new Grid
+        {
+            Width = wa.Width,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(
+                Math.Max(0, wa.Left - SystemParameters.VirtualScreenLeft),
+                Math.Max(0, wa.Top - SystemParameters.VirtualScreenTop) + TOP_OFFSET_DIP, 0, 0),
+        };
+        anchor.Children.Add(content);
         _host.Children.Clear();
-        _host.Children.Add(content);
+        _host.Children.Add(anchor);
 
         BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(IN_MS)));
         var pop = new DoubleAnimation(0.85, 1.0, TimeSpan.FromMilliseconds(IN_MS + 70))

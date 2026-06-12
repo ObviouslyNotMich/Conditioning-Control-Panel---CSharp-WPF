@@ -27,6 +27,7 @@ public sealed class ChaosFieldFxOverlay : Window
     private static readonly Color RingColor = Color.FromRgb(0x7A, 0xE0, 0xFF);      // Size Queen — snap-cyan
     private static readonly Color ResidueColor = Color.FromRgb(0x9C, 0x5C, 0xFF);   // Aftermath — E-Stim violet
     private static readonly Color TrailColor = Color.FromRgb(0xFF, 0x4D, 0xC4);     // Tail-Plug — rabbit pink
+    private static readonly Color WarmTrailColor = Color.FromRgb(0xFF, 0x8A, 0x14); // GG sweeper rabbit — amber
 
     private static ChaosFieldFxOverlay? _active;
 
@@ -67,9 +68,10 @@ public sealed class ChaosFieldFxOverlay : Window
     public static void Residue(Point centerPx, double radiusPx, double lifeMs) =>
         OnUi(w => w.DrawResidue(centerPx, radiusPx, lifeMs));
 
-    /// <summary>Tail-Plug: drop one fading sparkle at a rabbit's trail point.</summary>
-    public static void TrailDot(Point centerPx, double lifeSec) =>
-        OnUi(w => w.DrawTrailDot(centerPx, lifeSec));
+    /// <summary>Drop one fading sparkle at a rabbit's trail point. <paramref name="warm"/> picks
+    /// the amber GG-sweeper spark over the default Tail-Plug pink.</summary>
+    public static void TrailDot(Point centerPx, double lifeSec, bool warm = false) =>
+        OnUi(w => w.DrawTrailDot(centerPx, lifeSec, warm));
 
     /// <summary>The Bound: create/update the elastic thread between a tethered pair (keyed by
     /// PairId; endpoints in physical px). Updated every anim tick while both halves live.</summary>
@@ -138,6 +140,19 @@ public sealed class ChaosFieldFxOverlay : Window
     private readonly ScaleTransform[] _trailScales = new ScaleTransform[TRAIL_DOT_POOL];
     private int _trailIndex;
     private int _transientCount;   // live ripples/residues — the window hides when everything faded
+    private readonly Brush _trailBrushCool;   // Tail-Plug rabbit-pink spark
+    private readonly Brush _trailBrushWarm;   // GG sweeper amber spark
+
+    /// <summary>A frozen radial spark brush (gold core → <paramref name="edge"/> falloff).</summary>
+    private static Brush BuildTrailBrush(Color edge)
+    {
+        var b = new RadialGradientBrush { GradientOrigin = new Point(0.5, 0.5), Center = new Point(0.5, 0.5) };
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(200, 0xFF, 0xE9, 0xA0), 0.0));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(120, edge.R, edge.G, edge.B), 0.55));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(0, edge.R, edge.G, edge.B), 1.0));
+        if (b.CanFreeze) b.Freeze();
+        return b;
+    }
 
     private ChaosFieldFxOverlay()
     {
@@ -159,12 +174,10 @@ public sealed class ChaosFieldFxOverlay : Window
         _canvas = new Canvas { IsHitTestVisible = false };
         Content = _canvas;
 
-        // Pre-build the recycled trail-spark pool (rabbit-pink, gold core).
-        var dotBrush = new RadialGradientBrush { GradientOrigin = new Point(0.5, 0.5), Center = new Point(0.5, 0.5) };
-        dotBrush.GradientStops.Add(new GradientStop(Color.FromArgb(200, 0xFF, 0xE9, 0xA0), 0.0));
-        dotBrush.GradientStops.Add(new GradientStop(Color.FromArgb(120, TrailColor.R, TrailColor.G, TrailColor.B), 0.55));
-        dotBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0, TrailColor.R, TrailColor.G, TrailColor.B), 1.0));
-        if (dotBrush.CanFreeze) dotBrush.Freeze();
+        // Pre-build the recycled trail-spark pool (rabbit-pink, gold core) plus a warm amber
+        // variant for GG sweeper rabbits, so their trail reads as a different rabbit at a glance.
+        var dotBrush = _trailBrushCool = BuildTrailBrush(TrailColor);
+        _trailBrushWarm = BuildTrailBrush(WarmTrailColor);
         for (int i = 0; i < TRAIL_DOT_POOL; i++)
         {
             var sc = new ScaleTransform(1, 1);
@@ -379,12 +392,13 @@ public sealed class ChaosFieldFxOverlay : Window
         }
     }
 
-    private void DrawTrailDot(Point centerPx, double lifeSec)
+    private void DrawTrailDot(Point centerPx, double lifeSec, bool warm = false)
     {
         if (Local(centerPx) is not Point c) return;
         var dot = _trailDots[_trailIndex];
         var sc = _trailScales[_trailIndex];
         _trailIndex = (_trailIndex + 1) % TRAIL_DOT_POOL;
+        dot.Fill = warm ? _trailBrushWarm : _trailBrushCool;   // amber for GG sweepers, pink for Tail-Plug
 
         Canvas.SetLeft(dot, c.X - TRAIL_DOT_SIZE / 2);
         Canvas.SetTop(dot, c.Y - TRAIL_DOT_SIZE / 2);

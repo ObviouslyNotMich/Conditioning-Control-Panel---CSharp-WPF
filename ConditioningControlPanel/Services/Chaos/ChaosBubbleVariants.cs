@@ -154,7 +154,7 @@ public static class ChaosBubbleVariants
     /// </summary>
     public static EffectBubbleSpec? RollDarter(double intensity, double rateMult = 1.0, bool spotlight = false)
     {
-        double chance = (0.05 + Math.Clamp(intensity, 0, 1) * 0.12) * Math.Max(0, rateMult);  // ~0.05 early → ~0.17 late (halved 2026-06-10: field felt overrun)
+        double chance = (0.025 + Math.Clamp(intensity, 0, 1) * 0.06) * Math.Max(0, rateMult);  // ~0.025 early → ~0.085 late (halved AGAIN 2026-06-12: still too many rabbits; was 0.05+0.12 / first halved 2026-06-10)
         if (_rng.NextDouble() >= chance) return null;
         return BuildDarter(intensity, spotlight);
     }
@@ -664,7 +664,7 @@ public static class ChaosBubbleVariants
         // freeze — a GOOD pickup (no fuse): catch it to freeze the whole field for a few seconds.
         // FloatUp so an uncaught one drifts off-screen harmlessly (benign bubbles have no fuse/despawn).
         new("bambifreeze","Freeze",       EffectBubblePayloadKind.BambiFreeze,null,
-            false, 190, 250, ChaosMotion.FloatUp,    Color.FromRgb(0x8A,0xE6,0xFF), "❄",  1.0, 0.15, 0, 0),
+            false, 190, 250, ChaosMotion.FloatUp,    Color.FromRgb(0x8A,0xE6,0xFF), "❄",  0.5, 0.15, 0, 0),  // weight halved 2026-06-12: freezes spawned too thick (also hard-capped at 2 on screen)
         new("video",      "Video",       EffectBubblePayloadKind.Video,      null,
             true,  240, 300, ChaosMotion.RainDown,   Color.FromRgb(0xE0,0x40,0x4D), "▶",  0.5, 0.50, 5000, 7000),
         // Display renamed HT Link → Gif Rain (2026-06-10): the hypnotube-link payload is long

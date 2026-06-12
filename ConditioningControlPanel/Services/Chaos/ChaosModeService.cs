@@ -395,7 +395,7 @@ public sealed class ChaosModeService
         {
             ChaosMeta.State.SeenDefuseTutorial = true;
             ChaosMeta.Save();
-            ChaosAnnouncerOverlay.Announce("press and HOLD a live one to snap it", ChaosAnnounceKind.Willpower);
+            ChaosAnnouncerOverlay.Announce("press and HOLD a live one to snap it", ChaosAnnounceKind.Willpower, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
             _state.PushEvent("✋ hold to snap. let go and it triggers.");
         }
 
@@ -682,7 +682,7 @@ public sealed class ChaosModeService
         {
             _rippleTeachOffered = true;
             ChaosAnnouncerOverlay.Announce("🌊 THE RIPPLE — right-click near the bubbles", ChaosAnnounceKind.PowerUp,
-                artKey: "ripple_teach", subText: "right-click near the bubbles");
+                artKey: "ripple_teach", subText: "right-click near the bubbles", holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
             _state.PushEvent("🌊 a wave waits in your hand. right-click.");
         }
 
@@ -697,7 +697,7 @@ public sealed class ChaosModeService
         {
             ChaosMeta.State.SeenFocusTip = true;
             ChaosMeta.Save();
-            ChaosAnnouncerOverlay.Announce("focus runs low. treats refill it. snaps spend it.", ChaosAnnounceKind.Willpower);
+            ChaosAnnouncerOverlay.Announce("focus runs low. treats refill it. snaps spend it.", ChaosAnnounceKind.Willpower, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
             _state.PushEvent("◌ low focus. pop treats before you grab a live one.");
         }
 
@@ -707,7 +707,7 @@ public sealed class ChaosModeService
         {
             ChaosMeta.State.SeenHeatTeach = true;
             ChaosMeta.Save();
-            ChaosAnnouncerOverlay.Announce("lust climbs while you perform. it pays up to x2", ChaosAnnounceKind.Depth);
+            ChaosAnnouncerOverlay.Announce("lust climbs while you perform. it pays up to x2", ChaosAnnounceKind.Depth, holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
             _state.PushEvent("🔥 the orange bar is lust. a trigger cools it to zero.");
         }
 
@@ -833,6 +833,18 @@ public sealed class ChaosModeService
                     ? 0 : ChaosTuning.SIDE_DRIFT_CHANCE;
                 spec = ChaosBubbleVariants.Pick(effIntensity, _state.FuseTimeMult,
                     cfg.MotionOverride, enabled, cfg.EffectIntensity, _state.BubbleScale, sideDrift);
+
+                // Freeze cap: at most FREEZE_MAX_ON_SCREEN freeze pickups live at once — if the
+                // roll landed on a freeze while the field is already at the cap, re-pick from the
+                // pool with freeze excluded so the slot still spawns something.
+                if (spec.IsFreeze
+                    && (App.Bubbles?.ActiveFreezeBubbles ?? 0) >= ChaosTuning.FREEZE_MAX_ON_SCREEN)
+                {
+                    var noFreeze = (enabled ?? ChaosBubbleVariants.AllIds())
+                        .Where(id => id != "bambifreeze").ToList();
+                    spec = ChaosBubbleVariants.Pick(effIntensity, _state.FuseTimeMult,
+                        cfg.MotionOverride, noFreeze, cfg.EffectIntensity, _state.BubbleScale, sideDrift);
+                }
             }
             _ordinarySpawns++;
             ChaosMeta.MarkDiscovered("bubble:" + spec.VariantId);
@@ -1959,7 +1971,8 @@ public sealed class ChaosModeService
         // refreshing over it hands the window back to normal scoring.
         _pendulumSlowActive = bannerLabel == "Pendulum";
         App.Bubbles?.SetChaosTimeScale(SLOWMO_FACTOR);
-        ChaosEffectBannerOverlay.Show("slowmo", bannerLabel, Color.FromRgb(0x7A, 0xE0, 0xFF));
+        ChaosEffectBannerOverlay.Show("slowmo", bannerLabel, Color.FromRgb(0x7A, 0xE0, 0xFF),
+            artKey: bannerLabel == "Pendulum" ? "pendulum" : "slowmo");
         EffectPayload.GlobalDurationMult = 1.0 / SLOWMO_FACTOR;
         if (!_slowMoCueOn) ChaosSfx.Play("time_slow_in", 0.5f);   // refreshes shouldn't re-warp
         _slowMoCueOn = true;

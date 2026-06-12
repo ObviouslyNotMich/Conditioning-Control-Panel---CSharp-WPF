@@ -195,8 +195,8 @@ public partial class ChaosHubWindow : Window
             int level = ChaosMeta.BoonLevel(b.Id);
             if (level <= 0)
             {
-                if (!ChaosMeta.IsAccessoryScriptLocked(b.Id) && !ChaosLessons.IsLessonBlocked(b.Id)
-                    && ChaosMeta.CanAffordUnlock(b.Id)) n++;
+                if (!ChaosMeta.IsBoonRankLocked(b.Id) && !ChaosMeta.IsAccessoryScriptLocked(b.Id)
+                    && !ChaosLessons.IsLessonBlocked(b.Id) && ChaosMeta.CanAffordUnlock(b.Id)) n++;
             }
             else if (level < b.MaxLevel && !ChaosMeta.IsCapstonePurchaseRankLocked(b.Id)
                      && ChaosMeta.CanAffordUpgrade(b.Id)) n++;
@@ -507,6 +507,9 @@ public partial class ChaosHubWindow : Window
         bool unlocked = level >= 1;
         bool active = ChaosMeta.IsBoonActive(b.Id);
         bool maxed = unlocked && level >= b.MaxLevel;
+        // Rank-locked = below your depth tier: a MYSTERY. Hide the art, name and what it does —
+        // only the rank gate shows, so the deeper toys stay a reveal instead of a spoiled preview.
+        bool rankLocked = ChaosMeta.IsBoonRankLocked(b.Id);
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -514,9 +517,12 @@ public partial class ChaosHubWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         // ---- icon (real art if present, else a tinted square with the glyph) ----
-        var iconSrc = ChaosArt.Resolve("boons", b.Id);
+        // Rank-locked → the keyhole mystery art (or a "?" box), never the boon's own sprite.
+        var iconSrc = rankLocked ? null : ChaosArt.Resolve("boons", b.Id);
         FrameworkElement icon;
-        if (iconSrc != null)
+        if (rankLocked && TileUnknownArt != null)
+            icon = ArtIcon(TileUnknownArt, 72, 14, BoonAccent, ring: 3);
+        else if (iconSrc != null)
             icon = ArtIcon(iconSrc, 72, 14, BoonAccent, ring: 3);
         else
             icon = new Border
@@ -524,31 +530,47 @@ public partial class ChaosHubWindow : Window
                 Width = 72, Height = 72, CornerRadius = new CornerRadius(14),
                 Background = new SolidColorBrush(Color.FromArgb(70, BoonAccent.R, BoonAccent.G, BoonAccent.B)),
                 BorderBrush = new SolidColorBrush(BoonAccent), BorderThickness = new Thickness(1),
-                Child = new TextBlock { Text = b.Glyph, FontSize = 34, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                Child = new TextBlock { Text = rankLocked ? "?" : b.Glyph, FontSize = 34, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
             };
         icon.VerticalAlignment = VerticalAlignment.Top;
         icon.Margin = new Thickness(0, 0, 12, 0);
-        icon.Opacity = unlocked ? 1.0 : 0.5;
-        ChaosTips.Attach(icon, unlocked ? $"{b.Name} · L{level}" : b.Name, b.Desc,
-            string.IsNullOrEmpty(b.CapstoneDesc) ? null : "max: " + b.CapstoneDesc,
-            flavor: b.Flavor);
+        icon.Opacity = unlocked ? 1.0 : (rankLocked ? 0.6 : 0.5);
+        if (rankLocked)
+            ChaosTips.Attach(icon, "? ? ?", ChaosRanks.RankLockedTip, ChaosRanks.RankSpecifics(b.RankFloor));
+        else
+            ChaosTips.Attach(icon, unlocked ? $"{b.Name} · L{level}" : b.Name, b.Desc,
+                string.IsNullOrEmpty(b.CapstoneDesc) ? null : "max: " + b.CapstoneDesc,
+                flavor: b.Flavor);
         Grid.SetColumn(icon, 0);
         grid.Children.Add(icon);
 
         // ---- middle: name + desc + level pips + value ----
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        mid.Children.Add(new TextBlock { Text = b.Name, Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
-        mid.Children.Add(new TextBlock { Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
-        if (!string.IsNullOrEmpty(b.Flavor))
+        mid.Children.Add(new TextBlock { Text = rankLocked ? "? ? ?" : b.Name, Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
+        if (rankLocked)
+        {
+            // No desc, no flavor — only the gate. The reveal is the reward for sinking deeper.
             mid.Children.Add(new TextBlock
             {
-                Text = b.Flavor, FontStyle = FontStyles.Italic, FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8)),
-                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0)
+                Text = ChaosRanks.RankLockedTip + " " + ChaosRanks.RankSpecifics(b.RankFloor),
+                Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x80, 0xA8)), FontStyle = FontStyles.Italic,
+                FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0)
             });
+        }
+        else
+        {
+            mid.Children.Add(new TextBlock { Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
+            if (!string.IsNullOrEmpty(b.Flavor))
+                mid.Children.Add(new TextBlock
+                {
+                    Text = b.Flavor, FontStyle = FontStyles.Italic, FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8)),
+                    TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0)
+                });
+        }
 
         // Active-use toys carry their trigger: the keybind (when equipped) or a generic hint.
-        if (b.IsActiveUse)
+        if (b.IsActiveUse && !rankLocked)
         {
             string key = App.Settings?.Current?.ChaosAccessoryKey1 ?? "Q";
             string useHint = b.UseCooldownSec > 0 ? $"{b.UseCooldownSec:0}s cooldown" : "limited uses";
@@ -563,7 +585,7 @@ public partial class ChaosHubWindow : Window
         }
 
         // Capstone teaser: dim until the final rank is bought, gold once it's live.
-        if (!string.IsNullOrEmpty(b.CapstoneDesc))
+        if (!string.IsNullOrEmpty(b.CapstoneDesc) && !rankLocked)
             mid.Children.Add(new TextBlock
             {
                 Text = "max: " + b.CapstoneDesc,
@@ -635,9 +657,20 @@ public partial class ChaosHubWindow : Window
 
         if (!unlocked)
         {
+            // Rank floor is the outermost gate: too shallow and the row stays priced but locked,
+            // with the exact descent count on hover. Lessons + her script still stack beneath it.
+            if (ChaosMeta.IsBoonRankLocked(b.Id))
+            {
+                // Mystery: hide the cost too — show only the depth gate. The button names the
+                // rank you must reach, not the price of a toy you're not meant to know yet.
+                var held = BuyButton($"🔒 {ChaosRanks.Name(b.RankFloor)}", b.Id, false, BoonUnlock_Click);
+                held.ToolTip = ChaosRanks.RankLockedTip + "\n" + ChaosRanks.RankSpecifics(b.RankFloor);
+                ToolTipService.SetShowOnDisabled(held, true);
+                right.Children.Add(held);
+            }
             // Happy path: until the_spanker is owned, every OTHER accessory hangs locked —
             // even with its lesson complete. ChaosMeta.TryUnlockBoon enforces the same gate.
-            if (ChaosMeta.IsAccessoryScriptLocked(b.Id))
+            else if (ChaosMeta.IsAccessoryScriptLocked(b.Id))
             {
                 var held = BuyButton($"Unlock  ✦{b.UnlockCost}", b.Id, false, BoonUnlock_Click);
                 held.ToolTip = "she sells these in an order of her own.";
@@ -933,14 +966,18 @@ public partial class ChaosHubWindow : Window
                       BuildHabits(); BuildLoadoutTiles(); App.Chaos?.NotifyLoadoutChanged();
                   }
                 : () => JumpToTab("enhance");
-            TilesHabits.Children.Add(LoadoutTile(b.Glyph, unlocked ? $"{b.Name} · L{ChaosMeta.BoonLevel(bid)}" : b.Name, b.Desc,
-                active ? "click to switch off" : unlocked ? "click to switch on" : $"unlock for ✦{b.UnlockCost} in the Toybox",
+            bool charmRankLocked = ChaosMeta.IsBoonRankLocked(bid);
+            TilesHabits.Children.Add(LoadoutTile(charmRankLocked ? "?" : b.Glyph,
+                charmRankLocked ? "? ? ?" : unlocked ? $"{b.Name} · L{ChaosMeta.BoonLevel(bid)}" : b.Name,
+                charmRankLocked ? ChaosRanks.RankLockedTip : b.Desc,
+                active ? "click to switch off" : unlocked ? "click to switch on"
+                    : charmRankLocked ? ChaosRanks.RankSpecifics(b.RankFloor) : $"unlock for ✦{b.UnlockCost} in the Toybox",
                 BoonAccent,
                 active ? TileState.Equipped : unlocked ? TileState.Owned : TileState.Locked,
                 onClick,
                 cornerBadge: active ? "✓" : null,
-                art: ChaosArt.Resolve("boons", bid),
-                flavor: b.Flavor));
+                art: charmRankLocked ? TileUnknownArt : ChaosArt.Resolve("boons", bid),
+                flavor: charmRankLocked ? null : b.Flavor));
         }
         int shown = habits.Count + charms.Count;
         int target = Math.Max(16, ((shown + 3) / 4) * 4);
@@ -1000,17 +1037,22 @@ public partial class ChaosHubWindow : Window
             int level = ChaosMeta.BoonLevel(id);
             bool unlocked = level >= 1;
             bool active = ChaosMeta.IsBoonActive(id);
+            bool rankLocked = ChaosMeta.IsBoonRankLocked(id);
             var state = active ? TileState.Equipped : unlocked ? TileState.Owned : TileState.Locked;
             Action onClick = active ? () => { ChaosMeta.SetBoonActive(id, false); ChaosSfx.Play("ui_unequip", 0.45f); AfterBoonChange(); }
                 : unlocked ? () => EquipSwapping(id, cat)
                 : () => JumpToTab("enhance");
+            // Rank-locked → mystery: keyhole art, "???" everywhere, the depth gate instead of a price.
             string extra = active ? "click to unequip"
                 : unlocked ? "click to equip"
+                : rankLocked ? ChaosRanks.RankSpecifics(b.RankFloor)
                 : $"unlock for ✦{b.UnlockCost} in the Toybox";
-            host.Children.Add(LoadoutTile(b.Glyph, unlocked ? $"{b.Name} · L{level}" : b.Name,
-                b.Desc, extra, BoonAccent, state, onClick,
-                cornerBadge: active ? "★" : null, art: ChaosArt.Resolve("boons", id),
-                flavor: b.Flavor));
+            host.Children.Add(LoadoutTile(rankLocked ? "?" : b.Glyph,
+                rankLocked ? "? ? ?" : unlocked ? $"{b.Name} · L{level}" : b.Name,
+                rankLocked ? ChaosRanks.RankLockedTip : b.Desc, extra, BoonAccent, state, onClick,
+                cornerBadge: active ? "★" : null,
+                art: rankLocked ? TileUnknownArt : ChaosArt.Resolve("boons", id),
+                flavor: rankLocked ? null : b.Flavor));
         }
         int target = Math.Max(padTo, ((boons.Count + 3) / 4) * 4);
         for (int i = boons.Count; i < target; i++)

@@ -34,6 +34,8 @@ public class BubbleService : IDisposable
     public bool IsRunning => _isRunning;
     public bool IsPaused => _isPaused;
     public int ActiveBubbles => _bubbles.Count;
+    /// <summary>Freeze pickups currently on screen — ChaosModeService caps fresh spawns against this.</summary>
+    public int ActiveFreezeBubbles => _bubbles.Count(b => b.Spec?.IsFreeze == true);
 
     /// <summary>
     /// Snapshot of currently-poppable bubbles for Focus Gaze hit-testing.
@@ -2034,7 +2036,11 @@ internal class Bubble
         // Chaos: a per-variant sprite at Assets/Chaos/bubbles/{variant}.png replaces the
         // tinted bubble.png when present (the tint overlay is then skipped). Falls back to
         // the shared bubble image otherwise.
-        var variantSprite = spec != null ? ChaosArt.Resolve("bubbles", spec.VariantId) : null;
+        // GG sweeper rabbits share the "darter" VariantId but wear their own amber sprite so
+        // they read as a different rabbit from the catchable pink one (falls back to darter.png).
+        var variantSprite = spec == null ? null
+            : (spec.IsSweeper ? ChaosArt.Resolve("bubbles", "sweeper") : null)
+              ?? ChaosArt.Resolve("bubbles", spec.VariantId);
         if (variantSprite != null)
         {
             _bubbleImage.Source = variantSprite;
@@ -2166,13 +2172,14 @@ internal class Bubble
             }
         }
 
-        // GG make more GG: sweeper rabbits are born spanked — ally-pink glow, body mows
-        // bubbles from the first frame, and they can never be caught (clicks re-smack them).
+        // GG make more GG: sweeper rabbits are born spanked — ally-AMBER glow (matches their
+        // amber sprite, distinct from the catchable pink rabbit), body mows bubbles from the
+        // first frame, and they can never be caught (clicks re-smack them).
         if (spec?.IsSweeper == true)
         {
             _isSpanked = true;
             _spankGrowth = 1.0;
-            try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x14, 0x93), BlurRadius = 34, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
+            try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x8A, 0x14), BlurRadius = 36, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
         }
 
         // Show window
@@ -2377,7 +2384,12 @@ internal class Bubble
             // Tail-Plug: while the boon holds, every rabbit drags a sparkle trail — record a
             // point each ~40 DIPs of travel (the service pops treats against them; the field-FX
             // overlay mirrors each point as a fading spark). Old points age out here.
-            double trailSec = BubbleService.ChaosRabbitTrailSecNow;
+            // GG sweepers ALWAYS drag a trail (boon or not) — an amber streak that sells the
+            // "different, aggressive rabbit" read; their body already mows, so it's pure flair.
+            bool sweeperTrail = _spec?.IsSweeper == true;
+            double trailSec = sweeperTrail
+                ? Math.Max(0.5, BubbleService.ChaosRabbitTrailSecNow)
+                : BubbleService.ChaosRabbitTrailSecNow;
             if (trailSec > 0 && _telegraphRemainingMs <= 0 && !_isPopping)
             {
                 var nowPx = CenterPx;
@@ -2386,7 +2398,7 @@ internal class Bubble
                 {
                     _lastTrailEmitPx = nowPx;
                     _trailPts.Add((nowPx, DateTime.UtcNow));
-                    ChaosFieldFxOverlay.TrailDot(nowPx, trailSec);
+                    ChaosFieldFxOverlay.TrailDot(nowPx, trailSec, warm: sweeperTrail);
                 }
                 var cutoff = DateTime.UtcNow.AddSeconds(-trailSec);
                 while (_trailPts.Count > 0 && _trailPts[0].T < cutoff) _trailPts.RemoveAt(0);

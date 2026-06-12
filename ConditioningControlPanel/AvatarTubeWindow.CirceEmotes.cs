@@ -67,10 +67,13 @@ namespace ConditioningControlPanel
         private double _talkLongMin = 9.0; // legacy; superseded by clip_timing windows (kept for back-compat)
         private int _maxTalkClips = 3;     // emotes.json talking.maxTalkClips: cap on chained talk clips
 
-        // Pacing (emotes.json): the mouth keeps moving _lineTailMs past the voice before the reaction
-        // (wind-down, not a hard cut); a new line is held back until the current clip has been on screen
-        // _minClipMs (so reactions/idles aren't cut short — the audio lead-in compensates to stay synced).
-        private int _lineTailMs = 700;
+        // Pacing (emotes.json): the voice leads — a spoken line's audio fires immediately, the talking
+        // animation joins _talkStartDelayMs into the line, and the reaction crossfades in _talkLeadOutMs
+        // BEFORE the line ends, so the mouth never keeps moving after the voice has stopped. The visual
+        // join is pushed back further if the current clip still needs its _minClipMs on screen (so
+        // reactions/idles aren't cut short).
+        private int _talkStartDelayMs = 1000;
+        private int _talkLeadOutMs = 500;
         private int _minClipMs = 2500;
 
         // Non-verbal sounds (giggle/"mmm"/moans) and reaction-less lines (repetitive flash audio) play one
@@ -86,10 +89,12 @@ namespace ConditioningControlPanel
             new(StringComparer.OrdinalIgnoreCase);
         private const int TalkFallbackStartMs = 600;   // ~the old flat lead-in
         private const int TalkFallbackLenMs = 2500;    // assumed talking length when a clip is untimed
+        private const int MinTalkWindowMs = 500;       // shortest talk window worth showing mouth clips for
 
-        // Audio lead-in for the CURRENT spoken line = the first talk clip's speakStartMs, so ShowGiggle
-        // fires the voiceline exactly as the mouth opens. Set by CircePlayEmote, read via EmoteAudioLeadInSeconds.
-        private int _circeNextAudioLeadInMs = TalkFallbackStartMs;
+        // Audio lead-in for the CURRENT spoken line, read via EmoteAudioLeadInSeconds. Spoken lines are
+        // voice-first (0 — the talking animation joins _talkStartDelayMs in instead of leading); only
+        // non-verbal sounds still hold the audio back slightly so they land on the expressive emote.
+        private int _circeNextAudioLeadInMs = 0;
 
         // Window-driven talk sequence: this timer fires the scheduled clip transitions (talk[i] -> talk[i+1]
         // -> reaction at the line's end), timed to the voiceline rather than the GIF length. While it's
@@ -362,8 +367,9 @@ namespace ConditioningControlPanel
         internal int EffAvatarDetachedOffsetX() => (App.Mods?.GetAvatarDetachedOffsetX() ?? 0) + (EmoteLayoutActive ? _emoteDetX : 0);
         internal int EffAvatarDetachedOffsetY() => (App.Mods?.GetAvatarDetachedOffsetY() ?? 0) - (EmoteLayoutActive ? _emoteDetY : 0);
 
-        /// <summary>Audio lead-in for the current spoken line: the per-clip mouth-open time when an emote set
-        /// is animating, else the caller's flat fallback. Read by ShowGiggle to fire the voice as the mouth opens.</summary>
+        /// <summary>Audio lead-in for the current spoken line: ~0 when an emote set is animating (voice-first —
+        /// the talk animation joins the line late instead of leading it), else the caller's flat fallback.
+        /// Read by ShowGiggle.</summary>
         internal double EmoteAudioLeadInSeconds(double fallbackSec)
             => _circeEmoteMode ? _circeNextAudioLeadInMs / 1000.0 : fallbackSec;
 
@@ -413,21 +419,30 @@ namespace ConditioningControlPanel
 
         /// <summary>
         /// Drive [talk clip(s)] then [reaction] timed to the voiceline (length <paramref name="durationSec"/>):
-        /// the first clip shows now, each next clip is brought in so its mouth is already open as the previous
-        /// one's talking ends (no mouth-closed gap at the join), and the reaction crossfades in a beat
-        /// (<see cref="_lineTailMs"/>) after the line ends so the mouth winds down instead of hard-cutting.
-        /// Timer-driven (not AnimationCompleted-driven). A new line is held back until the current clip has
-        /// shown for <see cref="_minClipMs"/> so reactions/idles aren't cut short (audio lead-in compensates).
+        /// the voice fires immediately, the first talk clip joins <see cref="_talkStartDelayMs"/> into the
+        /// line, each next clip is brought in so its mouth is already open as the previous one's talking ends
+        /// (no mouth-closed gap at the join), and the reaction crossfades in <see cref="_talkLeadOutMs"/>
+        /// BEFORE the line ends so the mouth stops with the voice instead of outlasting it. Timer-driven
+        /// (not AnimationCompleted-driven). The visual join also waits out the current clip's
+        /// <see cref="_minClipMs"/> min-hold so reactions/idles aren't cut short.
         /// </summary>
         private void StartTalkSequence(List<string> talk, string? reaction, double durationSec)
         {
             if (talk.Count == 0) talk = new List<string> { "talkA" };
             StopTalkSequence();
 
-            int speakStart0 = TalkTiming(talk[0]).start;
-            int defer = CurrentClipRemainingHold();               // let the current clip play out a bit first
-            // ShowGiggle fires the voice after this: defer (visual start) + the clip's mouth-open time.
-            _circeNextAudioLeadInMs = Math.Clamp(defer + speakStart0, 0, 3000);
+            _circeNextAudioLeadInMs = 0;                          // voice first — audio starts right away
+            int vms = (int)Math.Round(Math.Max(0, durationSec) * 1000);
+            int startDelay = Math.Max(CurrentClipRemainingHold(), _talkStartDelayMs);
+
+            // Line too short to fit a real talk window between the late join and the early bow-out →
+            // skip the mouth clips and hold the situational reaction for the whole line instead.
+            if (vms - startDelay - _talkLeadOutMs < MinTalkWindowMs)
+            {
+                StartReactionOnly(reaction ?? PickWeightedIdle(), 0);
+                _circeNextAudioLeadInMs = 0;                      // spoken line stays voice-first
+                return;
+            }
 
             void Begin()
             {
@@ -436,8 +451,8 @@ namespace ConditioningControlPanel
                 _circeTalkSeqActive = true;
                 _talkSchedule.Clear();
 
-                int vms = (int)Math.Round(Math.Max(0, durationSec) * 1000);
-                long deadline = speakStart0 + vms + _lineTailMs;  // mouth winds down past the voice (rel. t0)
+                // t0 = now = startDelay into the voice; talking must be gone _talkLeadOutMs before its end.
+                long deadline = vms - _talkLeadOutMs - startDelay;
 
                 var t0 = TalkTiming(talk[0]);
                 long coveredEnd = t0.end;                          // talking is covered up to here (rel. t0)
@@ -469,7 +484,7 @@ namespace ConditioningControlPanel
                 ArmTalkTimer();
             }
 
-            if (defer > 0) DeferStart(Begin, defer); else Begin();
+            DeferStart(Begin, startDelay);
         }
 
         /// <summary>
@@ -920,7 +935,8 @@ namespace ConditioningControlPanel
                     _circeClickEmotes.AddRange(new[] { "shy", "sultry", "adoring", "tender", "blowkiss" });
 
                 // Pacing knobs + the expressive pool (giggle/mmm + reaction-less lines).
-                _lineTailMs = Math.Max(0, (int?)j["lineTailMs"] ?? _lineTailMs);
+                _talkStartDelayMs = Math.Max(0, (int?)j["talkStartDelayMs"] ?? _talkStartDelayMs);
+                _talkLeadOutMs = Math.Max(0, (int?)j["talkLeadOutMs"] ?? _talkLeadOutMs);
                 _minClipMs = Math.Max(0, (int?)j["minClipMs"] ?? _minClipMs);
                 if (j["expressive"] is JObject ex)
                 {
