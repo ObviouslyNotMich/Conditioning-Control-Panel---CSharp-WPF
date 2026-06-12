@@ -20598,6 +20598,12 @@ namespace ConditioningControlPanel
 
                 _browser = new BrowserService();
 
+                // Arm the audio-sync vibe track if the device is connected AFTER the user
+                // is already sitting on a HypnoTube page (the natural "open video, then turn
+                // the toy on" order). Nav-time injection only fires when already connected, so
+                // without this the track would silently never start for that ordering.
+                HookHapticAudioSyncRearm();
+
                 _browser.BrowserReady += (s, e) =>
                 {
                     Dispatcher.Invoke(() =>
@@ -21405,6 +21411,47 @@ namespace ConditioningControlPanel
         private void HandleAudioSyncEnded()
         {
             App.AudioSync?.OnVideoEnded();
+        }
+
+        // Subscribed once to App.Haptics.ConnectionChanged so a late device connection can
+        // arm the vibe track on a page that's already open. The browser can be torn down and
+        // re-created (process-failure recovery), so the handler always uses the live _browser.
+        private bool _hapticAudioSyncConnHooked;
+
+        private void HookHapticAudioSyncRearm()
+        {
+            if (_hapticAudioSyncConnHooked || App.Haptics == null) return;
+            _hapticAudioSyncConnHooked = true;
+            App.Haptics.ConnectionChanged += OnHapticConnectionChangedForAudioSync;
+        }
+
+        private void OnHapticConnectionChangedForAudioSync(object? sender, bool connected)
+        {
+            if (!connected) return;
+
+            // Device just connected. If the user is already on a HypnoTube page with audio-sync
+            // enabled, inject (idempotent) and re-arm so the currently-loaded/playing video gets
+            // synced now — instead of forcing a re-navigation. Marshalled to the UI thread because
+            // ConnectionChanged fires from the provider's thread and GetCurrentUrl touches the WebView.
+            Dispatcher.BeginInvoke(async () =>
+            {
+                try
+                {
+                    if (!App.Settings.Current.Haptics.AudioSync.Enabled) return;
+                    var url = _browser?.GetCurrentUrl();
+                    if (string.IsNullOrEmpty(url) ||
+                        !url.Contains("hypnotube", StringComparison.OrdinalIgnoreCase))
+                        return;
+
+                    App.Logger?.Information("AudioSync: Haptics connected on HypnoTube page — arming vibe track for the current video");
+                    await _browser!.InjectAudioSyncScriptAsync();
+                    await _browser.RearmAudioSyncAsync();
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("AudioSync rearm-on-connect failed: {Error}", ex.Message);
+                }
+            });
         }
 
         private void BtnDiscordTab_Click(object sender, RoutedEventArgs e)

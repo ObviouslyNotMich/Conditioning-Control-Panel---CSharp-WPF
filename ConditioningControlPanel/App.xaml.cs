@@ -569,6 +569,7 @@ namespace ConditioningControlPanel
                     // Win32 call and doesn't need dispatcher affinity.
                     var hwnds = new System.Collections.Generic.List<IntPtr>();
                     System.Drawing.Rectangle[] bouncingRects = Array.Empty<System.Drawing.Rectangle>();
+                    System.Drawing.Rectangle[] subliminalRects = Array.Empty<System.Drawing.Rectangle>();
                     dispatcher.Invoke(() =>
                     {
                         foreach (var w in Current!.Windows.OfType<Window>())
@@ -590,6 +591,13 @@ namespace ConditioningControlPanel
                         // awareness OCR (#287). Capture it here on the UI thread.
                         bouncingRects = BouncingText?.GetActiveTextScreenRects()
                                         ?? Array.Empty<System.Drawing.Rectangle>();
+
+                        // Subliminal cards are full-screen keep-alive overlays (dropped by the
+                        // span filter below) but are now intentionally left in screen capture so
+                        // they record. To still keep them out of the awareness OCR, exclude just
+                        // the centered text rect of any subliminal currently flashing (#287 pattern).
+                        subliminalRects = Subliminal?.GetActiveTextScreenRects()
+                                          ?? Array.Empty<System.Drawing.Rectangle>();
                     });
 
                     // Per-monitor span filter: any CCP window whose rect fully
@@ -628,6 +636,14 @@ namespace ConditioningControlPanel
                     {
                         if (br.Width > 0 && br.Height > 0) rects.Add(br);
                     }
+
+                    // Subliminal text rects (captured on the UI thread above), same rationale as
+                    // bouncing text: the full-screen window was span-filtered out, so only the small
+                    // visible text region is excluded — not the whole monitor.
+                    foreach (var sr in subliminalRects)
+                    {
+                        if (sr.Width > 0 && sr.Height > 0) rects.Add(sr);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -640,12 +656,28 @@ namespace ConditioningControlPanel
             }
         }
 
+        /// <summary>
+        /// Force the next <see cref="GetCcpWindowRectsCached"/> call to rebuild instead of
+        /// returning the 250ms-stale cache. Called when a transient overlay appears (e.g. a
+        /// subliminal flash) so its text rect is folded into the OCR self-exclusion set before
+        /// the awareness OCR can read it, rather than waiting out the cache window.
+        /// </summary>
+        public static void InvalidateCcpWindowRectsCache()
+        {
+            lock (_ccpWindowRectsLock)
+            {
+                _ccpWindowRectsCacheTime = DateTime.MinValue;
+            }
+        }
+
         // True if the window covers any single screen in full. 4px tolerance
         // absorbs chrome / DPI rounding so legitimately-fullscreen windows
         // still classify as monitor-spanning. Sized utility windows
-        // (AvatarTube, MantraWindow, BouncingText, LockCard, subliminal
-        // popups) are well below per-monitor bounds and pass through to the
-        // exclusion list.
+        // (AvatarTube, MantraWindow, LockCard) are well below per-monitor
+        // bounds and pass through to the exclusion list. Full-screen overlay
+        // windows (flash/bubble surfaces, BouncingText, subliminal cards) are
+        // dropped here and instead contribute only their small text rects via
+        // GetActiveTextScreenRects so they don't swallow every OCR'd word.
         private static bool SpansAnyMonitor(int width, int height, System.Windows.Forms.Screen[] screens)
         {
             if (screens == null || screens.Length == 0) return false;

@@ -778,6 +778,30 @@ namespace ConditioningControlPanel.Services
                             }
                         };
 
+                        // Re-arm after a LATE device connection (toy turned on while the page /
+                        // video was already open). The first play() may have already fired with no
+                        // device, so the one-shot guards are set and the video is running un-synced.
+                        // Reset them and re-report the current video so C# (now connected) processes
+                        // it and signals ready, which restarts the sync loop in step with playback.
+                        window.__hapticRearm = () => {
+                            const v = findVideo();
+                            if (!v) { console.log('[HapticSync] Re-arm: no video yet'); return; }
+                            setupVideoInterception(v);
+                            window.__hapticReady = false;
+                            window.__hapticProcessing = true;
+                            window.__hapticVideoReported = true;
+                            const url = getVideoUrl(v);
+                            if (url) {
+                                console.log('[HapticSync] Re-arm: reporting current video ' + url);
+                                showOverlay();
+                                window.chrome.webview.postMessage(JSON.stringify({
+                                    type: 'audioSyncVideoDetected',
+                                    url: url,
+                                    duration: v.duration || 0
+                                }));
+                            }
+                        };
+
                         // Setup on existing video
                         const video = findVideo();
                         if (video) {
@@ -828,6 +852,27 @@ namespace ConditioningControlPanel.Services
             catch (Exception ex)
             {
                 App.Logger?.Debug("Failed to signal haptic ready: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Re-arm the audio-sync script for the currently loaded/playing video. Used when the
+        /// haptic device connects after the page was already open, so the vibe track can start
+        /// without forcing a re-navigation. No-op if the script isn't injected yet.
+        /// </summary>
+        public async Task RearmAudioSyncAsync()
+        {
+            if (_webView?.CoreWebView2 == null) return;
+
+            try
+            {
+                await _webView.CoreWebView2.ExecuteScriptAsync(
+                    "if (window.__hapticRearm) window.__hapticRearm();");
+                App.Logger?.Information("AudioSync: re-armed vibe track for current video");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Failed to re-arm audio sync: {Error}", ex.Message);
             }
         }
 
