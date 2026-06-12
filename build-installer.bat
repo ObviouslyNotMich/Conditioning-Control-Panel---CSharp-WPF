@@ -11,6 +11,11 @@ set VERSION=6.1.1
 set PROJECT_DIR=ConditioningControlPanel
 set PUBLISH_DIR=%PROJECT_DIR%\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish
 set INSTALLER_OUTPUT=installer-output
+:: Short staging path for the Inno Setup compile. The publish tree sits ~131 chars
+:: deep, and some builtin-sissyhypno audio files run past MAX_PATH (260) from there,
+:: which aborts ISCC ("The system cannot find the path specified"). We mirror the
+:: SIGNED publish output here (paths top out ~155 chars) and compile against it.
+set STAGING_DIR=C:\ccpb\pub
 
 :: Check for Inno Setup
 set ISCC_PATH=
@@ -82,13 +87,32 @@ echo.
 pause
 
 echo.
-echo [4/6] Compiling installer with Inno Setup...
-"%ISCC_PATH%" installer.iss
-if errorlevel 1 (
-    echo ERROR: Installer compilation failed!
+echo [3.5/6] Staging signed publish to short path (MAX_PATH workaround)...
+:: Mirror AFTER signing so the staged exe carries the signature. /MIR makes this
+:: idempotent across re-runs. robocopy exit codes 0-7 are success; 8+ is a real error.
+if exist "%STAGING_DIR%" rmdir /s /q "%STAGING_DIR%"
+robocopy "%PUBLISH_DIR%" "%STAGING_DIR%" /MIR /NJH /NJS /NDL /NFL /NP
+if errorlevel 8 (
+    echo ERROR: Failed to stage publish output to %STAGING_DIR%!
     pause
     exit /b 1
 )
+
+echo.
+echo [4/6] Compiling installer with Inno Setup (from staging path)...
+:: ISPP treats backslashes in a /D value as escape chars (C:\ccpb\pub would arrive as
+:: C:ccpbpub), so double them via %VAR:\=\\% — ISPP unescapes \\ back to a single \.
+"%ISCC_PATH%" /DPublishDir=%STAGING_DIR:\=\\% installer.iss
+if errorlevel 1 (
+    echo ERROR: Installer compilation failed!
+    rmdir /s /q "%STAGING_DIR%" 2>nul
+    pause
+    exit /b 1
+)
+
+echo.
+echo [4.5/6] Removing staging copy...
+rmdir /s /q "%STAGING_DIR%" 2>nul
 
 echo.
 echo ============================================
