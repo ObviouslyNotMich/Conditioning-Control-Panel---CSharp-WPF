@@ -1,5 +1,8 @@
+
+
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -7,7 +10,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Services.AIService;
+using ConditioningControlPanel.Models.AiEnrichment;
+using ConditioningControlPanel.Services.AIService.Enrichment;
 using ConditioningControlPanel.Services.Moderation;
 
 namespace ConditioningControlPanel.Services.AIService
@@ -17,6 +21,11 @@ namespace ConditioningControlPanel.Services.AIService
     /// Uses the same BambiSprite system prompt and awareness formatting as the cloud provider,
     /// but sends requests directly to a user-configured HTTP endpoint with a bearer API key.
     /// Daily limits are controlled via CompanionPromptSettings.DailyRequestLimit (0 = unlimited).
+    ///
+    /// When AI Companion Effects are enabled, the request includes an enrichment message that
+    /// instructs the model to emit effect commands in a JSON wrapper. Replies are parsed by the
+    /// same <see cref="AiResponseParser"/> used by the local provider, and any valid commands are
+    /// executed through <see cref="App.Commands"/>.
     /// </summary>
     public sealed class OpenAiCompatibleService : IAiService
     {
@@ -42,6 +51,9 @@ namespace ConditioningControlPanel.Services.AIService
 
         private readonly HttpClient _httpClient;
         private readonly BambiSprite _bambiSprite;
+        private readonly IAiResponseParser _parser;
+        private readonly KnowledgeService _knowledgeService;
+        private readonly IPromptService _promptService;
 
         private int _dailyRequestCount;
         private DateTime _lastResetDate;
@@ -89,6 +101,9 @@ namespace ConditioningControlPanel.Services.AIService
         public OpenAiCompatibleService()
         {
             _bambiSprite = new BambiSprite();
+            _parser = new AiResponseParser(GetFallbackResponse);
+            _knowledgeService = new KnowledgeService();
+            _promptService = new PromptService();
             _lastResetDate = DateTime.Today;
             _dailyRequestCount = 0;
 
@@ -375,15 +390,12 @@ namespace ConditioningControlPanel.Services.AIService
             }
 
             var model = GetConfiguredModel();
+            var messages = BuildMessages(systemPrompt, userInput);
 
             var payload = new Dictionary<string, object>
             {
                 ["model"] = model,
-                ["messages"] = new[]
-                {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = userInput }
-                }
+                ["messages"] = messages
             };
             ApplySamplerSettings(payload);
 
@@ -441,7 +453,7 @@ namespace ConditioningControlPanel.Services.AIService
                     }
 
                     var content = CleanTokenizerArtifacts(contentElement.GetString());
-                    return string.IsNullOrWhiteSpace(content) ? null : content;
+                    return ProcessResponse(content);
                 }
                 catch (HttpRequestException) when (attempt == 0)
                 {
@@ -460,6 +472,53 @@ namespace ConditioningControlPanel.Services.AIService
 
             App.Logger?.Warning("OpenAiCompatibleService: request failed after retry");
             return null;
+        }
+
+        private List<MessageDto> BuildMessages(string systemPrompt, string userInput)
+        {
+            var messages = new List<MessageDto>
+            {
+                new("system", systemPrompt),
+                new("user", userInput)
+            };
+
+            var effectsEnabled = App.Settings?.Current?.CompanionPrompt?.AllowAiToControlEffects == true;
+            if (effectsEnabled)
+            {
+                var currentTime = DateTime.Now.ToString("yyyy-M-dd dddd h:mm:ss tt");
+                var facts = _knowledgeService.GetKnowledge("");
+                var factsJson = JsonSerializer.Serialize(facts);
+                var enrichment = _promptService.BuildEnrichmentMessage(factsJson, currentTime);
+                messages.Insert(1, enrichment);
+            }
+
+            return messages;
+        }
+
+        private string? ProcessResponse(string? content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                return null;
+
+            var effectsEnabled = App.Settings?.Current?.CompanionPrompt?.AllowAiToControlEffects == true;
+            if (!effectsEnabled)
+                return content;
+
+            var parsed = _parser.Parse(content);
+            var commands = parsed.Commands;
+
+            if (commands.Count > 0)
+            {
+                App.Logger?.Information("OpenAiCompatibleService: parsed {Count} command(s) from response", commands.Count);
+                if (App.Commands != null)
+                {
+                    App.Commands.BeginBatch();
+                    foreach (var cmd in commands)
+                        App.Commands.ExecuteCommand(cmd);
+                }
+            }
+
+            return string.IsNullOrWhiteSpace(parsed.CleanText) ? null : parsed.CleanText;
         }
 
         private static string GetFallbackResponse()

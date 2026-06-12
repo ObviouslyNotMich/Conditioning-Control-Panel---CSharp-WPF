@@ -79,12 +79,35 @@ The test-connection button uses `TestEndpointAsync()` and shows latency / HTTP s
 
 `DailyRequestLimit` is enforced client-side in `OpenAiCompatibleService.IsAvailable` and `DailyRequestsRemaining`. The counter resets at local midnight.
 
-## 7. Moderation / effects
+## 7. Effects parser
 
-Currently **no effects parser** runs on the OpenAI-compatible provider. `LocalAiService` parses JSON effect commands from model output and executes them via `App.Commands`; the cloud provider returns sanitized text; `OpenAiCompatibleService` returns the raw assistant content directly. This is a known v1 limitation and is tracked as a follow-up.
+When `AllowAiToControlEffects` is enabled, `OpenAiCompatibleService` mirrors the local provider behavior:
 
-## 8. Known limitations
+1. An enrichment message is inserted after the system prompt. It instructs the model to wrap its reply in a JSON object with `response` and `effects` fields.
+2. The raw assistant content is run through `AiResponseParser` to extract `CleanText` and any `AiCommandData` commands.
+3. Valid commands are executed through `App.Commands` (the command service enforces the per-effect permission toggles).
 
-- Effects/commands are not parsed from model output.
-- No sampler parameters (`temperature`, `top_p`, etc.) are sent with requests.
-- Some tokenizers emit `Ġ` for leading spaces; the response is not cleaned up.
+If effects are disabled, the raw text is returned unchanged (minus tokenizer cleanup).
+
+## 8. Sampler settings
+
+`OpenAiCompatibleService` reads the nullable sampler fields in `CompanionPromptSettings`. When `OpenAiCompatibleUseCustomSamplerSettings` is true, only the populated fields are included in the request payload:
+
+- `temperature`
+- `top_p`
+- `top_k`
+- `frequency_penalty`
+- `presence_penalty`
+- `repetition_penalty`
+- `min_p`
+
+Empty fields are omitted so strict OpenAI endpoints do not receive unsupported keys like `top_k` or `min_p`.
+
+## 9. Tokenizer cleanup
+
+Some tokenizers (e.g., GPT-2 / GPT-Neo / llama.cpp) emit `Ġ` (U+0120) for leading spaces. `CleanTokenizerArtifacts` replaces these with normal spaces before the response is parsed or displayed.
+
+## 10. Known limitations
+
+- No client-side moderation guard is applied before/after the request (unlike the local and cloud providers).
+- The enrichment prompt assumes the model can follow the JSON output format; smaller or non-instruction-tuned models may ignore it.
