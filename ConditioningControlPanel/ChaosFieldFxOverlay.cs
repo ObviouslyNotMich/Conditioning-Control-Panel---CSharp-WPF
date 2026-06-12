@@ -80,6 +80,9 @@ public sealed class ChaosFieldFxOverlay : Window
     public static void ClearTether(int key) =>
         OnUi(w => w.RemoveTether(key));
 
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
+
     /// <summary>Instant teardown (run end / shutdown) — the only place this hwnd dies.</summary>
     public static void CloseActive()
     {
@@ -115,8 +118,13 @@ public sealed class ChaosFieldFxOverlay : Window
                     {
                         _active = new ChaosFieldFxOverlay();
                         ((Window)_active).Show();
+                        ChaosWindowZ.RaiseAboveVideo(_active);
                     }
-                    else if (!_active.IsVisible) _active.Show();
+                    else if (!_active.IsVisible)
+                    {
+                        _active.Show();
+                        ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
+                    }
                     act(_active);
                 }
                 catch (Exception ex) { App.Logger?.Debug("ChaosFieldFx: {E}", ex.Message); }

@@ -57,10 +57,14 @@ public sealed class ChaosGifCascadeOverlay : Window
             if (files.Count == 0) return;
             if (_active == null) { _active = new ChaosGifCascadeOverlay(); ((Window)_active).Show(); }
             else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between cascades
+            ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
             _active.Restart(files, spawnRatePerSec, durationSec, gifSize, fallSpeed, opacity, startScale);
         }
         catch (Exception ex) { App.Logger?.Debug("ChaosGifCascadeOverlay.Show: {E}", ex.Message); }
     }
+
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
 
     /// <summary>Close any active cascade immediately (run teardown).</summary>
     public static void CloseActive() { try { _active?.CloseNow(); } catch { } }

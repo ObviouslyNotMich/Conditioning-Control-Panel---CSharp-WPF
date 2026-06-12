@@ -147,6 +147,75 @@ public partial class ChaosHubWindow : Window
         _shownSparks = ChaosMeta.State.Sparks;
         _shownGold = ChaosMeta.State.Gold;
         TxtRank.Text = ChaosMeta.Rank;
+        RefreshTabBadges();   // every balance change re-counts what the shelves can sell
+    }
+
+    /// <summary>Signposting on the shop tabs: a small count of what's buyable RIGHT NOW
+    /// (drops purchases on the Toybox, gold purchases on the Looking Glass) — the answer
+    /// to "is there anything for me in there?" without scanning four shelves.</summary>
+    private void RefreshTabBadges()
+    {
+        SetTabBadge(TabEnhance, "the Toybox", CountAffordableToybox());
+        SetTabBadge(TabImprove, "the Looking Glass", TabImprove.IsEnabled ? CountAffordableBench() : 0);
+    }
+
+    private static void SetTabBadge(ToggleButton tab, string label, int count)
+    {
+        if (count <= 0)
+        {
+            tab.Content = label;
+            tab.ClearValue(ToolTipProperty);
+            return;
+        }
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(6, 1, 6, 1),
+            Margin = new Thickness(7, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = count.ToString(), Foreground = Brushes.White, FontSize = 10.5, FontWeight = FontWeights.Bold },
+        });
+        tab.Content = row;
+        tab.ToolTip = count == 1 ? "1 thing you can afford right now" : $"{count} things you can afford right now";
+    }
+
+    /// <summary>Drops purchases buyable this instant: untrained habits + boon unlocks +
+    /// boon level-ups — same gates the shelf buttons enforce (lesson, rank, her script).</summary>
+    private static int CountAffordableToybox()
+    {
+        int n = 0;
+        foreach (var u in ChaosUpgrades.All)
+            if (!ChaosMeta.IsOwned(u.Id) && !ChaosMeta.IsPurchaseRankLocked(u.Id)
+                && !ChaosLessons.IsLessonBlocked(u.Id) && ChaosMeta.CanAfford(u.Id)) n++;
+        foreach (var b in ChaosLifetimeBoons.All)
+        {
+            int level = ChaosMeta.BoonLevel(b.Id);
+            if (level <= 0)
+            {
+                if (!ChaosMeta.IsAccessoryScriptLocked(b.Id) && !ChaosLessons.IsLessonBlocked(b.Id)
+                    && ChaosMeta.CanAffordUnlock(b.Id)) n++;
+            }
+            else if (level < b.MaxLevel && !ChaosMeta.IsCapstonePurchaseRankLocked(b.Id)
+                     && ChaosMeta.CanAffordUpgrade(b.Id)) n++;
+        }
+        return n;
+    }
+
+    /// <summary>Gold purchases buyable this instant at her bench (rank + reveal gated).</summary>
+    private int CountAffordableBench()
+    {
+        int n = 0;
+        foreach (var item in BenchItems)
+        {
+            if (ChaosMeta.State.BenchPurchases.Contains(item.Id)) continue;
+            if (item.RankNeed.HasValue && !ChaosMeta.AtLeast(item.RankNeed.Value)) continue;
+            if (item.RevealGate != null && !RevealService.IsUnlocked(item.RevealGate)) continue;
+            if (ChaosMeta.State.Gold >= item.Cost) n++;
+        }
+        return n;
     }
 
     /// <summary>Roll a top-bar balance from its last shown value to the new one (~500ms,
@@ -1177,10 +1246,31 @@ public partial class ChaosHubWindow : Window
         FillDiaryRows(DiaryHost, 270);
     }
 
+    /// <summary>The interaction sheet at the top of the diary: every core verb, always
+    /// readable — the recall surface for all the one-time in-run teaches (miss a beat
+    /// mid-chaos and this is where it can be re-read).</summary>
+    private static readonly (string Glyph, string Name, string Desc)[] DiaryVerbs =
+    {
+        ("✋", "hold to snap", "press and HOLD a live (ringed) bubble about a second to defuse it — costs 30 focus. a quick click, or letting go early, TRIGGERS it instead."),
+        ("○", "click the treats", "a tap pops a treat: its payload plays, the streak climbs, and +10 focus flows back (+15 from heavies and rabbits)."),
+        ("🌊", "right-click · the ripple", "casts a wave from your cursor (near the bubbles): treats pop fully paid, trances snap clean, rabbits get flung. one charge, gathered back over time — READY on the sidebar means it's in your hand."),
+        ("◌", "focus", "the defuse fuel: max 100, you fall in with 50, no regen on its own. when the bar runs red you can't afford a hold — farm treats before touching a live one (pressing one anyway triggers it in your grip)."),
+        ("🔥", "lust", "the orange bar. climbs while you perform and pays up to x2 at full burn; an unblocked trigger cools it to zero."),
+        ("💨", "never let treats rot", "a treat that fades unpopped HALVES your streak. chase the rewards too, not just the threats."),
+        ("🐇", "catch the white rabbit", "everything slows to a crawl for six seconds. with the Spanker worn, you smack it into the field instead."),
+        ("❄", "the pickups", "freeze ❄ holds the whole field 3.5 seconds (still poppable, and snaps cost no focus) · the lucky bubble 🍀 pays gold on the spot."),
+        ("⏸", "your panic key", "one press holds the field mid-fall; pressing it again wakes you up to the recap."),
+    };
+
     /// <summary>Every diary entry into <paramref name="host"/> — shared by the half-width
     /// Improvements box (narrow wrap) and the pop-out reader (roomier).</summary>
     private void FillDiaryRows(Panel host, double maxWidth)
     {
+        // How to play before what you've met — never discovery-gated.
+        host.Children.Add(SubHeader("VERBS · how to play down there"));
+        foreach (var v in DiaryVerbs)
+            host.Children.Add(VerbRow(v.Glyph, v.Name, v.Desc, maxWidth));
+        host.Children.Add(SubHeader("WHAT YOU'VE MET"));
         foreach (var v in ChaosBubbleVariants.All)
             host.Children.Add(CodexRow("bubble:" + v.Id, v.Name, ChaosBubbleVariants.DescriptionFor(v.Id),
                 ChaosArt.Resolve("bubbles", v.Id), "●", Color.FromRgb(v.Tint.R, v.Tint.G, v.Tint.B), maxWidth));
@@ -1266,6 +1356,36 @@ public partial class ChaosHubWindow : Window
         FontFamily = new FontFamily("Consolas"), FontWeight = FontWeights.Bold, FontSize = 11,
         Margin = new Thickness(0, 12, 0, 6)
     };
+
+    /// <summary>A diary verb row: the CodexRow look without the discovery gate — the
+    /// how-to-play sheet is always legible.</summary>
+    private Border VerbRow(string glyph, string name, string desc, double maxWidth)
+    {
+        var accent = Color.FromRgb(0x7A, 0xE0, 0xFF);
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new Border
+        {
+            Width = 39, Height = 39, CornerRadius = new CornerRadius(9),
+            Background = new SolidColorBrush(Color.FromArgb(45, accent.R, accent.G, accent.B)),
+            BorderBrush = new SolidColorBrush(accent), BorderThickness = new Thickness(1),
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0),
+            Child = new TextBlock { Text = glyph, Foreground = new SolidColorBrush(accent), FontSize = 17, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+        });
+        var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = maxWidth };
+        mid.Children.Add(new TextBlock { Text = name, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeights.SemiBold });
+        mid.Children.Add(new TextBlock { Text = desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
+        row.Children.Add(mid);
+        return new Border
+        {
+            Child = row,
+            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(55, accent.R, accent.G, accent.B)),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+    }
 
     private Border CodexRow(string codexId, string name, string desc, ImageSource? iconSrc, string glyph, Color accent, double maxWidth = 270)
     {
@@ -1359,9 +1479,30 @@ public partial class ChaosHubWindow : Window
                 + $"({ChaosRanks.Thresholds[(int)ChaosRank.Devoted]} descents), then train it for ✦{cost}.";
             ToolTipService.SetShowOnDisabled(SegExtreme, true);
         }
-        else SegExtreme.ToolTip = null;
+        ApplyDifficultyPillTips(extremeUnlocked: unlocked);
         if (!unlocked && SegExtreme.IsChecked == true)
             SetSegment(GrpDifficulty, "Hard");
+    }
+
+    /// <summary>What each pill actually changes, on hover — pay multiplier, spawn pace, field
+    /// size — so picking a difficulty is a choice instead of a mystery. The locked Inescapable
+    /// pill keeps its unlock-path tooltip (set in <see cref="ApplyExtremeGate"/>).</summary>
+    private void ApplyDifficultyPillTips(bool extremeUnlocked)
+    {
+        foreach (var pill in GrpDifficulty.Children.OfType<ToggleButton>())
+        {
+            string? tip = pill.Tag?.ToString() switch
+            {
+                "Easy" => "x1.0 pay. the calmest fall: baseline spawn pace, the longest trances, and the strange bubbles roll half as often.",
+                "Medium" => "x1.3 on every payout. bubbles surface ~30% faster and the field holds ~14% more of them at once.",
+                "Hard" => "x1.7 on every payout. ~70% faster spawns, ~30% more on screen, shorter trances — and the Bound hunts here on any rank.",
+                "Extreme" => extremeUnlocked
+                    ? "x2.2 on every payout. spawns at more than double pace, ~48% more on screen. the deepest the hole goes."
+                    : null,   // the unlock-path tooltip owns the locked pill
+                _ => null,
+            };
+            if (tip != null) pill.ToolTip = tip;
+        }
     }
 
     private void LoadDefaults()

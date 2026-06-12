@@ -70,6 +70,9 @@ public sealed class ChaosWaveTimerOverlay : Window
         catch { }
     }
 
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
+
     /// <summary>Instant teardown (run end / shutdown).</summary>
     public static void CloseActive()
     {
@@ -87,6 +90,7 @@ public sealed class ChaosWaveTimerOverlay : Window
     private readonly TextBlock _clock;
     private readonly TextBlock _score;
     private bool _urgent;
+    private bool _finalRush;
 
     private ChaosWaveTimerOverlay()
     {
@@ -172,6 +176,28 @@ public sealed class ChaosWaveTimerOverlay : Window
             _clock.Foreground = urgent
                 ? new SolidColorBrush(Color.FromRgb(0xFF, 0x5A, 0x5A))
                 : Brushes.White;
+        }
+
+        // The RUN's last ten seconds (urgent on the final wave): the red clock also blinks —
+        // the descent gets a finale instead of an interruption.
+        bool finalRush = urgent && last;
+        if (finalRush != _finalRush)
+        {
+            _finalRush = finalRush;
+            if (finalRush)
+            {
+                var blink = new System.Windows.Media.Animation.DoubleAnimation(1.0, 0.25, TimeSpan.FromMilliseconds(420))
+                {
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
+                };
+                _clock.BeginAnimation(OpacityProperty, blink);
+            }
+            else
+            {
+                _clock.BeginAnimation(OpacityProperty, null);
+                _clock.Opacity = 1.0;
+            }
         }
     }
 

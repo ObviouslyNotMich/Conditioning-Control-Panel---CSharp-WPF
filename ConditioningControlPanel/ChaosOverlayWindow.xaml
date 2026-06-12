@@ -40,8 +40,9 @@
                 <StackPanel x:Name="BoonCardHost" Orientation="Horizontal" HorizontalAlignment="Center"/>
                 <Grid Margin="0,18,0,0">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                        <Button x:Name="BtnSkipBoon" Content="resist → +1 resistance (for now)" Click="BtnSkipBoon_Click"
-                                Padding="12,6" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
+                        <Button x:Name="BtnSkipBoon" Content="SKIP · +1 RESISTANCE" Click="BtnSkipBoon_Click"
+                                Padding="12,6" Background="#33FFFFFF" Foreground="White" BorderThickness="0"
+                                ToolTip="resist the table: take no card, gain one resistance for this descent"/>
                         <!-- Taking Chances: re-draw the options; visible only while rerolls remain. -->
                         <Button x:Name="BtnReroll" Content="🎲 tempt fate again" Click="BtnReroll_Click" Visibility="Collapsed"
                                 Margin="10,0,0,0" Padding="12,6" Background="#338B5CF6" Foreground="White" BorderThickness="0"/>
@@ -103,6 +104,10 @@
                         <!-- the door: from run 1 onward the recap always offers the Dollhouse -->
                         <Button x:Name="BtnDollhouse" Content="the dollhouse" Click="BtnDollhouse_Click" Visibility="Collapsed"
                                 Padding="18,10" Margin="12,0,0,0" Background="#338B5CF6" Foreground="White" BorderThickness="0"/>
+                        <!-- straight to run setup: tweak the fall without hunting through the hub -->
+                        <Button x:Name="BtnAdjust" Content="adjust the fall" Click="BtnAdjust_Click" Visibility="Collapsed"
+                                Padding="18,10" Margin="12,0,0,0" Background="#33FFFFFF" Foreground="White" BorderThickness="0"
+                                ToolTip="open run setup — difficulty, length, the whole outfit"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>

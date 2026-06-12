@@ -125,17 +125,28 @@
                      always-visible strip too. Dims + pulses when below a defuse's cost. -->
                 <StackPanel x:Name="FocusStripBlock" Margin="0,14,0,0" HorizontalAlignment="Center">
                     <TextBlock Text="FOCUS" Foreground="#FF9CE8FF" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <ProgressBar Width="86" Height="8" Minimum="0" Maximum="{Binding FocusMax, Mode=OneWay}"
-                                 Value="{Binding Focus, Mode=OneWay}" Margin="0,3,0,0"
-                                 Foreground="#FF5AC8FA" Background="#33000000" BorderThickness="0"/>
+                    <Grid Width="86" Height="8" Margin="0,3,0,0">
+                        <ProgressBar x:Name="FocusStripBar" Minimum="0" Maximum="{Binding FocusMax, Mode=OneWay}"
+                                     Value="{Binding Focus, Mode=OneWay}"
+                                     Foreground="#FF5AC8FA" Background="#33000000" BorderThickness="0"/>
+                        <!-- the 30-mark: a defuse's price, etched on the bar -->
+                        <Grid IsHitTestVisible="False">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3*"/>
+                                <ColumnDefinition Width="7*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="1.5" HorizontalAlignment="Right" Background="#88FFFFFF"/>
+                        </Grid>
+                    </Grid>
                     <TextBlock Text="{Binding FocusText}" Foreground="White" FontWeight="Bold" FontSize="13"
                                HorizontalAlignment="Center" Margin="0,2,0,0"/>
                 </StackPanel>
 
-                <!-- RIPPLE: the right-click wave — one charge on a slow gather. Dims while charging. -->
+                <!-- RIPPLE: the right-click wave — one charge on a slow gather. Dims while charging;
+                     READY breathes a soft cyan glow (code-behind, same pulse as the toy hero button). -->
                 <StackPanel x:Name="RippleStripBlock" Margin="0,12,0,0" HorizontalAlignment="Center">
                     <TextBlock Text="RIPPLE" Foreground="#FF7AE0FF" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <TextBlock Text="{Binding RippleText}" FontWeight="Bold" FontFamily="Consolas" FontSize="13"
+                    <TextBlock x:Name="RippleStripText" Text="{Binding RippleText}" FontWeight="Bold" FontFamily="Consolas" FontSize="13"
                                HorizontalAlignment="Center" Margin="0,2,0,0">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -274,9 +285,18 @@
                             <TextBlock Text="pops fill it · a hold spends it" Foreground="{StaticResource TextDim}" FontSize="12"/>
                             <TextBlock Text="{Binding FocusText}" Foreground="#FF9CE8FF" FontWeight="Bold" FontSize="13" HorizontalAlignment="Right"/>
                         </Grid>
-                        <ProgressBar Height="8" Minimum="0" Maximum="{Binding FocusMax, Mode=OneWay}"
-                                     Value="{Binding Focus, Mode=OneWay}" Margin="0,4,0,0"
-                                     Foreground="#FF5AC8FA" Background="#33000000" BorderThickness="0"/>
+                        <Grid Height="8" Margin="0,4,0,0">
+                            <ProgressBar x:Name="FocusPanelBar" Minimum="0" Maximum="{Binding FocusMax, Mode=OneWay}"
+                                         Value="{Binding Focus, Mode=OneWay}"
+                                         Foreground="#FF5AC8FA" Background="#33000000" BorderThickness="0"/>
+                            <Grid IsHitTestVisible="False">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="7*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="1.5" HorizontalAlignment="Right" Background="#88FFFFFF"/>
+                            </Grid>
+                        </Grid>
                     </StackPanel>
 
                     <!-- loadout: what you took down with you (equipped lifetime boons). hover a tile for its card -->
@@ -422,6 +442,9 @@
                             </Button.Resources>
                         </Button>
                     </Grid>
+                    <TextBlock x:Name="TxtPauseHint" Text="⏸ HELD · your panic key again wakes you up"
+                               Foreground="{StaticResource TextDim}" FontSize="11" HorizontalAlignment="Center"
+                               Margin="0,6,0,0" Visibility="Collapsed"/>
                 </StackPanel>
             </Grid>
         </Border>

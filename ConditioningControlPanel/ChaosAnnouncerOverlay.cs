@@ -65,6 +65,9 @@ public sealed class ChaosAnnouncerOverlay : Window
         catch (Exception ex) { App.Logger?.Debug("ChaosAnnouncer.Announce: {E}", ex.Message); }
     }
 
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
+
     /// <summary>Drop any queued/visible announcement and tear the window down (run teardown).</summary>
     public static void CloseActive()
     {
@@ -80,6 +83,7 @@ public sealed class ChaosAnnouncerOverlay : Window
         {
             if (_active == null) { _active = new ChaosAnnouncerOverlay(); ((Window)_active).Show(); }
             else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between announcements
+            ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
             _active.Display(text, kind, artKey, subText);
         }
         catch (Exception ex)

@@ -1318,6 +1318,17 @@ public class BubbleService : IDisposable
         return best == double.MaxValue ? null : best / 1000.0;
     }
 
+    /// <summary>True while the cursor rests on an armed live chaos bubble. Polled by
+    /// ChaosModeService's RunTick (UI thread, 4x/s) for the focus-bar hover cue —
+    /// the cursor sample is the same per-tick one every bubble already reads.</summary>
+    public bool IsCursorOverLiveChaosBubble()
+    {
+        if (!_chaosActive) return false;
+        foreach (var b in _bubbles)
+            if (b.LiveFuseRemainingMs.HasValue && b.CursorInside()) return true;
+        return false;
+    }
+
     /// <summary>Soft chime one-shot (reuses the lucky-pop chime files). Tunnel Vision capstone spawn cue.</summary>
     public void PlayChime(float volumeScale = 0.3f)
     {
@@ -1829,6 +1840,16 @@ internal class Bubble
     /// Read by <see cref="BubbleService.MinChaosFuseSec"/> for the Blindfold heartbeat.</summary>
     internal double? LiveFuseRemainingMs =>
         _spec?.IsLive == true && _isAlive && !_isDestroyed && !_isPopping ? _fuseRemainingMs : null;
+
+    /// <summary>True while the tick-sampled cursor rests inside this bubble's hitbox (same
+    /// reach math as the VibePopping sweep). Read by the HUD's focus-bar hover cue.</summary>
+    internal bool CursorInside()
+    {
+        double dx = BubbleService.CursorPxX / _dpiScale - (_posX + _size / 2.0);
+        double dy = BubbleService.CursorPxY / _dpiScale - (_posY + _size / 2.0);
+        double reach = _hitSize / 2.0;
+        return dx * dx + dy * dy <= reach * reach;
+    }
 
     /// <summary>Fuse seconds left at the moment of the snap (valid inside the defuse callback,
     /// where _isPopping is already set) — feeds the Last Breath brink-bonus check.</summary>

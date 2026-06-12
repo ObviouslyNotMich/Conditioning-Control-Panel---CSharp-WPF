@@ -118,6 +118,12 @@ public sealed class ChaosDvdOverlay : Window
     /// they share this overlay, and counting them lit the Porn DVD button mid-cooldown.</summary>
     public static bool AnyToyActive => _active.Any(w => !w._isThought);
 
+    /// <summary>Re-stack every flying logo above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive()
+    {
+        foreach (var w in _active) ChaosWindowZ.RaiseTopmost(w);
+    }
+
     /// <summary>Run teardown: close every flying logo immediately and drain the pool —
     /// the only point where these hwnds actually die.</summary>
     public static void CloseActive()
@@ -198,6 +204,7 @@ public sealed class ChaosDvdOverlay : Window
 
         _active.Add(this);
         Show();                                  // first call creates the hwnd; re-shows unhide
+        ChaosWindowZ.RaiseAboveVideo(this);      // un-hiding doesn't re-stack — kick over a playing video
         ApplyExStyles(_clickable);               // per launch — clickability can differ per run
 
         _label.Build();

@@ -55,6 +55,7 @@ public sealed class ChaosCursorGlowOverlay : Window
                 {
                     if (_active == null) { _active = new ChaosCursorGlowOverlay(); ((Window)_active).Show(); }
                     _active._halo.Visibility = Visibility.Visible;
+                    ChaosWindowZ.RaiseAboveVideo(_active);   // keep-alive window — re-stack over a playing video
                 }
                 catch (Exception ex) { App.Logger?.Debug("ChaosCursorGlow.Arm: {E}", ex.Message); }
             });
@@ -89,6 +90,9 @@ public sealed class ChaosCursorGlowOverlay : Window
         }
         catch { }
     }
+
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
 
     /// <summary>Instant teardown (run end / shutdown).</summary>
     public static void CloseActive()

@@ -61,6 +61,7 @@ public sealed class ChaosEffectBannerOverlay : Window
                 {
                     if (_active == null) { _active = new ChaosEffectBannerOverlay(); ((Window)_active).Show(); }
                     _active.AddEntry(id, text, accent);
+                    ChaosWindowZ.RaiseAboveVideo(_active);   // keep-alive window — re-stack over a playing video
                 }
                 catch (Exception ex) { App.Logger?.Debug("ChaosEffectBanner.Show: {E}", ex.Message); }
             });
@@ -79,6 +80,9 @@ public sealed class ChaosEffectBannerOverlay : Window
         }
         catch { }
     }
+
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
 
     /// <summary>Instant teardown (run end / shutdown).</summary>
     public static void CloseActive()

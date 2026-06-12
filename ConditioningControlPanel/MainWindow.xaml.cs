@@ -862,6 +862,11 @@ namespace ConditioningControlPanel
 
         private void HandlePanicKeyPress()
         {
+            // A live Rabbit Hole descent owns the panic key: the chaos key hook pauses the
+            // run (and a second press surfaces it). Without this hand-off a mid-run panic
+            // fell into the "not running" branch below — where a second press EXITS the app.
+            if (App.Chaos?.IsDescending == true) return;
+
             // Let the companion say a calm, persona-neutral safety line (highest priority,
             // bypasses the bark gate). Fired before the stop flow so it's not suppressed.
             App.Bark?.NotifyPanic();

@@ -605,8 +605,22 @@ public partial class ChaosOverlayWindow : Window
         if (ChaosMeta.State.RunsCompleted == 2)
             AddResultLine("she set up a small corner in the toybox.", 11, dim, FontWeights.Normal);
 
-        // The door: from the first completed fall onward, the recap always offers the dollhouse.
+        // The next goal: one line bridging the haul into the Warren — what the drops are FOR.
+        // Hidden on the scripted first fall (the dollhouse hasn't been introduced yet).
+        if (ChaosMeta.State.RunsCompleted >= 2 && ChaosMeta.NextGoal() is { } goal)
+        {
+            string line = goal.Affordable
+                ? $"{ChaosGlyphs.Drops} ready: {goal.Name.ToUpperInvariant()} waits in the toybox"
+                : goal.LessonId != null && ChaosLessons.ById(goal.LessonId) is { } lesson
+                    ? $"next: {goal.Name.ToUpperInvariant()} — {lesson.Text} ({ChaosLessons.Progress(goal.LessonId)}/{lesson.Target})"
+                    : $"{ChaosGlyphs.Drops} {goal.Cost - ChaosMeta.State.Sparks:N0} more until {goal.Name.ToUpperInvariant()}";
+            AddResultLine(line, 11, goal.Affordable ? gold : dim, FontWeights.Normal);
+        }
+
+        // The door: from the first completed fall onward, the recap always offers the dollhouse
+        // (and the setup shortcut beside it — FALL DEEPER repeats; this one tweaks first).
         BtnDollhouse.Visibility = ChaosMeta.State.RunsCompleted >= 1 ? Visibility.Visible : Visibility.Collapsed;
+        BtnAdjust.Visibility = BtnDollhouse.Visibility;
 
         // Bark over the results (+ PB fields for the compulsion line).
         App.Bark?.NotifyChaosResultsShown(score, ChaosMeta.State.BestScore, pbDelta, isPb,
@@ -815,7 +829,12 @@ public partial class ChaosOverlayWindow : Window
 
     /// <summary>The recap's door: dismiss the recap, then open the Dollhouse (same single-
     /// instance discipline as the Lab card's entry).</summary>
-    private void BtnDollhouse_Click(object sender, RoutedEventArgs e)
+    private void BtnDollhouse_Click(object sender, RoutedEventArgs e) => OpenHubAt(null);
+
+    /// <summary>Straight to run setup — recap → Settings tab without hunting through the hub.</summary>
+    private void BtnAdjust_Click(object sender, RoutedEventArgs e) => OpenHubAt("run");
+
+    private void OpenHubAt(string? tab)
     {
         Close();   // OnDismissed → the service tears the run windows down first
         Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
@@ -823,10 +842,16 @@ public partial class ChaosOverlayWindow : Window
             try
             {
                 if (App.Chaos == null || App.Chaos.IsRunning) return;
-                if (ChaosHubWindow.Current != null) { ChaosHubWindow.Current.Activate(); return; }
+                if (ChaosHubWindow.Current != null)
+                {
+                    if (tab != null) ChaosHubWindow.Current.NavigateTo(tab);
+                    else ChaosHubWindow.Current.Activate();
+                    return;
+                }
                 var hub = new ChaosHubWindow();
                 if (App.MainWindowRef != null) hub.Owner = App.MainWindowRef;
                 hub.Show();
+                if (tab != null) hub.NavigateTo(tab);
             }
             catch (Exception ex) { App.Logger?.Warning("Recap dollhouse door failed ({E})", ex.Message); }
         }));

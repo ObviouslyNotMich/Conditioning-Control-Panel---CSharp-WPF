@@ -18,6 +18,7 @@ namespace ConditioningControlPanel;
 public partial class ChaosHudWindow : Window
 {
     private readonly ChaosModeService _chaos;
+    private readonly ChaosRunState _state;
     private bool _expanded;
 
     private int _lastShields;
@@ -26,6 +27,7 @@ public partial class ChaosHudWindow : Window
     {
         InitializeComponent();
         _chaos = chaos;
+        _state = state;
         DataContext = state;
 
         // Muscle Memory capstone feedback: pulse the resistance hearts whenever they GROW
@@ -44,6 +46,16 @@ public partial class ChaosHudWindow : Window
                 OnComboChanged(state.Combo);
                 return;
             }
+            if (args.PropertyName == nameof(ChaosRunState.RippleReady))
+            {
+                SetRippleReadyVisual(state.RippleReady);
+                return;
+            }
+            if (args.PropertyName == nameof(ChaosRunState.ClockText))
+            {
+                UpdateClockEndRush();
+                return;
+            }
             if (args.PropertyName != nameof(ChaosRunState.Shields)) return;
             int now = state.Shields;
             bool grew = now > _lastShields;
@@ -51,6 +63,7 @@ public partial class ChaosHudWindow : Window
             if (grew) { PulseShields(); FlashShields(gain: true); }
         };
         SetFocusLowVisual(state.FocusLow);
+        SetRippleReadyVisual(state.RippleReady);
         _lastCombo = state.Combo;
         OnComboChanged(state.Combo);                       // seed the tier visuals
         Closed += (_, _) => _streakJitterTimer?.Stop();    // never outlive the window
@@ -86,12 +99,15 @@ public partial class ChaosHudWindow : Window
                 "each ♥ absorbs one trigger: the effect still washes past, but your streak and lust survive (some sins demand 2). with none left, a trigger zeroes both. you fall in with 0 — charms, hearts and mantras grant it.";
             const string TIP_LUST =
                 "climbs while you perform (each snap +0.07) and pays up to x2.0 at full burn — the orange bar. an unblocked trigger cools it to zero.";
+            const string TIP_RIPPLE =
+                "the right-click wave. cast it near the bubbles: treats pop paid, trances snap clean, rabbits get flung. one charge, gathered back over time — READY means it's in your hand.";
 
             ChaosTips.Attach(TxtStripClock, "the fall", TIP_CLOCK);
             ChaosTips.Attach(TxtStripScore, "score", TIP_SCORE);
             ChaosTips.Attach(TxtStripMult, "the multiplier", TIP_MULT);
             ChaosTips.Attach(StreakBlock, "streak", TIP_STREAK);
             ChaosTips.Attach(FocusStripBlock, "focus", TIP_FOCUS);
+            ChaosTips.Attach(RippleStripBlock, "the ripple", TIP_RIPPLE);
 
             ChaosTips.Attach(TxtPanelScore, "score", TIP_SCORE);
             ChaosTips.Attach(TxtPanelMult, "the multiplier", TIP_MULT);
@@ -202,9 +218,121 @@ public partial class ChaosHudWindow : Window
     }
 
     /// <summary>Pocket Watch gate: the run clock + its fill bar only exist for players wearing
-    /// the charm — without it, how long you've been under stays a mystery.</summary>
-    public void SetClockVisible(bool on) =>
+    /// the charm — without it, how long you've been under stays a mystery. The final-10s red
+    /// flash rides the same gate: no watch, no countdown knowledge to flash.</summary>
+    public void SetClockVisible(bool on)
+    {
+        _clockVisible = on;
         TxtRunTime.Visibility = BarRunProgress.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool _clockVisible;
+    private bool _endRushOn;
+
+    /// <summary>Pocket Watch only: the last ten seconds of the descent blink the clocks red —
+    /// the run gets a visible finale instead of stopping mid-streak. A Relapse extension that
+    /// pushes the clock back out restores the calm look.</summary>
+    private void UpdateClockEndRush()
+    {
+        try
+        {
+            double remaining = _state.RunDurationSec - _state.ElapsedSec;
+            bool rush = _clockVisible && _state.ElapsedSec > 0 && remaining <= 10;
+            if (rush == _endRushOn) return;
+            _endRushOn = rush;
+            var red = System.Windows.Media.Color.FromRgb(0xFF, 0x5A, 0x5A);
+            if (rush)
+            {
+                TxtStripClock.Foreground = new System.Windows.Media.SolidColorBrush(red);
+                TxtRunTime.Foreground = new System.Windows.Media.SolidColorBrush(red);
+                BarRunProgress.Foreground = new System.Windows.Media.SolidColorBrush(red);
+                var blink = new DoubleAnimation(1.0, 0.25, TimeSpan.FromMilliseconds(420))
+                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
+                TxtStripClock.BeginAnimation(OpacityProperty, blink);
+                TxtRunTime.BeginAnimation(OpacityProperty, blink);
+            }
+            else
+            {
+                TxtStripClock.BeginAnimation(OpacityProperty, null);
+                TxtRunTime.BeginAnimation(OpacityProperty, null);
+                TxtStripClock.Opacity = TxtRunTime.Opacity = 1.0;
+                TxtStripClock.Foreground = System.Windows.Media.Brushes.White;
+                TxtRunTime.Foreground = (System.Windows.Media.Brush)FindResource("TextDim");
+                BarRunProgress.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x8A, 0x7D, 0xBD));
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>READY breathes a soft cyan glow on the strip's ripple readout (same pulse
+    /// the toy hero button uses); charging carries no effect — the dim style does the rest.</summary>
+    private void SetRippleReadyVisual(bool ready)
+    {
+        try
+        {
+            if (ready)
+            {
+                var glow = new System.Windows.Media.Effects.DropShadowEffect
+                { Color = System.Windows.Media.Color.FromRgb(0x7A, 0xE0, 0xFF), BlurRadius = 12, ShadowDepth = 0, Opacity = 0.3 };
+                RippleStripText.Effect = glow;
+                glow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty,
+                    new DoubleAnimation(0.25, 0.95, TimeSpan.FromMilliseconds(950))
+                    { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase() });
+            }
+            else RippleStripText.Effect = null;
+        }
+        catch { }
+    }
+
+    private bool _cursorOnLive;
+
+    /// <summary>The cursor is resting on a live bubble (service-polled, 4x/s): both focus
+    /// bars glow — "check your fuel first" lands exactly when the decision is being made.</summary>
+    public void SetCursorOnLive(bool on)
+    {
+        if (on == _cursorOnLive) return;
+        _cursorOnLive = on;
+        try
+        {
+            foreach (var el in new FrameworkElement[] { FocusStripBlock, FocusPanelBlock })
+                el.Effect = on
+                    ? new System.Windows.Media.Effects.DropShadowEffect
+                      { Color = System.Windows.Media.Color.FromRgb(0x7A, 0xE0, 0xFF), BlurRadius = 14, ShadowDepth = 0, Opacity = 0.85 }
+                    : null;
+        }
+        catch { }
+    }
+
+    /// <summary>Mirror the manual pause from EVERY entry point (HUD buttons or the panic key):
+    /// paused pins the panel open on the continue-or-wake-up choice with the panic hint under
+    /// it; resuming hands the panel back to hover. Never runs pre-run (pause needs a live field).</summary>
+    public void SetPausedUi(bool paused)
+    {
+        try
+        {
+            BtnHero.Visibility = paused ? Visibility.Collapsed : Visibility.Visible;
+            PauseChoiceRow.Visibility = paused ? Visibility.Visible : Visibility.Collapsed;
+            var settings = App.Settings?.Current;
+            TxtPauseHint.Text = settings?.PanicKeyEnabled == true
+                ? $"⏸ HELD · {settings.PanicKey} again wakes you up"
+                : "⏸ HELD · the hole waits";
+            TxtPauseHint.Visibility = paused ? Visibility.Visible : Visibility.Collapsed;
+            _pinnedOpen = paused;
+            if (paused)
+            {
+                _expanded = true;
+                Panel.Visibility = Visibility.Visible;
+                Strip.Visibility = Visibility.Hidden;
+                Animate(0);
+            }
+            else if (!Panel.IsMouseOver)
+            {
+                Collapse();
+            }
+        }
+        catch { }
+    }
 
     private bool _preRunMode;
 
@@ -247,6 +375,17 @@ public partial class ChaosHudWindow : Window
         {
             foreach (var el in new FrameworkElement[] { FocusStripBlock, FocusPanelBlock })
                 ApplyFocusSteadyVisual(el);
+            // Danger tint: below a defuse's price the fill itself runs red, not just dim —
+            // the 30-mark tick on the bar shows exactly where healthy starts again.
+            var target = low ? System.Windows.Media.Color.FromRgb(0xE0, 0x45, 0x45)
+                             : System.Windows.Media.Color.FromRgb(0x5A, 0xC8, 0xFA);
+            foreach (var bar in new[] { FocusStripBar, FocusPanelBar })
+            {
+                var brush = new System.Windows.Media.SolidColorBrush(target);
+                bar.Foreground = brush;
+                brush.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty,
+                    new ColorAnimation(target, TimeSpan.FromMilliseconds(280)));
+            }
         }
         catch { }
     }
@@ -442,17 +581,14 @@ public partial class ChaosHudWindow : Window
     private void BtnHero_Click(object sender, RoutedEventArgs e)
     {
         if (_preRunMode) { _chaos.StartRunFromSidebar(); return; }
-        // Pause the descent and ask what they actually want.
+        // Pause the descent and ask what they actually want — SetPausedUi (called by the
+        // service) flips the rows, so the panic key and this button stay in lockstep.
         if (!_chaos.IsManuallyPaused) _chaos.ToggleManualPause();
-        BtnHero.Visibility = Visibility.Collapsed;
-        PauseChoiceRow.Visibility = Visibility.Visible;
     }
 
     private void BtnResume_Click(object sender, RoutedEventArgs e)
     {
         if (_chaos.IsManuallyPaused) _chaos.ToggleManualPause();
-        BtnHero.Visibility = Visibility.Visible;
-        PauseChoiceRow.Visibility = Visibility.Collapsed;
     }
 
     private void BtnExit_Click(object sender, RoutedEventArgs e) => _chaos.RequestStop();

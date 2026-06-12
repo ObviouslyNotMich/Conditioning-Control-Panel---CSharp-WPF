@@ -480,4 +480,54 @@ public static class ChaosMeta
         ChaosMetaStore.Save(State);
         return Math.Max(0, sparks);
     }
+
+    // ============================ next goal (recap signpost) ============================
+
+    /// <summary>One drops-purchasable step toward the collection: id, display name, the ✦
+    /// price of its next step, and the lesson still walling it off (null = buyable).</summary>
+    public readonly record struct ChaosNextGoal(string Id, string Name, int Cost, string? LessonId)
+    {
+        public bool Affordable => LessonId == null && Cost <= State.Sparks;
+    }
+
+    /// <summary>
+    /// The single "what to chase next" for the recap card: every not-yet-finished Toybox
+    /// step (habit trainings, boon unlocks, boon level-ups) that the player could ever
+    /// reach right now — rank-locked steps and script-held accessories sit out. Affordable
+    /// beats cheap: the cheapest BUYABLE step wins; with nothing buyable, the cheapest
+    /// step overall (its lesson attached when that's the wall). Null = collection done.
+    /// </summary>
+    public static ChaosNextGoal? NextGoal()
+    {
+        ChaosNextGoal? bestAffordable = null, bestAny = null;
+        void Consider(string id, string name, int cost, string? lessonId)
+        {
+            var g = new ChaosNextGoal(id, name, cost, lessonId);
+            if (bestAny == null || cost < bestAny.Value.Cost) bestAny = g;
+            if (g.Affordable && (bestAffordable == null || cost < bestAffordable.Value.Cost)) bestAffordable = g;
+        }
+
+        foreach (var u in ChaosUpgrades.All)
+        {
+            if (IsOwned(u.Id) || IsPurchaseRankLocked(u.Id)) continue;
+            Consider(u.Id, u.Name, u.Cost,
+                ChaosLessons.IsLessonBlocked(u.Id) ? u.Id : null);
+        }
+        foreach (var b in ChaosLifetimeBoons.All)
+        {
+            int level = BoonLevel(b.Id);
+            if (level <= 0)
+            {
+                if (IsAccessoryScriptLocked(b.Id)) continue;   // she sells these in her own order
+                Consider(b.Id, b.Name, b.UnlockCost,
+                    ChaosLessons.IsLessonBlocked(b.Id) ? b.Id : null);
+            }
+            else if (level < b.MaxLevel && !IsCapstonePurchaseRankLocked(b.Id))
+            {
+                int cost = NextUpgradeCostOf(b.Id) ?? 0;
+                if (cost > 0) Consider(b.Id, b.Name, cost, null);
+            }
+        }
+        return bestAffordable ?? bestAny;
+    }
 }

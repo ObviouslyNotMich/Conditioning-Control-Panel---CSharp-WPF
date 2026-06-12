@@ -253,6 +253,8 @@ namespace ConditioningControlPanel.Services
             Raise("ChaosActChanged", c => c.Set("act", (double)act).Set("wave", (double)wave));
         /// <summary>The field was cleared at a wave boundary. ctx: wave (the wave just cleared).</summary>
         public void NotifyChaosWaveCleared(int wave) => Raise("ChaosWaveCleared", c => c.Set("wave", (double)wave));
+        /// <summary>T-minus ~10s of a chaos run: the hole is closing (once per run, service-gated).</summary>
+        public void NotifyChaosEndingSoon() => Raise("ChaosEndingSoon");
         /// <summary>The run finished. ctx: xp (final payout), difficulty, runs_completed, rank.</summary>
         public void NotifyChaosRunCompleted(int xp, string difficulty) =>
             Raise("ChaosRunCompleted", c => c.Set("xp", (double)xp).Set("difficulty", difficulty)

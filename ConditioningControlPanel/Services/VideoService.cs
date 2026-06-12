@@ -1979,6 +1979,11 @@ namespace ConditioningControlPanel.Services
                 {
                     Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
+                        // The click that got us here ACTIVATED the video window (e.Handled only
+                        // stops the WPF routed event, not Win32 WM_MOUSEACTIVATE), which raised
+                        // it above the chaos run's bubbles/HUD/overlays. Lift the game layer
+                        // back first, then the attention targets on top of everything.
+                        try { App.Chaos?.RaiseGameLayerAboveVideo(); } catch { }
                         lock (_targets)
                         {
                             foreach (var t in _targets)

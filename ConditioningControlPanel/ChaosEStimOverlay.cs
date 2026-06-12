@@ -87,12 +87,20 @@ public sealed class ChaosEStimOverlay : Window
                         ((Window)_active).Show();
                     }
                     else if (!_active.IsVisible) _active.Show();
+                    ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
                     _active.BeginStrike(boltsPx);
                 }
                 catch (Exception ex) { App.Logger?.Debug("ChaosEStim.Strike: {E}", ex.Message); }
             });
         }
         catch { }
+    }
+
+    /// <summary>Re-stack the bolt + halo windows above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive()
+    {
+        ChaosWindowZ.RaiseTopmost(_active);
+        ChaosEStimGlow.RaiseActive();
     }
 
     /// <summary>Instant teardown (run end / shutdown) — the only place these hwnds die.</summary>
@@ -343,6 +351,7 @@ public sealed class ChaosEStimGlow : Window
                 {
                     if (_active == null) { _active = new ChaosEStimGlow(); ((Window)_active).Show(); }
                     else if (!_active.IsVisible) _active.Show();
+                    ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
                     _active.FollowTick(null, EventArgs.Empty);   // snap to the cursor before the first frame
                     _active._follow.Start();
                 }
@@ -372,6 +381,9 @@ public sealed class ChaosEStimGlow : Window
         }
         catch { }
     }
+
+    /// <summary>Re-stack the live halo above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
 
     /// <summary>Instant teardown (run end / shutdown) — the only place this hwnd dies.</summary>
     public static void CloseActive()

@@ -30,6 +30,9 @@ public sealed class ChaosModeService
     private bool _paused;        // boon draft on screen (clock + spawns held)
     private bool _manualPaused;  // user hit pause
     private int _pendingWave;
+    private bool _endingSoonFired;     // T-10s "the hole is closing" beat, once per run
+    private bool _finalLoopAnnounced;  // FINAL LOOP banner, once per run (Relapse can't re-fire it)
+    private bool _rippleTeachOffered;  // ready-cue teach line, at most once per run until first cast
     private int _runDetonations;  // per-run count of detonations (absorbed + unshielded)
     private int _waveDetonations; // per-loop count — a zero-detonation loop doubles its gold tip
     private int _lastComboBigFired;   // highest ComboBig threshold already fired this combo streak
@@ -150,6 +153,7 @@ public sealed class ChaosModeService
             // This pause stood in for the draft's GO! beat — deliver what it deferred.
             _lessonCardsAfterDraft = false;
             if (_state?.WelcomeShowerEnabled == true) SpawnWelcomeShower();
+            AnnounceFinalLoopIfEntering();
         }
     }
 
@@ -195,6 +199,10 @@ public sealed class ChaosModeService
 
     public bool IsRunning => _active;
 
+    /// <summary>The descent itself is live (GO fired, not yet ended) — manual pause included.
+    /// MainWindow's panic flow defers to the chaos key hook while this is true.</summary>
+    public bool IsDescending => _spawning;
+
     public bool IsManuallyPaused => _manualPaused;
 
     public void ToggleManualPause()
@@ -220,6 +228,19 @@ public sealed class ChaosModeService
             _spawnTimer?.Start();
             _state?.PushEvent("▶ sinking again");
         }
+        // The HUD mirrors the pause from every entry point (its own buttons OR the panic key):
+        // paused pins the panel open on the continue-or-wake-up choice; resuming folds it away.
+        _hud?.SetPausedUi(_manualPaused);
+    }
+
+    /// <summary>The user's panic key, mid-descent: first press HOLDS the field (manual pause),
+    /// a second press while held SURFACES the run (recap still pays out). The countdown and
+    /// the draft table ignore it — their own affordances already own those moments.</summary>
+    private void OnPanicKeyDuringRun()
+    {
+        if (!_spawning || _paused) return;
+        if (!_manualPaused) ToggleManualPause();
+        else RequestStop();
     }
 
     // ============================ start / countdown ============================
@@ -299,6 +320,9 @@ public sealed class ChaosModeService
         _state.PushEvent("🐇 the descent begins");
         _runDetonations = 0;
         _waveDetonations = 0;
+        _endingSoonFired = false;
+        _finalLoopAnnounced = false;
+        _rippleTeachOffered = false;
         _lastComboBigFired = 0;
         _lastActFired = 1;
         _lastHeatTint = -1;
@@ -559,6 +583,36 @@ public sealed class ChaosModeService
     }
 
     /// <summary>
+    /// Lift the whole gameplay layer back to the top of the topmost band (focus-free, so a
+    /// playing video keeps rolling): live bubbles, every keep-alive overlay, then HUD + toy
+    /// buttons on top. The keep-alive overlays must be listed explicitly — they only
+    /// hide/unhide mid-run, and un-hiding doesn't re-stack a window, so without a kick they
+    /// stay buried under the video. Called when a mandatory video starts mid-run AND on every
+    /// click that lands on the video (VideoService.BringTargetsToFront): a click activates
+    /// the video window at the Win32 level, which yanks it back above everything previously
+    /// raised. No-op outside a run. UI thread only.
+    /// </summary>
+    public void RaiseGameLayerAboveVideo()
+    {
+        if (!_spawning) return;
+        try { ChaosFieldFxOverlay.RaiseActive(); } catch { }
+        try { ChaosPopText.RaiseActive(); } catch { }
+        try { ChaosDvdOverlay.RaiseActive(); } catch { }
+        try { ChaosEffectBannerOverlay.RaiseActive(); } catch { }
+        try { ChaosAnnouncerOverlay.RaiseActive(); } catch { }
+        try { ChaosGifCascadeOverlay.RaiseActive(); } catch { }
+        try { ChaosFlashOverlay.RaiseActive(); } catch { }
+        try { ChaosCursorGlowOverlay.RaiseActive(); } catch { }
+        try { ChaosEStimOverlay.RaiseActive(); } catch { }
+        try { ChaosVibeTrailOverlay.RaiseActive(); } catch { }
+        App.Bubbles?.BringAllToFront();
+        try { _fx?.RaiseToTopmost(); } catch { }
+        try { ChaosWaveTimerOverlay.RaiseActive(); } catch { }
+        try { _hud?.RaiseToTopmost(); } catch { }
+        foreach (var b in _toyButtons) { try { b.RaiseToTopmost(); } catch { } }
+    }
+
+    /// <summary>
     /// A chaos payload can fire a mandatory video mid-run. The video is a freshly-raised
     /// fullscreen topmost window that lands on top of the run's bubbles + HUD + FX. Lift the
     /// gameplay layer back ABOVE it (focus-free, so the video keeps playing) — the video ends up
@@ -568,21 +622,13 @@ public sealed class ChaosModeService
     /// </summary>
     private void OnVideoStartedDuringRun(object? sender, EventArgs e)
     {
-        void Raise()
-        {
-            if (!_spawning) return;
-            App.Bubbles?.BringAllToFront();
-            try { _fx?.RaiseToTopmost(); } catch { }
-            try { _hud?.RaiseToTopmost(); } catch { }
-            foreach (var b in _toyButtons) { try { b.RaiseToTopmost(); } catch { } }
-        }
         var disp = Application.Current?.Dispatcher;
         if (disp == null) return;
-        try { disp.BeginInvoke((Action)Raise); } catch { }
+        try { disp.BeginInvoke((Action)RaiseGameLayerAboveVideo); } catch { }
         System.Threading.Tasks.Task.Delay(60).ContinueWith(_ =>
         {
             if (Application.Current?.Dispatcher == null) return;
-            try { Application.Current.Dispatcher.BeginInvoke((Action)Raise); }
+            try { Application.Current.Dispatcher.BeginInvoke((Action)RaiseGameLayerAboveVideo); }
             catch (Exception ex) { App.Logger?.Debug("Chaos raise-above-video kick: {E}", ex.Message); }
         });
     }
@@ -598,6 +644,10 @@ public sealed class ChaosModeService
         _state.ElapsedSec = elapsed;
         _state.Heat = Math.Max(0, _state.Heat - 0.0015);
         UpdateHeatTint();
+
+        // Focus-bar hover cue: while the hand rests on a live bubble, the bar brightens —
+        // "check your fuel first" lands at the exact moment of the decision. 4x/s poll.
+        _hud?.SetCursorOnLive(App.Bubbles?.IsCursorOverLiveChaosBubble() == true);
 
         // Power-ups run on the real clock (so they don't extend the run length).
         if (_slowMoRemainingSec > 0)
@@ -624,6 +674,17 @@ public sealed class ChaosModeService
             _state.RippleCooldown -= dt;
             if (_state.RippleReady) ChaosSfx.Play("toy_ready", 0.3f);
         }
+        // The verb has no button to find — until the FIRST cast ever lands, the ready charge
+        // offers it once per (non-scripted) run. FireRipple sets the flag for good. The few
+        // seconds of air keep it clear of the GO/start-mantra announces.
+        if (!ChaosMeta.State.SeenRippleTeach && !_rippleTeachOffered && elapsed > 6
+            && _state.RippleReady && !_state.Config.ScriptedFirstRun)
+        {
+            _rippleTeachOffered = true;
+            ChaosAnnouncerOverlay.Announce("🌊 THE RIPPLE — right-click near the bubbles", ChaosAnnounceKind.PowerUp,
+                artKey: "ripple_teach", subText: "right-click near the bubbles");
+            _state.PushEvent("🌊 a wave waits in your hand. right-click.");
+        }
 
         TickBlindfoldHeartbeat(dt);   // Blindfold capstone: the closest fuse gets a pulse
         TickActiveToys(dt);           // toy cooldowns + the VibePopping buzz window
@@ -638,6 +699,16 @@ public sealed class ChaosModeService
             ChaosMeta.Save();
             ChaosAnnouncerOverlay.Announce("focus runs low. treats refill it. snaps spend it.", ChaosAnnounceKind.Willpower);
             _state.PushEvent("◌ low focus. pop treats before you grab a live one.");
+        }
+
+        // Once-ever heat teach: the first time the burn visibly climbs, name the orange bar —
+        // otherwise "lust" only ever explains itself in a hover tooltip.
+        if (!ChaosMeta.State.SeenHeatTeach && _state.Heat >= 0.15)
+        {
+            ChaosMeta.State.SeenHeatTeach = true;
+            ChaosMeta.Save();
+            ChaosAnnouncerOverlay.Announce("lust climbs while you perform. it pays up to x2", ChaosAnnounceKind.Depth);
+            _state.PushEvent("🔥 the orange bar is lust. a trigger cools it to zero.");
         }
 
         // rh_focus_low: focus has sat below a defuse's price while live threats hang on screen.
@@ -678,6 +749,18 @@ public sealed class ChaosModeService
                 ExtendHeavyQuarantine(VIDEO_TEARDOWN_QUARANTINE_SEC);
                 ChaosLessonHooks.OnVideoEndured();   // porn_dvd lesson: endured to its natural end
             }
+        }
+
+        // T-10s: the hole is closing — one varied voiced bark + a quiet announce, so the run
+        // gets an ending instead of an interruption. Once per run; a Relapse extension that
+        // pushes the clock back out doesn't re-arm it (Relapse announces itself).
+        if (!_endingSoonFired && _state.RunDurationSec - elapsed <= 10)
+        {
+            _endingSoonFired = true;
+            ChaosAnnouncerOverlay.Announce("the hole is closing…", ChaosAnnounceKind.Depth,
+                artKey: "ending_soon", subText: "ten seconds");
+            _state.PushEvent("⏳ ten seconds. make them count.");
+            App.Bark?.NotifyChaosEndingSoon();
         }
 
         if (elapsed >= _state.RunDurationSec)
@@ -1040,6 +1123,7 @@ public sealed class ChaosModeService
             _state.ActIndex = 1 + (newWave - 1) / 5;
             App.Bark?.NotifyChaosWaveEscalated(newWave);
             FireActChangedIfCrossed();
+            AnnounceFinalLoopIfEntering();
             return;
         }
 
@@ -1201,6 +1285,21 @@ public sealed class ChaosModeService
         if (_spawning) _spawnTimer?.Start();
         // Welcome Shower: every loop's GO! dumps a quick rain of treats from the top.
         if (_state?.WelcomeShowerEnabled == true) SpawnWelcomeShower();
+        AnnounceFinalLoopIfEntering();
+    }
+
+    /// <summary>FINAL LOOP banner the moment the run's last loop actually begins — for the
+    /// draft path that's after the post-pick GO! (a banner under the table would be wasted),
+    /// for draftless runs it's the wave commit. Once per run; the Relapse bonus loop keeps
+    /// its own "☠ RELAPSE" announce instead of a second finale.</summary>
+    private void AnnounceFinalLoopIfEntering()
+    {
+        if (_state == null || _finalLoopAnnounced) return;
+        if (_state.WaveCount <= 1 || _state.WaveIndex < _state.WaveCount) return;
+        _finalLoopAnnounced = true;
+        ChaosAnnouncerOverlay.Announce("THE LAST LOOP", ChaosAnnounceKind.Depth,
+            artKey: "final_loop", subText: "nothing after this one");
+        _state.PushEvent("🕳 the last loop.");
     }
 
     /// <summary>Welcome Shower: dump a handful of treats (flash/subliminal) raining from the top.</summary>
@@ -1411,7 +1510,14 @@ public sealed class ChaosModeService
         _state.Combo++;
         // Focus economy: every treat-class pop refuels the hand, REGARDLESS of source (a
         // rabbit mowing treats still feeds the player). Heavies refuel a little extra.
-        _state.Focus += spec.PayMult > 1 ? ChaosTuning.FOCUS_PER_HEAVY : ChaosTuning.FOCUS_PER_POP;
+        bool focusWasLow = _state.FocusLow;
+        double focusGain = spec.PayMult > 1 ? ChaosTuning.FOCUS_PER_HEAVY : ChaosTuning.FOCUS_PER_POP;
+        _state.Focus += focusGain;
+        // While the tank is under a snap's price, each pop names its refill at the pop point —
+        // the recovery loop teaches itself, and the float stops the moment focus is healthy.
+        if (focusWasLow)
+            ChaosPopText.Show(BubbleService.ChaosLastPopXDip, BubbleService.ChaosLastPopYDip + 34,
+                $"+{(int)focusGain} FOCUS", Color.FromRgb(0x7A, 0xE0, 0xFF));
         _state.Heat = Math.Min(1.0, _state.Heat + 0.04);
         // Golden Touch charm raises the calm-pop baseline (0.4 unworn → 0.45–0.60 by level).
         double benignMult = _state.BenignBaseline;
@@ -1956,7 +2062,8 @@ public sealed class ChaosModeService
 
     private void StartKeyHook()
     {
-        if (_state == null || _state.ActiveToys.Count == 0) return;
+        // Always hooked, toys or not — the panic key pauses/surfaces the descent through here.
+        if (_state == null) return;
         try
         {
             _keyHook = new Services.GlobalKeyboardHook();
@@ -2032,9 +2139,21 @@ public sealed class ChaosModeService
         {
             ChaosSfx.Play("toy_denied", 0.45f);
             _state.PushEvent($"🌊 still water... gathering {_state.RippleText}");
+            // The feed lives in the folded-away panel; answer the hand where it clicked.
+            var dip = PxToDip(px);
+            ChaosPopText.Show(dip.X, dip.Y - 30, $"gathering… {_state.RippleText}",
+                Color.FromRgb(0x7A, 0xE0, 0xFF));
             return;
         }
         _state.RippleCooldown = _state.RippleRechargeSec;
+        // First cast EVER: the verb is learned — retire the ready-cue teach line for good.
+        if (!ChaosMeta.State.SeenRippleTeach)
+        {
+            ChaosMeta.State.SeenRippleTeach = true;
+            ChaosMeta.Save();
+            ChaosAnnouncerOverlay.Announce("🌊 that's the ripple. it gathers back on its own",
+                ChaosAnnounceKind.PowerUp);
+        }
         bool skips = _state.MaxedBoons.Contains("skipping_stone");
         CastRippleWave(px);
         if (skips)
@@ -2056,6 +2175,19 @@ public sealed class ChaosModeService
         App.Bubbles?.TriggerPlayerRipple(px, _state.RippleRadiusPx, _state.RippleLifeMs);
     }
 
+    /// <summary>Physical px (mouse hook) → DIPs (ChaosPopText anchors). The HUD window is
+    /// alive for the whole run, so its presentation source carries the transform.</summary>
+    private Point PxToDip(Point px)
+    {
+        try
+        {
+            var v = (Visual?)_hud ?? Application.Current?.MainWindow;
+            var t = v == null ? null : PresentationSource.FromVisual(v)?.CompositionTarget?.TransformFromDevice;
+            return t?.Transform(px) ?? px;
+        }
+        catch { return px; }
+    }
+
     /// <summary>Hook callback → marshal to the dispatcher. Keys pass through to whatever has
     /// focus (the hook never swallows); cooldowns absorb accidental fires while typing.</summary>
     private void OnToyKey(System.Windows.Input.Key key)
@@ -2064,6 +2196,13 @@ public sealed class ChaosModeService
         if (disp == null || disp.HasShutdownStarted) return;
         disp.BeginInvoke(new Action(() =>
         {
+            // The panic key outranks everything — it must still work while manually paused
+            // (that's how a held field surfaces). Same key string MainWindow's hook compares.
+            var settings = App.Settings?.Current;
+            if (settings?.PanicKeyEnabled == true &&
+                key.ToString().Equals(settings.PanicKey, StringComparison.OrdinalIgnoreCase))
+            { OnPanicKeyDuringRun(); return; }
+
             if (!_spawning || _state == null || _paused || _manualPaused) return;
             string name = key >= System.Windows.Input.Key.D0 && key <= System.Windows.Input.Key.D9
                 ? ((int)(key - System.Windows.Input.Key.D0)).ToString()
@@ -2537,6 +2676,9 @@ public sealed class ChaosModeService
 
     public void RequestStop()
     {
+        // Surfacing from a held field: drop the pause first so its freeze/input-lock state
+        // never outlives the run (EndChaosMode clears the bubble side; this clears ours).
+        if (_manualPaused) { _manualPaused = false; _hud?.SetPausedUi(false); }
         if (_spawning) EndRun();
     }
 

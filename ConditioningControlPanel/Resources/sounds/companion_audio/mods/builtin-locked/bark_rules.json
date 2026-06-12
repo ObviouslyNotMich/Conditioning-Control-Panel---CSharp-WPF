@@ -6296,6 +6296,31 @@
     ]
   },
   {
+    "id": "chaos_ending_soon",
+    "variant_pool": [
+      {
+        "text": "ten seconds, pet. the hole is closing. spend each one of them.",
+        "audio": "chaos_ending_soon_1.mp3"
+      },
+      {
+        "text": "it ends soon. do not slow. not now.",
+        "audio": "chaos_ending_soon_2.mp3"
+      },
+      {
+        "text": "the surface reaches for you. take what is left before it does.",
+        "audio": "chaos_ending_soon_3.mp3"
+      },
+      {
+        "text": "your last breaths down here. make them worth my watching.",
+        "audio": "chaos_ending_soon_4.mp3"
+      },
+      {
+        "text": "it releases you soon. show it what it loses.",
+        "audio": "chaos_ending_soon_5.mp3"
+      }
+    ]
+  },
+  {
     "id": "chaos_act_changed",
     "variant_pool": [
       {

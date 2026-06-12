@@ -45,10 +45,14 @@ public sealed class ChaosFlashOverlay : Window
             if (pick == null) return;
             if (_active == null) { _active = new ChaosFlashOverlay(); ((Window)_active).Show(); }
             else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between washes
+            ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
             _active.Display(pick, durationMs, opacity);
         }
         catch (Exception ex) { App.Logger?.Debug("ChaosFlashOverlay.Show: {E}", ex.Message); }
     }
+
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
 
     /// <summary>Close any active overlay immediately (run teardown).</summary>
     public static void CloseActive() { try { _active?.CloseNow(); } catch { } }

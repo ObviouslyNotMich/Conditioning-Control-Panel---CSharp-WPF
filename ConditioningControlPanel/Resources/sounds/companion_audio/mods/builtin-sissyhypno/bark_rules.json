@@ -6269,6 +6269,31 @@
     ]
   },
   {
+    "id": "chaos_ending_soon",
+    "variant_pool": [
+      {
+        "text": "ten seconds, princess. the hole's closing... spend every single one.",
+        "audio": "chaos_ending_soon_1.mp3"
+      },
+      {
+        "text": "almost over. don't you dare slow down now, sweetie.",
+        "audio": "chaos_ending_soon_2.mp3"
+      },
+      {
+        "text": "the surface wants you back. squeeze out the last drops first.",
+        "audio": "chaos_ending_soon_3.mp3"
+      },
+      {
+        "text": "last moments down here. make them pretty for me.",
+        "audio": "chaos_ending_soon_4.mp3"
+      },
+      {
+        "text": "it's letting you go soon, good girl. show it what it'll miss.",
+        "audio": "chaos_ending_soon_5.mp3"
+      }
+    ]
+  },
+  {
     "id": "chaos_act_changed",
     "variant_pool": [
       {

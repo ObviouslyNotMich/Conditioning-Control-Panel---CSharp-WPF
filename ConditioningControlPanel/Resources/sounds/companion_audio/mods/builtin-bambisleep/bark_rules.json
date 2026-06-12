@@ -7735,6 +7735,31 @@
     ]
   },
   {
+    "id": "chaos_ending_soon",
+    "variant_pool": [
+      {
+        "text": "ten seconds, Bambi! pop pop pop, hurry!",
+        "audio": "chaos_ending_soon_1.mp3"
+      },
+      {
+        "text": "almost time to come back up! don't you dare stop now, cutie!",
+        "audio": "chaos_ending_soon_2.mp3"
+      },
+      {
+        "text": "it's almost over! grab everything, quick quick!",
+        "audio": "chaos_ending_soon_3.mp3"
+      },
+      {
+        "text": "last little bit! make Bambi proud, go go go!",
+        "audio": "chaos_ending_soon_4.mp3"
+      },
+      {
+        "text": "the hole's closing, sweetie! squeeze out every last drop!",
+        "audio": "chaos_ending_soon_5.mp3"
+      }
+    ]
+  },
+  {
     "id": "chaos_act_changed",
     "variant_pool": [
       {

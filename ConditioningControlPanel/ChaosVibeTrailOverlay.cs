@@ -71,6 +71,7 @@ public sealed class ChaosVibeTrailOverlay : Window
                         ((Window)_active).Show();
                     }
                     else if (!_active.IsVisible) _active.Show();
+                    ChaosWindowZ.RaiseAboveVideo(_active);   // un-hiding doesn't re-stack — kick over a playing video
                     _active.BeginFollow();
                 }
                 catch (Exception ex) { App.Logger?.Debug("ChaosVibeTrail.Start: {E}", ex.Message); }
@@ -90,6 +91,9 @@ public sealed class ChaosVibeTrailOverlay : Window
         }
         catch { }
     }
+
+    /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
 
     /// <summary>Instant teardown (run end / shutdown) — the only place this hwnd dies.</summary>
     public static void CloseActive()

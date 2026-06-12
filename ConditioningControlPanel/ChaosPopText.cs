@@ -70,6 +70,12 @@ public sealed class ChaosPopText : Window
         catch (Exception ex) { App.Logger?.Debug("ChaosPopText.Show: {E}", ex.Message); }
     }
 
+    /// <summary>Re-stack every pooled window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
+    public static void RaiseActive()
+    {
+        foreach (var w in _all) ChaosWindowZ.RaiseTopmost(w);
+    }
+
     /// <summary>Close every pooled window (chaos teardown — the only place these hwnds die).</summary>
     public static void ShutdownPool()
     {
@@ -147,6 +153,7 @@ public sealed class ChaosPopText : Window
         BeginAnimation(OpacityProperty, null);
         Opacity = 0;
         Show();                 // first call creates the hwnd; re-shows just unhide it
+        ChaosWindowZ.RaiseAboveVideo(this);   // un-hiding doesn't re-stack — kick over a playing video
         label.Build();
 
         BeginAnimation(OpacityProperty, new DoubleAnimation(0, PEAK_OPAC, TimeSpan.FromMilliseconds(IN_MS)));

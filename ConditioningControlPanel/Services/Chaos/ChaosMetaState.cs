@@ -83,6 +83,11 @@ public sealed class ChaosMetaState
     /// <summary>Once-ever gentle heads-up the first time focus dips below a snap's price
     /// (fires BEFORE the harsher NO FOCUS lesson can ever land).</summary>
     public bool SeenFocusTip { get; set; } = false;
+    /// <summary>The Ripple's right-click teach: set on the FIRST successful cast, ever.
+    /// Until then the ready-cue announce re-offers the verb once per (non-scripted) run.</summary>
+    public bool SeenRippleTeach { get; set; } = false;
+    /// <summary>Once-ever line the first time heat climbs — names the orange bar and its x2.</summary>
+    public bool SeenHeatTeach { get; set; } = false;
 
     /// <summary>First-contact verb hints (ChaosBubbleHints): interaction archetypes the player
     /// has performed correctly once — their over-bubble hint text never shows again.</summary>
