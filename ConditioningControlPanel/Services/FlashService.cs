@@ -517,25 +517,8 @@ namespace ConditioningControlPanel.Services
                     }
                     else
                     {
-                        // Load static image, downscaling to the decode cap if larger.
-                        using var bitmap = new System.Drawing.Bitmap(path);
-                        var (tw, th) = ScaledSize(bitmap.Width, bitmap.Height, decodeMax);
-                        BitmapSource bitmapSource;
-                        if (tw != bitmap.Width || th != bitmap.Height)
-                        {
-                            using var scaled = DownscaleBitmap(bitmap, tw, th);
-                            bitmapSource = ConvertToBitmapSource(scaled);
-                        }
-                        else
-                        {
-                            bitmapSource = ConvertToBitmapSource(bitmap);
-                        }
-                        bitmapSource.Freeze();
-
-                        data.Frames.Add(bitmapSource);
-                        data.Width = tw;
-                        data.Height = th;
-                        data.FrameDelay = TimeSpan.FromMilliseconds(100);
+                        if (!TryLoadStaticImage(path, data, decodeMax))
+                            return null;
                     }
 
                     if (data.Frames.Count == 0) return null;
@@ -601,6 +584,53 @@ namespace ConditioningControlPanel.Services
             };
             clone.Frames.AddRange(source.Frames);
             return clone;
+        }
+
+        private bool TryLoadStaticImage(string path, LoadedImageData data, int decodeMax)
+        {
+            try
+            {
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+                bitmap.UriSource = new Uri(path, UriKind.Absolute);
+
+                // Decode at display resolution to match the GIF path and keep memory/GPU
+                // fill-rate reasonable. BitmapImage preserves aspect ratio when only one
+                // decode dimension is set.
+                if (decodeMax > 0)
+                {
+                    // We need the source dimensions to pick the decode axis. Read the
+                    // image headers first without decoding pixels.
+                    var probe = new BitmapImage();
+                    probe.BeginInit();
+                    probe.CacheOption = BitmapCacheOption.None;
+                    probe.CreateOptions = BitmapCreateOptions.None;
+                    probe.UriSource = new Uri(path, UriKind.Absolute);
+                    probe.EndInit();
+
+                    var (tw, th) = ScaledSize(probe.PixelWidth, probe.PixelHeight, decodeMax);
+                    if (probe.PixelWidth >= probe.PixelHeight)
+                        bitmap.DecodePixelWidth = tw;
+                    else
+                        bitmap.DecodePixelHeight = th;
+                }
+
+                bitmap.EndInit();
+                bitmap.Freeze();
+
+                data.Frames.Add(bitmap);
+                data.Width = bitmap.PixelWidth;
+                data.Height = bitmap.PixelHeight;
+                data.FrameDelay = TimeSpan.FromMilliseconds(100);
+                return data.Width > 0 && data.Height > 0;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Could not load static image {Path}: {Error}", path, ex.Message);
+                return false;
+            }
         }
 
         private void LoadGifFrames(string path, LoadedImageData data, int decodeMax)

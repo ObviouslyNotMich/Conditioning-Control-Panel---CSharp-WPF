@@ -16,7 +16,7 @@ namespace ConditioningControlPanel.Services;
 /// <summary>
 /// Service that manages screen overlays: Pink Filter and Spiral
 /// </summary>
-public class OverlayService : IDisposable
+public class OverlayService : IOverlayService
 {
     private readonly List<Window> _pinkFilterWindows = new();
 
@@ -399,7 +399,11 @@ public class OverlayService : IDisposable
             UpdateSpiralOpacity();
         }
 
-        bool needed = ReassertZOrder();
+        // Pink filter must stay on top even while users click fullscreen/video windows.
+        // Use per-tick forced re-pin while pink is active instead of waiting for the
+        // periodic 5s topmost kick.
+        bool forceTopmostThisTick = settings.PinkFilterEnabled && _pinkFilterWindows.Count > 0;
+        bool needed = ReassertZOrder(force: forceTopmostThisTick);
         if (needed)
         {
             _consecutiveTopmostLossCount++;
@@ -414,13 +418,22 @@ public class OverlayService : IDisposable
             _consecutiveTopmostLossCount = 0;
         }
 
-        // Periodic unconditional kick to handle in-layer reordering even when the
-        // WS_EX_TOPMOST flag is technically still set on our windows.
-        _topmostKickTickCounter++;
-        if (_topmostKickTickCounter >= 10) // 10 x 500ms = 5 seconds
+        // When pink is active we already force re-pin every tick above. Keep the
+        // periodic kick for other overlay combinations.
+        if (forceTopmostThisTick)
         {
             _topmostKickTickCounter = 0;
-            ReassertZOrder(force: true);
+        }
+        else
+        {
+            // Periodic unconditional kick to handle in-layer reordering even when
+            // WS_EX_TOPMOST is technically still set on our windows.
+            _topmostKickTickCounter++;
+            if (_topmostKickTickCounter >= 10) // 10 x 500ms = 5 seconds
+            {
+                _topmostKickTickCounter = 0;
+                ReassertZOrder(force: true);
+            }
         }
     }
 
@@ -750,7 +763,7 @@ public class OverlayService : IDisposable
         }
     }
 
-    internal void StopPinkFilter()
+    public void StopPinkFilter()
     {
         foreach (var window in _pinkFilterWindows.ToList())
         {
@@ -1248,7 +1261,7 @@ public class OverlayService : IDisposable
         }
     }
 
-    internal void StopSpiral()
+    public void StopSpiral()
     {
         _gifFrameTimer?.Stop();
         _gifFrameTimer = null;
@@ -1747,7 +1760,7 @@ public class OverlayService : IDisposable
                 if (needsPin || force)
                 {
                     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
                     if (needsPin) anyRecovered = true;
                 }
             }

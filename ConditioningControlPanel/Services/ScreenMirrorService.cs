@@ -57,6 +57,22 @@ namespace ConditioningControlPanel.Services
                     return false;
                 }
 
+                // Windows clone topology cannot preserve mixed portrait/landscape layouts.
+                // When orientations differ, cloning forces one mode and rotates/scales one
+                // of the displays incorrectly. Keep extend mode in that case.
+                var primary = System.Windows.Forms.Screen.PrimaryScreen;
+                if (primary != null)
+                {
+                    bool primaryLandscape = primary.Bounds.Width >= primary.Bounds.Height;
+                    bool mixedOrientation = screens.Any(s => (s.Bounds.Width >= s.Bounds.Height) != primaryLandscape);
+                    if (mixedOrientation)
+                    {
+                        App.Logger?.Warning(
+                            "ScreenMirror: mixed orientations detected; skipping clone to preserve monitor orientation");
+                        return false;
+                    }
+                }
+
                 var result = SetDisplayConfig(0, IntPtr.Zero, 0, IntPtr.Zero, SDC_TOPOLOGY_CLONE | SDC_APPLY);
 
                 if (result == 0) // ERROR_SUCCESS
