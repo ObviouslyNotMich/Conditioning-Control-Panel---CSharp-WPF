@@ -59,6 +59,9 @@ namespace ConditioningControlPanel.Services.Deeper
         public Task DispatchAsync(EnhancementAction action, EnhancementDispatchContext ctx, CancellationToken ct = default)
         {
             if (ct.IsCancellationRequested) return Task.CompletedTask;
+            // Per-tick opacity-ramp updates would flood the preview log; dry-run has
+            // no real overlay to update anyway, so drop them silently.
+            if (action is TriggerEffectAction { Phase: EffectPhase.Update }) return Task.CompletedTask;
             var line = $"t={ctx.CurrentTimeSeconds:0.00}s  {DescribeAction(action)}";
             lock (_gate)
             {
@@ -144,6 +147,14 @@ namespace ConditioningControlPanel.Services.Deeper
         public async Task DispatchAsync(EnhancementAction action, EnhancementDispatchContext ctx, CancellationToken ct = default)
         {
             if (ct.IsCancellationRequested) return;
+            // Forward per-tick ramp updates to the real dispatcher (so the overlay
+            // actually ramps in editor preview) but don't record them — they'd flood
+            // the "recent actions" overlay.
+            if (action is TriggerEffectAction { Phase: EffectPhase.Update })
+            {
+                await _inner.DispatchAsync(action, ctx, ct);
+                return;
+            }
             var line = $"t={ctx.CurrentTimeSeconds:0.00}s  {LoggingActionDispatcher.DescribeAction(action)}";
             try { await _inner.DispatchAsync(action, ctx, ct); }
             finally
@@ -332,7 +343,7 @@ namespace ConditioningControlPanel.Services.Deeper
                         // sound, scale, opacity all come from FlashService's
                         // normal random-image path (passing null path = random).
                         var flashSound = App.Settings?.Current?.FlashAudioEnabled ?? true;
-                        App.Flash?.TriggerFlashOnceWithImage(null, effect.DurationMs, flashSound);
+                        App.Flash?.TriggerFlashOnceWithImage(null, effect.DurationMs, flashSound, effect.SuppressHaptic);
                         break;
 
                     case EffectTypes.Bubble:
@@ -343,7 +354,7 @@ namespace ConditioningControlPanel.Services.Deeper
 
                     case EffectTypes.Subliminal:
                         if (!string.IsNullOrWhiteSpace(effect.Text))
-                            App.Subliminal?.FlashSubliminalCustom(effect.Text!, overrideDurationMs: effect.DurationMs);
+                            App.Subliminal?.FlashSubliminalCustom(effect.Text!, overrideDurationMs: effect.DurationMs, suppressHaptic: effect.SuppressHaptic);
                         break;
 
                     case EffectTypes.Overlay:
@@ -393,6 +404,11 @@ namespace ConditioningControlPanel.Services.Deeper
                 case EffectPhase.Restart:
                     // Overlay state has no "remaining time" — already shown, nothing
                     // to recompute. No-op.
+                    break;
+
+                case EffectPhase.Update:
+                    // Per-tick opacity ramp: live-update the already-shown overlay.
+                    App.Overlay?.SetSustainedOverlayOpacity(kind, effect.Opacity);
                     break;
 
                 case EffectPhase.OneShot:

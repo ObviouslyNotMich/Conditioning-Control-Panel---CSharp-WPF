@@ -513,6 +513,11 @@ public class AchievementService : IDisposable
             _ = App.Haptics?.AvatarEasterEggPatternAsync();
             TryUnlock("neon_obsession");
         }
+        if (_progress.TrackNeedyDollClick())
+        {
+            App.Logger?.Information("🎯 150 clicks in 60s! Unlocking Needy Doll...");
+            TryUnlock("needy_doll");
+        }
         _isDirty = true;
     }
     

@@ -56,6 +56,22 @@ for %%D in (cs de es fr it ja ko pl pt-BR ru tr zh-Hans zh-Hant) do (
 )
 
 echo.
+echo [2.6/6] Ensuring VC++ Redistributable bootstrapper is present...
+:: Bundled into the installer so webcam features (OpenCvSharpExtern.dll) work on
+:: machines without the MSVC runtime. Downloaded once; cached in redist\.
+if not exist "redist" mkdir "redist"
+if not exist "redist\VC_redist.x64.exe" (
+    echo Downloading VC_redist.x64.exe from aka.ms ...
+    curl -L -f -o "redist\VC_redist.x64.exe" https://aka.ms/vs/17/release/vc_redist.x64.exe
+    if errorlevel 1 (
+        echo ERROR: Failed to download VC_redist.x64.exe
+        echo Manually place it in the redist\ folder and re-run.
+        pause
+        exit /b 1
+    )
+)
+
+echo.
 echo ============================================
 echo [3/6] CODE SIGN - Application EXE
 echo ============================================

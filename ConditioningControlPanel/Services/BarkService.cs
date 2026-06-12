@@ -54,12 +54,28 @@ namespace ConditioningControlPanel.Services
         private const int SafetyHoldMs = 6000;
 
         private static readonly TimeSpan RapidModSwitchWindow = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan RapidClickWindow = TimeSpan.FromSeconds(60);
 
         // Coin flip is varied per call; not security-sensitive.
         private readonly Random _rng = new();
         private DateTime _lastUserMessageUtc = DateTime.MinValue;
         private DateTime _safetyHoldUntilUtc = DateTime.MinValue;
         private PatreonTier _lastTier = PatreonTier.None; // to detect tier-up for the upgrade egg
+
+        // --- idle chatter (item F): pool-wide no-repeat across all eligible Idle rules.
+        // Cadence is OWNED by AvatarTubeWindow's idle timer (companion-tab slider,
+        // IdleGiggleIntervalSeconds) which calls DispatchIdle() — barks ARE the idle chatter now.
+        private readonly HashSet<string> _usedIdleRules = new(StringComparer.OrdinalIgnoreCase);
+        private string? _lastIdleRuleId;
+        /// <summary>Chance an idle tick prefers an eligible band-gated idle rule over the ungated majority.</summary>
+        private const double GatedIdleBias = 0.35;
+
+        // --- anticipatory SessionSetupReady detector (item E): debounced, fires when the user goes quiet ---
+        private System.Windows.Threading.DispatcherTimer? _setupReadyTimer;
+        private bool _setupReadyStallPending; // true between the first ready-fire and the stall follow-up
+        private const int SetupReadyDebounceMinSec = 8;
+        private const int SetupReadyDebounceMaxSec = 12;
+        private const int SetupReadyStallSec = 45; // gives setup_ready_stall (setup_idle_sec_gte:45) its window
 
         /// <summary>
         /// When true the matcher evaluates and logs ("[BARK dry-run] …") but never renders to the
@@ -105,6 +121,9 @@ namespace ConditioningControlPanel.Services
             if (!_started) return;
             _started = false;
 
+            try { _setupReadyTimer?.Stop(); } catch { }
+            _setupReadyTimer = null;
+
             RunUnsubscribers(_unsubscribe);
             RunUnsubscribers(_engineUnsubscribe);
             RunUnsubscribers(_trayUnsubscribe);
@@ -127,6 +146,202 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         public void NotifyPanic() => Raise("Panic");
 
+        /// <summary>A dashboard feature popup was opened (feature = control type name w/o "FeatureControl", e.g. "Flash").</summary>
+        public void NotifyFeatureOpened(string? feature)
+        {
+            if (string.IsNullOrEmpty(feature)) return;
+            Raise("FeatureOpened", c => c.Set("feature", feature!));
+        }
+
+        /// <summary>The user navigated to a tab (tab = ShowTab key, e.g. "leaderboard").</summary>
+        public void NotifyTabNavigated(string? tab)
+        {
+            if (string.IsNullOrEmpty(tab)) return;
+            Raise("TabNavigated", c => c.Set("tab", tab!));
+        }
+
+        /// <summary>A numeric/bool setting changed. Non-numeric props are ignored; value is bool→0/1, enum→int.</summary>
+        public void NotifySettingChanged(string? setting)
+        {
+            if (string.IsNullOrEmpty(setting)) return;
+            // Setup-screen tracking for the anticipatory SessionSetupReady bark — ANY setting counts as
+            // a "setup action" (even non-numeric ones that the SettingChanged rules below can't match).
+            _state.MarkSettingChanged();
+            ArmSetupReadyDebounce();
+            if (!TryGetSettingNumber(setting!, out var value)) return;
+            Raise("SettingChanged", c => c.Set("setting", setting!).Set("value", value));
+        }
+
+        /// <summary>The user changed the avatar appearance/skin (avatar-set selector). Bambi reacts ~1-in-10.</summary>
+        public void NotifyAvatarChanged()
+        {
+            Raise("AvatarChanged");
+        }
+
+        /// <summary>The avatar was clicked. Stamps a rolling 60s click count for the escalation eggs.</summary>
+        public void NotifyAvatarClicked()
+        {
+            _state.RegisterAvatarClick();
+            Raise("AvatarClicked", c => c.Set("clicks_60s", (double)_state.AvatarClicksWithin(RapidClickWindow)));
+        }
+
+        /// <summary>An enhancement was applied to the current browser page (id = enhancement name — no slug field exists).</summary>
+        public void NotifyEnhancementApplied(string? enhancementId)
+        {
+            if (string.IsNullOrEmpty(enhancementId)) return;
+            Raise("EnhancementApplied", c => c.Set("enhancement_id", enhancementId!));
+        }
+
+        /// <summary>A generic UI action the user took (action = stable key, e.g. "test_video", "reroll_daily", "minimize").</summary>
+        public void NotifyUiAction(string? action)
+        {
+            if (string.IsNullOrEmpty(action)) return;
+            Raise("UiAction", c => c.Set("action", action!));
+        }
+
+        /// <summary>The user opened/refreshed the leaderboard. rank/total let rules react to standing (rank 0 = unranked).</summary>
+        public void NotifyLeaderboardViewed(int rank, int total)
+        {
+            Raise("LeaderboardViewed", c => c.Set("rank", (double)rank).Set("total", (double)total));
+        }
+
+        // ===================== Chaos Mode (Lab effect-bubbles roguelite) =====================
+        /// <summary>A Chaos run started. ctx: difficulty.</summary>
+        public void NotifyChaosRunStarted(string difficulty) => Raise("ChaosRunStarted", c => c.Set("difficulty", difficulty));
+        /// <summary>The run escalated into a new wave. ctx: wave (number).</summary>
+        public void NotifyChaosWaveEscalated(int wave) => Raise("ChaosWaveEscalated", c => c.Set("wave", (double)wave));
+        /// <summary>A live bubble was defused in time. ctx: combo, payload (variant id), difficulty.</summary>
+        public void NotifyChaosBubbleDefused(int combo, string payload, string difficulty) =>
+            Raise("ChaosBubbleDefused", c => c.Set("combo", (double)combo).Set("payload", payload).Set("difficulty", difficulty));
+        /// <summary>An UNSHIELDED live bubble detonated and fired its payload (real hit). ctx: payload (variant id),
+        /// strength, shield_absorbed(false), run_detonations, combo (captured before the break), difficulty.</summary>
+        public void NotifyChaosBubbleDetonated(string payload, double strength, double runDetonations, int combo, string difficulty) =>
+            Raise("ChaosBubbleDetonated", c => c
+                .Set("payload", payload).Set("strength", strength).Set("shield_absorbed", false)
+                .Set("run_detonations", runDetonations).Set("combo", (double)combo).Set("difficulty", difficulty));
+        /// <summary>A clutch shield-save: a live bubble's detonation was absorbed by a shield. ctx: payload (variant id),
+        /// strength, shield_absorbed(true), run_detonations, combo, difficulty, shields_left.</summary>
+        public void NotifyChaosBubbleDetonatedAbsorbed(string payload, double strength, double runDetonations, int combo, string difficulty, int shieldsLeft) =>
+            Raise("ChaosBubbleDetonatedAbsorbed", c => c
+                .Set("payload", payload).Set("strength", strength).Set("shield_absorbed", true)
+                .Set("run_detonations", runDetonations).Set("combo", (double)combo).Set("difficulty", difficulty)
+                .Set("shields_left", (double)shieldsLeft));
+        /// <summary>A benign treat bubble was popped. ctx: variant_id, payload (display name), combo.</summary>
+        public void NotifyChaosBenignPopped(string variantId, string payload, int combo) =>
+            Raise("ChaosBenignPopped", c => c.Set("variant_id", variantId).Set("payload", payload).Set("combo", (double)combo));
+        /// <summary>A boon was drafted. ctx: boon (name).</summary>
+        public void NotifyChaosBoonPicked(string boon) => Raise("ChaosBoonPicked", c => c.Set("boon", boon));
+        /// <summary>A curse was drafted (fired instead of ChaosBoonPicked for curses). ctx: boon (name), rarity, run_mult_bonus.</summary>
+        public void NotifyChaosCursePicked(string boon, string rarity, double runMultBonus) =>
+            Raise("ChaosCursePicked", c => c.Set("boon", boon).Set("rarity", rarity).Set("run_mult_bonus", runMultBonus));
+        /// <summary>The boon draft was skipped (null pick, +1 shield). ctx: shields_now.</summary>
+        public void NotifyChaosBoonSkipped(int shieldsNow) => Raise("ChaosBoonSkipped", c => c.Set("shields_now", (double)shieldsNow));
+        /// <summary>A darter was caught. ctx: points, combo, quick (true = fast-catch bonus).</summary>
+        public void NotifyChaosDarterCaught(double points, int combo, bool quick) =>
+            Raise("ChaosDarterCaught", c => c.Set("points", points).Set("combo", (double)combo).Set("quick", quick));
+        /// <summary>A freeze bubble was caught. ctx: points, combo.</summary>
+        public void NotifyChaosFreezeCaught(double points, int combo) =>
+            Raise("ChaosFreezeCaught", c => c.Set("points", points).Set("combo", (double)combo));
+        /// <summary>A combo milestone (every 10). ctx: combo, difficulty.</summary>
+        public void NotifyChaosComboMilestone(int combo, string difficulty) =>
+            Raise("ChaosComboMilestone", c => c.Set("combo", (double)combo).Set("difficulty", difficulty));
+        /// <summary>A high combo threshold was crossed (edge-detected). ctx: combo, threshold.</summary>
+        public void NotifyChaosComboBig(int combo, double threshold) =>
+            Raise("ChaosComboBig", c => c.Set("combo", (double)combo).Set("threshold", threshold));
+        /// <summary>The act advanced (edge-detected). ctx: act, wave.</summary>
+        public void NotifyChaosActChanged(int act, int wave) =>
+            Raise("ChaosActChanged", c => c.Set("act", (double)act).Set("wave", (double)wave));
+        /// <summary>The field was cleared at a wave boundary. ctx: wave (the wave just cleared).</summary>
+        public void NotifyChaosWaveCleared(int wave) => Raise("ChaosWaveCleared", c => c.Set("wave", (double)wave));
+        /// <summary>The run finished. ctx: xp (final payout), difficulty, runs_completed, rank.</summary>
+        public void NotifyChaosRunCompleted(int xp, string difficulty) =>
+            Raise("ChaosRunCompleted", c => c.Set("xp", (double)xp).Set("difficulty", difficulty)
+                .Set("runs_completed", (double)(Services.Chaos.ChaosMeta.State?.RunsCompleted ?? 0))
+                .Set("rank", Services.Chaos.ChaosRanks.NameLower(Services.Chaos.ChaosMeta.RankIndex)));
+        // ---- hold-to-defuse verb rework (2026-06-11). First-time gating lives in
+        // ChaosModeService (chaos_meta.json flags); rh_focus_low is once per run there too. ----
+        /// <summary>First ever completed defuse channel.</summary>
+        public void NotifyChaosDefuseFirst() => Raise("ChaosDefuseFirst");
+        /// <summary>First time a live triggered because focus couldn't cover the channel.</summary>
+        public void NotifyChaosDefuseNoFocus() => Raise("ChaosDefuseNoFocus");
+        /// <summary>First time an early release (mid-channel let-go) detonated a live.</summary>
+        public void NotifyChaosDefuseRelease() => Raise("ChaosDefuseRelease");
+        /// <summary>First time a plain click detonated a live bubble.</summary>
+        public void NotifyChaosClickDetonate() => Raise("ChaosClickDetonate");
+        /// <summary>Focus sat below a defuse's cost for 8s+ while lives were on screen.</summary>
+        public void NotifyChaosFocusLow() => Raise("ChaosFocusLow");
+        /// <summary>The Tease's first-ever appearance (debut spawn).</summary>
+        public void NotifyChaosTeaseDebut() => Raise("ChaosTeaseDebut");
+        /// <summary>A Tease expired untouched — the DENIED bonus paid. ctx: denied_count (this run).</summary>
+        public void NotifyChaosTeaseDenied(int deniedCount) =>
+            Raise("ChaosTeaseDenied", c => c.Set("denied_count", (double)deniedCount));
+        /// <summary>The player touched a Tease — payload + streak halve. </summary>
+        public void NotifyChaosTeaseClicked() => Raise("ChaosTeaseClicked");
+        /// <summary>5+ Teases denied in a single run. ctx: denied_count.</summary>
+        public void NotifyChaosTeaseDeniedStreak(int deniedCount) =>
+            Raise("ChaosTeaseDeniedStreak", c => c.Set("denied_count", (double)deniedCount));
+        /// <summary>The results screen was shown. ctx: score, best_score, pb_delta, is_pb, defused, detonated, best_combo, difficulty.</summary>
+        public void NotifyChaosResultsShown(double score, double bestScore, double pbDelta, bool isPb,
+                                            double defused, double detonated, int bestCombo, string difficulty) =>
+            Raise("ChaosResultsShown", c => c
+                .Set("score", score).Set("best_score", bestScore).Set("pb_delta", pbDelta).Set("is_pb", isPb)
+                .Set("defused", defused).Set("detonated", detonated).Set("best_combo", (double)bestCombo)
+                .Set("difficulty", difficulty)
+                .Set("runs_completed", (double)(Services.Chaos.ChaosMeta.State?.RunsCompleted ?? 0))
+                .Set("rank", Services.Chaos.ChaosRanks.NameLower(Services.Chaos.ChaosMeta.RankIndex)));
+
+        // ---- Down the Rabbit Hole progression triggers (2026-06-11) ----
+        /// <summary>Rank increased on run completion. ctx: rank (lowercase word).</summary>
+        public void NotifyChaosRankUp(string rank) => Raise("ChaosRankUp", c => c.Set("rank", rank));
+        /// <summary>A pending reveal flashed on dollhouse open (once per batch). ctx: element (reveal id).</summary>
+        public void NotifyChaosRevealFlash(string element) => Raise("ChaosRevealFlash", c => c.Set("element", element));
+        /// <summary>A lesson completed. ctx: lesson_id.</summary>
+        public void NotifyChaosLessonComplete(string lessonId) => Raise("ChaosLessonComplete", c => c.Set("lesson_id", lessonId));
+        /// <summary>She auto-covered a short balance on the first toy pocket attempt (one-time).</summary>
+        public void NotifyChaosGiftGiven() => Raise("ChaosGiftGiven");
+        /// <summary>A one-time first-times bonus awarded. ctx: bonus_id.</summary>
+        public void NotifyChaosFirstTime(string bonusId) => Raise("ChaosFirstTime", c => c.Set("bonus_id", bonusId));
+        /// <summary>First run with both e_stim + the_spanker: the scripted duo draft fired.</summary>
+        public void NotifyChaosDuoDemo() => Raise("ChaosDuoDemo");
+        /// <summary>First gold income ever (gold explained).</summary>
+        public void NotifyChaosGoldFirst() => Raise("ChaosGoldFirst");
+        /// <summary>The dollhouse opened for the very first time.</summary>
+        public void NotifyChaosDollhouseFirstOpen() => Raise("ChaosDollhouseFirstOpen");
+        /// <summary>An untouched draft timed out before the skip is revealed: it autopicked a card.</summary>
+        public void NotifyChaosDraftAutopick() => Raise("ChaosDraftAutopick");
+
+        // Reflection cache so a numeric-setting read on every PropertyChanged stays cheap.
+        private static readonly Dictionary<string, System.Reflection.PropertyInfo?> _settingPropCache = new(StringComparer.Ordinal);
+        /// <summary>Read a setting's current value as a double (bool→0/1, enum→int). False for non-numeric/missing props.</summary>
+        private bool TryGetSettingNumber(string name, out double value)
+        {
+            value = 0;
+            var cur = App.Settings?.Current;
+            if (cur == null) return false;
+            System.Reflection.PropertyInfo? pi;
+            lock (_settingPropCache)
+            {
+                if (!_settingPropCache.TryGetValue(name, out pi))
+                {
+                    pi = cur.GetType().GetProperty(name);
+                    _settingPropCache[name] = pi;
+                }
+            }
+            if (pi == null) return false;
+            object? raw;
+            try { raw = pi.GetValue(cur); } catch { return false; }
+            switch (raw)
+            {
+                case bool b: value = b ? 1 : 0; return true;
+                case int i: value = i; return true;
+                case long l: value = l; return true;
+                case double d: value = d; return true;
+                case float f: value = f; return true;
+                case Enum en: value = Convert.ToDouble(en); return true;
+                default: return false;
+            }
+        }
+
         /// <summary>
         /// Reload rules from disk (e.g. after a mod switch so the new mod's manifest applies).
         /// Rotation / cooldown / session one-shot state is keyed by rule id, and ids are SHARED
@@ -146,6 +361,8 @@ namespace ConditioningControlPanel.Services
                     _firedOnceSession.Clear();
                     _lastFiredUtc.Clear();
                     _lastVariantIndex.Clear();
+                    _usedIdleRules.Clear();
+                    _lastIdleRuleId = null;
                 }
                 App.Logger?.Information("BarkService: reloaded {Count} rules (per-rule rotation state reset)", fresh.Count);
             }
@@ -268,7 +485,11 @@ namespace ConditioningControlPanel.Services
                 Wire<EventHandler<ActivityChangedEventArgs>>(h => App.WindowAwareness.ActivityChanged += h, h => App.WindowAwareness.ActivityChanged -= h,
                     (_, a) => Raise("ActivityChanged", c => c
                         .Set("activity", a?.ServiceName ?? "")
-                        .Set("category", a?.Category.ToString() ?? "")));
+                        .Set("category", a?.Category.ToString() ?? "")
+                        // Fine-grained awareness (item G) — populated only when AppClusterMap matched the
+                        // title; empty otherwise so app_cluster_eq/app_eq rules simply don't match.
+                        .Set("app_cluster", a?.AppCluster ?? "")
+                        .Set("app", a?.AppId ?? "")));
                 Wire<EventHandler<ActivityChangedEventArgs>>(h => App.WindowAwareness.StillOnActivity += h, h => App.WindowAwareness.StillOnActivity -= h,
                     (_, a) => Raise("StillOnActivity", c => c
                         .Set("activity", a?.ServiceName ?? "")
@@ -414,7 +635,14 @@ namespace ConditioningControlPanel.Services
                 RunUnsubscribers(_engineUnsubscribe);
                 _state.AttachSessionEngine(engine);
 
-                EventHandler started = (_, __) => { _state.ResetSessionScoped(); Raise("SessionStarted"); };
+                EventHandler started = (_, __) =>
+                {
+                    // A session started — the setup screen is gone, so cancel any pending setup-ready nudge.
+                    try { _setupReadyTimer?.Stop(); } catch { }
+                    _setupReadyStallPending = false;
+                    _state.ResetSessionScoped();
+                    Raise("SessionStarted");
+                };
                 EventHandler stopped = (_, __) => Raise("SessionStopped");
                 EventHandler<SessionCompletedEventArgs> completed = (_, __) => Raise("SessionCompleted");
                 EventHandler<SessionPhaseChangedEventArgs> phase = (_, e) =>
@@ -517,20 +745,7 @@ namespace ConditioningControlPanel.Services
                         return;
                     }
 
-                    var resolved = ResolvePool(winner);
-                    var decision = EvaluateGate(winner, resolved, guaranteed);
-                    LogDecision(trigger, winner, decision);
-
-                    if (decision.WouldFire)
-                    {
-                        CommitFire(winner, decision.VariantIndex);
-                        if (!DryRun)
-                        {
-                            toSpeak = winner;
-                            variantIndex = decision.VariantIndex;
-                            pool = resolved;
-                        }
-                    }
+                    (toSpeak, variantIndex, pool) = DecideLocked(trigger, winner, guaranteed);
                 }
 
                 if (toSpeak != null && pool != null)
@@ -540,6 +755,168 @@ namespace ConditioningControlPanel.Services
             {
                 App.Logger?.Warning(ex, "BarkService: Raise('{Trigger}') failed", trigger);
             }
+        }
+
+        /// <summary>
+        /// Shared gate→commit→speak decision for an already-chosen winner. Caller MUST hold
+        /// <see cref="_gate"/>. Returns the rule/variant/pool to speak, or (null,-1,null) when the
+        /// gate blocks the fire or we're in dry-run. Reused by <see cref="Raise"/> (priority-walk
+        /// winner) and <see cref="DispatchIdle"/> (no-repeat idle winner).
+        /// </summary>
+        private (BarkRule? toSpeak, int variantIndex, List<BarkVariant>? pool) DecideLocked(
+            string trigger, BarkRule winner, bool guaranteed)
+        {
+            var resolved = ResolvePool(winner);
+            var decision = EvaluateGate(winner, resolved, guaranteed);
+            LogDecision(trigger, winner, decision);
+
+            if (!decision.WouldFire) return (null, -1, null);
+
+            CommitFire(winner, decision.VariantIndex);
+            return DryRun ? (null, -1, null) : (winner, decision.VariantIndex, resolved);
+        }
+
+        // ===================== idle chatter (item F) =====================
+
+        /// <summary>
+        /// Raise an idle ("Idle") bark, chosen with a pool-wide no-repeat across ALL eligible idle
+        /// rules. Called by AvatarTubeWindow's idle timer (companion-tab slider cadence). Skipped
+        /// while muted or while she's already speaking so idle never talks over a real bark; the
+        /// normal gate (min-gap / chat-suppression / whisper / safety-hold) still applies on top,
+        /// so a recent real bark also preempts idle.
+        /// </summary>
+        public void DispatchIdle()
+        {
+            try
+            {
+                // Pause idle while muted or already speaking — real barks always win.
+                if ((App.Settings?.Current?.MasterVolume ?? 0) == 0) return;
+                if (App.AvatarWindow?.IsSpeaking ?? false) return;
+
+                BarkRule? toSpeak = null; int variantIndex = -1; List<BarkVariant>? pool = null;
+                var ctx = new BarkContext("Idle");
+                lock (_gate)
+                {
+                    var idleRules = _rules.ForTrigger("Idle");
+                    if (idleRules.Count == 0) return;
+                    var eligible = idleRules.Where(r => ConditionsPass(r, ctx)).ToList();
+                    if (eligible.Count == 0) return;
+                    var winner = PickIdleRuleLocked(eligible);
+                    if (winner == null) return;
+                    (toSpeak, variantIndex, pool) = DecideLocked("Idle", winner, guaranteed: false);
+                }
+                if (toSpeak != null && pool != null) Speak(toSpeak, variantIndex, ctx, pool);
+            }
+            catch (Exception ex) { App.Logger?.Warning(ex, "BarkService: DispatchIdle failed"); }
+        }
+
+        /// <summary>
+        /// Pick an idle rule with pool-wide no-repeat: don't replay a rule until every eligible idle
+        /// rule has fired, then recycle (reseeding with the last one so it can't immediately repeat).
+        /// Biased (<see cref="GatedIdleBias"/>) to occasionally surface an eligible band-gated rule
+        /// (idle_gated_*) so the ~3 gated lines aren't drowned by the ~32 ungated ones. Caller holds
+        /// <see cref="_gate"/>.
+        /// </summary>
+        private BarkRule? PickIdleRuleLocked(List<BarkRule> eligible)
+        {
+            var unused = eligible.Where(r => !_usedIdleRules.Contains(r.Id)).ToList();
+            if (unused.Count == 0)
+            {
+                _usedIdleRules.Clear();
+                if (_lastIdleRuleId != null) _usedIdleRules.Add(_lastIdleRuleId);
+                unused = eligible.Where(r => !_usedIdleRules.Contains(r.Id)).ToList();
+                if (unused.Count == 0) unused = eligible; // single eligible rule — unavoidable repeat
+            }
+
+            var gated = unused.Where(r => r.Conditions != null && r.Conditions.Count > 0).ToList();
+            if (gated.Count > 0 && _rng.NextDouble() < GatedIdleBias)
+                return gated[_rng.Next(gated.Count)];
+            return unused[_rng.Next(unused.Count)];
+        }
+
+        // ===================== anticipatory setup-ready detector (item E) =====================
+
+        /// <summary>
+        /// (Re)start the SessionSetupReady debounce after a setup action (setting change). Fires when the
+        /// user goes quiet (~8–12s after the LAST action), not on every click. No-op while a session is
+        /// running. Marshals to the UI thread since the settings setter may call us off-thread.
+        /// </summary>
+        private void ArmSetupReadyDebounce()
+        {
+            if (_state.SessionRunning) return;
+            DispatcherHelper.RunOnUI(() =>
+            {
+                if (!_started) return;
+                _setupReadyStallPending = false;
+                if (_setupReadyTimer == null)
+                {
+                    _setupReadyTimer = new System.Windows.Threading.DispatcherTimer();
+                    _setupReadyTimer.Tick += OnSetupReadyTick;
+                }
+                _setupReadyTimer.Stop();
+                _setupReadyTimer.Interval = TimeSpan.FromSeconds(
+                    _rng.Next(SetupReadyDebounceMinSec, SetupReadyDebounceMaxSec + 1));
+                _setupReadyTimer.Start();
+            });
+        }
+
+        private void OnSetupReadyTick(object? sender, EventArgs e)
+        {
+            _setupReadyTimer?.Stop();
+            try
+            {
+                if (!SetupConditionsMet()) { _setupReadyStallPending = false; return; }
+
+                Raise("SessionSetupReady");
+
+                // setup_ready_stall needs ~45s of idle, but this first fire lands at ~10s. If the user is
+                // still settling, schedule ONE more raise once the stall window elapses (the per-rule
+                // scope:session latches keep each line one-shot, so the earlier ready line won't repeat).
+                if (!_setupReadyStallPending && _state.SetupIdleSeconds < SetupReadyStallSec && _setupReadyTimer != null)
+                {
+                    _setupReadyStallPending = true;
+                    double wait = Math.Max(5, SetupReadyStallSec - _state.SetupIdleSeconds + 2);
+                    _setupReadyTimer.Interval = TimeSpan.FromSeconds(wait);
+                    _setupReadyTimer.Start();
+                }
+                else
+                {
+                    _setupReadyStallPending = false;
+                }
+            }
+            catch (Exception ex) { App.Logger?.Warning(ex, "BarkService: setup-ready tick failed"); }
+        }
+
+        /// <summary>
+        /// SessionSetupReady gate: engine not running + ≥2 setting changes this app-open + at least one
+        /// content feature enabled + media present on disk. (MediaAdded was cut this pass; this covers
+        /// the "everything's ready, press start" moment.)
+        /// </summary>
+        private bool SetupConditionsMet()
+        {
+            var s = App.Settings?.Current;
+            if (s == null || _state.SessionRunning) return false;
+            if (_state.SettingsChangedThisSession < 2) return false;
+            if (!(s.FlashEnabled || s.MandatoryVideosEnabled)) return false; // at least one asset enabled
+            return HasAnyMedia();
+        }
+
+        /// <summary>Cheap probe: does the assets folder hold at least one image or video file?</summary>
+        private static bool HasAnyMedia()
+        {
+            try
+            {
+                var root = App.EffectiveAssetsPath;
+                if (string.IsNullOrEmpty(root)) return false;
+                foreach (var sub in new[] { "images", "videos" })
+                {
+                    var dir = System.IO.Path.Combine(root, sub);
+                    if (System.IO.Directory.Exists(dir) && System.IO.Directory.EnumerateFiles(dir).Any())
+                        return true;
+                }
+                return false;
+            }
+            catch { return false; }
         }
 
         // ===================== lock card (Fork D: single coin flip, exactly one fires) =====================
@@ -652,11 +1029,13 @@ namespace ConditioningControlPanel.Services
             {
                 case "video_playing": return App.Video?.IsPlaying ?? false;
                 case "session_running": return _state.SessionRunning;
+                case "setup_idle_sec": return _state.SetupIdleSeconds;
                 case "session_elapsed_sec": return _state.SessionElapsedSeconds;
                 case "session_phase_index": return _state.SessionPhaseIndex;
                 case "blink_count": return (double)_state.BlinkCount;
                 case "face_lost_sec": return _state.FaceLostSeconds;
                 case "mod_switches_60s": return _state.ModSwitchesWithin(RapidModSwitchWindow);
+                case "clicks_60s": return _state.AvatarClicksWithin(RapidClickWindow);
                 case "days_away": return _state.DaysAwayAtLaunch;
                 case "instant_relaunch": return _state.InstantRelaunch;
                 case "master_volume": return (double)(App.Settings?.Current?.MasterVolume ?? 0);
@@ -823,12 +1202,19 @@ namespace ConditioningControlPanel.Services
                     if (sinceRule < rule.CooldownMs)
                         return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = $"cooldown ({sinceRule:F0}/{rule.CooldownMs}ms)" };
                 }
+
+                // Probability roll — last gate before variant selection. Lets a high-frequency
+                // reactive rule fire only ~Chance of the time (e.g. 0.2 = "~1 in 5").
+                if (rule.Chance < 1.0 && _rng.NextDouble() >= rule.Chance)
+                    return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = $"chance ({rule.Chance:0.##})" };
             }
 
             // Variant selection:
-            //  • repeatable, pool>1 → rotate through unused; when ALL are used, RECYCLE the pool
+            //  • repeatable, pool>1 → pick a RANDOM unused variant; when ALL are used, RECYCLE the pool
             //    (clear the used-set) so the bark keeps talking instead of going silent forever,
             //    reseeding with the last index so we don't immediately repeat the line just spoken.
+            //    Random-among-unused (rather than first-unused-in-order) means the play order is
+            //    reshuffled every cycle — no-repeat-until-exhausted AND no learnable rhythm.
             //  • one-shot, pool>1 → pick a random line (it only fires once, so use the whole pool
             //    rather than always line 0; otherwise the extra authored variants are dead content).
             int idx = 0;
@@ -837,7 +1223,7 @@ namespace ConditioningControlPanel.Services
                 if (rule.Repeatable)
                 {
                     var used = _usedVariants.TryGetValue(rule.Id, out var set) ? set : null;
-                    idx = FirstUnused(pool.Count, used);
+                    idx = RandomUnused(pool.Count, used);
                     if (idx < 0)
                     {
                         // Exhausted → recycle. Reseed the used-set with the last-fired index so the
@@ -846,7 +1232,7 @@ namespace ConditioningControlPanel.Services
                         if (_lastVariantIndex.TryGetValue(rule.Id, out var lastIdx))
                             reseed.Add(lastIdx);
                         _usedVariants[rule.Id] = reseed;
-                        idx = FirstUnused(pool.Count, reseed);
+                        idx = RandomUnused(pool.Count, reseed);
                         if (idx < 0) idx = 0; // safety (pool>1 means reseed has ≤1 entry, so unreachable)
                     }
                 }
@@ -907,14 +1293,30 @@ namespace ConditioningControlPanel.Services
                 set.Add(variantIndex);
                 _lastVariantIndex[rule.Id] = variantIndex; // for no-immediate-repeat on pool recycle
             }
+
+            // Pool-wide no-repeat for the idle class (each idle line is its own single-variant rule,
+            // so per-rule variant rotation above can't help — track at the rule-id level instead).
+            if (string.Equals(rule.Trigger, "Idle", StringComparison.OrdinalIgnoreCase))
+            {
+                _usedIdleRules.Add(rule.Id);
+                _lastIdleRuleId = rule.Id;
+            }
         }
 
-        /// <summary>First index in [0,count) not present in <paramref name="used"/>, or -1 if all are used.</summary>
-        private static int FirstUnused(int count, HashSet<int>? used)
+        /// <summary>
+        /// A RANDOM index in [0,count) not present in <paramref name="used"/>, or -1 if all are used.
+        /// Random (not first-in-order) so a pool's play order is reshuffled every cycle — there's no
+        /// learnable rhythm, only the no-repeat-until-exhausted guarantee.
+        /// </summary>
+        private int RandomUnused(int count, HashSet<int>? used)
         {
+            // Small pools — gather the unused indices and pick one uniformly.
+            List<int>? candidates = null;
             for (int i = 0; i < count; i++)
-                if (used == null || !used.Contains(i)) return i;
-            return -1;
+                if (used == null || !used.Contains(i))
+                    (candidates ??= new List<int>()).Add(i);
+            if (candidates == null || candidates.Count == 0) return -1;
+            return candidates[_rng.Next(candidates.Count)];
         }
 
         // ===================== speak =====================
@@ -938,7 +1340,7 @@ namespace ConditioningControlPanel.Services
             bool muted = (App.Settings?.Current?.MasterVolume ?? 0) == 0;
             if (rule.Class == BarkClass.EasterEgg && muted)
             {
-                avatar.Giggle(line);
+                avatar.Giggle(line, mood: rule.Mood);
                 App.KeywordTriggers?.MuteKeywordEcho(line, SelfEchoMuteMs);
                 return;
             }
@@ -952,9 +1354,9 @@ namespace ConditioningControlPanel.Services
             bool priority = rule.Class != BarkClass.Normal || rule.Priority >= PriorityBarkThreshold;
             if (priority)
                 avatar.GigglePriority(line, playSound: audioPath == null, aiGenerated: false,
-                    phraseAudioPath: audioPath, barkVoice: audioPath != null);
+                    phraseAudioPath: audioPath, barkVoice: audioPath != null, mood: rule.Mood);
             else
-                avatar.Giggle(line, phraseAudioPath: audioPath, barkVoice: audioPath != null);
+                avatar.Giggle(line, phraseAudioPath: audioPath, barkVoice: audioPath != null, mood: rule.Mood);
 
             // Self-echo guard so the bubble text can't trip awareness/OCR off its own output.
             App.KeywordTriggers?.MuteKeywordEcho(line, SelfEchoMuteMs);

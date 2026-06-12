@@ -70,6 +70,52 @@ namespace ConditioningControlPanel.Services.Bark
             return n;
         }
 
+        // --- rapid avatar-click window (AvatarTube/MainWindow click handler) ---
+        private readonly List<DateTime> _avatarClicks = new();
+        public void RegisterAvatarClick()
+        {
+            lock (_lock)
+            {
+                _avatarClicks.Add(DateTime.UtcNow);
+                if (_avatarClicks.Count > 256) _avatarClicks.RemoveRange(0, _avatarClicks.Count - 256);
+            }
+        }
+        public int AvatarClicksWithin(TimeSpan window)
+        {
+            var cutoff = DateTime.UtcNow - window;
+            int n = 0;
+            lock (_lock)
+            {
+                for (int i = _avatarClicks.Count - 1; i >= 0; i--)
+                {
+                    if (_avatarClicks[i] >= cutoff) n++;
+                    else break;
+                }
+            }
+            return n;
+        }
+
+        // --- setup-screen state for the anticipatory SessionSetupReady bark (item E) ---
+        // Counts setting changes since app-open and timestamps the last setup action so the detector
+        // can fire when the user "goes quiet" and expose setup_idle_sec for the stall variant.
+        private int _settingsChangedThisSession;
+        public int SettingsChangedThisSession => System.Threading.Volatile.Read(ref _settingsChangedThisSession);
+        private long _lastSetupActionTicks; // DateTime.UtcNow.Ticks of last setup action (0 = none yet)
+        public void MarkSettingChanged()
+        {
+            System.Threading.Interlocked.Increment(ref _settingsChangedThisSession);
+            System.Threading.Interlocked.Exchange(ref _lastSetupActionTicks, DateTime.UtcNow.Ticks);
+        }
+        /// <summary>Seconds since the last setup action, or a large sentinel if none yet.</summary>
+        public double SetupIdleSeconds
+        {
+            get
+            {
+                var ticks = System.Threading.Interlocked.Read(ref _lastSetupActionTicks);
+                return ticks == 0 ? 999999 : (DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc)).TotalSeconds;
+            }
+        }
+
         // --- days-away / instant-relaunch, computed once from AppSettings.LastSeenUtc ---
         public double DaysAwayAtLaunch { get; private set; }
         public bool InstantRelaunch { get; private set; }

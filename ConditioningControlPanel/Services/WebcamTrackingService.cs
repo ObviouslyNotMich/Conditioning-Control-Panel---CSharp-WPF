@@ -438,6 +438,13 @@ namespace ConditioningControlPanel.Services
         // leaking a live capture handle behind our back.
         private volatile bool _openAbandoned;
 
+        // Set when a capture-open attempt fails because the OpenCV native runtime
+        // (OpenCvSharpExtern.dll) can't load — almost always a missing MSVC runtime
+        // (DllNotFoundException 0x8007007E). Lets OpenCaptureCore report Error with an
+        // explicit "install the VC++ redist" log line instead of a misleading
+        // CameraDenied that sends users hunting through privacy settings (#347).
+        private volatile bool _nativeRuntimeMissing;
+
         // Capture-thread state
         private VideoCapture? _capture;
         private BlazeFaceDetector? _faceDetector;
@@ -885,6 +892,7 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         private VideoCapture? OpenCaptureCore()
         {
+            _nativeRuntimeMissing = false;
             try
             {
                 int configured = App.Settings?.Current?.WebcamDeviceIndex ?? -1;
@@ -959,7 +967,17 @@ namespace ConditioningControlPanel.Services
                     if (_openAbandoned) return null;
                 }
 
-                if (anyOpened)
+                if (_nativeRuntimeMissing)
+                {
+                    // The camera was never the problem — the native capture library couldn't
+                    // load. Report Error (not CameraDenied) so we don't send the user to
+                    // Windows camera privacy settings for a runtime issue (#347).
+                    App.Logger?.Error(
+                        "WebcamTrackingService: OpenCV native runtime (OpenCvSharpExtern.dll) failed to load for device index {Index} ('{Name}') — the Microsoft Visual C++ Redistributable (x64) is almost certainly missing. Install it from https://aka.ms/vs/17/release/vc_redist.x64.exe",
+                        deviceIndex, detectedName);
+                    SetState(WebcamTrackingState.Error);
+                }
+                else if (anyOpened)
                 {
                     // A backend opened the device but no usable frame ever arrived — most
                     // likely held by antivirus webcam shielding / Windows camera privacy,
@@ -1092,6 +1110,16 @@ namespace ConditioningControlPanel.Services
             }
             catch (Exception ex)
             {
+                // A DllNotFoundException (often wrapped in TypeInitializationException from
+                // OpenCvSharp's NativeMethods cctor) means OpenCvSharpExtern.dll couldn't load
+                // its dependencies — the MSVC runtime. Flag it so the caller reports the real
+                // cause instead of CameraDenied. Newer installers bundle the VC++ redist (#347).
+                if (ex is DllNotFoundException
+                    || ex is TypeInitializationException
+                    || ex.InnerException is DllNotFoundException)
+                {
+                    _nativeRuntimeMissing = true;
+                }
                 App.Logger?.Warning(ex, "WebcamTrackingService: TryOpenWithBackend({Api}) threw for index {Index}", label, deviceIndex);
                 try { cap?.Dispose(); } catch { }
                 return null;

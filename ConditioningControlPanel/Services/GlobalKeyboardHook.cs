@@ -71,12 +71,12 @@ public class GlobalKeyboardHook : IDisposable
                 if (vkCode == 0x5B || vkCode == 0x5C)
                     suppress = true;
 
-                // Alt+anything (WM_SYSKEYDOWN = Alt held). Blocks Alt+Tab, Alt+F4, Alt+Esc, etc.
-                if (wParam == (IntPtr)WM_SYSKEYDOWN)
-                    suppress = true;
-
-                // Alt keys themselves (LMenu=0xA4, RMenu=0xA5) — block the press entirely
-                if (vkCode == 0xA4 || vkCode == 0xA5)
+                // Alt-based app-switch/close combos ONLY (WM_SYSKEYDOWN = Alt held):
+                // Alt+Tab (0x09), Alt+F4 (0x73), Alt+Esc (0x1B). We must NOT blanket-suppress
+                // every WM_SYSKEYDOWN or every Alt press — that killed legitimate Alt shortcuts
+                // (menu mnemonics, Alt+arrows, etc.) in every program while lockdown was on (#338).
+                if (wParam == (IntPtr)WM_SYSKEYDOWN &&
+                    (vkCode == 0x09 || vkCode == 0x73 || vkCode == 0x1B))
                     suppress = true;
 
                 // Escape

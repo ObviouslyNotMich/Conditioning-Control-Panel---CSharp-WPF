@@ -52,6 +52,13 @@ namespace ConditioningControlPanel.Services.Deeper
         // Attention-lost dwell — single clock since attention_lost has no per-item state.
         private DateTime? _faceLostSince;
 
+        // Attention-lost rules that already fired during the current face-lost
+        // gap. Firing happens on playback ticks while the face is absent (each
+        // rule fires once its own MinDurationMs is exceeded); the set keeps
+        // that to once per gap. Cleared when the face is lost (new gap) and
+        // when it returns.
+        private readonly HashSet<TimelineItem> _attentionFiredThisGap = new();
+
         private bool _running;
         private bool _disposed;
 
@@ -298,6 +305,7 @@ namespace ConditioningControlPanel.Services.Deeper
                     // probe at flash dispatch time.
                     ImagePath = IsSafeImagePath(item.EffectImagePath) ? item.EffectImagePath : null,
                     PlaySound = item.EffectPlaySound,
+                    SuppressHaptic = item.EffectSuppressHaptic,
                     DurationMs = durationMs,
                     Intensity = item.EffectIntensity
                 },
@@ -312,6 +320,7 @@ namespace ConditioningControlPanel.Services.Deeper
                 {
                     EffectType = EffectTypes.Subliminal,
                     Text = item.EffectText,
+                    SuppressHaptic = item.EffectSuppressHaptic,
                     DurationMs = durationMs,
                     Intensity = item.EffectIntensity
                 },
@@ -320,6 +329,8 @@ namespace ConditioningControlPanel.Services.Deeper
                     EffectType = EffectTypes.Overlay,
                     OverlayKind = item.EffectOverlayKind,
                     Opacity = item.EffectOpacity,
+                    OpacityStart = item.EffectOpacityStart,
+                    OpacityEnd = item.EffectOpacityEnd,
                     DurationMs = durationMs,
                     Intensity = item.EffectIntensity
                 },
@@ -349,6 +360,7 @@ namespace ConditioningControlPanel.Services.Deeper
             _gazeDwellSince.Clear();
             _activeBandIds.Clear();
             _faceLostSince = null;
+            _attentionFiredThisGap.Clear();
             _firedTriggerTypes.Clear();
             _webcamTriggerUsed = false;
             _faceLostDuringPlay = false;
@@ -505,6 +517,18 @@ namespace ConditioningControlPanel.Services.Deeper
                           && t >= item.Start && t < item.Start + item.Duration));
                 }
 
+                // Attention-lost: fire while the face is absent, once a rule's
+                // own MinDurationMs is exceeded (once per gap via the set).
+                // Tick-driven so the consequence lands DURING the look-away —
+                // firing on face-return both felt wrong and could land after
+                // the playhead had left the rule's band, silently dropping it.
+                if (_faceLostSince.HasValue)
+                {
+                    var gapMs = (DateTime.UtcNow - _faceLostSince.Value).TotalMilliseconds;
+                    FireWebcamRules<AttentionLostTrigger>(tr => gapMs >= tr.MinDurationMs, _attentionFiredThisGap);
+                    if (!_running) return; // a dispatched action may Stop() the engine
+                }
+
                 // Region transition (computed before firing so region_entered
                 // rules see the new region as "current").
                 var newRegionId = FindRegionAt(t);
@@ -618,6 +642,11 @@ namespace ConditioningControlPanel.Services.Deeper
                     DispatchSafely(band.BuildStartAction(remainingMs), t);
                     _activeBandIds.Add(band.EffectId);
                 }
+
+                // Opacity ramp: per-tick live update for active overlay bands. Driven
+                // by the playhead so it stays correct across loops, seeks and scrubs.
+                if (band.HasOpacityRamp)
+                    DispatchSafely(band.BuildUpdateAction(band.OpacityAt(t)), t);
             }
         }
 
@@ -693,15 +722,17 @@ namespace ConditioningControlPanel.Services.Deeper
         public void InjectGaze(System.Windows.Point screenPoint) => OnGazeMoveCore(screenPoint);
 
         /// <summary>
-        /// Simulate an attention-lost gap of the given duration. Mirrors the
-        /// face-lost → face-found pattern (rules fire on "found" if the gap
-        /// satisfied their MinDurationMs).
+        /// Simulate an attention-lost gap of the given duration. Live rules
+        /// fire from the playback tick while the face is absent; a synthetic
+        /// injection compresses that into one direct evaluation against the
+        /// simulated gap.
         /// </summary>
         public void InjectAttentionLost(int gapMs)
         {
             if (!_running) return;
-            _faceLostSince = DateTime.UtcNow.AddMilliseconds(-Math.Max(0, gapMs));
-            OnFaceFoundCore();
+            double gap = Math.Max(0, gapMs);
+            int fired = FireWebcamRules<AttentionLostTrigger>(tr => gap >= tr.MinDurationMs);
+            Diag($"• attention_lost injected (gap {gap:F0}ms, {fired} fired)");
         }
 
         // -- Webcam handlers ---------------------------------------------------
@@ -779,6 +810,7 @@ namespace ConditioningControlPanel.Services.Deeper
         {
             if (!_running) return;
             _faceLostSince = DateTime.UtcNow;
+            _attentionFiredThisGap.Clear(); // new gap, re-arm attention_lost rules
             _faceLostDuringPlay = true; // breaks the "held gaze the whole time" achievement
             Diag("• face_lost");
         }
@@ -786,15 +818,16 @@ namespace ConditioningControlPanel.Services.Deeper
         private void OnFaceFoundCore()
         {
             if (!_running) return;
-            // If the face was lost long enough to satisfy any rule, fire on return.
-            // Done on found so the action fires once per attention gap, not per frame.
+            // Attention-lost rules fire from the playback tick WHILE the face is
+            // absent (each once its MinDurationMs is exceeded — see OnPlaybackTime),
+            // so the user feels the consequence during the look-away, not after
+            // looking back. Here we only close the gap.
             if (_faceLostSince.HasValue)
             {
                 var gap = (DateTime.UtcNow - _faceLostSince.Value).TotalMilliseconds;
-                int eligible = _reactiveRules.Count(i => i.Trigger is AttentionLostTrigger);
-                int fired = FireWebcamRules<AttentionLostTrigger>(t => gap >= t.MinDurationMs);
-                Diag($"• face_found (gap {gap:F0}ms, {eligible} rule(s), {fired} fired)");
+                Diag($"• face_found (gap {gap:F0}ms, {_attentionFiredThisGap.Count} fired during gap)");
                 _faceLostSince = null;
+                _attentionFiredThisGap.Clear();
             }
             else
             {
@@ -842,17 +875,20 @@ namespace ConditioningControlPanel.Services.Deeper
 
         // -- Rule firing helpers ----------------------------------------------
 
-        private int FireWebcamRules<TTrigger>(Func<TTrigger, bool> predicate) where TTrigger : EnhancementTrigger
+        private int FireWebcamRules<TTrigger>(Func<TTrigger, bool> predicate,
+            HashSet<TimelineItem>? oncePerGap = null) where TTrigger : EnhancementTrigger
         {
             var t = _source.GetCurrentTimeSeconds();
             int fired = 0;
             foreach (var item in _reactiveRules)
             {
                 if (item.Trigger is not TTrigger trig) continue;
+                if (oncePerGap != null && oncePerGap.Contains(item)) continue;
                 if (!predicate(trig)) continue;
                 if (!PassesRuleGate(item, t)) continue;
                 DispatchSafely(item.Action!, t);
                 RecordTriggerFired(item.Trigger);
+                oncePerGap?.Add(item);
                 fired++;
             }
             return fired;
@@ -965,6 +1001,16 @@ namespace ConditioningControlPanel.Services.Deeper
             // Overlay payload.
             public string? OverlayKind;
             public double Opacity = 0.5;
+            // Optional opacity ramp (overlay only): interpolate start→end across the band.
+            public double? OpacityStart;
+            public double? OpacityEnd;
+            public bool HasOpacityRamp => OpacityStart.HasValue && OpacityEnd.HasValue;
+            public double OpacityAt(double t)
+            {
+                if (!HasOpacityRamp) return Opacity;
+                double frac = Duration > 0 ? System.Math.Clamp((t - Start) / Duration, 0, 1) : 1.0;
+                return OpacityStart!.Value + (OpacityEnd!.Value - OpacityStart!.Value) * frac;
+            }
             // Haptic payload.
             public string? PatternName;
             public List<double[]>? CustomPattern;
@@ -981,7 +1027,9 @@ namespace ConditioningControlPanel.Services.Deeper
                         Duration = item.Duration,
                         IsHaptic = false,
                         OverlayKind = item.EffectOverlayKind ?? OverlayKinds.PinkFilter,
-                        Opacity = item.EffectOpacity
+                        Opacity = item.EffectOpacity,
+                        OpacityStart = item.EffectOpacityStart,
+                        OpacityEnd = item.EffectOpacityEnd
                     };
                 }
                 if (item.EffectType == EffectTypes.Haptic)
@@ -1021,6 +1069,17 @@ namespace ConditioningControlPanel.Services.Deeper
             public EnhancementAction BuildStopAction()                 => BuildAction(EffectPhase.Stop, 0);
             public EnhancementAction BuildRestartAction(int remainingMs) => BuildAction(EffectPhase.Restart, remainingMs);
 
+            // Per-tick overlay opacity update (ramp). Carries the freshly-interpolated
+            // value; the dispatcher routes it to OverlayService.SetSustainedOverlayOpacity.
+            public EnhancementAction BuildUpdateAction(double opacity) => new TriggerEffectAction
+            {
+                EffectType = EffectTypes.Overlay,
+                OverlayKind = OverlayKind,
+                Opacity = opacity,
+                Phase = EffectPhase.Update,
+                EffectId = EffectId
+            };
+
             private EnhancementAction BuildAction(EffectPhase phase, int durationMs)
             {
                 if (IsHaptic)
@@ -1039,7 +1098,9 @@ namespace ConditioningControlPanel.Services.Deeper
                 {
                     EffectType = EffectTypes.Overlay,
                     OverlayKind = OverlayKind,
-                    Opacity = Opacity,
+                    // On Start/Restart a ramped band begins at its start-opacity; the
+                    // per-tick Update dispatched right after corrects it to OpacityAt(t).
+                    Opacity = HasOpacityRamp ? OpacityStart!.Value : Opacity,
                     DurationMs = Math.Max(50, durationMs),
                     Phase = phase,
                     EffectId = EffectId

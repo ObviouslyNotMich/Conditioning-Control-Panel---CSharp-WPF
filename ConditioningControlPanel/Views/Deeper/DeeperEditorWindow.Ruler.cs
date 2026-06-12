@@ -56,6 +56,30 @@ namespace ConditioningControlPanel.Views.Deeper
                 TimelineCanvas.Children.Add(strip);
                 _rulerVisuals.Add(strip);
 
+                // Lane dividers: faint full-width lines at the Effects + Haptics lane
+                // tops so the three equal lanes (Regions / Effects / Haptics — see
+                // LaneBand) read on the canvas itself, not just in the header column.
+                var canvasH = TimelineCanvas.ActualHeight;
+                if (canvasH > 0)
+                {
+                    var dividerBrush = new SolidColorBrush(Color.FromArgb(40, 230, 230, 230));
+                    dividerBrush.Freeze();
+                    foreach (var lane in new[] { TimelineLane.Effects, TimelineLane.Haptics })
+                    {
+                        var (laneTop, _) = LaneBand(lane, canvasH);
+                        var divider = new Line
+                        {
+                            X1 = 0, X2 = w, Y1 = laneTop, Y2 = laneTop,
+                            Stroke = dividerBrush,
+                            StrokeThickness = 1,
+                            IsHitTestVisible = false
+                        };
+                        Panel.SetZIndex(divider, 1);
+                        TimelineCanvas.Children.Add(divider);
+                        _rulerVisuals.Add(divider);
+                    }
+                }
+
                 var pxPerSec = w / _totalSeconds;
                 if (pxPerSec <= 0) return;
                 var minSecPerLabel = RulerMinLabelSpacingPx / pxPerSec;

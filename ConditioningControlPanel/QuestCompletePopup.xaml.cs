@@ -1,6 +1,8 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
@@ -35,10 +37,43 @@ public partial class QuestCompletePopup : Window
         Opacity = 0;
         Loaded += (s, e) =>
         {
+            // Re-assert to the very top of the topmost z-band WITHOUT activating, so the popup
+            // is visible over an in-app fullscreen video (which is also Topmost but was activated
+            // more recently and would otherwise sit above us). NOACTIVATE keeps video playback
+            // focused/uninterrupted. Beats the app's own fullscreen surfaces (#332). (A browser
+            // HTML5-fullscreen Chromium surface may still win — the inline QuestCompleteBanner is
+            // the fallback there.)
+            ForceToTopMost();
+
             var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300));
             BeginAnimation(OpacityProperty, fadeIn);
         };
     }
+
+    private void ForceToTopMost()
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        catch (Exception ex)
+        {
+            App.Logger?.Error(ex, "QuestCompletePopup: ForceToTopMost failed");
+        }
+    }
+
+    private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOACTIVATE = 0x0010;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+        int X, int Y, int cx, int cy, uint uFlags);
 
     private void PositionWindow()
     {

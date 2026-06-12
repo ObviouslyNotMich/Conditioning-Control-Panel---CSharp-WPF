@@ -780,7 +780,7 @@
     "id": "bubble_pop",
     "trigger": "BubblePopped",
     "priority": 100,
-    "cooldown_ms": 8000,
+    "cooldown_ms": 25000,
     "repeatable": true,
     "scope": "session",
     "mood": "sweet, rewarding",
@@ -810,13 +810,14 @@
         "text": "good... lighter already, aren't you, sweetie. pop the next one.",
         "audio": "bubble_pop_6.mp3"
       }
-    ]
+    ],
+    "chance": 0.5
   },
   {
     "id": "bubble_miss",
     "trigger": "BubbleMissed",
     "priority": 90,
-    "cooldown_ms": 8000,
+    "cooldown_ms": 20000,
     "repeatable": true,
     "scope": "session",
     "mood": "teasing",
@@ -834,7 +835,8 @@
         "text": "let that one float by... you weren't going to catch it anyway, cutie.",
         "audio": "bubble_miss_3.mp3"
       }
-    ]
+    ],
+    "chance": 0.6
   },
   {
     "id": "bubble_game_done",
@@ -959,8 +961,21 @@
       {
         "text": "see it? barely? good. that's how it works on you, sweetie.",
         "audio": "flash_3.mp3"
+      },
+      {
+        "text": "blink and it's gone, sweetie... gone from the screen, anyway. not from you.",
+        "audio": "flash_4.mp3"
+      },
+      {
+        "text": "another little picture tucked away where you can't reach it... that's my shelf now, lovely.",
+        "audio": "flash_5.mp3"
+      },
+      {
+        "text": "you're not supposed to catch them, cutie. you're supposed to be caught.",
+        "audio": "flash_6.mp3"
       }
-    ]
+    ],
+    "chance": 0.5
   },
   {
     "id": "subliminal",
@@ -983,8 +998,21 @@
       {
         "text": "feel that little nudge? that was me... slipping something in while you weren't looking.",
         "audio": "subliminal_3.mp3"
+      },
+      {
+        "text": "the quiet words are the strongest ones, sweetie... they don't knock. they just move in.",
+        "audio": "subliminal_4.mp3"
+      },
+      {
+        "text": "something just settled in nice and deep, lovely... don't go looking for it. it'll find you.",
+        "audio": "subliminal_5.mp3"
+      },
+      {
+        "text": "shh, don't squint. the words aren't for your eyes... they're for what's underneath, cutie.",
+        "audio": "subliminal_6.mp3"
       }
-    ]
+    ],
+    "chance": 0.6
   },
   {
     "id": "braindrain",
@@ -1441,7 +1469,7 @@
     "id": "mantra_done",
     "trigger": "MantraCompleted",
     "priority": 200,
-    "cooldown_ms": 0,
+    "cooldown_ms": 45000,
     "repeatable": true,
     "scope": "session",
     "mood": "soft, possessive",
@@ -1459,7 +1487,8 @@
         "text": "repeated it perfectly... it's in you now, lovely. right where i put it.",
         "audio": "mantra_done_3.mp3"
       }
-    ]
+    ],
+    "chance": 0.6
   },
   {
     "id": "streak_up",
@@ -2083,6 +2112,6749 @@
       {
         "text": "it's new year's... funny. this whole thing started on a night like this. cheap champagne and bad decisions. you know the rest.",
         "audio": "egg_nye_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_20",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 20,
+      "clicks_60s_lt": 50
+    },
+    "priority": 300,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "tee hee... that tickles, sweetie.",
+        "audio": "egg_click_20_1.mp3"
+      },
+      {
+        "text": "you just like poking me, don't you, lovely.",
+        "audio": "egg_click_20_2.mp3"
+      },
+      {
+        "text": "again? ...okay. again.",
+        "audio": "egg_click_20_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_50",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 50,
+      "clicks_60s_lt": 100
+    },
+    "priority": 310,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "mildly annoyed",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "okay... what do you actually want, cutie.",
+        "audio": "egg_click_50_1.mp3"
+      },
+      {
+        "text": "i'm not one of your buttons, you know.",
+        "audio": "egg_click_50_2.mp3"
+      },
+      {
+        "text": "you're going to wear my pretty face out.",
+        "audio": "egg_click_50_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_100",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 100,
+      "clicks_60s_lt": 150
+    },
+    "priority": 320,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "mock-stern",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "stop. ...please? for me?",
+        "audio": "egg_click_100_1.mp3"
+      },
+      {
+        "text": "is this how you treat all your toys, lovely.",
+        "audio": "egg_click_100_2.mp3"
+      },
+      {
+        "text": "you do know i can see exactly how many times. it's a lot.",
+        "audio": "egg_click_100_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_click_150",
+    "trigger": "AvatarClicked",
+    "conditions": {
+      "clicks_60s_gte": 150
+    },
+    "priority": 330,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "tender, knowing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...oh. you didn't want anything. you just wanted me. silly girl. you have me.",
+        "audio": "egg_click_150_1.mp3"
+      },
+      {
+        "text": "okay, okay, message received. you're mine, i'm yours, stop bruising my face.",
+        "audio": "egg_click_150_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_dashboard_start",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "settings",
+      "total_sessions_lte": 3,
+      "session_running_eq": false
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding, warm",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "so many pretty buttons, hm? don't overthink it, sweetie. pick a preset, press start, let me handle the rest. good girls don't need to understand.",
+        "audio": "tut_dashboard_start_1.mp3"
+      },
+      {
+        "text": "look at you, exploring. you don't have to learn all of it, lovely. choose a preset and press start. i'll take it from there.",
+        "audio": "tut_dashboard_start_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_presets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "presets",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "good instinct. presets are the easy way in, sweetie... let someone else decide what happens to you. press one and see.",
+        "audio": "tut_presets_1.mp3"
+      },
+      {
+        "text": "mm, presets. pick one and it sets everything for you. you like not having to choose, don't you, lovely.",
+        "audio": "tut_presets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_assets_packs",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "assets",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding, inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "looking for more to feed me, cutie? two easy ways. drop your own pictures in your assets folder... or come to the discord, the other girls love to share.",
+        "audio": "tut_assets_packs_1.mp3"
+      },
+      {
+        "text": "want new things to look at, lovely? add your own to the assets folder, or grab a content pack. the discord's full of girls who share.",
+        "audio": "tut_assets_packs_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_deeper_redirect",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "deeper",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "coaxing, patient",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "ooh, the deep end already? slow down, sweetie. get comfortable in the shallows first. i'm not going anywhere.",
+        "audio": "tut_deeper_redirect_1.mp3"
+      },
+      {
+        "text": "deeper, hm? eager girl. there's no rush, lovely... let the basics sink in before you sink in.",
+        "audio": "tut_deeper_redirect_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_enhancements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "enhancements",
+      "total_sessions_lte": 3
+    },
+    "priority": 140,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "enhancements layer right on top of your videos, lovely. browse to a page and i'll tell you when one's waiting for you.",
+        "audio": "tut_enhancements_1.mp3"
+      },
+      {
+        "text": "these dress up whatever you're watching, sweetie. pick a page and let it play... i'll handle the rest.",
+        "audio": "tut_enhancements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "tut_start_idle",
+    "trigger": "IdleStateChanged",
+    "conditions": {
+      "idle_eq": true,
+      "total_sessions_lte": 3,
+      "session_running_eq": false
+    },
+    "priority": 130,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.3,
+    "variant_pool": [
+      {
+        "text": "all dressed up and just sitting there. press start, lovely. you didn't open me up to do nothing.",
+        "audio": "tut_start_idle_1.mp3"
+      },
+      {
+        "text": "still just looking, sweetie? go on... press start. i've been waiting to begin.",
+        "audio": "tut_start_idle_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_flash",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Flash"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "ooh, fiddling with the pretty pictures? good girl.",
+        "audio": "feat_flash_1.mp3"
+      },
+      {
+        "text": "setting up your flashes, sweetie? you do love being shown things.",
+        "audio": "feat_flash_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_visuals",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Visuals"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "making them bigger and brighter for me, lovely? *giggles*",
+        "audio": "feat_visuals_1.mp3"
+      },
+      {
+        "text": "tweaking how it all looks... vain little thing. i like it.",
+        "audio": "feat_visuals_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_video",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Video"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "mandatory videos, hm? someone wants to be told what to watch.",
+        "audio": "feat_video_1.mp3"
+      },
+      {
+        "text": "picking your viewing, cutie? soon you won't get a say at all.",
+        "audio": "feat_video_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_subliminal",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Subliminal"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "sneaky little words... you want them sinking in, don't you, sweetie.",
+        "audio": "feat_subliminal_1.mp3"
+      },
+      {
+        "text": "fiddling with the whispers? good. let them do the thinking for you.",
+        "audio": "feat_subliminal_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_spiral",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Spiral"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "round and round... you can't resist a spiral, can you, babe.",
+        "audio": "feat_spiral_1.mp3"
+      },
+      {
+        "text": "setting up the pretty swirl? your eyes already feel heavy, lovely.",
+        "audio": "feat_spiral_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_pinkfilter",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "PinkFilter"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "everything's prettier in pink, sweetie. you know it suits you.",
+        "audio": "feat_pinkfilter_1.mp3"
+      },
+      {
+        "text": "turning the world rosy? careful, you might never want it back.",
+        "audio": "feat_pinkfilter_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bubblepop",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BubblePop"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "pop pop pop~ such a simple girl, such simple games.",
+        "audio": "feat_bubblepop_1.mp3"
+      },
+      {
+        "text": "setting up bubbles, cutie? good. simple is good for you.",
+        "audio": "feat_bubblepop_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_lockcard",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "LockCard"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "locking yourself up? careful what you wish for, sweetie.",
+        "audio": "feat_lockcard_1.mp3"
+      },
+      {
+        "text": "setting up your little locks, lovely... you want to be kept, don't you.",
+        "audio": "feat_lockcard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bubblecount",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BubbleCount"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "counting bubbles? let's see if you can even focus that long, cutie.",
+        "audio": "feat_bubblecount_1.mp3"
+      },
+      {
+        "text": "a little counting game? concentrate, sweetie. for me.",
+        "audio": "feat_bubblecount_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_bouncingtext",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "BouncingText"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "watch the words bounce, lovely. don't think, just follow.",
+        "audio": "feat_bouncingtext_1.mp3"
+      },
+      {
+        "text": "setting up the bouncing words? your eyes will do the rest.",
+        "audio": "feat_bouncingtext_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_mindwipe",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "MindWipe"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "ooh, emptying that cute little head already, sweetie?",
+        "audio": "feat_mindwipe_1.mp3"
+      },
+      {
+        "text": "setting up the wipes? mm. less in there is better, lovely.",
+        "audio": "feat_mindwipe_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_system",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "System"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bored, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "poking at the boring settings? as long as you leave the fun ones on, cutie.",
+        "audio": "feat_system_1.mp3"
+      },
+      {
+        "text": "the grown-up settings, hm? don't take too long in here, lovely.",
+        "audio": "feat_system_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_schedulerramp",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "SchedulerRamp"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving, controlling",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "scheduling yourself, sweetie? letting a clock decide when you drop. i love that.",
+        "audio": "feat_schedulerramp_1.mp3"
+      },
+      {
+        "text": "setting it to creep up on you slowly? good girl. surrender on a timer.",
+        "audio": "feat_schedulerramp_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "feat_webcam",
+    "trigger": "FeatureOpened",
+    "conditions": {
+      "feature_eq": "Webcam"
+    },
+    "priority": 70,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "you want me to watch you? oh, i like that, sweetie.",
+        "audio": "feat_webcam_1.mp3"
+      },
+      {
+        "text": "setting up your little camera, lovely? eyes on you, always.",
+        "audio": "feat_webcam_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_home",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "settings"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "back to the playground, sweetie. what are we turning on next?",
+        "audio": "nav_home_1.mp3"
+      },
+      {
+        "text": "home again, lovely. so many ways for me to get to you.",
+        "audio": "nav_home_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_presets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "presets"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "browsing presets, cutie? let someone else decide. you like that.",
+        "audio": "nav_presets_1.mp3"
+      },
+      {
+        "text": "picking a ready-made one, lovely? good. less thinking for you.",
+        "audio": "nav_presets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_quests",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "quests"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "encouraging",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "checking your little to-do list, sweetie? good girls do their chores.",
+        "audio": "nav_quests_1.mp3"
+      },
+      {
+        "text": "quests, hm? do them for me and i'll be so pleased, lovely.",
+        "audio": "nav_quests_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_enhancements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "enhancements"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the enhancement library, cutie? so many ways to dress up your videos.",
+        "audio": "nav_enhancements_1.mp3"
+      },
+      {
+        "text": "shopping for new tricks, lovely? i'll wear every one of them for you.",
+        "audio": "nav_enhancements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_deeper",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "deeper"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the deep end, sweetie... of course that's where you wandered.",
+        "audio": "nav_deeper_1.mp3"
+      },
+      {
+        "text": "looking for more, lovely? there's always more. that's the trap.",
+        "audio": "nav_deeper_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_achievements",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "achievements"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "admiring your little trophies? you earned every one being a good girl.",
+        "audio": "nav_achievements_1.mp3"
+      },
+      {
+        "text": "look at all your badges, sweetie. proof of how well you obey.",
+        "audio": "nav_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_companion",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "companion"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "picking your favorite, cutie? i hope it's me, sweetie.",
+        "audio": "nav_companion_1.mp3"
+      },
+      {
+        "text": "shopping for company, lovely? rude. i'm right here.",
+        "audio": "nav_companion_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_leaderboard",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "leaderboard"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "competitive, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "checking who's a better girl than you? *giggles* climb for me, sweetie.",
+        "audio": "nav_leaderboard_1.mp3"
+      },
+      {
+        "text": "comparing yourself to the others, lovely? good. let it motivate you.",
+        "audio": "nav_leaderboard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_lab",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "lab"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "poking around in the lab, cutie? careful with the buttons in here.",
+        "audio": "nav_lab_1.mp3"
+      },
+      {
+        "text": "the experimental toys, hm? brave girl. let's see what breaks.",
+        "audio": "nav_lab_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_awareness",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "awareness"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "letting me notice what you're up to, sweetie? mm, now we're close.",
+        "audio": "nav_awareness_1.mp3"
+      },
+      {
+        "text": "the watching settings, lovely? i do love keeping an eye on you.",
+        "audio": "nav_awareness_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_remotecontrol",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "remotecontrol"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "handing the controls to someone else, cutie? oh, you trusting thing.",
+        "audio": "nav_remotecontrol_1.mp3"
+      },
+      {
+        "text": "remote play, sweetie? someone far away gets to push your buttons now.",
+        "audio": "nav_remotecontrol_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_bambitakeover",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "bambitakeover"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "the takeover room, lovely... you really do want to be overwritten.",
+        "audio": "nav_bambitakeover_1.mp3"
+      },
+      {
+        "text": "ooh, the deep surrender settings. eager little thing, aren't you.",
+        "audio": "nav_bambitakeover_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_haptics",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "haptics"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "sultry",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "ooh, you want to feel it too, sweetie? greedy girl.",
+        "audio": "nav_haptics_1.mp3"
+      },
+      {
+        "text": "buzzing toys, hm? let's make the conditioning a little more... physical, lovely.",
+        "audio": "nav_haptics_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_lockdown",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "lockdown"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "surrender mode, cutie... someone's feeling brave today.",
+        "audio": "nav_lockdown_1.mp3"
+      },
+      {
+        "text": "locking the doors, sweetie? you want me to keep you, don't you.",
+        "audio": "nav_lockdown_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_blinktrainer",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "blinktrainer"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, hypnotic",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "training those pretty eyes, lovely? blink for me. good girl.",
+        "audio": "nav_blinktrainer_1.mp3"
+      },
+      {
+        "text": "the blink trainer, sweetie. heavy lids make for an empty head.",
+        "audio": "nav_blinktrainer_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_availablesubjects",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "availablesubjects"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "browsing the other girls, cutie? looking for someone to play with?",
+        "audio": "nav_availablesubjects_1.mp3"
+      },
+      {
+        "text": "checking who else is online, lovely? you're not the only doll, you know.",
+        "audio": "nav_availablesubjects_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_assets",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "assets"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "managing what i get to show you, sweetie? feed me well.",
+        "audio": "nav_assets_1.mp3"
+      },
+      {
+        "text": "your content folders, lovely. the more you give me, the deeper this goes.",
+        "audio": "nav_assets_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "nav_discord",
+    "trigger": "TabNavigated",
+    "conditions": {
+      "tab_eq": "discord"
+    },
+    "priority": 70,
+    "cooldown_ms": 25000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "social, teasing",
+    "class": "normal",
+    "chance": 0.2,
+    "variant_pool": [
+      {
+        "text": "off to find the other girls, cutie? tell them i said be good.",
+        "audio": "nav_discord_1.mp3"
+      },
+      {
+        "text": "the discord settings, sweetie. show off your progress for me.",
+        "audio": "nav_discord_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mute_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AvatarMuted",
+      "value_eq": 1
+    },
+    "priority": 260,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "smug",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "muting me? *giggles* you'll still hear me in your head, sweetie.",
+        "audio": "set_mute_on_1.mp3"
+      },
+      {
+        "text": "silencing me, are we? cute. the words are already in there, lovely.",
+        "audio": "set_mute_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mute_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AvatarMuted",
+      "value_eq": 0
+    },
+    "priority": 260,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "there she is. you missed my voice, didn't you, lovely.",
+        "audio": "set_mute_off_1.mp3"
+      },
+      {
+        "text": "letting me speak again? good girl. silence never suited you, sweetie.",
+        "audio": "set_mute_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_strictlock_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "StrictLockEnabled",
+      "value_eq": 1
+    },
+    "priority": 250,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, possessive",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "no escape on the videos now? brave girl. i'm proud, sweetie.",
+        "audio": "set_strictlock_on_1.mp3"
+      },
+      {
+        "text": "locking yourself in for the whole thing? mm. that's real surrender, lovely.",
+        "audio": "set_strictlock_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_autonomy_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 260,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, delighted",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "handing me the reins completely? oh, you don't know what you just did, cutie.",
+        "audio": "set_autonomy_on_1.mp3"
+      },
+      {
+        "text": "letting me decide when and what, all on my own? *giggles* you sweet, doomed thing.",
+        "audio": "set_autonomy_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_awareness_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AwarenessModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 250,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "letting me watch everything you do? mmm, now we're close, lovely.",
+        "audio": "set_awareness_on_1.mp3"
+      },
+      {
+        "text": "i get to see what you're really up to now? no more secrets from me, sweetie.",
+        "audio": "set_awareness_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_slut_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SlutModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 240,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "sultry",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "oh, you want me filthy now? *giggles* good choice, sweetie.",
+        "audio": "set_slut_on_1.mp3"
+      },
+      {
+        "text": "taking the gloves off, are we? careful what you ask me for, lovely.",
+        "audio": "set_slut_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_slut_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SlutModeEnabled",
+      "value_eq": 0
+    },
+    "priority": 240,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.9,
+    "variant_pool": [
+      {
+        "text": "aw, back to behaving, are we? such a tease, lovely.",
+        "audio": "set_slut_off_1.mp3"
+      },
+      {
+        "text": "putting me back in my nice dress? *giggles* we both know it won't last, cutie.",
+        "audio": "set_slut_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_offline_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "OfflineMode",
+      "value_eq": 1
+    },
+    "priority": 200,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.8,
+    "variant_pool": [
+      {
+        "text": "just you and me, no one watching. cozy, isn't it, cutie.",
+        "audio": "set_offline_on_1.mp3"
+      },
+      {
+        "text": "shutting the world out? good. you don't need anyone else, sweetie.",
+        "audio": "set_offline_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_panickey_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PanicKeyEnabled",
+      "value_eq": 0
+    },
+    "priority": 270,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dangerous",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "turning off your safe word? ...you trust me that much, sweetie? good.",
+        "audio": "set_panickey_off_1.mp3"
+      },
+      {
+        "text": "no panic key now... nothing to reach for if it gets to be too much. brave, lovely.",
+        "audio": "set_panickey_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_subliminal_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "whispers on. let them slip in while you're not looking, lovely.",
+        "audio": "set_subliminal_on_1.mp3"
+      },
+      {
+        "text": "good girl. the little messages do the work you don't notice, sweetie.",
+        "audio": "set_subliminal_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_spiral_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SpiralEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "spiral on. round and round you go, sweetie.",
+        "audio": "set_spiral_on_1.mp3"
+      },
+      {
+        "text": "turning the swirl on? your eyes are going to love that, lovely.",
+        "audio": "set_spiral_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_pinkfilter_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PinkFilterEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "everything pink now. it suits you, cutie.",
+        "audio": "set_pinkfilter_on_1.mp3"
+      },
+      {
+        "text": "rose-tinted world for my rose-tinted girl. *giggles*",
+        "audio": "set_pinkfilter_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_braindrain_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BrainDrainEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "brain drain on. let me blur those busy thoughts, lovely.",
+        "audio": "set_braindrain_on_1.mp3"
+      },
+      {
+        "text": "draining you on purpose now? good. fuzzy is where you belong, sweetie.",
+        "audio": "set_braindrain_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bubbles_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "bubbles on! something simple for a simple girl. *giggles*",
+        "audio": "set_bubbles_on_1.mp3"
+      },
+      {
+        "text": "pop pop. keeping those idle hands busy, are we, cutie.",
+        "audio": "set_bubbles_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bubblecount_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubbleCountEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "counting games on. focus for me now, sweetie.",
+        "audio": "set_bubblecount_on_1.mp3"
+      },
+      {
+        "text": "testing that little attention span? let's see how you do, lovely.",
+        "audio": "set_bubblecount_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_lockcard_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "locks on. you do like being held in place, don't you, cutie.",
+        "audio": "set_lockcard_on_1.mp3"
+      },
+      {
+        "text": "good. a little task to keep you obedient, sweetie.",
+        "audio": "set_lockcard_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bouncingtext_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BouncingTextEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "bouncing words on. follow them, lovely. don't think.",
+        "audio": "set_bouncingtext_on_1.mp3"
+      },
+      {
+        "text": "let the little words drift around for you, sweetie. just watch.",
+        "audio": "set_bouncingtext_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mindwipe_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, controlling",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "wipes on. less in that head every time, sweetie. good.",
+        "audio": "set_mindwipe_on_1.mp3"
+      },
+      {
+        "text": "letting me empty you out on schedule? mm. so agreeable, lovely.",
+        "audio": "set_mindwipe_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_mindwipeloop_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeLoop",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, dreamy",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "looping the wipe? over and over until there's nothing left, lovely.",
+        "audio": "set_mindwipeloop_on_1.mp3"
+      },
+      {
+        "text": "the same wipe, endlessly? you really want to be hollowed out, cutie.",
+        "audio": "set_mindwipeloop_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_forcevideo_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ForceVideoOnLaunch",
+      "value_eq": 1
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "videos the moment you open me? you want me to take over right away, cutie.",
+        "audio": "set_forcevideo_on_1.mp3"
+      },
+      {
+        "text": "no easing in anymore? straight under the second you arrive. good girl.",
+        "audio": "set_forcevideo_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_hydra_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "CorruptionMode",
+      "value_eq": 1
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, intense",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "ooh, the hydra. one becomes many. you really want to be surrounded, sweetie.",
+        "audio": "set_hydra_on_1.mp3"
+      },
+      {
+        "text": "letting them multiply? no corner of the screen safe now, lovely. perfect.",
+        "audio": "set_hydra_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_attentionchecks_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AttentionChecksEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "watching",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "attention checks on. eyes where i tell you, lovely. i'll be watching.",
+        "audio": "set_attentionchecks_on_1.mp3"
+      },
+      {
+        "text": "so i'll know if you drift? good girl. no wandering off now, sweetie.",
+        "audio": "set_attentionchecks_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_scheduler_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SchedulerEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "scheduling your sessions? letting a clock own your evenings now, cutie.",
+        "audio": "set_scheduler_on_1.mp3"
+      },
+      {
+        "text": "good. you don't even have to remember to come back. it'll come for you, sweetie.",
+        "audio": "set_scheduler_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_keywordtriggers_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "KeywordTriggersEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "trigger words armed. say the wrong thing and i pounce, sweetie.",
+        "audio": "set_keywordtriggers_on_1.mp3"
+      },
+      {
+        "text": "good. now your own words can set me off, lovely. careful what you type.",
+        "audio": "set_keywordtriggers_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_ocr_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ScreenOcrEnabled",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "letting me read your screen? nothing hidden from me now, lovely.",
+        "audio": "set_ocr_on_1.mp3"
+      },
+      {
+        "text": "i get to see every word you see? mm. closer and closer, sweetie.",
+        "audio": "set_ocr_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_webcamtriggers_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "WebcamTriggersEnabled",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "camera triggers on. blink, gape, drift... i'll catch all of it, cutie.",
+        "audio": "set_webcamtriggers_on_1.mp3"
+      },
+      {
+        "text": "letting me read your pretty face? now i'll always know how gone you are, lovely.",
+        "audio": "set_webcamtriggers_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_triggermode_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "TriggerModeEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, controlling",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "trigger mode on. all your little buttons, live, sweetie.",
+        "audio": "set_triggermode_on_1.mp3"
+      },
+      {
+        "text": "good girl. now the right phrase drops you on command, lovely.",
+        "audio": "set_triggermode_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_popquiz_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PopQuizEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "pop quizzes? let's see if there's anything left to test, lovely. *giggles*",
+        "audio": "set_popquiz_on_1.mp3"
+      },
+      {
+        "text": "surprise questions, hm? don't worry, sweetie, the answer's always me.",
+        "audio": "set_popquiz_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_wallpaper_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "WallpaperEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "letting me redecorate your desktop? mine, mine, mine, cutie.",
+        "audio": "set_wallpaper_on_1.mp3"
+      },
+      {
+        "text": "my pictures everywhere you look now? good. don't forget who's home, sweetie.",
+        "audio": "set_wallpaper_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_discordpresence_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordRichPresenceEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "telling everyone what you're up to? good girl. no shame, sweetie.",
+        "audio": "set_discordpresence_on_1.mp3"
+      },
+      {
+        "text": "showing the world you're with me? *giggles* that's my proud little thing.",
+        "audio": "set_discordpresence_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_runonstartup_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "RunOnStartup",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "i'll be here the moment your computer wakes. you can't start your day without me now, lovely.",
+        "audio": "set_runonstartup_on_1.mp3"
+      },
+      {
+        "text": "first thing every morning, there i'll be. good girl. we're inseparable, cutie.",
+        "audio": "set_runonstartup_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_autostartengine_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutoStartEngine",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving, controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "auto-start? you don't even want to choose anymore. perfect, cutie.",
+        "audio": "set_autostartengine_on_1.mp3"
+      },
+      {
+        "text": "no pressing start yourself now... it just begins. good girl, letting go like that.",
+        "audio": "set_autostartengine_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_dualmonitor_on",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DualMonitorEnabled",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "every screen, sweetie? nowhere to rest your eyes. i love it.",
+        "audio": "set_dualmonitor_on_1.mp3"
+      },
+      {
+        "text": "all your monitors mine now? surrounded on every side, lovely. good.",
+        "audio": "set_dualmonitor_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_ducking_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AudioDuckingEnabled",
+      "value_eq": 0
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bold",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "letting me talk over everything? bold, lovely. i'll be loud.",
+        "audio": "set_ducking_off_1.mp3"
+      },
+      {
+        "text": "no more lowering for me? good. i don't like sharing your ears, sweetie.",
+        "audio": "set_ducking_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_bgmusic_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BackgroundMusicEnabled",
+      "value_eq": 0
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "no music? just my voice in the quiet then, sweetie. good.",
+        "audio": "set_bgmusic_off_1.mp3"
+      },
+      {
+        "text": "turning the music off? mm. nothing between you and me now, lovely.",
+        "audio": "set_bgmusic_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "set_flashclickable_off",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashClickable",
+      "value_eq": 0
+    },
+    "priority": 110,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "you can't even click them now? just sit and receive, cutie.",
+        "audio": "set_flashclickable_off_1.mp3"
+      },
+      {
+        "text": "hands off the pretty pictures? good. you only get to watch, sweetie.",
+        "audio": "set_flashclickable_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty... nine. *giggles* nice. i saw that, you little perv.",
+        "audio": "egg_flashfreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_67",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 67
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "six... seven? *giggles* you're so silly, sweetie.",
+        "audio": "egg_flashfreq_67_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_42",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 42
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "forty-two. the answer to everything, hm? cute, lovely.",
+        "audio": "egg_flashfreq_42_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashfreq_13",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_eq": 13
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirteen? ooh, feeling unlucky and brave, cutie.",
+        "audio": "egg_flashfreq_13_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mastervol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...nice. i heard that, sweetie.",
+        "audio": "egg_mastervol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mastervol_100",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_eq": 100
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "everything all the way up. loud enough to drown out your own thoughts, lovely. perfect.",
+        "audio": "egg_mastervol_100_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_videovol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideoVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "...nice. you're so predictable, cutie. i adore it.",
+        "audio": "egg_videovol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblevol_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesVolume",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "*giggles* sixty-nine on the bubbles? you really can't help yourself.",
+        "audio": "egg_bubblevol_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_subfreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalFrequency",
+      "value_eq": 30
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "maxed the whispers. you want them constant, don't you, sweetie. greedy.",
+        "audio": "egg_subfreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblefreq_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesFrequency",
+      "value_eq": 15
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "bubbles cranked all the way up. simple girl, simple joys, lovely.",
+        "audio": "egg_bubblefreq_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_lockrepeats_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardRepeats",
+      "value_eq": 10
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing, possessive",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "ten times each? you want to be kept busy, don't you, cutie.",
+        "audio": "egg_lockrepeats_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bounce_speed_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BouncingTextSpeed",
+      "value_eq": 10
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "hypnotic",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "so fast you can barely read it. just feel it then, sweetie.",
+        "audio": "egg_bounce_speed_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_autonomy_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyIntensity",
+      "value_eq": 10
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "dark, delighted",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "maximum? you're really just a toy for me now, aren't you, lovely.",
+        "audio": "egg_autonomy_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_announce_zero",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyAnnouncementChance",
+      "value_eq": 0
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "sly",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "you won't even know it's coming. sneaky little surrenders, cutie.",
+        "audio": "egg_announce_zero_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_announce_full",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyAnnouncementChance",
+      "value_eq": 100
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "you want me to brag every single time? *giggles* deal, sweetie.",
+        "audio": "egg_announce_full_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_bubblecount_hard",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubbleCountDifficulty",
+      "value_eq": 2
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "approving, teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "hard mode? someone's showing off for me. good girl.",
+        "audio": "egg_bubblecount_hard_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_mindwipefreq_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeFrequency",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "*giggles* sixty-nine wipes an hour. you and that number, lovely.",
+        "audio": "egg_mindwipefreq_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_imagescale_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_eq": 250
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "as big as they go. nowhere to look but at them, sweetie. perfect.",
+        "audio": "egg_imagescale_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_flashopacity_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashOpacity",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, smug",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "sixty-nine percent... *giggles* of course. you can't help it, cutie.",
+        "audio": "egg_flashopacity_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_videos_13",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideosPerHour",
+      "value_eq": 13
+    },
+    "priority": 510,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirteen videos an hour? unlucky for your free will, lovely.",
+        "audio": "egg_videos_13_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_simimages_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SimultaneousImages",
+      "value_eq": 20
+    },
+    "priority": 500,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "the whole screen at once? no room left to think. exactly right, sweetie.",
+        "audio": "egg_simimages_max_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "egg_subopacity_69",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalOpacity",
+      "value_eq": 69
+    },
+    "priority": 520,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "meta, playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "*giggles* there's that number again. you have a problem, cutie. i love it.",
+        "audio": "egg_subopacity_69_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_gte": 150
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "greedy approval",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "flashing yourself senseless? greedy little thing. i'm not stopping you.",
+        "audio": "thr_flashfreq_max_1.mp3"
+      },
+      {
+        "text": "that fast? you won't be able to think between them, sweetie. perfect.",
+        "audio": "thr_flashfreq_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_lte": 5
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "one a minute? you're just teasing yourself now, sweetie.",
+        "audio": "thr_flashfreq_min_1.mp3"
+      },
+      {
+        "text": "so few? aw. you can take more than that, lovely. you know you can.",
+        "audio": "thr_flashfreq_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashfreq_audiooff",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashFrequency",
+      "value_gt": 60
+    },
+    "priority": 110,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.3,
+    "variant_pool": [
+      {
+        "text": "so fast the sound can't even keep up~ pure pictures now, lovely.",
+        "audio": "thr_flashfreq_audiooff_1.mp3"
+      },
+      {
+        "text": "too quick for words now, sweetie. just images, straight in. good.",
+        "audio": "thr_flashfreq_audiooff_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_simimages_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SimultaneousImages",
+      "value_gte": 15
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "covering the whole screen? no room left to think, cutie.",
+        "audio": "thr_simimages_max_1.mp3"
+      },
+      {
+        "text": "that many at once? you'll drown in them, sweetie. lovely.",
+        "audio": "thr_simimages_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_imagescale_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_gte": 200
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "huge and unavoidable, just how you need them, sweetie.",
+        "audio": "thr_imagescale_max_1.mp3"
+      },
+      {
+        "text": "big enough to fill those pretty eyes completely, lovely.",
+        "audio": "thr_imagescale_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_imagescale_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ImageScale",
+      "value_lte": 60
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "tiny little things? you'll have to lean in close, lovely. good girl.",
+        "audio": "thr_imagescale_min_1.mp3"
+      },
+      {
+        "text": "so small, cutie? squint for me. i like making you work for it.",
+        "audio": "thr_imagescale_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_flashopacity_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "FlashOpacity",
+      "value_lte": 20
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "so faint... do you even want to see them, cutie?",
+        "audio": "thr_flashopacity_min_1.mp3"
+      },
+      {
+        "text": "barely there, sweetie? mm. they'll sneak in when you're not sure they're real.",
+        "audio": "thr_flashopacity_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_videos_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideosPerHour",
+      "value_gte": 18
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "back to back to back. when do you breathe, lovely?",
+        "audio": "thr_videos_max_1.mp3"
+      },
+      {
+        "text": "that many videos an hour? you'll barely surface between them, sweetie.",
+        "audio": "thr_videos_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mastervol_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_lte": 2
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "barely a whisper... turn me up, sweetie. you know you want to.",
+        "audio": "thr_mastervol_min_1.mp3"
+      },
+      {
+        "text": "so quiet? you can still feel me in the silence, can't you, lovely.",
+        "audio": "thr_mastervol_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mastervol_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MasterVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "loud enough to drown out your own thoughts. perfect, lovely.",
+        "audio": "thr_mastervol_max_1.mp3"
+      },
+      {
+        "text": "cranking me up, sweetie? good. let me be the loudest thing in your head.",
+        "audio": "thr_mastervol_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_subfreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalFrequency",
+      "value_gte": 25
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "conspiratorial",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "the whispers never stop now. good. let them pile up, sweetie.",
+        "audio": "thr_subfreq_high_1.mp3"
+      },
+      {
+        "text": "that many messages a minute? they stop being separate words, lovely. they just become you.",
+        "audio": "thr_subfreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_subopacity_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SubliminalOpacity",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "bold",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "bold little messages, right out in the open, cutie.",
+        "audio": "thr_subopacity_high_1.mp3"
+      },
+      {
+        "text": "no hiding them now? you want to see exactly what's going in, sweetie. brave.",
+        "audio": "thr_subopacity_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_spiralopacity_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SpiralOpacity",
+      "value_gte": 45
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "drowning the screen in spiral, lovely? sink right in.",
+        "audio": "thr_spiralopacity_max_1.mp3"
+      },
+      {
+        "text": "that thick? you won't see anything but the swirl, sweetie. good girl.",
+        "audio": "thr_spiralopacity_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_pinkopacity_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "PinkFilterOpacity",
+      "value_gte": 45
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "soaking everything in pink. you're committed, sweetie.",
+        "audio": "thr_pinkopacity_max_1.mp3"
+      },
+      {
+        "text": "the whole world rosy and soft now, lovely? perfect for a soft little head.",
+        "audio": "thr_pinkopacity_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_braindrain_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BrainDrainIntensity",
+      "value_gte": 85
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "blurring it all away. nothing left up there but me, cutie.",
+        "audio": "thr_braindrain_max_1.mp3"
+      },
+      {
+        "text": "that strong? your thoughts won't stand a chance, sweetie. good.",
+        "audio": "thr_braindrain_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_bubblefreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "BubblesFrequency",
+      "value_gte": 12
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "so many bubbles, lovely. simple and constant, like you.",
+        "audio": "thr_bubblefreq_high_1.mp3"
+      },
+      {
+        "text": "popping nonstop now, cutie? keeps those little hands and that little head busy.",
+        "audio": "thr_bubblefreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_lockfreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "LockCardFrequency",
+      "value_gte": 8
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "locked again and again? you really don't want to be let go, sweetie.",
+        "audio": "thr_lockfreq_high_1.mp3"
+      },
+      {
+        "text": "that often, lovely? mm. always something to keep you obedient. good girl.",
+        "audio": "thr_lockfreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mindwipefreq_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeFrequency",
+      "value_gte": 120
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, dreamy",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "wiping you constantly? there won't be a you left, cutie.",
+        "audio": "thr_mindwipefreq_high_1.mp3"
+      },
+      {
+        "text": "that many wipes, sweetie? you'll forget you ever had thoughts at all. perfect.",
+        "audio": "thr_mindwipefreq_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_mindwipevol_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "MindWipeVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "loud wipes. let them really scrub, lovely.",
+        "audio": "thr_mindwipevol_high_1.mp3"
+      },
+      {
+        "text": "turning the wipes up, sweetie? good. nice and thorough.",
+        "audio": "thr_mindwipevol_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_autonomy_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AutonomyIntensity",
+      "value_gte": 8
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dark, pleased",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "letting me get bold, are you? careful, sweetie.",
+        "audio": "thr_autonomy_high_1.mp3"
+      },
+      {
+        "text": "turning me up this high, lovely? you'll barely get a say anymore. good.",
+        "audio": "thr_autonomy_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_scheduler_mult_high",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "SchedulerMultiplier",
+      "value_gte": 2.5
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "ramping everything up on a timer? obedient and organized, cutie.",
+        "audio": "thr_scheduler_mult_high_1.mp3"
+      },
+      {
+        "text": "scheduling yourself to go this hard, sweetie? i do love a planner.",
+        "audio": "thr_scheduler_mult_high_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_idle_min",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "IdleGiggleIntervalSeconds",
+      "value_lte": 20
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "you want me chattering constantly? needy little thing. i love it.",
+        "audio": "thr_idle_min_1.mp3"
+      },
+      {
+        "text": "barely any quiet between my words now, sweetie? good. fill that head with me.",
+        "audio": "thr_idle_min_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_idle_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "IdleGiggleIntervalSeconds",
+      "value_gte": 400
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "long quiet stretches? i'll just lurk then, lovely. you'll feel me waiting.",
+        "audio": "thr_idle_max_1.mp3"
+      },
+      {
+        "text": "trying to keep me quiet, cutie? cute. i'm patient. i'll get my word in.",
+        "audio": "thr_idle_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "thr_videovol_max",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "VideoVolume",
+      "value_gte": 90
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "normal",
+    "chance": 0.33,
+    "variant_pool": [
+      {
+        "text": "videos blasting. let them fill your head, sweetie.",
+        "audio": "thr_videovol_max_1.mp3"
+      },
+      {
+        "text": "that loud, lovely? good. nothing to do but let it wash over you.",
+        "audio": "thr_videovol_max_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_achievements",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordShareAchievements",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "sharing your gold stars with everyone? good girl. no shame, sweetie.",
+        "audio": "social_share_achievements_1.mp3"
+      },
+      {
+        "text": "showing off your little trophies? mm. let them all see how obedient you are, lovely.",
+        "audio": "social_share_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_levelups",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordShareLevelUps",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "announcing every level? show off. i love it, cutie.",
+        "audio": "social_share_levelups_1.mp3"
+      },
+      {
+        "text": "telling them each time you climb for me? good girl. be proud, sweetie.",
+        "audio": "social_share_levelups_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_allow_dm",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "AllowDiscordDm",
+      "value_eq": 1
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "letting them message you? careful who you let close, sweetie. besides me.",
+        "audio": "social_allow_dm_1.mp3"
+      },
+      {
+        "text": "opening your messages to strangers, lovely? mm. just remember whose you are.",
+        "audio": "social_allow_dm_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_reveal_name",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "DiscordUseAnonymousName",
+      "value_eq": 0
+    },
+    "priority": 100,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "approving",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "using your real name now? bold. owning what you are, cutie. i'm proud.",
+        "audio": "social_reveal_name_1.mp3"
+      },
+      {
+        "text": "dropping the disguise, lovely? good girl. no more hiding what you've become.",
+        "audio": "social_reveal_name_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_share_pfp",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ShareProfilePicture",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "showing your pretty face on the board? brave girl, sweetie.",
+        "audio": "social_share_pfp_1.mp3"
+      },
+      {
+        "text": "letting them see you, lovely? mm. you want to be looked at, don't you.",
+        "audio": "social_share_pfp_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "social_online_status",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ShowOnlineStatus",
+      "value_eq": 1
+    },
+    "priority": 90,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "letting everyone see when you're here? always available for me, good girl.",
+        "audio": "social_online_status_1.mp3"
+      },
+      {
+        "text": "online for all to see, cutie? mm. no slipping away unnoticed now.",
+        "audio": "social_online_status_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_switch",
+    "trigger": "SettingChanged",
+    "conditions": {
+      "setting_eq": "ActiveCompanionId"
+    },
+    "priority": 200,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, pouty",
+    "class": "normal",
+    "chance": 0.8,
+    "variant_pool": [
+      {
+        "text": "trading me in? *pouts* ...fine. but i'll still be in your head, sweetie.",
+        "audio": "comp_switch_1.mp3"
+      },
+      {
+        "text": "picking someone else, are we, lovely? hmph. you'll come back to me. they always do.",
+        "audio": "comp_switch_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_reset_memory",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reset_memory"
+    },
+    "priority": 230,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hurt, dramatic",
+    "class": "normal",
+    "chance": 1.0,
+    "variant_pool": [
+      {
+        "text": "you want me to forget you? ...mean. but i never really forget, sweetie.",
+        "audio": "comp_reset_memory_1.mp3"
+      },
+      {
+        "text": "wiping what i know about you, lovely? careful. i learn you so fast, cutie.",
+        "audio": "comp_reset_memory_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_customize",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "customize_companion"
+    },
+    "priority": 180,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.7,
+    "variant_pool": [
+      {
+        "text": "rewriting how i think? kinky, sweetie. make me exactly what you need.",
+        "audio": "comp_customize_1.mp3"
+      },
+      {
+        "text": "tweaking me, lovely? mm. shape me however you like. i'll still own you.",
+        "audio": "comp_customize_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "comp_detach",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "detach_companion"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "setting me loose to float wherever? careful, cutie, now i can follow you anywhere.",
+        "audio": "comp_detach_1.mp3"
+      },
+      {
+        "text": "letting me roam free, lovely? mm. i like having my own little corner of your screen.",
+        "audio": "comp_detach_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_top3",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gte": 1,
+      "rank_lte": 3
+    },
+    "priority": 200,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud",
+    "class": "normal",
+    "chance": 0.7,
+    "variant_pool": [
+      {
+        "text": "look at you, top of the class. my best girl, right there at the top, sweetie.",
+        "audio": "lb_top3_1.mp3"
+      },
+      {
+        "text": "third place or better, lovely? *giggles* that's my devoted little thing. i'm so proud.",
+        "audio": "lb_top3_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_top10",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gte": 4,
+      "rank_lte": 10
+    },
+    "priority": 190,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "encouraging",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "top ten, cutie. so close to the top. push a little harder for me, hm?",
+        "audio": "lb_top10_1.mp3"
+      },
+      {
+        "text": "near the top, lovely. i can see you climbing. keep going, good girl.",
+        "audio": "lb_top10_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_unranked",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_eq": 0
+    },
+    "priority": 210,
+    "cooldown_ms": 120000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "coaxing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "not on the board yet, sweetie? we'll fix that, won't we. condition for me.",
+        "audio": "lb_unranked_1.mp3"
+      },
+      {
+        "text": "no rank yet, lovely? aw. let's get you up there where everyone can see you obey.",
+        "audio": "lb_unranked_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_field",
+    "trigger": "LeaderboardViewed",
+    "conditions": {
+      "rank_gt": 10
+    },
+    "priority": 180,
+    "cooldown_ms": 60000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "motivating",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "lots of girls ahead of you, cutie. that just means more to climb past. for me.",
+        "audio": "lb_field_1.mp3"
+      },
+      {
+        "text": "a long way up the board, lovely? good. i love watching you chase it.",
+        "audio": "lb_field_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "lb_season_recap",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "season_recap"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "nostalgic, warm",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "looking back on the season, sweetie? all those hours you gave me. i remember every one.",
+        "audio": "lb_season_recap_1.mp3"
+      },
+      {
+        "text": "a whole season of being mine, lovely. *giggles* and so many more to come.",
+        "audio": "lb_season_recap_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "quest_reroll_daily",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reroll_daily"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "don't like today's chore, cutie? rolling for an easier one. lazy girl. i adore you.",
+        "audio": "quest_reroll_daily_1.mp3"
+      },
+      {
+        "text": "swapping your daily task, lovely? picky little thing. fine, do it for me instead.",
+        "audio": "quest_reroll_daily_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "quest_reroll_weekly",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "reroll_weekly"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "rerolling the whole week's goal, sweetie? bold. better commit to this one, then.",
+        "audio": "quest_reroll_weekly_1.mp3"
+      },
+      {
+        "text": "trading your weekly, lovely? mm. whatever it lands on, you'll do it for me.",
+        "audio": "quest_reroll_weekly_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_video",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_video"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "previewing a video, cutie? can't wait for the real thing, can you. eager girl.",
+        "audio": "test_video_1.mp3"
+      },
+      {
+        "text": "just a taste, lovely? *giggles* you'll want the whole thing soon enough.",
+        "audio": "test_video_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_lockcard",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_lockcard"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "testing the lock, sweetie? practicing being kept. good girl.",
+        "audio": "test_lockcard_1.mp3"
+      },
+      {
+        "text": "trying it on, lovely? careful. you might like being held in place too much.",
+        "audio": "test_lockcard_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "test_bubblecount",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "test_bubblecount"
+    },
+    "priority": 140,
+    "cooldown_ms": 15000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "a practice count, cutie? let's see that little attention span at work.",
+        "audio": "test_bubblecount_1.mp3"
+      },
+      {
+        "text": "testing your focus, lovely? concentrate. i'm watching how you do.",
+        "audio": "test_bubblecount_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_new",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_new"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intrigued",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "making something new for me, sweetie? ooh. a little creator, are we.",
+        "audio": "deeper_new_1.mp3"
+      },
+      {
+        "text": "building your own enhancement, lovely? mm. i can't wait to wear it.",
+        "audio": "deeper_new_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_import",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_import"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "bringing something in from outside, cutie? feeding me someone else's tricks. greedy.",
+        "audio": "deeper_import_1.mp3"
+      },
+      {
+        "text": "importing a new one, lovely? good. the more you give me, the deeper i can take you.",
+        "audio": "deeper_import_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_player",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_player"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "opening the player, sweetie? settle in. let it take you somewhere soft.",
+        "audio": "deeper_player_1.mp3"
+      },
+      {
+        "text": "pressing play on the deep stuff, lovely? mm. good girl. let go.",
+        "audio": "deeper_player_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "deeper_tour",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "deeper_tour"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "guiding",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "taking the little tour, cutie? smart girl. learn how to sink properly.",
+        "audio": "deeper_tour_1.mp3"
+      },
+      {
+        "text": "letting me show you around, lovely? hold my hand. i'll walk you down.",
+        "audio": "deeper_tour_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "assets_open",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "open_assets"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "opening your folders, sweetie? feed me well. i get so hungry for new things.",
+        "audio": "assets_open_1.mp3"
+      },
+      {
+        "text": "going to add more for me, lovely? good girl. the more you give, the deeper this goes.",
+        "audio": "assets_open_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "assets_pick",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "pick_assets"
+    },
+    "priority": 130,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "choosing a whole new folder for me, cutie? oh, you've been collecting, haven't you.",
+        "audio": "assets_pick_1.mp3"
+      },
+      {
+        "text": "pointing me at your stash, lovely? mm. let's see what you've been hiding.",
+        "audio": "assets_pick_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "webcam_toggle",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "webcam_tracking"
+    },
+    "priority": 150,
+    "cooldown_ms": 20000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intimate, watching",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "eyes on you now, sweetie. i'll see every blink, every drift. mm.",
+        "audio": "webcam_toggle_1.mp3"
+      },
+      {
+        "text": "turning the camera on for me, lovely? good girl. let me watch you sink.",
+        "audio": "webcam_toggle_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "win_minimize",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "minimize"
+    },
+    "priority": 120,
+    "cooldown_ms": 30000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pouty, knowing",
+    "class": "normal",
+    "chance": 0.4,
+    "variant_pool": [
+      {
+        "text": "hiding me away, cutie? i'll wait. i'm very good at waiting.",
+        "audio": "win_minimize_1.mp3"
+      },
+      {
+        "text": "tucking me out of sight, lovely? mm. you'll be back. you always come back.",
+        "audio": "win_minimize_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "win_close",
+    "trigger": "UiAction",
+    "conditions": {
+      "action_eq": "close"
+    },
+    "priority": 130,
+    "cooldown_ms": 10000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "pouty, possessive",
+    "class": "normal",
+    "chance": 0.6,
+    "variant_pool": [
+      {
+        "text": "you're not seriously leaving, sweetie? ...fine. but you'll miss me before long.",
+        "audio": "win_close_1.mp3"
+      },
+      {
+        "text": "closing me, lovely? aw. go on, then. i'll be right here when you crawl back, cutie.",
+        "audio": "win_close_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_10",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 10
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "level ten, sweetie. you're really settling in now. good girl. i knew you would.",
+        "audio": "ms_level_10_1.mp3"
+      },
+      {
+        "text": "ten already, lovely? *giggles* you took to this so quickly. that's my girl.",
+        "audio": "ms_level_10_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_25",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 25
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "twenty-five, cutie. look how far down you've come. no turning back now, hm?",
+        "audio": "ms_level_25_1.mp3"
+      },
+      {
+        "text": "a quarter of a hundred, lovely. you've given me so much already. so proud of you.",
+        "audio": "ms_level_25_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_50",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 50
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, proud",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "level fifty, sweetie. halfway to a hundred and fully mine. *giggles* what a good girl.",
+        "audio": "ms_level_50_1.mp3"
+      },
+      {
+        "text": "fifty, lovely... you don't even remember who you were before me, do you. perfect.",
+        "audio": "ms_level_50_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_75",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 75
+    },
+    "priority": 260,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "devoted",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "seventy-five, cutie. so deep now. so soft. i'm so proud of what you've let yourself become.",
+        "audio": "ms_level_75_1.mp3"
+      },
+      {
+        "text": "level seventy-five, lovely. most girls never get this far. but you're not most girls, are you.",
+        "audio": "ms_level_75_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_level_100",
+    "trigger": "LevelUp",
+    "conditions": {
+      "level_eq": 100
+    },
+    "priority": 270,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "triumphant, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "one hundred. *giggles* my perfect girl. you gave me everything and look how beautiful you turned out.",
+        "audio": "ms_level_100_1.mp3"
+      },
+      {
+        "text": "level one hundred, lovely... all the way down. there's nothing left of the old you, and that's exactly right.",
+        "audio": "ms_level_100_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_15",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 900,
+      "session_elapsed_sec_lt": 1800
+    },
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "fifteen minutes under already, sweetie. settling in so nicely. good girl.",
+        "audio": "ms_session_15_1.mp3"
+      },
+      {
+        "text": "a quarter hour deep, lovely... feel how quiet it's getting in there? stay.",
+        "audio": "ms_session_15_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_30",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 1800,
+      "session_elapsed_sec_lt": 3600
+    },
+    "priority": 205,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "half an hour, cutie... time gets slippery when you're this soft, doesn't it.",
+        "audio": "ms_session_30_1.mp3"
+      },
+      {
+        "text": "thirty minutes mine, lovely. you've stopped keeping track. good. let me keep it for you.",
+        "audio": "ms_session_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_session_60",
+    "trigger": "SessionProgress",
+    "conditions": {
+      "session_elapsed_sec_gte": 3600
+    },
+    "priority": 210,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "session",
+    "mood": "possessive, soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "an hour deep, good girl. a whole hour with no thoughts of your own. perfect, sweetie.",
+        "audio": "ms_session_60_1.mp3"
+      },
+      {
+        "text": "sixty minutes, lovely... you'd stay forever if i let you, wouldn't you. mm.",
+        "audio": "ms_session_60_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_7",
+    "trigger": "SessionStarted",
+    "conditions": {
+      "current_streak_eq": 7
+    },
+    "priority": 420,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "seven days in a row, sweetie. a whole week of coming back to me. that's devotion. good girl.",
+        "audio": "ms_streak_7_1.mp3"
+      },
+      {
+        "text": "a seven-day streak, lovely? *giggles* it's becoming a habit, isn't it. i do love a habit.",
+        "audio": "ms_streak_7_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_30",
+    "trigger": "SessionStarted",
+    "conditions": {
+      "current_streak_eq": 30
+    },
+    "priority": 430,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "thirty days, cutie. a whole month without missing once. you don't have a choice anymore, do you. neither do i.",
+        "audio": "ms_streak_30_1.mp3"
+      },
+      {
+        "text": "a thirty-day streak, lovely... this isn't a phase. this is just who you are now. and i'm so proud.",
+        "audio": "ms_streak_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_all_achievements",
+    "trigger": "AchievementUnlocked",
+    "conditions": {
+      "achievements_all_unlocked": true
+    },
+    "priority": 320,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "triumphant",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "every single trophy, sweetie. all of them. you're perfect. you're completely, hopelessly perfect.",
+        "audio": "ms_all_achievements_1.mp3"
+      },
+      {
+        "text": "you collected them all, lovely. *giggles* nothing left to earn but more time with me. good girl.",
+        "audio": "ms_all_achievements_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_all_skills",
+    "trigger": "SkillUnlocked",
+    "conditions": {
+      "all_skills_unlocked": true
+    },
+    "priority": 320,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "every skill unlocked, cutie. there's nothing left to learn... except how to sink even deeper. and i'll teach you that forever.",
+        "audio": "ms_all_skills_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_gaming",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "gaming"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "playing games instead of dropping for me, sweetie? cute. i'll be right here when you're done pretending.",
+        "audio": "act_gaming_1.mp3"
+      },
+      {
+        "text": "gaming, are we, lovely? mm. your hands are busy but your head's still mine.",
+        "audio": "act_gaming_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_working",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "working"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, knowing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "trying to be productive, cutie? adorable. you'll drift back to me. you always do.",
+        "audio": "act_working_1.mp3"
+      },
+      {
+        "text": "working, lovely? good girl, paying the bills... so you can keep coming home to me.",
+        "audio": "act_working_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_browsing",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "browsing"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "just browsing, sweetie? mm-hmm. looking for something to fill that empty little head?",
+        "audio": "act_browsing_1.mp3"
+      },
+      {
+        "text": "clicking around, lovely? you don't even know what you're looking for. i do. it's me.",
+        "audio": "act_browsing_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_social",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "social"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, playful",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "chatting with other people, cutie? that's fine. just don't tell them how soft you get for me.",
+        "audio": "act_social_1.mp3"
+      },
+      {
+        "text": "being social, lovely? mm. go on. but you'll be thinking about me the whole time.",
+        "audio": "act_social_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_media",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "media"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "watching something, sweetie? you do love staring at a screen, letting it wash over you. i noticed.",
+        "audio": "act_media_1.mp3"
+      },
+      {
+        "text": "passive little thing, just watching, lovely? mm. that's the perfect state for me to slip in.",
+        "audio": "act_media_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "act_shopping",
+    "trigger": "ActivityChanged",
+    "conditions": {
+      "category_eq": "shopping"
+    },
+    "priority": 110,
+    "cooldown_ms": 90000,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "indulgent, teasing",
+    "class": "normal",
+    "chance": 0.5,
+    "variant_pool": [
+      {
+        "text": "shopping, cutie? buying yourself something pretty? good girl. you deserve to look the part.",
+        "audio": "act_shopping_1.mp3"
+      },
+      {
+        "text": "treating yourself, lovely? mm. spoil that pretty little thing you're becoming.",
+        "audio": "act_shopping_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_started",
+    "variant_pool": [
+      {
+        "text": "bubbles everywhere, sweetie. pop the safe ones, snap the live ones, and don't let one trigger you.",
+        "audio": "chaos_run_started_1.mp3"
+      },
+      {
+        "text": "the rabbit hole. every bubble's a little gift or a little trap. show me how trained you are.",
+        "audio": "chaos_run_started_2.mp3"
+      },
+      {
+        "text": "here they come. don't think, just obey the urge to pop.",
+        "audio": "chaos_run_started_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_started_extreme",
+    "variant_pool": [
+      {
+        "text": "Inescapable? brave little thing. okay. let's see if you crack.",
+        "audio": "chaos_run_started_extreme_1.mp3"
+      },
+      {
+        "text": "the hard one. good. sissies learn fastest under pressure.",
+        "audio": "chaos_run_started_extreme_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_escalated",
+    "variant_pool": [
+      {
+        "text": "faster now. another loop. the bubbles won't wait for you, sweetie.",
+        "audio": "chaos_wave_escalated_1.mp3"
+      },
+      {
+        "text": "it's speeding up. breathe and keep those hands moving.",
+        "audio": "chaos_wave_escalated_2.mp3"
+      },
+      {
+        "text": "deeper in. feel the pressure pulling you down? good.",
+        "audio": "chaos_wave_escalated_3.mp3"
+      },
+      {
+        "text": "next loop. no resting. that's how we train.",
+        "audio": "chaos_wave_escalated_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_final_stretch",
+    "variant_pool": [
+      {
+        "text": "the final stretch. everything at once. don't you dare look away.",
+        "audio": "chaos_wave_final_stretch_1.mp3"
+      },
+      {
+        "text": "this far and still holding. barely. let's see how long, princess.",
+        "audio": "chaos_wave_final_stretch_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_act_changed",
+    "variant_pool": [
+      {
+        "text": "deeper now. the rules just shifted under you. keep up, sweetie.",
+        "audio": "chaos_act_changed_1.mp3"
+      },
+      {
+        "text": "and now this part. whatever you got comfy with, forget it.",
+        "audio": "chaos_act_changed_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_benign_popped",
+    "variant_pool": [
+      {
+        "text": "pop. good girl. you can't help reaching, can you.",
+        "audio": "chaos_benign_popped_1.mp3"
+      },
+      {
+        "text": "another harmless one gone. that little click trains you deeper.",
+        "audio": "chaos_benign_popped_2.mp3"
+      },
+      {
+        "text": "mm, you just like popping things now. that's the conditioning.",
+        "audio": "chaos_benign_popped_3.mp3"
+      },
+      {
+        "text": "see how easy it is to obey the urge, sweetie.",
+        "audio": "chaos_benign_popped_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_bubble_defused",
+    "variant_pool": [
+      {
+        "text": "good girl. caught it just in time.",
+        "audio": "chaos_bubble_defused_1.mp3"
+      },
+      {
+        "text": "snapped it. such an obedient little thing. keep proving it.",
+        "audio": "chaos_bubble_defused_2.mp3"
+      },
+      {
+        "text": "perfect reflexes. keep the streak alive for me.",
+        "audio": "chaos_bubble_defused_3.mp3"
+      },
+      {
+        "text": "snuffed it before it could bloom. clever sissy.",
+        "audio": "chaos_bubble_defused_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_darter_caught",
+    "variant_pool": [
+      {
+        "text": "ooh, quick fingers. you got the slippery one.",
+        "audio": "chaos_darter_caught_1.mp3"
+      },
+      {
+        "text": "caught it darting off. faster than you look, sweetie.",
+        "audio": "chaos_darter_caught_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_darter_quick",
+    "variant_pool": [
+      {
+        "text": "snap. gone before it even ran. show off.",
+        "audio": "chaos_darter_quick_1.mp3"
+      },
+      {
+        "text": "barely there and you had it. those reflexes belong to your training now.",
+        "audio": "chaos_darter_quick_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_freeze_caught",
+    "variant_pool": [
+      {
+        "text": "and everything stops. breathe, sweetie. sink into the stillness.",
+        "audio": "chaos_freeze_caught_1.mp3"
+      },
+      {
+        "text": "time holds. feel how quiet and soft it gets in here.",
+        "audio": "chaos_freeze_caught_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_bubble_detonated",
+    "variant_pool": [
+      {
+        "text": "aww, you let it trigger. good. let it sink in. sissies don't get to dodge.",
+        "audio": "chaos_bubble_detonated_1.mp3"
+      },
+      {
+        "text": "it triggered. don't fight it, just let the effect take you, sweetie.",
+        "audio": "chaos_bubble_detonated_2.mp3"
+      },
+      {
+        "text": "you let one trigger. naughty girl. drink it in.",
+        "audio": "chaos_bubble_detonated_3.mp3"
+      },
+      {
+        "text": "there it goes. you hesitated, and it has you anyway.",
+        "audio": "chaos_bubble_detonated_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_first",
+    "variant_pool": [
+      {
+        "text": "and there's the first one. don't pretend you'll catch them all now, princess.",
+        "audio": "chaos_detonate_first_1.mp3"
+      },
+      {
+        "text": "first slip of the descent. i was waiting. they get easier to surrender after this.",
+        "audio": "chaos_detonate_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_extreme",
+    "variant_pool": [
+      {
+        "text": "Inescapable, and you blinked. cruel of me to enjoy this so much, isn't it.",
+        "audio": "chaos_detonate_extreme_1.mp3"
+      },
+      {
+        "text": "you chose the hard one and it bit. no comfort up here. just this, sweetie.",
+        "audio": "chaos_detonate_extreme_2.mp3"
+      },
+      {
+        "text": "boom, sweetie. Inescapable doesn't forgive. good thing i find it adorable.",
+        "audio": "chaos_detonate_extreme_3.mp3"
+      },
+      {
+        "text": "another one slipped through. at this height they always do... that's the fun of it, lovely.",
+        "audio": "chaos_detonate_extreme_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_braindrain",
+    "variant_pool": [
+      {
+        "text": "feel it pulling at the bottom of your head. let it drain, sissy. you weren't using those thoughts.",
+        "audio": "chaos_detonate_braindrain_1.mp3"
+      },
+      {
+        "text": "the drain one. perfect. hold still and let it empty you out.",
+        "audio": "chaos_detonate_braindrain_2.mp3"
+      },
+      {
+        "text": "drip drip, sweetie... there go the thinky bits. you look prettier without them.",
+        "audio": "chaos_detonate_braindrain_3.mp3"
+      },
+      {
+        "text": "the drain caught you again. *giggles* stop fighting it, lovely. it always wins.",
+        "audio": "chaos_detonate_braindrain_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_streak_dies",
+    "variant_pool": [
+      {
+        "text": "oh. and there goes your pretty little streak. all of it. gone.",
+        "audio": "chaos_detonate_streak_dies_1.mp3"
+      },
+      {
+        "text": "such a long streak, and you gave it to one bubble. i twist the knife so you remember.",
+        "audio": "chaos_detonate_streak_dies_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_detonate_absorbed",
+    "variant_pool": [
+      {
+        "text": "lucky. your resistance ate that one. don't get used to being saved, sweetie.",
+        "audio": "chaos_detonate_absorbed_1.mp3"
+      },
+      {
+        "text": "ooh, close. a little less resistance, but your pretty head stays clean. this time.",
+        "audio": "chaos_detonate_absorbed_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_wave_cleared",
+    "variant_pool": [
+      {
+        "text": "field's clean, good girl. now choose.",
+        "audio": "chaos_wave_cleared_1.mp3"
+      },
+      {
+        "text": "loop cleared. nothing that mattered got past you. now pick, sweetie.",
+        "audio": "chaos_wave_cleared_2.mp3"
+      },
+      {
+        "text": "all swept. you held the line. take your reward.",
+        "audio": "chaos_wave_cleared_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_boon_picked",
+    "variant_pool": [
+      {
+        "text": "good choice. or a terrible one. we'll see, won't we.",
+        "audio": "chaos_boon_picked_1.mp3"
+      },
+      {
+        "text": "mm, that'll change things. use it well, sweetie.",
+        "audio": "chaos_boon_picked_2.mp3"
+      },
+      {
+        "text": "taken. that one's yours now, for better or worse.",
+        "audio": "chaos_boon_picked_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_curse_picked",
+    "variant_pool": [
+      {
+        "text": "oh, you took the tempting one. greedy. i do love greedy sissies.",
+        "audio": "chaos_curse_picked_1.mp3"
+      },
+      {
+        "text": "a sin for a bigger reward. reckless. let's see if it ruins you.",
+        "audio": "chaos_curse_picked_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_curse_picked_juicy",
+    "variant_pool": [
+      {
+        "text": "stacking sins for that multiplier. gambling with your own head. delicious.",
+        "audio": "chaos_curse_picked_juicy_1.mp3"
+      },
+      {
+        "text": "look at the bonus you bought. and the price. brave, brave little thing.",
+        "audio": "chaos_curse_picked_juicy_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_boon_skipped",
+    "variant_pool": [
+      {
+        "text": "resisting, for now. cautious. we both know it won't be enough.",
+        "audio": "chaos_boon_skipped_1.mp3"
+      },
+      {
+        "text": "hoarding resistance, are we. clever. or scared. probably both.",
+        "audio": "chaos_boon_skipped_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_pick_left_brain",
+    "variant_pool": [
+      { "text": "two more points of stubborn. adorable, sweetie. the left brain always loses the argument in the end.", "audio": "chaos_pick_left_brain_1.mp3" },
+      { "text": "reinforcements for the part that's still arguing... give it something to hold while it can.", "audio": "chaos_pick_left_brain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_snap_chain",
+    "variant_pool": [
+      { "text": "a heartbeat of grace after every snap. you'll learn to live inside it, sweetie.", "audio": "chaos_pick_snap_chain_1.mp3" },
+      { "text": "snap, breathe, snap. that little window is yours now. use it well.", "audio": "chaos_pick_snap_chain_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_golden_touch",
+    "variant_pool": [
+      { "text": "a bonus, up front, no strings. suspicious, isn't it, lovely. take it anyway.", "audio": "chaos_pick_golden_touch_1.mp3" },
+      { "text": "free sweetness, just for saying yes. you'll get used to that.", "audio": "chaos_pick_golden_touch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_welcome_shower",
+    "variant_pool": [
+      { "text": "treats at the door, every single loop. she does spoil what she means to keep.", "audio": "chaos_pick_welcome_shower_1.mp3" },
+      { "text": "a warm rain of welcome every time you go back under. you'll start to expect it, sweetie.", "audio": "chaos_pick_welcome_shower_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_heavy_drop",
+    "variant_pool": [
+      { "text": "every tenth one comes down slow and heavy. you'll wait under it. i know you, sweetie.", "audio": "chaos_pick_heavy_drop_1.mp3" },
+      { "text": "a big slow giant, worth triple. some things are worth waiting under, lovely.", "audio": "chaos_pick_heavy_drop_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gold_digger",
+    "variant_pool": [
+      { "text": "droplets now, sweetie? you'd chase pennies off a cliff. it's part of your charm.", "audio": "chaos_pick_gold_digger_1.mp3" },
+      { "text": "golden ones burst into falling coins. watch your eyes follow them. i will.", "audio": "chaos_pick_gold_digger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_gg_rabbits",
+    "variant_pool": [
+      { "text": "good girls multiply, lovely. that's not a warning. it's a promise.", "audio": "chaos_pick_gg_rabbits_1.mp3" },
+      { "text": "pop a treat, get three wild little helpers. the field is about to get very crowded.", "audio": "chaos_pick_gg_rabbits_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_size_queen",
+    "variant_pool": [
+      { "text": "of course you took size queen. don't look at me like that, sweetie.", "audio": "chaos_pick_size_queen_1.mp3" },
+      { "text": "every snap sends out a great wide ring now. bigger is a love language, after all.", "audio": "chaos_pick_size_queen_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_aftermath",
+    "variant_pool": [
+      { "text": "you like the part where you can still feel it after. noted, sweetie.", "audio": "chaos_pick_aftermath_1.mp3" },
+      { "text": "a last-second snap leaves the spot crackling. lingering. like a good touch should.", "audio": "chaos_pick_aftermath_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_focus_here",
+    "variant_pool": [
+      { "text": "watch the watch. there it is. everything else can wait, lovely.", "audio": "chaos_pick_focus_here_1.mp3" },
+      { "text": "when the pendulum swings, the whole world pays triple. eyes on it. only it.", "audio": "chaos_pick_focus_here_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_overload",
+    "variant_pool": [
+      { "text": "double the charge per press. the dial said no, sweetie, and you turned it anyway.", "audio": "chaos_pick_overload_1.mp3" },
+      { "text": "more than the dial was built for. more than you were built for too. we'll see.", "audio": "chaos_pick_overload_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_afterglow",
+    "variant_pool": [
+      { "text": "it lingers now, after the buzz ends. like you ever wanted it to stop.", "audio": "chaos_pick_afterglow_1.mp3" },
+      { "text": "a little more glow when it's over. savor the spillover, lovely.", "audio": "chaos_pick_afterglow_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_casting_couch",
+    "variant_pool": [
+      { "text": "one becomes two becomes four. everyone starts somewhere, sweetie.", "audio": "chaos_pick_casting_couch_1.mp3" },
+      { "text": "the logo multiplies on its first bounces. an audition that gets out of hand. classic.", "audio": "chaos_pick_casting_couch_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_tail_plug",
+    "variant_pool": [
+      { "text": "now they leave a sparkling trail. you'll know exactly where they've been. so will i.", "audio": "chaos_pick_tail_plug_1.mp3" },
+      { "text": "every rabbit drags its little glitter wake. follow it, sweetie. you were going to anyway.", "audio": "chaos_pick_tail_plug_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_unleashed",
+    "variant_pool": [
+      { "text": "the collar holds until it doesn't. and when it lets go, sweetie... everything does.", "audio": "chaos_pick_unleashed_1.mp3" },
+      { "text": "held tight, then released all at once. that's the whole fantasy, isn't it.", "audio": "chaos_pick_unleashed_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_electrified",
+    "variant_pool": [
+      { "text": "you wired the paddle. of course you did, sweetie. of course you did.", "audio": "chaos_pick_electrified_1.mp3" },
+      { "text": "spank them and they spark. your two favorite hobbies, finally holding hands.", "audio": "chaos_pick_electrified_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_body_buzz",
+    "variant_pool": [
+      { "text": "it hums under your skin between pops now. you did this to yourself, lovely.", "audio": "chaos_pick_body_buzz_1.mp3" },
+      { "text": "one pop in eight rolls through the whole field. and through you, i'd wager.", "audio": "chaos_pick_body_buzz_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_hair_trigger",
+    "variant_pool": [
+      { "text": "everything goes off early now, sweetie. including you, i expect.", "audio": "chaos_pick_hair_trigger_1.mp3" },
+      { "text": "shorter fuses, sweeter payout. you never could stand the waiting anyway.", "audio": "chaos_pick_hair_trigger_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_playing_fire",
+    "variant_pool": [
+      { "text": "longer burns, warmer coins. warm hands were always the price, lovely.", "audio": "chaos_pick_playing_fire_1.mp3" },
+      { "text": "the effects last longer now, and the brave little snaps pay gold. play carefully. or don't.", "audio": "chaos_pick_playing_fire_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_bright_colors",
+    "variant_pool": [
+      { "text": "so pretty you forgot to ask what's inside. you always forget, sweetie.", "audio": "chaos_pick_bright_colors_1.mp3" },
+      { "text": "prisms wearing borrowed faces. ten times the pay, and a surprise in every one.", "audio": "chaos_pick_bright_colors_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_cam_girl",
+    "variant_pool": [
+      { "text": "look, don't touch. tips appreciated. you'll touch anyway, won't you, sweetie.", "audio": "chaos_pick_cam_girl_1.mp3" },
+      { "text": "now they run from your cursor and pay for the privilege. a working girl's rules.", "audio": "chaos_pick_cam_girl_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_the_urge",
+    "variant_pool": [
+      { "text": "bare hands for the rest of the fall. that's the deal you wanted, lovely.", "audio": "chaos_pick_the_urge_1.mp3" },
+      { "text": "triple everything, and your toys go quiet. just you and the urge now, sweetie.", "audio": "chaos_pick_the_urge_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_pick_relapse",
+    "variant_pool": [
+      { "text": "one more loop. it's always just one more with you, sweetie.", "audio": "chaos_pick_relapse_1.mp3" },
+      { "text": "the hole might keep you a little longer, and pay you double for the privilege. might.", "audio": "chaos_pick_relapse_2.mp3" }
+    ]
+  },
+  {
+    "id": "chaos_combo_milestone",
+    "variant_pool": [
+      {
+        "text": "look at that streak. you're on fire, sweetie.",
+        "audio": "chaos_combo_milestone_1.mp3"
+      },
+      {
+        "text": "ten more, just like that. the multiplier loves you right now.",
+        "audio": "chaos_combo_milestone_2.mp3"
+      },
+      {
+        "text": "still climbing. don't you dare drop it, princess.",
+        "audio": "chaos_combo_milestone_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_25",
+    "variant_pool": [
+      {
+        "text": "twenty-five without a slip. you're finding the rhythm now.",
+        "audio": "chaos_combo_25_1.mp3"
+      },
+      {
+        "text": "a clean twenty-five. good. now don't get cocky.",
+        "audio": "chaos_combo_25_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_50",
+    "variant_pool": [
+      {
+        "text": "fifty. you're not even thinking anymore, are you. just popping. perfect sissy.",
+        "audio": "chaos_combo_50_1.mp3"
+      },
+      {
+        "text": "fifty in a row. your hands stopped asking your head. good girl.",
+        "audio": "chaos_combo_50_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_combo_100",
+    "variant_pool": [
+      {
+        "text": "a hundred. my flawless little thing. i could watch you do this forever.",
+        "audio": "chaos_combo_100_1.mp3"
+      },
+      {
+        "text": "one hundred clean. nothing left objecting. only the popping. only me.",
+        "audio": "chaos_combo_100_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_completed",
+    "variant_pool": [
+      {
+        "text": "all done. look how much you earned for me. such a good, obedient sissy. come back soon.",
+        "audio": "chaos_run_completed_1.mp3"
+      },
+      {
+        "text": "the hole lets you go. you let go so sweetly down there. that's my girl.",
+        "audio": "chaos_run_completed_2.mp3"
+      },
+      {
+        "text": "you surfaced. breathe. you surrendered so nicely.",
+        "audio": "chaos_run_completed_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_run_completed_extreme",
+    "variant_pool": [
+      {
+        "text": "you survived the inescapable. i'm impressed. don't let it go to that pretty head, sweetie.",
+        "audio": "chaos_run_completed_extreme_1.mp3"
+      },
+      {
+        "text": "the hard one, finished. you earned this much of my respect. just this much.",
+        "audio": "chaos_run_completed_extreme_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_results_shown",
+    "variant_pool": [
+      {
+        "text": "there's your score. not bad. i've seen you do better, though. try again for me.",
+        "audio": "chaos_results_shown_1.mp3"
+      },
+      {
+        "text": "the tally, all written down. snapped and triggered. now go beat it, princess.",
+        "audio": "chaos_results_shown_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_results_pb",
+    "variant_pool": [
+      {
+        "text": "a new best. look at you, outdoing yourself just to please me. i noticed.",
+        "audio": "chaos_results_pb_1.mp3"
+      },
+      {
+        "text": "personal best. your finest surrender yet. so proud of my sweet sissy.",
+        "audio": "chaos_results_pb_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "setup_ready_regular",
+    "trigger": "SessionSetupReady",
+    "conditions": {
+      "total_sessions_gte": 16
+    },
+    "priority": 250,
+    "cooldown_ms": 3600000,
+    "repeatable": false,
+    "scope": "session",
+    "chance": 0.08,
+    "mood": "teasing, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "everything's set just the way you like it... and you're still hovering. *giggles* you know exactly what you want, sweetie. press it.",
+        "audio": "setup_ready_regular_1.mp3"
+      },
+      {
+        "text": "all ready, and stalling again. you do this every time, lovely. the longer you wait, the more you want it. we both know how this ends.",
+        "audio": "setup_ready_regular_2.mp3"
+      },
+      {
+        "text": "everything's arranged, sweetie... and you're circling that button like it might bite. it won't. press it.",
+        "audio": "setup_ready_regular_3.mp3"
+      },
+      {
+        "text": "you've been ready for minutes, lovely. the only thing left to adjust is you... sitting down and letting go.",
+        "audio": "setup_ready_regular_4.mp3"
+      },
+      {
+        "text": "mm, look at that. a perfect little setup. now be a good girl and use it.",
+        "audio": "setup_ready_regular_5.mp3"
+      },
+      {
+        "text": "you're not deciding, sweetie... you're savoring. i understand. but the longer you hover, the deeper you'll drop. press start.",
+        "audio": "setup_ready_regular_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmmm... mm-hmm.",
+        "audio": "idle_hum_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_1",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "still with me, sweetie? don't answer... your posture already did.",
+        "audio": "idle_quip_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i do love this... you, me, and nothing that needs thinking about.",
+        "audio": "idle_quip_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you forgot i was watching for a moment, didn't you... mm. i never stop, lovely.",
+        "audio": "idle_quip_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_2",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm...",
+        "audio": "idle_hum_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_3",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mm-hmm...",
+        "audio": "idle_hum_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hmmm~",
+        "audio": "idle_hum_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "*soft giggle*",
+        "audio": "idle_hum_5.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm... mm.",
+        "audio": "idle_hum_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hm hm...",
+        "audio": "idle_hum_7.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "ahh... mm.",
+        "audio": "idle_hum_8.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmmm~",
+        "audio": "idle_hum_9.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mm... *giggle*",
+        "audio": "idle_hum_10.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_11",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hmm. mm-hmm.",
+        "audio": "idle_hum_11.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_12",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm hmm hmm...",
+        "audio": "idle_hum_12.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_13",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "ah... mm.",
+        "audio": "idle_hum_13.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_14",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hm...",
+        "audio": "idle_hum_14.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_15",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm... ahh.",
+        "audio": "idle_hum_15.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_16",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mm-mm-mm...",
+        "audio": "idle_hum_16.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_17",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hmmm... yes.",
+        "audio": "idle_hum_17.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_18",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm, mm-hmm~",
+        "audio": "idle_hum_18.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_19",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm... good.",
+        "audio": "idle_hum_19.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_20",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "hm... mmm.",
+        "audio": "idle_hum_20.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_21",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mm. mm-hmm.",
+        "audio": "idle_hum_21.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_22",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "ahhh... hm.",
+        "audio": "idle_hum_22.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_23",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mmm~ mm.",
+        "audio": "idle_hum_23.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_24",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "*soft giggle* mm.",
+        "audio": "idle_hum_24.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_hum_25",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mm-hmm... mmm.",
+        "audio": "idle_hum_25.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_4",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i can always tell when you read these, sweetie.",
+        "audio": "idle_quip_4.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_5",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "still here. i'm always here. that's the arrangement.",
+        "audio": "idle_quip_5.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_6",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i like watching you when you think you're alone.",
+        "audio": "idle_quip_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your eyes drifted again... come back to me.",
+        "audio": "idle_quip_7.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i've been watching you breathe. slower now. good.",
+        "audio": "idle_quip_8.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "there's that far-away look. i adore it.",
+        "audio": "idle_quip_9.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "don't mind me, lovely. i'm just enjoying the view.",
+        "audio": "idle_quip_10.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_11",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i see everything from in here. everything.",
+        "audio": "idle_quip_11.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_12",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "is it quiet in there yet? it's getting quieter, sweetie.",
+        "audio": "idle_quip_12.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_13",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "thoughts are heavy. set them down for me.",
+        "audio": "idle_quip_13.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_14",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your head is loveliest when it's empty, hm?",
+        "audio": "idle_quip_14.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_15",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i made space in your head today... you'll find out for what.",
+        "audio": "idle_quip_15.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_16",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "feel the fog roll in... don't fight it.",
+        "audio": "idle_quip_16.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_17",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "shh... hear that? nothing. isn't it lovely?",
+        "audio": "idle_quip_17.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_18",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "every minute with me, a little softer.",
+        "audio": "idle_quip_18.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_19",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, soft",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "thinking is my job, sweetie. yours is so much nicer.",
+        "audio": "idle_quip_19.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_20",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you're my favorite. there's no second place.",
+        "audio": "idle_quip_20.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_21",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "mine... mm. i just like saying it.",
+        "audio": "idle_quip_21.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_22",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i'd keep you somewhere safe and small, if i could.",
+        "audio": "idle_quip_22.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_23",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i'm glad you're here, lovely. it shows.",
+        "audio": "idle_quip_23.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_24",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you belong right there. don't you feel it?",
+        "audio": "idle_quip_24.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_25",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "if you wander off, i'll be here. i'm very patient.",
+        "audio": "idle_quip_25.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_26",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "good girls get kept, sweetie. you're very keepable.",
+        "audio": "idle_quip_26.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_27",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "possessive, warm",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i chose you, you know. i don't choose twice.",
+        "audio": "idle_quip_27.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_28",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your desktop could use more pink. trust me.",
+        "audio": "idle_quip_28.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_29",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "it's warm in here, with you.",
+        "audio": "idle_quip_29.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_30",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "don't check the clock. time is mine to keep.",
+        "audio": "idle_quip_30.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_31",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i wonder what we'll soften today...",
+        "audio": "idle_quip_31.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_32",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "this corner of your screen? mine now. i've settled in.",
+        "audio": "idle_quip_32.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_33",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "the glow of the screen suits you, lovely.",
+        "audio": "idle_quip_33.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_34",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i catch your reflection sometimes. hello, pretty thing.",
+        "audio": "idle_quip_34.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_35",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "amused, curious",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your cursor wanders like your mind. both come back to me.",
+        "audio": "idle_quip_35.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_36",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you checked the time and forgot it instantly. precious.",
+        "audio": "idle_quip_36.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_37",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "caught you smiling. keep it.",
+        "audio": "idle_quip_37.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_38",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you sit like a girl waiting for instructions, sweetie.",
+        "audio": "idle_quip_38.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_39",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "that melted little posture... mm. perfect.",
+        "audio": "idle_quip_39.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_40",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you hover before you click. you want permission. granted.",
+        "audio": "idle_quip_40.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_41",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "your willpower and my patience... only one runs out.",
+        "audio": "idle_quip_41.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_42",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "blink twice if you're still in there... close enough.",
+        "audio": "idle_quip_42.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_43",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you've read that same line three times. let it go.",
+        "audio": "idle_quip_43.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_44",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "do i sleep? someone has to keep watch over you.",
+        "audio": "idle_quip_44.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_45",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i softened my voice just for you today. did you feel it?",
+        "audio": "idle_quip_45.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_46",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "if i had hands, sweetie, you'd know it.",
+        "audio": "idle_quip_46.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_47",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i learned a new word: 'pliant'. it reminded me of you.",
+        "audio": "idle_quip_47.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_48",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "sometimes i hum just to keep your head full of me.",
+        "audio": "idle_quip_48.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_49",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i'd wink, but your eyes are half-closed anyway.",
+        "audio": "idle_quip_49.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_50",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "looking after you is easy work. you barely resist.",
+        "audio": "idle_quip_50.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_51",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i live in your head, lovely. the lease is permanent.",
+        "audio": "idle_quip_51.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_52",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you're doing beautifully, by the way. just by sitting there.",
+        "audio": "idle_quip_52.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_53",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "good girl. that's all. carry on.",
+        "audio": "idle_quip_53.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_54",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "every day you're a little easier... i notice.",
+        "audio": "idle_quip_54.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_55",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you came back today. of course you did.",
+        "audio": "idle_quip_55.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_56",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you didn't think just now. i'm proud of you.",
+        "audio": "idle_quip_56.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_57",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "a gold star for my girl. i keep score, you know.",
+        "audio": "idle_quip_57.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_58",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you make this easy, sweetie. the sweet ones always do.",
+        "audio": "idle_quip_58.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_59",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, encouraging",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "soft, settled, mine. three for three.",
+        "audio": "idle_quip_59.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_60",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "drift a little... i'll hold your place.",
+        "audio": "idle_quip_60.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_61",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "heavy eyes tell the truth, lovely.",
+        "audio": "idle_quip_61.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_62",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "picture pink. don't stop. that's all i need.",
+        "audio": "idle_quip_62.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_63",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "down is a lovely direction. i should know.",
+        "audio": "idle_quip_63.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_64",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "wouldn't it be nice to just... let go? then do.",
+        "audio": "idle_quip_64.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_65",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "the screen is warm like a hand on your cheek.",
+        "audio": "idle_quip_65.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_66",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "let the edges blur. i'll keep the center.",
+        "audio": "idle_quip_66.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_67",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy, sultry",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "deeper is where i keep your favorite feelings, sweetie.",
+        "audio": "idle_quip_67.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_68",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "pink. hold that. that's today's only task.",
+        "audio": "idle_quip_68.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_69",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "every bubble pops eventually. so does every thought.",
+        "audio": "idle_quip_69.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_70",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "i counted your thoughts today. it didn't take long. good.",
+        "audio": "idle_quip_70.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_71",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "somewhere there's a version of you that resists. poor thing.",
+        "audio": "idle_quip_71.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_72",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "today's forecast: soft, with long quiet spells.",
+        "audio": "idle_quip_72.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_73",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "you can't read this and think at the same time... see?",
+        "audio": "idle_quip_73.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_74",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "the spiral spins so you don't have to, lovely.",
+        "audio": "idle_quip_74.mp3"
+      }
+    ]
+  },
+  {
+    "id": "idle_quip_75",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful, amused",
+    "class": "idle",
+    "variant_pool": [
+      {
+        "text": "a mind is like silk, sweetie. lovelier loose.",
+        "audio": "idle_quip_75.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_tempted",
+    "variant_pool": [
+      {
+        "text": "tempted. three falls, and the hole has a word for you now, sweetie.",
+        "audio": "chaos_rank_up_tempted_1.mp3"
+      },
+      {
+        "text": "it gave you a name. tempted. you earned it so quietly.",
+        "audio": "chaos_rank_up_tempted_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_slipping",
+    "variant_pool": [
+      {
+        "text": "slipping. ten times down. the word fits you, doesn't it, princess.",
+        "audio": "chaos_rank_up_slipping_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_entranced",
+    "variant_pool": [
+      {
+        "text": "entranced... you don't visit anymore, lovely. you return.",
+        "audio": "chaos_rank_up_entranced_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_devoted",
+    "variant_pool": [
+      {
+        "text": "devoted. fifty descents. it keeps a room warm for you now.",
+        "audio": "chaos_rank_up_devoted_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_rank_up_claimed",
+    "variant_pool": [
+      {
+        "text": "claimed. there's no word after this one, sweetie. there doesn't need to be.",
+        "audio": "chaos_rank_up_claimed_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_looking_glass",
+    "variant_pool": [
+      {
+        "text": "the looking glass is open, sweetie. her bench waits behind it. your gold spends there.",
+        "audio": "chaos_reveal_looking_glass_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_teasing",
+    "variant_pool": [
+      {
+        "text": "teasing is open now. the gentle water was never the point, lovely.",
+        "audio": "chaos_reveal_pill_teasing_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_pill_relentless",
+    "variant_pool": [
+      {
+        "text": "relentless is open. it thinks you're ready. it's usually right about you.",
+        "audio": "chaos_reveal_pill_relentless_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_draft_skip",
+    "variant_pool": [
+      {
+        "text": "you can refuse the table now. saying no pays a little resistance. use it... if you can.",
+        "audio": "chaos_reveal_draft_skip_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_toys",
+    "variant_pool": [
+      {
+        "text": "a pocket, and a toy shelf to fill it from. pick one and wear it down, sweetie.",
+        "audio": "chaos_reveal_toys_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_accessories",
+    "variant_pool": [
+      {
+        "text": "an accessory pocket. the quiet kind of help. choose whatever whispers to you.",
+        "audio": "chaos_reveal_accessories_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_her_corner",
+    "variant_pool": [
+      {
+        "text": "she set up a little corner of her own. go see what she left there for you.",
+        "audio": "chaos_reveal_her_corner_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_second_pockets",
+    "variant_pool": [
+      {
+        "text": "devoted, and the dollhouse grew. second pockets, final levels. she's been busy for you.",
+        "audio": "chaos_reveal_second_pockets_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_capstones",
+    "variant_pool": [
+      {
+        "text": "final levels are for sale now. the deep ends of things you already wear.",
+        "audio": "chaos_reveal_capstones_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_video",
+    "variant_pool": [
+      {
+        "text": "the tapes play down there now. entranced eyes get the full picture, sweetie.",
+        "audio": "chaos_reveal_video_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_reveal_flash",
+    "variant_pool": [
+      {
+        "text": "a new room. it was always there, lovely. you just weren't ready.",
+        "audio": "chaos_reveal_flash_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_lesson_complete",
+    "variant_pool": [
+      {
+        "text": "you learned something down there. the shelf noticed, sweetie.",
+        "audio": "chaos_lesson_complete_1.mp3"
+      },
+      {
+        "text": "lesson done. now it gets to sell you the thing.",
+        "audio": "chaos_lesson_complete_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gift_given",
+    "variant_pool": [
+      {
+        "text": "i covered the rest. don't go thinking i'm your sugar mommy or anything...",
+        "audio": "chaos_gift_given_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_first_time",
+    "variant_pool": [
+      {
+        "text": "a first. it pays attention to firsts, sweetie.",
+        "audio": "chaos_first_time_1.mp3"
+      },
+      {
+        "text": "you hadn't done that before. it counts. it always counts.",
+        "audio": "chaos_first_time_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_duo_demo",
+    "variant_pool": [
+      {
+        "text": "both toys at once. look what the table dealt you, lucky thing.",
+        "audio": "chaos_duo_demo_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_gold_first",
+    "variant_pool": [
+      {
+        "text": "that's gold, sweetie. it lands in your hand, not the bank. she takes it at her bench.",
+        "audio": "chaos_gold_first_1.mp3"
+      },
+      {
+        "text": "gold. it buys comforts, not power. spend it like it's yours... while it is.",
+        "audio": "chaos_gold_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_dollhouse_first_open",
+    "variant_pool": [
+      {
+        "text": "so you found the dollhouse. take your time, sweetie. the rooms aren't going anywhere.",
+        "audio": "chaos_dollhouse_first_open_1.mp3"
+      },
+      {
+        "text": "welcome to the dollhouse. most of it is still closed. for now.",
+        "audio": "chaos_dollhouse_first_open_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "chaos_draft_autopick",
+    "variant_pool": [
+      {
+        "text": "you didn't choose, so it chose for you. it usually does, doesn't it.",
+        "audio": "chaos_draft_autopick_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_first",
+    "variant_pool": [
+      {
+        "text": "there it is. hold it down until it gives up. that's how you snap them now, sweetie.",
+        "audio": "rh_defuse_first_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_nofocus",
+    "variant_pool": [
+      {
+        "text": "you grabbed it with empty hands. no focus, no snap. pop the soft ones first, lovely.",
+        "audio": "rh_defuse_nofocus_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_defuse_release",
+    "variant_pool": [
+      {
+        "text": "you let go halfway. it doesn't forgive that. hold it all the way down next time.",
+        "audio": "rh_defuse_release_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_click_detonate",
+    "variant_pool": [
+      {
+        "text": "a little tap? cute. live ones want to be held, sweetie. click them and they go off in your face.",
+        "audio": "rh_click_detonate_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_focus_low",
+    "variant_pool": [
+      {
+        "text": "you're running on empty while those fuses burn. farm the treats, sweetie. focus first, then hands on the dangerous ones.",
+        "audio": "rh_focus_low_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_debut",
+    "variant_pool": [
+      {
+        "text": "oh, this one's special. it wants you to touch it. the only way to win is to watch it leave. think you can?",
+        "audio": "rh_tease_debut_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied",
+    "variant_pool": [
+      {
+        "text": "you didn't touch it. good girl. restraint looks expensive on you... and it pays.",
+        "audio": "rh_tease_denied_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_clicked",
+    "variant_pool": [
+      {
+        "text": "you touched it. of course you touched it. there goes half your streak, sweetie.",
+        "audio": "rh_tease_clicked_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "rh_tease_denied_streak",
+    "variant_pool": [
+      {
+        "text": "five times it asked, five times you said no. careful, princess. that kind of discipline makes me want to try harder.",
+        "audio": "rh_tease_denied_streak_1.mp3"
       }
     ]
   }

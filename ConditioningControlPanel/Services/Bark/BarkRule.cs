@@ -86,6 +86,14 @@ namespace ConditioningControlPanel.Services.Bark
         [JsonProperty("pool_ref")]
         public string? PoolRef { get; set; }
 
+        /// <summary>
+        /// Probability [0,1] that the rule fires once conditions + gate otherwise pass. Default 1.0
+        /// (always). Lets high-frequency reactive rules (feature opens, tab nav, setting nudges)
+        /// self-throttle to "~1 in N" on top of cooldown/min-gap.
+        /// </summary>
+        [JsonProperty("chance")]
+        public double Chance { get; set; } = 1.0;
+
         [JsonIgnore]
         public BarkClass Class =>
             ClassRaw?.Trim().ToLowerInvariant() switch

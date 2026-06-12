@@ -1402,8 +1402,13 @@ namespace ConditioningControlPanel.Services
                     foreach (var key in m.SubliminalPool.Keys)
                         foreignDefaults.Add(key);
 
+            // Never prune phrases the user added by hand, even if they coincide with another
+            // built-in mod's default. Without this, a custom phrase like "GOOD GIRL" added while
+            // on a mod that doesn't ship it was silently deleted on the next startup/mod-switch.
+            var userAdded = settings.UserAddedSubliminals ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             var toRemove = settings.SubliminalPool.Keys
-                .Where(k => foreignDefaults.Contains(k) && !activeDefaults.Contains(k))
+                .Where(k => foreignDefaults.Contains(k) && !activeDefaults.Contains(k) && !userAdded.Contains(k))
                 .ToList();
 
             foreach (var k in toRemove)

@@ -1,0 +1,25 @@
+{
+  "_comment": "Circe level emote set (priority-8). Clip names = Resources/<folder>/<clip>.gif. Resolution order when she speaks: stemPrefix(emotionLineId) -> mood(first token) -> talking(by audio length). Unmapped -> talking. Shared schema across level sets p2/p3/p4 (same 8 clips, same normalized box).",
+  "fps": 15,
+  "fadeMs": 800,
+  "idleSwapSeconds": 9,
+  "idleRotation": [ { "clip": "idle", "weight": 1 } ],
+  "talking": { "short": "talkA", "medium": "talkB", "long": "talkB", "shortMaxSec": 3.0, "longMinSec": 7.0 },
+  "stemPrefix": {
+    "attention_lost": "denial",
+    "achievement": "praise",
+    "companion_level": "praise",
+    "session_start": "greeting",
+    "greeting": "greeting",
+    "face_found": "greeting"
+  },
+  "mood": {
+    "teasing": "denial", "knowing": "denial", "controlling": "denial", "bold": "denial", "strict": "denial",
+    "playful": "talkB", "amused": "talkB", "giggly": "talkB", "happy": "talkB", "delighted": "talkB", "conspiratorial": "talkB",
+    "proud": "praise", "approving": "praise", "pleased": "praise", "encouraging": "praise", "affirming": "praise", "excited": "praise", "overwhelmed": "praise",
+    "possessive": "comehere", "adoring": "comehere", "affectionate": "comehere", "inviting": "comehere", "intimate": "comehere", "sultry": "comehere", "coaxing": "comehere", "seductive": "comehere",
+    "hypnotic": "entrancing", "dreamy": "entrancing", "guiding": "entrancing", "intense": "entrancing", "dark": "entrancing", "deepening": "entrancing", "commanding": "entrancing",
+    "curious": "talkA", "intrigued": "talkA"
+  },
+  "layout": { "scale": 0.93, "offsetY": -10, "detachedY": -10 }
+}

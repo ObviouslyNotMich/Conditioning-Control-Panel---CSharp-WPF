@@ -130,6 +130,12 @@ namespace ConditioningControlPanel.Models.Deeper
         [JsonProperty("effect_play_sound")]
         public bool EffectPlaySound { get; set; } = true;
 
+        // Per-instance opt-out of the auto-haptic buzz that flash and subliminal
+        // effects fire when they pop. Absent in old files => false => unchanged
+        // (haptic still fires). Only meaningful for flash/subliminal effects.
+        [JsonProperty("effect_suppress_haptic")]
+        public bool EffectSuppressHaptic { get; set; } = false;
+
         // Subliminal-specific.
         [JsonProperty("effect_text", NullValueHandling = NullValueHandling.Ignore)]
         public string? EffectText { get; set; }
@@ -140,6 +146,15 @@ namespace ConditioningControlPanel.Models.Deeper
 
         [JsonProperty("effect_opacity")]
         public double EffectOpacity { get; set; } = 0.5;
+
+        // Optional opacity ramp for overlay effects: interpolate opacity from
+        // start→end across the item's duration (pink_filter + spiral). Both absent
+        // (old files) => flat EffectOpacity, no ramp. Additive; no schema bump.
+        [JsonProperty("effect_opacity_start", NullValueHandling = NullValueHandling.Ignore)]
+        public double? EffectOpacityStart { get; set; }
+
+        [JsonProperty("effect_opacity_end", NullValueHandling = NullValueHandling.Ignore)]
+        public double? EffectOpacityEnd { get; set; }
 
         // Bubble-specific.
         [JsonProperty("effect_max_bubbles")]

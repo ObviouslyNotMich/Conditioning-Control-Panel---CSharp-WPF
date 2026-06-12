@@ -35,8 +35,10 @@ namespace ConditioningControlPanel.Services
         public string PageTitle { get; } // e.g., "CodeBambi's wishlist", "How to code" - the specific page/content
         public bool IsNewService { get; } // True when switching to a different service/app (not just a different page)
         public string PreviousServiceName { get; } // For context on what they switched from
+        public string AppCluster { get; } // Fine-grained cluster id (e.g. "game_competitive", "site_doomscroll"); "" if none
+        public string AppId { get; } // Bespoke single-app id (e.g. "hades", "obs", "discord"); "" if none
 
-        public ActivityChangedEventArgs(ActivityCategory category, ActivityCategory previousCategory, string detectedName, string serviceName = "", string pageTitle = "", bool isNewService = false, string previousServiceName = "")
+        public ActivityChangedEventArgs(ActivityCategory category, ActivityCategory previousCategory, string detectedName, string serviceName = "", string pageTitle = "", bool isNewService = false, string previousServiceName = "", string appCluster = "", string appId = "")
         {
             Category = category;
             PreviousCategory = previousCategory;
@@ -45,6 +47,8 @@ namespace ConditioningControlPanel.Services
             PageTitle = pageTitle;
             IsNewService = isNewService;
             PreviousServiceName = previousServiceName;
+            AppCluster = appCluster ?? "";
+            AppId = appId ?? "";
         }
     }
 
@@ -503,7 +507,10 @@ namespace ConditioningControlPanel.Services
 
                 if (category != _currentCategory || detectedName != _currentDetectedName)
                 {
-                    SetActivity(category, detectedName, serviceName, pageTitle);
+                    // Fine-grained cluster/app classification for the awareness-gated bark rules. Only the
+                    // resolved ids are surfaced — the raw title is never stored (privacy, as elsewhere here).
+                    var (appCluster, appId) = AppClusterMap.Classify(windowTitle);
+                    SetActivity(category, detectedName, serviceName, pageTitle, appCluster, appId);
                 }
             }
             catch (Exception ex)
@@ -512,7 +519,7 @@ namespace ConditioningControlPanel.Services
             }
         }
 
-        private void SetActivity(ActivityCategory newCategory, string detectedName, string serviceName, string pageTitle)
+        private void SetActivity(ActivityCategory newCategory, string detectedName, string serviceName, string pageTitle, string appCluster = "", string appId = "")
         {
             var previousCategory = _currentCategory;
             var previousServiceName = _currentServiceName;
@@ -533,7 +540,7 @@ namespace ConditioningControlPanel.Services
                 detectedName, newCategory, serviceName, isNewService);
 
             ActivityChanged?.Invoke(this, new ActivityChangedEventArgs(
-                newCategory, previousCategory, detectedName, serviceName, pageTitle, isNewService, previousServiceName));
+                newCategory, previousCategory, detectedName, serviceName, pageTitle, isNewService, previousServiceName, appCluster, appId));
 
             // Restart the still-on timer for periodic comments
             RestartStillOnTimer();
