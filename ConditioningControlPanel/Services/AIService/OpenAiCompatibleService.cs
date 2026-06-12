@@ -170,6 +170,28 @@ namespace ConditioningControlPanel.Services.AIService
             }
         }
 
+        private static void ApplySamplerSettings(Dictionary<string, object> payload)
+        {
+            var s = Settings;
+            if (s == null || !s.OpenAiCompatibleUseCustomSamplerSettings) return;
+
+            if (s.OpenAiCompatibleTemperature.HasValue) payload["temperature"] = s.OpenAiCompatibleTemperature.Value;
+            if (s.OpenAiCompatibleTopP.HasValue) payload["top_p"] = s.OpenAiCompatibleTopP.Value;
+            if (s.OpenAiCompatibleTopK.HasValue) payload["top_k"] = s.OpenAiCompatibleTopK.Value;
+            if (s.OpenAiCompatibleFrequencyPenalty.HasValue) payload["frequency_penalty"] = s.OpenAiCompatibleFrequencyPenalty.Value;
+            if (s.OpenAiCompatiblePresencePenalty.HasValue) payload["presence_penalty"] = s.OpenAiCompatiblePresencePenalty.Value;
+            if (s.OpenAiCompatibleRepetitionPenalty.HasValue) payload["repetition_penalty"] = s.OpenAiCompatibleRepetitionPenalty.Value;
+            if (s.OpenAiCompatibleMinP.HasValue) payload["min_p"] = s.OpenAiCompatibleMinP.Value;
+        }
+
+        private static string CleanTokenizerArtifacts(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return text ?? string.Empty;
+
+            // GPT-2/GPT-Neo/llama.cpp tokenizers sometimes emit 'Ġ' for leading spaces.
+            return text.Replace("Ġ", " ");
+        }
+
         public async Task<ConnectionDiagnosticResult> TestEndpointAsync(CancellationToken cancellationToken = default)
         {
             var endpointRaw = Settings?.OpenAiCompatibleEndpoint?.Trim();
@@ -210,16 +232,17 @@ namespace ConditioningControlPanel.Services.AIService
             var baseUri = GetConfiguredEndpointBaseUri();
             var endpointUri = new Uri(baseUri, "chat/completions");
 
-            var payload = new
+            var payload = new Dictionary<string, object>
             {
-                model = model,
-                max_tokens = 1,
-                temperature = 0,
-                messages = new[]
+                ["model"] = model,
+                ["max_tokens"] = 1,
+                ["temperature"] = 0,
+                ["messages"] = new[]
                 {
                     new { role = "user", content = "ping" }
                 }
             };
+            ApplySamplerSettings(payload);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, endpointUri)
             {
@@ -353,15 +376,16 @@ namespace ConditioningControlPanel.Services.AIService
 
             var model = GetConfiguredModel();
 
-            var payload = new
+            var payload = new Dictionary<string, object>
             {
-                model = model,
-                messages = new[]
+                ["model"] = model,
+                ["messages"] = new[]
                 {
                     new { role = "system", content = systemPrompt },
                     new { role = "user", content = userInput }
                 }
             };
+            ApplySamplerSettings(payload);
 
             var baseUri = GetConfiguredEndpointBaseUri();
             var endpointUri = new Uri(baseUri, "chat/completions");
@@ -416,7 +440,7 @@ namespace ConditioningControlPanel.Services.AIService
                         return null;
                     }
 
-                    var content = contentElement.GetString();
+                    var content = CleanTokenizerArtifacts(contentElement.GetString());
                     return string.IsNullOrWhiteSpace(content) ? null : content;
                 }
                 catch (HttpRequestException) when (attempt == 0)

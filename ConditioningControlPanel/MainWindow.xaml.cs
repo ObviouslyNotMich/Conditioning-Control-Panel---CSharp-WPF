@@ -12046,6 +12046,22 @@ namespace ConditioningControlPanel
             App.Settings.Save();
         }
 
+        private void BtnOpenAiSamplerSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null) return;
+
+            var dialog = new OpenAiCompatibleSamplerSettingsDialog(s)
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                App.Settings.Save();
+            }
+        }
+
         private async void BtnTestOpenAiConnection_Click(object sender, RoutedEventArgs e)
         {
             if (TxtOpenAiHealthStatus == null) return;

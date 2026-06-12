@@ -67,6 +67,33 @@ namespace ConditioningControlPanel.Models
         /// </summary>
         public int DailyRequestLimit { get; set; } = 0;
 
+        /// <summary>
+        /// When true, the OpenAI-compatible provider sends the custom sampler values below.
+        /// When false, the endpoint's own defaults are used and no sampler keys are sent.
+        /// </summary>
+        public bool OpenAiCompatibleUseCustomSamplerSettings { get; set; } = false;
+
+        /// <summary>Sampling temperature for the OpenAI-compatible provider. Null = omit from request.</summary>
+        public double? OpenAiCompatibleTemperature { get; set; }
+
+        /// <summary>Nucleus sampling top_p for the OpenAI-compatible provider. Null = omit from request.</summary>
+        public double? OpenAiCompatibleTopP { get; set; }
+
+        /// <summary>Top-k sampling for the OpenAI-compatible provider. Null = omit from request.</summary>
+        public int? OpenAiCompatibleTopK { get; set; }
+
+        /// <summary>Frequency penalty for the OpenAI-compatible provider. Null = omit from request.</summary>
+        public double? OpenAiCompatibleFrequencyPenalty { get; set; }
+
+        /// <summary>Presence penalty for the OpenAI-compatible provider. Null = omit from request.</summary>
+        public double? OpenAiCompatiblePresencePenalty { get; set; }
+
+        /// <summary>Repetition penalty for the OpenAI-compatible provider. Null = omit from request.</summary>
+        public double? OpenAiCompatibleRepetitionPenalty { get; set; }
+
+        /// <summary>Min-p sampling for the OpenAI-compatible provider. Null = omit from request.</summary>
+        public double? OpenAiCompatibleMinP { get; set; }
+
         // -------- AI Effect Permissions --------
         // Master switch — when false, the AI cannot trigger any effect regardless of per-effect toggles.
         public bool AllowAiToControlEffects { get; set; } = false;
@@ -209,6 +236,14 @@ namespace ConditioningControlPanel.Models
                 OpenAiCompatibleApiKey = "",
                 OpenAiCompatibleModel = "",
                 DailyRequestLimit = 0,
+                OpenAiCompatibleUseCustomSamplerSettings = false,
+                OpenAiCompatibleTemperature = null,
+                OpenAiCompatibleTopP = null,
+                OpenAiCompatibleTopK = null,
+                OpenAiCompatibleFrequencyPenalty = null,
+                OpenAiCompatiblePresencePenalty = null,
+                OpenAiCompatibleRepetitionPenalty = null,
+                OpenAiCompatibleMinP = null,
                 AllowAiToControlEffects = false,
                 AllowAiFlash = false,
                 AllowAiVideo = false,
@@ -334,6 +369,14 @@ FREQUENCY RULE:
                 OpenAiCompatibleApiKey = OpenAiCompatibleApiKey,
                 OpenAiCompatibleModel = OpenAiCompatibleModel,
                 DailyRequestLimit = DailyRequestLimit,
+                OpenAiCompatibleUseCustomSamplerSettings = OpenAiCompatibleUseCustomSamplerSettings,
+                OpenAiCompatibleTemperature = OpenAiCompatibleTemperature,
+                OpenAiCompatibleTopP = OpenAiCompatibleTopP,
+                OpenAiCompatibleTopK = OpenAiCompatibleTopK,
+                OpenAiCompatibleFrequencyPenalty = OpenAiCompatibleFrequencyPenalty,
+                OpenAiCompatiblePresencePenalty = OpenAiCompatiblePresencePenalty,
+                OpenAiCompatibleRepetitionPenalty = OpenAiCompatibleRepetitionPenalty,
+                OpenAiCompatibleMinP = OpenAiCompatibleMinP,
                 AllowAiToControlEffects = AllowAiToControlEffects,
                 AllowAiFlash = AllowAiFlash,
                 AllowAiVideo = AllowAiVideo,
