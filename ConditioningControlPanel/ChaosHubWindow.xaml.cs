@@ -1670,6 +1670,14 @@ public partial class ChaosHubWindow : Window
 
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 
+    /// <summary>Re-open the spoiler-free rules card on demand (the same card shown the first
+    /// time the Dollhouse opened) — a "how do I play this" refresher anytime.</summary>
+    private void BtnGuide_Click(object sender, RoutedEventArgs e)
+    {
+        try { new ChaosIntroWindow { Owner = this }.ShowDialog(); }
+        catch (Exception ex) { App.Logger?.Debug("Chaos guide reshow: {E}", ex.Message); }
+    }
+
     // ============================ helpers ============================
 
     private static string? GetSegment(Panel grp) =>

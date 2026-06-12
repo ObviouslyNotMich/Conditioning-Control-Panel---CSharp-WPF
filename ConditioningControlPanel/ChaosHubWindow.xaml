@@ -157,6 +157,11 @@
                         </Border>
                     </StackPanel>
                 </StackPanel>
+                <Button x:Name="BtnGuide" Content="?" Click="BtnGuide_Click"
+                        ToolTip="How to play — the rules card"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,34,0"
+                        Width="28" Height="28" Background="#22FFFFFF" Foreground="White"
+                        FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
                 <Button x:Name="BtnCloseX" Content="✕" Click="BtnClose_Click"
                         HorizontalAlignment="Right" VerticalAlignment="Top"
                         Width="28" Height="28" Background="#22FFFFFF" Foreground="White" BorderThickness="0" Cursor="Hand"/>

@@ -79,7 +79,10 @@ public sealed class ChaosIntroWindow : Window
 
         // ---- the three verb lines (everything the first minute needs, nothing more) ----
         var rules = new StackPanel { Margin = new Thickness(46, 0, 46, 4) };
-        void Rule(string glyph, Color glyphColor, string head, string rest)
+        // Each rule colour-codes its input VERB (LEFT-CLICK / HOLD / RIGHT-CLICK) in the same hue
+        // as its glyph, so the action and the gesture read as one colour. A pill chip makes the
+        // verb pop out of the sentence; the action phrase stays bold-white, the rest dim.
+        void Rule(string glyph, Color color, string? verb, string head, string rest)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 7) };
             row.Children.Add(new TextBlock
@@ -89,12 +92,34 @@ public sealed class ChaosIntroWindow : Window
                 Width = 38,
                 TextAlignment = TextAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(glyphColor),
+                Foreground = new SolidColorBrush(color),
             });
+            var col = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            // Colour-coded input verb pill (skipped for the rabbit line, which has no gesture).
+            if (!string.IsNullOrEmpty(verb))
+            {
+                col.Children.Add(new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0x33, color.R, color.G, color.B)),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(0x99, color.R, color.G, color.B)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(7, 1, 7, 2),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(0, 0, 0, 3),
+                    Child = new TextBlock
+                    {
+                        Text = verb,
+                        Foreground = new SolidColorBrush(color),
+                        FontWeight = FontWeights.Bold,
+                        FontSize = 11,
+                        FontFamily = new FontFamily("Consolas"),
+                    },
+                });
+            }
             var text = new TextBlock
             {
                 FontSize = 14,
-                VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 380,
             };
@@ -102,13 +127,14 @@ public sealed class ChaosIntroWindow : Window
             { Foreground = Brushes.White, FontWeight = FontWeights.Bold });
             text.Inlines.Add(new System.Windows.Documents.Run(rest)
             { Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xC8, 0xC8, 0xDE)) });
-            row.Children.Add(text);
+            col.Children.Add(text);
+            row.Children.Add(col);
             rules.Children.Add(row);
         }
-        Rule("🫧", Color.FromRgb(0xFF, 0xD0, 0xE8), "pop the treats. ", "a click is enough. they feed your streak.");
-        Rule("◉", Color.FromRgb(0xFF, 0xD2, 0x28), "hold the burning ones. ", "press and keep pressing until they snap. let one finish its trance and it goes off.");
-        Rule("🌊", Color.FromRgb(0x7A, 0xE0, 0xFF), "ripple the water. ", "a right-click near the bubbles sends out a wave — treats pop, trances snap, rabbits go flying. it takes a while to gather another.");
-        Rule("🐇", Color.FromRgb(0xFF, 0x69, 0xB4), "follow the white rabbit. ", "everything else down there is yours to find out.");
+        Rule("🫧", Color.FromRgb(0xFF, 0xD0, 0xE8), "LEFT-CLICK", "pop the treats. ", "a click is enough. they feed your streak.");
+        Rule("◉", Color.FromRgb(0xFF, 0xD2, 0x28), "PRESS & HOLD", "hold the burning ones. ", "press and keep pressing until they snap. let one finish its trance and it goes off.");
+        Rule("🌊", Color.FromRgb(0x7A, 0xE0, 0xFF), "RIGHT-CLICK", "ripple the water. ", "a right-click near the bubbles sends out a wave — treats pop, trances snap, rabbits go flying. it takes a while to gather another.");
+        Rule("🐇", Color.FromRgb(0xFF, 0x69, 0xB4), null, "follow the white rabbit. ", "everything else down there is yours to find out.");
         stack.Children.Add(rules);
 
         // ---- the one button ----
