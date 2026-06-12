@@ -11836,6 +11836,7 @@ namespace ConditioningControlPanel
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
             if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Visible;
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Visible;
             SyncAiBrainUI();
         }
 
@@ -11859,7 +11860,14 @@ namespace ConditioningControlPanel
                 if (RadioAiOff != null) RadioAiOff.IsChecked = true;
                 if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
                 if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
+                if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Collapsed;
                 App.AiLiveActions?.Clear();
+            }
+            else if (DailyLimitPanel != null)
+            {
+                DailyLimitPanel.Visibility = s.CompanionPrompt.AiProvider == AiProviderType.OpenAiCompatible
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
             }
 
             App.Settings.Save();
@@ -12047,22 +12055,20 @@ namespace ConditioningControlPanel
 
             try
             {
-                // Use a minimal prompt to validate connectivity and auth.
-                var service = new Services.AIService.OpenAiCompatibleService();
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                var reply = await service.GetBambiReplyAsync("Say OK", isUserMessage: true);
-                sw.Stop();
-                service.Dispose();
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                using var service = new Services.AIService.OpenAiCompatibleService();
+                var diag = await service.TestEndpointAsync(cts.Token);
 
-                if (string.IsNullOrWhiteSpace(reply))
+                if (diag.Success)
                 {
-                    TxtOpenAiHealthStatus.Text = Loc.Get("label_status_failed");
-                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_connected")} · {diag.ElapsedMs ?? 0}ms";
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78));
                 }
                 else
                 {
-                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_connected")} · {sw.ElapsedMilliseconds}ms";
-                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78));
+                    var codePart = diag.HttpStatusCode.HasValue ? $" (HTTP {diag.HttpStatusCode.Value})" : string.Empty;
+                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_failed")} · {diag.Message}{codePart}";
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
                 }
             }
             catch (Exception ex)
