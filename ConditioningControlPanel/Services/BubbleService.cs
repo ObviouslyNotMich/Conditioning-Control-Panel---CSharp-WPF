@@ -1571,6 +1571,9 @@ public class BubbleService : IDisposable
     {
         Stop();
 
+        // Close pooled bubble window shells (static pool holds hidden HWNDs for the process life).
+        try { DispatcherHelper.RunOnUI(Bubble.DrainWindowPool); } catch { }
+
         // Drain and dispose pooled audio devices (static pool persists across service restarts)
         lock (_audioPoolLock)
         {
@@ -1587,7 +1590,62 @@ public class BubbleService : IDisposable
 /// </summary>
 internal class Bubble
 {
+    // Bubble windows are POOLED, not created/closed per bubble. Each bubble used to be its own
+    // AllowsTransparency layered Window that was Close()d on death; chaos spawns several per
+    // second, and closing hundreds of layered windows per minute floods the WPF finalizer queue
+    // faster than it drains, so native HWND/effect/bitmap memory piled up to a 2GB+ OOM hard
+    // crash (no managed exception — see chaos-bubble-oom-leak). Reusing a bounded set of hidden
+    // window shells eliminates the create/close churn entirely: the expensive native surface is
+    // allocated once per slot and recycled. A single full-screen canvas host was rejected because
+    // it can't do click-through-except-on-bubbles without a global mouse hook.
+    private const int WINDOW_POOL_MAX = 64;
+    private static readonly System.Collections.Generic.Stack<Window> _windowPool = new();
+
+    /// <summary>A hidden, reset transparent window shell — recycled or freshly built. UI thread only.</summary>
+    private static Window RentWindow()
+    {
+        while (_windowPool.Count > 0)
+        {
+            var w = _windowPool.Pop();
+            if (w != null) return w;
+        }
+        return new Window
+        {
+            WindowStyle = WindowStyle.None,
+            AllowsTransparency = true,
+            Background = Brushes.Transparent,
+            Topmost = true,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Focusable = false,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+        };
+    }
+
+    /// <summary>Reset a dead bubble's window to a bare hidden shell and return it to the pool
+    /// (or Close it if the pool is full). Drops Content/Effect so the visual tree + bitmaps
+    /// release immediately and nothing roots the old bubble. UI thread only.</summary>
+    private static void ReturnWindow(Window? w)
+    {
+        if (w == null) return;
+        try { w.Effect = null; w.Content = null; w.Opacity = 0; w.Hide(); } catch { }
+        if (_windowPool.Count < WINDOW_POOL_MAX) _windowPool.Push(w);
+        else { try { w.Close(); } catch { } }
+    }
+
+    /// <summary>Close every pooled shell (service Dispose / app shutdown) — the pool is static
+    /// and would otherwise hold its hidden HWNDs for the process lifetime.</summary>
+    public static void DrainWindowPool()
+    {
+        while (_windowPool.Count > 0)
+        {
+            try { _windowPool.Pop()?.Close(); } catch { }
+        }
+    }
+
     private readonly Window _window;
+    private System.Windows.Input.MouseButtonEventHandler? _winClickHandler;   // removed on death so the pooled window never roots a dead bubble
     private readonly Random _random;
     private readonly Action<Bubble>? _onPop;
     private readonly Action<Bubble>? _onMiss;
@@ -2123,32 +2181,29 @@ internal class Bubble
             };
         }
 
-        // Single window - clickable or click-through based on setting
-        _window = new Window
-        {
-            WindowStyle = WindowStyle.None,
-            AllowsTransparency = true,
-            Background = Brushes.Transparent,
-            Topmost = true,
-            ShowInTaskbar = false,
-            ShowActivated = false,
-            Focusable = false,
-            Width = _size + _winPad * 2,
-            Height = _size + _winPad * 2,
-            Left = _posX - _winPad,
-            Top = _posY - _winPad,
-            Content = _grid,
-            Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow,
-            IsHitTestVisible = _isClickable,
-            // Blindfold dims per-frame in AnimateFrame — seed it here too, or the window's
-            // first frame flashes at full opacity before the first tick lands.
-            Opacity = _baseOpacity
-        };
+        // Single window - clickable or click-through based on setting. Rented from the pool
+        // (recycled hidden shell) rather than newly created — see RentWindow / the pool above.
+        // Every per-bubble property below is (re)set on each reuse so a recycled shell carries
+        // no state from its previous bubble.
+        _window = RentWindow();
+        _window.Width = _size + _winPad * 2;
+        _window.Height = _size + _winPad * 2;
+        _window.Left = _posX - _winPad;
+        _window.Top = _posY - _winPad;
+        _window.Content = _grid;
+        _window.Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow;
+        _window.IsHitTestVisible = _isClickable;
+        // Blindfold dims per-frame in AnimateFrame — seed it here too, or the window's
+        // first frame flashes at full opacity before the first tick lands.
+        _window.Opacity = _baseOpacity;
+        _window.Effect = null;   // clear any glow left on a recycled shell (set again below if needed)
 
-        // Window click as final backup (only if clickable)
+        // Window click as final backup (only if clickable). Stored so Destroy() can detach it —
+        // a recycled pooled window must not keep a handler that roots this dead bubble.
         if (_isClickable)
         {
-            _window.MouseLeftButtonDown += (s, e) => OnPlayerPress();
+            _winClickHandler = (s, e) => OnPlayerPress();
+            _window.MouseLeftButtonDown += _winClickHandler;
         }
 
         // Tunnel Vision capstone: spotlight rabbits glow gold (skipped on the Performance tier,
@@ -3692,7 +3747,33 @@ internal class Bubble
         // Release this tease's animated-gif budget slot (process-wide cap).
         if (_teaseAnimated) { _teaseAnimated = false; _teaseAnimatedAlive = Math.Max(0, _teaseAnimatedAlive - 1); }
 
-        try { _window.Close(); } catch { }
+        // Drop the visual tree + decoded-bitmap references NOW. Window.Close() alone defers
+        // teardown to finalization, which lags badly under chaos's rapid spawn/close churn and
+        // was half of the OOM leak (see chaos-bubble-oom-leak). Sprites are shared frozen
+        // bitmaps from ChaosArt's cache, so nulling here drops only this bubble's edge to the
+        // shared bitmap — never the cached singleton. Stop any XamlAnimatedGif animator on the
+        // sprite first so it unsubscribes from CompositionTarget.Rendering.
+        try
+        {
+            if (_bubbleImage != null)
+            {
+                XamlAnimatedGif.AnimationBehavior.SetSourceUri(_bubbleImage, null);
+                _bubbleImage.Source = null;
+            }
+            // Detach the per-bubble window click handler FIRST — it captures this bubble, so
+            // leaving it on a recycled pooled window would root this dead bubble forever.
+            if (_winClickHandler != null)
+            {
+                try { _window.MouseLeftButtonDown -= _winClickHandler; } catch { }
+                _winClickHandler = null;
+            }
+            _grid.Children.Clear();
+        }
+        catch { }
+
+        // Recycle the window shell instead of closing it (no per-bubble HWND churn → no
+        // finalizer-queue flood → bounded native memory). ReturnWindow hides + resets it.
+        ReturnWindow(_window);
 
         // Notify service to remove from list (after animation completed)
         try { _onDestroy?.Invoke(this); } catch { }
@@ -3774,7 +3855,11 @@ internal class Bubble
         try
         {
             var hwnd = new System.Windows.Interop.WindowInteropHelper(_window).Handle;
-            var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            // Clear WS_EX_TRANSPARENT first: a recycled pooled shell may have had it set as a
+            // corpse (MakeCorpseClickThrough) in its previous life, and a plain OR would leave a
+            // now-clickable bubble stuck click-through (unpoppable). Rebuild the ex-style from a
+            // known base every (re)show.
+            var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE) & ~WS_EX_TRANSPARENT;
             var flags = exStyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
             // Non-clickable bubbles must be truly click-through at the Win32 level;
             // WPF's IsHitTestVisible alone doesn't prevent the window from eating clicks.

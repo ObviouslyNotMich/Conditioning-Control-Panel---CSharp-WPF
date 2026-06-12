@@ -6691,6 +6691,10 @@ namespace ConditioningControlPanel
             AvatarBorder.Cursor = Cursors.SizeAll;
             SpeechBubble.Cursor = Cursors.SizeAll;
             TitleBox.Cursor = Cursors.SizeAll;
+            // Let the whole visible tube vessel be grabbed (not just the avatar art) — it's
+            // IsHitTestVisible=False in XAML for attached mode; turn it on while detached.
+            ImgTubeFrame.IsHitTestVisible = true;
+            ImgTubeFrame.Cursor = Cursors.SizeAll;
             MouseLeftButtonDown += Window_MouseLeftButtonDown;
 
             // Update context menu visibility
@@ -6733,6 +6737,9 @@ namespace ConditioningControlPanel
             AvatarBorder.Cursor = Cursors.Arrow;
             SpeechBubble.Cursor = Cursors.Arrow;
             TitleBox.Cursor = Cursors.Arrow;
+            // Restore the attached-mode tube frame (non-interactive, behind everything).
+            ImgTubeFrame.IsHitTestVisible = false;
+            ImgTubeFrame.Cursor = Cursors.Arrow;
             MouseLeftButtonDown -= Window_MouseLeftButtonDown;
 
             // Reset scale BEFORE updating position - otherwise position is calculated
@@ -6921,7 +6928,12 @@ namespace ConditioningControlPanel
                 var hit = e.OriginalSource as DependencyObject;
                 bool onAvatar = IsDescendantOf(hit, AvatarBorder)
                                 || IsDescendantOf(hit, SpeechBubble)
-                                || IsDescendantOf(hit, TitleBox);
+                                || IsDescendantOf(hit, TitleBox)
+                                // The visible tube vessel is draggable too (enabled only when
+                                // detached — see Detach). Z-index 0, so it only catches clicks the
+                                // avatar/bubble/menu didn't, and the far transparent margins past
+                                // the tube image's rect stay non-draggable (#346 dead-zone guard).
+                                || IsDescendantOf(hit, ImgTubeFrame);
                 if (!onAvatar) return;
 
                 _isDragging = true;

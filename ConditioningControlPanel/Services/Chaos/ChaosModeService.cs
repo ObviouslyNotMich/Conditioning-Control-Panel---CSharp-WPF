@@ -25,6 +25,7 @@ public sealed class ChaosModeService
     private ChaosFxWindow? _fx;
     private DispatcherTimer? _runTimer;
     private DispatcherTimer? _spawnTimer;
+    private int _chromeRaiseTick;   // throttles the per-tick chrome topmost re-assert (see RunTick)
     private bool _active;        // a run session exists (countdown → results dismissed)
     private bool _spawning;      // GO fired, bubbles spawning, not yet ended
     private bool _paused;        // boon draft on screen (clock + spawns held)
@@ -622,6 +623,23 @@ public sealed class ChaosModeService
     }
 
     /// <summary>
+    /// Re-assert HWND_TOPMOST on the persistent run chrome (HUD/sidebar, wave clock, boon bar,
+    /// active-skill toy buttons) so it never sinks behind a foreground or fullscreen window
+    /// mid-run. Chrome ONLY — bubbles/FX already spawn topmost and re-stacking them every second
+    /// would churn the z-order for no gain. Called throttled (~1s) from <see cref="RunTick"/>.
+    /// UI thread only; each call is a focus-free SetWindowPos, no-op if a window isn't up.
+    /// </summary>
+    private void KeepChromeTopmost()
+    {
+        if (!_spawning) return;
+        try { _hud?.RaiseToTopmost(); } catch { }
+        try { _fx?.RaiseToTopmost(); } catch { }
+        try { ChaosWaveTimerOverlay.RaiseActive(); } catch { }
+        try { ChaosBoonBarOverlay.RaiseActive(); } catch { }
+        foreach (var b in _toyButtons) { try { b.RaiseToTopmost(); } catch { } }
+    }
+
+    /// <summary>
     /// A chaos payload can fire a mandatory video mid-run. The video is a freshly-raised
     /// fullscreen topmost window that lands on top of the run's bubbles + HUD + FX. Lift the
     /// gameplay layer back ABOVE it (focus-free, so the video keeps playing) — the video ends up
@@ -647,6 +665,13 @@ public sealed class ChaosModeService
     private void RunTick(object? sender, EventArgs e)
     {
         if (!_spawning || _state == null || _paused || _manualPaused) return;
+
+        // Keep the run chrome (HUD/sidebar, clock, boon bar, active-skill buttons) pinned above
+        // whatever grabs the foreground mid-run — other apps AND fullscreen surfaces, not just the
+        // mandatory-video case RaiseGameLayerAboveVideo already covers. A Topmost window still sinks
+        // under another process's topmost/fullscreen window, so we re-kick HWND_TOPMOST (focus-free,
+        // cheap) ~once a second. Throttled so it never churns z-order or fights clicks every frame.
+        if (++_chromeRaiseTick >= 4) { _chromeRaiseTick = 0; KeepChromeTopmost(); }
 
         double dt = 0.25;
         double elapsed = _state.ElapsedSec + dt;
