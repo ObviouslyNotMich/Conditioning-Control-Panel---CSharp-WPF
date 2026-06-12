@@ -169,6 +169,7 @@
                 <ToggleButton x:Name="TabEnhance" Style="{StaticResource Tab}" Content="the Toybox" Tag="enhance" Click="Tab_Click"/>
                 <ToggleButton x:Name="TabRun" Style="{StaticResource Tab}" Content="Settings" Tag="run" Click="Tab_Click"/>
                 <ToggleButton x:Name="TabImprove" Style="{StaticResource Tab}" Content="the Looking Glass" Tag="improve" Click="Tab_Click"/>
+                <ToggleButton x:Name="TabDiary" Style="{StaticResource Tab}" Content="the Diary" Tag="diary" Click="Tab_Click" Visibility="Collapsed"/>
             </WrapPanel>
 
             <!-- content -->
@@ -420,12 +421,10 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock x:Name="HdrStats" Grid.Row="0" Text="HOW FAR YOU'VE FALLEN" Style="{StaticResource SectionHdr}"/>
-                                <Grid Grid.Row="1" x:Name="StatsGrid" Margin="0,0,0,8">
+                                <Grid Grid.Row="1" x:Name="StatsGrid" VerticalAlignment="Top" Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
@@ -450,14 +449,23 @@
                                     <TextBlock Grid.Row="6" Grid.Column="0" Text="Time holding on" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
                                     <TextBlock Grid.Row="6" Grid.Column="1" x:Name="StTimeHeld" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
                                 </Grid>
-                                <TextBlock x:Name="HdrDiary" Grid.Row="2" Text="DIARY · what you've met down there · click to pop out ⤢" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,4,0,6"/>
-                                <ScrollViewer x:Name="DiaryScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" Cursor="Hand" MouseLeftButtonDown="Diary_PopOut">
-                                    <StackPanel x:Name="DiaryHost"/>
-                                </ScrollViewer>
                             </Grid>
                         </Border>
                     </Grid>
                 </Grid>
+
+                <!-- the Diary: its own tab so a full stats sheet can't crowd it out.
+                     Revealed only after the player has met something down there. -->
+                <ScrollViewer x:Name="PanelDiary" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <Border Style="{StaticResource CardStyle}">
+                        <StackPanel>
+                            <TextBlock x:Name="HdrDiary" Text="DIARY · what you've met down there · click to pop out ⤢"
+                                       Cursor="Hand" MouseLeftButtonDown="Diary_PopOut" Foreground="{StaticResource Pink}"
+                                       FontFamily="Consolas" FontWeight="Bold" FontSize="12" Margin="0,0,0,10"/>
+                            <StackPanel x:Name="DiaryHost"/>
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
             </Grid>
 
             <!-- footer -->

@@ -524,8 +524,11 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public ObservableCollection<ChaosBoon> ActiveCurses { get; } = new();
     public ObservableCollection<string> RecentEvents { get; } = new();
 
-    /// <summary>Active lifetime boons (Skills/Accessories/Utility) to show as icons in the HUD strip. Filled at run start.</summary>
-    public ObservableCollection<ChaosSidebarBoon> ActiveSidebarBoons { get; } = new();
+    /// <summary>Equipped toys (active-use Skills) shown as icons in the HUD strip — max 2. Filled at run start.</summary>
+    public ObservableCollection<ChaosSidebarBoon> ActiveSidebarToys { get; } = new();
+
+    /// <summary>Equipped Accessories shown as icons in the HUD strip — max 2, in their own group under the toys. Filled at run start.</summary>
+    public ObservableCollection<ChaosSidebarBoon> ActiveSidebarAccessories { get; } = new();
 
     /// <summary>Mantras/sins taken this run, in draft order — the Hades-style tile column in the HUD strip.</summary>
     public ObservableCollection<ChaosSidebarBoon> RunPickTiles { get; } = new();

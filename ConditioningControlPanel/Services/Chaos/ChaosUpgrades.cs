@@ -109,6 +109,35 @@ public static class ChaosMeta
     {
         State = ChaosMetaStore.Load();
         RefundRetiredBoons();
+        SanitizePockets();
+    }
+
+    /// <summary>Loadout contract: at most 2 toys + 2 accessories down the hole (the bench only
+    /// ever sells two pockets per category). Older/inflated saves can carry more pockets and
+    /// more equipped boons than that — clamp the counts and unequip the overflow once on load,
+    /// keeping catalogue order (habits/charms stay uncapped).</summary>
+    private static void SanitizePockets()
+    {
+        try
+        {
+            bool changed = false;
+            if (State.ToyPockets > MAX_POCKETS_PER_CATEGORY) { State.ToyPockets = MAX_POCKETS_PER_CATEGORY; changed = true; }
+            if (State.AccessoryPockets > MAX_POCKETS_PER_CATEGORY) { State.AccessoryPockets = MAX_POCKETS_PER_CATEGORY; changed = true; }
+            foreach (var cat in new[] { ChaosBoonCategory.Skill, ChaosBoonCategory.Accessory })
+            {
+                int keep = SlotsFor(cat);
+                foreach (var b in ChaosLifetimeBoons.InCategory(cat))
+                {
+                    if (!IsBoonActive(b.Id)) continue;
+                    if (keep > 0) { keep--; continue; }
+                    State.ActiveLifetimeBoons!.Remove(b.Id);
+                    changed = true;
+                    App.Logger?.Information("Chaos: unequipped {Id} (over the {Cat} pocket cap)", b.Id, cat);
+                }
+            }
+            if (changed) Save();
+        }
+        catch (Exception ex) { App.Logger?.Warning("Chaos: pocket sanitize failed ({E})", ex.Message); }
     }
 
     /// <summary>DEBUG ONLY (CCP_CHAOS_DEBUG dev strip): throw the meta state away and start
@@ -293,13 +322,18 @@ public static class ChaosMeta
     // Skills and Accessories are pocket-slotted (2 each) — you choose what you take down.
     // Utility is uncapped. They carry no run-mult (utility, not score).
 
+    /// <summary>The most pockets a category can ever hold — the bench sells exactly two per
+    /// category, and the loadout contract is 2 toys + 2 accessories max. Guards against
+    /// inflated saves on top of <see cref="SanitizePockets"/>.</summary>
+    public const int MAX_POCKETS_PER_CATEGORY = 2;
+
     /// <summary>Equip pockets for a category: purchase-driven (her bench sews them), starting
-    /// at ZERO toys / ZERO accessories on a fresh save; Utility toggles are uncapped.</summary>
+    /// at ZERO toys / ZERO accessories on a fresh save, capped at 2; Utility toggles are uncapped.</summary>
     public static int SlotsFor(ChaosBoonCategory cat) => cat switch
     {
         ChaosBoonCategory.Utility   => int.MaxValue,
-        ChaosBoonCategory.Skill     => State.ToyPockets,
-        ChaosBoonCategory.Accessory => State.AccessoryPockets,
+        ChaosBoonCategory.Skill     => Math.Min(State.ToyPockets, MAX_POCKETS_PER_CATEGORY),
+        ChaosBoonCategory.Accessory => Math.Min(State.AccessoryPockets, MAX_POCKETS_PER_CATEGORY),
         _ => 0,
     };
 

@@ -40,6 +40,58 @@
             </StackPanel>
         </DataTemplate>
 
+        <!-- Equipped-boon tile for the collapsed strip (toys group above, accessories group below) -->
+        <DataTemplate x:Key="StripBoonTile">
+            <Grid Width="64" Height="64" Margin="0,0,0,8" HorizontalAlignment="Center" Opacity="{Binding TileOpacity}">
+                <Grid.ToolTip>
+                    <ToolTip Style="{StaticResource BoonTipChrome}" Content="{Binding}"
+                             ContentTemplate="{StaticResource BoonTipContent}"/>
+                </Grid.ToolTip>
+                <Border CornerRadius="13" Background="{Binding TileBackBrush}" BorderThickness="0">
+                    <Grid>
+                        <!-- rounded clip so square art can't poke past the ring corners -->
+                        <Grid.Clip><RectangleGeometry Rect="0,0,64,64" RadiusX="13" RadiusY="13"/></Grid.Clip>
+                        <TextBlock Text="{Binding Glyph}" FontSize="30" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
+                        <!-- ring ABOVE the art: full-bleed sprites bury a behind-border -->
+                        <Border CornerRadius="13" BorderBrush="{Binding AccentBrush}" BorderThickness="3.5" IsHitTestVisible="False"/>
+                    </Grid>
+                </Border>
+                <Border Background="#DD121026" CornerRadius="6" Padding="4,0"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"
+                        Visibility="{Binding LevelBadgeVisibility}">
+                    <TextBlock Text="{Binding LevelText}" Foreground="{StaticResource Pink}" FontSize="11" FontWeight="Bold"/>
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Pocket tile for the expanded panel: pre-run, click a filled tile to take it off -->
+        <DataTemplate x:Key="PocketTile">
+            <Grid Width="57" Height="57" Margin="0,0,8,6" Opacity="{Binding TileOpacity}"
+                  Background="Transparent" Cursor="Hand"
+                  Tag="{Binding Id}" MouseLeftButtonDown="PocketTile_Click">
+                <Grid.ToolTip>
+                    <ToolTip Style="{StaticResource BoonTipChrome}" Content="{Binding}"
+                             ContentTemplate="{StaticResource BoonTipContent}"/>
+                </Grid.ToolTip>
+                <Border CornerRadius="12" Background="{Binding TileBackBrush}" BorderThickness="0">
+                    <Grid>
+                        <Grid.Clip><RectangleGeometry Rect="0,0,57,57" RadiusX="12" RadiusY="12"/></Grid.Clip>
+                        <TextBlock Text="{Binding Glyph}" FontSize="26" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
+                        <Border CornerRadius="12" BorderBrush="{Binding AccentBrush}" BorderThickness="3.5" IsHitTestVisible="False"/>
+                    </Grid>
+                </Border>
+                <Border Background="#DD121026" CornerRadius="6" Padding="4,0"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"
+                        Visibility="{Binding LevelBadgeVisibility}">
+                    <TextBlock Text="{Binding LevelText}" Foreground="{StaticResource Pink}" FontSize="11" FontWeight="Bold"/>
+                </Border>
+            </Grid>
+        </DataTemplate>
+
         <!-- Slim pink scrollbar for the expanded panel (pockets/modifiers/conditioning can outgrow it) -->
         <Style x:Key="SlimScrollBar" TargetType="ScrollBar">
             <Setter Property="Width" Value="5"/>
@@ -161,60 +213,29 @@
                     </TextBlock>
                 </StackPanel>
 
-                <!-- active lifetime boons (Skills/Accessories/Utility): art if present, else glyph + level -->
-                <ItemsControl ItemsSource="{Binding ActiveSidebarBoons}" Margin="0,18,0,0" HorizontalAlignment="Center">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Width="64" Height="64" Margin="0,0,0,8" HorizontalAlignment="Center" Opacity="{Binding TileOpacity}">
-                                <Grid.ToolTip>
-                                    <ToolTip Style="{StaticResource BoonTipChrome}" Content="{Binding}"
-                                             ContentTemplate="{StaticResource BoonTipContent}"/>
-                                </Grid.ToolTip>
-                                <Border CornerRadius="13" Background="{Binding TileBackBrush}" BorderThickness="0">
-                                    <Grid>
-                                        <!-- rounded clip so square art can't poke past the ring corners -->
-                                        <Grid.Clip><RectangleGeometry Rect="0,0,64,64" RadiusX="13" RadiusY="13"/></Grid.Clip>
-                                        <TextBlock Text="{Binding Glyph}" FontSize="30" Foreground="White"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
-                                        <!-- ring ABOVE the art: full-bleed sprites bury a behind-border -->
-                                        <Border CornerRadius="13" BorderBrush="{Binding AccentBrush}" BorderThickness="3.5" IsHitTestVisible="False"/>
-                                    </Grid>
-                                </Border>
-                                <Border Background="#DD121026" CornerRadius="6" Padding="4,0"
-                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"
-                                        Visibility="{Binding LevelBadgeVisibility}">
-                                    <TextBlock Text="{Binding LevelText}" Foreground="{StaticResource Pink}" FontSize="11" FontWeight="Bold"/>
-                                </Border>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <!-- equipped toys (max 2), then accessories (max 2) — separate groups, thin seam between -->
+                <ItemsControl ItemsSource="{Binding ActiveSidebarToys}" Margin="0,18,0,0" HorizontalAlignment="Center"
+                              ItemTemplate="{StaticResource StripBoonTile}"/>
+                <Border Height="1" Width="48" Background="{StaticResource PanelBorder}" Margin="0,0,0,8">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ActiveSidebarToys.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ActiveSidebarAccessories.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                </Border>
+                <ItemsControl ItemsSource="{Binding ActiveSidebarAccessories}" HorizontalAlignment="Center"
+                              ItemTemplate="{StaticResource StripBoonTile}"/>
 
-                <!-- mantras/sins taken this run, in draft order (Hades-style tile column, 2-up) -->
-                <ItemsControl ItemsSource="{Binding RunPickTiles}" Margin="0,10,0,0" Width="100" HorizontalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Width="44" Height="44" Margin="2" CornerRadius="10"
-                                    Background="{Binding TileBackBrush}" BorderThickness="0">
-                                <Border.ToolTip>
-                                    <ToolTip Style="{StaticResource BoonTipChrome}" Content="{Binding}"
-                                             ContentTemplate="{StaticResource BoonTipContent}"/>
-                                </Border.ToolTip>
-                                <Grid>
-                                    <Grid.Clip><RectangleGeometry Rect="0,0,44,44" RadiusX="10" RadiusY="10"/></Grid.Clip>
-                                    <TextBlock Text="{Binding Glyph}" FontSize="20" Foreground="{Binding AccentBrush}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
-                                    <Border CornerRadius="10" BorderBrush="{Binding AccentBrush}" BorderThickness="3" IsHitTestVisible="False"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <!-- mantras/sins drafted this run now ride the horizontal ribbon across the TOP of
+                     the screen (ChaosBoonBarOverlay), next to the clock — they outgrew this narrow
+                     strip. Still listed in full under CONDITIONING in the expanded panel below. -->
             </StackPanel>
         </Border>
 
@@ -299,39 +320,39 @@
                         </Grid>
                     </StackPanel>
 
-                    <!-- loadout: what you took down with you (equipped lifetime boons). hover a tile for its card -->
-                    <TextBlock x:Name="HdrPockets" Text="POCKETS" Style="{StaticResource Hdr}"/>
-                    <ItemsControl ItemsSource="{Binding ActiveSidebarBoons}">
+                    <!-- loadout: what you took down with you, split by group (max 2 each). hover a tile
+                         for its card; pre-run, click a filled tile to take it off (no-op once SINK fires) -->
+                    <TextBlock x:Name="HdrPockets" Text="TOYS">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Hdr}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ActiveSidebarToys.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding ActiveSidebarToys}" ItemTemplate="{StaticResource PocketTile}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <!-- pre-run: click a filled tile to take it off (no-op once SINK fires) -->
-                                <Grid Width="57" Height="57" Margin="0,0,8,6" Opacity="{Binding TileOpacity}"
-                                      Background="Transparent" Cursor="Hand"
-                                      Tag="{Binding Id}" MouseLeftButtonDown="PocketTile_Click">
-                                    <Grid.ToolTip>
-                                        <ToolTip Style="{StaticResource BoonTipChrome}" Content="{Binding}"
-                                                 ContentTemplate="{StaticResource BoonTipContent}"/>
-                                    </Grid.ToolTip>
-                                    <Border CornerRadius="12" Background="{Binding TileBackBrush}" BorderThickness="0">
-                                        <Grid>
-                                            <Grid.Clip><RectangleGeometry Rect="0,0,57,57" RadiusX="12" RadiusY="12"/></Grid.Clip>
-                                            <TextBlock Text="{Binding Glyph}" FontSize="26" Foreground="White"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
-                                            <Border CornerRadius="12" BorderBrush="{Binding AccentBrush}" BorderThickness="3.5" IsHitTestVisible="False"/>
-                                        </Grid>
-                                    </Border>
-                                    <Border Background="#DD121026" CornerRadius="6" Padding="4,0"
-                                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"
-                                            Visibility="{Binding LevelBadgeVisibility}">
-                                        <TextBlock Text="{Binding LevelText}" Foreground="{StaticResource Pink}" FontSize="11" FontWeight="Bold"/>
-                                    </Border>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="HdrAccessories" Text="ACCESSORIES">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Hdr}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ActiveSidebarAccessories.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding ActiveSidebarAccessories}" ItemTemplate="{StaticResource PocketTile}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                     </ItemsControl>
 
                     <!-- mantras/sins taken this run: tile + name rows, hover for the description -->

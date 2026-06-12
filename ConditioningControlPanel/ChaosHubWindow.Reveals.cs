@@ -109,9 +109,12 @@ public partial class ChaosHubWindow
 
             // ---- Looking Glass internals (bench purchases) ----
             CardMantras.Visibility = RevealService.IsUnlocked(RevealIds.StartPicker) ? Visibility.Visible : Visibility.Collapsed;
+            // The diary now lives in its own tab (so a full stats sheet can't crowd it out);
+            // its reveal drives whether that tab is offered. HdrDiary sits inside the panel and
+            // is always shown when the tab is open.
             bool diary = RevealService.IsUnlocked(RevealIds.Diary);
-            HdrDiary.Visibility = diary ? Visibility.Visible : Visibility.Collapsed;
-            DiaryScroll.Visibility = diary ? Visibility.Visible : Visibility.Collapsed;
+            TabDiary.Visibility = diary ? Visibility.Visible : Visibility.Collapsed;
+            if (!diary && TabDiary.IsChecked == true) ShowTab("loadout");   // don't strand the player on a vanished tab
             bool stats = RevealService.IsUnlocked(RevealIds.StatsPanel);
             HdrStats.Visibility = stats ? Visibility.Visible : Visibility.Collapsed;
             StatsGrid.Visibility = stats ? Visibility.Visible : Visibility.Collapsed;

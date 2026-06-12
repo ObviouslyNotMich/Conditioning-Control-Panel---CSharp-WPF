@@ -3514,6 +3514,12 @@ internal class Bubble
     /// </summary>
     private void BuildTeaseFace()
     {
+        // No teasebubble clip available → DON'T lay an opaque dark disc over the sprite (that
+        // read as a plain black circle when the pool folder was empty). The tease.png sprite
+        // already carries the glossy bubble + neon ✖, so it reads fine on its own.
+        string? path = PickTeaseGif();
+        if (path == null) return;
+
         double inner = _size * 0.86;
         var face = new Grid
         {
@@ -3530,8 +3536,6 @@ internal class Bubble
             IsHitTestVisible = false,
         });
 
-        string? path = PickTeaseGif();
-        if (path != null)
         {
             var img = new Image
             {

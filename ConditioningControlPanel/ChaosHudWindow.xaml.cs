@@ -122,7 +122,8 @@ public partial class ChaosHudWindow : Window
             ChaosTips.Attach(TxtShields, "resistance", TIP_RESIST);
             ChaosTips.Attach(HdrFocus, "focus", TIP_FOCUS);
             ChaosTips.Attach(FocusPanelBlock, "focus", TIP_FOCUS);
-            ChaosTips.Attach(HdrPockets, "pockets", "what you took down with you: toys, accessories, charms. hover a tile for its card; before the fall starts, clicking a tile takes it off.");
+            ChaosTips.Attach(HdrPockets, "toys", "the active toys you took down — two pockets at most. hover a tile for its card; before the fall starts, clicking a tile takes it off.");
+            ChaosTips.Attach(HdrAccessories, "accessories", "the accessories you wore down — two at most. hover a tile for its card; before the fall starts, clicking a tile takes it off.");
             ChaosTips.Attach(HdrConditioning, "conditioning", "the mantras and sins you accepted this run, in draft order. hover each for what it does.");
             ChaosTips.Attach(HdrModifiers, "modifiers", "your trained habits — always on, every descent. switch them at the Dollhouse, not here.");
             ChaosTips.Attach(HdrFeed, "the feed", "the last few things that happened down here, newest first.");

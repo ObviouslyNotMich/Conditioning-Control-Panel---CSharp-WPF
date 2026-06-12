@@ -37,8 +37,19 @@ public partial class ChaosHubWindow : Window
             new RoutedEventHandler((_, _) => { if (_uiSoundsReady) ChaosSfx.Play("ui_click", 0.3f); }), true);
         // The loadout sidebar opens beside the Warren so the pockets read at a glance while
         // equipping; it follows this window's lifetime (a started run swaps in the real HUD).
-        Closed += (_, _) => { Current = null; App.Chaos?.CloseLoadoutSidebar(); };
+        Closed += (_, _) =>
+        {
+            Current = null;
+            App.Chaos?.CloseLoadoutSidebar();
+            // Entering the Dollhouse detached the avatar; if we're leaving WITHOUT a descent
+            // starting (FALL IN sets _fallingIn), put it back where it was.
+            if (!_fallingIn) App.AvatarWindow?.SetChaosRunActive(false);
+        };
         App.Chaos?.ShowLoadoutSidebar();
+        // Detach the companion the moment we enter the hole's antechamber — not at run start —
+        // so it's already a floating widget out of the dollhouse's way. The run-start call is
+        // then a no-op; a hub closed without falling in re-attaches it (above).
+        App.AvatarWindow?.SetChaosRunActive(true);
         TitleBar.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) { try { DragMove(); } catch { } } };
 
         LoadFromSettings();
@@ -78,6 +89,8 @@ public partial class ChaosHubWindow : Window
         TabEnhance.IsEnabled = true;
         TabRun.IsEnabled = true;
         TabImprove.IsEnabled = true;
+        // The Diary tab only appears once there's something in it (met a bubble down there).
+        TabDiary.Visibility = DiaryUnlocked ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Tab_Click(object sender, RoutedEventArgs e)
@@ -93,26 +106,35 @@ public partial class ChaosHubWindow : Window
         // The Looking Glass stays out of reach until its reveal flips (the tab renders
         // greyed + locked, so gate on IsEnabled — it's always Visible now).
         if (tag == "improve" && !TabImprove.IsEnabled) tag = "loadout";
+        // The diary lives behind its own reveal — nothing met yet, nothing to read.
+        if (tag == "diary" && !DiaryUnlocked) tag = "loadout";
 
         PanelLoadout.Visibility = tag == "loadout" ? Visibility.Visible : Visibility.Collapsed;
         PanelEnhance.Visibility = tag == "enhance" ? Visibility.Visible : Visibility.Collapsed;
         PanelRun.Visibility     = tag == "run"     ? Visibility.Visible : Visibility.Collapsed;
         PanelImprove.Visibility = tag == "improve" ? Visibility.Visible : Visibility.Collapsed;
+        PanelDiary.Visibility   = tag == "diary"   ? Visibility.Visible : Visibility.Collapsed;
 
         TabLoadout.IsChecked = tag == "loadout";
         TabEnhance.IsChecked = tag == "enhance";
         TabRun.IsChecked     = tag == "run";
         TabImprove.IsChecked = tag == "improve";
+        TabDiary.IsChecked   = tag == "diary";
 
         TxtHint.Text = tag switch
         {
             "loadout" => "click a tile to slip it into a pocket. + takes you where it's sold.",
             "enhance" => "spend your drops. deepen what you like.",
             "run"     => "dress up the fall, then FALL IN.",
-            "improve" => "the bench, the mantras, the diary.",
+            "improve" => "the bench, the mantras, how far you've fallen.",
+            "diary"   => "everything you've met down there. click an entry to pop it out.",
             _ => "",
         };
     }
+
+    /// <summary>The Diary tab is offered once its reveal flips (the same "you've met something
+    /// down there" unlock the old in-card diary used) — before that it's an empty page.</summary>
+    private static bool DiaryUnlocked => RevealService.IsUnlocked(RevealIds.Diary);
 
     /// <summary>Settings tab: fold the dev/test knobs (bubble pool, mantra toggles, loops)
     /// in and out. Collapsed every open — the casual read stays short.</summary>
@@ -1633,8 +1655,11 @@ public partial class ChaosHubWindow : Window
 
     private void BtnDefaults_Click(object sender, RoutedEventArgs e) { LoadDefaults(); ApplyExtremeGate(); }
 
+    private bool _fallingIn;   // FALL IN clicked: the Closed handler must NOT re-attach the avatar
+
     private void BtnBegin_Click(object sender, RoutedEventArgs e)
     {
+        _fallingIn = true;   // keep the avatar detached through the hub→run handoff (no flicker)
         SaveToSettings();
         Close();
         Application.Current?.Dispatcher.BeginInvoke(new Action(() => App.Chaos?.StartRun()));

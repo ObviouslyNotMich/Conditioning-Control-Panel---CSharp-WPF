@@ -340,6 +340,14 @@ public sealed class ChaosModeService
         ChaosEffectBannerOverlay.EnsureCreated();   // birth the banner window NOW, not mid-chaos
         ChaosFieldFxOverlay.EnsureCreated();        // ripples/residue/trails are drafted mid-run — pre-create always
 
+        // The run-pick ribbon along the top: shows ONLY mantras/sins drafted during THIS descent,
+        // in pick order, beside the clock. Bind to this run's collection so each drafted card lands
+        // on it live (the start-boon pick below re-fires it too).
+        ChaosBoonBarOverlay.EnsureCreated();
+        var runPicks = _state.RunPickTiles;
+        ChaosBoonBarOverlay.SetPicks(runPicks);
+        runPicks.CollectionChanged += (_, _) => ChaosBoonBarOverlay.SetPicks(runPicks);
+
         // Loadout: a pre-equipped start boon enters the run already active (before wave 1).
         // The scripted first descent falls in bare — no start boon, whatever a stale save says.
         var equipped = _state.Config.ScriptedFirstRun ? null : ChaosMeta.State.EquippedStartBoon;
@@ -512,15 +520,16 @@ public sealed class ChaosModeService
     {
         var st = _state ?? _preState;   // live run, or the Warren-phase preview state
         if (st == null) return;
-        st.ActiveSidebarBoons.Clear();
+        st.ActiveSidebarToys.Clear();
+        st.ActiveSidebarAccessories.Clear();
         foreach (var cat in new[] { ChaosBoonCategory.Skill, ChaosBoonCategory.Accessory })
         {
-            int filled = 0;
+            var group = cat == ChaosBoonCategory.Skill ? st.ActiveSidebarToys : st.ActiveSidebarAccessories;
             foreach (var b in ChaosLifetimeBoons.InCategory(cat))
             {
                 if (!ChaosMeta.IsBoonActive(b.Id)) continue;
                 int lvl = ChaosMeta.BoonLevel(b.Id);
-                st.ActiveSidebarBoons.Add(new ChaosSidebarBoon
+                group.Add(new ChaosSidebarBoon
                 {
                     Id = b.Id,
                     Icon = ChaosArt.Resolve("boons", b.Id),
@@ -531,13 +540,12 @@ public sealed class ChaosModeService
                     Flavor = b.Flavor,
                     Extra = lvl >= b.MaxLevel && !string.IsNullOrEmpty(b.CapstoneDesc) ? "max: " + b.CapstoneDesc : "",
                 });
-                filled++;
             }
             // Empty "+" slots only exist during the Warren-phase glance (clicking one jumps the
             // Warren to Enhancements). Mid-run the loadout is locked — don't render dead tiles.
             if (_preHud != null)
-                for (int i = filled; i < ChaosMeta.SlotsFor(cat); i++)
-                    st.ActiveSidebarBoons.Add(new ChaosSidebarBoon
+                for (int i = group.Count; i < ChaosMeta.SlotsFor(cat); i++)
+                    group.Add(new ChaosSidebarBoon
                     {
                         IsEmptySlot = true,
                         Glyph = "+",
@@ -608,6 +616,7 @@ public sealed class ChaosModeService
         App.Bubbles?.BringAllToFront();
         try { _fx?.RaiseToTopmost(); } catch { }
         try { ChaosWaveTimerOverlay.RaiseActive(); } catch { }
+        try { ChaosBoonBarOverlay.RaiseActive(); } catch { }
         try { _hud?.RaiseToTopmost(); } catch { }
         foreach (var b in _toyButtons) { try { b.RaiseToTopmost(); } catch { } }
     }
@@ -2720,6 +2729,7 @@ public sealed class ChaosModeService
         try { ChaosDvdOverlay.CloseActive(); } catch { }
         try { ChaosEffectBannerOverlay.CloseActive(); } catch { }
         try { ChaosWaveTimerOverlay.CloseActive(); } catch { }
+        try { ChaosBoonBarOverlay.CloseActive(); } catch { }
         try { DisarmRabbitCall(); ChaosCursorGlowOverlay.CloseActive(); } catch { }
         try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
         try { ChaosEStimOverlay.CloseActive(); } catch { }
@@ -2764,6 +2774,7 @@ public sealed class ChaosModeService
         try { ChaosDvdOverlay.CloseActive(); } catch { }
         try { ChaosEffectBannerOverlay.CloseActive(); } catch { }
         try { ChaosWaveTimerOverlay.CloseActive(); } catch { }
+        try { ChaosBoonBarOverlay.CloseActive(); } catch { }
         try { DisarmRabbitCall(); ChaosCursorGlowOverlay.CloseActive(); } catch { }
         try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
         try { ChaosEStimOverlay.CloseActive(); } catch { }
@@ -2846,6 +2857,7 @@ public sealed class ChaosModeService
         try { ChaosDvdOverlay.CloseActive(); } catch { }
         try { ChaosEffectBannerOverlay.CloseActive(); } catch { }
         try { ChaosWaveTimerOverlay.CloseActive(); } catch { }
+        try { ChaosBoonBarOverlay.CloseActive(); } catch { }
         try { DisarmRabbitCall(); ChaosCursorGlowOverlay.CloseActive(); } catch { }
         try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
         try { ChaosEStimOverlay.CloseActive(); } catch { }
