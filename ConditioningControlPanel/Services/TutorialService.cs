@@ -1538,9 +1538,10 @@ namespace ConditioningControlPanel.Services
                     Icon = "\ud83d\udd17",
                     Title = Loc.Get("deeper_tut_ed_rules_title"),
                     Description = Loc.Get("deeper_tut_ed_rules_body"),
-                    // Mission 1: RulesList sidebar section is gone; retarget to
-                    // the new Rules lane header (commit 4 chrome).
-                    TargetElementName = "TimelineRulesLaneHeader",
+                    // Rules are no longer a dedicated lane (the timeline is three lanes:
+                    // Regions / Effects / Haptics). Rules render as full-height pins
+                    // across the canvas, so spotlight the canvas itself for this step.
+                    TargetElementName = "TimelineCanvas",
                     TextPosition = TutorialStepPosition.Top
                 },
                 new TutorialStep

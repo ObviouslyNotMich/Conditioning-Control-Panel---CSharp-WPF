@@ -259,6 +259,7 @@ namespace ConditioningControlPanel
         public static OverlayService Overlay { get; private set; } = null!;
         public static ScreenShakeService ScreenShake { get; private set; } = null!;
         public static BubbleService Bubbles { get; private set; } = null!;
+        public static Services.Chaos.ChaosModeService Chaos { get; private set; } = null!;
         public static LockCardService LockCard { get; private set; } = null!;
         public static PopQuizService PopQuiz { get; private set; } = null!;
         public static BubbleCountService BubbleCount { get; private set; } = null!;
@@ -267,6 +268,7 @@ namespace ConditioningControlPanel
         public static BrainDrainService BrainDrain { get; private set; } = null!;
         public static AchievementService Achievements { get; private set; } = null!;
         public static GamificationBridge? Gamification { get; private set; }
+        public static BarkService? Bark { get; private set; }
         public static QuestDefinitionService QuestDefinitions { get; private set; } = null!;
         public static QuestService Quests { get; private set; } = null!;
         public static TutorialService Tutorial { get; private set; } = null!;
@@ -731,6 +733,28 @@ namespace ConditioningControlPanel
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Render-thread deadlock guard (see avatar-tube-render-deadlock memory): the avatar
+            // tube is a layered window sharing WPF's single render thread; a layered ComboBox
+            // dropdown resizing/closing while the tube animates can wedge that thread
+            // (Application Hang 1002 — reproduced 4x on 2026-06-10 around mod switches).
+            // De-layer every ComboBox popup so the dropdown is a plain window: square corners,
+            // no shadow, no deadlock. Tooltips were de-layered the same way in App.xaml.
+            EventManager.RegisterClassHandler(typeof(System.Windows.Controls.ComboBox), FrameworkElement.LoadedEvent,
+                new RoutedEventHandler((s, _) =>
+                {
+                    try
+                    {
+                        if (s is System.Windows.Controls.ComboBox cb &&
+                            cb.Template?.FindName("PART_Popup", cb) is System.Windows.Controls.Primitives.Popup p &&
+                            !p.IsOpen)
+                        {
+                            p.AllowsTransparency = false;
+                            p.PopupAnimation = System.Windows.Controls.Primitives.PopupAnimation.None;
+                        }
+                    }
+                    catch { }
+                }));
+
             // Show splash screen IMMEDIATELY - before anything else
             // This ensures users see feedback right away after update/launch
             _splash = new SplashScreen();
@@ -843,6 +867,11 @@ namespace ConditioningControlPanel
                 .CreateLogger();
 
             Logger.Information("Application starting...");
+
+            // Hang forensics: the recurring freezes are render-thread deadlocks (Application
+            // Hang 1002, nothing in crash.log). The watchdog writes one minidump per session
+            // to the logs folder when the dispatcher stops responding for 10s.
+            Services.UiHangWatchdog.Start(Dispatcher);
 
             splash.SetProgress(0.1, "Initializing...");
 
@@ -1027,6 +1056,8 @@ namespace ConditioningControlPanel
             Overlay = new OverlayService();
             ScreenShake = new ScreenShakeService();
             Bubbles = new BubbleService();
+            Services.Chaos.ChaosMeta.Init();   // load persistent Chaos meta-progression before the run service
+            Chaos = new Services.Chaos.ChaosModeService();
             InteractionQueue = new InteractionQueueService();
             LockCard = new LockCardService();
             PopQuiz = new PopQuizService();
@@ -1040,6 +1071,9 @@ namespace ConditioningControlPanel
             // Single seam between feature events and achievement tracking. Constructed
             // here; Start() is called later in OnStartup once feature services exist.
             Gamification = new GamificationBridge();
+            // Reactive companion-dialogue ("bark") seam. Like GamificationBridge it is
+            // constructed here and Start()ed later once feature services exist.
+            Bark = new BarkService();
             QuestDefinitions = new QuestDefinitionService();
             _ = QuestDefinitions.InitializeAsync(); // Fire and forget - will load from cache first
             Quests = new QuestService();
@@ -1251,6 +1285,10 @@ namespace ConditioningControlPanel
             // to (Mods, Companion, KeywordTriggers, RemoteControl, Webcam, BlinkTrainer,
             // Lockdown) have been constructed above.
             Gamification?.Start();
+
+            // Start the bark system (loads rule manifests, wires its own direct event
+            // subscriptions). SessionEngine/TrayIcon are attached later by MainWindow.
+            Bark?.Start();
 
             // Update quest streak tracking
             Quests?.TrackStreak(Achievements.Progress.ConsecutiveDays);
@@ -2553,6 +2591,7 @@ Application State:
             Subliminal?.Dispose();
             Overlay?.Dispose();
             ScreenShake?.Dispose();
+            try { Chaos?.ForceShutdown(); } catch { }
             Bubbles?.Dispose();
             LockCard?.Dispose();
             PopQuiz?.Dispose();

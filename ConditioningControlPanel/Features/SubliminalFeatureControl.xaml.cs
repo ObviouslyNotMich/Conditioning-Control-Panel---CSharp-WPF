@@ -139,12 +139,21 @@ namespace ConditioningControlPanel.Features
         {
             var s = App.Settings?.Current;
             if (s == null) return;
+            var oldKeys = new HashSet<string>(s.SubliminalPool.Keys);
             var dialog = new TextEditorDialog("Subliminal Messages", s.SubliminalPool)
             {
                 Owner = Window.GetWindow(this) ?? Application.Current.MainWindow
             };
             if (dialog.ShowDialog() == true && dialog.ResultData != null)
             {
+                // Remember hand-added phrases (and forget removed ones) so the cross-mod prune
+                // never silently deletes a custom phrase that collides with another mod's default.
+                var newKeys = new HashSet<string>(dialog.ResultData.Keys);
+                foreach (var key in newKeys)
+                    if (!oldKeys.Contains(key)) s.UserAddedSubliminals.Add(key);
+                foreach (var key in oldKeys)
+                    if (!newKeys.Contains(key)) s.UserAddedSubliminals.Remove(key);
+
                 s.SubliminalPool = dialog.ResultData;
                 App.Settings?.Save();
                 App.Logger?.Information("Subliminal pool updated: {Count} items", dialog.ResultData.Count);

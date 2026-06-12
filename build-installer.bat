@@ -7,7 +7,7 @@ echo ============================================
 echo.
 
 :: Configuration
-set VERSION=6.0.8
+set VERSION=6.1.0
 set PROJECT_DIR=ConditioningControlPanel
 set PUBLISH_DIR=%PROJECT_DIR%\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish
 set INSTALLER_OUTPUT=installer-output
@@ -53,6 +53,22 @@ echo.
 echo [2.5/6] Cleaning empty locale folders from publish output...
 for %%D in (cs de es fr it ja ko pl pt-BR ru tr zh-Hans zh-Hant) do (
     if exist "%PUBLISH_DIR%\%%D" rmdir /s /q "%PUBLISH_DIR%\%%D"
+)
+
+echo.
+echo [2.6/6] Ensuring VC++ Redistributable bootstrapper is present...
+:: Bundled into the installer so webcam features (OpenCvSharpExtern.dll) work on
+:: machines without the MSVC runtime. Downloaded once; cached in redist\.
+if not exist "redist" mkdir "redist"
+if not exist "redist\VC_redist.x64.exe" (
+    echo Downloading VC_redist.x64.exe from aka.ms ...
+    curl -L -f -o "redist\VC_redist.x64.exe" https://aka.ms/vs/17/release/vc_redist.x64.exe
+    if errorlevel 1 (
+        echo ERROR: Failed to download VC_redist.x64.exe
+        echo Manually place it in the redist\ folder and re-run.
+        pause
+        exit /b 1
+    )
 )
 
 echo.

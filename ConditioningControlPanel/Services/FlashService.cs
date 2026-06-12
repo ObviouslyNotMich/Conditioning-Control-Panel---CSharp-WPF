@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
@@ -32,6 +33,14 @@ namespace ConditioningControlPanel.Services
 
         private readonly Random _random = new();
         private readonly List<FlashWindow> _activeWindows = new();
+
+        // Window pool: retired flash windows Hide() and get recycled instead of Close().
+        // Destroying a layered window while other layered surfaces animate (chaos bubbles,
+        // GIF flashes) can wedge the shared WPF render thread (Application Hang 1002) — the
+        // per-flash create/close churn was implicated in repeated mid-chaos-run freezes.
+        // UI-thread only (heartbeat/spawn/close all run on the dispatcher).
+        private readonly Stack<FlashWindow> _windowPool = new();
+        private const int WINDOW_POOL_MAX = 12;
         private List<string> _imageList = new();  // Cached image list for random selection
         private List<(string PackId, PackFileEntry File)> _packImageList = new();  // Cached pack images for random selection
         private Queue<string> _soundQueue = new();  // Performance: Changed to Queue for O(1) dequeue
@@ -45,7 +54,8 @@ namespace ConditioningControlPanel.Services
         private const int CACHE_EXPIRY_SECONDS = 60;  // Re-scan directories every 60 seconds
 
         private DispatcherTimer? _schedulerTimer;
-        private DispatcherTimer? _heartbeatTimer;
+        private bool _heartbeatOn;                       // CompositionTarget.Rendering subscribed
+        private TimeSpan _lastHeartbeat = TimeSpan.MinValue;
         private CancellationTokenSource? _cancellationSource;
         
         private bool _isRunning;
@@ -90,6 +100,12 @@ namespace ConditioningControlPanel.Services
         /// Whether the flash service is currently running
         /// </summary>
         public bool IsRunning => _isRunning;
+
+        /// <summary>
+        /// Number of flash windows currently on screen. Used as a live-load signal for
+        /// automatic performance-tier escalation (see Services/PerformanceProfile.cs).
+        /// </summary>
+        public int ActiveWindowCount => _activeWindows.Count;
 
         /// <summary>
         /// File paths of images shown by the most recent FlashDisplayed event.
@@ -149,13 +165,10 @@ namespace ConditioningControlPanel.Services
             RefreshImagesPath();
             _soundsPath = CompanionPhraseService.VoiceLineFolder;
             Directory.CreateDirectory(_soundsPath);
-
-            // Heartbeat timer for animation and fade management
-            _heartbeatTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(33) // ~30 FPS
-            };
-            _heartbeatTimer.Tick += Heartbeat_Tick;
+            // Animation/fade heartbeat runs off CompositionTarget.Rendering (vsync-aligned)
+            // — see StartHeartbeat. A 33ms DispatcherTimer's OS-quantized cadence beats
+            // against the display refresh and makes GIF flashes judder (same fix as the
+            // chaos DVD logo / gif cascade).
         }
 
         #endregion
@@ -189,7 +202,7 @@ namespace ConditioningControlPanel.Services
             _isRunning = true;
             _cancellationSource?.Dispose();
             _cancellationSource = new CancellationTokenSource();
-            _heartbeatTimer?.Start();
+            StartHeartbeat();
 
             ScheduleNextFlash();
 
@@ -204,7 +217,7 @@ namespace ConditioningControlPanel.Services
             _isRunning = false;
             try { _cancellationSource?.Cancel(); }
             catch (ObjectDisposedException) { }
-            _heartbeatTimer?.Stop();
+            StopHeartbeat();
             _schedulerTimer?.Stop();
 
             StopCurrentSound();
@@ -232,7 +245,7 @@ namespace ConditioningControlPanel.Services
         /// Trigger a one-shot flash that works even when service is not running.
         /// Used by Autonomy Mode to trigger flashes independently of engine state.
         /// </summary>
-        public void TriggerFlashOnce(int? amount = null, int? duration = null, int? size = null)
+        public void TriggerFlashOnce(int? amount = null, int? duration = null, int? size = null, bool suppressHaptic = false)
         {
             if (_isBusy)
             {
@@ -253,9 +266,9 @@ namespace ConditioningControlPanel.Services
             _soundPlayingForCurrentFlash = false;
 
             // Start heartbeat timer for animation and fade management
-            _heartbeatTimer?.Start();
+            StartHeartbeat();
 
-            Task.Run(() => LoadAndShowImages(amount, duration, size));
+            Task.Run(() => LoadAndShowImages(amount, duration, size, suppressHaptic));
         }
 
         /// <summary>
@@ -265,7 +278,7 @@ namespace ConditioningControlPanel.Services
         /// absolute or rooted under <c>App.EffectiveAssetsPath/images</c>; passing
         /// null or empty falls back to <see cref="TriggerFlashOnce"/> behavior.
         /// </summary>
-        public void TriggerFlashOnceWithImage(string? imagePath, int durationMs, bool playSound)
+        public void TriggerFlashOnceWithImage(string? imagePath, int durationMs, bool playSound, bool suppressHaptic = false)
         {
             if (_isBusy)
             {
@@ -275,7 +288,7 @@ namespace ConditioningControlPanel.Services
 
             if (string.IsNullOrWhiteSpace(imagePath))
             {
-                TriggerFlashOnce(amount: 1, duration: durationMs);
+                TriggerFlashOnce(amount: 1, duration: durationMs, suppressHaptic: suppressHaptic);
                 return;
             }
 
@@ -295,12 +308,12 @@ namespace ConditioningControlPanel.Services
             _isBusy = true;
             _oneShotActive = true;
             _soundPlayingForCurrentFlash = false;
-            _heartbeatTimer?.Start();
+            StartHeartbeat();
 
-            Task.Run(() => LoadAndShowSpecificImage(resolved, durationMs, playSound));
+            Task.Run(() => LoadAndShowSpecificImage(resolved, durationMs, playSound, suppressHaptic));
         }
 
-        private async void LoadAndShowSpecificImage(string imagePath, int durationMs, bool playSound)
+        private async void LoadAndShowSpecificImage(string imagePath, int durationMs, bool playSound, bool suppressHaptic = false)
         {
             try
             {
@@ -322,7 +335,7 @@ namespace ConditioningControlPanel.Services
 
                 await DispatcherHelper.RunOnUIAsync(() =>
                 {
-                    ShowImages(new List<LoadedImageData> { data }, soundPath, false, customDuration: durationMs);
+                    ShowImages(new List<LoadedImageData> { data }, soundPath, false, customDuration: durationMs, suppressHaptic: suppressHaptic);
                 });
             }
             catch (Exception ex)
@@ -403,7 +416,7 @@ namespace ConditioningControlPanel.Services
 
         #region Image Loading
 
-        private async void LoadAndShowImages(int? amount = null, int? duration = null, int? size = null)
+        private async void LoadAndShowImages(int? amount = null, int? duration = null, int? size = null, bool suppressHaptic = false)
         {
             try
             {
@@ -461,7 +474,7 @@ namespace ConditioningControlPanel.Services
                 // Show on UI thread - pass sound path only ONCE
                 await DispatcherHelper.RunOnUIAsync(() =>
                 {
-                    ShowImages(loadedImages, soundPath, false, customDuration: duration);
+                    ShowImages(loadedImages, soundPath, false, customDuration: duration, suppressHaptic: suppressHaptic);
                 });
             }
             catch (Exception ex)
@@ -475,12 +488,20 @@ namespace ConditioningControlPanel.Services
         {
             try
             {
+                // Decode images at (roughly) display resolution instead of full source
+                // resolution — a 4K image shown at ~300-1000px wastes memory + GPU fill-rate.
+                // Cap scales with the active performance tier and the user's ImageScale.
+                int decodeMax = ComputeDecodeMaxDim();
+                // Cache key includes the decode cap so the same file cached at one size isn't
+                // reused at another (only a handful of distinct caps ever occur).
+                string cacheKey = path + "|" + decodeMax;
+
                 // Check decode cache first (frozen BitmapSources are thread-safe)
                 lock (_imageDecodeCache)
                 {
-                    if (_imageDecodeCache.TryGetValue(path, out var cached))
+                    if (_imageDecodeCache.TryGetValue(cacheKey, out var cached))
                     {
-                        _imageDecodeCache[path] = (cached.data, DateTime.UtcNow);
+                        _imageDecodeCache[cacheKey] = (cached.data, DateTime.UtcNow);
                         return CloneImageData(cached.data);
                     }
                 }
@@ -492,18 +513,28 @@ namespace ConditioningControlPanel.Services
 
                     if (extension == ".gif")
                     {
-                        LoadGifFrames(path, data);
+                        LoadGifFrames(path, data, decodeMax);
                     }
                     else
                     {
-                        // Load static image
+                        // Load static image, downscaling to the decode cap if larger.
                         using var bitmap = new System.Drawing.Bitmap(path);
-                        var bitmapSource = ConvertToBitmapSource(bitmap);
+                        var (tw, th) = ScaledSize(bitmap.Width, bitmap.Height, decodeMax);
+                        BitmapSource bitmapSource;
+                        if (tw != bitmap.Width || th != bitmap.Height)
+                        {
+                            using var scaled = DownscaleBitmap(bitmap, tw, th);
+                            bitmapSource = ConvertToBitmapSource(scaled);
+                        }
+                        else
+                        {
+                            bitmapSource = ConvertToBitmapSource(bitmap);
+                        }
                         bitmapSource.Freeze();
 
                         data.Frames.Add(bitmapSource);
-                        data.Width = bitmap.Width;
-                        data.Height = bitmap.Height;
+                        data.Width = tw;
+                        data.Height = th;
                         data.FrameDelay = TimeSpan.FromMilliseconds(100);
                     }
 
@@ -540,7 +571,7 @@ namespace ConditioningControlPanel.Services
                             else break;
                         }
 
-                        _imageDecodeCache[path] = (data, DateTime.UtcNow);
+                        _imageDecodeCache[cacheKey] = (data, DateTime.UtcNow);
                         _imageCacheBytes += entryBytes;
                     }
 
@@ -572,13 +603,16 @@ namespace ConditioningControlPanel.Services
             return clone;
         }
 
-        private void LoadGifFrames(string path, LoadedImageData data)
+        private void LoadGifFrames(string path, LoadedImageData data, int decodeMax)
         {
             try
             {
                 using var gif = System.Drawing.Image.FromFile(path);
                 var dimension = new FrameDimension(gif.FrameDimensionsList[0]);
                 var frameCount = gif.GetFrameCount(dimension);
+
+                // Target (possibly downscaled) frame size — decode once, never upscale.
+                var (frameW, frameH) = ScaledSize(gif.Width, gif.Height, decodeMax);
 
                 // Get frame delay from metadata
                 var frameDelay = 100; // Default 100ms
@@ -593,8 +627,8 @@ namespace ConditioningControlPanel.Services
                 }
                 catch { }
 
-                // Limit frames based on image size to keep memory reasonable
-                var pixelsPerFrame = gif.Width * gif.Height * 4L; // BGRA32
+                // Limit frames based on (decoded) image size to keep memory reasonable
+                var pixelsPerFrame = (long)frameW * frameH * 4L; // BGRA32
                 var estimatedMemoryMB = (pixelsPerFrame * frameCount) / (1024.0 * 1024.0);
 
                 const double MAX_MEMORY_MB = 30.0;
@@ -612,10 +646,12 @@ namespace ConditioningControlPanel.Services
                 {
                     gif.SelectActiveFrame(dimension, i);
 
-                    using var frameBitmap = new System.Drawing.Bitmap(gif.Width, gif.Height);
+                    using var frameBitmap = new System.Drawing.Bitmap(frameW, frameH);
                     using (var g = Graphics.FromImage(frameBitmap))
                     {
-                        g.DrawImage(gif, 0, 0, gif.Width, gif.Height);
+                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                        g.DrawImage(gif, 0, 0, frameW, frameH);
                     }
 
                     var bitmapSource = ConvertToBitmapSource(frameBitmap);
@@ -623,28 +659,82 @@ namespace ConditioningControlPanel.Services
                     data.Frames.Add(bitmapSource);
                 }
 
-                data.Width = gif.Width;
-                data.Height = gif.Height;
+                data.Width = frameW;
+                data.Height = frameH;
                 data.FrameDelay = TimeSpan.FromMilliseconds(step > 1 ? frameDelay * step : frameDelay);
             }
             catch (Exception ex)
             {
                 App.Logger.Debug("Could not load GIF frames: {Error}", ex.Message);
 
-                // Fallback: load as static image
+                // Fallback: load as static image (still honoring the decode cap)
                 try
                 {
                     using var bitmap = new System.Drawing.Bitmap(path);
-                    var bitmapSource = ConvertToBitmapSource(bitmap);
+                    var (tw, th) = ScaledSize(bitmap.Width, bitmap.Height, decodeMax);
+                    BitmapSource bitmapSource;
+                    if (tw != bitmap.Width || th != bitmap.Height)
+                    {
+                        using var scaled = DownscaleBitmap(bitmap, tw, th);
+                        bitmapSource = ConvertToBitmapSource(scaled);
+                    }
+                    else
+                    {
+                        bitmapSource = ConvertToBitmapSource(bitmap);
+                    }
                     bitmapSource.Freeze();
 
                     data.Frames.Add(bitmapSource);
-                    data.Width = bitmap.Width;
-                    data.Height = bitmap.Height;
+                    data.Width = tw;
+                    data.Height = th;
                     data.FrameDelay = TimeSpan.FromMilliseconds(100);
                 }
                 catch { }
             }
+        }
+
+        /// <summary>
+        /// Largest pixel dimension to decode a flash image/GIF frame at. Scales with the active
+        /// performance tier and the user's ImageScale, clamped to a sane range. Keeping decoded
+        /// frames near display size (rather than full source res) is the single biggest memory
+        /// and GPU-fill-rate win when many flashes are on screen.
+        /// </summary>
+        private static int ComputeDecodeMaxDim()
+        {
+            int baseCap = PerformanceProfile.MaxDecodeDimension(PerformanceProfile.CurrentTier);
+            int scale = App.Settings?.Current?.ImageScale ?? 100;
+            int dim = (int)(baseCap * (scale / 100.0));
+            return Math.Clamp(dim, 256, 2048);
+        }
+
+        /// <summary>
+        /// Aspect-preserving target size so the longest edge is at most <paramref name="maxDim"/>.
+        /// Never upscales (returns the source size if already within the cap).
+        /// </summary>
+        private static (int w, int h) ScaledSize(int srcW, int srcH, int maxDim)
+        {
+            if (srcW <= 0 || srcH <= 0) return (srcW, srcH);
+            int longest = Math.Max(srcW, srcH);
+            if (longest <= maxDim) return (srcW, srcH);
+            double ratio = (double)maxDim / longest;
+            return (Math.Max(1, (int)Math.Round(srcW * ratio)),
+                    Math.Max(1, (int)Math.Round(srcH * ratio)));
+        }
+
+        /// <summary>
+        /// Produces a downscaled 32bpp copy of <paramref name="src"/> at the given size using
+        /// high-quality bicubic resampling. Caller owns (and must dispose) the returned bitmap.
+        /// </summary>
+        private static System.Drawing.Bitmap DownscaleBitmap(System.Drawing.Bitmap src, int w, int h)
+        {
+            var scaled = new System.Drawing.Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(scaled))
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.Half;
+                g.DrawImage(src, 0, 0, w, h);
+            }
+            return scaled;
         }
 
         private BitmapSource ConvertToBitmapSource(System.Drawing.Bitmap bitmap)
@@ -706,7 +796,7 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         /// <param name="overrideLifetimeMs">If provided, overrides the calculated lifetime (used for hydra linked timing)~ 🔗</param>
         /// <param name="hydraGeneration">How many hydra hops deep these spawns are (0 = original flash)~ 🐙</param>
-        private void ShowImages(List<LoadedImageData> images, string? soundPath, bool isMultiplication, int? overrideLifetimeMs = null, int hydraGeneration = 0, int? customDuration = null)
+        private void ShowImages(List<LoadedImageData> images, string? soundPath, bool isMultiplication, int? overrideLifetimeMs = null, int hydraGeneration = 0, int? customDuration = null, bool suppressHaptic = false)
         {
             if (!_isRunning && !_oneShotActive)
             {
@@ -729,6 +819,8 @@ namespace ConditioningControlPanel.Services
                 {
                     _soundPlayingForCurrentFlash = true;
                     duration = PlaySound(soundPath, settings.MasterVolume);
+                    // Tell the bark system a flash "whisper" is audible so the companion won't talk over it.
+                    App.Audio?.MarkWhisperAudio(duration);
 
                     // Fire event so avatar can show the audio text as speech bubble
                     FlashAudioPlaying?.Invoke(this, new FlashAudioEventArgs(soundPath));
@@ -783,7 +875,7 @@ namespace ConditioningControlPanel.Services
                             if (!hasWindows && _oneShotActive && !_isRunning)
                             {
                                 _oneShotActive = false;
-                                _heartbeatTimer?.Stop();
+                                StopHeartbeat();
                                 App.Logger?.Debug("FlashService: One-shot flash completed (all windows faded) uwu~ 🌙");
                             }
                         });
@@ -800,13 +892,14 @@ namespace ConditioningControlPanel.Services
                 
                 if (delayMs == 0)
                 {
-                    SpawnFlashWindow(imageData, settings, lifetimeMs, hydraGeneration);
+                    SpawnFlashWindow(imageData, settings, lifetimeMs, hydraGeneration, suppressHaptic);
                 }
                 else
                 {
                     var capturedData = imageData;
                     var capturedLifetime = lifetimeMs;
                     var capturedGeneration = hydraGeneration;
+                    var capturedSuppressHaptic = suppressHaptic;
                     var spawnToken = _cancellationSource?.Token ?? CancellationToken.None;
                     Task.Delay(delayMs, spawnToken).ContinueWith(_ =>
                     {
@@ -815,7 +908,7 @@ namespace ConditioningControlPanel.Services
                             System.Windows.Application.Current?.Dispatcher?.BeginInvoke(() =>
                             {
                                 if (_isRunning || _oneShotActive)
-                                    SpawnFlashWindow(capturedData, settings, capturedLifetime, capturedGeneration);
+                                    SpawnFlashWindow(capturedData, settings, capturedLifetime, capturedGeneration, capturedSuppressHaptic);
                             });
                         }
                         catch { }
@@ -846,7 +939,7 @@ namespace ConditioningControlPanel.Services
         /// CopilotNotes: Each window gets a CTS that fires after lifetimeMs, triggering independent fade-out.
         /// When hydraGeneration > 0 and independent timing is active, XP is reduced by 25% per generation (floor 10%).
         /// </summary>
-        private void SpawnFlashWindow(LoadedImageData imageData, AppSettings settings, int lifetimeMs, int hydraGeneration = 0)
+        private void SpawnFlashWindow(LoadedImageData imageData, AppSettings settings, int lifetimeMs, int hydraGeneration = 0, bool suppressHaptic = false)
         {
             if (!_isRunning && !_oneShotActive) return;
 
@@ -881,28 +974,23 @@ namespace ConditioningControlPanel.Services
                     finalY = monitor.Y + _random.Next(0, Math.Max(1, monitor.Height - geom.Height));
                 }
 
-                window = new FlashWindow
-                {
-                    Left = finalX,
-                    Top = finalY,
-                    Width = geom.Width,
-                    Height = geom.Height,
-                    Frames = imageData.Frames,
-                    FrameDelay = imageData.FrameDelay,
-                    StartTime = DateTime.Now,
-                    IsClickable = settings.FlashClickable,
-                    AllowsTransparency = true,
-                    WindowStyle = WindowStyle.None,
-                    Topmost = true,
-                    ShowInTaskbar = false,
-                    ShowActivated = false,
-                    Background = System.Windows.Media.Brushes.Black,
-                    ResizeMode = ResizeMode.NoResize,
-                    LifetimeCts = windowCts,
-                    ExpiresAt = DateTime.Now.AddMilliseconds(lifetimeMs),
-                    OriginalLifetimeMs = lifetimeMs,
-                    HydraGeneration = hydraGeneration
-                };
+                // Recycled from the pool when possible — all per-spawn state must be (re)set here.
+                window = AcquireFlashWindow();
+                window.Left = finalX;
+                window.Top = finalY;
+                window.Width = geom.Width;
+                window.Height = geom.Height;
+                window.Frames = imageData.Frames;
+                window.FrameDelay = imageData.FrameDelay;
+                window.StartTime = DateTime.Now;
+                window.CurrentFrameIndex = 0;
+                window.IsClickable = settings.FlashClickable;
+                window.Background = System.Windows.Media.Brushes.Black;
+                window.IsFadingOut = false;
+                window.LifetimeCts = windowCts;
+                window.ExpiresAt = DateTime.Now.AddMilliseconds(lifetimeMs);
+                window.OriginalLifetimeMs = lifetimeMs;
+                window.HydraGeneration = hydraGeneration;
                 // Capture the monitor on the window so hydra children can inherit
                 // their parent's screen (TriggerMultiplication reads window.Monitor).
                 window.Monitor = monitor;
@@ -921,26 +1009,17 @@ namespace ConditioningControlPanel.Services
                     catch { }
                 });
 
-                // Safety net: if the window is closed externally (e.g., OS shutdown, Alt+F4)
-                // without going through SafeCloseFlashWindow, dispose the CTS to prevent leaks~ 🧹
-                window.Closed += (s, e) =>
-                {
-                    if (s is FlashWindow fw)
-                    {
-                        try { fw.LifetimeRegistration?.Dispose(); } catch { }
-                        fw.LifetimeRegistration = null;
-                        try { fw.LifetimeCts?.Cancel(); } catch { }
-                        try { fw.LifetimeCts?.Dispose(); } catch { }
-                        fw.LifetimeCts = null;
-                    }
-                };
-
                 // Create image control
+                var perfTier = PerformanceProfile.CurrentTier;
                 var image = new Image
                 {
                     Stretch = Stretch.Uniform,
                     Source = imageData.Frames[0]
                 };
+                // Cheaper resampling — after decode-at-display-size there is little residual
+                // scaling, so the quality difference is imperceptible while saving GPU fill cost.
+                RenderOptions.SetBitmapScalingMode(image, PerformanceProfile.ScalingMode(perfTier));
+                RenderOptions.SetEdgeMode(image, EdgeMode.Aliased);
 
                 window.ImageControl = image;
 
@@ -970,9 +1049,14 @@ namespace ConditioningControlPanel.Services
                     PlayLuckyFlashSound();
                 }
 
-                // Apply glow effect based on sparkle boost tier or lucky proc
+                // Apply glow effect based on sparkle boost tier or lucky proc.
+                // Glow is a DropShadow blur (expensive at scale) — gate it behind the global
+                // glow toggle AND the performance tier (disabled entirely under Performance),
+                // and cap the blur radius so 25+ simultaneous flashes don't each run a 60px blur.
                 var sparkleBoostTier = App.SkillTree?.GetSparkleBoostTier() ?? 0;
-                if (isLucky || (sparkleBoostTier > 0 && (App.Settings?.Current?.FlashGlowEnabled ?? true)))
+                bool glowEnabled = (App.Settings?.Current?.FlashGlowEnabled ?? true)
+                                   && PerformanceProfile.AllowGlow(perfTier);
+                if (glowEnabled && (isLucky || sparkleBoostTier > 0))
                 {
                     var glowColor = isLucky
                         ? System.Windows.Media.Color.FromRgb(0xFF, 0xD7, 0x00) // Gold
@@ -989,6 +1073,9 @@ namespace ConditioningControlPanel.Services
                         blurRadius = sparkleBoostTier switch { 1 => 25, 2 => 35, _ => 45 };
                         glowOpacity = sparkleBoostTier switch { 1 => 0.5, 2 => 0.6, _ => 0.7 };
                     }
+
+                    // Cap the blur radius per tier (Quality ~24, Balanced ~18).
+                    blurRadius = Math.Min(blurRadius, PerformanceProfile.MaxGlowBlurRadius(perfTier));
 
                     var glowEffect = new DropShadowEffect
                     {
@@ -1028,7 +1115,8 @@ namespace ConditioningControlPanel.Services
                     // Pulsing golden animation for lucky procs
                     if (isLucky)
                     {
-                        var blurAnim = new DoubleAnimation(60, 100, TimeSpan.FromMilliseconds(400))
+                        // Pulse relative to the (capped) base radius so the cap is respected.
+                        var blurAnim = new DoubleAnimation(blurRadius, blurRadius * 1.6, TimeSpan.FromMilliseconds(400))
                         {
                             AutoReverse = true,
                             RepeatBehavior = RepeatBehavior.Forever
@@ -1049,27 +1137,16 @@ namespace ConditioningControlPanel.Services
 
                 window.Opacity = 0;
 
-                // Click handler
-                if (settings.FlashClickable)
-                {
-                    window.Cursor = System.Windows.Input.Cursors.Hand;
-                    window.MouseLeftButtonDown += (s, e) =>
-                    {
-                        if (s is FlashWindow fw)
-                            OnFlashClicked(fw, App.Settings.Current);
-                    };
-                }
-                else
-                {
-                    window.Cursor = System.Windows.Input.Cursors.No;
-                    MakeClickThrough(window);
-                }
-
-                // Hide from Alt+Tab for ALL flash windows
-                HideFromAltTab(window);
+                // Click handler + Alt+Tab hiding are wired ONCE in AcquireFlashWindow (the
+                // handler reads IsClickable per spawn) so recycled windows never stack handlers.
+                window.Cursor = settings.FlashClickable
+                    ? System.Windows.Input.Cursors.Hand
+                    : System.Windows.Input.Cursors.No;
 
                 window.Show();
-                _ = App.Haptics?.FlashDecayVibeAsync();
+                ApplyClickability(window, settings.FlashClickable);
+                if (!suppressHaptic)
+                    _ = App.Haptics?.FlashDecayVibeAsync();
 
                 // Force topmost even over fullscreen apps
                 ForceTopmost(window);
@@ -1208,12 +1285,63 @@ namespace ConditioningControlPanel.Services
 
         #region Heartbeat & Animation
 
-        private void Heartbeat_Tick(object? sender, EventArgs e)
+        // Old 33ms-tick fade step was 0.08/tick — same speed, expressed per second.
+        private const double FADE_PER_SEC = 2.4;
+
+        /// <summary>Subscribe the heartbeat to the composition clock (idempotent, any thread).</summary>
+        private void StartHeartbeat()
+        {
+            var disp = System.Windows.Application.Current?.Dispatcher;
+            if (disp == null) return;
+            void Sub()
+            {
+                if (_heartbeatOn) return;
+                _heartbeatOn = true;
+                _lastHeartbeat = TimeSpan.MinValue;
+                CompositionTarget.Rendering += Heartbeat_Render;
+            }
+            if (disp.CheckAccess()) Sub(); else disp.BeginInvoke((Action)Sub);
+        }
+
+        /// <summary>Unsubscribe the heartbeat (idempotent, any thread). Important: a live
+        /// Rendering subscription forces WPF to render continuously, so it only runs while
+        /// flashes are actually active.</summary>
+        private void StopHeartbeat()
+        {
+            var disp = System.Windows.Application.Current?.Dispatcher;
+            if (disp == null) return;
+            void Unsub()
+            {
+                if (!_heartbeatOn) return;
+                _heartbeatOn = false;
+                CompositionTarget.Rendering -= Heartbeat_Render;
+            }
+            if (disp.CheckAccess()) Unsub(); else disp.BeginInvoke((Action)Unsub);
+        }
+
+        private void Heartbeat_Render(object? sender, EventArgs e)
+        {
+            // True delta time from the composition clock: baseline on the first frame,
+            // skip duplicate callbacks, clamp after a stall so fades can't jump.
+            double dt = 0.033;
+            if (e is RenderingEventArgs r)
+            {
+                if (_lastHeartbeat == TimeSpan.MinValue) { _lastHeartbeat = r.RenderingTime; return; }
+                dt = (r.RenderingTime - _lastHeartbeat).TotalSeconds;
+                if (dt <= 0) return;
+                _lastHeartbeat = r.RenderingTime;
+                if (dt > 0.1) dt = 0.1;
+            }
+            Heartbeat_Tick(dt);
+        }
+
+        private void Heartbeat_Tick(double dt)
         {
             if (!_isRunning && !_oneShotActive) return;
 
             var settings = App.Settings.Current;
             var maxAlpha = Math.Min(1.0, Math.Max(0.0, settings.FlashOpacity / 100.0));
+            var fadeStep = FADE_PER_SEC * dt;
 
             FlashWindow[] windowsCopy;
             lock (_lockObj)
@@ -1245,11 +1373,11 @@ namespace ConditioningControlPanel.Services
                     var currentAlpha = window.Opacity;
                     if (targetAlpha > currentAlpha)
                     {
-                        window.Opacity = Math.Min(targetAlpha, currentAlpha + 0.08);
+                        window.Opacity = Math.Min(targetAlpha, currentAlpha + fadeStep);
                     }
                     else if (targetAlpha < currentAlpha)
                     {
-                        var newAlpha = Math.Max(0.0, currentAlpha - 0.08);
+                        var newAlpha = Math.Max(0.0, currentAlpha - fadeStep);
                         window.Opacity = newAlpha;
                         
                         if (newAlpha <= 0)
@@ -1859,6 +1987,82 @@ namespace ConditioningControlPanel.Services
 
         #region Window Management
 
+        /// <summary>
+        /// Pop a recycled flash window or create a fresh one. The window's chrome and
+        /// one-time hooks (click handler, CTS safety net, Alt+Tab hiding) are wired here
+        /// exactly once; everything per-spawn is assigned by SpawnFlashWindow.
+        /// </summary>
+        private FlashWindow AcquireFlashWindow()
+        {
+            while (_windowPool.Count > 0)
+            {
+                var pooled = _windowPool.Pop();
+                if (pooled.IsLoaded) return pooled;   // skip any window that got closed externally
+            }
+
+            var w = new FlashWindow
+            {
+                AllowsTransparency = true,
+                WindowStyle = WindowStyle.None,
+                Topmost = true,
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                Background = System.Windows.Media.Brushes.Black,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Opacity = 0,
+            };
+
+            // One-time click handler — gated on the per-spawn IsClickable flag so a
+            // recycled window behaves per its current spawn, with no handler stacking.
+            w.MouseLeftButtonDown += (s, e) =>
+            {
+                if (s is FlashWindow fw && fw.IsClickable && !fw.IsFadingOut)
+                    OnFlashClicked(fw, App.Settings.Current);
+            };
+
+            // Safety net: if the window is closed externally (e.g., OS shutdown, Alt+F4)
+            // without going through SafeCloseFlashWindow, dispose the CTS to prevent leaks~ 🧹
+            w.Closed += (s, e) =>
+            {
+                if (s is FlashWindow fw)
+                {
+                    try { fw.LifetimeRegistration?.Dispose(); } catch { }
+                    fw.LifetimeRegistration = null;
+                    try { fw.LifetimeCts?.Cancel(); } catch { }
+                    try { fw.LifetimeCts?.Dispose(); } catch { }
+                    fw.LifetimeCts = null;
+                }
+            };
+
+            // Hide from Alt+Tab for ALL flash windows (SourceInitialized fires once, at first Show)
+            HideFromAltTab(w);
+            return w;
+        }
+
+        /// <summary>
+        /// Toggle mouse click-through on a (shown) flash window. Recycled windows can flip
+        /// between clickable and click-through across spawns, so the style is re-applied
+        /// directly on the live hwnd each time rather than via SourceInitialized.
+        /// </summary>
+        private static void ApplyClickability(FlashWindow window, bool clickable)
+        {
+            try
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+                if (hwnd == IntPtr.Zero) return;
+                var style = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE)
+                            | NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_NOACTIVATE;
+                if (clickable) style &= ~NativeMethods.WS_EX_TRANSPARENT;
+                else style |= NativeMethods.WS_EX_TRANSPARENT;
+                NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, style);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("ApplyClickability failed: {Error}", ex.Message);
+            }
+        }
+
         private void SafeCloseFlashWindow(FlashWindow window)
         {
             try
@@ -1872,8 +2076,8 @@ namespace ConditioningControlPanel.Services
                 try { window.LifetimeCts?.Dispose(); } catch { }
                 window.LifetimeCts = null;
 
-                // Release bitmap references before closing to prevent memory accumulation
-                // Without this, closed windows hold BitmapSource frames until GC collects them,
+                // Release bitmap references before retiring to prevent memory accumulation
+                // Without this, retired windows hold BitmapSource frames until GC collects them,
                 // causing multi-GB memory growth over long sessions
                 if (window.ImageControl != null)
                 {
@@ -1881,35 +2085,26 @@ namespace ConditioningControlPanel.Services
                     window.ImageControl = null;
                 }
                 window.Frames.Clear();
+                window.Content = null;
+                window.IsFadingOut = false;
+                window.Opacity = 0;
 
-                window.Close();
+                // Recycle instead of Close: hide the window and return it to the pool.
+                // Closing a layered window mid-run is the render-thread-deadlock trigger.
+                if (window.IsLoaded && _windowPool.Count < WINDOW_POOL_MAX)
+                {
+                    window.Hide();
+                    _windowPool.Push(window);
+                }
+                else
+                {
+                    window.Close();
+                }
             }
             catch (Exception ex)
             {
                 App.Logger?.Debug("Failed to close flash window: {Error}", ex.Message);
-            }
-        }
-
-        private void MakeClickThrough(Window window)
-        {
-            try
-            {
-                // Need to do this after window is shown
-                window.SourceInitialized += (s, e) =>
-                {
-                    if (s is not Window w) return;
-                    var hwnd = new System.Windows.Interop.WindowInteropHelper(w).Handle;
-                    var extendedStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
-                    // WS_EX_TRANSPARENT: clicks pass through
-                    // WS_EX_LAYERED: allows transparency
-                    // WS_EX_NOACTIVATE: never steals keyboard/mouse focus
-                    NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE,
-                        extendedStyle | NativeMethods.WS_EX_TRANSPARENT | NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_NOACTIVATE);
-                };
-            }
-            catch (Exception ex)
-            {
-                App.Logger.Debug("Could not make window click-through: {Error}", ex.Message);
+                try { window.Close(); } catch { }
             }
         }
 
@@ -1973,6 +2168,12 @@ namespace ConditioningControlPanel.Services
         public void Dispose()
         {
             Stop();
+            // Drain the recycled-window pool — the only place pooled hwnds actually close
+            // (app shutdown; nothing else is animating, so the close is safe here).
+            while (_windowPool.Count > 0)
+            {
+                try { _windowPool.Pop().Close(); } catch { }
+            }
             _cancellationSource?.Dispose();
             StopCurrentSound();
             CleanupTempPackFiles();

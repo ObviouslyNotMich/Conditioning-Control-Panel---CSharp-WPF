@@ -13,7 +13,7 @@
 ; - Store install path in registry for Velopack updates
 
 #define MyAppName "Conditioning Control Panel"
-#define MyAppVersion "6.0.8"
+#define MyAppVersion "6.1.0"
 #define MyAppPublisher "CodeBambi"
 #define MyAppURL "https://github.com/CodeBambi/Conditioning-Control-Panel---CSharp-WPF"
 #define MyAppExeName "ConditioningControlPanel.exe"
@@ -83,6 +83,14 @@ Name: "startmenuicon"; Description: "Create a Start Menu shortcut"; GroupDescrip
 Name: "fileassoc"; Description: "Add 'Open with CCP' to right-click menu for media files (.mp4, .mp3, etc.)"; GroupDescription: "File associations:"; Flags: unchecked
 
 [Files]
+; Microsoft Visual C++ 2015-2022 x64 runtime bootstrapper. OpenCvSharpExtern.dll
+; (webcam capture) is built against the MSVC runtime and fails to load with
+; DllNotFoundException 0x8007007E on machines that don't have it — which silently
+; broke all webcam/eye-tracking features (BUG-XQCPKGE2Q8). Only staged + run when
+; the runtime is actually missing (see VCRedistNeeded). build-installer.bat
+; downloads this into redist\ before compiling.
+Source: "redist\VC_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: VCRedistNeeded
+
 ; Main executable
 Source: "{#PublishDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -157,6 +165,10 @@ Root: HKCU; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; 
 Root: HKCU; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; ValueName: "CCPanel.Editor.1"; ValueData: ""; Flags: uninsdeletevalue; Tasks: fileassoc
 
 [Run]
+; Install the VC++ runtime first (only if missing) so the webcam native library
+; can load on first launch. Self-elevates via UAC; /norestart keeps setup flowing.
+Filename: "{tmp}\VC_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Microsoft Visual C++ Runtime (required for webcam features)..."; Check: VCRedistNeeded
+
 ; Option to launch app after interactive installation (shows checkbox)
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 ; Always launch app after silent installation (auto-updates)
@@ -172,6 +184,23 @@ Type: filesandordirs; Name: "{app}\logs"
 
 [Code]
 // Pascal Script for custom installer logic
+
+// Returns True when the VC++ 2015-2022 x64 runtime is NOT installed, so the
+// bundled bootstrapper only runs on machines that need it. The runtime sets
+// Installed=1 under this key; setup runs in 64-bit mode (see
+// ArchitecturesInstallIn64BitMode) so this resolves to the real 64-bit hive.
+function VCRedistNeeded(): Boolean;
+var
+  Installed: Cardinal;
+begin
+  Result := True;
+  if RegQueryDWordValue(HKEY_LOCAL_MACHINE,
+       'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) then
+  begin
+    if Installed = 1 then
+      Result := False;
+  end;
+end;
 
 var
   VelopackPath: String;

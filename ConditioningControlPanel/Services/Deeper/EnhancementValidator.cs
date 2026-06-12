@@ -191,6 +191,10 @@ namespace ConditioningControlPanel.Services.Deeper
                     }
                     if (item.EffectOpacity < 0 || item.EffectOpacity > 1)
                         errors.Add(new ValidationError { Path = path, Message = $"effect_opacity must be in [0, 1] (got {item.EffectOpacity})." });
+                    if (item.EffectOpacityStart is double os && (os < 0 || os > 1))
+                        errors.Add(new ValidationError { Path = path, Message = $"effect_opacity_start must be in [0, 1] (got {os})." });
+                    if (item.EffectOpacityEnd is double oe && (oe < 0 || oe > 1))
+                        errors.Add(new ValidationError { Path = path, Message = $"effect_opacity_end must be in [0, 1] (got {oe})." });
                     break;
 
                 case EffectTypes.Bubble:
@@ -247,6 +251,8 @@ namespace ConditioningControlPanel.Services.Deeper
                 Reject(path, "duration", item.Duration);
                 Reject(path, "effect_intensity", item.EffectIntensity);
                 Reject(path, "effect_opacity", item.EffectOpacity);
+                if (item.EffectOpacityStart.HasValue) Reject(path, "effect_opacity_start", item.EffectOpacityStart.Value);
+                if (item.EffectOpacityEnd.HasValue) Reject(path, "effect_opacity_end", item.EffectOpacityEnd.Value);
                 RejectPattern(item.EffectCustomPattern, path);
                 RejectTriggerDoubles(item.Trigger, $"{path}.trigger", Reject);
                 RejectActionDoubles(item.Action, $"{path}.action", Reject, RejectPattern);

@@ -277,6 +277,8 @@ namespace ConditioningControlPanel
 
             // Initialize tray icon
             _trayIcon = new TrayIconService(this);
+            // Let the bark system observe tray-driven events (e.g. "wake Bambi").
+            App.Bark?.AttachTray(_trayIcon);
             _trayIcon.OnExitRequested += () =>
             {
                 if (App.Lockdown?.IsActive == true) return;
@@ -294,6 +296,7 @@ namespace ConditioningControlPanel
                 }
                 catch { }
 
+                EnsureSessionRestoredForExit();
                 SaveSettings();
                 Application.Current.Shutdown();
             };
@@ -859,6 +862,15 @@ namespace ConditioningControlPanel
 
         private void HandlePanicKeyPress()
         {
+            // A live Rabbit Hole descent owns the panic key: the chaos key hook pauses the
+            // run (and a second press surfaces it). Without this hand-off a mid-run panic
+            // fell into the "not running" branch below — where a second press EXITS the app.
+            if (App.Chaos?.IsDescending == true) return;
+
+            // Let the companion say a calm, persona-neutral safety line (highest priority,
+            // bypasses the bark gate). Fired before the stop flow so it's not suppressed.
+            App.Bark?.NotifyPanic();
+
             // Dismiss any open/pinned help popover so it never lingers over a panic.
             Controls.HelpPopover.CloseActive();
 
@@ -1972,6 +1984,7 @@ namespace ConditioningControlPanel
 
         private void BtnMinimize_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("minimize"); } catch { }
             // Hide avatar tube BEFORE minimizing to prevent visual artifacts
             HideAvatarTube();
             WindowState = WindowState.Minimized;
@@ -2007,6 +2020,7 @@ namespace ConditioningControlPanel
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("close"); } catch { }
             Close();
         }
 
@@ -2669,6 +2683,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperWelcomeTour_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_tour"); } catch { }
             DismissDeeperWelcomeCard();
             StartDeeperTabTutorial();
         }
@@ -2781,6 +2796,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperNewEnhancement_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_new"); } catch { }
             var dialog = new Views.Deeper.NewEnhancementDialog { Owner = this };
             if (dialog.ShowDialog() != true) return;
 
@@ -2792,6 +2808,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperOpenPlayer_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_player"); } catch { }
             try
             {
                 var win = new Views.Deeper.EnhancementPlayerWindow(App.DeeperPlayer, App.DeeperHost) { Owner = this };
@@ -2879,6 +2896,7 @@ namespace ConditioningControlPanel
 
         private async void BtnWebcamTracking_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("webcam_tracking"); } catch { }
             var svc = App.Webcam;
             if (svc == null) return;
 
@@ -3292,6 +3310,7 @@ namespace ConditioningControlPanel
 
         private void BtnDeeperImport_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("deeper_import"); } catch { }
             var dlg = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Import enhancement",
@@ -3764,6 +3783,7 @@ namespace ConditioningControlPanel
 
         private void BtnRerollDaily_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("reroll_daily"); } catch { }
             if (App.Quests?.RerollDailyQuest() == true)
             {
                 RefreshQuestUI();
@@ -3780,6 +3800,7 @@ namespace ConditioningControlPanel
 
         private void BtnRerollWeekly_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("reroll_weekly"); } catch { }
             if (App.Quests?.RerollWeeklyQuest() == true)
             {
                 RefreshQuestUI();
@@ -4847,6 +4868,7 @@ namespace ConditioningControlPanel
         /// <summary>Re-view the most recent season's recap card from its persisted snapshot.</summary>
         private void BtnViewSeasonRecap_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("season_recap"); } catch { }
             try
             {
                 var snapshot = Services.SeasonRecapService.LoadLatest();
@@ -7096,6 +7118,9 @@ namespace ConditioningControlPanel
                 return;
             }
 
+            // Bark hook: announce navigation (gated/chanced in the rules so it isn't spammy).
+            try { App.Bark?.NotifyTabNavigated(tab); } catch { }
+
             // Stop animations on tabs we're leaving to reduce idle CPU
             StopSeasonTitleShimmer();
             StopLockdownPulse();
@@ -9005,6 +9030,63 @@ namespace ConditioningControlPanel
             quizWindow.Show();
         }
 
+        /// <summary>
+        /// Lab → Chaos Mode hero card. Opens the setup/lobby window where the user
+        /// configures the run; BEGIN CHAOS there persists settings and launches via
+        /// <see cref="App.Chaos"/> (which owns the countdown, HUD and loop).
+        /// Modeless on purpose: ShowDialog would disable every other app window,
+        /// including the loadout sidebar that opens beside the Warren.
+        /// </summary>
+        private void BtnStartChaos_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (App.Chaos == null || App.Chaos.IsRunning) return;
+                // Happy path run 1: the Dollhouse stays shut until the first descent is done.
+                // FALL IN drops straight into the scripted naked run instead.
+                if (Services.Chaos.ChaosMeta.State.RunsCompleted == 0)
+                {
+                    App.Chaos.StartRun(Services.Chaos.ChaosHappyPath.BuildFirstRunConfig());
+                    return;
+                }
+                if (ChaosHubWindow.Current != null) { ChaosHubWindow.Current.Activate(); return; }
+                var hub = new ChaosHubWindow { Owner = this };
+                hub.Show();
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "BtnStartChaos_Click failed");
+                MessageBox.Show("Couldn't start Down the Rabbit Hole:\n\n" + ex.Message, "Down the Rabbit Hole",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Quick Start: launch a Chaos run with the saved settings, bypassing the modal hub.
+        /// Mirrors what BEGIN CHAOS does after SaveToSettings (StartRun reads ChaosRunConfig.FromSettings),
+        /// just without the dialog.
+        /// </summary>
+        private void BtnQuickStartChaos_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (App.Chaos == null || App.Chaos.IsRunning) return;
+                // Happy path run 1: the quick start drops into the same scripted naked run.
+                if (Services.Chaos.ChaosMeta.State.RunsCompleted == 0)
+                {
+                    App.Chaos.StartRun(Services.Chaos.ChaosHappyPath.BuildFirstRunConfig());
+                    return;
+                }
+                App.Chaos.StartRun();
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "BtnQuickStartChaos_Click failed");
+                MessageBox.Show("Couldn't start Down the Rabbit Hole:\n\n" + ex.Message, "Down the Rabbit Hole",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
         private void RefreshPastQuizzes()
         {
             try
@@ -9772,6 +9854,9 @@ namespace ConditioningControlPanel
                     UpdateTrophyCaseColumns();
                     // Show/hide Seasons column based on mode
                     UpdateSeasonsColumn();
+
+                    // Bark hook: react to the user's standing when the board loads.
+                    try { App.Bark?.NotifyLeaderboardViewed(App.Leaderboard.YourRank ?? 0, App.Leaderboard.TotalUsers); } catch { }
                 }
                 else
                 {
@@ -11471,6 +11556,7 @@ namespace ConditioningControlPanel
 
         private void BtnDetachCompanion_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("detach_companion"); } catch { }
             if (_avatarTubeWindow == null) return;
 
             _avatarTubeWindow.ToggleDetached();
@@ -11490,6 +11576,7 @@ namespace ConditioningControlPanel
 
         private void BtnCustomizeCompanion_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("customize_companion"); } catch { }
             var dialog = new CompanionPromptEditorDialog
             {
                 Owner = this
@@ -11502,6 +11589,7 @@ namespace ConditioningControlPanel
 
         private void BtnResetCompanionMemory_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("reset_memory"); } catch { }
             var confirm = System.Windows.MessageBox.Show(
                 this,
                 "Wipe the companion's chat memory?\n\nThis clears the AI's conversation history both in memory and on disk, plus the chat log shown in the avatar bubble. " +
@@ -15599,6 +15687,9 @@ namespace ConditioningControlPanel
                     _sessionEngine.PhaseChanged += OnSessionPhaseChanged;
                     _sessionEngine.SessionStarted += OnSessionStarted;
                     _sessionEngine.SessionStopped += OnSessionStopped;
+                    // Attach the bark system to this session engine (it's MainWindow-owned
+                    // and created lazily, so BarkService can't subscribe at its own Start()).
+                    App.Bark?.AttachSessionEngine(_sessionEngine);
                 }
 
                 // Call StartEngine directly — BtnStart_Click returns early
@@ -15651,11 +15742,15 @@ namespace ConditioningControlPanel
             }
         }
 
-        internal void StopSessionFromRemote()
+        internal void StopSessionFromRemote() => StopEngineAndSession("RemoteControl");
+
+        /// <summary>Stop the running session + main engine from an external trigger (remote control,
+        /// or diving into a Chaos run). Safe to call when nothing is running — it self-guards.</summary>
+        internal void StopEngineAndSession(string source)
         {
             try
             {
-                App.Logger?.Information("[RemoteControl] StopSessionFromRemote called");
+                App.Logger?.Information("[{Source}] StopEngineAndSession called", source);
                 if (_sessionEngine?.IsRunning == true)
                     _sessionEngine.StopSession();
 
@@ -15664,13 +15759,13 @@ namespace ConditioningControlPanel
                 // Also stop the main engine to reset services and _isRunning state
                 if (_isRunning)
                 {
-                    App.Logger?.Information("[RemoteControl] Also stopping main engine");
+                    App.Logger?.Information("[{Source}] Also stopping main engine", source);
                     StopEngine();
                 }
             }
             catch (Exception ex)
             {
-                App.Logger?.Error(ex, "[RemoteControl] Failed to stop session from remote");
+                App.Logger?.Error(ex, "[{Source}] Failed to stop engine/session", source);
             }
         }
 
@@ -18777,6 +18872,17 @@ namespace ConditioningControlPanel
             };
             _activeFeaturePopup = popup;
             popup.Show(); // Non-modal so bubbles and other interactions keep working
+
+            // Bark hook: identify the feature by control type (locale-independent), e.g.
+            // FlashFeatureControl -> "Flash". Gated/chanced in the rules so it isn't spammy.
+            try
+            {
+                var feat = content.GetType().Name;
+                const string suffix = "FeatureControl";
+                if (feat.EndsWith(suffix)) feat = feat.Substring(0, feat.Length - suffix.Length);
+                App.Bark?.NotifyFeatureOpened(feat);
+            }
+            catch { }
         }
 
         private void CardFlash_Click(object sender, RoutedEventArgs e) =>
@@ -23814,6 +23920,9 @@ namespace ConditioningControlPanel
             ChkStartHidden.IsChecked = s.StartMinimized;
             ChkNoPanic.IsChecked = !s.PanicKeyEnabled;
             ChkOfflineMode.IsChecked = s.OfflineMode;
+            if (ChkPerformanceMode != null) ChkPerformanceMode.IsChecked = s.PerformanceMode;
+            if (ChkAutoPerformance != null) ChkAutoPerformance.IsChecked = s.AutoPerformanceMode;
+            if (ChkVideoHwDecode != null) ChkVideoHwDecode.IsChecked = s.VideoHardwareDecoding;
             ChkStopEffectsOnRemoteDisconnect.IsChecked = s.StopEffectsOnRemoteDisconnect;
             if (ChkRemoteShareAvatar != null) ChkRemoteShareAvatar.IsChecked = s.RemoteShareAvatar;
 
@@ -24193,6 +24302,9 @@ namespace ConditioningControlPanel
             s.StartMinimized = ChkStartHidden.IsChecked ?? false;
             s.PanicKeyEnabled = !(ChkNoPanic.IsChecked ?? false);
             s.OfflineMode = ChkOfflineMode.IsChecked ?? false;
+            if (ChkPerformanceMode != null) s.PerformanceMode = ChkPerformanceMode.IsChecked ?? false;
+            if (ChkAutoPerformance != null) s.AutoPerformanceMode = ChkAutoPerformance.IsChecked ?? true;
+            if (ChkVideoHwDecode != null) s.VideoHardwareDecoding = ChkVideoHwDecode.IsChecked ?? true;
 
             // Deeper
             if (ChkEnableDeeper != null) s.EnableDeeper = ChkEnableDeeper.IsChecked ?? true;
@@ -24345,6 +24457,7 @@ namespace ConditioningControlPanel
                 StopEngine();
             }
             _exitRequested = true;
+            EnsureSessionRestoredForExit();
             SaveSettings();
             Close(); // This will now actually close since _exitRequested is true
         }
@@ -25885,6 +25998,7 @@ namespace ConditioningControlPanel
 
         private void BtnTestBubbleCount_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("test_bubblecount"); } catch { }
             App.BubbleCount.TriggerGame(forceTest: true);
         }
 
@@ -26394,6 +26508,9 @@ namespace ConditioningControlPanel
             // Track for Neon Obsession achievement (20 rapid clicks on the avatar/logo)
             App.Achievements?.TrackAvatarClick();
 
+            // Bark hook: rolling 60s click count drives the click-escalation eggs.
+            try { App.Bark?.NotifyAvatarClicked(); } catch { }
+
             // Log click count for debugging
             var clickCount = App.Achievements?.Progress.AvatarClickCount ?? 0;
             App.Logger?.Debug("Logo/Avatar clicked! Count: {Count}/20", clickCount);
@@ -26806,6 +26923,19 @@ namespace ConditioningControlPanel
             if (Application.Current?.Dispatcher == null || Application.Current.Dispatcher.HasShutdownStarted)
                 return;
 
+            // Once ever: add the companion's recorded voice on top of the written note (additive —
+            // the note dialog still shows as before). The recording is bundled later; PlayNoteClip
+            // no-ops if the file is missing, and we only latch the flag once it actually plays, so it
+            // still fires the first time the clip exists. Start it before the modal note so the voice
+            // plays while the note is read.
+            if (App.Settings?.Current?.NewYearNoteReactionSeen != true)
+            {
+                var notePath = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "note_newyear.wav");
+                if (App.AvatarWindow?.PlayNoteClip(notePath) == true)
+                    App.Settings.Current.NewYearNoteReactionSeen = true;
+            }
+
             var easterEggWindow = new EasterEggWindow(readerCount);
             easterEggWindow.Owner = this;
             easterEggWindow.ShowDialog();
@@ -26813,6 +26943,7 @@ namespace ConditioningControlPanel
 
         private void BtnTestVideo_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("test_video"); } catch { }
             try
             {
                 // Check if video is already playing - offer force reset if stuck
@@ -26963,6 +27094,20 @@ namespace ConditioningControlPanel
                     App.Settings.Current.RemovedDefaultSubliminals.Remove(key);
                 }
 
+                // Remember phrases the user added by hand so the cross-mod prune never deletes
+                // them (a custom phrase can legitimately collide with another mod's default).
+                foreach (var key in newKeys)
+                {
+                    if (!oldKeys.Contains(key))
+                        App.Settings.Current.UserAddedSubliminals.Add(key);
+                }
+                // Forget any user-added phrase they just removed.
+                foreach (var key in oldKeys)
+                {
+                    if (!newKeys.Contains(key))
+                        App.Settings.Current.UserAddedSubliminals.Remove(key);
+                }
+
                 App.Settings.Current.SubliminalPool = dialog.ResultData;
                 App.Settings.Save();
                 App.Logger?.Information("Subliminal pool updated: {Count} items", dialog.ResultData.Count);
@@ -26984,6 +27129,7 @@ namespace ConditioningControlPanel
 
         private void BtnTestLockCard_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("test_lockcard"); } catch { }
             var phrases = App.Settings.Current.LockCardPhrases;
             var enabledPhrases = phrases.Where(p => p.Value).Select(p => p.Key).ToList();
             
@@ -27086,6 +27232,7 @@ namespace ConditioningControlPanel
 
         private void BtnOpenAssetsFolder_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("open_assets"); } catch { }
             var assetsPath = App.EffectiveAssetsPath;
             Directory.CreateDirectory(Path.Combine(assetsPath, "images"));
             Directory.CreateDirectory(Path.Combine(assetsPath, "videos"));
@@ -29106,6 +29253,7 @@ namespace ConditioningControlPanel
 
         private void BtnPickAssetsFolder_Click(object sender, RoutedEventArgs e)
         {
+            try { App.Bark?.NotifyUiAction("pick_assets"); } catch { }
             var dialog = new System.Windows.Forms.FolderBrowserDialog
             {
                 Description = "Select a folder for your custom assets (images and videos).\nTwo subfolders 'images' and 'videos' will be created.",
@@ -29353,7 +29501,12 @@ namespace ConditioningControlPanel
 
         private void BtnRefreshAssets_Click(object sender, RoutedEventArgs e)
         {
-            App.Flash.LoadAssets();
+            // Rescan every asset consumer so newly added/removed files are picked up without a restart
+            // (#336 — BUG-BWJ7EGRTUP: the Assets help tip referenced a Refresh button that didn't exist).
+            App.Flash?.RefreshImagesPath();
+            App.Video?.RefreshVideosPath();
+            App.BubbleCount?.RefreshVideosPath();
+            RefreshAssetTree();
             MessageBox.Show(Loc.Get("msg_assets_refreshed"), Loc.Get("title_success"));
         }
 
@@ -29460,6 +29613,27 @@ namespace ConditioningControlPanel
                 App.Settings?.Save();
                 App.Logger?.Information("Keyboard hook started - panic key enabled");
             }
+        }
+
+        private void ChkPerformanceMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            App.Settings.Current.PerformanceMode = ChkPerformanceMode.IsChecked ?? false;
+            App.Logger?.Information("Performance mode set to {Enabled}", App.Settings.Current.PerformanceMode);
+        }
+
+        private void ChkAutoPerformance_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            App.Settings.Current.AutoPerformanceMode = ChkAutoPerformance.IsChecked ?? true;
+            App.Logger?.Information("Auto performance mode set to {Enabled}", App.Settings.Current.AutoPerformanceMode);
+        }
+
+        private void ChkVideoHwDecode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            App.Settings.Current.VideoHardwareDecoding = ChkVideoHwDecode.IsChecked ?? true;
+            App.Logger?.Information("Video hardware decoding set to {Enabled}", App.Settings.Current.VideoHardwareDecoding);
         }
 
         private void ChkOfflineMode_Changed(object sender, RoutedEventArgs e)
@@ -29776,6 +29950,26 @@ namespace ConditioningControlPanel
 
         #region Window Events
 
+        /// <summary>
+        /// Stops an in-progress preset session so SessionEngine.RestoreSettings() runs BEFORE we
+        /// persist settings on exit. Without this, quitting mid-session saves the session's
+        /// overridden pools (every user phrase disabled + session phrases injected), so the
+        /// subliminal/bouncing-text message sets look wiped on the next launch. StopSession()
+        /// is a no-op when no session is running, so this is always safe to call.
+        /// </summary>
+        private void EnsureSessionRestoredForExit()
+        {
+            try
+            {
+                if (_sessionEngine != null && _sessionEngine.IsRunning)
+                    _sessionEngine.StopSession(completed: false);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to restore session settings on exit");
+            }
+        }
+
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             // Lockdown mode: block all close attempts
@@ -29784,6 +29978,10 @@ namespace ConditioningControlPanel
                 e.Cancel = true;
                 return;
             }
+
+            // Closing (real exit OR minimize-to-tray) always ends a Chaos run so it
+            // can't keep spawning bubbles / pinning the app alive behind the scenes.
+            try { App.Chaos?.ForceShutdown(); } catch { }
 
             // Only allow actual close if exit was explicitly requested
             if (_exitRequested)
@@ -29800,6 +29998,10 @@ namespace ConditioningControlPanel
                 {
                     App.Logger?.Warning(ex, "Failed to sync conditioning time on exit");
                 }
+
+                // Restore any active session's settings before persisting (else the overridden
+                // pools get saved and the message sets look wiped next launch).
+                EnsureSessionRestoredForExit();
 
                 // Actually closing - clean up
                 SaveSettings();

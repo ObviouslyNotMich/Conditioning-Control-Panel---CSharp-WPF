@@ -446,20 +446,70 @@
                         <MenuItem x:Name="MenuItemPauseBrowser" Header="{loc:Str section_pause_browser}" Click="MenuItemPauseBrowser_Click"/>
                     </ContextMenu>
                 </Border.ContextMenu>
-                <Grid>
-                    <!-- Static PNG avatar (default) -->
+                <Grid x:Name="AvatarBounceHost" RenderTransformOrigin="0.5,1.0">
+                    <!-- Click-bounce layer: scales ALL avatar images together. Composes on top of the
+                         per-image float transforms (breathing/wobble/bob) and the AvatarBorder shift,
+                         so a click squash never fights the 60fps writes. Origin at bottom-centre so she
+                         bounces up from her feet. -->
+                    <Grid.RenderTransform>
+                        <ScaleTransform x:Name="AvatarBounceScale"/>
+                    </Grid.RenderTransform>
+                    <!-- Static PNG avatar (default) / emotive-portrait crossfade layer A.
+                         RenderTransform is a group: Scale (breathing) + Rotate (wobble) + Translate (bob),
+                         all written by the 60fps float timer in portrait mode. Translate stays LAST so the
+                         legacy Y-bob still works unchanged when portrait mode is off. -->
                     <Image x:Name="ImgAvatar"
                            Stretch="Uniform"
                            MaxHeight="306"
                            MaxWidth="198"
                            RenderTransformOrigin="0.5,0.5">
                         <Image.RenderTransform>
-                            <TranslateTransform x:Name="AvatarTranslate" Y="0"/>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="AvatarScale"/>
+                                <RotateTransform x:Name="AvatarRotate"/>
+                                <TranslateTransform x:Name="AvatarTranslate" Y="0"/>
+                            </TransformGroup>
                         </Image.RenderTransform>
                         <Image.Effect>
                             <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>
                         </Image.Effect>
                     </Image>
+                    <!-- Emotive-portrait crossfade layer B (hidden unless portrait mode is active) -->
+                    <Image x:Name="ImgAvatarB"
+                           Stretch="Uniform"
+                           MaxHeight="306"
+                           MaxWidth="198"
+                           Opacity="0"
+                           Visibility="Collapsed"
+                           RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="AvatarScaleB"/>
+                                <RotateTransform x:Name="AvatarRotateB"/>
+                                <TranslateTransform x:Name="AvatarTranslateB" Y="0"/>
+                            </TransformGroup>
+                        </Image.RenderTransform>
+                        <Image.Effect>
+                            <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>
+                        </Image.Effect>
+                    </Image>
+                    <!-- Pink mist overlay (emotive-portrait mode only): soft drifting pink glow over the avatar -->
+                    <Ellipse x:Name="MistOverlay"
+                             IsHitTestVisible="False"
+                             Visibility="Collapsed"
+                             Opacity="0.12"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <ScaleTransform x:Name="MistScale"/>
+                        </Ellipse.RenderTransform>
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.5,0.45" Center="0.5,0.45" RadiusX="0.6" RadiusY="0.72">
+                                <GradientStop Color="#FFFF8FCF" Offset="0.0"/>
+                                <GradientStop Color="#66FF69B4" Offset="0.45"/>
+                                <GradientStop Color="#00FF69B4" Offset="1.0"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
                     <!-- Animated GIF avatar (for level 20+) -->
                     <Image x:Name="ImgAvatarAnimated"
                            Stretch="Uniform"
@@ -469,6 +519,22 @@
                            RenderTransformOrigin="0.5,0.5">
                         <Image.RenderTransform>
                             <TranslateTransform x:Name="AvatarAnimatedTranslate" Y="0"/>
+                        </Image.RenderTransform>
+                        <Image.Effect>
+                            <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>
+                        </Image.Effect>
+                    </Image>
+                    <!-- Second animated layer: crossfade target for Circe WebP emotes
+                         (AvatarTubeWindow.CirceEmotes.cs). Mirrors ImgAvatarAnimated. -->
+                    <Image x:Name="ImgAvatarAnimatedB"
+                           Stretch="Uniform"
+                           MaxHeight="306"
+                           MaxWidth="198"
+                           Opacity="0"
+                           Visibility="Collapsed"
+                           RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <TranslateTransform x:Name="AvatarAnimatedTranslateB" Y="0"/>
                         </Image.RenderTransform>
                         <Image.Effect>
                             <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>

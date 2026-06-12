@@ -1763,10 +1763,11 @@ namespace ConditioningControlPanel.Views.Deeper
             var leftX = (lo / _totalSeconds) * w;
             var rightX = (hi / _totalSeconds) * w;
 
+            var (regionTop, regionH) = LaneBandInset(TimelineLane.Regions, h);
             _dragCreatePreview.Width = Math.Max(0, rightX - leftX);
-            _dragCreatePreview.Height = h / 2.0;
+            _dragCreatePreview.Height = regionH;
             Canvas.SetLeft(_dragCreatePreview, leftX);
-            Canvas.SetTop(_dragCreatePreview, 0);
+            Canvas.SetTop(_dragCreatePreview, regionTop);
         }
 
         private void FinishDragCreate(double endSec)
@@ -1930,6 +1931,8 @@ namespace ConditioningControlPanel.Views.Deeper
                     TxtRegionEnd.Text = _selectedRegion.End.ToString("0.##", CultureInfo.InvariantCulture);
                     TxtRegionColor.Text = _selectedRegion.Color;
                     UpdateRegionColorSwatchPreview();
+                    BtnSnapRegionStartPrev.IsEnabled = FindSnapPrevRegion() != null;
+                    BtnSnapRegionEndNext.IsEnabled = FindSnapNextRegion() != null;
                 }
                 finally { _suppressDirty = false; }
                 return;
@@ -1989,6 +1992,73 @@ namespace ConditioningControlPanel.Views.Deeper
             ScheduleValidation();
         }
 
+        // -- Region snap buttons ------------------------------------------------
+        // "Region 4 ends at 93.52 → region 5 starts at 93.52" without typing:
+        // snap the selected region's Start to the nearest earlier region's End
+        // (and symmetrically End to the next region's Start).
+
+        /// <summary>The region whose End the selected region's Start can snap to,
+        /// or null when there is none / it is already flush.</summary>
+        private Region? FindSnapPrevRegion()
+        {
+            if (_selectedRegion == null) return null;
+            Region? best = null;
+            foreach (var r in _enhancement.Regions)
+            {
+                if (r == null || ReferenceEquals(r, _selectedRegion)) continue;
+                if (r.End > _selectedRegion.Start + 0.001) continue;
+                if (best == null || r.End > best.End) best = r;
+            }
+            if (best != null && Math.Abs(best.End - _selectedRegion.Start) < 0.0001) return null; // already flush
+            return best;
+        }
+
+        private Region? FindSnapNextRegion()
+        {
+            if (_selectedRegion == null) return null;
+            Region? best = null;
+            foreach (var r in _enhancement.Regions)
+            {
+                if (r == null || ReferenceEquals(r, _selectedRegion)) continue;
+                if (r.Start < _selectedRegion.End - 0.001) continue;
+                if (best == null || r.Start < best.Start) best = r;
+            }
+            if (best != null && Math.Abs(best.Start - _selectedRegion.End) < 0.0001) return null; // already flush
+            return best;
+        }
+
+        private void BtnSnapRegionStartPrev_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedRegion == null) return;
+            var prev = FindSnapPrevRegion();
+            if (prev == null) return;
+            PushUndoSnapshot();
+            _selectedRegion.Start = prev.End;
+            _suppressDirty = true;
+            try { TxtRegionStart.Text = _selectedRegion.Start.ToString("0.##", CultureInfo.InvariantCulture); }
+            finally { _suppressDirty = false; }
+            BtnSnapRegionStartPrev.IsEnabled = FindSnapPrevRegion() != null;
+            MarkDirty();
+            RebuildRegionVisuals();
+            ScheduleValidation();
+        }
+
+        private void BtnSnapRegionEndNext_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedRegion == null) return;
+            var next = FindSnapNextRegion();
+            if (next == null) return;
+            PushUndoSnapshot();
+            _selectedRegion.End = next.Start;
+            _suppressDirty = true;
+            try { TxtRegionEnd.Text = _selectedRegion.End.ToString("0.##", CultureInfo.InvariantCulture); }
+            finally { _suppressDirty = false; }
+            BtnSnapRegionEndNext.IsEnabled = FindSnapNextRegion() != null;
+            MarkDirty();
+            RebuildRegionVisuals();
+            ScheduleValidation();
+        }
+
         private void BtnDeleteRegion_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedRegion == null) return;
@@ -2032,7 +2102,7 @@ namespace ConditioningControlPanel.Views.Deeper
             var h = TimelineCanvas.ActualHeight;
             if (w <= 0 || _totalSeconds <= 0) return null;
 
-            var laneH = h / 2.0;
+            var (laneTop, laneH) = LaneBandInset(TimelineLane.Regions, h);
             var startX = Math.Max(0, (region.Start / _totalSeconds) * w);
             var endX = Math.Min(w, (region.End / _totalSeconds) * w);
             // Floor at MinBandVisualWidthPx so a region whose duration would
@@ -2056,7 +2126,7 @@ namespace ConditioningControlPanel.Views.Deeper
                 ToolTip = string.IsNullOrEmpty(region.Label) ? region.Id : $"{region.Id} — {region.Label}"
             };
             Canvas.SetLeft(rect, startX);
-            Canvas.SetTop(rect, 0);
+            Canvas.SetTop(rect, laneTop);
             rect.MouseLeftButtonDown += RegionRect_MouseLeftButtonDown;
             rect.MouseMove += RegionRect_MouseMove;
             return rect;
@@ -2216,8 +2286,7 @@ namespace ConditioningControlPanel.Views.Deeper
             var h = TimelineCanvas.ActualHeight;
             if (w <= 0 || _totalSeconds <= 0) return null;
 
-            var laneTop = h / 2.0 + 2;
-            var laneH = Math.Max(0, h / 2.0 - 4);
+            var (laneTop, laneH) = LaneBandInset(TimelineLane.Haptics, h);
             var startX = Math.Max(0, (ev.Start / _totalSeconds) * w);
             var endX = Math.Min(w, ((ev.Start + ev.Duration) / _totalSeconds) * w);
             // Floor at MinBandVisualWidthPx so very short haptics stay clickable.
@@ -2639,6 +2708,7 @@ namespace ConditioningControlPanel.Views.Deeper
             ActionTypes.TriggerEffect => Loc.Get("deeper_friendly_action_trigger_effect"),
             ActionTypes.ScreenShake   => Loc.Get("deeper_friendly_action_screen_shake"),
             ActionTypes.SetIntensity  => Loc.Get("deeper_friendly_action_set_intensity"),
+            ActionTypes.NoOp          => Loc.Get("deeper_friendly_action_noop"),
             _                         => string.IsNullOrEmpty(type) ? "?" : type
         };
 
@@ -2712,8 +2782,13 @@ namespace ConditioningControlPanel.Views.Deeper
         {
             TriggerTypes.TimeReached, TriggerTypes.RegionEntered, TriggerTypes.RegionExited
         };
+        // NoOp first: rules created from the timeline default to NoOp, and
+        // PopulateRuleEditor falls back to index 0 for unknown action types —
+        // both must display honestly as "Do nothing", not as the first real
+        // action with no parameter fields.
         private static readonly string[] AllActionTypes =
         {
+            ActionTypes.NoOp,
             ActionTypes.Seek, ActionTypes.LoopRegion, ActionTypes.Pause,
             ActionTypes.PlayAudio, ActionTypes.TriggerHaptic, ActionTypes.TriggerEffect,
             ActionTypes.ScreenShake, ActionTypes.SetIntensity
@@ -2796,8 +2871,8 @@ namespace ConditioningControlPanel.Views.Deeper
 
             RuleRegionDetails.Visibility = Visibility.Visible;
             TxtRuleBandLabel.Text = region.Label ?? "";
-            TxtRuleBandStart.Text = region.Start.ToString("0.##", CultureInfo.InvariantCulture) + " s";
-            TxtRuleBandEnd.Text = region.End.ToString("0.##", CultureInfo.InvariantCulture) + " s";
+            TxtRuleBandStart.Text = region.Start.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtRuleBandEnd.Text = region.End.ToString("0.##", CultureInfo.InvariantCulture);
             TxtRuleBandColor.Text = region.Color ?? "";
             UpdateRuleBandColorSwatchPreview();
             BuildRuleBandColorSwatches();
@@ -2830,8 +2905,22 @@ namespace ConditioningControlPanel.Views.Deeper
                     region.Color = TxtRuleBandColor.Text;
                     UpdateRuleBandColorSwatchPreview();
                 }
+                else if (sender == TxtRuleBandStart
+                         && double.TryParse(TxtRuleBandStart.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var bs))
+                {
+                    // No Start<End enforcement mid-typing ("12" passes through "1");
+                    // the debounced validator flags inverted bands, same as the
+                    // region inspector's fields.
+                    region.Start = Math.Clamp(bs, 0, _totalSeconds > 0 ? _totalSeconds : double.MaxValue);
+                }
+                else if (sender == TxtRuleBandEnd
+                         && double.TryParse(TxtRuleBandEnd.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var be))
+                {
+                    region.End = Math.Clamp(be, 0, _totalSeconds > 0 ? _totalSeconds : double.MaxValue);
+                }
                 MarkDirty();
                 RebuildRegionVisuals();
+                RebuildRuleVisuals();
                 ScheduleValidation();
             }
             catch (Exception ex)
@@ -2937,7 +3026,9 @@ namespace ConditioningControlPanel.Views.Deeper
 
             _selectedRule.Action = picked switch
             {
-                ActionTypes.Seek          => new SeekAction { Target = SeekTargets.Time, Time = 0 },
+                ActionTypes.NoOp          => new NoOpEnhancementAction(),
+                // Default the jump target to the playhead, mirroring TimeReachedTrigger.
+                ActionTypes.Seek          => new SeekAction { Target = SeekTargets.Time, Time = Math.Max(0, _currentSeconds) },
                 ActionTypes.LoopRegion    => new LoopRegionAction(),
                 ActionTypes.Pause         => new PauseAction(),
                 ActionTypes.PlayAudio     => new PlayAudioAction(),
@@ -3769,6 +3860,7 @@ namespace ConditioningControlPanel.Views.Deeper
             ActionTypes.TriggerEffect => "deeper_desc_action_trigger_effect",
             ActionTypes.ScreenShake   => "deeper_desc_action_screen_shake",
             ActionTypes.SetIntensity  => "deeper_desc_action_set_intensity",
+            ActionTypes.NoOp          => "deeper_desc_action_noop",
             _                         => ""
         };
 

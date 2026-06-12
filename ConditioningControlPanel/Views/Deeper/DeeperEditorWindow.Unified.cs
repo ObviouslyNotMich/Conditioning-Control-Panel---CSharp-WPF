@@ -126,9 +126,20 @@ namespace ConditioningControlPanel.Views.Deeper
 
         private void BtnAddEffectHero_Click(object sender, RoutedEventArgs e)
         {
-            // Default to haptic at the playhead. For non-haptic effects, the user
-            // uses right-click for the granular menu; the hero button stays simple.
-            AddEffectAt(EffectTypes.Haptic, _currentSeconds);
+            // Same five options as the right-click menu, dropped at the playhead.
+            // The shared Ctx handlers read _rightClickSeconds, so point it there.
+            try
+            {
+                _rightClickSeconds = Math.Max(0, _currentSeconds);
+                var menu = (ContextMenu)FindResource("HeroAddEffectMenu");
+                menu.PlacementTarget = BtnAddEffectHero;
+                menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                menu.IsOpen = true;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("DeeperEditor: hero effect menu error: {Error}", ex.Message);
+            }
         }
 
         private void BtnAddRuleHero_Click(object sender, RoutedEventArgs e)
@@ -391,7 +402,8 @@ namespace ConditioningControlPanel.Views.Deeper
                 ToolTip = $"{item.EffectType} @ {item.Start:0.##}s"
             };
             double x = (item.Start / _totalSeconds) * canvasWidth - 6;
-            double y = canvasHeight - 18;
+            var (eTop, eH) = LaneBand(TimelineLane.Effects, canvasHeight);
+            double y = eTop + eH / 2.0 - 6; // center the 12px dot in the Effects lane
             Canvas.SetLeft(dot, x);
             Canvas.SetTop(dot, y);
             Panel.SetZIndex(dot, 10);
@@ -430,8 +442,9 @@ namespace ConditioningControlPanel.Views.Deeper
             double startX = Math.Max(0, (item.Start / _totalSeconds) * canvasWidth);
             double endX = Math.Min(canvasWidth, ((item.Start + Math.Max(0, item.Duration)) / _totalSeconds) * canvasWidth);
             double width = Math.Max(8, endX - startX);
-            double y = canvasHeight - 22;          // dedicated effect lane near the bottom
-            double height = 18;
+            var (eTop, eH) = LaneBand(TimelineLane.Effects, canvasHeight);
+            double height = Math.Min(18, Math.Max(0, eH - 2 * LaneInset));
+            double y = eTop + (eH - height) / 2.0; // center the segment in the Effects lane
 
             var rect = new System.Windows.Shapes.Rectangle
             {
@@ -546,23 +559,34 @@ namespace ConditioningControlPanel.Views.Deeper
                 {
                     case EffectTypes.Flash:
                         FlashEffectEditor.Visibility = Visibility.Visible;
+                        TxtFlashStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         TxtFlashDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
+                        ChkFlashSuppressHaptic.IsChecked = _selectedEffect.EffectSuppressHaptic;
                         break;
                     case EffectTypes.Bubble:
                         BubbleEffectEditor.Visibility = Visibility.Visible;
+                        TxtBubbleStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         TxtBubbleWindow.Text = (_selectedEffect.EffectDurationMs / 1000.0).ToString("0.##", CultureInfo.InvariantCulture);
                         SliderBubbleIntensity.Value = _selectedEffect.EffectIntensity;
                         break;
                     case EffectTypes.Subliminal:
                         SubliminalEffectEditor.Visibility = Visibility.Visible;
+                        TxtSubliminalStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         TxtSubliminalText.Text = _selectedEffect.EffectText ?? "";
                         TxtSubliminalDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
+                        ChkSubliminalSuppressHaptic.IsChecked = _selectedEffect.EffectSuppressHaptic;
                         break;
                     case EffectTypes.Overlay:
                         OverlayEffectEditor.Visibility = Visibility.Visible;
+                        TxtOverlayStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         SelectOverlayKindCombo(_selectedEffect.EffectOverlayKind);
                         TxtOverlayDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
-                        SliderOverlayOpacity.Value = _selectedEffect.EffectOpacity;
+                        bool ramp = _selectedEffect.EffectOpacityStart.HasValue && _selectedEffect.EffectOpacityEnd.HasValue;
+                        ChkOverlayRamp.IsChecked = ramp;
+                        // When ramping, the main slider is the START opacity.
+                        SliderOverlayOpacity.Value = ramp ? _selectedEffect.EffectOpacityStart!.Value : _selectedEffect.EffectOpacity;
+                        SliderOverlayOpacityEnd.Value = ramp ? _selectedEffect.EffectOpacityEnd!.Value : _selectedEffect.EffectOpacity;
+                        ApplyOverlayRampVisibility(ramp);
                         break;
                     default:
                         if (SelectedPlaceholder != null) SelectedPlaceholder.Visibility = Visibility.Visible;
@@ -606,6 +630,10 @@ namespace ConditioningControlPanel.Views.Deeper
             {
                 if (sender == TxtFlashDuration && TryParseInt(TxtFlashDuration.Text, out var fd))
                     _selectedEffect.EffectDurationMs = Math.Max(50, fd);
+                else if ((sender == TxtFlashStart || sender == TxtBubbleStart
+                          || sender == TxtSubliminalStart || sender == TxtOverlayStart)
+                         && TryParseDouble(((TextBox)sender).Text, out var es))
+                    _selectedEffect.Start = Math.Clamp(es, 0, _totalSeconds > 0 ? _totalSeconds : double.MaxValue);
                 else if (sender == TxtBubbleWindow && TryParseDouble(TxtBubbleWindow.Text, out var bw))
                     _selectedEffect.EffectDurationMs = (int)Math.Max(50, bw * 1000);
                 else if (sender == TxtSubliminalText)
@@ -635,11 +663,59 @@ namespace ConditioningControlPanel.Views.Deeper
             MarkDirty();
         }
 
+        // Shared by the flash + subliminal "Don't buzz on pop" checkboxes.
+        private void ChkEffectSuppressHaptic_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            _selectedEffect.EffectSuppressHaptic = (sender as CheckBox)?.IsChecked ?? false;
+            MarkDirty();
+        }
+
         private void SliderOverlayOpacity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (_suppressEffectFieldSync || _selectedEffect == null) return;
-            _selectedEffect.EffectOpacity = Math.Clamp(e.NewValue, 0, 1);
+            var v = Math.Clamp(e.NewValue, 0, 1);
+            // Flat opacity always tracks this slider; when ramping it's also the start.
+            _selectedEffect.EffectOpacity = v;
+            if (ChkOverlayRamp.IsChecked == true)
+                _selectedEffect.EffectOpacityStart = v;
             MarkDirty();
+        }
+
+        private void SliderOverlayOpacityEnd_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            if (ChkOverlayRamp.IsChecked == true)
+                _selectedEffect.EffectOpacityEnd = Math.Clamp(e.NewValue, 0, 1);
+            MarkDirty();
+        }
+
+        private void ChkOverlayRamp_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            bool ramp = ChkOverlayRamp.IsChecked == true;
+            if (ramp)
+            {
+                // Seed start = current flat opacity, end = current end-slider value.
+                _selectedEffect.EffectOpacityStart = Math.Clamp(SliderOverlayOpacity.Value, 0, 1);
+                _selectedEffect.EffectOpacityEnd = Math.Clamp(SliderOverlayOpacityEnd.Value, 0, 1);
+            }
+            else
+            {
+                // Drop the ramp → fall back to flat EffectOpacity.
+                _selectedEffect.EffectOpacityStart = null;
+                _selectedEffect.EffectOpacityEnd = null;
+            }
+            ApplyOverlayRampVisibility(ramp);
+            MarkDirty();
+        }
+
+        private void ApplyOverlayRampVisibility(bool ramp)
+        {
+            var vis = ramp ? Visibility.Visible : Visibility.Collapsed;
+            LblOverlayOpacityEnd.Visibility = vis;
+            SliderOverlayOpacityEnd.Visibility = vis;
+            LblOverlayOpacity.Text = ramp ? "Start opacity" : "Opacity";
         }
 
         private void CmbOverlayKind_SelectionChanged(object sender, SelectionChangedEventArgs e)

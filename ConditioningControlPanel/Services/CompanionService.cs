@@ -21,6 +21,7 @@ namespace ConditioningControlPanel.Services
         KeywordTrigger,
         Mantra,
         AttentionCheck,
+        Chaos,
         Other
     }
 

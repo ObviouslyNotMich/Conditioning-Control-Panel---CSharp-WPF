@@ -9,7 +9,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>ConditioningControlPanel</AssemblyName>
     <RootNamespace>ConditioningControlPanel</RootNamespace>
-    <Version>6.0.8</Version>
+    <Version>6.1.0</Version>
     <Company>CodeBambi</Company>
     <Product>Conditioning Control Panel</Product>
     <Description>A professional visual conditioning application with gamification features.</Description>
@@ -94,7 +94,7 @@
       <IncludeAssets>all</IncludeAssets>
     </PackageReference>
 
-    <!-- GIF Animation Support -->
+    <!-- GIF Animation Support (also used for Circe avatar emotes — AvatarTubeWindow.CirceEmotes.cs) -->
     <PackageReference Include="XamlAnimatedGif" Version="2.3.0" />
 
     <!-- QR Code Generation (used by Remote Control tab for mobile pairing) -->
@@ -141,6 +141,16 @@
     </Content>
     <!-- AI knowledge base placeholder (read by Services/AIService/Enrichment/KnowledgeService) -->
     <Content Include="assets\knowledge.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <!-- Chaos art (bubble sprites etc.), resolved at runtime by Services/Chaos/ChaosArt.cs
+         from AppContext.BaseDirectory\Assets\Chaos\{kind}\{id}.png. Staging candidates are
+         excluded so only the promoted finals ship. Remove from the default None glob first
+         so the no-copy None item doesn't suppress this Content copy. -->
+    <None Remove="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" />
+    <Content Include="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" Exclude="assets\Chaos\**\_staging*\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
@@ -233,6 +243,26 @@
     <Resource Include="Resources\animated3_1.gif" />
     <Resource Include="Resources\animated4_1.gif" />
     -->
+
+    <!-- Animated companion emotes (transparent looping GIF, 15fps) + per-set mapping.
+         Rendered via XamlAnimatedGif, wired in AvatarTubeWindow.CirceEmotes.cs (registry-driven).
+         To add a pose/mod: drop Resources\<folder>\ (clips + emotes.json), add a line to the
+         registry below, and add a <Resource> include here. See tools/avatar-emotes/README.md.
+         Embedded as Resource so pack:// URIs resolve in the single-file build (~30 MB / pose). -->
+    <Resource Include="Resources\avatar_emotes_registry.json" />
+    <Resource Include="Resources\circe_emotes\*.gif" />
+    <Resource Include="Resources\circe_emotes\emotes.json" />
+    <!-- Circe level emote sets: avatar set 2 = L2 (The Claim/key), 3 = L3 (The Pull/spiral), 4 = L4 (The Bind/chain). -->
+    <Resource Include="Resources\circe_emotes_p2\*.gif" />
+    <Resource Include="Resources\circe_emotes_p2\emotes.json" Condition="Exists('Resources\circe_emotes_p2\emotes.json')" />
+    <Resource Include="Resources\circe_emotes_p3\*.gif" />
+    <Resource Include="Resources\circe_emotes_p3\emotes.json" Condition="Exists('Resources\circe_emotes_p3\emotes.json')" />
+    <Resource Include="Resources\circe_emotes_p4\*.gif" />
+    <Resource Include="Resources\circe_emotes_p4\emotes.json" Condition="Exists('Resources\circe_emotes_p4\emotes.json')" />
+    <!-- Avatar-0 (blonde) emote set: shared by BambiSleep + Sissy at avatar set 1. -->
+    <Resource Include="Resources\avatar0_emotes\*.gif" />
+    <Resource Include="Resources\avatar0_emotes\emotes.json" Condition="Exists('Resources\avatar0_emotes\emotes.json')" />
+    <Resource Include="Resources\avatar0_emotes\clip_timing.json" Condition="Exists('Resources\avatar0_emotes\clip_timing.json')" />
 
     <!-- Achievement images -->
     <Resource Include="Resources\achievements\*.png" />

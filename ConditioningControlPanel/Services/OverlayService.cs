@@ -40,6 +40,12 @@ public class OverlayService : IDisposable
     private Dictionary<MediaElement, DateTime> _mediaStartTimes = new();
     private double _lastAppliedPinkOpacity = -1;
     private double _lastAppliedSpiralOpacity = -1;
+    // Deeper opacity-ramp override. When set, a Deeper enhancement owns this
+    // overlay's opacity for a ramped band; the 500ms settings-sync
+    // (UpdatePinkFilterOpacity / UpdateSpiralOpacity) must not stomp it.
+    // Normalized 0..1 (spiral applies its own ×0.1 reduction on top).
+    private double? _rampPinkOpacity;
+    private double? _rampSpiralOpacity;
     private int _consecutiveTopmostLossCount;
     // Tick counter for periodic topmost-layer "kick". The 500ms timer drives this;
     // every ~5s (10 ticks) we re-issue HWND_TOPMOST even if the WS_EX_TOPMOST flag
@@ -53,6 +59,11 @@ public class OverlayService : IDisposable
     private readonly List<System.Windows.Controls.Image> _spiralGifImages = new();
     private List<BitmapSource> _spiralGifFrames = new();
     private int _currentGifFrameIndex;
+    // Decoded-frame cache keyed by spiral path: re-decoding the GIF on the UI thread froze
+    // everything for ~1s each time chaos re-showed the spiral. Frames are frozen → safe to reuse.
+    private List<BitmapSource> _spiralFramesCache = new();
+    private string _spiralFramesCacheKey = "";
+    private TimeSpan _spiralFramesCacheDelay = TimeSpan.FromMilliseconds(50);
     private TimeSpan _gifFrameDelay = TimeSpan.FromMilliseconds(50);
     private DispatcherTimer? _gifFrameTimer;
 
@@ -68,7 +79,16 @@ public class OverlayService : IDisposable
     
     [System.Runtime.InteropServices.DllImport("gdi32.dll")]
     private static extern bool BitBlt(IntPtr hdcDest, int xDest, int yDest, int wDest, int hDest, IntPtr hdcSrc, int xSrc, int ySrc, int dwRop);
-    
+
+    [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+    private static extern bool StretchBlt(IntPtr hdcDest, int xDest, int yDest, int wDest, int hDest,
+        IntPtr hdcSrc, int xSrc, int ySrc, int wSrc, int hSrc, int dwRop);
+
+    [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+    private static extern int SetStretchBltMode(IntPtr hdc, int iStretchMode);
+
+    private const int HALFTONE = 4;
+
     [System.Runtime.InteropServices.DllImport("gdi32.dll")]
     private static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int nWidth, int nHeight);
     
@@ -534,6 +554,63 @@ public class OverlayService : IDisposable
         else dispatcher.Invoke(runHide);
     }
 
+    /// <summary>
+    /// Live-updates the opacity of an overlay shown via <see cref="ShowOverlaySustained"/>.
+    /// Used by Deeper enhancement opacity ramps to interpolate a sustained overlay's
+    /// opacity across a region. <paramref name="opacity"/> is normalized 0..1 (spiral
+    /// applies its own ×0.1 reduction, matching the global spiral path). While a ramp
+    /// is active the 500ms settings-sync leaves this overlay alone so it isn't stomped.
+    /// Only pink_filter and spiral support ramping; other kinds are ignored.
+    /// </summary>
+    public void SetSustainedOverlayOpacity(string kind, double opacity)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        opacity = Math.Clamp(opacity, 0, 1);
+
+        Action apply = () =>
+        {
+            try
+            {
+                switch (kind)
+                {
+                    case "pink_filter":
+                        _rampPinkOpacity = opacity;
+                        ApplyPinkOpacityDirect(opacity);
+                        break;
+                    case "spiral":
+                        _rampSpiralOpacity = opacity;
+                        ApplySpiralOpacityDirect(opacity);
+                        break;
+                    // braindrain uses blur-intensity, not opacity — no ramp support.
+                }
+            }
+            catch (Exception ex) { App.Logger?.Debug("SetSustainedOverlayOpacity: {E}", ex.Message); }
+        };
+        if (dispatcher.CheckAccess()) apply();
+        else dispatcher.Invoke(apply);
+    }
+
+    private void ApplyPinkOpacityDirect(double opacity)
+    {
+        var (fr, fg, fb) = GetFilterRgb();
+        byte a = (byte)Math.Clamp(opacity * 255, 0, 255);
+        foreach (var window in _pinkFilterWindows)
+            if (window.Content is Border border &&
+                border.Background is System.Windows.Media.SolidColorBrush brush)
+                brush.Color = System.Windows.Media.Color.FromArgb(a, fr, fg, fb);
+        // Force the next post-ramp settings-sync to re-apply from settings.
+        _lastAppliedPinkOpacity = -1;
+    }
+
+    private void ApplySpiralOpacityDirect(double opacity)
+    {
+        var scaled = opacity * 0.1; // 90% reduction, matching CreateSpiralGifWindow / UpdateSpiralOpacity
+        foreach (var image in _spiralGifImages) image.Opacity = scaled;
+        foreach (var media in _spiralMediaElements) media.Opacity = scaled;
+        _lastAppliedSpiralOpacity = -1;
+    }
+
     private void ShowPinkFilterAdHoc(int opacityPercent)
     {
         if (_pinkFilterWindows.Count > 0) return;
@@ -684,12 +761,14 @@ public class OverlayService : IDisposable
             }
         }
         _lastAppliedPinkOpacity = -1;
+        _rampPinkOpacity = null;
         _pinkFilterWindows.Clear();
         App.Logger?.Debug("Pink filter stopped");
     }
 
     private void UpdatePinkFilterOpacity()
     {
+        if (_rampPinkOpacity.HasValue) return; // a Deeper ramp owns this overlay's opacity
         var actualOpacity = App.Settings.Current.PinkFilterOpacity / 100.0;
         if (actualOpacity == _lastAppliedPinkOpacity) return;
         _lastAppliedPinkOpacity = actualOpacity;
@@ -816,44 +895,92 @@ public class OverlayService : IDisposable
     /// </summary>
     private bool LoadSpiralGifFrames()
     {
-        _spiralGifFrames.Clear();
         _currentGifFrameIndex = 0;
 
+        // Reuse cached frames for this path instead of re-decoding (the decode runs on the UI
+        // thread and freezes everything on screen for ~1s — very visible when chaos re-shows the
+        // spiral on each detonation). Frames are frozen; the per-show copy is cheap and safe.
+        if (_spiralFramesCacheKey == _spiralPath && _spiralFramesCache.Count > 0)
+        {
+            _spiralGifFrames = new List<BitmapSource>(_spiralFramesCache);
+            _gifFrameDelay = _spiralFramesCacheDelay;
+            return true;
+        }
+
+        var (frames, delay) = DecodeGifFrames(_spiralPath);
+        if (frames.Count == 0) { _spiralGifFrames = new List<BitmapSource>(); return false; }
+
+        _spiralGifFrames = frames;
+        _gifFrameDelay = delay;
+        _spiralFramesCache = new List<BitmapSource>(frames);   // cache for instant reuse (no re-decode → no freeze)
+        _spiralFramesCacheKey = _spiralPath;
+        _spiralFramesCacheDelay = delay;
+        return true;
+    }
+
+    /// <summary>
+    /// Pre-decode the spiral GIF into the frame cache off the UI thread, so the first chaos
+    /// spiral of a run doesn't hitch. Uses the configured/default spiral; no-op if already warm.
+    /// </summary>
+    public void WarmSpiralCache()
+    {
+        try
+        {
+            var path = GetSpiralPath();
+            if (string.IsNullOrEmpty(path) || !path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)) return;
+            if (_spiralFramesCacheKey == path && _spiralFramesCache.Count > 0) return;
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    var (frames, delay) = DecodeGifFrames(path);
+                    if (frames.Count == 0) return;
+                    Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (_spiralFramesCacheKey != path || _spiralFramesCache.Count == 0)
+                        {
+                            _spiralFramesCache = frames;
+                            _spiralFramesCacheKey = path;
+                            _spiralFramesCacheDelay = delay;
+                            App.Logger?.Debug("Spiral cache warmed off-thread: {Count} frames", frames.Count);
+                        }
+                    }));
+                }
+                catch (Exception ex) { App.Logger?.Debug("WarmSpiralCache decode: {E}", ex.Message); }
+            });
+        }
+        catch (Exception ex) { App.Logger?.Debug("WarmSpiralCache: {E}", ex.Message); }
+    }
+
+    /// <summary>
+    /// Pure GIF→frozen-frames decode (no shared state) — safe to call off the UI thread. Used by
+    /// both the on-demand load and the background warm-up. Returns the frames and the frame delay.
+    /// </summary>
+    private static (List<BitmapSource> frames, TimeSpan delay) DecodeGifFrames(string path)
+    {
+        var frames = new List<BitmapSource>();
+        var delay = TimeSpan.FromMilliseconds(50);
         try
         {
             Stream? gifStream = null;
             bool needsDispose = false;
 
-            if (_spiralPath.StartsWith("pack://", StringComparison.OrdinalIgnoreCase))
+            if (path.StartsWith("pack://", StringComparison.OrdinalIgnoreCase))
             {
-                try
-                {
-                    var resourceUri = new Uri(_spiralPath, UriKind.Absolute);
-                    var streamInfo = System.Windows.Application.GetResourceStream(resourceUri);
-                    if (streamInfo?.Stream != null)
-                    {
-                        gifStream = streamInfo.Stream;
-                        needsDispose = true;
-                        App.Logger?.Debug("Spiral: Loading embedded resource from {Path}", _spiralPath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    App.Logger?.Warning("Spiral: Failed to load embedded resource {Path}: {Error}", _spiralPath, ex.Message);
-                    return false;
-                }
+                var streamInfo = System.Windows.Application.GetResourceStream(new Uri(path, UriKind.Absolute));
+                if (streamInfo?.Stream != null) { gifStream = streamInfo.Stream; needsDispose = true; }
             }
-            else if (File.Exists(_spiralPath))
+            else if (File.Exists(path))
             {
-                gifStream = new FileStream(_spiralPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                gifStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
                 needsDispose = true;
-                App.Logger?.Debug("Spiral: Loading GIF from file {Path}", _spiralPath);
             }
 
             if (gifStream == null)
             {
-                App.Logger?.Warning("Spiral: Could not open stream for {Path}", _spiralPath);
-                return false;
+                App.Logger?.Warning("Spiral: Could not open stream for {Path}", path);
+                return (frames, delay);
             }
 
             try
@@ -862,63 +989,44 @@ public class OverlayService : IDisposable
                 var dimension = new FrameDimension(gif.FrameDimensionsList[0]);
                 var frameCount = gif.GetFrameCount(dimension);
 
-                // Get frame delay from metadata
-                var frameDelayMs = 50; // Default 50ms (20 FPS)
+                var frameDelayMs = 50;
                 try
                 {
-                    var propertyItem = gif.GetPropertyItem(0x5100); // FrameDelay property
+                    var propertyItem = gif.GetPropertyItem(0x5100); // FrameDelay
                     if (propertyItem?.Value != null && propertyItem.Value.Length >= 4)
                     {
-                        frameDelayMs = BitConverter.ToInt32(propertyItem.Value, 0) * 10; // Convert to ms
-                        if (frameDelayMs < 20) frameDelayMs = 50; // Sanity check - too fast
-                        if (frameDelayMs > 500) frameDelayMs = 50; // Sanity check - too slow
+                        frameDelayMs = BitConverter.ToInt32(propertyItem.Value, 0) * 10;
+                        if (frameDelayMs < 20 || frameDelayMs > 500) frameDelayMs = 50;
                     }
                 }
-                catch (Exception ex)
-                {
-                    App.Logger?.Debug("Spiral: Could not read GIF frame delay: {Error}", ex.Message);
-                }
+                catch (Exception ex) { App.Logger?.Debug("Spiral: Could not read GIF frame delay: {Error}", ex.Message); }
 
-                _gifFrameDelay = TimeSpan.FromMilliseconds(frameDelayMs);
+                delay = TimeSpan.FromMilliseconds(frameDelayMs);
 
-                // Limit frames to prevent memory issues (spiral GIFs are usually small)
                 var maxFrames = Math.Min(frameCount, 120);
                 var step = frameCount > maxFrames ? frameCount / maxFrames : 1;
 
-                App.Logger?.Debug("Spiral: Loading {MaxFrames} of {TotalFrames} frames (step={Step}, delay={Delay}ms)",
-                    maxFrames, frameCount, step, frameDelayMs);
-
-                for (int i = 0; i < frameCount && _spiralGifFrames.Count < maxFrames; i += step)
+                for (int i = 0; i < frameCount && frames.Count < maxFrames; i += step)
                 {
                     gif.SelectActiveFrame(dimension, i);
-
-                    // Clone the frame
                     using var frameBitmap = new System.Drawing.Bitmap(gif.Width, gif.Height);
                     using (var g = System.Drawing.Graphics.FromImage(frameBitmap))
-                    {
                         g.DrawImage(gif, 0, 0, gif.Width, gif.Height);
-                    }
 
                     var bitmapSource = ConvertToBitmapSource(frameBitmap);
                     bitmapSource.Freeze();
-                    _spiralGifFrames.Add(bitmapSource);
+                    frames.Add(bitmapSource);
                 }
 
-                App.Logger?.Information("Spiral: Loaded {Count} GIF frames from {Path}", _spiralGifFrames.Count, _spiralPath);
-                return _spiralGifFrames.Count > 0;
+                App.Logger?.Information("Spiral: Decoded {Count} GIF frames from {Path}", frames.Count, path);
+                return (frames, delay);
             }
-            finally
-            {
-                if (needsDispose)
-                {
-                    gifStream.Dispose();
-                }
-            }
+            finally { if (needsDispose) gifStream.Dispose(); }
         }
         catch (Exception ex)
         {
-            App.Logger?.Error("Spiral: Failed to load GIF frames: {Error}", ex.Message);
-            return false;
+            App.Logger?.Error("Spiral: Failed to decode GIF frames: {Error}", ex.Message);
+            return (frames, delay);
         }
     }
 
@@ -1177,12 +1285,14 @@ public class OverlayService : IDisposable
             }
         }
         _lastAppliedSpiralOpacity = -1;
+        _rampSpiralOpacity = null;
         _spiralWindows.Clear();
         App.Logger?.Debug("Spiral stopped");
     }
 
     private void UpdateSpiralOpacity()
     {
+        if (_rampSpiralOpacity.HasValue) return; // a Deeper ramp owns this overlay's opacity
         // Very subtle opacity - 90% reduction
         var opacity = (App.Settings.Current.SpiralOpacity / 100.0) * 0.1;
         if (opacity == _lastAppliedSpiralOpacity) return;
@@ -1209,6 +1319,10 @@ public class OverlayService : IDisposable
     private readonly Dictionary<Window, System.Windows.Forms.Screen> _brainDrainScreens = new();
     private DispatcherTimer? _brainDrainCaptureTimer;
     private int _currentBrainDrainIntensity = 50;
+    // Linear downscale factor for the captured screen: we BitBlt-shrink the screen, blur the
+    // small bitmap with a proportionally smaller radius, and let WPF upscale it (the upscale is
+    // itself part of the blur). Captured + blur radius both divided by this. Set at start.
+    private int _brainDrainDownscale = 4;
     private System.Drawing.Bitmap? _captureBitmap;
     private IntPtr _captureHdc;
     private IntPtr _captureMemDc;
@@ -1229,6 +1343,10 @@ public class OverlayService : IDisposable
                     ? App.GetAllScreensCached()
                     : new[] { System.Windows.Forms.Screen.PrimaryScreen! };
 
+                // Pick the downscale factor for this run from the active performance tier.
+                var tier = PerformanceProfile.CurrentTier;
+                _brainDrainDownscale = PerformanceProfile.BrainDrainDownscale(tier);
+
                 foreach (var screen in screens)
                 {
                     var window = CreateBrainDrainWindow(screen, intensity);
@@ -1238,11 +1356,12 @@ public class OverlayService : IDisposable
                     }
                 }
 
-                // Refresh rate based on setting:
-                // Normal: 30 FPS (balanced)
-                // High Refresh: 60 FPS (smoother, more CPU)
-                // For 144Hz monitors, even 60 FPS looks acceptable
-                int fps = settings.BrainDrainHighRefresh ? 60 : 30;
+                // Refresh rate based on setting, capped by the performance tier:
+                // Normal: 30 FPS (balanced); High Refresh: 60 FPS (smoother, more CPU).
+                // The blur masks lower frame rates, so the tier cap (e.g. 15 FPS under load) is
+                // visually fine while roughly halving/quartering capture cost.
+                int fps = Math.Min(settings.BrainDrainHighRefresh ? 60 : 30,
+                                   PerformanceProfile.BrainDrainFps(tier));
                 double intervalMs = 1000.0 / fps;
 
                 _brainDrainCaptureTimer = new DispatcherTimer(DispatcherPriority.Render)
@@ -1299,7 +1418,8 @@ public class OverlayService : IDisposable
     public void UpdateBrainDrainBlurOpacity(int intensity)
     {
         _currentBrainDrainIntensity = intensity;
-        double blurRadius = intensity * 0.4; // Slightly lower multiplier for performance
+        // Keep in sync with CreateBrainDrainWindow's downscaled-source radius.
+        double blurRadius = (intensity * 0.4) / Math.Max(1, _brainDrainDownscale);
 
         DispatcherHelper.RunOnUISync(() =>
         {
@@ -1350,6 +1470,13 @@ public class OverlayService : IDisposable
         {
             var bounds = screen.Bounds;
 
+            // Downscaled capture target — even dimensions, at least 2px. Capturing + blurring a
+            // 1/4 (or 1/8) size bitmap is dramatically cheaper than full-screen, and the upscale
+            // back to full size (Image.Stretch=Fill) reads as additional blur.
+            int divisor = Math.Max(1, _brainDrainDownscale);
+            int dw = Math.Max(2, (bounds.Width / divisor) & ~1);
+            int dh = Math.Max(2, (bounds.Height / divisor) & ~1);
+
             // Get screen DC
             hdcSrc = GetDC(IntPtr.Zero);
             if (hdcSrc == IntPtr.Zero) return null;
@@ -1357,14 +1484,15 @@ public class OverlayService : IDisposable
             hdcDest = CreateCompatibleDC(hdcSrc);
             if (hdcDest == IntPtr.Zero) return null;
 
-            hBitmap = CreateCompatibleBitmap(hdcSrc, bounds.Width, bounds.Height);
+            hBitmap = CreateCompatibleBitmap(hdcSrc, dw, dh);
             if (hBitmap == IntPtr.Zero) return null;
 
             hOld = SelectObject(hdcDest, hBitmap);
 
-            // Copy screen content
-            BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height,
-                   hdcSrc, bounds.X, bounds.Y, SRCCOPY);
+            // Shrink the screen content into the small bitmap in one GDI call.
+            SetStretchBltMode(hdcDest, HALFTONE);
+            StretchBlt(hdcDest, 0, 0, dw, dh,
+                       hdcSrc, bounds.X, bounds.Y, bounds.Width, bounds.Height, SRCCOPY);
 
             // Restore selection before creating bitmap source
             if (hOld != IntPtr.Zero)
@@ -1421,7 +1549,9 @@ public class OverlayService : IDisposable
         try
         {
             var wpfBounds = GetWpfScreenBounds(screen);
-            double blurRadius = intensity * 0.4;
+            // The source bitmap is 1/divisor size and gets upscaled by Stretch=Fill, so a
+            // proportionally smaller blur radius yields the same on-screen blur far more cheaply.
+            double blurRadius = (intensity * 0.4) / Math.Max(1, _brainDrainDownscale);
 
             var image = new System.Windows.Controls.Image
             {

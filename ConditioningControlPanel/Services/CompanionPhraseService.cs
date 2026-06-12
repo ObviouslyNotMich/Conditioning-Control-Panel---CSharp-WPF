@@ -34,8 +34,78 @@ namespace ConditioningControlPanel.Services
                     if (Directory.Exists(modVoiceDir))
                         return modVoiceDir;
                 }
+                // Built-in mods (no InstalledPath) may ship their own idle voicelines embedded per-mod,
+                // mirroring how bark_rules.json / avatar_manifest.json resolve. Lets Sissy play its own
+                // idle "giggle" lines (in the bark voice) instead of the shared old ones.
+                var modId = App.Mods?.ActiveModId;
+                if (!string.IsNullOrEmpty(modId))
+                {
+                    var embeddedModVoiceDir = Path.Combine(CompanionAudioFolder, "mods", modId, "flashes_audio");
+                    if (Directory.Exists(embeddedModVoiceDir))
+                        return embeddedModVoiceDir;
+                }
                 return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "flashes_audio");
             }
+        }
+
+        /// <summary>
+        /// Per-mod folder for EVENT-COMMENT audio (filename = <see cref="Slugify"/> of the spoken line).
+        /// Mirrors <see cref="VoiceLineFolder"/> resolution but for the "event_audio" subfolder, and
+        /// returns null when the active mod ships no such folder — so mods without it stay text-only,
+        /// exactly as before. Lets currently-silent event comments + autonomy announcements speak in the
+        /// mod voice (Sissy ships these), with zero per-mod code.
+        /// </summary>
+        public static string? EventAudioFolder
+        {
+            get
+            {
+                var modPath = App.Mods?.ActiveMod?.InstalledPath;
+                if (modPath != null)
+                {
+                    var dir = Path.Combine(modPath, "resources", "sounds", "event_audio");
+                    if (Directory.Exists(dir)) return dir;
+                }
+                var modId = App.Mods?.ActiveModId;
+                if (!string.IsNullOrEmpty(modId))
+                {
+                    var dir = Path.Combine(CompanionAudioFolder, "mods", modId, "event_audio");
+                    if (Directory.Exists(dir)) return dir;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Canonical slug used to match a spoken line to its generated audio file. MUST stay in lockstep
+        /// with the Python generator's slugify() (ccp-trailer/sissy_cadence.py): drop {tokens}, lowercase,
+        /// collapse every non-alphanumeric run to a single space, trim. e.g. "*giggles* You clicked it~"
+        /// -> "giggles you clicked it"; "LEVEL UP! Good girl!~" -> "level up good girl".
+        /// </summary>
+        public static string Slugify(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            var noTokens = System.Text.RegularExpressions.Regex.Replace(text, @"\{[^}]*\}", " ");
+            var sb = new System.Text.StringBuilder(noTokens.Length);
+            foreach (var ch in noTokens.ToLowerInvariant())
+            {
+                if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) sb.Append(ch);
+                else sb.Append(' ');
+            }
+            return System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\s+", " ").Trim();
+        }
+
+        /// <summary>
+        /// Full path to the event-comment audio for a spoken line in the active mod, or null if the mod
+        /// ships no matching file. Gated purely on file presence, so it's automatically Sissy-only today.
+        /// </summary>
+        public static string? ResolveEventAudio(string? text)
+        {
+            var folder = EventAudioFolder;
+            if (folder == null || string.IsNullOrWhiteSpace(text)) return null;
+            var slug = Slugify(text);
+            if (slug.Length == 0) return null;
+            var path = Path.Combine(folder, slug + ".mp3");
+            return File.Exists(path) ? path : null;
         }
 
         public const string VoiceLineCategory = "VoiceLine";

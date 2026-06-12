@@ -20,53 +20,53 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.0.8";
+        public const string AppVersion = "6.1.0";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.0.8 - Circe's Lock
+        public const string CurrentPatchNotes = @"v6.1.0 - Down the Rabbit Hole
 
-🩹 6.0.8 HOTFIX
-- Touched up the Circe's Lock ""Trigger Awareness"" feature artwork.
-- Fixed ""Open with CCP"" not opening the file when the app was already running in the tray.
+🐇 A new little game: ""Down the Rabbit Hole"" is available in testing for the
+   Prime Subject.
 
-✨ FEATURES
-- Gaze Minigame, reimagined — choose your content by dragging sets into
-  ""Focus"" and ""Ignore."" Your selection and difficulty are remembered, sets are
-  auto-discovered from your folders with thumbnails, and there are Easy/Normal/
-  Hard presets.
-- The Lab Quiz now runs on Local AI (Ollama), not just the cloud.
-- New per-mod Hypnotube link editor for your companion — add, name, preview and
-  open video links; raw links now show as clean clickable titles.
+🎭 Companion animations: first attempt at animating the companion (hope you
+   girls like it, tho I know it has a lot of room to improve).
 
-🎨 UI/UX
-- The Companion tab is now organized into collapsible sections, easier to scan.
-- Folders you drag in keep their names (e.g. ""Correct"" and ""Wrong"" stay
-  separate instead of merging) and are usable as distinct sets in the Gaze
-  Minigame.
+🔊 Added ""some"" extra voicelines :3
 
-🔧 BUG FIXES
-- Major webcam reliability pass — fixed false ""camera in use"" errors on the
-  Elgato Facecam Neo, Lovense Webcam 2, and in dark rooms. Slow-to-start cameras
-  are given time to warm up, with on-screen progress so a slow open no longer
-  looks frozen.
-- Calibration now warns you and offers a redo when a result is too inaccurate to
-  use, instead of silently saving a bad one.
-- Themed mods (like Circe's Lock) no longer show the default roster name in
-  level-up announcements.
-- The startup video no longer pops a ""no videos found"" dialog when your videos
-  folder is empty.
-- Fixed the Lab Quiz aborting with a misleading ""AI is busy"" message when a
-  question was filtered out.
+— Everything else since 6.0.8 —
 
-🔒 SECURITY
-- Content moderation tuned so reclaimed in-group vocabulary no longer over-blocks
-  legitimate content, while genuine hate-speech coverage was widened.
+🎭 COMPANION
+- Animated emotive portraits for all three mods (Bambi / Sissy / Circe),
+  replacing the old static images.
+- Fixed mod-switch freeze, the avatar getting stuck hidden after fullscreen
+  apps, and dragging from invisible dead-zones.
 
-🌍 LOCALIZATION
-- Thanks again to 🈷️lin for the Simplified Chinese (zh-CN) localization! 💖
+🔊 VOICELINES
+- Reactive bark system — your companion knows what app you're in and reacts to
+  the moment.
+- More idle variety, fresh reactions that don't pile up stale, and proper
+  coordination so she won't talk over whispers (and goes quiet when whispers
+  are muted).
+
+✨ DEEPER (TIMELINE EDITOR)
+- Three dedicated lanes — Regions / Effects / Haptics.
+- Overlay opacity ramp (fade across a region).
+- Per-effect ""don't buzz on pop"" for flash & subliminal.
+- A round of editor quality-of-life fixes plus a darker restyle.
+
+⚡ PERFORMANCE & STABILITY
+- Tier-aware flash decode/scaling/glow and GPU video decode for smoother
+  playback on lower-end machines.
+- Window pooling to stop render-thread hangs during heavy sessions.
+
+🔧 FIXES & EXTRAS
+- Webcam capture crash fixed (bundled the missing VC++ runtime).
+- Mindwipe custom audio-clip selector.
+- Spiral library preview plus folder picker.
+- Refresh assets without restarting the app.
 
 Season:";
 

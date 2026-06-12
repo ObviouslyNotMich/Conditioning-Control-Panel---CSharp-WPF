@@ -266,7 +266,17 @@ public class Achievement
             ImageName = "Neon_obsession.png",
             Category = AchievementCategory.Minigames
         },
-        
+        ["needy_doll"] = new Achievement
+        {
+            Id = "needy_doll",
+            Name = "Needy Doll",
+            Requirement = "Click on the Avatar 150 times in 60 seconds",
+            FlavorText = "You didn't want anything. You just wanted her.",
+            ImageName = "needy_doll.png",
+            Category = AchievementCategory.Minigames,
+            IsHidden = true
+        },
+
         // ========== HARDCORE & SYSTEM ==========
         ["what_panic_button"] = new Achievement
         {

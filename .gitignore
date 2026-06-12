@@ -151,3 +151,7 @@ ConditioningControlPanel/DroneMod/*
 *.env.*
 nul
 
+# Avatar-emote production tooling (private generation pipeline — Kling prompts,
+# seeds, scratch GIFs). The produced Resources\*_emotes\ assets ARE committed; the
+# scripts that make them are not. See tools/avatar-emotes/README.md (local only).
+tools/
