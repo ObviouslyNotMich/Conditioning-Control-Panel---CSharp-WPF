@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using ConditioningControlPanel.Services.Chaos;
 
 namespace ConditioningControlPanel;
@@ -42,8 +43,10 @@ public partial class ChaosHubWindow
         _revealMap[RevealIds.Diary] = HdrDiary;
         _revealMap[RevealIds.StatsPanel] = HdrStats;
 
-        ChaosTips.Attach(StubToys, "???", WALL_TIP);
-        ChaosTips.Attach(StubAccessories, "???", WALL_TIP);
+        ChaosTips.Attach(StubToys, "???", WALL_TIP,
+            "opens with your first toy pocket. she sews pockets for gold (her corner, later her bench).");
+        ChaosTips.Attach(StubAccessories, "???", WALL_TIP,
+            "opens with your first accessory pocket. she sews pockets for gold (her corner, later her bench).");
     }
 
     /// <summary>Hide/show every gated surface from current reveal state. Called on open
@@ -53,8 +56,20 @@ public partial class ChaosHubWindow
         try
         {
             // ---- the Looking Glass tab (Slipping) ----
+            // Locked = GREYED, not hidden: a "??? 🔒" stub tells the player a room exists
+            // behind a wall. The name and the contents stay a mystery until the reveal flips.
             bool lookingGlass = RevealService.IsUnlocked(RevealIds.TabLookingGlass);
-            TabImprove.Visibility = lookingGlass ? Visibility.Visible : Visibility.Collapsed;
+            TabImprove.Visibility = Visibility.Visible;
+            TabImprove.IsEnabled = lookingGlass;
+            TabImprove.Opacity = lookingGlass ? 1.0 : 0.40;
+            TabImprove.Content = lookingGlass ? "the Looking Glass" : "??? 🔒";
+            if (!lookingGlass)
+            {
+                System.Windows.Controls.ToolTipService.SetShowOnDisabled(TabImprove, true);
+                ChaosTips.Attach(TabImprove, "???", WALL_TIP,
+                    ChaosRanks.RankSpecifics(ChaosRank.Slipping));
+            }
+            else TabImprove.ToolTip = null;   // the wall came down — drop the locked tooltip
             if (!lookingGlass && TabImprove.IsChecked == true) ShowTab("loadout");
 
             // ---- Toybox shelves (pocket-driven) + adjacent hazy stubs ----
@@ -122,6 +137,19 @@ public partial class ChaosHubWindow
     {
         if (_dollhouseBeatsFired) return;
         _dollhouseBeatsFired = true;
+        // The invitation: a one-time, spoiler-free intro card BEFORE anything else gets
+        // to speak — barks and reveal flashes wait until it's been read and dismissed.
+        try
+        {
+            if (!ChaosMeta.State.SeenIntroGuide)
+            {
+                var intro = new ChaosIntroWindow { Owner = this };
+                intro.ShowDialog();
+                ChaosMeta.State.SeenIntroGuide = true;
+                ChaosMeta.Save();
+            }
+        }
+        catch (Exception ex) { App.Logger?.Warning("Chaos intro guide failed ({E})", ex.Message); }
         try
         {
             if (!ChaosMeta.State.SeenDollhouse)
@@ -176,6 +204,15 @@ public partial class ChaosHubWindow
     {
         try
         {
+            // A feather-soft chime as each surface pulses awake, riding the same stagger.
+            if (beginSec <= 0) ChaosSfx.Play("reveal_chime", 0.5f);
+            else
+            {
+                var chime = new DispatcherTimer { Interval = TimeSpan.FromSeconds(beginSec) };
+                chime.Tick += (_, _) => { chime.Stop(); ChaosSfx.Play("reveal_chime", 0.5f); };
+                chime.Start();
+            }
+
             var pulse = new DoubleAnimation(1.0, 0.25, TimeSpan.FromMilliseconds(500))
             {
                 AutoReverse = true,

@@ -36,6 +36,10 @@ public static class ChaosSfx
     public static void PlayTickTock() =>
         PlayFirstAvailable(new[] { "chaos/ticktock.mp3" }, 0.45f);
 
+    /// <summary>the Ripple cast: a soft finger snap over water (dedicated asset, snap fallback).</summary>
+    public static void PlayRippleCast() =>
+        PlayFirstAvailable(new[] { "chaos/ripple_cast.mp3", "chaos/snap.mp3" }, 0.6f);
+
     /// <summary>Generic one-shot cue: plays <c>Resources/sounds/chaos/{name}.mp3</c> if it exists
     /// (mod-overridable, silent no-op otherwise). For rare moments — high-frequency cues (pops,
     /// snaps) should go through <see cref="BubbleService.PlayCue"/>'s pooled devices instead.</summary>

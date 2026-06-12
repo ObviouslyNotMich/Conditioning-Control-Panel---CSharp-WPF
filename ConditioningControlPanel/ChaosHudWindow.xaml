@@ -33,6 +33,8 @@
                 <TextBlock Text="{Binding TipTitle}" FontWeight="Bold" FontSize="13" Foreground="{Binding AccentBrush}"/>
                 <TextBlock Text="{Binding Desc}" Foreground="#DDE0E0F0" FontSize="12" TextWrapping="Wrap"
                            Margin="0,3,0,0" Visibility="{Binding DescVisibility}"/>
+                <TextBlock Text="{Binding Flavor}" Visibility="{Binding FlavorVisibility}" FontStyle="Italic" FontSize="11"
+                           Foreground="#CCB0B0C8" TextWrapping="Wrap" Margin="0,2,0,0"/>
                 <TextBlock Text="{Binding Extra}" Foreground="#FFD700" FontSize="12" TextWrapping="Wrap"
                            Margin="0,3,0,0" Visibility="{Binding ExtraVisibility}"/>
             </StackPanel>
@@ -95,12 +97,29 @@
                 CornerRadius="0,0,18,0" MouseEnter="Hud_MouseEnter">
             <StackPanel VerticalAlignment="Top" Margin="0,20,0,0" HorizontalAlignment="Center">
                 <TextBlock Text="🐇" Foreground="{StaticResource Pink}" FontSize="30" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding ClockText}" Foreground="White" FontFamily="Consolas" FontSize="17"
+                <TextBlock x:Name="TxtStripClock" Text="{Binding ClockText}" Foreground="White" FontFamily="Consolas" FontSize="17"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
-                <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="16"
+                <TextBlock x:Name="TxtStripScore" Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="16"
                            HorizontalAlignment="Center" TextAlignment="Center" Margin="0,14,0,0"/>
-                <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
+                <TextBlock x:Name="TxtStripMult" Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
+
+                <!-- STREAK: Balatro-style combo readout — heats through color tiers as it climbs,
+                     jitters when hot, punches on every gain, shakes hard on a drop (code-behind). -->
+                <StackPanel x:Name="StreakBlock" Margin="0,12,0,0" HorizontalAlignment="Center"
+                            RenderTransformOrigin="0.5,0.5">
+                    <StackPanel.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="StreakScale"/>
+                            <RotateTransform x:Name="StreakRot"/>
+                            <TranslateTransform x:Name="StreakJitter"/>
+                        </TransformGroup>
+                    </StackPanel.RenderTransform>
+                    <TextBlock x:Name="TxtStreakLbl" Text="STREAK" Foreground="{StaticResource TextDim}"
+                               FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TxtStreakNum" Text="x0" Foreground="White" FontWeight="Bold"
+                               FontFamily="Consolas" FontSize="24" HorizontalAlignment="Center"/>
+                </StackPanel>
 
                 <!-- FOCUS: the defuse fuel — a core resource like streak, so it lives on the
                      always-visible strip too. Dims + pulses when below a defuse's cost. -->
@@ -111,6 +130,24 @@
                                  Foreground="#FF5AC8FA" Background="#33000000" BorderThickness="0"/>
                     <TextBlock Text="{Binding FocusText}" Foreground="White" FontWeight="Bold" FontSize="13"
                                HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <!-- RIPPLE: the right-click wave — one charge on a slow gather. Dims while charging. -->
+                <StackPanel x:Name="RippleStripBlock" Margin="0,12,0,0" HorizontalAlignment="Center">
+                    <TextBlock Text="RIPPLE" Foreground="#FF7AE0FF" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding RippleText}" FontWeight="Bold" FontFamily="Consolas" FontSize="13"
+                               HorizontalAlignment="Center" Margin="0,2,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RippleReady}" Value="False">
+                                        <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
 
                 <!-- active lifetime boons (Skills/Accessories/Utility): art if present, else glyph + level -->
@@ -198,7 +235,7 @@
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="🐇 THE HOLE" Foreground="{StaticResource Pink}" FontWeight="Bold" FontSize="22"/>
-                                <TextBlock Text="{Binding ActWaveText}" Foreground="White" FontSize="13" VerticalAlignment="Bottom" Margin="8,0,0,3"/>
+                                <TextBlock x:Name="TxtActWave" Text="{Binding ActWaveText}" Foreground="White" FontSize="13" VerticalAlignment="Bottom" Margin="8,0,0,3"/>
                             </StackPanel>
                             <!-- Run clock + fill bar: Pocket Watch perks only (SetClockVisible) — time stays a mystery otherwise. -->
                             <TextBlock x:Name="TxtRunTime" Text="{Binding RunTimeText}" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,2,0,0" Visibility="Collapsed"/>
@@ -207,8 +244,8 @@
                     <ProgressBar x:Name="BarRunProgress" Minimum="0" Maximum="1" Value="{Binding RunProgress, Mode=OneWay}" Height="5" Margin="0,4,0,0"
                                  Foreground="#FF8A7DBD" Background="#33000000" BorderThickness="0" Visibility="Collapsed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <TextBlock Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="22" Margin="0,0,16,0"/>
-                        <TextBlock Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="22" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="TxtPanelScore" Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="22" Margin="0,0,16,0"/>
+                        <TextBlock x:Name="TxtPanelMult" Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="22" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
 
@@ -216,22 +253,22 @@
                 <ScrollViewer Grid.Row="1" Margin="0,6,0,0" VerticalScrollBarVisibility="Auto"
                               Style="{StaticResource SlimScroll}" Focusable="False" PanningMode="VerticalOnly">
                 <StackPanel>
-                    <TextBlock Text="MULTIPLIER STACK" Style="{StaticResource Hdr}"/>
-                    <Grid Margin="0,1"><TextBlock Text="{Binding Combo, StringFormat=streak x{0}}" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                    <Grid Margin="0,1"><TextBlock Text="difficulty" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding DifficultyMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                    <Grid Margin="0,1"><TextBlock Text="lust" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                    <Grid Margin="0,1"><TextBlock Text="mantras" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding Heat, Mode=OneWay}" Height="5" Margin="0,6,0,0"
+                    <TextBlock x:Name="HdrStack" Text="MULTIPLIER STACK" Style="{StaticResource Hdr}"/>
+                    <Grid x:Name="RowStreak" Margin="0,1" Background="Transparent"><TextBlock Text="{Binding Combo, StringFormat=streak x{0}}" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid x:Name="RowDifficulty" Margin="0,1" Background="Transparent"><TextBlock Text="difficulty" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding DifficultyMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid x:Name="RowLust" Margin="0,1" Background="Transparent"><TextBlock Text="lust" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <Grid x:Name="RowMantras" Margin="0,1" Background="Transparent"><TextBlock Text="mantras" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                    <ProgressBar x:Name="BarLust" Minimum="0" Maximum="1" Value="{Binding Heat, Mode=OneWay}" Height="5" Margin="0,6,0,0"
                                  Foreground="#FFFF7A3D" Background="#33000000" BorderThickness="0"/>
 
-                    <TextBlock Text="RESISTANCE" Style="{StaticResource Hdr}"/>
+                    <TextBlock x:Name="HdrResistance" Text="RESISTANCE" Style="{StaticResource Hdr}"/>
                     <TextBlock x:Name="TxtShields" Text="{Binding ShieldText}" Foreground="#FFFF6EC7" FontSize="22"
                                RenderTransformOrigin="0,0.5">
                         <TextBlock.RenderTransform><ScaleTransform/></TextBlock.RenderTransform>
                     </TextBlock>
 
                     <!-- focus: pops fill it, hold-channels spend it. Low = dim + pulse warning. -->
-                    <TextBlock Text="FOCUS" Style="{StaticResource Hdr}"/>
+                    <TextBlock x:Name="HdrFocus" Text="FOCUS" Style="{StaticResource Hdr}"/>
                     <StackPanel x:Name="FocusPanelBlock">
                         <Grid>
                             <TextBlock Text="pops fill it · a hold spends it" Foreground="{StaticResource TextDim}" FontSize="12"/>
@@ -243,7 +280,7 @@
                     </StackPanel>
 
                     <!-- loadout: what you took down with you (equipped lifetime boons). hover a tile for its card -->
-                    <TextBlock Text="POCKETS" Style="{StaticResource Hdr}"/>
+                    <TextBlock x:Name="HdrPockets" Text="POCKETS" Style="{StaticResource Hdr}"/>
                     <ItemsControl ItemsSource="{Binding ActiveSidebarBoons}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -278,7 +315,7 @@
                     </ItemsControl>
 
                     <!-- mantras/sins taken this run: tile + name rows, hover for the description -->
-                    <TextBlock Text="CONDITIONING" Style="{StaticResource Hdr}"/>
+                    <TextBlock x:Name="HdrConditioning" Text="CONDITIONING" Style="{StaticResource Hdr}"/>
                     <ItemsControl ItemsSource="{Binding RunPickTiles}">
                         <ItemsControl.ItemTemplate><DataTemplate>
                             <StackPanel Orientation="Horizontal" Margin="0,1">
@@ -303,7 +340,7 @@
                     </ItemsControl>
 
                     <!-- passive modifiers: always-on owned upgrades shaping this run (purple tiles, hover for desc) -->
-                    <TextBlock Text="MODIFIERS" Style="{StaticResource Hdr}"/>
+                    <TextBlock x:Name="HdrModifiers" Text="MODIFIERS" Style="{StaticResource Hdr}"/>
                     <ItemsControl ItemsSource="{Binding RunModifiers}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -328,7 +365,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <TextBlock Text="FEED" Style="{StaticResource Hdr}"/>
+                    <TextBlock x:Name="HdrFeed" Text="FEED" Style="{StaticResource Hdr}"/>
                     <ItemsControl ItemsSource="{Binding RecentEvents}">
                         <ItemsControl.ItemTemplate><DataTemplate>
                             <TextBlock Text="{Binding}" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,1" TextTrimming="CharacterEllipsis"/>

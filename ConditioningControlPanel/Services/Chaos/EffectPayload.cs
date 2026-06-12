@@ -74,7 +74,8 @@ public sealed class FlashPayload : EffectPayload
             // Was 250–700ms — flashes barely registered mid-run. Long enough to actually
             // be seen (plus the fade tail), still well under the bubble cadence.
             int duration = (int)(Scale(900, 2000) * GlobalDurationMult);
-            int size = Scale(45, 95);
+            // Chaos-run flashes read better big: +50% over the original 45–95 band.
+            int size = Scale(68, 143);
             App.Flash?.TriggerFlashOnce(amount, duration, size, suppressHaptic: false);
         }
         catch (Exception ex) { App.Logger?.Debug("FlashPayload: {E}", ex.Message); }

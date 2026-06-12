@@ -70,11 +70,12 @@ public partial class ChaosHubWindow
             HorizontalAlignment = HorizontalAlignment.Right,
         });
 
-        if (progress <= 0)
-            ChaosTips.Attach(panel, "locked", "a lesson you haven't learned yet.", accent: accent);
-        else
-            ChaosTips.Attach(panel, "a lesson, half-learned", def.Text,
-                $"lesson: {progress} of {target}", accent);
+        // The row keeps its mystery line; the hover always gives the exact mechanics —
+        // what counts, the precise window/threshold, and what doesn't count.
+        ChaosTips.Attach(panel,
+            progress <= 0 ? "the lesson" : "the lesson, half-learned",
+            string.IsNullOrEmpty(def.Detail) ? def.Text : def.Detail,
+            $"progress: {progress} of {target}", accent);
         return panel;
     }
 }

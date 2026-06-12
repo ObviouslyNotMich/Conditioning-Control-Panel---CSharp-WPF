@@ -81,6 +81,19 @@ once-per-run warning bark.
 **Fuse ring phases:** yellow = burning · yellow↔red flash from 2400 ms left · **solid red
 through the final 800 ms** — the brink window Last Breath / Slowburner capstone judge against.
 
+**The Ripple (right-click, 2026-06-12):** base kit — one charge on a **15 s gather**. A
+right-click near the bubbles (within wave reach + 80 px of any chaos bubble; clicks farther
+out pass through to the desktop, so context menus keep working mid-run) sends an expanding
+wave from the cursor: **treats pop paid, trances snap clean, rabbits get FLUNG** away from
+the cast point at full sting pace — and a flung rabbit is marked spanked, so its body mows
+bubbles for the rest of its life (no Spanker needed, no rabbit_caller lesson tick). The
+Tease, the Brittle and freeze pickups stay cursor-only; frozen fields refuse the cast (they
+are already a free-pop window). Unworn wave: 260 px over 520 ms. The **Skipping Stone**
+charm (Utility, ✦220 + 380/650/950) gathers in 13/11/9/8 s by level and each level adds
++45 px / +110 ms (wider, slower, longer on screen); the capstone skips the stone — **three
+waves a second apart per cast**. Input is a run-scoped low-level mouse hook
+(`GlobalMouseHook`) whose swallow decision reads only `BubbleService.ChaosBubbleCentersSnapshot`.
+
 ---
 
 ## 3. Scoring & the multiplier stack

@@ -92,6 +92,10 @@ public class BubbleService : IDisposable
     internal static double ChaosLastPopXPx, ChaosLastPopYPx;
     // Tail-Plug: seconds of treat-popping trail rabbits drag (0 = boon not taken). Sampled per tick.
     internal static double ChaosRabbitTrailSecNow;
+    // the Ripple (right-click): the hook thread decides swallow-vs-pass against this IMMUTABLE
+    // snapshot of chaos bubble centres (physical px), rebuilt each anim tick on the UI thread.
+    // Reference assignment is atomic; the hook must never touch the live bubble list.
+    internal static Point[] ChaosBubbleCentersSnapshot = Array.Empty<Point>();
     // Electrified Rabbits (Spanker + E-Stim duo): spank victims discharge free arcs. Sampled per tick.
     internal static bool ChaosElectrifiedNow;
     // VibePopping active skill: while the buzz is on and the mouse button is HELD, the cursor pops
@@ -410,6 +414,7 @@ public class BubbleService : IDisposable
             // A field clear (wave draft) force-destroys bound halves without their callbacks —
             // don't leave their tether lines hanging over the draft table.
             if (_boundTetherKeys.Count > 0 || _boundFirstResolved.Count > 0) ClearBoundState();
+            if (ChaosBubbleCentersSnapshot.Length > 0) ChaosBubbleCentersSnapshot = Array.Empty<Point>();
             return;
         }
 
@@ -439,6 +444,16 @@ public class BubbleService : IDisposable
 
         TickFieldHazards();   // Size Queen ripples / Aftermath residue / Tail-Plug trails
         TickBoundPairs();     // The Bound: tether lines + the enrage window
+
+        // the Ripple: refresh the hook thread's swallow-decision snapshot (chaos bubbles only).
+        if (_chaosActive)
+        {
+            var centers = new List<Point>(_bubbles.Count);
+            foreach (var b in _bubbles)
+                if (b.IsAlive && b.Spec != null) centers.Add(b.CenterPx);
+            ChaosBubbleCentersSnapshot = centers.ToArray();
+        }
+        else if (ChaosBubbleCentersSnapshot.Length > 0) ChaosBubbleCentersSnapshot = Array.Empty<Point>();
     }
 
     public void Stop()
@@ -704,6 +719,8 @@ public class BubbleService : IDisposable
         ChaosElectrifiedNow = false;
         _ripples.Clear();
         _residues.Clear();
+        _playerRipples.Clear();
+        ChaosBubbleCentersSnapshot = Array.Empty<Point>();
         _chaosHitboxScale = hitboxScale;
         _chaosBubbleOpacity = bubbleOpacity;
         _chaosWandShimmer = wandShimmer;
@@ -900,6 +917,32 @@ public class BubbleService : IDisposable
     private readonly List<(Point CenterPx, double AgeMs)> _ripples = new();
     private readonly List<(Point CenterPx, DateTime Until)> _residues = new();
 
+    /// <summary>the Ripple (right-click): one expanding player wavefront per cast wave. Each
+    /// bubble is judged exactly once as the front crosses it (the Hit set), so a slow capstone
+    /// wave can't re-fling the same rabbit every tick.</summary>
+    private sealed class PlayerRipple
+    {
+        public Point CenterPx;
+        public double AgeMs;
+        public double RadiusPx;
+        public double LifeMs;
+        public readonly HashSet<Bubble> Hit = new();
+    }
+    private readonly List<PlayerRipple> _playerRipples = new();
+
+    /// <summary>the Ripple: the player's right-click wave — treats pop PAID, lives snap clean,
+    /// rabbits get flung (their flying body mows bubbles). Drawn by the field-FX overlay;
+    /// the popping happens on the anim tick like every other field hazard.</summary>
+    public void TriggerPlayerRipple(Point centerPx, double radiusPx, double lifeMs)
+    {
+        if (!_chaosActive) return;
+        DispatcherHelper.RunOnUI(() =>
+        {
+            _playerRipples.Add(new PlayerRipple { CenterPx = centerPx, RadiusPx = radiusPx, LifeMs = Math.Max(100, lifeMs) });
+            ChaosFieldFxOverlay.SnapRipple(centerPx, radiusPx, lifeMs);
+        });
+    }
+
     /// <summary>Size Queen: an expanding ring from a snapped live bubble — pops every treat it
     /// touches as it grows. Draws via the field-FX overlay; popping happens on the anim tick.</summary>
     public void TriggerChaosRipple(Point centerPx)
@@ -928,7 +971,8 @@ public class BubbleService : IDisposable
     private void TickFieldHazards()
     {
         if (!_chaosActive || _chaosFrozen) return;
-        if (_ripples.Count == 0 && _residues.Count == 0 && ChaosRabbitTrailSecNow <= 0) return;
+        if (_ripples.Count == 0 && _residues.Count == 0 && _playerRipples.Count == 0
+            && ChaosRabbitTrailSecNow <= 0) return;
 
         static double DistSq(Point a, Point b) { double dx = a.X - b.X, dy = a.Y - b.Y; return dx * dx + dy * dy; }
         var snapshot = _bubbles.ToArray();
@@ -947,6 +991,27 @@ public class BubbleService : IDisposable
             }
             if (age >= RIPPLE_LIFE_MS) _ripples.RemoveAt(i);
             else _ripples[i] = (c, age);
+        }
+
+        // the Ripple (right-click): the player's wavefront. Treats pop PAID and lives snap
+        // clean through their normal Pop() routing; rabbits are FLUNG onward instead (their
+        // body mows bubbles from then on — Spank physics, no Spanker needed). The Tease, the
+        // Brittle and freeze pickups stay cursor-only, same as every other auto-sweep.
+        for (int i = _playerRipples.Count - 1; i >= 0; i--)
+        {
+            var pr = _playerRipples[i];
+            pr.AgeMs += 32;
+            double r = pr.RadiusPx * Math.Min(1.0, pr.AgeMs / pr.LifeMs);
+            foreach (var b in snapshot)
+            {
+                if (!b.IsAlive || b.Spec == null || pr.Hit.Contains(b)) continue;
+                if (b.Spec.IsFreeze || b.Spec.IsTease || b.Spec.IsBrittle) continue;
+                if (DistSq(b.CenterPx, pr.CenterPx) > r * r) continue;
+                pr.Hit.Add(b);
+                if (b.Spec.IsDarter) b.FlingFrom(pr.CenterPx);
+                else b.Pop();
+            }
+            if (pr.AgeMs >= pr.LifeMs) _playerRipples.RemoveAt(i);
         }
 
         // Aftermath residue: anything drifting through pops (treats fire, live ones snap),
@@ -1227,6 +1292,8 @@ public class BubbleService : IDisposable
         ChaosElectrifiedNow = false;
         _ripples.Clear();
         _residues.Clear();
+        _playerRipples.Clear();
+        ChaosBubbleCentersSnapshot = Array.Empty<Point>();
         WandShimmerOn = false;
         VibePopOn = false;
         VibeHoverPops = false;
@@ -2980,6 +3047,34 @@ internal class Bubble
             // It changes color: the chase-glow deepens to a hot ally-pink.
             try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x14, 0x93), BlurRadius = 34, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
             ShowChaosLabel("SPANKED", Color.FromRgb(0xFF, 0x4D, 0xC4));
+        }
+    }
+
+    /// <summary>the Ripple: the wave flings this rabbit away from the cast point — directed
+    /// (unlike a Spank's random heading) and at full sting pace. The flung rabbit is marked
+    /// spanked, so its body mows every plain bubble it crosses for the rest of its life.
+    /// No rabbit_caller lesson tick — no Spanker was involved, the water threw it.</summary>
+    internal void FlingFrom(Point originPx)
+    {
+        if (!_isAlive || _isPopping) return;
+        double spd = (_spec?.DarterSpeed ?? 9.0) * ChaosTuning.RIPPLE_FLING_SPEED_MULT;
+        var c = CenterPx;
+        double dx = c.X - originPx.X, dy = c.Y - originPx.Y;
+        double a = (dx * dx + dy * dy) < 1
+            ? _random.NextDouble() * Math.PI * 2   // dead-centre cast: any way out
+            : Math.Atan2(dy, dx);
+        _vx = Math.Cos(a) * spd;
+        _vy = Math.Sin(a) * spd;
+        _darterEscaping = false;
+        _darterBounces = 0;
+        _darterThrobPunch = 0.45;
+        _spankCooldownMs = 250;
+        if (!_isSpanked)
+        {
+            _isSpanked = true;
+            _spankGrowth = 1.0;   // no Spanker swell — the wave only throws it
+            try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x14, 0x93), BlurRadius = 34, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
+            ShowChaosLabel("FLUNG", Color.FromRgb(0x7A, 0xE0, 0xFF));
         }
     }
 

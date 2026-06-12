@@ -39,7 +39,7 @@ public sealed class ChaosWaveTimerOverlay : Window
     }
 
     /// <summary>Update the readout. Safe from any thread; creates the window if needed.</summary>
-    public static void Update(int wave, int waveCount, double secLeftInWave)
+    public static void Update(int wave, int waveCount, double secLeftInWave, double score)
     {
         try
         {
@@ -50,7 +50,7 @@ public sealed class ChaosWaveTimerOverlay : Window
                 try
                 {
                     if (_active == null) { _active = new ChaosWaveTimerOverlay(); ((Window)_active).Show(); }
-                    _active.SetText(wave, waveCount, secLeftInWave);
+                    _active.SetText(wave, waveCount, secLeftInWave, score);
                 }
                 catch (Exception ex) { App.Logger?.Debug("ChaosWaveTimer.Update: {E}", ex.Message); }
             });
@@ -85,6 +85,7 @@ public sealed class ChaosWaveTimerOverlay : Window
     private readonly Border _pill;
     private readonly TextBlock _wave;
     private readonly TextBlock _clock;
+    private readonly TextBlock _score;
     private bool _urgent;
 
     private ChaosWaveTimerOverlay()
@@ -120,6 +121,20 @@ public sealed class ChaosWaveTimerOverlay : Window
         row.Children.Add(_wave);
         row.Children.Add(_clock);
 
+        // Score line under the clock — the Pocket Watch's bonus utility: glance the
+        // top-right for time AND score without ever opening the sidebar.
+        _score = new TextBlock
+        {
+            Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)),
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 2, 0, 0),
+        };
+        var stack = new StackPanel();
+        stack.Children.Add(row);
+        stack.Children.Add(_score);
+
         _pill = new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(170, 0x12, 0x0E, 0x1E)),
@@ -128,7 +143,7 @@ public sealed class ChaosWaveTimerOverlay : Window
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(14, 5, 14, 5),
             Visibility = Visibility.Collapsed,
-            Child = row,
+            Child = stack,
         };
         Content = _pill;
 
@@ -140,13 +155,14 @@ public sealed class ChaosWaveTimerOverlay : Window
         SourceInitialized += (_, _) => ApplyExStyles();
     }
 
-    private void SetText(int wave, int waveCount, double secLeftInWave)
+    private void SetText(int wave, int waveCount, double secLeftInWave, double score)
     {
         _pill.Visibility = Visibility.Visible;
         bool last = wave >= waveCount;
         _wave.Text = last ? "LAST WAVE" : $"WAVE {wave}/{waveCount}";
         int s = (int)Math.Max(0, Math.Ceiling(secLeftInWave));
         _clock.Text = $"{s / 60}:{s % 60:00}";
+        _score.Text = $"{(int)score:N0}";
 
         // The last ten seconds of a wave run hot (red clock); calm white otherwise.
         bool urgent = secLeftInWave <= 10;

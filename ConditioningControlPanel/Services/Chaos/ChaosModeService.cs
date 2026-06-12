@@ -112,7 +112,7 @@ public sealed class ChaosModeService
                     return;
                 }
 
-                ChaosSfx.Play("ui_unlock", 0.55f);
+                // No cue here — the card itself plays the unlock sting when it lands.
                 bool claimPause = _spawning && !_paused && !_manualPaused;
                 if (claimPause)
                 {
@@ -380,6 +380,7 @@ public sealed class ChaosModeService
         _vibeRemainingSec = 0;
         BuildActiveToys();
         StartKeyHook();
+        StartRippleHook();   // the Ripple: right-click verb, live for the whole descent
         for (int i = 0; i < _state.ActiveToys.Count; i++)
         {
             try
@@ -616,6 +617,13 @@ public sealed class ChaosModeService
         // re-arms its own interval, so the cadence resumes cleanly from here.
         if (_spawning && _freezeRemainingSec <= 0 && (App.Bubbles?.ActiveBubbles ?? 1) == 0)
             SpawnTick(null, EventArgs.Empty);
+
+        // the Ripple: gather the next charge (a soft ready cue the moment it lands).
+        if (_state.RippleCooldown > 0)
+        {
+            _state.RippleCooldown -= dt;
+            if (_state.RippleReady) ChaosSfx.Play("toy_ready", 0.3f);
+        }
 
         TickBlindfoldHeartbeat(dt);   // Blindfold capstone: the closest fuse gets a pulse
         TickActiveToys(dt);           // toy cooldowns + the VibePopping buzz window
@@ -1904,6 +1912,7 @@ public sealed class ChaosModeService
     // or their HUD button. Cooldowns/charges live per run on ChaosToyState (HUD binds them).
 
     private Services.GlobalKeyboardHook? _keyHook;
+    private Services.GlobalMouseHook? _rippleHook;
     private double _vibeRemainingSec;   // VibePopping buzz window (real clock, like the power-ups)
     private bool _dvdBannerOn;          // the "PORN DVD" banner is up; drop it when the last logo lands
     private readonly System.Collections.Generic.List<ChaosToyButtonWindow> _toyButtons = new();
@@ -1969,6 +1978,82 @@ public sealed class ChaosModeService
         }
         catch { }
         _keyHook = null;
+    }
+
+    // ---- the Ripple (right-click verb): one charge, slow recharge, expanding wave ----
+
+    private void StartRippleHook()
+    {
+        try
+        {
+            _rippleHook = new Services.GlobalMouseHook();
+            _rippleHook.RightDown = OnRippleRightDown;
+            _rippleHook.Start();
+        }
+        catch (Exception ex) { App.Logger?.Debug("Chaos ripple hook: {E}", ex.Message); }
+    }
+
+    private void StopRippleHook()
+    {
+        try { _rippleHook?.Dispose(); } catch { }
+        _rippleHook = null;
+    }
+
+    /// <summary>HOOK THREAD: swallow the right-click only when it lands within the wave's
+    /// reach (+grace) of a chaos bubble — everywhere else it passes through, so desktop
+    /// right-clicks stay usable mid-run. Touches ONLY the immutable centre snapshot; the
+    /// actual cast (or the not-ready denial) is marshalled to the dispatcher.</summary>
+    private bool OnRippleRightDown(Point px)
+    {
+        if (!_spawning || _paused || _manualPaused) return false;
+        var st = _state;
+        if (st == null) return false;
+        double reach = st.RippleRadiusPx + ChaosTuning.RIPPLE_TRIGGER_GRACE_PX;
+        bool near = false;
+        foreach (var c in BubbleService.ChaosBubbleCentersSnapshot)
+        {
+            double dx = c.X - px.X, dy = c.Y - px.Y;
+            if (dx * dx + dy * dy <= reach * reach) { near = true; break; }
+        }
+        if (!near) return false;
+        var disp = Application.Current?.Dispatcher;
+        if (disp == null || disp.HasShutdownStarted) return false;
+        disp.BeginInvoke(new Action(() => FireRipple(px)));
+        return true;
+    }
+
+    /// <summary>Cast the ripple at the click point (UI thread): consume the charge and send
+    /// the wave — three of them a second apart on the Skipping Stone capstone.</summary>
+    private void FireRipple(Point px)
+    {
+        if (!_spawning || _state == null || _paused || _manualPaused) return;
+        if (_freezeRemainingSec > 0) return;   // a frozen field is already a free-pop window
+        if (!_state.RippleReady)
+        {
+            ChaosSfx.Play("toy_denied", 0.45f);
+            _state.PushEvent($"🌊 still water... gathering {_state.RippleText}");
+            return;
+        }
+        _state.RippleCooldown = _state.RippleRechargeSec;
+        bool skips = _state.MaxedBoons.Contains("skipping_stone");
+        CastRippleWave(px);
+        if (skips)
+        {
+            for (int i = 1; i <= 2; i++)
+            {
+                var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(i * ChaosTuning.RIPPLE_WAVE_GAP_MS) };
+                t.Tick += (_, _) => { t.Stop(); CastRippleWave(px); };
+                t.Start();
+            }
+        }
+        _state.PushEvent(skips ? "🌊 the stone skips — three waves" : "🌊 ripple");
+    }
+
+    private void CastRippleWave(Point px)
+    {
+        if (!_spawning || _state == null) return;
+        ChaosSfx.PlayRippleCast();
+        App.Bubbles?.TriggerPlayerRipple(px, _state.RippleRadiusPx, _state.RippleLifeMs);
     }
 
     /// <summary>Hook callback → marshal to the dispatcher. Keys pass through to whatever has
@@ -2513,6 +2598,7 @@ public sealed class ChaosModeService
         _runTimer?.Stop();
         _spawnTimer?.Stop();
         StopKeyHook();
+        StopRippleHook();
         CloseToyButtons();
         App.Bubbles?.EndChaosMode();
         EndSlowMo(); EndFreeze();
@@ -2600,6 +2686,7 @@ public sealed class ChaosModeService
         if (App.Video != null) App.Video.VideoStarted -= OnVideoStartedDuringRun;   // belt-and-suspenders (mid-run close)
         if (App.Video != null) App.Video.VideoEnded -= OnVideoEndedDuringRun;
         StopKeyHook();   // idempotent; covers the overlay-closed-mid-run path
+        StopRippleHook();
         CloseToyButtons();
         try { ChaosDvdOverlay.CloseActive(); } catch { }
         try { ChaosEffectBannerOverlay.CloseActive(); } catch { }

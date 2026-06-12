@@ -58,6 +58,11 @@ public sealed class ChaosFieldFxOverlay : Window
     public static void Ripple(Point centerPx, double radiusPx, double lifeMs) =>
         OnUi(w => w.DrawRipple(centerPx, radiusPx, lifeMs));
 
+    /// <summary>the Ripple (right-click): the player's cast — a linear cyan wavefront that IS
+    /// the kill front, a pink echo a beat behind, and eight radial shards flying with it.</summary>
+    public static void SnapRipple(Point centerPx, double radiusPx, double lifeMs) =>
+        OnUi(w => w.DrawSnapRipple(centerPx, radiusPx, lifeMs));
+
     /// <summary>Aftermath: draw one crackling residue zone for <paramref name="lifeMs"/>.</summary>
     public static void Residue(Point centerPx, double radiusPx, double lifeMs) =>
         OnUi(w => w.DrawResidue(centerPx, radiusPx, lifeMs));
@@ -206,6 +211,81 @@ public sealed class ChaosFieldFxOverlay : Window
         var dur = TimeSpan.FromMilliseconds(lifeMs);
         var grow = new DoubleAnimation(0.05, 1.0, dur) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
         var fade = new DoubleAnimation(0.95, 0, dur);
+        fade.Completed += (_, _) => RemoveTransient(ring);
+        st.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+        st.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
+        ring.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private static readonly Color CastFrontColor = Color.FromRgb(0x7A, 0xE0, 0xFF);   // the water — cyan
+    private static readonly Color CastEchoColor = Color.FromRgb(0xFF, 0x69, 0xB4);    // the hand — pink
+
+    private void DrawSnapRipple(Point centerPx, double radiusPx, double lifeMs)
+    {
+        if (Local(centerPx) is not Point c) return;
+        double scale = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice.M11 ?? 1.0;
+        double r = radiusPx * scale;
+        var dur = TimeSpan.FromMilliseconds(lifeMs);
+
+        // The cyan front grows LINEARLY so the drawn ring matches the linear kill front in
+        // TickFieldHazards exactly — what the ring touches is what pops. The pink echo rides
+        // eased behind it, purely for the look.
+        AddCastRing(c, r, dur, CastFrontColor, 6, 0.95, eased: false);
+        AddCastRing(c, r * 0.82, dur, CastEchoColor, 3.5, 0.65, eased: true);
+
+        // Eight radial shards fly out with the front and die before it lands.
+        var spokeBrush = Frozen(Color.FromArgb(220, CastFrontColor.R, CastFrontColor.G, CastFrontColor.B));
+        var flyDur = TimeSpan.FromMilliseconds(lifeMs * 0.7);
+        for (int i = 0; i < 8; i++)
+        {
+            double ang = Math.PI * 2 * i / 8 + 0.39;   // offset so no shard sits on an axis
+            double ux = Math.Cos(ang), uy = Math.Sin(ang);
+            var tt = new TranslateTransform(ux * r * 0.2, uy * r * 0.2);
+            var shard = new Line
+            {
+                X1 = c.X, Y1 = c.Y,
+                X2 = c.X + ux * r * 0.16, Y2 = c.Y + uy * r * 0.16,
+                Stroke = spokeBrush,
+                StrokeThickness = 3,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                IsHitTestVisible = false,
+                Opacity = 0.9,
+                RenderTransform = tt,
+            };
+            _canvas.Children.Add(shard);
+            _transientCount++;
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            tt.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(ux * r * 0.2, ux * r * 0.85, flyDur) { EasingFunction = ease });
+            tt.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(uy * r * 0.2, uy * r * 0.85, flyDur) { EasingFunction = ease });
+            var fade = new DoubleAnimation(0.9, 0, flyDur);
+            fade.Completed += (_, _) => RemoveTransient(shard);
+            shard.BeginAnimation(OpacityProperty, fade);
+        }
+    }
+
+    private void AddCastRing(Point c, double r, TimeSpan dur, Color color, double thickness, double fromOpacity, bool eased)
+    {
+        var st = new ScaleTransform(0.05, 0.05);
+        var ring = new Ellipse
+        {
+            Width = r * 2, Height = r * 2,
+            Stroke = new SolidColorBrush(Color.FromArgb(200, color.R, color.G, color.B)),
+            StrokeThickness = thickness,
+            IsHitTestVisible = false,
+            RenderTransformOrigin = new Point(0.5, 0.5),
+            RenderTransform = st,
+        };
+        Canvas.SetLeft(ring, c.X - r);
+        Canvas.SetTop(ring, c.Y - r);
+        _canvas.Children.Add(ring);
+        _transientCount++;
+
+        var grow = new DoubleAnimation(0.05, 1.0, dur);
+        if (eased) grow.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var fade = new DoubleAnimation(fromOpacity, 0, dur);
         fade.Completed += (_, _) => RemoveTransient(ring);
         st.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
         st.BeginAnimation(ScaleTransform.ScaleYProperty, grow);

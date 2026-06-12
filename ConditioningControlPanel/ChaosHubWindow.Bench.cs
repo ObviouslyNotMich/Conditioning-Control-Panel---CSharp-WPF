@@ -220,7 +220,8 @@ public partial class ChaosHubWindow
             Margin = new Thickness(0, 0, 0, 6),
             Opacity = rankShort ? 0.6 : 1.0,
         };
-        if (rankShort) ChaosTips.Attach(card, item.Label, DEEPER_TIP);
+        if (rankShort) ChaosTips.Attach(card, item.Label, DEEPER_TIP,
+            item.RankNeed.HasValue ? ChaosRanks.RankSpecifics(item.RankNeed.Value) : null);
         else ChaosTips.Attach(card, item.Label, item.Line, accent: goldColor);
         return card;
     }
@@ -282,7 +283,10 @@ public partial class ChaosHubWindow
         try { item.ApplyEffect?.Invoke(); }
         catch (Exception ex) { App.Logger?.Warning("Bench effect {Id} failed ({E})", item.Id, ex.Message); }
         ChaosMeta.Save();
-        ChaosSfx.Play("ui_unlock", 0.55f);
+        // Pocket buys get their cue from the unlock card below — no doubled sting.
+        bool cardFollows = item.Id is BenchIds.ToyPocket1 or BenchIds.ToyPocket2
+                                   or BenchIds.AccPocket1 or BenchIds.AccPocket2;
+        if (!cardFollows) ChaosSfx.Play("ui_unlock", 0.55f);
 
         RevealService.Sync("purchase");
         ApplyReveals();
@@ -294,5 +298,12 @@ public partial class ChaosHubWindow
         RefreshStats();
         App.Chaos?.NotifyLoadoutChanged();
         RunRevealFlashes("purchase");   // a freshly revealed surface flashes right away
+
+        // Pockets get an unlock card — a new SLOT is the thing players miss most easily.
+        // The other bench rows (diary, stats, mantra) reveal their own surface on purchase.
+        if (item.Id is BenchIds.ToyPocket1 or BenchIds.ToyPocket2)
+            ShowUnlockCard(ChaosUnlockCards.ForPocket(isToy: true, item.Label, item.Line));
+        else if (item.Id is BenchIds.AccPocket1 or BenchIds.AccPocket2)
+            ShowUnlockCard(ChaosUnlockCards.ForPocket(isToy: false, item.Label, item.Line));
     }
 }

@@ -18,6 +18,8 @@ public sealed class ChaosUpgrade
     public string Name = "";
     /// <summary>One-line hover-card text (lowercase house voice).</summary>
     public string Desc = "";
+    /// <summary>One flavorful line, rendered grey italic under the mechanics text.</summary>
+    public string Flavor = "";
     /// <summary>Placeholder for the square tile until real art lands at assets/Chaos/upgrades/{id}.png.</summary>
     public string Glyph = "✦";
     public int Cost;                            // in Sparks
@@ -38,6 +40,7 @@ public static class ChaosUpgrades
     public const int COST_SLOW_FUSES      = 120;
     public const int COST_SILK_TOUCH      = 180;
     public const int COST_POPUP_NOTIF     = 160;
+    public const int COST_PENDULUM        = 220;
     public const int COST_DRAFT4          = 200;
     public const int COST_EXTREME_TIER    = 350;
 
@@ -45,17 +48,27 @@ public static class ChaosUpgrades
     {
         // ---- Control ----
         new() { Id = "slow_fuses",      Branch = ChaosBranch.Control, Name = "Slower Trance",    Cost = COST_SLOW_FUSES, Glyph = "⏳",
-                Desc = "live bubbles hold their trance 15% longer.",
+                Desc = "live bubbles hold their trance 15% longer before they trigger.",
+                Flavor = "a little more time to change your mind. you won't.",
                 Apply = c => c.FuseTimeMult *= 1.15 },
         // bigger_hitboxes (Soft Focus) + magnet (Mesmer Reach) merged into silk_touch 2026-06-10;
         // shield_recharge (Slow Recovery) reborn as the leveled slow_recovery Utility charm
         // (pop-based regen). Owners are refunded at load — never reuse the ids.
         new() { Id = "silk_touch",      Branch = ChaosBranch.Control, Name = "Silk Touch", Cost = COST_SILK_TOUCH, Glyph = "🪶",
-                Desc = "your fingers turn to silk. bubbles are 25% easier to touch, and a near-miss on a live one still counts.",
+                Desc = "bubble hitboxes grow 25%, and a near-miss on a live one still counts as a touch.",
+                Flavor = "silk doesn't try. it just lands.",
                 Apply = c => { c.HitboxScale = 1.25; c.MagnetEnabled = true; } },
         new() { Id = "popup_notification", Branch = ChaosBranch.Control, Name = "Pop-up Notification", Cost = COST_POPUP_NOTIF, Glyph = "💖",
-                Desc = "you opted in. once per loop, sometimes, a little heart drifts down the screen — catch it for +1 resistance.",
+                Desc = "once per loop, 60% of the time, a heart drifts down mid-loop. catch it for +1 resistance and +10 focus. missing it costs nothing.",
+                Flavor = "you opted in. you always opt in.",
                 Apply = c => c.PopupHeartEnabled = true },
+        // Re-gated 2026-06-11: the swing was briefly a free event for everyone; now it's a
+        // trained habit again. NEW id on purpose — "pendulum" sits in the refund-scrub table
+        // forever, so reusing it would refund/strip the purchase at every load.
+        new() { Id = "pendulum_swing",  Branch = ChaosBranch.Control, Name = "Pendulum", Cost = COST_PENDULUM, Glyph = "🕰",
+                Desc = "once per loop, at a random beat, the pendulum swings: 2.5 seconds of slow motion. the \"Focus here...\" mantra turns that swing into a x3 pay window.",
+                Flavor = "tick. tock. you looked.",
+                Apply = c => c.PendulumSwing = true },
         // More 2026-06-10 conversions (owners refunded at load — never reuse the ids):
         //   start_shield → "It would never work on me..." charm (leveled +1/+2/+3; base is now 0)
         //   collar       → Collar charm (leveled 1/2/3 saves)
@@ -69,9 +82,11 @@ public static class ChaosUpgrades
         // ---- Depth ----
         new() { Id = "draft4",          Branch = ChaosBranch.Depth,   Name = "4-Mantra Draft",    Cost = COST_DRAFT4, Glyph = "🃏",
                 Desc = "mantra drafts offer four choices instead of three.",
+                Flavor = "more ways to say yes.",
                 Apply = c => c.DraftChoices = 4 },
         new() { Id = "extreme_tier",    Branch = ChaosBranch.Depth,   Name = "Inescapable Tier",    Cost = COST_EXTREME_TIER, Glyph = "🌀",
-                Desc = "opens the inescapable difficulty.",
+                Desc = "opens the inescapable difficulty in the descent setup.",
+                Flavor = "the last door was never locked.",
                 Apply = _ => { } },                                       // flag stored at purchase time
     };
 
@@ -423,20 +438,28 @@ public static class ChaosMeta
 
     /// <summary>
     /// Bank Sparks + update lifetime stats at the end of a completed run, then persist.
-    /// Formula: <c>round((score/divisor + completionBonus) * SparkGainMult) * difficulty</c>
-    /// where the difficulty scalar is folded into both the score part and the bonus.
+    /// Formula (2026-06-12 economy rework, Hades pacing — full collection ≈ 100 descents):
+    /// <c>round((1.5·√score + 35·diff·min(1, durMin/3)) * SparkGainMult)</c>.
+    /// The square root compresses the late-game multiplier explosion (×10-20 score over a
+    /// fresh save → ×3-4 drops) and self-normalizes duration (double-length run ≈ ×1.4).
+    /// Difficulty is NOT re-applied to the score part — DifficultyMult already multiplies
+    /// every pop inside TotalMult, so the old <c>score/100·diff</c> double-dipped
+    /// (Inescapable paid ~×4.8 Gentle). The completion bonus keeps the linear diff scalar
+    /// and scales down below 3 minutes so 60-second runs can't farm the flat floor.
     /// Returns the Sparks banked so the recap card can show the haul.
     /// </summary>
     public static int AwardRunRewards(ChaosRunState run)
     {
         if (run == null) return 0;
 
-        const double COMPLETION_BONUS_BASE = 35.0;   // bumped 25→35: raises the predictable Spark floor
-        const double SPARK_SCORE_DIVISOR = 100.0;
+        const double COMPLETION_BONUS_BASE = 35.0;   // the predictable per-descent Spark floor
+        const double SCORE_SQRT_SCALE = 1.5;
+        const double FULL_BONUS_MINUTES = 3.0;
 
-        double difficultyMult = run.Config.DifficultyMult;
-        double completionBonus = COMPLETION_BONUS_BASE * difficultyMult;
-        double scorePart = run.Score / SPARK_SCORE_DIVISOR * difficultyMult;
+        double durationMin = Math.Max(0, run.RunDurationSec) / 60.0;
+        double completionBonus = COMPLETION_BONUS_BASE * run.Config.DifficultyMult
+                                 * Math.Min(1.0, durationMin / FULL_BONUS_MINUTES);
+        double scorePart = SCORE_SQRT_SCALE * Math.Sqrt(Math.Max(0, run.Score));
         int sparks = (int)Math.Round((scorePart + completionBonus) * run.Config.SparkGainMult);
 
         // Drip Feed: the per-pop trickle gathered during the run lands here, and the

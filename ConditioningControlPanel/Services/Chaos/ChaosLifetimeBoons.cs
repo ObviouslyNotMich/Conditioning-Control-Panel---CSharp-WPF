@@ -22,6 +22,8 @@ public sealed class ChaosLifetimeBoon
     public ChaosBoonCategory Category;
     public string Name = "";
     public string Desc = "";
+    /// <summary>One flavorful line, rendered grey italic under the mechanics text.</summary>
+    public string Flavor = "";
     public string Glyph = "◈";                       // placeholder icon char until real art ships
     public int UnlockCost;                            // Sparks for level 1
     public int[] UpgradeCosts = Array.Empty<int>();   // Sparks for levels 2..MaxLevel (len = MaxLevel - 1)
@@ -52,7 +54,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "vibe_popping", Category = ChaosBoonCategory.Skill, Name = "VibePopping", Glyph = "🔸",
-            Desc = "press it, then hold the button and sweep. everything you pass over pops itself, even the live ones.",
+            Desc = "press for a 3/4/5/5s buzz by level. while it buzzes, hold left or right mouse and sweep: everything you brush over pops instantly, and live ones snap clean for full pay. 20s cooldown.",
+            Flavor = "you don't have to aim. just let the hand wander.",
             UnlockCost = 200,
             UpgradeCosts = new[] { 250, 400, 600 },               // levels 2..4
             LevelValues  = new[] { 3.0, 4, 5, 5 },                // buzz duration (seconds)
@@ -64,7 +67,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "freeze_trigger", Category = ChaosBoonCategory.Skill, Name = "Freeze Trigger", Glyph = "❄",
-            Desc = "press it and everything holds still, exactly like a caught freeze bubble. limited uses per descent.",
+            Desc = "press to freeze the whole field for 3.5s, exactly like a caught freeze bubble. 1/2/3/3 uses per descent, and holds channeled while frozen spend no focus.",
+            Flavor = "stillness on demand. she lends it, never gives it.",
             UnlockCost = 250,
             UpgradeCosts = new[] { 400, 650, 900 },               // levels 2..4
             LevelValues  = new[] { 1.0, 2, 3, 3 },                // uses per descent
@@ -76,7 +80,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "porn_dvd", Category = ChaosBoonCategory.Skill, Name = "Porn DVD", Glyph = "📀",
-            Desc = "press play. the logo drifts across the screen popping every treat it touches and snapping the rest.",
+            Desc = "press play: a logo bounces across the screen for 10/15/20/20s by level, popping every treat it touches and snapping every live one. bigger and faster at higher levels. 60s cooldown.",
+            Flavor = "it always finds the corner eventually. so will you.",
             UnlockCost = 300,
             UpgradeCosts = new[] { 450, 700, 1000 },              // levels 2..4
             LevelValues  = new[] { 10.0, 15, 20, 20 },            // flight time (seconds); speed+size also scale with rank
@@ -88,7 +93,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "snap_field", Category = ChaosBoonCategory.Skill, Name = "Snap Field", Glyph = "✋",
-            Desc = "one clean snap and every live bubble on screen lets go at once. the panic button.",
+            Desc = "the panic button. every live bubble on screen snaps at once, each paying in full. cooldown 60/45/30s by level.",
+            Flavor = "one clean breath and the whole room lets go.",
             UnlockCost = 300,
             UpgradeCosts = new[] { 400, 600 },                    // levels 2..3
             LevelValues  = new[] { 60.0, 45, 30 },                // cooldown seconds by level
@@ -100,7 +106,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "rabbit_caller", Category = ChaosBoonCategory.Skill, Name = "Rabbit Caller", Glyph = "🐇",
-            Desc = "whistle, then point — your cursor glows, and the rabbits arrive wherever you click next. more of them the deeper your bond.",
+            Desc = "press to arm the whistle, then click anywhere: 1/2/3 white rabbits by level arrive right where you pointed. 45s cooldown.",
+            Flavor = "they were always waiting to be called.",
             UnlockCost = 250,
             UpgradeCosts = new[] { 350, 550 },                    // levels 2..3
             LevelValues  = new[] { 1.0, 2, 3 },                   // rabbits per whistle
@@ -112,7 +119,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "e_stim", Category = ChaosBoonCategory.Skill, Name = "E-Stim", Glyph = "⚡",
-            Desc = "press it to charge the current. your next clicks on good bubbles discharge — lightning arcs into everything close enough.",
+            Desc = "press to charge your next 3/4/5 clicks by level. a charged pop arcs lightning into up to 3 bubbles within 600px, snapping any live ones. nothing in reach? the charge keeps. 30s cooldown.",
+            Flavor = "the current knows exactly where you're tender.",
             UnlockCost = 300,
             UpgradeCosts = new[] { 450, 650 },                    // levels 2..3
             LevelValues  = new[] { 3.0, 4, 5 },                   // charged clicks per press
@@ -128,7 +136,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "surrender", Category = ChaosBoonCategory.Accessory, Name = "Surrender", Glyph = "🕯",
-            Desc = "you stopped pretending you'd say no. each accepted sin adds extra run multiplier.",
+            Desc = "every sin you accept adds +0.05/+0.10/+0.15x run multiplier by level, on top of whatever the sin pays.",
+            Flavor = "you stopped pretending you'd say no.",
             UnlockCost = 150,
             UpgradeCosts = new[] { 250, 450 },                    // levels 2..3
             LevelValues  = new[] { 0.05, 0.10, 0.15 },            // extra BoonMult per accepted sin
@@ -146,7 +155,8 @@ public static class ChaosLifetimeBoons
         {
             // Display renamed Inflatable Plug → Poppers (2026-06-10); id is save-persisted, never change it.
             Id = "chain_reaction", Category = ChaosBoonCategory.Accessory, Name = "Poppers", Glyph = "💨",
-            Desc = "they dilate. bubbles swell wider open and pop whatever they touch.",
+            Desc = "a popped bubble bursts outward and pops whatever it overlaps, rippling on through the cluster. burst reach x1.20/1.35/1.60/1.80/2.00 by level.",
+            Flavor = "they dilate. everything opens a little wider.",
             UnlockCost = 150,
             UpgradeCosts = new[] { 120, 160, 220, 300 },          // levels 2..5
             LevelValues  = new[] { 1.2, 1.35, 1.6, 1.8, 2.0 },    // burst reach multiplier per level
@@ -156,7 +166,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "blindfold", Category = ChaosBoonCategory.Accessory, Name = "Blindfold", Glyph = "🙈",
-            Desc = "you don't need to see them. bubbles fade to a whisper, but every pop pays more.",
+            Desc = "bubbles dim to 40/32/25% visibility by level. in exchange every pop and snap pays x1.50/x1.75/x2.00. golden bubbles, hearts, rabbits and glass stay bright.",
+            Flavor = "you don't need to see them. you feel where they are.",
             UnlockCost = 300,
             UpgradeCosts = new[] { 450, 700 },                    // levels 2..3
             LevelValues  = new[] { 1.5, 1.75, 2.0 },              // payout multiplier
@@ -173,7 +184,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "last_breath", Category = ChaosBoonCategory.Accessory, Name = "Last Breath", Glyph = "⏱",
-            Desc = "snatch a live one at the very brink and the hole pays you fortunes for the thrill.",
+            Desc = "snap a live bubble with 0.4/0.6/0.8s of trance left by level and it pays x5/x10/x20. the fuse ring burns solid red through the final 0.8s, so watch for it.",
+            Flavor = "the closer the edge, the sweeter she sings.",
             UnlockCost = 250,
             UpgradeCosts = new[] { 350, 550 },                    // levels 2..3
             LevelValues  = new[] { 5.0, 10, 20 },                 // payout mult; the brink window widens with it (0.4/0.6/0.8s)
@@ -187,7 +199,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "taking_chances", Category = ChaosBoonCategory.Accessory, Name = "Taking Chances", Glyph = "🎲",
-            Desc = "every pop is a coin flip — half pay or double pay. and you can tempt fate again at the draft table.",
+            Desc = "every pop flips a coin: x2 or x0.5 pay, with 50/55/60% odds on the double by level. also grants 1/2/3 mantra draft rerolls per descent.",
+            Flavor = "heads she wins, tails you do. you keep forgetting which is which.",
             UnlockCost = 250,
             UpgradeCosts = new[] { 300, 500 },                    // levels 2..3
             LevelValues  = new[] { 1.0, 2, 3 },                   // rerolls per descent; the coin also tilts: 50/50 → 45/55 → 40/60
@@ -201,7 +214,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "the_pull", Category = ChaosBoonCategory.Accessory, Name = "The Pull", Glyph = "🧭",
-            Desc = "the hole leans toward you. bubbles drift to your cursor, and the rabbits fly straight at you.",
+            Desc = "bubbles drift toward your cursor, pull strength 0.12/0.22/0.32/0.44/0.58 by level, and white rabbits fly straight at you instead of past you.",
+            Flavor = "you're not chasing them. be honest.",
             UnlockCost = 200,
             UpgradeCosts = new[] { 200, 300, 450, 650 },          // levels 2..5
             LevelValues  = new[] { 0.12, 0.22, 0.32, 0.44, 0.58 },// drift bias (DIPs/frame); rabbits home at all levels
@@ -211,7 +225,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "the_spanker", Category = ChaosBoonCategory.Accessory, Name = "The Spanker", Glyph = "🏓",
-            Desc = "rabbits aren't for catching anymore. smack one and it turns, swells, and pops everything in its path. you give up the slow.",
+            Desc = "rabbits can't be caught anymore. smack one and it turns, swells x1.20/1.45/1.70 by level, gains 18% speed per smack, and pops everything in its path. you give up the free slow-mo.",
+            Flavor = "good rabbits get a pat. yours get the paddle.",
             UnlockCost = 300,
             UpgradeCosts = new[] { 450, 700 },                    // levels 2..3
             LevelValues  = new[] { 1.20, 1.45, 1.70 },            // one-time swell on the first smack
@@ -222,7 +237,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "intrusive_thoughts", Category = ChaosBoonCategory.Accessory, Name = "Intrusive Thoughts", Glyph = "💭",
-            Desc = "every few seconds a thought you didn't ask for races across the screen, popping whatever it touches.",
+            Desc = "every 5 seconds a stray thought races across the screen for 3/4/5s by level, popping whatever it touches.",
+            Flavor = "they aren't yours. they pop things anyway.",
             UnlockCost = 250,
             UpgradeCosts = new[] { 350, 550 },                    // levels 2..3
             LevelValues  = new[] { 3.0, 4, 5 },                   // seconds each thought lives (one spawns every 5s)
@@ -235,7 +251,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "rabbits_foot", Category = ChaosBoonCategory.Utility, Name = "Rabbit's Foot", Glyph = "🍀",
-            Desc = "a charm against bad odds. lucky golden bubbles surface more often and pay richer — real gold, on the spot.",
+            Desc = "lucky golden bubbles surface on 1.0/1.5/2.0/2.0% of spawns by level (0.5% without) and pay 12-24/14-28/16-32/20-40 gold on the spot.",
+            Flavor = "it wasn't lucky for the rabbit.",
             UnlockCost = 200,
             UpgradeCosts = new[] { 350, 600, 900 },               // levels 2..4
             LevelValues  = new[] { 0.010, 0.015, 0.020, 0.020 },  // golden-bubble chance per spawn (base 0.5% unworn);
@@ -247,10 +264,14 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "drip_feed", Category = ChaosBoonCategory.Utility, Name = "Drip Feed", Glyph = "💧",
-            Desc = "every treat popped and trance snapped drips drops straight into your pocket.",
+            Desc = "every treat popped and every trance snapped banks +1/+2/+3/+4 drops by level — up to 60/90/120/150 a descent — collected when you surface.",
+            Flavor = "drop by drop. that's how anything fills.",
             UnlockCost = 250,
             UpgradeCosts = new[] { 400, 650, 1000 },              // levels 2..4
-            LevelValues  = new[] { 5.0, 10, 15, 20 },             // drops banked per pop (defuses + treats)
+            // 2026-06-12 economy rework: 5/10/15/20 uncapped out-earned the entire score
+            // formula (~550✦/run at L1) and replaced the economy. Now a bad-run FLOOR:
+            // small per-pop trickle, capped per descent (see DripFeedCap).
+            LevelValues  = new[] { 1.0, 2, 3, 4 },                // drops banked per pop (defuses + treats)
             ValueLabel = "+{0:0} a pop",
             CapstoneDesc = "the hole tips you 10% extra on everything gathered when you surface.",
             Apply = (s, v) => s.DropPerPop = (int)v,
@@ -258,7 +279,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "blank_eyes", Category = ChaosBoonCategory.Utility, Name = "Blank Eyes", Glyph = "👁",
-            Desc = "your eyes glaze and the numbers float up — every pop whispers what it paid.",
+            Desc = "every pop floats its true payout on screen, multipliers and coin flips included.",
+            Flavor = "glaze over. let the numbers do the looking.",
             UnlockCost = 120,
             LevelValues  = new[] { 1.0 },                          // single-rank QoL toggle
             ValueLabel = "on",
@@ -267,7 +289,8 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "breast_enlargement", Category = ChaosBoonCategory.Utility, Name = "Breast Enlargement", Glyph = "🎈",
-            Desc = "they swell. every bubble on the field runs fuller, rounder, easier to catch.",
+            Desc = "every effect bubble runs +5/+10/+15/+25% bigger by level. pay is unchanged, they're simply easier to touch.",
+            Flavor = "fuller. rounder. harder to ignore.",
             UnlockCost = 120,
             UpgradeCosts = new[] { 180, 260, 380 },               // levels 2..4
             LevelValues  = new[] { 5.0, 10, 15, 25 },             // % size on every variant bubble
@@ -279,7 +302,8 @@ public static class ChaosLifetimeBoons
             // Replaces the single-rank shield_recharge habit (retired 2026-06-10): regen is now
             // EARNED — pops, not seconds. The threshold tightens per level.
             Id = "slow_recovery", Category = ChaosBoonCategory.Utility, Name = "Slow Recovery", Glyph = "♻",
-            Desc = "your resistance knits itself back together — pop enough bubbles and a point regrows.",
+            Desc = "every 60/50/40/30 pops by level knits back one point of resistance, up to where you started.",
+            Flavor = "it grows back slow. everything down here does.",
             UnlockCost = 200,
             UpgradeCosts = new[] { 300, 450, 650 },               // levels 2..4
             LevelValues  = new[] { 60.0, 50, 40, 30 },            // pops per regrown resistance point
@@ -291,7 +315,8 @@ public static class ChaosLifetimeBoons
             // Replaces the +1 Start Resistance habit (retired 2026-06-10). Base resistance is
             // now ZERO — this charm is the only way to descend wearing any.
             Id = "start_resistance", Category = ChaosBoonCategory.Utility, Name = "It would never work on me...", Glyph = "♥",
-            Desc = "famous last words. you descend wearing resistance you swore you'd never need.",
+            Desc = "you descend wearing +1/+2/+3 resistance by level. without it you start bare, at zero.",
+            Flavor = "famous last words.",
             UnlockCost = 100,
             UpgradeCosts = new[] { 200, 350 },                    // levels 2..3
             LevelValues  = new[] { 1.0, 2, 3 },                   // resistance points at run start
@@ -304,7 +329,8 @@ public static class ChaosLifetimeBoons
         {
             // Reborn from the single-rank Collar habit (retired 2026-06-10): saves now level.
             Id = "collar", Category = ChaosBoonCategory.Utility, Name = "Collar", Glyph = "📿",
-            Desc = "the streak was never yours to drop. when a trigger fires past your resistance, the collar holds it for you.",
+            Desc = "when a trigger slips past your resistance, the collar holds your streak: 1/2/3 saves per descent. the effect itself still plays.",
+            Flavor = "the streak was never yours to drop.",
             UnlockCost = 200,
             UpgradeCosts = new[] { 300, 450 },                    // levels 2..3
             LevelValues  = new[] { 1.0, 2, 3 },                   // streak saves per descent
@@ -316,7 +342,8 @@ public static class ChaosLifetimeBoons
             // Deeper Pull (base_mult) + Golden Touch merged 2026-06-10: one charm, both halves —
             // the score baseline deepens AND calm pops carry their bonus, scaling together.
             Id = "golden_touch", Category = ChaosBoonCategory.Utility, Name = "Golden Touch", Glyph = "✨",
-            Desc = "everything you touch pays deeper — every pop from a richer baseline, and calm pops carry a bonus of their own.",
+            Desc = "your run multiplier starts at x1.10/x1.20/x1.30/x1.45 by level, and calm pops pay from a 45/50/55/60% baseline instead of 40%.",
+            Flavor = "everything you touch comes back heavier.",
             UnlockCost = 150,
             UpgradeCosts = new[] { 250, 400, 600 },               // levels 2..4
             LevelValues  = new[] { 1.1, 1.2, 1.3, 1.45 },         // BaseMult; calm-pop baseline scales with it
@@ -333,7 +360,8 @@ public static class ChaosLifetimeBoons
             // Reborn from Take More (retired 2026-06-10) — instead of softening the sting,
             // it stretches the trance so you can beat it.
             Id = "slowburner", Category = ChaosBoonCategory.Utility, Name = "Slowburner", Glyph = "🐌",
-            Desc = "the trance burns lazy. live bubbles take their time letting go.",
+            Desc = "live bubbles hold their trance 10/20/30/40% longer by level before they trigger.",
+            Flavor = "no rush. she likes you slow.",
             UnlockCost = 150,
             UpgradeCosts = new[] { 250, 400, 600 },               // levels 2..4
             LevelValues  = new[] { 10.0, 20, 30, 40 },            // % slower fuse burn
@@ -344,13 +372,40 @@ public static class ChaosLifetimeBoons
         new()
         {
             Id = "pocket_watch", Category = ChaosBoonCategory.Utility, Name = "Pocket Watch", Glyph = "🕰",
-            Desc = "the white rabbit lends you his watch. the wave countdown hangs top-right, and the sidebar shows the run clock — without it, time down here stays a mystery.",
+            Desc = "the loop countdown hangs top right and the sidebar shows the descent clock. without it, time down here stays a mystery.",
+            Flavor = "borrowed from the white rabbit. he knows where you live.",
             UnlockCost = 150,
             LevelValues  = new[] { 1.0 },                          // single-rank QoL toggle
             ValueLabel = "on",
             Apply = (s, _) => s.ShowWaveTimer = true,
         },
+        new()
+        {
+            // The Ripple (right-click) is base kit — everyone gets one charge on a 15s gather.
+            // This charm tunes the VERB: shorter gathers, wider/slower waves, and the capstone
+            // skips the stone (three waves a second apart per cast).
+            Id = "skipping_stone", Category = ChaosBoonCategory.Utility, Name = "Skipping Stone", Glyph = "🪨",
+            Desc = "your ripple gathers in 13/11/9/8 seconds by level (15 bare-handed), and each level sends a wider, slower wave.",
+            Flavor = "flat stone, still water. she taught you the wrist for it.",
+            UnlockCost = 220,
+            UpgradeCosts = new[] { 380, 650, 950 },               // levels 2..4
+            LevelValues  = new[] { 13.0, 11, 9, 8 },              // recharge seconds
+            ValueLabel = "{0:0}s gather",
+            CapstoneDesc = "the stone skips — every cast sends three waves, a second apart.",
+            Apply = (s, v) =>
+            {
+                s.RippleRechargeSec = v;
+                int lvl = ChaosMeta.BoonLevel("skipping_stone");
+                s.RippleRadiusPx = ChaosTuning.RIPPLE_RADIUS_PX + lvl * ChaosTuning.RIPPLE_RADIUS_PER_LVL_PX;
+                s.RippleLifeMs = ChaosTuning.RIPPLE_LIFE_MS + lvl * ChaosTuning.RIPPLE_LIFE_PER_LVL_MS;
+            },
+        },
     };
+
+    /// <summary>Drip Feed's per-descent trickle ceiling by per-pop value (== level, 1..4):
+    /// 60/90/120/150✦. The cap bounds the Relapse-loop doubling too — the trickle is a
+    /// floor-raiser, never a second economy.</summary>
+    public static int DripFeedCap(int dropPerPop) => 30 + 30 * Math.Clamp(dropPerPop, 1, 4);
 
     /// <summary>Gold paid by a lucky golden bubble at a Rabbit's Foot level (0 = unworn).
     /// Scales per level; the capstone is the doubled base range.</summary>

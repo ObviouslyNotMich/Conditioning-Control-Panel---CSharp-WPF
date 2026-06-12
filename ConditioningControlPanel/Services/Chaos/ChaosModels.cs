@@ -486,6 +486,17 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public string FocusText => $"{(int)Focus}";
     /// <summary>Below the price of a defuse — the HUD bar dims and pulses ("don't touch lives").</summary>
     public bool FocusLow => Focus < ChaosTuning.DEFUSE_COST;
+
+    // ---- the Ripple (right-click verb): one charge on a slow recharge ----
+    private double _rippleCooldown;
+    /// <summary>Seconds until the next ripple is gathered; 0 = ready. Counted down in RunTick.</summary>
+    public double RippleCooldown
+    {
+        get => _rippleCooldown;
+        set { _rippleCooldown = Math.Max(0, value); OnChanged(); OnChanged(nameof(RippleReady)); OnChanged(nameof(RippleText)); }
+    }
+    public bool RippleReady => RippleCooldown <= 0;
+    public string RippleText => RippleReady ? "READY" : $"{Math.Ceiling(RippleCooldown):0}s";
     public string ShieldText => string.Concat(Enumerable.Repeat("♥", Shields)) + string.Concat(Enumerable.Repeat("♡", Math.Max(0, Config.StartingShields - Shields)));
 
     // ---- multiplier stack (chaos-local; skill/pink-rush applied once at payout) ----
@@ -617,6 +628,12 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public double BubbleScale = 1.0;
     /// <summary>Resistance at run start (after boons) — the regen cap.</summary>
     public int StartShields;
+    /// <summary>Ripple recharge seconds (the Skipping Stone charm shortens this: 13/11/9/8).</summary>
+    public double RippleRechargeSec = ChaosTuning.RIPPLE_RECHARGE_SEC;
+    /// <summary>Ripple wavefront reach in physical px (Skipping Stone widens it per level).</summary>
+    public double RippleRadiusPx = ChaosTuning.RIPPLE_RADIUS_PX;
+    /// <summary>Ripple expansion time in ms (Skipping Stone slows it per level — wider AND longer).</summary>
+    public double RippleLifeMs = ChaosTuning.RIPPLE_LIFE_MS;
 
     // ---- run-boon (mantra/sin) knobs — the 2026-06-11 visible pool ----
     /// <summary>Gold Digger: golden bubbles burst into 3 falling gold droplets on pop.</summary>

@@ -14,7 +14,7 @@ public static class ChaosTips
 {
     /// <summary>Attach a title/desc hover card to <paramref name="target"/>. <paramref name="extra"/>
     /// renders as a gold capstone line; <paramref name="accent"/> tints the title (default pink).</summary>
-    public static void Attach(FrameworkElement target, string title, string? desc, string? extra = null, Color? accent = null)
+    public static void Attach(FrameworkElement target, string title, string? desc, string? extra = null, Color? accent = null, string? flavor = null)
     {
         var a = accent ?? Color.FromRgb(0xFF, 0x69, 0xB4);
         var sp = new StackPanel { MaxWidth = 260 };
@@ -29,6 +29,14 @@ public static class ChaosTips
                 Text = desc, FontSize = 12, TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 3, 0, 0),
                 Foreground = new SolidColorBrush(Color.FromArgb(0xDD, 0xE0, 0xE0, 0xF0))
+            });
+        if (!string.IsNullOrWhiteSpace(flavor))
+            sp.Children.Add(new TextBlock
+            {
+                Text = flavor, FontStyle = FontStyles.Italic, FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8))
             });
         if (!string.IsNullOrWhiteSpace(extra))
             sp.Children.Add(new TextBlock

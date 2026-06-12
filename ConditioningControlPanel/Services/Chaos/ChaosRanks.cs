@@ -55,6 +55,15 @@ public static class ChaosRanks
     /// <summary>[LOCKED] generic tooltip for anything visible but above the player's rank. Ships verbatim.</summary>
     public const string RankLockedTip = "she'll sell this to someone deeper.";
 
+    /// <summary>The hover SPECIFICS for any rank gate: exact rank, exact descent count, live
+    /// progress. Rides under the mystery lines so locks stay studyable without losing voice.</summary>
+    public static string RankSpecifics(ChaosRank needed)
+    {
+        int need = Thresholds[Math.Clamp((int)needed, 0, Thresholds.Length - 1)];
+        int have = ChaosMeta.State.RunsCompleted;
+        return $"unlocks at {Name(needed)}: {need} descents finished. you've finished {have}.";
+    }
+
     /// <summary>[LOCKED] tooltip for a capstone (final) boon level before Devoted. Ships verbatim.</summary>
     public const string CapstoneLockedTip = "the last stitch is hers to give. she gives it to the devoted.";
 

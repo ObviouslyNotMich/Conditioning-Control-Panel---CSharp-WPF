@@ -6,6 +6,8 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using ConditioningControlPanel.Services.Chaos;
 
 namespace ConditioningControlPanel;
@@ -62,6 +64,8 @@ public partial class ChaosHubWindow : Window
     {
         var src = ChaosArt.ResolveBanner();
         if (src != null) { BannerImage.Source = src; BannerImage.Visibility = Visibility.Visible; }
+        var bd = ChaosArt.Resolve("hub", "backdrop");
+        if (bd != null) { HubBackdrop.Source = bd; HubBackdrop.Visibility = Visibility.Visible; }
     }
 
     // ============================ tabs / gating ============================
@@ -86,8 +90,9 @@ public partial class ChaosHubWindow : Window
     {
         // The old Habits tab folded into the Toybox; external callers may still ask for it.
         if (tag == "habits") tag = "enhance";
-        // The Looking Glass stays out of reach until its reveal flips.
-        if (tag == "improve" && TabImprove.Visibility != Visibility.Visible) tag = "loadout";
+        // The Looking Glass stays out of reach until its reveal flips (the tab renders
+        // greyed + locked, so gate on IsEnabled — it's always Visible now).
+        if (tag == "improve" && !TabImprove.IsEnabled) tag = "loadout";
 
         PanelLoadout.Visibility = tag == "loadout" ? Visibility.Visible : Visibility.Collapsed;
         PanelEnhance.Visibility = tag == "enhance" ? Visibility.Visible : Visibility.Collapsed;
@@ -109,6 +114,15 @@ public partial class ChaosHubWindow : Window
         };
     }
 
+    /// <summary>Settings tab: fold the dev/test knobs (bubble pool, mantra toggles, loops)
+    /// in and out. Collapsed every open — the casual read stays short.</summary>
+    private void TestingToggle_Click(object sender, RoutedEventArgs e)
+    {
+        bool open = TglTesting.IsChecked == true;
+        TestingBody.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        TglTesting.Content = open ? "🧪 testing options ▾" : "🧪 testing options ▸";
+    }
+
     /// <summary>A + tile wants to take the player shopping.</summary>
     private void JumpToTab(string tag) => ShowTab(tag);
 
@@ -122,11 +136,61 @@ public partial class ChaosHubWindow : Window
 
     // ============================ top bar / stats ============================
 
+    private int _shownSparks = -1, _shownGold = -1;
+    private readonly Dictionary<TextBlock, DispatcherTimer> _balanceAnims = new();
+    private DispatcherTimer? _balanceTickOwner;   // one tick stream even when both balances move
+
     private void RefreshTopBar()
     {
-        TxtSparks.Text = ChaosMeta.State.Sparks.ToString("N0");
-        TxtGold.Text = ChaosMeta.State.Gold.ToString("N0");
+        AnimateBalance(TxtSparks, _shownSparks, ChaosMeta.State.Sparks);
+        AnimateBalance(TxtGold, _shownGold, ChaosMeta.State.Gold);
+        _shownSparks = ChaosMeta.State.Sparks;
+        _shownGold = ChaosMeta.State.Gold;
         TxtRank.Text = ChaosMeta.Rank;
+    }
+
+    /// <summary>Roll a top-bar balance from its last shown value to the new one (~500ms,
+    /// soft tick underneath) so spending visibly *costs* — first paint just snaps.</summary>
+    private void AnimateBalance(TextBlock tb, int from, int to)
+    {
+        if (_balanceAnims.TryGetValue(tb, out var old))
+        {
+            old.Stop();
+            _balanceAnims.Remove(tb);
+            if (ReferenceEquals(_balanceTickOwner, old)) _balanceTickOwner = null;
+        }
+        if (from < 0 || from == to || !IsLoaded)
+        {
+            tb.Text = to.ToString("N0");
+            return;
+        }
+
+        const int DURATION_MS = 500, FRAME_MS = 33, TICK_EVERY_MS = 90;
+        int elapsed = 0, lastTick = -TICK_EVERY_MS;
+
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(FRAME_MS) };
+        _balanceAnims[tb] = timer;
+        _balanceTickOwner ??= timer;             // only one stream of ticks at a time
+        timer.Tick += (_, _) =>
+        {
+            elapsed += FRAME_MS;
+            if (elapsed >= DURATION_MS)
+            {
+                timer.Stop();
+                _balanceAnims.Remove(tb);
+                if (ReferenceEquals(_balanceTickOwner, timer)) _balanceTickOwner = null;
+                tb.Text = to.ToString("N0");
+                return;
+            }
+            double eased = 1 - Math.Pow(1 - elapsed / (double)DURATION_MS, 3);
+            tb.Text = ((int)Math.Round(from + (to - from) * eased)).ToString("N0");
+            if (ReferenceEquals(_balanceTickOwner, timer) && elapsed - lastTick >= TICK_EVERY_MS)
+            {
+                lastTick = elapsed;
+                ChaosSfx.Play("count_tick", 0.4f);
+            }
+        };
+        timer.Start();
     }
 
     private void RefreshStats()
@@ -215,14 +279,21 @@ public partial class ChaosHubWindow : Window
         icon.VerticalAlignment = VerticalAlignment.Top;
         icon.Margin = new Thickness(0, 0, 12, 0);
         icon.Opacity = owned ? 1.0 : 0.5;
-        ChaosTips.Attach(icon, u.Name, u.Desc, accent: accent);
+        ChaosTips.Attach(icon, u.Name, u.Desc, accent: accent, flavor: u.Flavor);
         Grid.SetColumn(icon, 0);
         grid.Children.Add(icon);
 
-        // ---- middle: name + desc + branch tag ----
+        // ---- middle: name + desc + flavor + branch tag ----
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         mid.Children.Add(new TextBlock { Text = u.Name, Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
         mid.Children.Add(new TextBlock { Text = u.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
+        if (!string.IsNullOrEmpty(u.Flavor))
+            mid.Children.Add(new TextBlock
+            {
+                Text = u.Flavor, FontStyle = FontStyles.Italic, FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8)),
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0)
+            });
         mid.Children.Add(new TextBlock
         {
             Text = BranchLabel(u.Branch).ToLowerInvariant(),
@@ -275,7 +346,7 @@ public partial class ChaosHubWindow : Window
                 var train = BuyButton($"Train  ✦{u.Cost}", u.Id, afford && !rankLocked, Buy_Click);
                 if (rankLocked)
                 {
-                    train.ToolTip = ChaosRanks.RankLockedTip;
+                    train.ToolTip = ChaosRanks.RankLockedTip + "\n" + ChaosRanks.RankSpecifics(ChaosRank.Devoted);
                     ToolTipService.SetShowOnDisabled(train, true);
                 }
                 right.Children.Add(train);
@@ -304,7 +375,7 @@ public partial class ChaosHubWindow : Window
         if (string.IsNullOrEmpty(id)) return;
         if (ChaosMeta.TryPurchase(id!))
         {
-            ChaosSfx.Play("ui_unlock", 0.55f);
+            // No cue here — the unlock card below carries the sting.
             if (id == "extreme_tier") ApplyExtremeGate();
             BuildHabits();
             BuildLoadoutTiles();   // the habit grid lights up
@@ -313,6 +384,7 @@ public partial class ChaosHubWindow : Window
             RevealService.Sync("purchase");   // extreme_tier flips the Inescapable pill reveal
             ApplyReveals();
             RunRevealFlashes("purchase");
+            ShowUnlockCard(ChaosUnlockCards.ForHabit(id!));
         }
         else ChaosSfx.Play("ui_denied", 0.45f);
     }
@@ -389,7 +461,8 @@ public partial class ChaosHubWindow : Window
         icon.Margin = new Thickness(0, 0, 12, 0);
         icon.Opacity = unlocked ? 1.0 : 0.5;
         ChaosTips.Attach(icon, unlocked ? $"{b.Name} · L{level}" : b.Name, b.Desc,
-            string.IsNullOrEmpty(b.CapstoneDesc) ? null : "max: " + b.CapstoneDesc);
+            string.IsNullOrEmpty(b.CapstoneDesc) ? null : "max: " + b.CapstoneDesc,
+            flavor: b.Flavor);
         Grid.SetColumn(icon, 0);
         grid.Children.Add(icon);
 
@@ -397,6 +470,13 @@ public partial class ChaosHubWindow : Window
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         mid.Children.Add(new TextBlock { Text = b.Name, Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
         mid.Children.Add(new TextBlock { Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) });
+        if (!string.IsNullOrEmpty(b.Flavor))
+            mid.Children.Add(new TextBlock
+            {
+                Text = b.Flavor, FontStyle = FontStyles.Italic, FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8)),
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0)
+            });
 
         // Active-use toys carry their trigger: the keybind (when equipped) or a generic hint.
         if (b.IsActiveUse)
@@ -514,7 +594,7 @@ public partial class ChaosHubWindow : Window
                 !capLocked && ChaosMeta.CanAffordUpgrade(b.Id), BoonUpgrade_Click);
             if (capLocked)
             {
-                deepen.ToolTip = ChaosRanks.CapstoneLockedTip;
+                deepen.ToolTip = ChaosRanks.CapstoneLockedTip + "\n" + ChaosRanks.RankSpecifics(ChaosRank.Devoted);
                 ToolTipService.SetShowOnDisabled(deepen, true);
             }
             right.Children.Add(deepen);
@@ -589,7 +669,12 @@ public partial class ChaosHubWindow : Window
     {
         if (sender is Button btn && btn.Tag is string id)
         {
-            if (ChaosMeta.TryUnlockBoon(id)) { ChaosSfx.Play("ui_unlock", 0.55f); AfterBoonChange(); }
+            if (ChaosMeta.TryUnlockBoon(id))
+            {
+                // No cue here — the unlock card below carries the sting.
+                AfterBoonChange();
+                ShowUnlockCard(ChaosUnlockCards.ForBoonUnlock(id));   // after the unlock: reads auto-equip state
+            }
             else ChaosSfx.Play("ui_denied", 0.45f);
         }
     }
@@ -598,9 +683,66 @@ public partial class ChaosHubWindow : Window
     {
         if (sender is Button btn && btn.Tag is string id)
         {
-            if (ChaosMeta.TryUpgradeBoon(id)) { ChaosSfx.Play("ui_deepen", 0.5f); AfterBoonChange(); }
+            if (ChaosMeta.TryUpgradeBoon(id))
+            {
+                AfterBoonChange();
+                // Only the FINAL level gets a card — the capstone changes behavior; mid levels
+                // just grow a number (and keep the quiet deepen cue; the card stings itself).
+                var b = ChaosLifetimeBoons.ById(id);
+                var capstoneCard = b != null && ChaosMeta.BoonLevel(id) >= b.MaxLevel
+                    ? ChaosUnlockCards.ForCapstone(id) : null;
+                if (capstoneCard != null) ShowUnlockCard(capstoneCard);
+                else ChaosSfx.Play("ui_deepen", 0.5f);
+            }
             else ChaosSfx.Play("ui_denied", 0.45f);
         }
+    }
+
+    // ===================== unlock announcement cards =====================
+
+    private readonly Queue<ChaosUnlockCardData> _unlockCards = new();
+    private bool _unlockCardShowing;
+    private const int UNLOCK_CARD_HOLD_MS = 4500;
+
+    /// <summary>Float an unlock card top-center over the hub: slide-in, dwell, fade. Cards
+    /// queue so back-to-back purchases play in sequence; the layer never takes clicks, so
+    /// shopping continues underneath.</summary>
+    private void ShowUnlockCard(ChaosUnlockCardData? data)
+    {
+        if (data == null) return;
+        _unlockCards.Enqueue(data);
+        if (!_unlockCardShowing) ShowNextUnlockCard();
+    }
+
+    private void ShowNextUnlockCard()
+    {
+        if (_unlockCards.Count == 0) { _unlockCardShowing = false; return; }
+        _unlockCardShowing = true;
+
+        var card = ChaosUnlockCards.BuildCardVisual(_unlockCards.Dequeue());
+        card.HorizontalAlignment = HorizontalAlignment.Center;
+        card.VerticalAlignment = VerticalAlignment.Top;
+        card.Margin = new Thickness(0, 96, 0, 0);   // below the title bar + tab strip
+        var slide = new TranslateTransform(0, -14);
+        card.RenderTransform = slide;
+        card.Opacity = 0;
+        UnlockCardLayer.Children.Add(card);
+
+        card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+        slide.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(-14, 0, TimeSpan.FromMilliseconds(220))
+            { EasingFunction = new BackEase { Amplitude = 0.4, EasingMode = EasingMode.EaseOut } });
+
+        var hold = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(UNLOCK_CARD_HOLD_MS) };
+        hold.Tick += (_, _) =>
+        {
+            hold.Stop();
+            var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(260));
+            fade.Completed += (_, _)
+                => { try { UnlockCardLayer.Children.Remove(card); } catch { } ShowNextUnlockCard(); };
+            card.BeginAnimation(OpacityProperty, fade);
+        };
+        hold.Start();
     }
 
     private void AfterBoonChange()
@@ -627,6 +769,19 @@ public partial class ChaosHubWindow : Window
     private const double TILE = 96;
     private static readonly Color Gold = Color.FromRgb(0xFF, 0xD7, 0x00);
 
+    // Stitched-keyhole sprite for the not-yet-formed ??? pads. Resolved once per window —
+    // tile rebuilds run on every loadout change and must not re-hit the disk.
+    private bool _tileUnknownTried;
+    private ImageSource? _tileUnknownArt;
+    private ImageSource? TileUnknownArt
+    {
+        get
+        {
+            if (!_tileUnknownTried) { _tileUnknownTried = true; _tileUnknownArt = ChaosArt.Resolve("hub", "tile_unknown"); }
+            return _tileUnknownArt;
+        }
+    }
+
     private enum TileState { Equipped, Owned, Locked, Empty }
 
     /// <summary>The whole glance page: pocket slots + accessory/skill/habit tile grids.</summary>
@@ -639,13 +794,28 @@ public partial class ChaosHubWindow : Window
         var accGroup = PocketGroup("ACCESSORY", ChaosBoonCategory.Accessory);
         if (accGroup != null) PocketSlotsHost.Children.Add(accGroup);
         if (PocketSlotsHost.Children.Count == 0)
-            PocketSlotsHost.Children.Add(new TextBlock
+        {
+            // Empty-state vignette (turned-out pocket) above the line, art-optional as ever.
+            var vignette = ChaosArt.Resolve("hub", "pockets_empty");
+            var emptyCol = new StackPanel { Margin = new Thickness(0, 2, 0, 2) };
+            if (vignette != null)
+                emptyCol.Children.Add(new Image
+                {
+                    Source = vignette,
+                    Height = 96,
+                    Stretch = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Opacity = 0.8,
+                    Margin = new Thickness(0, 0, 0, 6),
+                });
+            emptyCol.Children.Add(new TextBlock
             {
                 Text = "no pockets sewn yet.",
                 Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90)),
                 FontSize = 12,
-                Margin = new Thickness(0, 2, 0, 2),
             });
+            PocketSlotsHost.Children.Add(emptyCol);
+        }
 
         // ---- collections ----
         FillCategoryTiles(TilesAccessories, ChaosBoonCategory.Accessory, padTo: 8);
@@ -673,7 +843,8 @@ public partial class ChaosHubWindow : Window
                 on ? TileState.Equipped : owned ? TileState.Owned : TileState.Locked,
                 onClick,
                 cornerBadge: on ? "✓" : null,
-                art: u.IconPath != null ? ChaosArt.TryLoad(u.IconPath) : ChaosArt.Resolve("upgrades", id)));
+                art: u.IconPath != null ? ChaosArt.TryLoad(u.IconPath) : ChaosArt.Resolve("upgrades", id),
+                flavor: u.Flavor));
         }
         // Charms (Utility lifetime boons — Rabbit's Foot etc.) live with the habits:
         // leveled, always-on once worn, toggled exactly like a trained habit.
@@ -699,7 +870,8 @@ public partial class ChaosHubWindow : Window
                 active ? TileState.Equipped : unlocked ? TileState.Owned : TileState.Locked,
                 onClick,
                 cornerBadge: active ? "✓" : null,
-                art: ChaosArt.Resolve("boons", bid)));
+                art: ChaosArt.Resolve("boons", bid),
+                flavor: b.Flavor));
         }
         int shown = habits.Count + charms.Count;
         int target = Math.Max(16, ((shown + 3) / 4) * 4);
@@ -730,7 +902,7 @@ public partial class ChaosHubWindow : Window
             var cell = LoadoutTile(b.Glyph, $"{b.Name} · L{ChaosMeta.BoonLevel(b.Id)}", b.Desc,
                 "click to unequip", BoonAccent, TileState.Equipped,
                 () => { ChaosMeta.SetBoonActive(id, false); ChaosSfx.Play("ui_unequip", 0.45f); AfterBoonChange(); },
-                art: ChaosArt.Resolve("boons", b.Id), size: 114);
+                art: ChaosArt.Resolve("boons", b.Id), size: 114, flavor: b.Flavor);
             cell.Margin = new Thickness(0, 0, 24, 0);
             row.Children.Add(cell);
         }
@@ -768,7 +940,8 @@ public partial class ChaosHubWindow : Window
                 : $"unlock for ✦{b.UnlockCost} in the Toybox";
             host.Children.Add(LoadoutTile(b.Glyph, unlocked ? $"{b.Name} · L{level}" : b.Name,
                 b.Desc, extra, BoonAccent, state, onClick,
-                cornerBadge: active ? "★" : null, art: ChaosArt.Resolve("boons", id)));
+                cornerBadge: active ? "★" : null, art: ChaosArt.Resolve("boons", id),
+                flavor: b.Flavor));
         }
         int target = Math.Max(padTo, ((boons.Count + 3) / 4) * 4);
         for (int i = boons.Count; i < target; i++)
@@ -793,7 +966,8 @@ public partial class ChaosHubWindow : Window
 
     private FrameworkElement LoadoutTile(string glyph, string title, string? desc, string? extra, Color accent,
                                TileState state, Action? onClick, string? cornerBadge = null,
-                               ImageSource? art = null, double size = TILE, string? caption = null)
+                               ImageSource? art = null, double size = TILE, string? caption = null,
+                               string? flavor = null)
     {
         // Rounded clip so the square art can't poke past the ring corners (Border doesn't
         // clip children to its CornerRadius; the tile is fixed-size so a geometry works).
@@ -801,8 +975,22 @@ public partial class ChaosHubWindow : Window
         {
             Clip = new RectangleGeometry(new Rect(0, 0, size, size), 12, 12)
         };
+        // Mystery pads (Empty + default ??? caption) wear the stitched keyhole instead of a
+        // bare "+"; clickable "empty pocket" tiles keep the + — there it means "add one".
+        var keyhole = state == TileState.Empty && caption == null ? TileUnknownArt : null;
         if (art != null && state != TileState.Empty)
             content.Children.Add(new Image { Source = art, Stretch = Stretch.UniformToFill, Opacity = state == TileState.Locked ? 0.35 : 1.0 });
+        else if (keyhole != null)
+            content.Children.Add(new Image
+            {
+                Source = keyhole,
+                Width = size * 0.5,
+                Height = size * 0.5,
+                Stretch = Stretch.Uniform,
+                Opacity = 0.45,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            });
         else
             content.Children.Add(new TextBlock
             {
@@ -886,7 +1074,7 @@ public partial class ChaosHubWindow : Window
         cell.Children.Add(tile);
         cell.Children.Add(label);
         if (onClick != null) cell.MouseLeftButtonDown += (_, _) => onClick();
-        ChaosTips.Attach(cell, title, desc, extra, accent);
+        ChaosTips.Attach(cell, title, desc, extra, accent, flavor: flavor);
         return cell;
     }
 
@@ -932,6 +1120,13 @@ public partial class ChaosHubWindow : Window
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         mid.Children.Add(new TextBlock { Text = seen ? b.Name : "???", Foreground = seen ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90)), FontSize = 12, FontWeight = FontWeights.SemiBold });
         mid.Children.Add(new TextBlock { Text = seen ? b.Desc : "hazy. go back down and look closer.", Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
+        if (seen && !string.IsNullOrEmpty(b.Flavor))
+            mid.Children.Add(new TextBlock
+            {
+                Text = b.Flavor, FontStyle = FontStyles.Italic, FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8)),
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0)
+            });
         Grid.SetColumn(mid, 1);
         row.Children.Add(mid);
 
@@ -964,7 +1159,7 @@ public partial class ChaosHubWindow : Window
         if (seen)
             ChaosTips.Attach(card, b.Name, b.Desc,
                 b.IsCurse ? "a sin. it can only be taken mid-fall." : isStart ? "whispered on the way down. click to fall in bare." : "click to whisper it on the way down.",
-                accent);
+                accent, flavor: b.Flavor);
         if (pickable)
             card.MouseLeftButtonDown += (_, _) =>
             {
@@ -1155,6 +1350,16 @@ public partial class ChaosHubWindow : Window
         bool unlocked = ChaosMeta.State.ExtremeUnlocked;
         SegExtreme.IsEnabled = unlocked;
         SegExtreme.Content = unlocked ? "Inescapable" : "Inescapable 🔒";
+        if (!unlocked)
+        {
+            // The lock keeps its mystery on the face; the hover gives the exact path.
+            int cost = ChaosUpgrades.ById("extreme_tier")?.Cost ?? 0;
+            SegExtreme.ToolTip = "a deeper door. she sells the key in the Toybox: "
+                + $"finish {ChaosLessons.T_EXTREME_TIER} relentless descents, reach Devoted "
+                + $"({ChaosRanks.Thresholds[(int)ChaosRank.Devoted]} descents), then train it for ✦{cost}.";
+            ToolTipService.SetShowOnDisabled(SegExtreme, true);
+        }
+        else SegExtreme.ToolTip = null;
         if (!unlocked && SegExtreme.IsChecked == true)
             SetSegment(GrpDifficulty, "Hard");
     }

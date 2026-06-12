@@ -115,7 +115,8 @@ public sealed class ChaosToyButtonWindow : Window
         SourceInitialized += (_, _) => ApplyExStyles();
 
         ChaosTips.Attach(_disc, $"{toy.Glyph} {toy.Name} · {toy.KeyLabel}", toy.Desc,
-            string.IsNullOrEmpty(toy.CapstoneDesc) ? null : "max: " + toy.CapstoneDesc);
+            string.IsNullOrEmpty(toy.CapstoneDesc) ? null : "max: " + toy.CapstoneDesc,
+            flavor: toy.Flavor);
         UpdateVisual();
     }
 

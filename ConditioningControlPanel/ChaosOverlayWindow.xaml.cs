@@ -381,7 +381,7 @@ public partial class ChaosOverlayWindow : Window
                 Foreground = new SolidColorBrush(Color.FromArgb(90, accent.R, accent.G, accent.B)),
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             };
-        Services.Chaos.ChaosTips.Attach(art, boon.Name, boon.Desc, accent: accent);
+        Services.Chaos.ChaosTips.Attach(art, boon.Name, boon.Desc, accent: accent, flavor: boon.Flavor);
         panel.Children.Add(art);
 
         panel.Children.Add(new TextBlock
@@ -393,8 +393,15 @@ public partial class ChaosOverlayWindow : Window
         panel.Children.Add(new TextBlock
         {
             Text = boon.Desc, Foreground = Brushes.White, FontSize = 12,
-            TextWrapping = TextWrapping.Wrap, Height = 64, Margin = new Thickness(0, 0, 0, 8)
+            TextWrapping = TextWrapping.Wrap, MinHeight = 50, Margin = new Thickness(0, 0, 0, 8)
         });
+        if (!string.IsNullOrEmpty(boon.Flavor))
+            panel.Children.Add(new TextBlock
+            {
+                Text = boon.Flavor, FontStyle = FontStyles.Italic, FontSize = 10.5,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8)),
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 8)
+            });
         panel.Children.Add(new TextBlock
         {
             Text = $"{RarityDots(boon.Rarity)} {boon.Rarity}",
@@ -566,20 +573,28 @@ public partial class ChaosOverlayWindow : Window
 
         ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
 
-        // Score + the compulsion hook (PB / delta-vs-best).
-        AddResultLine($"score {score:N0}", 24, Brushes.White, FontWeights.Bold);
-        if (isPb)
-            AddResultLine($"★ NEW BEST  (+{pbDelta:N0} over {previousBest:N0})", 14, gold, FontWeights.Bold);
-        else
-            AddResultLine($"best {previousBest:N0}   ({pbDelta:N0} vs best)", 12, dim, FontWeights.Normal);
+        // Score + the compulsion hook (PB / delta-vs-best). The score tallies up from
+        // zero under a soft tick; the verdict line fades in as the number lands — which
+        // puts a PB's reveal right on the 900ms fanfare above.
+        var scoreLine = AddResultLine("score 0", 24, Brushes.White, FontWeights.Bold);
+        AnimateScoreTally(scoreLine, score);
+        var verdict = isPb
+            ? AddResultLine($"★ NEW BEST  (+{pbDelta:N0} over {previousBest:N0})", 14, gold, FontWeights.Bold)
+            : AddResultLine($"best {previousBest:N0}   ({pbDelta:N0} vs best)", 12, dim, FontWeights.Normal);
+        verdict.Opacity = 0;
+        verdict.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)) { BeginTime = TimeSpan.FromMilliseconds(820) });
 
         ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
 
         // The take-home: XP and drops, side by side. Glyph canon: 🕰 xp, ✦ drops, 🪙 gold —
         // the run award banks as DROPS (gold only ever lands instantly, mid-run).
-        ResultsBody.Children.Add(ChipRow(
+        // The chips pop in as their own beat once the score tally has landed.
+        var takeHome = ChipRow(
             StatChip("XP", $"{ChaosGlyphs.Xp} {finalXp:N0}", pink, $"base {baseXp:N0} x{skillMult:0.0}"),
-            StatChip("DROPS", $"{ChaosGlyphs.Drops} {sparksEarned:N0}", gold, "banked in the dollhouse")));
+            StatChip("DROPS", $"{ChaosGlyphs.Drops} {sparksEarned:N0}", gold, "banked in the dollhouse"));
+        ResultsBody.Children.Add(takeHome);
+        PopRewardChips(takeHome, firstDelayMs: 900);
 
         // First completion ("first fall"): name the one-time bonus already inside the haul.
         if (ChaosMeta.State.RunsCompleted == 1)
@@ -620,7 +635,7 @@ public partial class ChaosOverlayWindow : Window
             _rankBeatTimer?.Stop();
             _rankBeatTimer = null;
             if (ResultsPanel.Visibility != Visibility.Visible) return;
-            ChaosAnnouncerOverlay.Announce("it noticed.", ChaosAnnounceKind.Temptation);
+            ChaosAnnouncerOverlay.Announce("it noticed.", ChaosAnnounceKind.Temptation, artKey: "it_noticed");
             _rankCardTimer?.Stop();
             _rankCardTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1100) };
             _rankCardTimer.Tick += (_, _) =>
@@ -655,6 +670,8 @@ public partial class ChaosOverlayWindow : Window
         });
         ResultsBody.Children.Add(card);
         card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(700)));
+        // Stays bare and quiet by design — just a low velvet thump under the fade.
+        ChaosSfx.Play("rank_settle", 0.6f);
 
         try { App.Bark?.NotifyChaosRankUp(ChaosRanks.NameLower(rank)); } catch { }
         ChaosMeta.State.LastRankSeen = (int)rank;
@@ -662,14 +679,82 @@ public partial class ChaosOverlayWindow : Window
         RevealService.Sync("rank_up");
     }
 
-    private void AddResultLine(string text, double size, Brush color, FontWeight weight)
+    private TextBlock AddResultLine(string text, double size, Brush color, FontWeight weight)
     {
-        ResultsBody.Children.Add(new TextBlock
+        var tb = new TextBlock
         {
             Text = text, FontSize = size, Foreground = color, FontWeight = weight,
             HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center,
             Margin = new Thickness(0, 3, 0, 3), TextWrapping = TextWrapping.Wrap
-        });
+        };
+        ResultsBody.Children.Add(tb);
+        return tb;
+    }
+
+    /// <summary>Tally the score line from zero with a soft tick underneath (~800ms,
+    /// cubic ease-out so the big digits land early and the tail settles gently).</summary>
+    private void AnimateScoreTally(TextBlock line, double score)
+    {
+        const int DURATION_MS = 800, FRAME_MS = 33, TICK_EVERY_MS = 90;
+        if (score <= 0) { line.Text = $"score {score:N0}"; return; }
+
+        int elapsed = 0, lastTick = -TICK_EVERY_MS;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(FRAME_MS) };
+        timer.Tick += (_, _) =>
+        {
+            elapsed += FRAME_MS;
+            if (elapsed >= DURATION_MS || ResultsPanel.Visibility != Visibility.Visible)
+            {
+                timer.Stop();
+                line.Text = $"score {score:N0}";
+                return;
+            }
+            double p = elapsed / (double)DURATION_MS;
+            double eased = 1 - Math.Pow(1 - p, 3);
+            line.Text = $"score {score * eased:N0}";
+            if (elapsed - lastTick >= TICK_EVERY_MS)
+            {
+                lastTick = elapsed;
+                ChaosSfx.Play("count_tick", 0.45f);
+            }
+        };
+        timer.Start();
+    }
+
+    /// <summary>Pop the take-home chips in one by one (soft pop cue + BackEase scale),
+    /// starting at <paramref name="firstDelayMs"/> so the beat lands after the tally.</summary>
+    private void PopRewardChips(Grid row, int firstDelayMs)
+    {
+        int i = 0;
+        foreach (var child in row.Children)
+        {
+            if (child is not Border chip) continue;
+            int delay = firstDelayMs + i * 150;
+            i++;
+
+            var sc = new ScaleTransform(0.6, 0.6);
+            chip.RenderTransformOrigin = new Point(0.5, 0.5);
+            chip.RenderTransform = sc;
+            chip.Opacity = 0;
+
+            chip.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)) { BeginTime = TimeSpan.FromMilliseconds(delay) });
+            var pop = new DoubleAnimation(0.6, 1.0, TimeSpan.FromMilliseconds(320))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(delay),
+                EasingFunction = new BackEase { Amplitude = 0.6, EasingMode = EasingMode.EaseOut },
+            };
+            sc.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+            sc.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+
+            var cue = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(delay + 60) };
+            cue.Tick += (_, _) =>
+            {
+                cue.Stop();
+                if (ResultsPanel.Visibility == Visibility.Visible) ChaosSfx.Play("chip_pop", 0.5f);
+            };
+            cue.Start();
+        }
     }
 
     /// <summary>Equal-width row of stat chips for the recap card.</summary>

@@ -72,11 +72,21 @@ public sealed class ChaosMetaState
     public HashSet<string> FirstTimesAwarded { get; set; } = new();
 
     // ---- happy-path scripted beats ----
+    /// <summary>The first-open intro guide ("the invitation") — shown once, ever, the
+    /// first time the Dollhouse opens, before any reveal flash.</summary>
+    public bool SeenIntroGuide { get; set; } = false;
     public bool SeenDuoDemo { get; set; } = false;
     public bool SeenSkipDebut { get; set; } = false;
     public bool SeenGoldFirst { get; set; } = false;
     public bool SeenDollhouse { get; set; } = false;
     public bool SeenFirstSin { get; set; } = false;
+    /// <summary>Once-ever gentle heads-up the first time focus dips below a snap's price
+    /// (fires BEFORE the harsher NO FOCUS lesson can ever land).</summary>
+    public bool SeenFocusTip { get; set; } = false;
+
+    /// <summary>First-contact verb hints (ChaosBubbleHints): interaction archetypes the player
+    /// has performed correctly once — their over-bubble hint text never shows again.</summary>
+    public HashSet<string> BubbleHintsLearned { get; set; } = new();
 
     /// <summary>Highest rank index the player has been shown a rank card for (0 = curious).</summary>
     public int LastRankSeen { get; set; } = 0;

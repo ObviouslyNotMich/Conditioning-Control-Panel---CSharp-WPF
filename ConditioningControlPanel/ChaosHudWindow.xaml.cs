@@ -39,13 +39,21 @@ public partial class ChaosHudWindow : Window
                 SetFocusLowVisual(state.FocusLow);
                 return;
             }
+            if (args.PropertyName == nameof(ChaosRunState.Combo))
+            {
+                OnComboChanged(state.Combo);
+                return;
+            }
             if (args.PropertyName != nameof(ChaosRunState.Shields)) return;
             int now = state.Shields;
             bool grew = now > _lastShields;
             _lastShields = now;
-            if (grew) PulseShields();
+            if (grew) { PulseShields(); FlashShields(gain: true); }
         };
         SetFocusLowVisual(state.FocusLow);
+        _lastCombo = state.Combo;
+        OnComboChanged(state.Combo);                       // seed the tier visuals
+        Closed += (_, _) => _streakJitterTimer?.Stop();    // never outlive the window
 
         // Top-anchored and ~60% of the work-area height, so it doesn't span the whole
         // screen (shrinks from the bottom up).
@@ -54,7 +62,56 @@ public partial class ChaosHudWindow : Window
         Top = wa.Top;
         Height = wa.Height * 0.6;
         LoadPortrait();
+        AttachHudTips();
         SourceInitialized += (_, _) => ApplyExStyles();
+    }
+
+    /// <summary>Themed hover cards for every sidebar element — exact numbers, lexicon voice.
+    /// One text per concept, attached to both its strip and panel surfaces.</summary>
+    private void AttachHudTips()
+    {
+        try
+        {
+            const string TIP_CLOCK =
+                "how long you've been down this descent (minutes:seconds).";
+            const string TIP_SCORE =
+                "every pop and snap pays base points x the multiplier stack. at the recap the score banks into drops ✦.";
+            const string TIP_MULT =
+                "the whole stack multiplied out: streak x difficulty x lust x mantras (sins can stretch it further). every payout is scaled by this.";
+            const string TIP_STREAK =
+                "+1 per pop or snap. each point adds +0.08x to the stack, capped at x6.0. a treat left to rot HALVES it; an unblocked trigger ZEROES it. it heats up at 5 / 10 / 20 / 35.";
+            const string TIP_FOCUS =
+                "the defuse fuel. a hold costs 30 (15 per bound half). treats refill +10, rabbits and heavy drops +15, a denied tease +10. max 100, you fall in with 50. pressing a live bubble with less than 30 detonates it in your grip. snaps during a freeze are free.";
+            const string TIP_RESIST =
+                "each ♥ absorbs one trigger: the effect still washes past, but your streak and lust survive (some sins demand 2). with none left, a trigger zeroes both. you fall in with 0 — charms, hearts and mantras grant it.";
+            const string TIP_LUST =
+                "climbs while you perform (each snap +0.07) and pays up to x2.0 at full burn — the orange bar. an unblocked trigger cools it to zero.";
+
+            ChaosTips.Attach(TxtStripClock, "the fall", TIP_CLOCK);
+            ChaosTips.Attach(TxtStripScore, "score", TIP_SCORE);
+            ChaosTips.Attach(TxtStripMult, "the multiplier", TIP_MULT);
+            ChaosTips.Attach(StreakBlock, "streak", TIP_STREAK);
+            ChaosTips.Attach(FocusStripBlock, "focus", TIP_FOCUS);
+
+            ChaosTips.Attach(TxtPanelScore, "score", TIP_SCORE);
+            ChaosTips.Attach(TxtPanelMult, "the multiplier", TIP_MULT);
+            ChaosTips.Attach(TxtActWave, "where you are", "the current act and loop of this descent. loops end with a draft; the last one ends the fall.");
+            ChaosTips.Attach(HdrStack, "the multiplier stack", TIP_MULT);
+            ChaosTips.Attach(RowStreak, "streak", TIP_STREAK);
+            ChaosTips.Attach(RowDifficulty, "difficulty", "set by the pill you picked: Gentle x1.0, Teasing x1.3, Relentless x1.7, Inescapable x2.2.");
+            ChaosTips.Attach(RowLust, "lust", TIP_LUST);
+            ChaosTips.Attach(BarLust, "lust", TIP_LUST);
+            ChaosTips.Attach(RowMantras, "mantras", "every x-multiplier mantra you took this run, multiplied together. the picks themselves are listed under CONDITIONING.");
+            ChaosTips.Attach(HdrResistance, "resistance", TIP_RESIST);
+            ChaosTips.Attach(TxtShields, "resistance", TIP_RESIST);
+            ChaosTips.Attach(HdrFocus, "focus", TIP_FOCUS);
+            ChaosTips.Attach(FocusPanelBlock, "focus", TIP_FOCUS);
+            ChaosTips.Attach(HdrPockets, "pockets", "what you took down with you: toys, accessories, charms. hover a tile for its card; before the fall starts, clicking a tile takes it off.");
+            ChaosTips.Attach(HdrConditioning, "conditioning", "the mantras and sins you accepted this run, in draft order. hover each for what it does.");
+            ChaosTips.Attach(HdrModifiers, "modifiers", "your trained habits — always on, every descent. switch them at the Dollhouse, not here.");
+            ChaosTips.Attach(HdrFeed, "the feed", "the last few things that happened down here, newest first.");
+        }
+        catch (Exception ex) { App.Logger?.Debug("AttachHudTips: {E}", ex.Message); }
     }
 
     /// <summary>
@@ -70,10 +127,22 @@ public partial class ChaosHudWindow : Window
 
     private bool _pinnedOpen;   // pre-run loadout glance: panel stays open until SINK fires
 
+    // Hover-expand swaps which surface is under a stationary cursor (strip hides, the
+    // panel slides in over 180ms, tooltips pop their own hwnd), so WPF can fire a
+    // spurious MouseLeave mid-transition — collapsing instantly flaps the sidebar
+    // open/shut until the timing settles. So: never collapse within a grace window of
+    // opening, and treat every leave as a debounced "re-check, then fold if truly gone".
+    private const double EXPAND_GRACE_MS = 1000;
+    private const double LEAVE_RECHECK_MS = 220;
+    private DateTime _expandedAt;
+    private System.Windows.Threading.DispatcherTimer? _collapseRecheck;
+
     private void Hud_MouseEnter(object sender, MouseEventArgs e)
     {
+        _collapseRecheck?.Stop();
         if (_expanded) return;
         _expanded = true;
+        _expandedAt = DateTime.UtcNow;
         Panel.Visibility = Visibility.Visible;
         Strip.Visibility = Visibility.Hidden;   // the panel is translucent — don't let the strip bleed through
         Animate(0);
@@ -81,8 +150,23 @@ public partial class ChaosHudWindow : Window
 
     private void Hud_MouseLeave(object sender, MouseEventArgs e)
     {
-        if (_pinnedOpen) return;
-        Collapse();
+        if (_pinnedOpen || !_expanded) return;
+        double sinceOpen = (DateTime.UtcNow - _expandedAt).TotalMilliseconds;
+        double wait = Math.Max(LEAVE_RECHECK_MS, EXPAND_GRACE_MS - sinceOpen);
+        if (_collapseRecheck == null)
+        {
+            _collapseRecheck = new System.Windows.Threading.DispatcherTimer();
+            _collapseRecheck.Tick += (_, _) =>
+            {
+                _collapseRecheck!.Stop();
+                if (_pinnedOpen || !_expanded) return;
+                if (Panel.IsMouseOver || Strip.IsMouseOver) return;   // never left — stay open
+                Collapse();
+            };
+        }
+        _collapseRecheck.Stop();
+        _collapseRecheck.Interval = TimeSpan.FromMilliseconds(wait);
+        _collapseRecheck.Start();
     }
 
     private void Collapse()
@@ -162,23 +246,179 @@ public partial class ChaosHudWindow : Window
         try
         {
             foreach (var el in new FrameworkElement[] { FocusStripBlock, FocusPanelBlock })
+                ApplyFocusSteadyVisual(el);
+        }
+        catch { }
+    }
+
+    /// <summary>The steady focus-bar look for the current state: the soft low-focus pulse,
+    /// or full opacity. Also what a one-shot flash hands the bars back to when it ends.</summary>
+    private void ApplyFocusSteadyVisual(FrameworkElement el)
+    {
+        if (_focusLowShown)
+        {
+            var pulse = new DoubleAnimation(0.75, 0.35, TimeSpan.FromMilliseconds(650))
             {
-                if (low)
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            el.BeginAnimation(OpacityProperty, pulse);
+        }
+        else
+        {
+            el.BeginAnimation(OpacityProperty, null);
+            el.Opacity = 1.0;
+        }
+    }
+
+    /// <summary>A NO FOCUS press just detonated a live bubble: three hard blinks on both
+    /// focus bars so the eye lands on WHY, then the steady visual resumes.</summary>
+    public void FlashFocusBar()
+    {
+        try
+        {
+            foreach (var el in new FrameworkElement[] { FocusStripBlock, FocusPanelBlock })
+            {
+                var blink = new DoubleAnimation(1.0, 0.12, TimeSpan.FromMilliseconds(110))
                 {
-                    var pulse = new DoubleAnimation(0.75, 0.35, TimeSpan.FromMilliseconds(650))
-                    {
-                        AutoReverse = true,
-                        RepeatBehavior = RepeatBehavior.Forever,
-                        EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-                    };
-                    el.BeginAnimation(OpacityProperty, pulse);
-                }
-                else
-                {
-                    el.BeginAnimation(OpacityProperty, null);
-                    el.Opacity = 1.0;
-                }
+                    AutoReverse = true,
+                    RepeatBehavior = new RepeatBehavior(3)
+                };
+                blink.Completed += (_, _) => ApplyFocusSteadyVisual(el);
+                el.BeginAnimation(OpacityProperty, blink);
             }
+        }
+        catch { }
+    }
+
+    // ======================= streak juice (Balatro-style) =======================
+    // The strip's STREAK readout heats through color tiers as the combo climbs, jitters
+    // and glows when hot, punches on every gain and shakes hard on a drop. Driven from
+    // the state PropertyChanged hook in the ctor — no service code involved.
+
+    private int _lastCombo;
+    private int _streakTier;
+    private System.Windows.Threading.DispatcherTimer? _streakJitterTimer;
+    private readonly Random _streakRng = new();
+
+    private static readonly System.Windows.Media.Color[] StreakTierColors =
+    {
+        System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF),   // 0: calm white
+        System.Windows.Media.Color.FromRgb(0xFF, 0xE0, 0x66),   // 1: warm gold   (5+)
+        System.Windows.Media.Color.FromRgb(0xFF, 0xA9, 0x4D),   // 2: orange      (10+)
+        System.Windows.Media.Color.FromRgb(0xFF, 0x5E, 0x5E),   // 3: red         (20+)
+        System.Windows.Media.Color.FromRgb(0xFF, 0x2E, 0x88),   // 4: fever pink  (35+)
+    };
+
+    private static int StreakTierFor(int combo)
+        => combo >= 35 ? 4 : combo >= 20 ? 3 : combo >= 10 ? 2 : combo >= 5 ? 1 : 0;
+
+    private void OnComboChanged(int combo)
+    {
+        try
+        {
+            bool gained = combo > _lastCombo;
+            bool dropped = combo < _lastCombo;
+            _lastCombo = combo;
+            _streakTier = StreakTierFor(combo);
+            var tierColor = StreakTierColors[_streakTier];
+
+            // Settle visuals for the tier: number, color, size, glow. The brush is fresh
+            // per change so the flash ColorAnimations below never fight a frozen brush.
+            TxtStreakNum.Text = "x" + combo;
+            TxtStreakNum.FontSize = 24 + _streakTier * 2.5;   // 24 → 34 at fever
+            var brush = new System.Windows.Media.SolidColorBrush(tierColor);
+            TxtStreakNum.Foreground = brush;
+            TxtStreakLbl.Foreground = _streakTier >= 2
+                ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(
+                      0xCC, tierColor.R, tierColor.G, tierColor.B))
+                : (System.Windows.Media.Brush)FindResource("TextDim");
+            TxtStreakNum.Effect = _streakTier >= 2
+                ? new System.Windows.Media.Effects.DropShadowEffect
+                  { Color = tierColor, BlurRadius = 8 + _streakTier * 4, ShadowDepth = 0, Opacity = 0.9 }
+                : null;
+
+            if (gained)
+            {
+                // White-hot flash settling into the tier color + a spring punch.
+                brush.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty,
+                    new ColorAnimation(System.Windows.Media.Colors.White, tierColor, TimeSpan.FromMilliseconds(260)));
+                double from = 1.30 + _streakTier * 0.06;
+                var punch = new DoubleAnimation(from, 1.0, TimeSpan.FromMilliseconds(340))
+                { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.6 } };
+                StreakScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, punch);
+                StreakScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, punch);
+            }
+            else if (dropped)
+            {
+                // Red flash settling into wherever the streak landed + a hard side shake.
+                brush.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty,
+                    new ColorAnimation(System.Windows.Media.Color.FromRgb(0xFF, 0x38, 0x38), tierColor,
+                                       TimeSpan.FromMilliseconds(650)) { BeginTime = TimeSpan.FromMilliseconds(120) });
+                var shake = new DoubleAnimationUsingKeyFrames
+                { Duration = TimeSpan.FromMilliseconds(450), FillBehavior = FillBehavior.Stop };
+                double[] xs = { 0, -9, 8, -6, 5, -3, 2, 0 };
+                for (int i = 0; i < xs.Length; i++)
+                    shake.KeyFrames.Add(new LinearDoubleKeyFrame(xs[i], KeyTime.FromPercent(i / (double)(xs.Length - 1))));
+                StreakJitter.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, shake);
+                var dip = new DoubleAnimation(0.80, 1.0, TimeSpan.FromMilliseconds(380))
+                { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut } };
+                StreakScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, dip);
+                StreakScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, dip);
+            }
+
+            UpdateStreakJitter();
+        }
+        catch { }
+    }
+
+    /// <summary>Hot streaks (tier 2+) vibrate: tiny random offsets + a wobble of rotation,
+    /// amplitude scaling with the tier. The timer only runs while hot.</summary>
+    private void UpdateStreakJitter()
+    {
+        bool hot = _streakTier >= 2;
+        if (hot)
+        {
+            if (_streakJitterTimer == null)
+            {
+                _streakJitterTimer = new System.Windows.Threading.DispatcherTimer
+                { Interval = TimeSpan.FromMilliseconds(45) };
+                _streakJitterTimer.Tick += (_, _) =>
+                {
+                    try
+                    {
+                        double amp = (_streakTier - 1) * 0.9;             // 0.9 / 1.8 / 2.7 px
+                        StreakJitter.X = (_streakRng.NextDouble() * 2 - 1) * amp;
+                        StreakJitter.Y = (_streakRng.NextDouble() * 2 - 1) * amp;
+                        StreakRot.Angle = (_streakRng.NextDouble() * 2 - 1) * (_streakTier - 1) * 1.6;
+                    }
+                    catch { }
+                };
+            }
+            if (!_streakJitterTimer.IsEnabled) _streakJitterTimer.Start();
+        }
+        else
+        {
+            _streakJitterTimer?.Stop();
+            StreakJitter.X = 0; StreakJitter.Y = 0; StreakRot.Angle = 0;
+        }
+    }
+
+    /// <summary>Color flash on the resistance hearts: bright blue when a point lands,
+    /// red when a hit arrives that resistance couldn't pay (empty or not enough).
+    /// Fades back to the hearts' XAML pink afterwards.</summary>
+    public void FlashShields(bool gain)
+    {
+        try
+        {
+            var hot = gain ? System.Windows.Media.Color.FromRgb(0x5A, 0xC8, 0xFA)
+                           : System.Windows.Media.Color.FromRgb(0xFF, 0x38, 0x38);
+            var brush = new System.Windows.Media.SolidColorBrush(hot);
+            TxtShields.Foreground = brush;
+            brush.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty,
+                new ColorAnimation(hot, System.Windows.Media.Color.FromRgb(0xFF, 0x6E, 0xC7), TimeSpan.FromMilliseconds(650))
+                { BeginTime = TimeSpan.FromMilliseconds(160) });
         }
         catch { }
     }

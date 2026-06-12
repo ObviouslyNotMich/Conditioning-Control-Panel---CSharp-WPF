@@ -31,14 +31,24 @@ public sealed class ChaosAnnouncerOverlay : Window
     private const int HOLD_MS       = 650;    // dwell
     private const int OUT_MS        = 240;    // fade-out ("fades almost immediately")
     private const double FONT_SIZE  = 60;
+    private const double SUB_FONT_SIZE = 26;  // dynamic suffix under a banner image
+    private const double ART_HEIGHT_DIP = 120; // banner image height (≈ the 60px text line's presence)
     private const double TOP_OFFSET_DIP = 92; // sits right under the effect-banner strip (wa.Top+6, 80 tall)
 
     private static ChaosAnnouncerOverlay? _active;
-    private static readonly Queue<(string text, ChaosAnnounceKind kind)> _queue = new();
+    private static readonly Queue<(string text, ChaosAnnounceKind kind, string? artKey, string? subText)> _queue = new();
     private static bool _showing;
 
-    /// <summary>Queue a bordered fading announcement. No-op unless the announcer is enabled.</summary>
-    public static void Announce(string text, ChaosAnnounceKind kind)
+    /// <summary>
+    /// Queue a bordered fading announcement. No-op unless the announcer is enabled.
+    /// <paramref name="artKey"/> names an optional neon word-art banner
+    /// (<c>assets/Chaos/announce/{artKey}.png</c>, boon ids included); when the file exists
+    /// the image replaces the outlined text, with <paramref name="subText"/> (the dynamic
+    /// part — counts, hints) rendered small beneath it. No file → the text shows as before,
+    /// so unkeyed lines and missing art degrade gracefully.
+    /// </summary>
+    public static void Announce(string text, ChaosAnnounceKind kind,
+                                string? artKey = null, string? subText = null)
     {
         try
         {
@@ -48,7 +58,7 @@ public sealed class ChaosAnnouncerOverlay : Window
             if (disp == null || disp.HasShutdownStarted) return;
             disp.Invoke(() =>
             {
-                _queue.Enqueue((text, kind));
+                _queue.Enqueue((text, kind, artKey, subText));
                 if (!_showing) ShowNext();
             });
         }
@@ -65,12 +75,12 @@ public sealed class ChaosAnnouncerOverlay : Window
     {
         if (_queue.Count == 0) { _showing = false; return; }
         _showing = true;
-        var (text, kind) = _queue.Dequeue();
+        var (text, kind, artKey, subText) = _queue.Dequeue();
         try
         {
             if (_active == null) { _active = new ChaosAnnouncerOverlay(); ((Window)_active).Show(); }
             else if (!_active.IsVisible) { try { ((Window)_active).Show(); } catch { } }   // idles hidden between announcements
-            _active.Display(text, kind);
+            _active.Display(text, kind, artKey, subText);
         }
         catch (Exception ex)
         {
@@ -81,7 +91,7 @@ public sealed class ChaosAnnouncerOverlay : Window
 
     private readonly Grid _host;
     private readonly DispatcherTimer _life;
-    private (string text, ChaosAnnounceKind kind)? _pending;   // first Display can land before Loaded
+    private (string text, ChaosAnnounceKind kind, string? artKey, string? subText)? _pending;   // first Display can land before Loaded
 
     private ChaosAnnouncerOverlay()
     {
@@ -107,7 +117,7 @@ public sealed class ChaosAnnouncerOverlay : Window
         SourceInitialized += (_, _) => ApplyExStyles();
         Loaded += (_, _) =>
         {
-            if (_pending is { } p) { _pending = null; DisplayCore(p.text, p.kind); }
+            if (_pending is { } p) { _pending = null; DisplayCore(p.text, p.kind, p.artKey, p.subText); }
         };
 
         _life = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(IN_MS + HOLD_MS) };
@@ -127,36 +137,72 @@ public sealed class ChaosAnnouncerOverlay : Window
         };
     }
 
-    private void Display(string text, ChaosAnnounceKind kind)
+    private void Display(string text, ChaosAnnounceKind kind, string? artKey, string? subText)
     {
-        if (!IsLoaded) { _pending = (text, kind); return; }
-        DisplayCore(text, kind);
+        if (!IsLoaded) { _pending = (text, kind, artKey, subText); return; }
+        DisplayCore(text, kind, artKey, subText);
     }
 
-    private void DisplayCore(string text, ChaosAnnounceKind kind)
+    private void DisplayCore(string text, ChaosAnnounceKind kind, string? artKey, string? subText)
     {
         _life.Stop();
         var (fill, stroke) = Palette(kind);
         var scale = new ScaleTransform(0.85, 0.85);
-        var label = new OutlinedText
+        var art = artKey != null ? Services.Chaos.ChaosArt.Resolve("announce", artKey) : null;
+
+        FrameworkElement content;
+        if (art != null)
         {
-            Text = text.ToUpperInvariant(),
-            FontSize = FONT_SIZE,
-            Fill = fill,
-            Stroke = stroke,
-            StrokeThickness = 3.2,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Top,
-            RenderTransformOrigin = new Point(0.5, 0.5),
-            RenderTransform = scale,
-            // Anchored just under the effect-banner strip at the top of the primary work area
-            // (this window spans the virtual screen, which may start above the work area).
-            Margin = new Thickness(0,
-                Math.Max(0, SystemParameters.WorkArea.Top - SystemParameters.VirtualScreenTop) + TOP_OFFSET_DIP, 0, 0),
-        };
-        label.Build();
+            // Picked neon word-art banner; subText carries whatever the image can't (counts, hints).
+            var panel = new StackPanel { Orientation = Orientation.Vertical };
+            panel.Children.Add(new Image
+            {
+                Source = art,
+                Height = ART_HEIGHT_DIP,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+            if (!string.IsNullOrWhiteSpace(subText))
+            {
+                var sub = new OutlinedText
+                {
+                    Text = subText!.ToUpperInvariant(),
+                    FontSize = SUB_FONT_SIZE,
+                    Fill = fill,
+                    Stroke = stroke,
+                    StrokeThickness = 2.2,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 2, 0, 0),
+                };
+                sub.Build();
+                panel.Children.Add(sub);
+            }
+            content = panel;
+        }
+        else
+        {
+            var label = new OutlinedText
+            {
+                Text = text.ToUpperInvariant(),
+                FontSize = FONT_SIZE,
+                Fill = fill,
+                Stroke = stroke,
+                StrokeThickness = 3.2,
+            };
+            label.Build();
+            content = label;
+        }
+
+        content.HorizontalAlignment = HorizontalAlignment.Center;
+        content.VerticalAlignment = VerticalAlignment.Top;
+        content.RenderTransformOrigin = new Point(0.5, 0.5);
+        content.RenderTransform = scale;
+        // Anchored just under the effect-banner strip at the top of the primary work area
+        // (this window spans the virtual screen, which may start above the work area).
+        content.Margin = new Thickness(0,
+            Math.Max(0, SystemParameters.WorkArea.Top - SystemParameters.VirtualScreenTop) + TOP_OFFSET_DIP, 0, 0);
         _host.Children.Clear();
-        _host.Children.Add(label);
+        _host.Children.Add(content);
 
         BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(IN_MS)));
         var pop = new DoubleAnimation(0.85, 1.0, TimeSpan.FromMilliseconds(IN_MS + 70))

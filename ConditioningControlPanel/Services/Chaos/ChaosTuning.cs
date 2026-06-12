@@ -54,9 +54,31 @@ public static class ChaosTuning
     public const int ECHO_CHILD_FUSE_MIN_MS = 2500;
     public const int ECHO_CHILD_FUSE_MAX_MS = 3000;
 
+    // ---- Field pace + entry variety (2026-06-11 first-session feedback) ----
+    /// <summary>Global chaos bubble speed bump — verticals travel farther before they rot.</summary>
+    public const double CHAOS_SPEED_MULT = 1.25;
+    /// <summary>Chance an ordinary FloatUp/RainDown spawn swaps to drifting in from a side
+    /// edge (Mixed motion only; an explicit motion setting is respected).</summary>
+    public const double SIDE_DRIFT_CHANCE = 0.30;
+    /// <summary>The first few ordinary spawns of a run keep the classic bottom rise —
+    /// the side entries land as a surprise after the player has settled in.</summary>
+    public const int SIDE_DRIFT_GRACE_SPAWNS = 5;
+
+    // ---- Live fuse ring phases (2026-06-11): YELLOW = burning, time to spare;
+    //      YELLOW↔RED flash = act now; SOLID RED = the brink window the danger
+    //      power-ups (Last Breath / Slowburner capstone) judge defuses against. ----
+    /// <summary>Fuse remaining (ms) at which the ring starts flashing yellow↔red.</summary>
+    public const double RING_FLASH_FROM_MS = 2400;
+    /// <summary>Fuse remaining (ms) at which the ring goes solid red — kept in step with
+    /// the 0.8s brink signal (ChaosLessonHooks.LAST_BREATH_BRINK_SEC / Last Breath max).</summary>
+    public const double RING_BRINK_MS = 800;
+
     // ---- The Chaperone: a live bubble shielded by an orbiting escort treat ----
     public const double CHAPERONE_SPAWN_CHANCE = 0.04;
+    // Minimum orbit radius; the effective radius grows with the pair's sizes so the escort
+    // always rides OUTSIDE the live's rim (an escort inside the big live is unclickable).
     public const double CHAPERONE_ORBIT_RADIUS_DIP = 80;
+    public const double CHAPERONE_ORBIT_GAP_DIP = 18;
     public const double CHAPERONE_ORBIT_PERIOD_SEC = 2.5;
 
     // ---- The Tease: don't touch it. Any mouse-down triggers it AND halves the streak;
@@ -81,6 +103,27 @@ public static class ChaosTuning
     /// <summary>Spawn grace before the glass arms — forgives materialising under the cursor.</summary>
     public const int BRITTLE_ARM_MS = 900;
     public const double BRITTLE_SPEED_MULT = 0.85;      // a slow drifting mine you steer around
+
+    // ---- the Ripple (right-click verb, 2026-06-12): one charge, slow recharge. An expanding
+    //      wave from the cursor — treats pop paid, trances snap clean, rabbits get FLUNG
+    //      (and a flying rabbit's body mows bubbles). Tease/Brittle/freeze stay cursor-only. ----
+    /// <summary>Seconds to gather a fresh charge (the Skipping Stone charm shortens this).</summary>
+    public const double RIPPLE_RECHARGE_SEC = 15;
+    /// <summary>Unworn wavefront reach (physical px). Each charm level adds RIPPLE_RADIUS_PER_LVL_PX.</summary>
+    public const double RIPPLE_RADIUS_PX = 260;
+    /// <summary>Unworn expansion time — early ripples are small and quick; charm levels widen
+    /// AND slow them (each level adds RIPPLE_LIFE_PER_LVL_MS) so they hang on screen longer.</summary>
+    public const double RIPPLE_LIFE_MS = 520;
+    public const double RIPPLE_RADIUS_PER_LVL_PX = 45;
+    public const double RIPPLE_LIFE_PER_LVL_MS = 110;
+    /// <summary>Skipping Stone capstone: gap between the three skipped waves.</summary>
+    public const int RIPPLE_WAVE_GAP_MS = 1000;
+    /// <summary>A right-click is the game's ONLY when it lands within reach+grace of a chaos
+    /// bubble — otherwise it passes through to the desktop (context menus keep working mid-run).</summary>
+    public const double RIPPLE_TRIGGER_GRACE_PX = 80;
+    /// <summary>Fling: a swept rabbit leaves at its natural darter pace times this (same cap
+    /// as fully re-smacked Spanker rabbits).</summary>
+    public const double RIPPLE_FLING_SPEED_MULT = 2.2;
 
     // ---- The Bound: two lives on one elastic tether — both must go, and quickly ----
     public const double BOUND_SPAWN_CHANCE = 0.03;
