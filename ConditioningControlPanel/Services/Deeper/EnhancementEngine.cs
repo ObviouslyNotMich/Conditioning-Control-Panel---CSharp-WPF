@@ -52,6 +52,13 @@ namespace ConditioningControlPanel.Services.Deeper
         // Attention-lost dwell — single clock since attention_lost has no per-item state.
         private DateTime? _faceLostSince;
 
+        // Attention-lost rules that already fired during the current face-lost
+        // gap. Firing happens on playback ticks while the face is absent (each
+        // rule fires once its own MinDurationMs is exceeded); the set keeps
+        // that to once per gap. Cleared when the face is lost (new gap) and
+        // when it returns.
+        private readonly HashSet<TimelineItem> _attentionFiredThisGap = new();
+
         private bool _running;
         private bool _disposed;
 
@@ -353,6 +360,7 @@ namespace ConditioningControlPanel.Services.Deeper
             _gazeDwellSince.Clear();
             _activeBandIds.Clear();
             _faceLostSince = null;
+            _attentionFiredThisGap.Clear();
             _firedTriggerTypes.Clear();
             _webcamTriggerUsed = false;
             _faceLostDuringPlay = false;
@@ -507,6 +515,18 @@ namespace ConditioningControlPanel.Services.Deeper
                     _firedInCurrentEntry.RemoveWhere(item =>
                         !(item.Duration > 0 && item.Duration < double.MaxValue
                           && t >= item.Start && t < item.Start + item.Duration));
+                }
+
+                // Attention-lost: fire while the face is absent, once a rule's
+                // own MinDurationMs is exceeded (once per gap via the set).
+                // Tick-driven so the consequence lands DURING the look-away —
+                // firing on face-return both felt wrong and could land after
+                // the playhead had left the rule's band, silently dropping it.
+                if (_faceLostSince.HasValue)
+                {
+                    var gapMs = (DateTime.UtcNow - _faceLostSince.Value).TotalMilliseconds;
+                    FireWebcamRules<AttentionLostTrigger>(tr => gapMs >= tr.MinDurationMs, _attentionFiredThisGap);
+                    if (!_running) return; // a dispatched action may Stop() the engine
                 }
 
                 // Region transition (computed before firing so region_entered
@@ -702,15 +722,17 @@ namespace ConditioningControlPanel.Services.Deeper
         public void InjectGaze(System.Windows.Point screenPoint) => OnGazeMoveCore(screenPoint);
 
         /// <summary>
-        /// Simulate an attention-lost gap of the given duration. Mirrors the
-        /// face-lost → face-found pattern (rules fire on "found" if the gap
-        /// satisfied their MinDurationMs).
+        /// Simulate an attention-lost gap of the given duration. Live rules
+        /// fire from the playback tick while the face is absent; a synthetic
+        /// injection compresses that into one direct evaluation against the
+        /// simulated gap.
         /// </summary>
         public void InjectAttentionLost(int gapMs)
         {
             if (!_running) return;
-            _faceLostSince = DateTime.UtcNow.AddMilliseconds(-Math.Max(0, gapMs));
-            OnFaceFoundCore();
+            double gap = Math.Max(0, gapMs);
+            int fired = FireWebcamRules<AttentionLostTrigger>(tr => gap >= tr.MinDurationMs);
+            Diag($"• attention_lost injected (gap {gap:F0}ms, {fired} fired)");
         }
 
         // -- Webcam handlers ---------------------------------------------------
@@ -788,6 +810,7 @@ namespace ConditioningControlPanel.Services.Deeper
         {
             if (!_running) return;
             _faceLostSince = DateTime.UtcNow;
+            _attentionFiredThisGap.Clear(); // new gap, re-arm attention_lost rules
             _faceLostDuringPlay = true; // breaks the "held gaze the whole time" achievement
             Diag("• face_lost");
         }
@@ -795,15 +818,16 @@ namespace ConditioningControlPanel.Services.Deeper
         private void OnFaceFoundCore()
         {
             if (!_running) return;
-            // If the face was lost long enough to satisfy any rule, fire on return.
-            // Done on found so the action fires once per attention gap, not per frame.
+            // Attention-lost rules fire from the playback tick WHILE the face is
+            // absent (each once its MinDurationMs is exceeded — see OnPlaybackTime),
+            // so the user feels the consequence during the look-away, not after
+            // looking back. Here we only close the gap.
             if (_faceLostSince.HasValue)
             {
                 var gap = (DateTime.UtcNow - _faceLostSince.Value).TotalMilliseconds;
-                int eligible = _reactiveRules.Count(i => i.Trigger is AttentionLostTrigger);
-                int fired = FireWebcamRules<AttentionLostTrigger>(t => gap >= t.MinDurationMs);
-                Diag($"• face_found (gap {gap:F0}ms, {eligible} rule(s), {fired} fired)");
+                Diag($"• face_found (gap {gap:F0}ms, {_attentionFiredThisGap.Count} fired during gap)");
                 _faceLostSince = null;
+                _attentionFiredThisGap.Clear();
             }
             else
             {
@@ -851,17 +875,20 @@ namespace ConditioningControlPanel.Services.Deeper
 
         // -- Rule firing helpers ----------------------------------------------
 
-        private int FireWebcamRules<TTrigger>(Func<TTrigger, bool> predicate) where TTrigger : EnhancementTrigger
+        private int FireWebcamRules<TTrigger>(Func<TTrigger, bool> predicate,
+            HashSet<TimelineItem>? oncePerGap = null) where TTrigger : EnhancementTrigger
         {
             var t = _source.GetCurrentTimeSeconds();
             int fired = 0;
             foreach (var item in _reactiveRules)
             {
                 if (item.Trigger is not TTrigger trig) continue;
+                if (oncePerGap != null && oncePerGap.Contains(item)) continue;
                 if (!predicate(trig)) continue;
                 if (!PassesRuleGate(item, t)) continue;
                 DispatchSafely(item.Action!, t);
                 RecordTriggerFired(item.Trigger);
+                oncePerGap?.Add(item);
                 fired++;
             }
             return fired;

@@ -126,9 +126,20 @@ namespace ConditioningControlPanel.Views.Deeper
 
         private void BtnAddEffectHero_Click(object sender, RoutedEventArgs e)
         {
-            // Default to haptic at the playhead. For non-haptic effects, the user
-            // uses right-click for the granular menu; the hero button stays simple.
-            AddEffectAt(EffectTypes.Haptic, _currentSeconds);
+            // Same five options as the right-click menu, dropped at the playhead.
+            // The shared Ctx handlers read _rightClickSeconds, so point it there.
+            try
+            {
+                _rightClickSeconds = Math.Max(0, _currentSeconds);
+                var menu = (ContextMenu)FindResource("HeroAddEffectMenu");
+                menu.PlacementTarget = BtnAddEffectHero;
+                menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                menu.IsOpen = true;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("DeeperEditor: hero effect menu error: {Error}", ex.Message);
+            }
         }
 
         private void BtnAddRuleHero_Click(object sender, RoutedEventArgs e)
@@ -548,22 +559,26 @@ namespace ConditioningControlPanel.Views.Deeper
                 {
                     case EffectTypes.Flash:
                         FlashEffectEditor.Visibility = Visibility.Visible;
+                        TxtFlashStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         TxtFlashDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
                         ChkFlashSuppressHaptic.IsChecked = _selectedEffect.EffectSuppressHaptic;
                         break;
                     case EffectTypes.Bubble:
                         BubbleEffectEditor.Visibility = Visibility.Visible;
+                        TxtBubbleStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         TxtBubbleWindow.Text = (_selectedEffect.EffectDurationMs / 1000.0).ToString("0.##", CultureInfo.InvariantCulture);
                         SliderBubbleIntensity.Value = _selectedEffect.EffectIntensity;
                         break;
                     case EffectTypes.Subliminal:
                         SubliminalEffectEditor.Visibility = Visibility.Visible;
+                        TxtSubliminalStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         TxtSubliminalText.Text = _selectedEffect.EffectText ?? "";
                         TxtSubliminalDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
                         ChkSubliminalSuppressHaptic.IsChecked = _selectedEffect.EffectSuppressHaptic;
                         break;
                     case EffectTypes.Overlay:
                         OverlayEffectEditor.Visibility = Visibility.Visible;
+                        TxtOverlayStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
                         SelectOverlayKindCombo(_selectedEffect.EffectOverlayKind);
                         TxtOverlayDuration.Text = _selectedEffect.EffectDurationMs.ToString(CultureInfo.InvariantCulture);
                         bool ramp = _selectedEffect.EffectOpacityStart.HasValue && _selectedEffect.EffectOpacityEnd.HasValue;
@@ -615,6 +630,10 @@ namespace ConditioningControlPanel.Views.Deeper
             {
                 if (sender == TxtFlashDuration && TryParseInt(TxtFlashDuration.Text, out var fd))
                     _selectedEffect.EffectDurationMs = Math.Max(50, fd);
+                else if ((sender == TxtFlashStart || sender == TxtBubbleStart
+                          || sender == TxtSubliminalStart || sender == TxtOverlayStart)
+                         && TryParseDouble(((TextBox)sender).Text, out var es))
+                    _selectedEffect.Start = Math.Clamp(es, 0, _totalSeconds > 0 ? _totalSeconds : double.MaxValue);
                 else if (sender == TxtBubbleWindow && TryParseDouble(TxtBubbleWindow.Text, out var bw))
                     _selectedEffect.EffectDurationMs = (int)Math.Max(50, bw * 1000);
                 else if (sender == TxtSubliminalText)
