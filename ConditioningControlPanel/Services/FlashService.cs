@@ -453,22 +453,10 @@ namespace ConditioningControlPanel.Services
                 // Scale is percentage: 50-250%, stored as 50-250, so divide by 100
                 var scale = (size ?? settings.ImageScale) / 100.0;
 
-                // Load images in parallel on background threads
-                var loadTasks = images.Select(imagePath => LoadImageAsync(imagePath)).ToArray();
-                var results = await Task.WhenAll(loadTasks);
-
-                var loadedImages = new List<LoadedImageData>();
-                foreach (var data in results)
-                {
-                    if (data != null)
-                    {
-                        var monitor = PickMonitor(settings);
-                        var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
-                        data.Geometry = geometry;
-                        data.Monitor = monitor;
-                        loadedImages.Add(data);
-                    }
-                }
+                // Load images, retrying with fresh picks if some are corrupted/unsupported,
+                // until we reach the requested count or run out of candidates.
+                var targetCount = amount ?? settings.SimultaneousImages;
+                var loadedImages = await LoadImagesUntilAsync(targetCount);
 
                 if (loadedImages.Count == 0)
                 {
@@ -487,6 +475,64 @@ namespace ConditioningControlPanel.Services
                 App.Logger.Error(ex, "Error loading flash images");
                 _isBusy = false;
             }
+        }
+
+        /// <summary>
+        /// Loads up to <paramref name="targetCount"/> images, retrying with new candidates
+        /// when a file is missing, corrupted, or uses an unsupported codec. Images are used
+        /// as soon as they decode successfully; slow or broken files do not block the others.
+        /// </summary>
+        private async Task<List<LoadedImageData>> LoadImagesUntilAsync(int targetCount)
+        {
+            var loaded = new List<LoadedImageData>(targetCount);
+            var attempted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var settings = App.Settings.Current;
+            var scale = settings.ImageScale / 100.0;
+            int attempts = 0;
+            int maxAttempts = Math.Max(targetCount * 5, 20);
+            var pending = new List<Task<LoadedImageData?>>();
+
+            while (loaded.Count < targetCount && attempts < maxAttempts)
+            {
+                int need = targetCount - loaded.Count;
+
+                // Keep a generous pipeline of decode tasks running.
+                int fetch = Math.Min(Math.Max(need * 3, 3), maxAttempts - attempts - pending.Count);
+                if (fetch > 0)
+                {
+                    var candidates = GetNextImages(fetch);
+                    if (candidates.Count == 0 && pending.Count == 0) break;
+
+                    var newCandidates = candidates.Where(c => attempted.Add(c)).ToList();
+                    if (newCandidates.Count == 0 && pending.Count == 0) break;
+
+                    pending.AddRange(newCandidates.Select(LoadImageAsync));
+                    attempts += newCandidates.Count;
+                }
+
+                if (pending.Count == 0) break;
+
+                // Use the first image that finishes decoding, whether it succeeds or fails.
+                var completed = await Task.WhenAny(pending);
+                pending.Remove(completed);
+                var data = await completed;
+                if (data != null && loaded.Count < targetCount)
+                {
+                    var monitor = PickMonitor(settings);
+                    var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
+                    data.Geometry = geometry;
+                    data.Monitor = monitor;
+                    loaded.Add(data);
+                }
+            }
+
+            // Drain any stragglers so unobserved exceptions don't linger.
+            if (pending.Count > 0)
+            {
+                try { await Task.WhenAll(pending); } catch { /* individual tasks are already guarded */ }
+            }
+
+            return loaded;
         }
 
         private async Task<LoadedImageData?> LoadImageAsync(string path)
@@ -515,6 +561,12 @@ namespace ConditioningControlPanel.Services
                 {
                     var extension = Path.GetExtension(path).ToLowerInvariant();
                     var data = new LoadedImageData { FilePath = path };
+
+                    if (!File.Exists(path))
+                    {
+                        App.Logger?.Debug("FlashService: image file not found: {Path}", path);
+                        return null;
+                    }
 
                     if (extension == ".gif")
                     {
@@ -1713,7 +1765,7 @@ namespace ConditioningControlPanel.Services
 
             // Load regular images (include common extensions and variants)
             // GetMediaFiles has its own 60-second cache, so this is efficient
-            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif" });
+            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif", ".ico" });
 
             // Load pack images from active packs
             _packImageList = App.ContentPacks?.GetAllActivePackImages() ?? new List<(string, PackFileEntry)>();
