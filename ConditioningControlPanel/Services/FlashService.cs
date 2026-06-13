@@ -511,11 +511,17 @@ namespace ConditioningControlPanel.Services
                     var extension = Path.GetExtension(path).ToLowerInvariant();
                     var data = new LoadedImageData { FilePath = path };
 
+                    if (!File.Exists(path))
+                    {
+                        App.Logger?.Debug("FlashService: image file not found: {Path}", path);
+                        return null;
+                    }
+
                     if (extension == ".gif")
                     {
                         LoadGifFrames(path, data, decodeMax);
                     }
-                    else
+                    else if (IsSupportedStaticImageExtension(extension))
                     {
                         // Load static image, downscaling to the decode cap if larger.
                         using var bitmap = new System.Drawing.Bitmap(path);
@@ -1613,6 +1619,18 @@ namespace ConditioningControlPanel.Services
 
         #region Media Queue
 
+        /// <summary>
+        /// Extensions that System.Drawing.Common can reliably decode for static images.
+        /// WebP/HEIC/AVIF are excluded because they throw ArgumentException on this runtime.
+        /// </summary>
+        private static readonly HashSet<string> _supportedStaticImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".bmp", ".tif", ".tiff"
+        };
+
+        private static bool IsSupportedStaticImageExtension(string extension)
+            => !string.IsNullOrEmpty(extension) && _supportedStaticImageExtensions.Contains(extension);
+
         private List<string> GetNextImages(int count)
         {
             lock (_lockObj)
@@ -1690,7 +1708,7 @@ namespace ConditioningControlPanel.Services
 
             // Load regular images (include common extensions and variants)
             // GetMediaFiles has its own 60-second cache, so this is efficient
-            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif" });
+            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".bmp", ".tif", ".tiff" });
 
             // Load pack images from active packs
             _packImageList = App.ContentPacks?.GetAllActivePackImages() ?? new List<(string, PackFileEntry)>();
