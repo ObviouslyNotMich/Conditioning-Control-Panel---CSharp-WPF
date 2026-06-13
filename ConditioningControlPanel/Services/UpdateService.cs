@@ -20,13 +20,13 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.1.1";
+        public const string AppVersion = "6.1.2";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.1.1 - Down the Rabbit Hole
+        public const string CurrentPatchNotes = @"v6.1.2 - Down the Rabbit Hole
 
 🐇 A new little game: ""Down the Rabbit Hole"" is available in testing for the
    Prime Subject.
@@ -35,6 +35,15 @@ namespace ConditioningControlPanel.Services
    girls like it, tho I know it has a lot of room to improve).
 
 🔊 Added ""some"" extra voicelines :3
+
+— Fixes since 6.1.1 —
+
+🐇 Down the Rabbit Hole: killed the ~30-min out-of-memory crash and a video
+   z-order flicker, ran a balance pass, and added a how-to-play card.
+🎥 Webcam: de-jittered gaze tracking and made calibration more robust.
+🗂️ Deeper: in-app feedback when your catalogue submission gets published.
+🔊 Voicelines: less repetition — deeper rotation on the chattier lines and a
+   global no-repeat guard.
 
 — Everything else since 6.0.8 —
 
