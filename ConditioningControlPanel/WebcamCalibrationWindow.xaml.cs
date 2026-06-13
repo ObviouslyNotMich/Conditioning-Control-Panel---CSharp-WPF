@@ -370,6 +370,9 @@ namespace ConditioningControlPanel
             // Reused below to fit the head-pose compensation coefficients on
             // residuals from these (rather than from the noisy unfiltered set).
             var survivors = new List<(double X, double Y, double Yaw, double Pitch, bool HasPose)>[positions.Length];
+            // Per-dot sample spread (iris-vector units) — drives the inverse-
+            // spread fit weighting below so jittery dots pull the polynomial less.
+            var dotSpreads = new double[positions.Length];
 
             for (int i = 0; i < positions.Length; i++)
             {
@@ -408,11 +411,30 @@ namespace ConditioningControlPanel
                 // breaks without the center/spread estimates themselves being
                 // inflated by those outliers — which the previous mean+1σ
                 // two-pass was vulnerable to.
-                var (mx, my, kept) = RobustPerDotMean(s);
+                var (mx, my, spread, kept) = RobustPerDotMean(s);
                 srcMeans[i] = new Point2d(mx, my);
                 dstPoints[i] = new Point2d(positions[i].Screen.X, positions[i].Screen.Y);
                 survivors[i] = kept;
+                dotSpreads[i] = spread;
             }
+
+            // Inverse-spread weights, scaled by the median spread so the result
+            // is invariant to the absolute iris-vector magnitude: a dot at the
+            // median spread gets weight ~0.5/med², a rock-steady dot ~1/med²
+            // (≈2×), a wildly-scattered dot trends toward 0. The squared form
+            // makes the falloff sharp enough to matter without any single dot
+            // dominating the fit.
+            double medSpread = MedianOf(dotSpreads);
+            double medSpreadSq = medSpread * medSpread;
+            var dotWeights = new double[positions.Length];
+            for (int i = 0; i < positions.Length; i++)
+                dotWeights[i] = 1.0 / (dotSpreads[i] * dotSpreads[i] + medSpreadSq + 1e-12);
+
+            // Absolute residual floor for outlier-dot rejection: a dot is only a
+            // drop candidate if its fit residual exceeds BOTH the robust
+            // statistical threshold AND this fraction of the screen, so a tight
+            // calibration where every dot fits to within a few % never loses one.
+            double outlierFloorDip = Math.Max(ActualWidth, ActualHeight) * 0.06;
 
             // Fit homography iris → screen.
             double[][]? homography = null;
@@ -454,7 +476,7 @@ namespace ConditioningControlPanel
             // on webcam data (Hansen & Ji 2010, Zhang & Hornof 2014). 16
             // points × 5 candidates × 2 axes = ~160 small linear-system
             // solves at finalize time — milliseconds.
-            PolynomialFitData? polynomial = FitCerrolazaPolynomial(srcMeans, dstPoints, out double polyRmsX, out double polyRmsY);
+            PolynomialFitData? polynomial = FitCerrolazaPolynomial(srcMeans, dstPoints, dotWeights, outlierFloorDip, out double polyRmsX, out double polyRmsY);
 
             // Fit-quality gate (#335). The fit's own training residual tells us whether
             // the polynomial can even reproduce the dots the user just looked at. A usable
@@ -970,7 +992,7 @@ namespace ConditioningControlPanel
         // by them the way the previous mean+1σ pass was. Returns the surviving
         // sample list too so the head-pose comp fit downstream uses the same
         // set as the per-dot mean.
-        private static (double X, double Y, List<(double X, double Y, double Yaw, double Pitch, bool HasPose)> Survivors)
+        private static (double X, double Y, double Spread, List<(double X, double Y, double Yaw, double Pitch, bool HasPose)> Survivors)
             RobustPerDotMean(List<(double X, double Y, double Yaw, double Pitch, bool HasPose)> samples)
         {
             const int SaccadeSettleSamples = 7;          // ~210ms @ 30fps — gaze still saccading + settling
@@ -1010,7 +1032,22 @@ namespace ConditioningControlPanel
 
             double sx = 0, sy2 = 0;
             foreach (var p in kept) { sx += p.X; sy2 += p.Y; }
-            return (sx / kept.Count, sy2 / kept.Count, kept);
+            double meanX = sx / kept.Count;
+            double meanY = sy2 / kept.Count;
+
+            // Per-dot spread = RMS distance of the surviving samples from their
+            // mean (iris-vector units). Feeds the inverse-spread fit weighting:
+            // a dot the user held rock-steady on is trustworthy and should pull
+            // the polynomial harder than one whose samples scattered (a wandering
+            // gaze, a half-blink, a glance away).
+            double varSum = 0;
+            foreach (var p in kept)
+            {
+                double ddx = p.X - meanX, ddy = p.Y - meanY;
+                varSum += ddx * ddx + ddy * ddy;
+            }
+            double spread = Math.Sqrt(varSum / kept.Count);
+            return (meanX, meanY, spread, kept);
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -1054,7 +1091,7 @@ namespace ConditioningControlPanel
         // homography-only projection in that case; without this guard the
         // NaN coefficients would propagate to ProjectGazeToScreen and end
         // up as Window.Left = NaN, which throws on first cursor emit.
-        private static double[]? FitRidge(double[][] design, double[] targets, double lambda)
+        private static double[]? FitRidge(double[][] design, double[] targets, double lambda, double[]? weights = null)
         {
             int n = design.Length;
             int p = design[0].Length;
@@ -1063,8 +1100,14 @@ namespace ConditioningControlPanel
             double sqrtL = Math.Sqrt(Math.Max(lambda, 1e-12));
             for (int i = 0; i < n; i++)
             {
-                for (int k = 0; k < p; k++) A.Set(i, k, design[i][k]);
-                b.Set(i, 0, targets[i]);
+                // Weighted least squares via row scaling: scaling row i by
+                // sqrt(w_i) makes the normal equations minimise Σ w_i·resid².
+                // A zero weight (an outlier dot dropped below) scales the row to
+                // all-zeros, removing it from the fit while the λ·I rows keep
+                // the system solvable.
+                double sw = weights != null ? Math.Sqrt(Math.Max(weights[i], 0.0)) : 1.0;
+                for (int k = 0; k < p; k++) A.Set(i, k, design[i][k] * sw);
+                b.Set(i, 0, targets[i] * sw);
             }
             for (int k = 0; k < p; k++) A.Set(n + k, k, sqrtL);
             using var x = new Mat();
@@ -1086,12 +1129,29 @@ namespace ConditioningControlPanel
             return y;
         }
 
-        // Builds the per-axis Cerrolaza design matrices, fits each with a
-        // single light-touch ridge solve, and returns the result. Logs a
-        // diagnostic line with the chosen λ and per-axis training residuals
-        // so a calibration that comes out compressed or wildly off is
-        // observable in the logs.
-        private static PolynomialFitData? FitCerrolazaPolynomial(Point2d[] srcMeans, Point2d[] dstPoints, out double rmsX, out double rmsY)
+        private static double MedianOf(double[] values)
+        {
+            if (values.Length == 0) return 0;
+            var sorted = (double[])values.Clone();
+            Array.Sort(sorted);
+            return sorted[sorted.Length / 2];
+        }
+
+        // Builds the per-axis Cerrolaza design matrices and fits each with a
+        // weighted, light-touch ridge solve. Two robustness layers ride on top
+        // of the base fit:
+        //   • Inverse-spread weighting (<paramref name="dotWeights"/>): dots the
+        //     user held steady on pull the polynomial harder than scattered ones.
+        //   • Outlier-dot rejection: after the first fit, up to two dots whose
+        //     residual is both a robust statistical outlier (median + 3·MAD) AND
+        //     above <paramref name="outlierFloorDip"/> are dropped and the fit
+        //     re-run once. This catches a single dot the user blinked or glanced
+        //     away on, which would otherwise warp the whole mapping.
+        // Logs a diagnostic line with λ, per-axis residuals, and any dropped dots
+        // so a compressed / wildly-off / over-trimmed calibration is observable.
+        private static PolynomialFitData? FitCerrolazaPolynomial(
+            Point2d[] srcMeans, Point2d[] dstPoints, double[] dotWeights, double outlierFloorDip,
+            out double rmsX, out double rmsY)
         {
             // Default to "unusable" so the fit-quality gate fails closed on any path
             // that returns null (degenerate solve, exception) without a real residual.
@@ -1118,20 +1178,58 @@ namespace ConditioningControlPanel
                     for (int k = 0; k < p; k++) traceAtA += designX[i][k] * designX[i][k];
                 }
                 double lambda = RidgeLambdaScale * traceAtA / p;
-                var coeffsX = FitRidge(designX, targetsX, lambda);
-                var coeffsY = FitRidge(designY, targetsY, lambda);
-                if (coeffsX == null || coeffsY == null) return null;
 
-                // Diagnostic: per-axis training residuals + per-row breakdown
-                // (top → bottom). Max residual on a tight 5×5 fit is typically
-                // < 30 DIPs; anything much larger means the fit is being
-                // pulled by noisy samples or the regularization is wrong.
-                // The per-row breakdown (when GridSize is 5) surfaces axis
-                // asymmetries — e.g. if top-row residuals are far worse than
-                // bottom-row, iris detection is biased on the upward gaze
-                // (commonly upper-eyelid occlusion when looking up).
+                // Working weight vector — outlier dots get zeroed and the fit re-run.
+                var w = new double[n];
+                for (int i = 0; i < n; i++) w[i] = dotWeights[i];
+
+                double[]? coeffsX = null, coeffsY = null;
+                var dropped = new List<int>();
+                // Pass 0 fits, detects outliers, zeroes them; pass 1 refits once.
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    coeffsX = FitRidge(designX, targetsX, lambda, w);
+                    coeffsY = FitRidge(designY, targetsY, lambda, w);
+                    if (coeffsX == null || coeffsY == null) return null;
+                    if (pass == 1) break;
+
+                    // Residual magnitude for every dot still in the fit.
+                    var mags = new List<(int Idx, double R)>();
+                    for (int i = 0; i < n; i++)
+                    {
+                        if (w[i] <= 0) continue;
+                        var ex = DotProduct(coeffsX, designX[i]) - targetsX[i];
+                        var ey = DotProduct(coeffsY, designY[i]) - targetsY[i];
+                        mags.Add((i, Math.Sqrt(ex * ex + ey * ey)));
+                    }
+                    // Don't trim a small grid into instability (need a healthy
+                    // margin over the 7 coefficients for the refit to stay sane).
+                    if (mags.Count < 12) break;
+
+                    var rs = mags.Select(m => m.R).OrderBy(v => v).ToList();
+                    double med = rs[rs.Count / 2];
+                    var devs = rs.Select(v => Math.Abs(v - med)).OrderBy(v => v).ToList();
+                    double mad = devs[devs.Count / 2];
+                    double thr = med + 3.0 * mad / 0.6745;
+
+                    var cand = mags
+                        .Where(m => m.R > thr && m.R > outlierFloorDip)
+                        .OrderByDescending(m => m.R)
+                        .Take(2)
+                        .ToList();
+                    if (cand.Count == 0) break;
+                    foreach (var c in cand) { w[c.Idx] = 0; dropped.Add(c.Idx); }
+                }
+
+                // Diagnostic: per-axis residuals over the dots that survived into
+                // the fit + per-row breakdown (top → bottom). rms is computed over
+                // the USED dots only so a deliberately-dropped outlier doesn't
+                // inflate the figure the fit-quality gate keys on. The per-row
+                // breakdown surfaces axis asymmetries — e.g. top-row residuals far
+                // worse than bottom-row points at upward-gaze iris bias (upper-
+                // eyelid occlusion when looking up).
                 double ssX = 0, ssY = 0, maxX = 0, maxY = 0;
-                int worstIdxX = -1, worstIdxY = -1;
+                int worstIdxX = -1, worstIdxY = -1, used = 0;
                 var residualsY = new double[n];
                 var residualsX = new double[n];
                 for (int i = 0; i < n; i++)
@@ -1140,10 +1238,13 @@ namespace ConditioningControlPanel
                     var ey = DotProduct(coeffsY, designY[i]) - targetsY[i];
                     residualsX[i] = ex;
                     residualsY[i] = ey;
+                    if (w[i] <= 0) continue; // dropped outlier — exclude from rms/max
+                    used++;
                     ssX += ex * ex; ssY += ey * ey;
                     if (Math.Abs(ex) > maxX) { maxX = Math.Abs(ex); worstIdxX = i; }
                     if (Math.Abs(ey) > maxY) { maxY = Math.Abs(ey); worstIdxY = i; }
                 }
+                if (used == 0) return null;
 
                 // Per-row Y residual summary if we recognize a square grid.
                 int rowSize = (int)Math.Round(Math.Sqrt(n));
@@ -1166,11 +1267,12 @@ namespace ConditioningControlPanel
                     rowSummary = " | rows_y(mean/|abs|): " + rowParts;
                 }
 
-                rmsX = Math.Sqrt(ssX / n);
-                rmsY = Math.Sqrt(ssY / n);
+                rmsX = Math.Sqrt(ssX / used);
+                rmsY = Math.Sqrt(ssY / used);
+                string droppedStr = dropped.Count == 0 ? "none" : string.Join(",", dropped);
                 App.Logger?.Information(
-                    "WebcamCalibration: polynomial fit n={N} λ={L:E2} | rms_x={Rx:F1} rms_y={Ry:F1} | max_x={Mx:F1}@{Wx} max_y={My:F1}@{Wy}{Rows} (DIPs)",
-                    n, lambda, rmsX, rmsY, maxX, worstIdxX, maxY, worstIdxY, rowSummary);
+                    "WebcamCalibration: polynomial fit n={N} used={Used} dropped={Dropped} λ={L:E2} | rms_x={Rx:F1} rms_y={Ry:F1} | max_x={Mx:F1}@{Wx} max_y={My:F1}@{Wy}{Rows} (DIPs)",
+                    n, used, droppedStr, lambda, rmsX, rmsY, maxX, worstIdxX, maxY, worstIdxY, rowSummary);
 
                 return new PolynomialFitData { X = coeffsX, Y = coeffsY };
             }

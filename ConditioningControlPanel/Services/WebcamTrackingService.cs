@@ -519,6 +519,48 @@ namespace ConditioningControlPanel.Services
         private readonly OneEuroFilter _irisDxFilter = new(OneEuroMinCutoff, OneEuroBeta, OneEuroDCutoff);
         private readonly OneEuroFilter _irisDyFilter = new(OneEuroMinCutoff, OneEuroBeta, OneEuroDCutoff);
 
+        // Eye-corner reference-frame smoothing. NormalizeIrisVector expresses
+        // the iris position relative to the eye-corner midpoint and scales it
+        // by the corner-to-corner width — but those corners come from raw
+        // per-frame FaceMesh landmarks that jitter ~1-2px, which shifts BOTH
+        // the origin and the scale of the normalized vector every frame. That
+        // is correlated (multiplicative) noise the downstream One-Euro can't
+        // cleanly remove. The corners are head-anchored — they barely move when
+        // only the EYES move — so a short rolling mean of the reference frame
+        // (midpoint cx/cy + width w) strips that jitter with negligible gaze
+        // lag. The fast-moving iris center itself is NOT smoothed here.
+        private const int EyeRefSmoothFrames = 6;
+        private readonly Queue<double> _leftRefCxBuffer = new();
+        private readonly Queue<double> _leftRefCyBuffer = new();
+        private readonly Queue<double> _leftRefWBuffer = new();
+        private readonly Queue<double> _rightRefCxBuffer = new();
+        private readonly Queue<double> _rightRefCyBuffer = new();
+        private readonly Queue<double> _rightRefWBuffer = new();
+
+        // Median pre-filter on the raw iris vector, applied before any other
+        // smoothing (and before OnRawIris fires, so calibration samples the
+        // same signal the runtime projects). A 3-sample median rejects the
+        // single-frame landmark spikes that One-Euro only partially absorbs,
+        // at the cost of ≤1 frame of lag. Mirrors the MAR median de-jitter.
+        private const int IrisMedianFrames = 3;
+        private readonly Queue<double> _irisDxMedianBuffer = new();
+        private readonly Queue<double> _irisDyMedianBuffer = new();
+
+        // Screen-space One-Euro, applied AFTER the polynomial projection. The
+        // iris-space One-Euro (_irisD*Filter) can't smooth uniformly: the
+        // polynomial slope is steep near the screen edges, so the same
+        // iris-space cutoff produces far more screen-DIP jitter at the edges
+        // than at the center. A second One-Euro in screen-DIP space evens that
+        // out — it is the stage the user actually perceives as "the cursor
+        // holding still." Beta is in DIP/s velocity units here (independent of
+        // the iris filter's units). Kept gentle so it doesn't stack noticeable
+        // lag on top of the iris filter; raise ScreenOneEuroMinCutoff if the
+        // cursor feels laggy, lower it if it still wobbles at fixation.
+        private const double ScreenOneEuroMinCutoff = 1.5;
+        private const double ScreenOneEuroBeta = 0.02;
+        private readonly OneEuroFilter _screenXFilter = new(ScreenOneEuroMinCutoff, ScreenOneEuroBeta, OneEuroDCutoff);
+        private readonly OneEuroFilter _screenYFilter = new(ScreenOneEuroMinCutoff, ScreenOneEuroBeta, OneEuroDCutoff);
+
         // Head-pose state — solvePnP-derived yaw/pitch (radians), smoothed to
         // match iris smoothing. Used to apply a geometric correction on the
         // iris vector before projecting through the polynomial: when the head
@@ -1234,6 +1276,10 @@ namespace ConditioningControlPanel.Services
             _irisDySmoothBuffer.Clear();
             _irisDxFilter.Reset();
             _irisDyFilter.Reset();
+            _leftRefCxBuffer.Clear(); _leftRefCyBuffer.Clear(); _leftRefWBuffer.Clear();
+            _rightRefCxBuffer.Clear(); _rightRefCyBuffer.Clear(); _rightRefWBuffer.Clear();
+            _irisDxMedianBuffer.Clear(); _irisDyMedianBuffer.Clear();
+            _screenXFilter.Reset(); _screenYFilter.Reset();
             _yawSmoothBuffer.Clear();
             _pitchSmoothBuffer.Clear();
             _headPoseValid = false;
@@ -1397,12 +1443,14 @@ namespace ConditioningControlPanel.Services
             int count = 0;
             if (leftEye != null)
             {
-                var v = NormalizeIrisVector(leftEye.IrisCenter, landmarks[LeftEyeOuterIdx], landmarks[LeftEyeInnerIdx]);
+                var v = NormalizeIrisVectorSmoothed(leftEye.IrisCenter, landmarks[LeftEyeOuterIdx], landmarks[LeftEyeInnerIdx],
+                    _leftRefCxBuffer, _leftRefCyBuffer, _leftRefWBuffer);
                 sumDx += v.Dx; sumDy += v.Dy; count++;
             }
             if (rightEye != null)
             {
-                var v = NormalizeIrisVector(rightEye.IrisCenter, landmarks[RightEyeOuterIdx], landmarks[RightEyeInnerIdx]);
+                var v = NormalizeIrisVectorSmoothed(rightEye.IrisCenter, landmarks[RightEyeOuterIdx], landmarks[RightEyeInnerIdx],
+                    _rightRefCxBuffer, _rightRefCyBuffer, _rightRefWBuffer);
                 sumDx += v.Dx; sumDy += v.Dy; count++;
             }
             EmitGazeEvents(sumDx / count, sumDy / count);
@@ -1412,8 +1460,17 @@ namespace ConditioningControlPanel.Services
         /// Convert an iris-center pixel position into a head-pose-stable iris
         /// vector relative to the eye-corner midpoint, scaled by corner-to-corner
         /// distance. Output is roughly in [-0.5, +0.5] for normal gaze ranges.
+        ///
+        /// The eye-corner reference frame (midpoint + width) is smoothed over a
+        /// short rolling window before it's applied, using the per-eye buffers
+        /// passed in. This strips the per-frame FaceMesh corner jitter that
+        /// would otherwise shift the vector's origin and scale every frame (see
+        /// EyeRefSmoothFrames). The iris center itself is left un-smoothed so
+        /// gaze stays responsive.
         /// </summary>
-        private static (double Dx, double Dy) NormalizeIrisVector((double X, double Y) iris, float[] outerCorner, float[] innerCorner)
+        private (double Dx, double Dy) NormalizeIrisVectorSmoothed(
+            (double X, double Y) iris, float[] outerCorner, float[] innerCorner,
+            Queue<double> cxBuf, Queue<double> cyBuf, Queue<double> wBuf)
         {
             double cx = (outerCorner[0] + innerCorner[0]) / 2.0;
             double cy = (outerCorner[1] + innerCorner[1]) / 2.0;
@@ -1421,7 +1478,33 @@ namespace ConditioningControlPanel.Services
                 (outerCorner[0] - innerCorner[0]) * (outerCorner[0] - innerCorner[0]) +
                 (outerCorner[1] - innerCorner[1]) * (outerCorner[1] - innerCorner[1]));
             if (w < 1.0) return (0, 0);
-            return ((iris.X - cx) / w, (iris.Y - cy) / w);
+
+            EnqueueWithCap(cxBuf, cx, EyeRefSmoothFrames);
+            EnqueueWithCap(cyBuf, cy, EyeRefSmoothFrames);
+            EnqueueWithCap(wBuf, w, EyeRefSmoothFrames);
+            double scx = Average(cxBuf);
+            double scy = Average(cyBuf);
+            double sw = Average(wBuf);
+            if (sw < 1.0) return (0, 0);
+
+            return ((iris.X - scx) / sw, (iris.Y - scy) / sw);
+        }
+
+        private static double Average(Queue<double> q)
+        {
+            if (q.Count == 0) return 0;
+            double s = 0;
+            foreach (var v in q) s += v;
+            return s / q.Count;
+        }
+
+        private static double MedianFilter(Queue<double> buffer, double value, int window)
+        {
+            buffer.Enqueue(value);
+            while (buffer.Count > window) buffer.Dequeue();
+            var arr = buffer.ToArray();
+            Array.Sort(arr);
+            return arr[arr.Length / 2];
         }
 
         /// <summary>
@@ -1534,6 +1617,12 @@ namespace ConditioningControlPanel.Services
             _marSmoothBuffer.Clear();   // drop stale MAR so the median doesn't blip on face re-acquire
             _tongueOut = false;
             _tongueOutSince = null;
+            // Drop stale gaze-smoothing state so the cursor doesn't average
+            // across the face-loss gap (which would yank it on re-acquire).
+            _leftRefCxBuffer.Clear(); _leftRefCyBuffer.Clear(); _leftRefWBuffer.Clear();
+            _rightRefCxBuffer.Clear(); _rightRefCyBuffer.Clear(); _rightRefWBuffer.Clear();
+            _irisDxMedianBuffer.Clear(); _irisDyMedianBuffer.Clear();
+            _screenXFilter.Reset(); _screenYFilter.Reset();
             if (_consecutiveNoFaceFrames > FaceLostFramesThreshold * 2)
             {
                 _gazeBuffer.Clear();
@@ -1571,6 +1660,15 @@ namespace ConditioningControlPanel.Services
             // both. The gaze-side stability buffer and screen-projection state
             // resume cleanly when the eyes reopen.
             if (_eyesClosed) return;
+
+            // Median pre-filter (≤1 frame lag) to reject single-frame landmark
+            // spikes before any other stage. Applied up here so OnRawIris (the
+            // calibration sampler) sees exactly the signal the runtime path
+            // projects — calibration and runtime must agree on the input
+            // transform or the trained mapping is fed a different signal than
+            // it was fit against.
+            irisDx = MedianFilter(_irisDxMedianBuffer, irisDx, IrisMedianFrames);
+            irisDy = MedianFilter(_irisDyMedianBuffer, irisDy, IrisMedianFrames);
 
             // Raw iris vector — used by the calibration window to sample reference
             // points. Always fires (when eyes are open); calibration consumers
@@ -1644,6 +1742,19 @@ namespace ConditioningControlPanel.Services
             if (screenPoint.HasValue)
             {
                 var p = screenPoint.Value;
+
+                // Screen-space velocity-adaptive smoothing. The iris-space
+                // One-Euro above is uneven across the screen because the
+                // polynomial slope steepens toward the edges; this second pass
+                // in screen-DIP space evens the jitter out where the user sees
+                // it. Applied before the quick-recal offset and the bounds
+                // clamp so the smoothing operates on raw projected motion, not
+                // on the post-clamp edge plateau (which would otherwise feed
+                // the velocity estimator a string of identical clamped points).
+                p = new System.Windows.Point(
+                    _screenXFilter.Filter(p.X, nowTicks),
+                    _screenYFilter.Filter(p.Y, nowTicks));
+
                 // Quick-recal translational nudge — corrects whole-map drift
                 // captured after the user clicked "Quick Recal" on a center
                 // dot. Null on calibrations that haven't run quick-recal yet.
