@@ -474,8 +474,8 @@ namespace ConditioningControlPanel.Services
 
         /// <summary>
         /// Loads up to <paramref name="targetCount"/> images, retrying with new candidates
-        /// when a file is missing, corrupted, or uses an unsupported codec. Stops when the
-        /// target is reached or no new candidates remain.
+        /// when a file is missing, corrupted, or uses an unsupported codec. Images are used
+        /// as soon as they decode successfully; slow or broken files do not block the others.
         /// </summary>
         private async Task<List<LoadedImageData>> LoadImagesUntilAsync(int targetCount)
         {
@@ -485,30 +485,46 @@ namespace ConditioningControlPanel.Services
             var scale = settings.ImageScale / 100.0;
             int attempts = 0;
             int maxAttempts = Math.Max(targetCount * 5, 20);
+            var pending = new List<Task<LoadedImageData?>>();
 
             while (loaded.Count < targetCount && attempts < maxAttempts)
             {
                 int need = targetCount - loaded.Count;
-                var candidates = GetNextImages(need);
-                if (candidates.Count == 0) break;
 
-                var newCandidates = candidates.Where(c => attempted.Add(c)).ToList();
-                if (newCandidates.Count == 0) break;
-
-                var results = await Task.WhenAll(newCandidates.Select(LoadImageAsync));
-                foreach (var data in results)
+                // Keep a generous pipeline of decode tasks running.
+                int fetch = Math.Min(Math.Max(need * 3, 3), maxAttempts - attempts - pending.Count);
+                if (fetch > 0)
                 {
-                    if (data == null) continue;
-                    if (loaded.Count >= targetCount) break;
+                    var candidates = GetNextImages(fetch);
+                    if (candidates.Count == 0 && pending.Count == 0) break;
 
+                    var newCandidates = candidates.Where(c => attempted.Add(c)).ToList();
+                    if (newCandidates.Count == 0 && pending.Count == 0) break;
+
+                    pending.AddRange(newCandidates.Select(LoadImageAsync));
+                    attempts += newCandidates.Count;
+                }
+
+                if (pending.Count == 0) break;
+
+                // Use the first image that finishes decoding, whether it succeeds or fails.
+                var completed = await Task.WhenAny(pending);
+                pending.Remove(completed);
+                var data = await completed;
+                if (data != null && loaded.Count < targetCount)
+                {
                     var monitor = PickMonitor(settings);
                     var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
                     data.Geometry = geometry;
                     data.Monitor = monitor;
                     loaded.Add(data);
                 }
+            }
 
-                attempts += newCandidates.Count;
+            // Drain any stragglers so unobserved exceptions don't linger.
+            if (pending.Count > 0)
+            {
+                try { await Task.WhenAll(pending); } catch { /* individual tasks are already guarded */ }
             }
 
             return loaded;
