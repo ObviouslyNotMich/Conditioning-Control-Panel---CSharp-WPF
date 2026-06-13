@@ -448,22 +448,10 @@ namespace ConditioningControlPanel.Services
                 // Scale is percentage: 50-250%, stored as 50-250, so divide by 100
                 var scale = (size ?? settings.ImageScale) / 100.0;
 
-                // Load images in parallel on background threads
-                var loadTasks = images.Select(imagePath => LoadImageAsync(imagePath)).ToArray();
-                var results = await Task.WhenAll(loadTasks);
-
-                var loadedImages = new List<LoadedImageData>();
-                foreach (var data in results)
-                {
-                    if (data != null)
-                    {
-                        var monitor = PickMonitor(settings);
-                        var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
-                        data.Geometry = geometry;
-                        data.Monitor = monitor;
-                        loadedImages.Add(data);
-                    }
-                }
+                // Load images, retrying with fresh picks if some are corrupted/unsupported,
+                // until we reach the requested count or run out of candidates.
+                var targetCount = amount ?? settings.SimultaneousImages;
+                var loadedImages = await LoadImagesUntilAsync(targetCount);
 
                 if (loadedImages.Count == 0)
                 {
@@ -482,6 +470,48 @@ namespace ConditioningControlPanel.Services
                 App.Logger.Error(ex, "Error loading flash images");
                 _isBusy = false;
             }
+        }
+
+        /// <summary>
+        /// Loads up to <paramref name="targetCount"/> images, retrying with new candidates
+        /// when a file is missing, corrupted, or uses an unsupported codec. Stops when the
+        /// target is reached or no new candidates remain.
+        /// </summary>
+        private async Task<List<LoadedImageData>> LoadImagesUntilAsync(int targetCount)
+        {
+            var loaded = new List<LoadedImageData>(targetCount);
+            var attempted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var settings = App.Settings.Current;
+            var scale = settings.ImageScale / 100.0;
+            int attempts = 0;
+            int maxAttempts = Math.Max(targetCount * 5, 20);
+
+            while (loaded.Count < targetCount && attempts < maxAttempts)
+            {
+                int need = targetCount - loaded.Count;
+                var candidates = GetNextImages(need);
+                if (candidates.Count == 0) break;
+
+                var newCandidates = candidates.Where(c => attempted.Add(c)).ToList();
+                if (newCandidates.Count == 0) break;
+
+                var results = await Task.WhenAll(newCandidates.Select(LoadImageAsync));
+                foreach (var data in results)
+                {
+                    if (data == null) continue;
+                    if (loaded.Count >= targetCount) break;
+
+                    var monitor = PickMonitor(settings);
+                    var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
+                    data.Geometry = geometry;
+                    data.Monitor = monitor;
+                    loaded.Add(data);
+                }
+
+                attempts += newCandidates.Count;
+            }
+
+            return loaded;
         }
 
         private async Task<LoadedImageData?> LoadImageAsync(string path)
@@ -521,7 +551,7 @@ namespace ConditioningControlPanel.Services
                     {
                         LoadGifFrames(path, data, decodeMax);
                     }
-                    else if (IsSupportedStaticImageExtension(extension))
+                    else
                     {
                         // Load static image, downscaling to the decode cap if larger.
                         using var bitmap = new System.Drawing.Bitmap(path);
@@ -1619,18 +1649,6 @@ namespace ConditioningControlPanel.Services
 
         #region Media Queue
 
-        /// <summary>
-        /// Extensions that System.Drawing.Common can reliably decode for static images.
-        /// WebP/HEIC/AVIF are excluded because they throw ArgumentException on this runtime.
-        /// </summary>
-        private static readonly HashSet<string> _supportedStaticImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".bmp", ".tif", ".tiff"
-        };
-
-        private static bool IsSupportedStaticImageExtension(string extension)
-            => !string.IsNullOrEmpty(extension) && _supportedStaticImageExtensions.Contains(extension);
-
         private List<string> GetNextImages(int count)
         {
             lock (_lockObj)
@@ -1708,7 +1726,7 @@ namespace ConditioningControlPanel.Services
 
             // Load regular images (include common extensions and variants)
             // GetMediaFiles has its own 60-second cache, so this is efficient
-            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".bmp", ".tif", ".tiff" });
+            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif", ".ico" });
 
             // Load pack images from active packs
             _packImageList = App.ContentPacks?.GetAllActivePackImages() ?? new List<(string, PackFileEntry)>();
