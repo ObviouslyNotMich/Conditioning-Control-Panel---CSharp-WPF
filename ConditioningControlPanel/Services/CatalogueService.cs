@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -146,6 +147,73 @@ namespace ConditioningControlPanel.Services
             {
                 App.Logger?.Warning(ex, "[CatalogueService] Submit threw");
                 return new SubmissionResult.UnknownError(0, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Fetch the authenticated user's catalogue submissions and their
+        /// current status, so the app can surface acceptance/publication
+        /// feedback after the otherwise fire-and-forget submit. Returns a map of
+        /// submission id → status ("pending"|"approved"|"published"|"rejected"),
+        /// or null when the call could not be made (no auth, network error, or
+        /// the endpoint is unavailable). Never throws past the boundary except
+        /// for cancellation.
+        ///
+        /// Server contract (CCP-Server, NOT yet deployed):
+        ///   GET https://app.cclabs.app/api/enhancements/mine
+        ///   Authorization: Bearer &lt;supabase token&gt;
+        ///   200 → { "enhancements": [ { "id", "status", "title" }, ... ] }
+        /// Until that route exists this returns null (non-2xx) and the caller
+        /// simply leaves the last-known status untouched.
+        /// </summary>
+        public async Task<Dictionary<string, string>?> FetchMySubmissionsAsync(CancellationToken ct)
+        {
+            try
+            {
+                var token = await GetSupabaseTokenAsync(ct).ConfigureAwait(false);
+                if (token == null) return null;
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{CclabsBaseUrl}/api/enhancements/mine");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+                if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    // Token expired or no profile — same recovery as a submit 401/403.
+                    InvalidateCachedToken();
+                    return null;
+                }
+                if (!response.IsSuccessStatusCode)
+                {
+                    App.Logger?.Debug("[CatalogueService] FetchMySubmissions non-success status={Status}", (int)response.StatusCode);
+                    return null;
+                }
+
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                JObject parsed;
+                try { parsed = JObject.Parse(body); }
+                catch { return null; }
+
+                if (parsed["enhancements"] is not JArray arr) return null;
+
+                var map = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var item in arr)
+                {
+                    var id = item["id"]?.ToString();
+                    var status = item["status"]?.ToString();
+                    if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(status))
+                        map[id] = status;
+                }
+                return map;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("[CatalogueService] FetchMySubmissions threw: {Error}", ex.Message);
+                return null;
             }
         }
 

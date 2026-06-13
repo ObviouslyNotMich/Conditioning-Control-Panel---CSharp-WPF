@@ -1549,6 +1549,18 @@ namespace ConditioningControlPanel.Models
             set { _dismissedNotificationKeys = value ?? new List<string>(); OnPropertyChanged(); }
         }
 
+        // Catalogue submissions the user has made, keyed by the canonical
+        // .ccpenh.json path. Drives the Deeper library status badge + the
+        // one-time "published to the catalogue" notification. See
+        // DeeperSubmissionRecord.
+        private Dictionary<string, DeeperSubmissionRecord> _deeperSubmissions = new();
+        [JsonProperty]
+        public Dictionary<string, DeeperSubmissionRecord> DeeperSubmissions
+        {
+            get => _deeperSubmissions;
+            set { _deeperSubmissions = value ?? new Dictionary<string, DeeperSubmissionRecord>(); OnPropertyChanged(); }
+        }
+
         private bool _runOnStartup = false;
         public bool RunOnStartup
         {

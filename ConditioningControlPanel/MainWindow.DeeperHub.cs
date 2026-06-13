@@ -54,6 +54,17 @@ namespace ConditioningControlPanel
             public List<DeeperAutoTagVm> Tags { get; init; } = new();
             public Visibility ShowTags { get; init; } = Visibility.Collapsed;
 
+            // Catalogue submission status badge — shown once the user has
+            // submitted this file (pending / published / rejected). Always
+            // visible (unlike the hover-only action buttons) so acceptance is
+            // discoverable at a glance.
+            public Visibility ShowSubmissionBadge { get; init; } = Visibility.Collapsed;
+            public string SubmissionBadgeGlyph { get; init; } = "";
+            public string SubmissionBadgeLabel { get; init; } = "";
+            public Brush SubmissionBadgeBg { get; init; } = Brushes.Transparent;
+            public Brush SubmissionBadgeFg { get; init; } = Brushes.White;
+            public string SubmissionBadgeTooltip { get; init; } = "";
+
             // Action buttons
             public Visibility ShowSubmitButton { get; init; } = Visibility.Collapsed;
             public bool SubmitEnabled { get; init; }
@@ -180,9 +191,19 @@ namespace ConditioningControlPanel
             bool eligible = IsCatalogueEligible(e);
             bool hasAuth = !string.IsNullOrEmpty(App.Settings?.Current?.AuthToken);
 
+            var badge = ResolveSubmissionBadge(e);
+
             return new DeeperLibraryRowVm
             {
                 Entry = e,
+
+                ShowSubmissionBadge   = badge.Show,
+                SubmissionBadgeGlyph  = badge.Glyph,
+                SubmissionBadgeLabel  = badge.Label,
+                SubmissionBadgeBg     = badge.Bg,
+                SubmissionBadgeFg     = badge.Fg,
+                SubmissionBadgeTooltip = badge.Tooltip,
+
                 MediaTypeBadgeBg = (Brush)FindResource(typeBadgeBgKey),
                 MediaTypeBadgeFg = (Brush)FindResource("TextLightBrush"),
 
@@ -232,6 +253,58 @@ namespace ConditioningControlPanel
             return (name,
                     exists ? "✓" : "⚠",
                     exists ? "DeeperAccentBrush" : "TextMutedBrush");
+        }
+
+        // Translucent backgrounds + solid accent foregrounds matching the toast
+        // palette (#4CAF50 green / #FFB347 amber / #FF6B6B red). Frozen statics
+        // so every row reuses one brush instead of allocating per build.
+        private static readonly Brush SubBadgePublishedBg = FrozenBrush("#334CAF50");
+        private static readonly Brush SubBadgePendingBg   = FrozenBrush("#33FFB347");
+        private static readonly Brush SubBadgeRejectedBg  = FrozenBrush("#33FF6B6B");
+        private static readonly Brush SubBadgePublishedFg = FrozenBrush("#7BE08A");
+        private static readonly Brush SubBadgePendingFg   = FrozenBrush("#FFC97A");
+        private static readonly Brush SubBadgeRejectedFg  = FrozenBrush("#FF9B9B");
+
+        private static SolidColorBrush FrozenBrush(string hex)
+        {
+            var b = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+            b.Freeze();
+            return b;
+        }
+
+        // Maps a tracked catalogue submission (AppSettings.DeeperSubmissions,
+        // keyed by canonical path) to the row's status pill. Collapsed when the
+        // user has never submitted this file.
+        private (Visibility Show, string Glyph, string Label, Brush Bg, Brush Fg, string Tooltip)
+            ResolveSubmissionBadge(EnhancementLibraryEntry e)
+        {
+            try
+            {
+                var subs = App.Settings?.Current?.DeeperSubmissions;
+                if (subs == null || e == null) return (Visibility.Collapsed, "", "", Brushes.Transparent, Brushes.White, "");
+
+                string key;
+                try { key = System.IO.Path.GetFullPath(e.FilePath); } catch { key = e.FilePath; }
+                if (!subs.TryGetValue(key, out var rec) || rec == null)
+                    return (Visibility.Collapsed, "", "", Brushes.Transparent, Brushes.White, "");
+
+                return (rec.Status ?? "").ToLowerInvariant() switch
+                {
+                    "approved" or "published" => (Visibility.Visible, "✅",
+                        Loc.Get("deeper_submission_badge_published"), SubBadgePublishedBg, SubBadgePublishedFg,
+                        Loc.Get("deeper_submission_badge_published_tip")),
+                    "rejected" => (Visibility.Visible, "⚠",
+                        Loc.Get("deeper_submission_badge_rejected"), SubBadgeRejectedBg, SubBadgeRejectedFg,
+                        Loc.Get("deeper_submission_badge_rejected_tip")),
+                    _ => (Visibility.Visible, "⏳",
+                        Loc.Get("deeper_submission_badge_pending"), SubBadgePendingBg, SubBadgePendingFg,
+                        Loc.Get("deeper_submission_badge_pending_tip")),
+                };
+            }
+            catch
+            {
+                return (Visibility.Collapsed, "", "", Brushes.Transparent, Brushes.White, "");
+            }
         }
 
         private static string FormatRelativeTime(DateTime when)

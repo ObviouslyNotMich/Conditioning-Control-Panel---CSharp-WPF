@@ -9183,6 +9183,15 @@
                                            FontSize="13" FontWeight="SemiBold"
                                            TextTrimming="CharacterEllipsis"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <!-- Catalogue submission status pill (pending / published / rejected) -->
+                                    <Border Background="{Binding SubmissionBadgeBg}"
+                                            Visibility="{Binding ShowSubmissionBadge}"
+                                            CornerRadius="8" Padding="6,1" Margin="0,0,6,0"
+                                            ToolTip="{Binding SubmissionBadgeTooltip}">
+                                        <TextBlock Foreground="{Binding SubmissionBadgeFg}" FontSize="10" FontWeight="SemiBold">
+                                            <Run Text="{Binding SubmissionBadgeGlyph, Mode=OneTime}"/><Run Text=" "/><Run Text="{Binding SubmissionBadgeLabel, Mode=OneTime}"/>
+                                        </TextBlock>
+                                    </Border>
                                     <!-- Creator -->
                                     <TextBlock Text="{Binding CreatorDisplay}"
                                                Visibility="{Binding ShowCreator}"

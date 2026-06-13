@@ -2120,6 +2120,12 @@ namespace ConditioningControlPanel
                 App.Logger?.Warning(ex, "Blink Trainer flagship sticky: failed");
             }
 
+            // Catalogue submission feedback: poll for any pending Deeper
+            // submissions that have been accepted/published since last launch and
+            // surface a one-time notification. Host is attached above, so a
+            // sticky toast shows even though the Deeper tab hasn't been opened.
+            _ = CheckDeeperSubmissionStatusesAsync(force: true);
+
 
             // Enable Windows 11 rounded corners
             try
@@ -3693,6 +3699,10 @@ namespace ConditioningControlPanel
                 App.Logger?.Warning(ex, "[Catalogue] Submit threw unexpectedly");
                 result = new SubmissionResult.UnknownError(0, ex.Message);
             }
+
+            // Remember the submission so the library badge + the eventual
+            // "published" notification can track it (no-op for non-ack results).
+            RecordDeeperSubmission(entry.FilePath, result);
 
             ShowCatalogueSubmissionResultToast(result);
         }
@@ -7235,6 +7245,9 @@ namespace ConditioningControlPanel
                         try { RefreshWebcamMonitorList(); } catch { }
                         RefreshDeeperWebcamColumn();
                         RefreshBlinkTrainerTrackerButton();
+                        // Refresh submission statuses on tab open (throttled) so
+                        // an acceptance reflects without restarting the app.
+                        _ = CheckDeeperSubmissionStatusesAsync();
                     }
                     if (BtnDeeper != null) BtnDeeper.Style = FindResource("TabButtonDeeperActive") as Style;
                     break;
