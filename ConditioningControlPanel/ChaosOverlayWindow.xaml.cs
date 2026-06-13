@@ -287,6 +287,19 @@ public partial class ChaosOverlayWindow : Window
         _autoResumeTimer = null;
         _confirmTimer?.Stop();
         _confirmTimer = null;
+        // Stop per-card Forever pulses and drop glow effects before discarding the cards. The
+        // chosen card's Forever ColorAnimation otherwise stays pinned by the timing manager
+        // (leaking the clock + its brush/effect render-target) on every boon pick.
+        foreach (var c in _draftCards)
+        {
+            try
+            {
+                c.ArtBorder?.BeginAnimation(SolidColorBrush.ColorProperty, null);
+                if (c.Card != null) c.Card.Effect = null;
+                if (c.Art != null) c.Art.Effect = null;
+            }
+            catch { }
+        }
         _draftCards.Clear();
         _selectedBoon = null;
         _selectionMade = false;
