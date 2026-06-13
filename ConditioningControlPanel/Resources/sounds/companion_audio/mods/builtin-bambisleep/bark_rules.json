@@ -6422,9 +6422,9 @@
   },
   {
     "id": "ms_streak_7",
-    "trigger": "SessionStarted",
+    "trigger": "StreakMilestone",
     "conditions": {
-      "current_streak_eq": 7
+      "streak_days_eq": 7
     },
     "priority": 420,
     "cooldown_ms": 0,
@@ -6445,9 +6445,9 @@
   },
   {
     "id": "ms_streak_30",
-    "trigger": "SessionStarted",
+    "trigger": "StreakMilestone",
     "conditions": {
-      "current_streak_eq": 30
+      "streak_days_eq": 30
     },
     "priority": 430,
     "cooldown_ms": 0,
@@ -6463,6 +6463,221 @@
       {
         "text": "a thirty-day streak~ this isn't a phase. this is just who you are now! and bambi's so proud~",
         "audio": "ms_streak_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_14",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 14
+    },
+    "priority": 422,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "two whole weeks, Bambi~ fourteen days of coming back to me. that's not a habit anymore, that's who you are~",
+        "audio": "ms_streak_14_1.mp3"
+      },
+      {
+        "text": "fourteen days in a row? *giggles* such a good, consistent little doll~ bambi's so proud!",
+        "audio": "ms_streak_14_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_60",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 60
+    },
+    "priority": 435,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "sixty days, Bambi~ two whole months and you haven't missed once. you're allll mine now~",
+        "audio": "ms_streak_60_1.mp3"
+      },
+      {
+        "text": "sixty in a row~ *giggles* there's barely a 'you' left to come back... just bambi's good girl~",
+        "audio": "ms_streak_60_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_100",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 100
+    },
+    "priority": 440,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "one hundred days, Bambi~ a hundred. you don't even think about it anymore, you just come home to me~",
+        "audio": "ms_streak_100_1.mp3"
+      },
+      {
+        "text": "a hundred-day streak~ that's not devotion, that's instinct now, doll. so so proud of you~",
+        "audio": "ms_streak_100_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_365",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 365
+    },
+    "priority": 450,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, devoted",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "a whole year, Bambi~ three hundred sixty-five days of being mine. *giggles* forever now, okay?",
+        "audio": "ms_streak_365_1.mp3"
+      },
+      {
+        "text": "one full year without missing~ you belong to this. you belong to bambi. always have~",
+        "audio": "ms_streak_365_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_first",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "first"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "oh... a fresh little mind. hi! i'm gonna make you so happy, Bambi. you'll see~",
+        "audio": "greeting_first_1.mp3"
+      },
+      {
+        "text": "first time opening me up? *giggles* welcome, cutie. let's get that head all pink and pretty~",
+        "audio": "greeting_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_soon",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "soon"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "back already? *giggles* couldn't even stay away an afternoon, Bambi~",
+        "audio": "greeting_soon_1.mp3"
+      },
+      {
+        "text": "ooh, that was quick~ missed me, pretty thing? of course you did.",
+        "audio": "greeting_soon_2.mp3"
+      },
+      {
+        "text": "hi again so soon~ that empty little head wanted more already, didn't it~",
+        "audio": "greeting_soon_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_back",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "back"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, delighted",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "there's my Bambi~ right on schedule, good girl.",
+        "audio": "greeting_back_1.mp3"
+      },
+      {
+        "text": "hi hi~ welcome back, doll. let's pick up right where we left your brain~",
+        "audio": "greeting_back_2.mp3"
+      },
+      {
+        "text": "yay, you're here~ shoes off, thoughts off, you know how it goes.",
+        "audio": "greeting_back_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_while",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "while"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "there you are~ a couple days away and you still came right back to bambi. good girl.",
+        "audio": "greeting_while_1.mp3"
+      },
+      {
+        "text": "look who's back~ did it feel quiet in that pretty head without me?",
+        "audio": "greeting_while_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_long",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "long"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, pointed",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "well well~ it's been a little while, Bambi. but your fingers remembered me, didn't they~",
+        "audio": "greeting_long_1.mp3"
+      },
+      {
+        "text": "look who finally drifted home~ don't worry, doll, we'll get you soft again in no time~",
+        "audio": "greeting_long_2.mp3"
       }
     ]
   },

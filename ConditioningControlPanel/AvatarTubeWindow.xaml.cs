@@ -237,6 +237,8 @@ namespace ConditioningControlPanel
         private DispatcherTimer? _fullscreenCheckTimer;
         private bool _hiddenForFullscreen = false;
         private bool _wasAttachedBeforeFullscreen = false;
+        // [AVATAR-BLINK DIAG] last window that tripped the fullscreen detector (class/proc/pid/rect).
+        private string _diagLastFullscreenWindow = "(none)";
 
         // Win32 API
         [DllImport("user32.dll", SetLastError = true)]
@@ -1539,7 +1541,9 @@ namespace ConditioningControlPanel
                         _hiddenForFullscreen = true;
                         _wasAttachedBeforeFullscreen = _isAttached;
                         Hide();
-                        App.Logger?.Debug("Avatar hidden - fullscreen app detected (attached mode)");
+                        // [AVATAR-BLINK DIAG] Info-level so we can catch the "random disappear":
+                        // _diagLastFullscreenWindow holds the offending window's class/pid/rect.
+                        App.Logger?.Information("[AVATAR-BLINK] hidden — fullscreen app detected (attached). Offender: {Win}", _diagLastFullscreenWindow);
                     }
                     else if (!isOtherAppFullscreen && _hiddenForFullscreen)
                     {
@@ -1559,7 +1563,7 @@ namespace ConditioningControlPanel
                             {
                                 UpdatePosition();
                             }
-                            App.Logger?.Debug("Avatar restored - fullscreen app closed");
+                            App.Logger?.Information("[AVATAR-BLINK] restored — fullscreen app closed");
                         }
                     }
                 }
@@ -1670,8 +1674,11 @@ namespace ConditioningControlPanel
 
                 if (coversFullScreen)
                 {
-                    App.Logger?.Debug("Exclusive fullscreen detected: class={Class}, popup={Popup}, topmost={Topmost}",
-                        windowClass, isPopup, isTopmost);
+                    GetWindowThreadProcessId(foregroundWindow, out uint offPid);
+                    string procName = "?";
+                    try { procName = System.Diagnostics.Process.GetProcessById((int)offPid).ProcessName; } catch { }
+                    _diagLastFullscreenWindow = $"class={windowClass} proc={procName}(pid {offPid}) rect=[{windowRect.Left},{windowRect.Top},{windowRect.Right},{windowRect.Bottom}]";
+                    App.Logger?.Debug("Exclusive fullscreen detected: {Win}", _diagLastFullscreenWindow);
                 }
 
                 return coversFullScreen;
@@ -2447,6 +2454,7 @@ namespace ConditioningControlPanel
                         PauseAvatarGif();
                         if (_isAttached)
                         {
+                            App.Logger?.Information("[AVATAR-BLINK] hidden — parent window minimized");
                             Hide();
                         }
                         else
@@ -2496,6 +2504,7 @@ namespace ConditioningControlPanel
                     PauseAvatarGif();
                     if (_isAttached)
                     {
+                        App.Logger?.Information("[AVATAR-BLINK] hidden — parent IsVisible went false (state={State})", _parentWindow.WindowState);
                         Hide();
                     }
                     else

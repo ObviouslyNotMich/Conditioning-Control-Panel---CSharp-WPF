@@ -162,6 +162,24 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         public void NotifyPanic() => Raise("Panic");
 
+        /// <summary>
+        /// The app was just opened — fires the voiced, time-aware welcome greeting. The bucket
+        /// (first/soon/back/while/long) reflects how long the user has been away so rules can
+        /// select an appropriately-warm line. Returns whether a greeting bark actually spoke so
+        /// the caller can fall back to the legacy text-only greeting when the bark system is
+        /// unavailable.
+        /// </summary>
+        public bool NotifyAppOpened(string awayBucket)
+            => Raise("AppOpened", c => c.Set("away_bucket", awayBucket ?? "first"));
+
+        /// <summary>
+        /// A daily-login-streak milestone (7/14/30/60/100/365 days) was reached for the first
+        /// time. Caller owns the once-per-milestone latch (AppSettings.LastAnnouncedStreakMilestone);
+        /// guaranteed so it isn't dropped by the min-gap behind the welcome greeting it queues after.
+        /// </summary>
+        public void NotifyStreakMilestone(int days)
+            => Raise("StreakMilestone", c => c.Set("streak_days", (double)days), guaranteed: true);
+
         /// <summary>A dashboard feature popup was opened (feature = control type name w/o "FeatureControl", e.g. "Flash").</summary>
         public void NotifyFeatureOpened(string? feature)
         {
@@ -733,12 +751,13 @@ namespace ConditioningControlPanel.Services
         /// safety-hold) and a variant is always selected — used for direct reactions that must
         /// fire exactly once (e.g. the lock-card pool bark on a tails coin flip).
         /// </param>
-        private void Raise(string trigger, Action<BarkContext>? fill = null, bool guaranteed = false)
+        /// <returns>True if a bark was actually spoken (rule matched + gate passed + not dry-run).</returns>
+        private bool Raise(string trigger, Action<BarkContext>? fill = null, bool guaranteed = false)
         {
             try
             {
                 var rules = _rules.ForTrigger(trigger);
-                if (rules.Count == 0) return;
+                if (rules.Count == 0) return false;
 
                 var ctx = new BarkContext(trigger);
                 fill?.Invoke(ctx);
@@ -759,18 +778,23 @@ namespace ConditioningControlPanel.Services
                     if (winner == null)
                     {
                         App.Logger?.Debug("[BARK] trigger={Trigger} no rule matched conditions", trigger);
-                        return;
+                        return false;
                     }
 
                     (toSpeak, variantIndex, pool) = DecideLocked(trigger, winner, guaranteed);
                 }
 
                 if (toSpeak != null && pool != null)
+                {
                     Speak(toSpeak, variantIndex, ctx, pool);
+                    return true;
+                }
+                return false;
             }
             catch (Exception ex)
             {
                 App.Logger?.Warning(ex, "BarkService: Raise('{Trigger}') failed", trigger);
+                return false;
             }
         }
 

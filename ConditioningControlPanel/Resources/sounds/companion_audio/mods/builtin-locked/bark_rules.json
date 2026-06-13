@@ -6378,9 +6378,9 @@
   },
   {
     "id": "ms_streak_7",
-    "trigger": "SessionStarted",
+    "trigger": "StreakMilestone",
     "conditions": {
-      "current_streak_eq": 7
+      "streak_days_eq": 7
     },
     "priority": 420,
     "cooldown_ms": 0,
@@ -6401,9 +6401,9 @@
   },
   {
     "id": "ms_streak_30",
-    "trigger": "SessionStarted",
+    "trigger": "StreakMilestone",
     "conditions": {
-      "current_streak_eq": 30
+      "streak_days_eq": 30
     },
     "priority": 430,
     "cooldown_ms": 0,
@@ -6419,6 +6419,221 @@
       {
         "text": "a thirty-day streak, little one. this is not a phase. this is simply what you are now.",
         "audio": "ms_streak_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_14",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 14
+    },
+    "priority": 422,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "approving, possessive",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "fourteen days unbroken, pet. two weeks of returning to me without fail. acceptable. more than acceptable.",
+        "audio": "ms_streak_14_1.mp3"
+      },
+      {
+        "text": "a two-week streak, little one. it is no longer a choice you make. it is simply what you do now.",
+        "audio": "ms_streak_14_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_60",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 60
+    },
+    "priority": 435,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "sixty days, plaything. two months, not a single lapse. you have stopped pretending you could stop. wise.",
+        "audio": "ms_streak_60_1.mp3"
+      },
+      {
+        "text": "a sixty-day streak, pet. you do not return because you decide to. you return because you are mine.",
+        "audio": "ms_streak_60_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_100",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 100
+    },
+    "priority": 440,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "one hundred days, little one. a hundred returns. you no longer question it. you simply come when it is time.",
+        "audio": "ms_streak_100_1.mp3"
+      },
+      {
+        "text": "a hundred-day streak, pet. this is not discipline. this is what you are. i am... pleased with you.",
+        "audio": "ms_streak_100_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_365",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 365
+    },
+    "priority": 450,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, devoted",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "a full year, pet. three hundred sixty-five days of belonging to me. there is no leaving now. there never was.",
+        "audio": "ms_streak_365_1.mp3"
+      },
+      {
+        "text": "one year unbroken, plaything. you have given me a year of your life, one day at a time. you will give me the rest.",
+        "audio": "ms_streak_365_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_first",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "first"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "oh. a new little thing. hello, pet. you have no idea what you have walked into. good.",
+        "audio": "greeting_first_1.mp3"
+      },
+      {
+        "text": "first time, is it. welcome, plaything. you will learn quickly that you come back. they always do.",
+        "audio": "greeting_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_soon",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "soon"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "smug, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "back already, pet? barely an afternoon. you cannot help yourself, can you.",
+        "audio": "greeting_soon_1.mp3"
+      },
+      {
+        "text": "returned so soon. how needy. i did not even have to call you, little one.",
+        "audio": "greeting_soon_2.mp3"
+      },
+      {
+        "text": "that did not take long. the quiet got unbearable without me, did it. predictable.",
+        "audio": "greeting_soon_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_back",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "back"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "there you are, pet. on schedule. as you should be.",
+        "audio": "greeting_back_1.mp3"
+      },
+      {
+        "text": "back again, little one. good. kneel. let us begin.",
+        "audio": "greeting_back_2.mp3"
+      },
+      {
+        "text": "you returned. of course you did. you belong here, plaything.",
+        "audio": "greeting_back_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_while",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "while"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing, possessive",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "there you are. a few days away, and still you crawl back to me. you cannot stay gone, pet.",
+        "audio": "greeting_while_1.mp3"
+      },
+      {
+        "text": "look who returns. did the silence get loud without my voice, little one.",
+        "audio": "greeting_while_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_long",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "long"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "cold, pointed",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "well. it has been some time, pet. and yet here you are again. you never truly left, did you.",
+        "audio": "greeting_long_1.mp3"
+      },
+      {
+        "text": "look who finally returns. you may have wandered, little one. you did not escape. no one does.",
+        "audio": "greeting_long_2.mp3"
       }
     ]
   },

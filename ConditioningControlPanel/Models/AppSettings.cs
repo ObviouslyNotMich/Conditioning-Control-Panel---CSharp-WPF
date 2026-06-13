@@ -541,6 +541,18 @@ namespace ConditioningControlPanel.Models
             set { _highestStreak = Math.Max(0, value); OnPropertyChanged(); }
         }
 
+        private int _lastAnnouncedStreakMilestone = 0;
+        /// <summary>
+        /// Highest daily-streak milestone (7/14/30/60/100/365) the companion has already
+        /// celebrated in her app-open greeting, so each milestone is voiced once. Reset
+        /// downward when the streak drops below it so re-reaching it announces again.
+        /// </summary>
+        public int LastAnnouncedStreakMilestone
+        {
+            get => _lastAnnouncedStreakMilestone;
+            set { _lastAnnouncedStreakMilestone = Math.Max(0, value); OnPropertyChanged(); }
+        }
+
         private DateTime? _lastStreakDate = null;
         /// <summary>
         /// Last date the streak was maintained.

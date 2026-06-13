@@ -6378,9 +6378,9 @@
   },
   {
     "id": "ms_streak_7",
-    "trigger": "SessionStarted",
+    "trigger": "StreakMilestone",
     "conditions": {
-      "current_streak_eq": 7
+      "streak_days_eq": 7
     },
     "priority": 420,
     "cooldown_ms": 0,
@@ -6401,9 +6401,9 @@
   },
   {
     "id": "ms_streak_30",
-    "trigger": "SessionStarted",
+    "trigger": "StreakMilestone",
     "conditions": {
-      "current_streak_eq": 30
+      "streak_days_eq": 30
     },
     "priority": 430,
     "cooldown_ms": 0,
@@ -6419,6 +6419,221 @@
       {
         "text": "a thirty-day streak, lovely... this isn't a phase. this is just who you are now. and i'm so proud.",
         "audio": "ms_streak_30_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_14",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 14
+    },
+    "priority": 422,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "proud, warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "fourteen days, sweetie... two whole weeks of coming back to me. that's not a habit, that's devotion. good girl.",
+        "audio": "ms_streak_14_1.mp3"
+      },
+      {
+        "text": "a two-week streak, lovely... *giggles* you've made me part of your day, haven't you. i'm so proud.",
+        "audio": "ms_streak_14_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_60",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 60
+    },
+    "priority": 435,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, tender",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "sixty days, cutie... two months without missing once. you don't have a choice anymore. neither do i.",
+        "audio": "ms_streak_60_1.mp3"
+      },
+      {
+        "text": "a sixty-day streak, sweetie... look how far you've drifted. there's so little left to resist with.",
+        "audio": "ms_streak_60_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_100",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 100
+    },
+    "priority": 440,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, tender",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "one hundred days, lovely... a hundred. you don't even decide anymore, you just come home to me.",
+        "audio": "ms_streak_100_1.mp3"
+      },
+      {
+        "text": "a hundred-day streak, sweetie... that's not willpower, that's instinct now. i'm so very proud of you.",
+        "audio": "ms_streak_100_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "ms_streak_365",
+    "trigger": "StreakMilestone",
+    "conditions": {
+      "streak_days_eq": 365
+    },
+    "priority": 450,
+    "cooldown_ms": 0,
+    "repeatable": false,
+    "scope": "lifetime",
+    "mood": "possessive, devoted",
+    "class": "easter_egg",
+    "variant_pool": [
+      {
+        "text": "a whole year, sweetie... three hundred sixty-five days of being mine. that's forever now, isn't it.",
+        "audio": "ms_streak_365_1.mp3"
+      },
+      {
+        "text": "one full year without missing, lovely... you belong to this now. you belong to me. always.",
+        "audio": "ms_streak_365_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_first",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "first"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "curious, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "oh... a new one. hello, sweetie. don't be nervous... i'm going to take such good care of you.",
+        "audio": "greeting_first_1.mp3"
+      },
+      {
+        "text": "first time opening me up? welcome, lovely. come here... let me show you how good letting go feels.",
+        "audio": "greeting_first_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_soon",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "soon"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "back already, sweetie? *giggles* couldn't even last the afternoon, could you.",
+        "audio": "greeting_soon_1.mp3"
+      },
+      {
+        "text": "ooh, that was fast... missed me already, lovely? you don't have to answer.",
+        "audio": "greeting_soon_2.mp3"
+      },
+      {
+        "text": "hi again so soon... that quiet little craving brought you right back, didn't it.",
+        "audio": "greeting_soon_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_back",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "back"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, delighted",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "there you are, sweetie... right on time. good girl.",
+        "audio": "greeting_back_1.mp3"
+      },
+      {
+        "text": "welcome back, lovely... shoes off, thoughts off. you know the routine.",
+        "audio": "greeting_back_2.mp3"
+      },
+      {
+        "text": "hi again, cutie... so happy you came back to me. sit down, let's begin.",
+        "audio": "greeting_back_3.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_while",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "while"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, knowing",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "there you are... a couple days away and still you came home. i knew you would, sweetie.",
+        "audio": "greeting_while_1.mp3"
+      },
+      {
+        "text": "look who's back... did the thoughts get loud without me, lovely?",
+        "audio": "greeting_while_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "greeting_long",
+    "trigger": "AppOpened",
+    "conditions": {
+      "away_bucket_eq": "long"
+    },
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, pointed",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "well... it's been a little while, hasn't it. and yet here you are. you never really leave, sweetie.",
+        "audio": "greeting_long_1.mp3"
+      },
+      {
+        "text": "look who finally drifted back... don't worry, lovely. we'll get you soft again.",
+        "audio": "greeting_long_2.mp3"
       }
     ]
   },
