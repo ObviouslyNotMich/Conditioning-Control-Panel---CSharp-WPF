@@ -41,6 +41,17 @@ namespace ConditioningControlPanel.Services
         private readonly Dictionary<string, int> _lastVariantIndex = new(StringComparer.OrdinalIgnoreCase);
         private DateTime _globalLastFireUtc = DateTime.MinValue;
 
+        // Audio filenames of the last few barks spoken across ALL rules — a soft, global de-dupe.
+        // Per-rule variant rotation (_usedVariants) only stops a rule repeating ITS OWN lines; it
+        // does nothing for the felt repetition of a high-frequency rule (flash/subliminal) cycling
+        // its small pool over a long session, nor for two rules echoing the same line back-to-back.
+        // Variant selection prefers a line whose audio isn't in this window — a preference, not a
+        // hard gate (if every candidate is recent we still speak rather than go silent).
+        private readonly Queue<string> _recentlySpoken = new();
+        private readonly HashSet<string> _recentlySpokenSet = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>How many distinct just-spoken lines to avoid replaying across all rules.</summary>
+        private const int RecentlySpokenMemory = 8;
+
         /// <summary>Global minimum gap between any two barks.</summary>
         private const int GlobalMinGapMs = 4000;
 
@@ -774,7 +785,7 @@ namespace ConditioningControlPanel.Services
 
             if (!decision.WouldFire) return (null, -1, null);
 
-            CommitFire(winner, decision.VariantIndex);
+            CommitFire(winner, decision.VariantIndex, resolved);
             return DryRun ? (null, -1, null) : (winner, decision.VariantIndex, resolved);
         }
 
@@ -1225,7 +1236,7 @@ namespace ConditioningControlPanel.Services
                 if (rule.Repeatable)
                 {
                     var used = _usedVariants.TryGetValue(rule.Id, out var set) ? set : null;
-                    idx = RandomUnused(pool.Count, used);
+                    idx = PickVariant(pool, used);
                     if (idx < 0)
                     {
                         // Exhausted → recycle. Reseed the used-set with the last-fired index so the
@@ -1234,7 +1245,7 @@ namespace ConditioningControlPanel.Services
                         if (_lastVariantIndex.TryGetValue(rule.Id, out var lastIdx))
                             reseed.Add(lastIdx);
                         _usedVariants[rule.Id] = reseed;
-                        idx = RandomUnused(pool.Count, reseed);
+                        idx = PickVariant(pool, reseed);
                         if (idx < 0) idx = 0; // safety (pool>1 means reseed has ≤1 entry, so unreachable)
                     }
                 }
@@ -1267,11 +1278,15 @@ namespace ConditioningControlPanel.Services
             return windowMs > 0 && (DateTime.UtcNow - _lastUserMessageUtc).TotalMilliseconds < windowMs;
         }
 
-        private void CommitFire(BarkRule rule, int variantIndex)
+        private void CommitFire(BarkRule rule, int variantIndex, List<BarkVariant> pool)
         {
             var now = DateTime.UtcNow;
             _lastFiredUtc[rule.Id] = now;
             _globalLastFireUtc = now;
+
+            // Feed the global recency window so the NEXT pick (any rule) avoids this exact line.
+            if (variantIndex >= 0 && variantIndex < pool.Count)
+                RememberSpoken(pool[variantIndex].Audio);
 
             // A fired safety bark holds the floor.
             if (rule.Class == BarkClass.Safety)
@@ -1306,19 +1321,44 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
-        /// A RANDOM index in [0,count) not present in <paramref name="used"/>, or -1 if all are used.
-        /// Random (not first-in-order) so a pool's play order is reshuffled every cycle — there's no
-        /// learnable rhythm, only the no-repeat-until-exhausted guarantee.
+        /// Choose a variant index for a repeatable pool. Two layers, both no-repeat:
+        ///  1. per-rule — only indices NOT in <paramref name="used"/> (the rule's own rotation set);
+        ///  2. global — among those, PREFER lines whose audio isn't in <see cref="_recentlySpokenSet"/>
+        ///     (the last few lines spoken across ALL rules), so a small high-frequency pool stops
+        ///     dominating a session and two rules can't echo the same line back-to-back.
+        /// Layer 2 is a soft preference: if every per-rule-unused line is also globally-recent we fall
+        /// back to the unused set rather than going silent. Random (not first-in-order) within the
+        /// chosen set so there's no learnable rhythm. Returns -1 only when every index is in
+        /// <paramref name="used"/> (caller recycles).
         /// </summary>
-        private int RandomUnused(int count, HashSet<int>? used)
+        private int PickVariant(List<BarkVariant> pool, HashSet<int>? used)
         {
-            // Small pools — gather the unused indices and pick one uniformly.
-            List<int>? candidates = null;
-            for (int i = 0; i < count; i++)
+            // Layer 1: per-rule no-repeat — gather indices not yet used this cycle.
+            List<int>? unused = null;
+            for (int i = 0; i < pool.Count; i++)
                 if (used == null || !used.Contains(i))
-                    (candidates ??= new List<int>()).Add(i);
-            if (candidates == null || candidates.Count == 0) return -1;
-            return candidates[_rng.Next(candidates.Count)];
+                    (unused ??= new List<int>()).Add(i);
+            if (unused == null || unused.Count == 0) return -1;
+
+            // Layer 2: global recency — prefer lines not spoken in the last RecentlySpokenMemory barks.
+            List<int>? fresh = null;
+            if (_recentlySpokenSet.Count > 0)
+                foreach (var i in unused)
+                    if (!_recentlySpokenSet.Contains(pool[i].Audio ?? string.Empty))
+                        (fresh ??= new List<int>()).Add(i);
+
+            var pick = fresh ?? unused;
+            return pick[_rng.Next(pick.Count)];
+        }
+
+        /// <summary>Record a just-spoken line's audio in the bounded global recency window.</summary>
+        private void RememberSpoken(string? audio)
+        {
+            if (string.IsNullOrEmpty(audio)) return;
+            if (!_recentlySpokenSet.Add(audio)) return; // already in-window
+            _recentlySpoken.Enqueue(audio);
+            while (_recentlySpoken.Count > RecentlySpokenMemory)
+                _recentlySpokenSet.Remove(_recentlySpoken.Dequeue());
         }
 
         // ===================== speak =====================
