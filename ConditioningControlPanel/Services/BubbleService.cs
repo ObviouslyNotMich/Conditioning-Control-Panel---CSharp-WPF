@@ -1613,7 +1613,7 @@ internal class Bubble
         {
             WindowStyle = WindowStyle.None,
             AllowsTransparency = true,
-            Background = Brushes.Transparent,
+            Background = null,   // content-only hit-testing (the centred grid); the quantized window margin passes clicks through. See spawn block.
             Topmost = true,
             ShowInTaskbar = false,
             ShowActivated = false,
@@ -1645,6 +1645,7 @@ internal class Bubble
     }
 
     private readonly Window _window;
+    private double _winDim;   // the (quantized) square window side this bubble uses; held so AnimateFrame can re-centre without resizing the window (see spawn — resizing churns the layered DIB)
     private System.Windows.Input.MouseButtonEventHandler? _winClickHandler;   // removed on death so the pooled window never roots a dead bubble
     private readonly Random _random;
     private readonly Action<Bubble>? _onPop;
@@ -2164,7 +2165,11 @@ internal class Bubble
             Width = _hitSize,
             Height = _hitSize,
             Background = Brushes.Transparent,
-            IsHitTestVisible = _isClickable
+            IsHitTestVisible = _isClickable,
+            // Centre the hit/visual inside the fixed-size window (the window is now sized to a
+            // quantized bucket, not snug to the bubble — see the spawn block below).
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
         };
         _grid.Children.Add(hitArea);         // Hit area first (behind)
         _grid.Children.Add(_bubbleImage);    // Image on top
@@ -2186,10 +2191,22 @@ internal class Bubble
         // Every per-bubble property below is (re)set on each reuse so a recycled shell carries
         // no state from its previous bubble.
         _window = RentWindow();
-        _window.Width = _size + _winPad * 2;
-        _window.Height = _size + _winPad * 2;
-        _window.Left = _posX - _winPad;
-        _window.Top = _posY - _winPad;
+        // Size the window to a QUANTIZED bucket, not snug to the bubble, and only assign Width/Height
+        // when the pooled shell isn't already that size. Resizing an AllowsTransparency window
+        // reallocates its native layered DIB back-buffer (a GDI object) every time; per-spawn resize
+        // of recycled windows was the chaos OOM — ~600 rooted GDI/DIB handles leaked per run, native
+        // working set climbing ~1GB/run while the managed heap stayed flat (a forced GC never freed
+        // them; confirmed via telemetry). Bucketing to 128px means consecutive bubbles on the same
+        // pooled shell reuse its existing surface (no realloc); the bubble centres inside.
+        double winNeed = Math.Max(_size, _hitSize) + _winPad * 2;
+        _winDim = Math.Ceiling(winNeed / 128.0) * 128.0;
+        if (_window.Width != _winDim) { _window.Width = _winDim; _window.Height = _winDim; }
+        // Null (not Transparent) background so the quantized margin around the centred _hitSize grid
+        // is NOT hit-testable — clicks there pass through; the click area stays exactly the grid.
+        _window.Background = null;
+        double winCx = _posX + _size / 2.0, winCy = _posY + _size / 2.0;
+        _window.Left = winCx - _winDim / 2.0;
+        _window.Top = winCy - _winDim / 2.0;
         _window.Content = _grid;
         _window.Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow;
         _window.IsHitTestVisible = _isClickable;
@@ -2807,8 +2824,9 @@ internal class Bubble
                 }
             }
             _window.Opacity = opacity;
-            _window.Left = _posX - _winPad + jx;
-            _window.Top = _posY - _winPad + jy;
+            // Keep the fixed-size window centred on the bubble (window side = _winDim, not _size+pad).
+            _window.Left = _posX + _size / 2.0 - _winDim / 2.0 + jx;
+            _window.Top = _posY + _size / 2.0 - _winDim / 2.0 + jy;
         }
         catch (Exception ex)
         {
@@ -3709,7 +3727,10 @@ internal class Bubble
     {
         try
         {
-            return new Rect(_window.Left, _window.Top, _window.Width, _window.Height);
+            // Bubble hit area from geometry, NOT the window rect — the window is now a quantized
+            // bucket larger than the bubble, so its rect would over-report the gaze target.
+            double cx = _posX + _size / 2.0, cy = _posY + _size / 2.0;
+            return new Rect(cx - _hitSize / 2.0, cy - _hitSize / 2.0, _hitSize, _hitSize);
         }
         catch
         {

@@ -517,24 +517,38 @@ namespace ConditioningControlPanel.Services
                     }
                     else
                     {
-                        // Load static image, downscaling to the decode cap if larger.
-                        using var bitmap = new System.Drawing.Bitmap(path);
-                        var (tw, th) = ScaledSize(bitmap.Width, bitmap.Height, decodeMax);
-                        BitmapSource bitmapSource;
-                        if (tw != bitmap.Width || th != bitmap.Height)
+                        // Decode the static image through WIC (WPF BitmapImage), NOT System.Drawing/GDI+.
+                        // GDI+ allocates decoded pixels on the native Win32 heap and bloats/leaks it under
+                        // the high-frequency flash decode churn — VMMap pinned ~1.3GB in the native heap as
+                        // the chaos OOM, while the managed GC heap, GDI handles and MILCore all stayed small.
+                        // WIC decodes into a WPF-owned buffer and DecodePixelWidth/Height scales DURING the
+                        // decode (no full-size intermediate, nothing on the GDI+ heap).
+                        int srcW = 0, srcH = 0;
+                        try
                         {
-                            using var scaled = DownscaleBitmap(bitmap, tw, th);
-                            bitmapSource = ConvertToBitmapSource(scaled);
+                            var probe = BitmapFrame.Create(new Uri(path, UriKind.Absolute),
+                                BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
+                            srcW = probe.PixelWidth; srcH = probe.PixelHeight;
                         }
-                        else
-                        {
-                            bitmapSource = ConvertToBitmapSource(bitmap);
-                        }
-                        bitmapSource.Freeze();
+                        catch { }
 
-                        data.Frames.Add(bitmapSource);
-                        data.Width = tw;
-                        data.Height = th;
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;                  // decode now, release the file handle
+                        bmp.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                        bmp.UriSource = new Uri(path, UriKind.Absolute);
+                        // Only DOWNSCALE (never upscale a small source): cap the larger edge to decodeMax.
+                        if (srcW > decodeMax || srcH > decodeMax)
+                        {
+                            if (srcW >= srcH) bmp.DecodePixelWidth = decodeMax;
+                            else bmp.DecodePixelHeight = decodeMax;
+                        }
+                        bmp.EndInit();
+                        bmp.Freeze();
+
+                        data.Frames.Add(bmp);
+                        data.Width = bmp.PixelWidth;
+                        data.Height = bmp.PixelHeight;
                         data.FrameDelay = TimeSpan.FromMilliseconds(100);
                     }
 
@@ -1104,6 +1118,7 @@ namespace ConditioningControlPanel.Services
 
                     window.Background = System.Windows.Media.Brushes.Transparent;
                     window.Content = border;
+                    window.GlowEffect = glowEffect;   // tracked so SafeCloseFlashWindow can stop its animations + free the native blur target
 
                     // Expand window to accommodate glow padding
                     var padding = blurRadius / 2;
@@ -2085,7 +2100,26 @@ namespace ConditioningControlPanel.Services
                     window.ImageControl = null;
                 }
                 window.Frames.Clear();
+
+                // Stop the glow's animations BEFORE dropping the content. A lucky proc starts
+                // RepeatBehavior.Forever blur+opacity animations on this DropShadowEffect; a Forever
+                // animation keeps its target pinned by the app-global timing manager (it survives
+                // run teardown) until cleared with BeginAnimation(prop, null). The effect pins a
+                // native GPU blur render-target, so leaving it animated leaked native memory every
+                // glowed flash — the chaos-mode OOM climb (managed heap stayed flat the whole time).
+                if (window.GlowEffect is { } glow)
+                {
+                    try
+                    {
+                        glow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.BlurRadiusProperty, null);
+                        glow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, null);
+                    }
+                    catch { }
+                    window.GlowEffect = null;
+                }
+
                 window.Content = null;
+                window.Effect = null;   // belt-and-suspenders: ensure no effect render-target lingers on the pooled shell
                 window.IsFadingOut = false;
                 window.Opacity = 0;
 
@@ -2197,6 +2231,16 @@ namespace ConditioningControlPanel.Services
         public int CurrentFrameIndex { get; set; }
         public Image? ImageControl { get; set; }
         public bool IsClickable { get; set; }
+
+        /// <summary>
+        /// The lucky/sparkle glow effect applied this spawn, if any. Held so the pool-return path
+        /// can stop its animations: a lucky proc starts RepeatBehavior.Forever blur+opacity
+        /// animations on this DropShadowEffect, and a Forever animation keeps its target (plus the
+        /// effect's native GPU blur render-target) pinned by the global timing manager until it is
+        /// explicitly cleared with BeginAnimation(prop, null). Without that, every glowed flash
+        /// leaked a native render surface that survived run teardown — the chaos OOM climb.
+        /// </summary>
+        public System.Windows.Media.Effects.DropShadowEffect? GlowEffect { get; set; }
 
         /// <summary>
         /// Per-window cancellation source — cancel this to begin fade-out for THIS window only~ 🌙

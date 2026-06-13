@@ -895,10 +895,17 @@ namespace ConditioningControlPanel
                 .MinimumLevel.Information() // Security: Changed from Debug to avoid exposing sensitive data in logs
                 .WriteTo.File(Path.Combine(logPath, "app-.log"),
                     rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 7)
+                    retainedFileCountLimit: 7,
+                    // Force a disk flush each second so the LAST lines survive a hard process death
+                    // (a native OOM kills the process with no managed unwind — see chaos OOM telemetry).
+                    flushToDiskInterval: TimeSpan.FromSeconds(1))
                 .CreateLogger();
 
-            Logger.Information("Application starting...");
+            // Log the RUNTIME version (not just the source constant) + memory baseline. A stale
+            // publish can ship old code under a new label; this line is how we catch that, and the
+            // working-set baseline anchors the chaos OOM telemetry.
+            Logger.Information("Application starting v{Version} | workingSet {WS}MB",
+                Services.UpdateService.AppVersion, Environment.WorkingSet / (1024 * 1024));
 
             // Hang forensics: the recurring freezes are render-thread deadlocks (Application
             // Hang 1002, nothing in crash.log). The watchdog writes one minidump per session

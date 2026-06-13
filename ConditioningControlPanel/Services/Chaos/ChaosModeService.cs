@@ -671,7 +671,19 @@ public sealed class ChaosModeService
         // mandatory-video case RaiseGameLayerAboveVideo already covers. A Topmost window still sinks
         // under another process's topmost/fullscreen window, so we re-kick HWND_TOPMOST (focus-free,
         // cheap) ~once a second. Throttled so it never churns z-order or fights clicks every frame.
-        if (++_chromeRaiseTick >= 4) { _chromeRaiseTick = 0; KeepChromeTopmost(); }
+        if (++_chromeRaiseTick >= 4)
+        {
+            _chromeRaiseTick = 0;
+            KeepChromeTopmost();
+            // While a mandatory video is on screen, re-lift the WHOLE game layer above it ~once a
+            // second — not just the chrome. The game layer is raised above the video once at video
+            // start, but anything that disturbs the topmost band afterwards (a full-screen SUBLIMINAL
+            // re-asserting HWND_TOPMOST on each show, a video attention-kick, a stray click) can leave
+            // the video sitting over the bubbles, and nothing re-lifts them until new bubbles spawn —
+            // the "video pops over the bubbles, then they come back" report. Gated to video-playing so
+            // a normal run never pays this z-order churn.
+            if (App.Video?.IsPlaying == true) RaiseGameLayerAboveVideo();
+        }
 
         double dt = 0.25;
         double elapsed = _state.ElapsedSec + dt;
@@ -833,7 +845,10 @@ public sealed class ChaosModeService
         double effIntensity = Math.Clamp(intensity + (cfg.DifficultyMult - 1.0) * 0.15, 0, 1);
         double diffFactor = cfg.DifficultyMult;
 
-        int maxConcurrent = (int)Math.Round((4 + intensity * 7) * Math.Sqrt(diffFactor));
+        // Field density: power-ups (ripple/freeze/chains/sweeps) clear the screen in bulk, so the
+        // cap has to be high enough that the field refills instead of sitting empty. 6 early → 16
+        // late (×√difficulty). Bumped 2026-06-13 from 4→11 — runs played "always cleared".
+        int maxConcurrent = (int)Math.Round((6 + intensity * 10) * Math.Sqrt(diffFactor));
         // Behavioral bubbles (Echo/Chaperone/Tease/Bound): each rolls to REPLACE this ordinary
         // spawn slot, so the field density stays the same. Darters still roll below either way.
         bool behavioralSpawned = (App.Bubbles?.ActiveBubbles ?? 0) < maxConcurrent
@@ -848,7 +863,7 @@ public sealed class ChaosModeService
             double waveLeft = waveLen - (_state.ElapsedSec % waveLen);
             double runLeft = _state.RunDurationSec - _state.ElapsedSec;
             if (enabled != null && enabled.Contains("video")
-                && (HeavyEffectActive || waveLeft < 20 || runLeft < 25))
+                && (HeavyEffectActive || waveLeft < 14 || runLeft < 18))
             {
                 enabled = enabled.Where(id => id != "video").ToList();
             }
@@ -933,7 +948,10 @@ public sealed class ChaosModeService
             }
         }
 
-        double interval = (1300 - intensity * 850) / diffFactor;
+        // Refill cadence: 1000ms early → 320ms late (÷difficulty), steeper late ramp so the field
+        // gets "progressively faster" as the run deepens. Quickened 2026-06-13 from 1300→450 to keep
+        // the bigger cap actually filled against bulk-clearing power-ups.
+        double interval = (1000 - intensity * 680) / diffFactor;
         // SpawnRateMult scales SPAWNS, so it divides the interval: 0.6 rate = fewer
         // spawns = a LONGER gap between ticks (the scripted run 1 breathes at ~0.6).
         interval /= Math.Clamp(cfg.SpawnRateMult, 0.1, 10.0);
@@ -1853,7 +1871,7 @@ public sealed class ChaosModeService
     /// video windows + disposing LibVLC players runs async for several seconds; raising the
     /// cascade's layered window into that churn wedged the render thread twice (22:41, 22:50
     /// freezes — both were "cascade ~4s after video teardown").</summary>
-    private const double VIDEO_TEARDOWN_QUARANTINE_SEC = 6;
+    private const double VIDEO_TEARDOWN_QUARANTINE_SEC = 3;   // 2026-06-13: loosened 6→3 — cascades may now follow a video much sooner (tail-overlap with teardown), the keep-alive cascade window no longer churns layered HWNDs into LibVLC disposal
 
     private void ExtendHeavyQuarantine(double sec)
     {

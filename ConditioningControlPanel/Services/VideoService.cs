@@ -1191,6 +1191,15 @@ namespace ConditioningControlPanel.Services
                         App.Logger?.Information("VideoService: Created {Count} video windows (DualMonitor={Enabled})",
                             _windows.Count, App.Settings.Current.DualMonitorEnabled);
 
+                        // A video that fires mid-chaos-run must never grab z-order back from the
+                        // run's bubbles/HUD. Mark every video window WS_EX_NOACTIVATE so Windows
+                        // can't activate it on a click or hand it focus when a subliminal/target/
+                        // bubble above it disappears — that focus-driven raise was the flicker.
+                        // The chaos VideoStarted handler raises the game layer above it once; with
+                        // no-activate it stays put for the whole video. See MakeNonActivating.
+                        if (App.Chaos?.IsRunning == true)
+                            foreach (var w in _windows) MakeNonActivating(w);
+
                         // Ambient bubble game: pause + clear so it doesn't fight the video for
                         // clicks / z-order (no-op during a chaos run, which isn't "running").
                         // A chaos run keeps its bubbles + HUD alive and lifts them back above the
@@ -2733,6 +2742,43 @@ namespace ConditioningControlPanel.Services
         private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+
+        /// <summary>
+        /// Marks a fullscreen video window as WS_EX_NOACTIVATE so Windows will never make it the
+        /// foreground/active window. Used ONLY for videos that fire mid-chaos-run: such a window can
+        /// never raise itself to the top of the topmost band by being clicked, or when the current
+        /// foreground window (a flashing subliminal, an expiring attention target, the bubble the
+        /// player just popped) disappears and Windows hands focus to the next topmost window. Without
+        /// this the video kept stealing z-order above the chaos bubbles and the reactive ~1s re-raise
+        /// only pulled them back a second later — the visible "video flickers over the elements, then
+        /// they come back, repeat". The window still renders and still receives WPF mouse events via
+        /// its click overlay (NOACTIVATE blocks activation, not messages); the chaos HUD owns the
+        /// keyboard during a run, so the video forgoing focus costs nothing. Idempotent.
+        /// </summary>
+        private void MakeNonActivating(Window win)
+        {
+            try
+            {
+                var hwnd = new WindowInteropHelper(win).Handle;
+                if (hwnd == IntPtr.Zero) return;
+                int ex = GetWindowLong(hwnd, GWL_EXSTYLE);
+                if ((ex & WS_EX_NOACTIVATE) == 0)
+                    SetWindowLong(hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("MakeNonActivating failed: {Error}", ex.Message);
+            }
+        }
 
         /// <summary>
         /// Disables input on LibVLC's native child HWNDs to prevent mouse/keyboard events
