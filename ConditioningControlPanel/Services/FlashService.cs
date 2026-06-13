@@ -41,6 +41,11 @@ namespace ConditioningControlPanel.Services
         // UI-thread only (heartbeat/spawn/close all run on the dispatcher).
         private readonly Stack<FlashWindow> _windowPool = new();
         private const int WINDOW_POOL_MAX = 12;
+        // Hard cap on concurrent live flash windows. Each is a WS_EX_LAYERED topmost window with
+        // its own native compositor surface; 30 was enough to back up the render thread under chaos
+        // (which both starved CompleteRender into the resize deadlock and drove the native-memory
+        // ramp — managed heap stayed ~82MB while private memory hit 3GB). 10 relieves both.
+        private const int MAX_CONCURRENT_FLASH = 10;
         private List<string> _imageList = new();  // Cached image list for random selection
         private List<(string PackId, PackFileEntry File)> _packImageList = new();  // Cached pack images for random selection
         private Queue<string> _soundQueue = new();  // Performance: Changed to Queue for O(1) dequeue
@@ -957,10 +962,10 @@ namespace ConditioningControlPanel.Services
         {
             if (!_isRunning && !_oneShotActive) return;
 
-            // Prevent memory explosion from too many concurrent flash windows
+            // Prevent memory explosion / compositor backup from too many concurrent flash windows
             lock (_lockObj)
             {
-                if (_activeWindows.Count >= 30) return;
+                if (_activeWindows.Count >= MAX_CONCURRENT_FLASH) return;
             }
 
             // Create per-window CTS with automatic cancellation after the lifetime expires~ ✨
@@ -989,11 +994,14 @@ namespace ConditioningControlPanel.Services
                 }
 
                 // Recycled from the pool when possible — all per-spawn state must be (re)set here.
-                window = AcquireFlashWindow();
+                // The window comes back already at geom's size (matched from the pool or freshly
+                // created at that size). NEVER assign Width/Height here: changing the size of an
+                // already-realized layered window forces a synchronous MediaContext.CompleteRender
+                // on the compositor and deadlocks the UI thread under chaos load (see AcquireFlashWindow).
+                // Left/Top is a move (no surface resize) and is safe on a live window.
+                window = AcquireFlashWindow(geom.Width, geom.Height);
                 window.Left = finalX;
                 window.Top = finalY;
-                window.Width = geom.Width;
-                window.Height = geom.Height;
                 window.Frames = imageData.Frames;
                 window.FrameDelay = imageData.FrameDelay;
                 window.StartTime = DateTime.Now;
@@ -2007,12 +2015,28 @@ namespace ConditioningControlPanel.Services
         /// one-time hooks (click handler, CTS safety net, Alt+Tab hiding) are wired here
         /// exactly once; everything per-spawn is assigned by SpawnFlashWindow.
         /// </summary>
-        private FlashWindow AcquireFlashWindow()
+        private FlashWindow AcquireFlashWindow(int width, int height)
         {
-            while (_windowPool.Count > 0)
+            // Reuse ONLY a pooled window whose size already matches the request. Resizing a
+            // realized layered window is the render-thread-deadlock trigger (dump-confirmed
+            // 2026-06-13: SetValue(Width) -> OnResize -> MediaContext.CompleteRender wedges the
+            // UI thread on a backed-up compositor), so a size mismatch gets a fresh window
+            // sized BEFORE its first Show() instead — never a live resize.
+            if (_windowPool.Count > 0)
             {
-                var pooled = _windowPool.Pop();
-                if (pooled.IsLoaded) return pooled;   // skip any window that got closed externally
+                FlashWindow? match = null;
+                var keep = new List<FlashWindow>(_windowPool.Count);
+                while (_windowPool.Count > 0)
+                {
+                    var pooled = _windowPool.Pop();
+                    if (!pooled.IsLoaded) continue;   // drop any window that got closed externally
+                    if (match == null && (int)pooled.Width == width && (int)pooled.Height == height)
+                        match = pooled;
+                    else
+                        keep.Add(pooled);
+                }
+                foreach (var w2 in keep) _windowPool.Push(w2);   // restore the non-matching windows
+                if (match != null) return match;
             }
 
             var w = new FlashWindow
@@ -2026,6 +2050,9 @@ namespace ConditioningControlPanel.Services
                 ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation = WindowStartupLocation.Manual,
                 Opacity = 0,
+                // Size the shell before it is ever shown (no HWND yet => no live resize).
+                Width = width,
+                Height = height,
             };
 
             // One-time click handler — gated on the per-spawn IsClickable flag so a
