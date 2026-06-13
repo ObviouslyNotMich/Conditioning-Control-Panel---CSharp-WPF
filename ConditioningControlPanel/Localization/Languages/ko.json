@@ -1157,6 +1157,7 @@
   "btn_enable_selected": "선택 항목 활성화",
   "btn_disable_selected": "선택 항목 비활성화",
   "label_filter": "필터:",
+  "label_search_phrases": "🔍 검색…",
   "btn_add_phrase": "+ 문구 추가",
   "btn_remove_selected": "선택 항목 제거",
   "dialog_customize_ai_companion": "AI 컴패니언 커스터마이즈",

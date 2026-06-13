@@ -15,6 +15,16 @@ namespace ConditioningControlPanel.Models
         public string Category { get; set; } = "";
         public bool IsBuiltIn { get; set; }
 
+        /// <summary>True for reactive "bark" voicelines surfaced from <see cref="Services.BarkService"/>.</summary>
+        public bool IsBark { get; set; }
+
+        /// <summary>
+        /// Display-only label the Phrase Manager groups rows under. For barks this is "Bark · {trigger}"
+        /// so each rule gets its own header; for everything else it's the category's friendly name. Set
+        /// by the manager when building rows — not persisted.
+        /// </summary>
+        public string GroupLabel { get; set; } = "";
+
         private bool _isEnabled = true;
         public bool IsEnabled
         {
@@ -38,6 +48,18 @@ namespace ConditioningControlPanel.Models
         public string? AudioFolder { get; set; }
 
         public bool HasAudio => !string.IsNullOrEmpty(AudioFileName) && AudioFileExists;
+
+        /// <summary>Voice-line phrases derive their text from the audio filename (see CompanionPhraseService.VoiceLineCategory).</summary>
+        public bool IsVoiceLine => Category == "VoiceLine";
+
+        /// <summary>What the audio column shows: built-in voice lines have inherent audio (no filename to surface).</summary>
+        public string AudioDisplayName => (IsVoiceLine && IsBuiltIn) ? "Built-in audio" : (AudioFileName ?? "");
+
+        /// <summary>Built-in voice-line and bark audio is inherent to the file, so it can't be cleared; everything else with audio can.</summary>
+        public bool CanClearAudio => HasAudio && !((IsVoiceLine || IsBark) && IsBuiltIn);
+
+        /// <summary>Barks play their own packaged audio (BarkService resolves it), so a manager-side override is meaningless — hide Browse for them.</summary>
+        public bool CanBrowseAudio => !IsBark;
 
         public bool AudioFileExists
         {

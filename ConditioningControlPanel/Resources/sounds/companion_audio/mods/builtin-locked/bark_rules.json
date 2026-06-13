@@ -345,7 +345,7 @@
       "blink_count_lte": 5
     },
     "priority": 150,
-    "cooldown_ms": 0,
+    "cooldown_ms": 8000,
     "repeatable": false,
     "scope": "session",
     "mood": "teasing",
@@ -367,7 +367,8 @@
         "text": "keep going... each one's a little surrender... and i collect them all.",
         "audio": "blink_t3_4.mp3"
       }
-    ]
+    ],
+    "chance": 0.7
   },
   {
     "id": "blink_t4",
@@ -377,7 +378,7 @@
       "blink_count_lte": 10
     },
     "priority": 150,
-    "cooldown_ms": 0,
+    "cooldown_ms": 12000,
     "repeatable": false,
     "scope": "session",
     "mood": "teasing, smug",
@@ -399,7 +400,8 @@
         "text": "nearly ten... you've stopped fighting the reflex. exactly how i like you.",
         "audio": "blink_t4_4.mp3"
       }
-    ]
+    ],
+    "chance": 0.5
   },
   {
     "id": "blink_t5",
@@ -408,7 +410,7 @@
       "blink_count_gt": 10
     },
     "priority": 150,
-    "cooldown_ms": 0,
+    "cooldown_ms": 20000,
     "repeatable": false,
     "scope": "session",
     "mood": "smug, pointed",
@@ -430,7 +432,8 @@
         "text": "you blink for me now without a thought... that's what being kept means, sweet thing.",
         "audio": "blink_t5_4.mp3"
       }
-    ]
+    ],
+    "chance": 0.3
   },
   {
     "id": "hold_success",
@@ -611,7 +614,7 @@
     "id": "face_found",
     "trigger": "FaceFound",
     "priority": 200,
-    "cooldown_ms": 0,
+    "cooldown_ms": 20000,
     "repeatable": true,
     "scope": "session",
     "mood": "warm",
@@ -629,7 +632,8 @@
         "text": "you came back into view... i was getting bored of an empty frame, sweet thing.",
         "audio": "face_found_3.mp3"
       }
-    ]
+    ],
+    "chance": 0.7
   },
   {
     "id": "cam_denied",

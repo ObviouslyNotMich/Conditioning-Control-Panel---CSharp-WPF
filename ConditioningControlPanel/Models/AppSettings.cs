@@ -370,6 +370,31 @@ namespace ConditioningControlPanel.Models
         public bool IsBarkFired(string key) =>
             !string.IsNullOrEmpty(key) && _barkLifetimeFired.Contains(key);
 
+        private Dictionary<string, List<string>> _barkVariantRotation = new();
+        /// <summary>
+        /// Persisted per-rule variant rotation: rule id → bark line ids (BarkService.BarkLineId)
+        /// already spoken in the CURRENT cycle. Carries the no-repeat-until-exhausted guarantee across
+        /// sessions so a rule's pool doesn't restart every launch (the main cause of "same few" webcam
+        /// lines). Reset for a rule when its pool recycles.
+        /// </summary>
+        public Dictionary<string, List<string>> BarkVariantRotation
+        {
+            get => _barkVariantRotation;
+            set { _barkVariantRotation = value ?? new(); OnPropertyChanged(); }
+        }
+
+        private List<string> _barkIdleRotation = new();
+        /// <summary>
+        /// Persisted idle-bark rotation: rule ids of idle lines already played this cycle (idle lines are
+        /// single-variant rules, tracked by id). Same cross-session no-repeat intent as
+        /// <see cref="BarkVariantRotation"/>. Reset when the idle pool is exhausted.
+        /// </summary>
+        public List<string> BarkIdleRotation
+        {
+            get => _barkIdleRotation;
+            set { _barkIdleRotation = value ?? new(); OnPropertyChanged(); }
+        }
+
         #endregion
 
         private DateTime? _lastDailyQuestDate = null;

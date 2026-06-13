@@ -1139,6 +1139,7 @@
   "btn_enable_selected": "Включить выбранные",
   "btn_disable_selected": "Выключить выбранные",
   "label_filter": "Фильтр:",
+  "label_search_phrases": "🔍 Поиск…",
   "btn_add_phrase": "+ Добавить фразу",
   "btn_remove_selected": "Удалить выбранные",
   "dialog_customize_ai_companion": "Настройка ИИ-компаньона",

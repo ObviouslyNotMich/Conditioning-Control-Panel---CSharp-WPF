@@ -1825,6 +1825,7 @@
   "btn_enable_selected": "启用选中",
   "btn_disable_selected": "禁用选中",
   "label_filter": "筛选：",
+  "label_search_phrases": "🔍 搜索…",
   "btn_add_phrase": "+ 添加短语",
   "btn_remove_selected": "移除选中",
   "dialog_customize_ai_companion": "自定义 AI 伙伴",

@@ -369,7 +369,7 @@
       "blink_count_lte": 5
     },
     "priority": 150,
-    "cooldown_ms": 0,
+    "cooldown_ms": 8000,
     "repeatable": false,
     "scope": "session",
     "mood": "teasing",
@@ -403,7 +403,8 @@
         "text": "your eyes are doing the work now, lovely. fluttering, soaking it in. you don't even have to think.",
         "audio": "blink_mosaic_ext_3.mp3"
       }
-    ]
+    ],
+    "chance": 0.7
   },
   {
     "id": "blink_t4",
@@ -413,7 +414,7 @@
       "blink_count_lte": 10
     },
     "priority": 150,
-    "cooldown_ms": 0,
+    "cooldown_ms": 12000,
     "repeatable": false,
     "scope": "session",
     "mood": "teasing, smug",
@@ -435,7 +436,8 @@
         "text": "almost double digits... you're not even trying to hold them. perfect, Bambi.",
         "audio": "blink_t4_4.mp3"
       }
-    ]
+    ],
+    "chance": 0.5
   },
   {
     "id": "blink_t5",
@@ -444,7 +446,7 @@
       "blink_count_gt": 10
     },
     "priority": 150,
-    "cooldown_ms": 0,
+    "cooldown_ms": 20000,
     "repeatable": false,
     "scope": "session",
     "mood": "smug, pointed",
@@ -466,7 +468,8 @@
         "text": "you blink for me now without thinking... that's the whole point of being Bambi.",
         "audio": "blink_t5_4.mp3"
       }
-    ]
+    ],
+    "chance": 0.3
   },
   {
     "id": "hold_success",
@@ -655,7 +658,7 @@
     "id": "face_found",
     "trigger": "FaceFound",
     "priority": 200,
-    "cooldown_ms": 0,
+    "cooldown_ms": 20000,
     "repeatable": true,
     "scope": "session",
     "mood": "warm",
@@ -673,7 +676,8 @@
         "text": "you came back into frame... Bambi was getting lonely out of sight, wasn't she.",
         "audio": "face_found_3.mp3"
       }
-    ]
+    ],
+    "chance": 0.7
   },
   {
     "id": "cam_denied",

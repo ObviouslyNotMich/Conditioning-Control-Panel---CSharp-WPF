@@ -1157,6 +1157,7 @@
   "btn_enable_selected": "選択を有効化",
   "btn_disable_selected": "選択を無効化",
   "label_filter": "フィルター：",
+  "label_search_phrases": "🔍 検索…",
   "btn_add_phrase": "+ フレーズ追加",
   "btn_remove_selected": "選択を削除",
   "dialog_customize_ai_companion": "AIコンパニオンのカスタマイズ",

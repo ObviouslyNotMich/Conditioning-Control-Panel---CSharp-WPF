@@ -229,6 +229,30 @@ namespace ConditioningControlPanel.Services
                 });
             }
 
+            // Reactive "bark" voicelines for the active mod (BarkService). Treated as built-in: the
+            // "Bark:" id prefix shares DisabledPhraseIds / RemovedPhraseIds, so toggling/hiding routes
+            // through the same path and BarkService.ResolvePool drops disabled lines at speak time.
+            var barkLines = App.Bark?.GetAllBarkLines();
+            if (barkLines != null)
+            {
+                foreach (var b in barkLines)
+                {
+                    if (removedIds.Contains(b.LineId)) continue;
+                    result.Add(new CompanionPhrase
+                    {
+                        Id = b.LineId,
+                        Text = b.Text,
+                        Category = "Bark",
+                        IsBark = true,
+                        GroupLabel = "Bark · " + b.Trigger,
+                        IsBuiltIn = true,
+                        IsEnabled = !disabledIds.Contains(b.LineId),
+                        AudioFileName = b.AudioFileName,
+                        AudioFolder = b.AudioFolder
+                    });
+                }
+            }
+
             return result;
         }
 
