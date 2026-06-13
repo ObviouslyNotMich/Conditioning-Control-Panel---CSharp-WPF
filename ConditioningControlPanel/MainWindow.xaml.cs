@@ -24312,7 +24312,12 @@ namespace ConditioningControlPanel
             _exitRequested = true;
             EnsureSessionRestoredForExit();
             SaveSettings();
-            Close(); // This will now actually close since _exitRequested is true
+            // Under ShutdownMode=OnLastWindowClose, Close()ing only the main window leaves the
+            // avatar tube and pooled keep-alive overlay windows (Flash/Subliminal/Chaos) alive —
+            // especially right after a Chaos run — so the app lingered headless and never reached
+            // App.OnExit/Environment.Exit. Shutdown() closes ALL windows (this window still runs
+            // its _exitRequested cleanup via OnClosing) and fires OnExit. Matches the tray Exit path.
+            Application.Current.Shutdown();
         }
 
         private void BtnMainHelp_Click(object sender, RoutedEventArgs e)
