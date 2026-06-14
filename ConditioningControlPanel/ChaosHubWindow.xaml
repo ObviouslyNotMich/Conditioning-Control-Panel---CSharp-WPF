@@ -314,6 +314,13 @@
                                 <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
                                 <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
                                 <CheckBox x:Name="ChkAnnouncer" Style="{StaticResource Chk}" Content="Announcements" Margin="0,8,0,0"/>
+                                <TextBlock Text="THE MADAM" Style="{StaticResource SectionHdr}" Margin="0,12,0,0"/>
+                                <CheckBox x:Name="ChkNarrative" Style="{StaticResource Chk}" Content="Narrator (voiced reactions)"
+                                          ToolTip="A reactive narrator speaks voiced + text lines during a descent."/>
+                                <CheckBox x:Name="ChkBackdrop" Style="{StaticResource Chk}" Content="Zone backdrops" Margin="0,4,0,0"
+                                          ToolTip="Per-zone backdrop plates under the bubbles. Off = classic Chaos over your live desktop."/>
+                                <TextBlock Text="Backdrop opacity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
+                                <Slider x:Name="SldBackdropOpacity" Minimum="0" Maximum="1"/>
                             </StackPanel>
                         </Border>
 

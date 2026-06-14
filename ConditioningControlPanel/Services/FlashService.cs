@@ -113,6 +113,25 @@ namespace ConditioningControlPanel.Services
         public int ActiveWindowCount => _activeWindows.Count;
 
         /// <summary>
+        /// Re-assert HWND_TOPMOST on every live flash window. Flashes (and gif cascades) are the
+        /// top attention layer by design, sitting ABOVE the chaos bubbles. The chaos run re-raises
+        /// its bubbles over the HUD/boons/active-skill chrome ~once a second; this lets the chaos
+        /// layer kick the flashes back on top afterwards so an already-showing flash is never
+        /// briefly buried under a re-raised bubble. Focus-free, cheap, no-op when nothing is live.
+        /// </summary>
+        public void RaiseAllToFront()
+        {
+            DispatcherHelper.RunOnUI(() =>
+            {
+                lock (_lockObj)
+                {
+                    foreach (var w in _activeWindows)
+                        if (!w.IsFadingOut) ForceTopmost(w);
+                }
+            });
+        }
+
+        /// <summary>
         /// File paths of images shown by the most recent FlashDisplayed event.
         /// Snapshot is captured immediately before the event fires so subscribers
         /// can read it synchronously. Empty when no flash has displayed yet.

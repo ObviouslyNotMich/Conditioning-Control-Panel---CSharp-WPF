@@ -2135,6 +2135,30 @@ namespace ConditioningControlPanel.Models
             set { _chaosAnnouncerEnabled = value; OnPropertyChanged(); }
         }
 
+        // ---- Narrative layer (the Madam) + per-zone backdrops ----
+        private bool _narrativeModeEnabled = true;
+        /// <summary>Master switch for the reactive narrator (voiced + text lines) during a Chaos run.</summary>
+        public bool NarrativeModeEnabled
+        {
+            get => _narrativeModeEnabled;
+            set { _narrativeModeEnabled = value; OnPropertyChanged(); }
+        }
+        private bool _backdropEnabled = true;
+        /// <summary>Show per-zone backdrop plates under the chaos bubbles. When OFF, no backdrop window
+        /// spawns and classic Chaos keeps its desktop click-through behavior exactly.</summary>
+        public bool BackdropEnabled
+        {
+            get => _backdropEnabled;
+            set { _backdropEnabled = value; OnPropertyChanged(); }
+        }
+        private double _backdropOpacity = 0.55;
+        /// <summary>Backdrop window opacity (0 = invisible, 1 = fully covers desktop). Default 0.55 lets the desktop bleed through.</summary>
+        public double BackdropOpacity
+        {
+            get => _backdropOpacity;
+            set { _backdropOpacity = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
+        }
+
         private string _chaosAccessoryKey1 = "Q";
         /// <summary>Keybind for accessory pocket 1 (reserved: active-use accessories are a future system).</summary>
         public string ChaosAccessoryKey1

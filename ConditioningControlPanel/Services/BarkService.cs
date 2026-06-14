@@ -1274,6 +1274,11 @@ namespace ConditioningControlPanel.Services
                 if (App.Audio?.IsWhisperAudioPlaying == true)
                     return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = "whisper-active" };
 
+                // Don't talk over the Chaos narrator (the Madam). She holds the floor; the next
+                // eligible event speaks once she's done (anti-stale drops stale queued barks naturally).
+                if (Services.Chaos.ChaosNarrator.IsPlaying)
+                    return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = "narrator-active" };
+
                 // Chat-suppression: don't talk over an active conversation.
                 int window = App.Settings?.Current?.BarkChatSuppressionMs ?? 10000;
                 if (CompanionBusy(window))

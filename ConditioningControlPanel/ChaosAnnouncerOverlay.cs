@@ -11,7 +11,7 @@ using System.Windows.Threading;
 namespace ConditioningControlPanel;
 
 /// <summary>What a Chaos announcement is about — drives the accent palette.</summary>
-public enum ChaosAnnounceKind { Mantra, Temptation, Willpower, Depth, Streak, Item, PowerUp }
+public enum ChaosAnnounceKind { Mantra, Temptation, Willpower, Depth, Streak, Item, PowerUp, Narrator }
 
 /// <summary>
 /// Full-screen, click-through overlay that flashes a fast bordered "subtitle" line in the
@@ -37,8 +37,22 @@ public sealed class ChaosAnnouncerOverlay : Window
     private const double TOP_OFFSET_DIP = 92; // sits right under the effect-banner strip (wa.Top+6, 80 tall)
 
     private static ChaosAnnouncerOverlay? _active;
-    private static readonly Queue<(string text, ChaosAnnounceKind kind, string? artKey, string? subText, int holdMs)> _queue = new();
+    // Priority queue (was FIFO): higher priority shows first; ties keep insertion order. Gameplay
+    // announces enqueue at priority 0; the narrator (the Madam) enqueues above them, with STORY > REACTIVE.
+    private static readonly List<(string text, ChaosAnnounceKind kind, string? artKey, string? subText, int holdMs, int priority)> _queue = new();
     private static bool _showing;
+
+    private static bool TryDequeue(out (string text, ChaosAnnounceKind kind, string? artKey, string? subText, int holdMs, int priority) item)
+    {
+        item = default;
+        if (_queue.Count == 0) return false;
+        int best = 0;
+        for (int i = 1; i < _queue.Count; i++)
+            if (_queue[i].priority > _queue[best].priority) best = i;   // stable: first of the max wins
+        item = _queue[best];
+        _queue.RemoveAt(best);
+        return true;
+    }
 
     /// <summary>
     /// Queue a bordered fading announcement. No-op unless the announcer is enabled.
@@ -59,11 +73,35 @@ public sealed class ChaosAnnouncerOverlay : Window
             if (disp == null || disp.HasShutdownStarted) return;
             disp.Invoke(() =>
             {
-                _queue.Enqueue((text, kind, artKey, subText, holdMs ?? HOLD_MS));
+                _queue.Add((text, kind, artKey, subText, holdMs ?? HOLD_MS, 0));
                 if (!_showing) ShowNext();
             });
         }
         catch (Exception ex) { App.Logger?.Debug("ChaosAnnouncer.Announce: {E}", ex.Message); }
+    }
+
+    /// <summary>
+    /// Queue a narrator (Madam) line. Gated on <c>NarrativeModeEnabled</c> (NOT the gameplay
+    /// announcer toggle). <paramref name="bandPriority"/> is the cue's band (Ambient/Reactive/Story);
+    /// narrator lines sit above gameplay announces and order STORY &gt; REACTIVE. STORY passes
+    /// <paramref name="interrupt"/> = true, which cuts the current line short so she lands now.
+    /// </summary>
+    public static void AnnounceNarrator(string text, int bandPriority, bool interrupt, int holdMs)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+            if (App.Settings?.Current?.NarrativeModeEnabled != true) return;
+            var disp = Application.Current?.Dispatcher;
+            if (disp == null || disp.HasShutdownStarted) return;
+            disp.Invoke(() =>
+            {
+                _queue.Add((text, ChaosAnnounceKind.Narrator, null, null, holdMs, 100 + bandPriority));
+                if (!_showing) ShowNext();
+                else if (interrupt) _active?.CutShort();   // STORY: end the current line so she shows next
+            });
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChaosAnnouncer.AnnounceNarrator: {E}", ex.Message); }
     }
 
     /// <summary>Re-stack the live window above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
@@ -77,9 +115,9 @@ public sealed class ChaosAnnouncerOverlay : Window
 
     private static void ShowNext()
     {
-        if (_queue.Count == 0) { _showing = false; return; }
+        if (!TryDequeue(out var dq)) { _showing = false; return; }
         _showing = true;
-        var (text, kind, artKey, subText, holdMs) = _queue.Dequeue();
+        var (text, kind, artKey, subText, holdMs, _) = dq;
         try
         {
             if (_active == null) { _active = new ChaosAnnouncerOverlay(); ((Window)_active).Show(); }
@@ -229,6 +267,12 @@ public sealed class ChaosAnnouncerOverlay : Window
         _life.Start();
     }
 
+    /// <summary>End the currently-shown line ASAP so a higher-priority (STORY) line lands now.</summary>
+    private void CutShort()
+    {
+        try { _life.Stop(); _life.Interval = TimeSpan.FromMilliseconds(1); _life.Start(); } catch { }
+    }
+
     private void CloseNow()
     {
         try { _life.Stop(); } catch { }
@@ -249,6 +293,7 @@ public sealed class ChaosAnnouncerOverlay : Window
             ChaosAnnounceKind.Streak     => Color.FromRgb(0xFF, 0xC8, 0x3C), // bright gold
             ChaosAnnounceKind.Item       => Color.FromRgb(0x7A, 0xFF, 0xD2), // mint
             ChaosAnnounceKind.PowerUp    => Color.FromRgb(0x9C, 0xE8, 0xA0), // green
+            ChaosAnnounceKind.Narrator   => Color.FromRgb(0xE6, 0x9A, 0xFF), // the Madam — soft violet
             _                            => Colors.White,
         };
         var fill = new SolidColorBrush(c); if (fill.CanFreeze) fill.Freeze();

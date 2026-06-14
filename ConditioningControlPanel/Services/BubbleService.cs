@@ -853,17 +853,17 @@ public class BubbleService : IDisposable
         });
     }
 
-    /// <summary>A pinned spawn (Rabbit Caller's summon-at-click etc.) lands on the screen that
-    /// actually contains the point; everything else scatters randomly.</summary>
+    /// <summary>Chaos bubbles always play on the HUD's screen — the one with the sidebar, boon
+    /// ribbon and active-skill buttons. The HUD anchors to <see cref="SystemParameters.WorkArea"/>,
+    /// i.e. the primary monitor, so the run stays on a single screen even when dual-monitor flashes
+    /// are enabled (those scatter; the roguelite must not). A pinned spawn (Rabbit Caller's
+    /// summon-at-click) still lands on whatever screen its point is on — which is this one anyway,
+    /// since that's the only screen the player is clicking.</summary>
     private System.Windows.Forms.Screen PickScreenFor(EffectBubbleSpec spec)
     {
-        var settings = App.Settings.Current;
-        var screens = settings.DualMonitorEnabled
-            ? App.GetAllScreensCached()
-            : new[] { System.Windows.Forms.Screen.PrimaryScreen! };
         return spec.SpawnAtPxX is double sax && spec.SpawnAtPxY is double say
             ? System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)sax, (int)say))
-            : screens[_random.Next(screens.Length)];
+            : System.Windows.Forms.Screen.PrimaryScreen!;
     }
 
     /// <summary>Construct one chaos bubble with the full service callback set (UI thread).</summary>

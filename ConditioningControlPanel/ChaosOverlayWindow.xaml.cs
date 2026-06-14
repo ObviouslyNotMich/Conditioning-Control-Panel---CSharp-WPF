@@ -49,6 +49,9 @@ public partial class ChaosOverlayWindow : Window
         Width = SystemParameters.PrimaryScreenWidth;
         Height = SystemParameters.PrimaryScreenHeight;
         SourceInitialized += (_, _) => ApplyExStyles();
+        // Story-card press-forward: click anywhere on the card, or Space/Enter/→ while it's up.
+        StoryCardPanel.PreviewMouseLeftButtonDown += (_, e) => { e.Handled = true; AdvanceStory(); };
+        KeyDown += OnStoryKey;
     }
 
     // ============================ countdown ============================
@@ -878,6 +881,166 @@ public partial class ChaosOverlayWindow : Window
         _rankCardTimer?.Stop(); _rankCardTimer = null;
         OnDismissed?.Invoke();
     }
+
+    // ============================ story card ============================
+
+    private System.Collections.Generic.List<ChaosConversationLine>? _storyLines;
+    private int _storyIndex;
+    private Action? _onConversationComplete;
+    private bool _storyClosing;
+
+    /// <summary>
+    /// Open a conversation as a character card: backdrop-as-bg, portrait slide-in, dialogue box,
+    /// press-forward through the lines (each line ducks the bed via <see cref="ChaosNarrator"/>).
+    /// Reuses the draft/recap interactive (non-click-through) state. <paramref name="onComplete"/>
+    /// fires after the close animation (resumes the field for a run card / closes a standalone hub card).
+    /// </summary>
+    public void ShowConversation(ChaosConversation convo, ImageSource? backdrop, Action? onComplete)
+    {
+        if (convo == null || convo.Lines.Count == 0) { onComplete?.Invoke(); return; }
+        _onConversationComplete = onComplete;
+        _storyLines = convo.Lines;
+        _storyIndex = 0;
+        _storyClosing = false;
+
+        // background plate
+        StoryBg.Source = backdrop;
+        StoryBg.Visibility = backdrop != null ? Visibility.Visible : Visibility.Collapsed;
+
+        // full-bleed hero + its entrance side
+        var portrait = ChaosArt.Resolve("portraits", convo.PortraitId);
+        StoryPortrait.Source = portrait;
+        StoryPortrait.Visibility = portrait != null ? Visibility.Visible : Visibility.Collapsed;
+        StoryPortrait.HorizontalAlignment = convo.PortraitOnLeft ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        double fromX = convo.PortraitOnLeft ? -260 : 260;
+
+        // speaker name + optional title
+        StoryName.Text = SpeakerName(convo.Speaker);
+        StoryTitle.Text = convo.Title ?? "";
+        StoryTitle.Visibility = string.IsNullOrEmpty(convo.Title) ? Visibility.Collapsed : Visibility.Visible;
+
+        // take over the screen (interactive, no dim rect — the card has its own bg)
+        SetClickThrough(false);
+        CountdownBox.Visibility = Visibility.Collapsed;
+        DraftPanel.Visibility = Visibility.Collapsed;
+        ResultsPanel.Visibility = Visibility.Collapsed;
+        Backdrop.Visibility = Visibility.Collapsed;
+        StoryCardPanel.Visibility = Visibility.Visible;
+        StoryCardPanel.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+        BringToFront();
+
+        // portrait slide-in (snappy, settles)
+        if (portrait != null)
+        {
+            StoryPortrait.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
+            var slide = new DoubleAnimation(fromX, 0, TimeSpan.FromMilliseconds(290))
+            { EasingFunction = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut } };
+            StoryPortraitT.BeginAnimation(TranslateTransform.XProperty, slide);
+        }
+
+        // idle bounce on the advance chevron
+        var bounce = new DoubleAnimation(0, 6, TimeSpan.FromMilliseconds(520))
+        { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
+        StoryAdvanceT.BeginAnimation(TranslateTransform.XProperty, bounce);
+
+        StartBgPan();
+        ChaosSfx.Play("cards_in", 0.4f);
+        ShowStoryLine(0);
+    }
+
+    private void ShowStoryLine(int i)
+    {
+        if (_storyLines == null || i >= _storyLines.Count) { CloseConversation(); return; }
+        var line = _storyLines[i];
+        StoryText.FontStyle = line.Emphasis ? FontStyles.Italic : FontStyles.Normal;
+        StoryText.Text = line.Text;
+
+        // dialogue box re-settle on each line (fade + a small scale pop)
+        StoryBox.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(150)));
+        var pop = new DoubleAnimation(0.97, 1.0, TimeSpan.FromMilliseconds(180))
+        { EasingFunction = new BackEase { Amplitude = 0.3, EasingMode = EasingMode.EaseOut } };
+        StoryBoxScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        StoryBoxScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+
+        // duck the bed + play the line's clip (placeholder ok → text-only still ducks). NO auto-advance —
+        // the scene waits for the user to press forward.
+        ChaosNarrator.PlayCardLine(line.AudioKey, line.Text);
+    }
+
+    /// <summary>A slow ken-burns drift on the background so the scene breathes (one-directional, looping).</summary>
+    private void StartBgPan()
+    {
+        var sx = new DoubleAnimation(1.08, 1.16, TimeSpan.FromSeconds(16))
+        { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
+        StoryBgScale.BeginAnimation(ScaleTransform.ScaleXProperty, sx);
+        StoryBgScale.BeginAnimation(ScaleTransform.ScaleYProperty, sx);
+        var tx = new DoubleAnimation(-26, 26, TimeSpan.FromSeconds(22))
+        { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
+        StoryBgT.BeginAnimation(TranslateTransform.XProperty, tx);
+    }
+
+    private void StopBgPan()
+    {
+        StoryBgScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        StoryBgScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        StoryBgT.BeginAnimation(TranslateTransform.XProperty, null);
+    }
+
+    /// <summary>Press-forward (user click / key only): step to the next line, or close after the last.</summary>
+    private void AdvanceStory()
+    {
+        if (StoryCardPanel.Visibility != Visibility.Visible || _storyClosing) return;
+        _storyIndex++;
+        if (_storyLines == null || _storyIndex >= _storyLines.Count) { CloseConversation(); return; }
+        ChaosSfx.Play("ui_click", 0.3f);
+        ShowStoryLine(_storyIndex);
+    }
+
+    private void CloseConversation()
+    {
+        if (_storyClosing) return;
+        _storyClosing = true;
+        StoryAdvanceT.BeginAnimation(TranslateTransform.XProperty, null);
+        StopBgPan();
+        ChaosNarrator.EndCard();   // unduck + drop the speaking/bark hold
+
+        var fade = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(220));
+        fade.Completed += (_, _) =>
+        {
+            StoryCardPanel.Visibility = Visibility.Collapsed;
+            StoryCardPanel.BeginAnimation(OpacityProperty, null);
+            StoryCardPanel.Opacity = 1;
+            StoryBg.Source = null;
+            StoryPortrait.Source = null;
+            _storyLines = null;
+            SetClickThrough(true);
+            var cb = _onConversationComplete;
+            _onConversationComplete = null;
+            try { cb?.Invoke(); } catch (Exception ex) { App.Logger?.Debug("Story onComplete: {E}", ex.Message); }
+        };
+        StoryCardPanel.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void OnStoryKey(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (StoryCardPanel.Visibility != Visibility.Visible) return;
+        if (e.Key is System.Windows.Input.Key.Space or System.Windows.Input.Key.Enter
+            or System.Windows.Input.Key.Right or System.Windows.Input.Key.Return)
+        {
+            e.Handled = true;
+            AdvanceStory();
+        }
+    }
+
+    private static string SpeakerName(ChaosSpeaker s) => s switch
+    {
+        ChaosSpeaker.Madam => "The Madam",
+        ChaosSpeaker.Rabbit => "The Rabbit",
+        ChaosSpeaker.Hatter => "The Hatter",
+        ChaosSpeaker.Doll => "The Doll",
+        ChaosSpeaker.Enemy => "???",
+        _ => "",
+    };
 
     // ============================ click-through ============================
 
