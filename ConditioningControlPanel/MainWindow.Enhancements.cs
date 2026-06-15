@@ -1,0 +1,1572 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Rectangle = System.Windows.Shapes.Rectangle;
+using NAudio.Wave;
+using ConditioningControlPanel.Localization;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Helpers;
+using ConditioningControlPanel.Services;
+
+namespace ConditioningControlPanel
+{
+    // Enhancements / Skill Tree tab: node layout, unlock logic, and skill-tree rendering.
+    public partial class MainWindow
+    {
+        #region Enhancements (Skill Tree)
+
+        // Node size constants for skill tree (sized for image backgrounds)
+        private const double NodeWidth = 156;  // 10% smaller than 173
+        private const double NodeHeight = 139;  // Includes name label row
+        private const double TierSpacing = 350; // Much larger vertical spacing between tiers
+
+        // Skill grid image cell dimensions (determined dynamically from skills1.png)
+        private static int _skillCellWidth = 0;
+        private static int _skillCellHeight = 0;
+        private static bool _skillCellSizeInitialized = false;
+
+        /// <summary>
+        /// Refreshes the entire Enhancements tab UI
+        /// </summary>
+        private void RefreshEnhancementsUI()
+        {
+            var settings = App.Settings?.Current;
+            if (settings == null) return;
+
+            // Update skill points display
+            TxtSkillPoints.Text = settings.SkillPoints.ToString();
+
+            // Update XP multiplier display
+            var multiplier = App.SkillTree?.GetTotalXpMultiplier() ?? 1.0;
+            TxtXpMultiplier.Text = $"{multiplier:F2}x";
+
+            // Update conditioning time display
+            TxtConditioningTime.Text = App.SkillTree?.GetFormattedConditioningTime() ?? "0h 0m";
+
+            // Update Pink Rush indicator
+            TxtPinkRushIndicator.Visibility = settings.PinkRushActive ? Visibility.Visible : Visibility.Collapsed;
+
+            // Draw the skill tree on canvas
+            DrawSkillTree();
+
+            // Update active bonuses panel
+            RefreshActiveBonuses();
+        }
+
+        /// <summary>
+        /// Draws the entire skill tree with nodes and connecting lines
+        /// </summary>
+        private void DrawSkillTree()
+        {
+            SkillTreeCanvas.Children.Clear();
+
+            // Set animated background on the outer border
+            SkillTreeOuterBorder.Background = CreateAnimatedSkillTreeBrush(isHeader: false);
+
+            // Add sparkle particles behind everything
+            AddSkillTreeParticles();
+            _skillTreeAnimationsActive = true;
+
+            // Add header section at the start of the canvas
+            CreateSkillTreeHeader();
+
+            // 3 LINEAR HORIZONTAL PATHS
+            var nodePositions = new Dictionary<string, (double X, double Y)>();
+
+            var startX = 570.0;  // Start after the header section (20 + 500 + 50 margin)
+            var startY = 0.0;    // Align with header top
+            var colSpacing = 270.0; // Horizontal spacing between nodes
+            var rowSpacing = 160.0; // Vertical spacing between the 3 paths
+
+            // COLUMN 0: Root node (centered, branches to 3 paths)
+            var rootY = startY + rowSpacing; // Center vertically
+            nodePositions["pink_hours"] = (startX, rootY);
+
+            // PATH 1 (TOP ROW): ditzy_data branch
+            var path1Y = startY;
+            nodePositions["ditzy_data"] = (startX + colSpacing, path1Y);
+            nodePositions["hive_mind"] = (startX + colSpacing * 2, path1Y);
+            nodePositions["trophy_case"] = (startX + colSpacing * 3, path1Y);
+            nodePositions["popular_girl"] = (startX + colSpacing * 4, path1Y);
+            nodePositions["quest_refresh"] = (startX + colSpacing * 5, path1Y);
+            nodePositions["better_quests"] = (startX + colSpacing * 6, path1Y);
+
+            // PATH 2 (MIDDLE ROW): sparkle_boost_1 branch
+            var path2Y = startY + rowSpacing;
+            nodePositions["sparkle_boost_1"] = (startX + colSpacing, path2Y);
+            nodePositions["sparkle_boost_2"] = (startX + colSpacing * 2, path2Y);
+            nodePositions["lucky_bimbo"] = (startX + colSpacing * 3, path2Y);
+            nodePositions["sparkle_boost_3"] = (startX + colSpacing * 4, path2Y);
+            nodePositions["lucky_bubbles"] = (startX + colSpacing * 5, path2Y);
+            nodePositions["pink_rush"] = (startX + colSpacing * 6, path2Y);
+
+            // PATH 3 (BOTTOM ROW): good_girl_streak branch
+            var path3Y = startY + rowSpacing * 2;
+            nodePositions["good_girl_streak"] = (startX + colSpacing, path3Y);
+            nodePositions["milestone_rewards"] = (startX + colSpacing * 2, path3Y);
+            nodePositions["oopsie_insurance"] = (startX + colSpacing * 3, path3Y);
+            nodePositions["streak_power"] = (startX + colSpacing * 4, path3Y);
+            nodePositions["reroll_addict"] = (startX + colSpacing * 5, path3Y);
+            nodePositions["perfect_bimbo_week"] = (startX + colSpacing * 6, path3Y);
+
+            // Draw connection lines first (so they're behind nodes)
+            DrawConnectionLines(nodePositions);
+
+            // Draw skill nodes (excluding secret skills)
+            foreach (var skill in Models.SkillDefinition.All.Where(s => !s.IsSecret))
+            {
+                if (nodePositions.TryGetValue(skill.Id, out var pos))
+                {
+                    var node = CreateSkillNode(skill);
+                    Canvas.SetLeft(node, pos.X);
+                    Canvas.SetTop(node, pos.Y);
+                    SkillTreeCanvas.Children.Add(node);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates the header panel at the start of the skill tree
+        /// </summary>
+        private void CreateSkillTreeHeader()
+        {
+            var settings = App.Settings?.Current;
+            if (settings == null) return;
+
+            // Main header border
+            var headerBorder = new Border
+            {
+                Width = 500,
+                Background = CreateAnimatedSkillTreeBrush(isHeader: true),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(15, 8, 15, 15) // Left, Top, Right, Bottom
+            };
+            Canvas.SetLeft(headerBorder, 5);
+            Canvas.SetTop(headerBorder, 0);
+
+            var mainStack = new StackPanel();
+
+            // Title section
+            var titleStack = new StackPanel { Margin = new Thickness(0, 0, 0, 15) };
+            titleStack.Children.Add(new TextBlock
+            {
+                Text = "✨ " + (App.Mods?.GetEnhancementTreeTitle() ?? Loc.Get("label_enhancement_tree_title")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentColorHex() ?? "#FF69B4")),
+                FontSize = 22,
+                FontWeight = FontWeights.Bold
+            });
+            titleStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.GetEnhancementTreeSubtitle() ?? Loc.Get("label_enhancement_tree_subtitle"),
+                Foreground = new SolidColorBrush(Color.FromRgb(176, 176, 176)),
+                FontSize = 11,
+                FontStyle = FontStyles.Italic,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            titleStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.GetEnhancementTreeWarning() ?? Loc.Get("label_enhancement_tree_warning"),
+                Foreground = new SolidColorBrush(Color.FromRgb(136, 170, 204)),
+                FontSize = 10,
+                FontStyle = FontStyles.Italic,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+            mainStack.Children.Add(titleStack);
+
+            // Sparkle Points display
+            var pointsBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(42, 42, 74)),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(15, 10, 15, 10),
+                Margin = new Thickness(0, 0, 0, 15)
+            };
+            var pointsStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            pointsStack.Children.Add(new TextBlock
+            {
+                Text = "💎",
+                FontSize = 24,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            });
+            var pointsInfoStack = new StackPanel();
+            pointsInfoStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.GetPointsLabel() ?? Loc.Get("label_sparkle_points"),
+                Foreground = new SolidColorBrush(Color.FromRgb(176, 176, 176)),
+                FontSize = 10
+            });
+            pointsInfoStack.Children.Add(new TextBlock
+            {
+                Text = settings.SkillPoints.ToString(),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentColorHex() ?? "#FF69B4")),
+                FontSize = 24,
+                FontWeight = FontWeights.Bold
+            });
+            pointsStack.Children.Add(pointsInfoStack);
+            pointsBorder.Child = pointsStack;
+            mainStack.Children.Add(pointsBorder);
+
+            // Ditzy Data Stats Toggle Button (only show if ditzy_data skill is unlocked)
+            var hasDitzyData = App.SkillTree?.HasSkill("ditzy_data") == true;
+            var ditzyButton = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(60, 40, 80)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 0, 0, 10),
+                Cursor = Cursors.Hand,
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentColorHex() ?? "#FF69B4")),
+                BorderThickness = new Thickness(1)
+            };
+            var ditzyButtonStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            var ditzyArrow = new TextBlock
+            {
+                Text = " ▼",
+                Foreground = new SolidColorBrush(Color.FromRgb(176, 176, 176)),
+                FontSize = 10,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ditzyButtonStack.Children.Add(new TextBlock
+            {
+                Text = "📊 ",
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            ditzyButtonStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.GetStatsTitle() ?? Loc.Get("label_ditzy_data_stats"),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentLightColorHex() ?? "#FFB6C1")),
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            ditzyButtonStack.Children.Add(ditzyArrow);
+            ditzyButton.Child = ditzyButtonStack;
+
+            // Detailed Stats Box (initially hidden)
+            var detailedStatsBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(22, 22, 42)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12),
+                Margin = new Thickness(0, 0, 0, 15),
+                Visibility = Visibility.Collapsed // Start hidden
+            };
+            var detailedStatsStack = new StackPanel();
+
+            // Toggle click handler
+            ditzyButton.MouseLeftButtonDown += (s, e) =>
+            {
+                var isCollapsed = detailedStatsBorder.Visibility == Visibility.Collapsed;
+                detailedStatsBorder.Visibility = isCollapsed ? Visibility.Visible : Visibility.Collapsed;
+                ditzyArrow.Text = isCollapsed ? " ▲" : " ▼";
+            };
+            if (hasDitzyData)
+                mainStack.Children.Add(ditzyButton);
+
+            // Stats title
+            detailedStatsStack.Children.Add(new TextBlock
+            {
+                Text = "📊 " + (App.Mods?.GetStatsTitle() ?? "Ditzy Data Stats"),
+                Foreground = new SolidColorBrush(Color.FromRgb(176, 176, 176)),
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+
+            var achievements = App.Achievements?.Progress;
+            if (achievements != null)
+            {
+                // Create a grid for stats layout (3 columns)
+                var statsGrid = new Grid();
+                statsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                statsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                statsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                int row = 0;
+                void AddStatRow(string label, string value, int column)
+                {
+                    var stack = new StackPanel { Margin = new Thickness(0, 0, 0, 6) };
+                    stack.Children.Add(new TextBlock
+                    {
+                        Text = label,
+                        Foreground = new SolidColorBrush(Color.FromRgb(140, 140, 140)),
+                        FontSize = 9
+                    });
+                    stack.Children.Add(new TextBlock
+                    {
+                        Text = value,
+                        Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                        FontSize = 10,
+                        FontWeight = FontWeights.Bold
+                    });
+                    Grid.SetColumn(stack, column);
+                    Grid.SetRow(stack, row);
+                    statsGrid.Children.Add(stack);
+                }
+
+                // Row 1: Session stats
+                statsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                AddStatRow(Loc.Get("label_sessions_started"), achievements.TotalSessionsStarted.ToString("N0"), 0);
+                AddStatRow(Loc.Get("label_sessions_completed"), achievements.CompletedSessions.Count.ToString("N0"), 1);
+                AddStatRow(Loc.Get("label_sessions_abandoned"), achievements.TotalSessionsAbandoned.ToString("N0"), 2);
+                row++;
+
+                // Row 2: XP & Skill Points
+                statsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                AddStatRow(Loc.Get("label_total_xp_earned_stat"), achievements.TotalXPEarned.ToString("N0"), 0);
+                AddStatRow(Loc.Get("label_skill_points_earned"), achievements.TotalSkillPointsEarned.ToString("N0"), 1);
+                AddStatRow(Loc.Get("label_longest_session"), $"{achievements.LongestSessionMinutes:F1} {Loc.Get("label_min_abbrev")}", 2);
+                row++;
+
+                // Row 3: Attention checks
+                statsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                AddStatRow(Loc.Get("label_attention_passes"), achievements.TotalAttentionChecksPassed.ToString("N0"), 0);
+                AddStatRow(Loc.Get("label_video_att_passed"), achievements.VideoAttentionChecksPassed.ToString("N0"), 1);
+                AddStatRow(Loc.Get("label_video_att_failed"), achievements.VideoAttentionChecksFailed.ToString("N0"), 2);
+                row++;
+
+                // Row 4: Bubble count
+                statsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                AddStatRow(Loc.Get("label_bubble_count_games"), achievements.TotalBubbleCountGames.ToString("N0"), 0);
+                AddStatRow(Loc.Get("label_bc_correct"), achievements.TotalBubbleCountCorrect.ToString("N0"), 1);
+                AddStatRow(Loc.Get("label_bc_best_streak"), achievements.BubbleCountBestStreak.ToString("N0"), 2);
+                row++;
+
+                // Row 5: Content consumption
+                statsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                AddStatRow(Loc.Get("label_total_flashes_stat"), achievements.TotalFlashImages.ToString("N0"), 0);
+                AddStatRow(Loc.Get("label_bubbles_popped_stat"), achievements.TotalBubblesPopped.ToString("N0"), 1);
+                AddStatRow(Loc.Get("label_lock_cards_done"), achievements.TotalLockCardsCompleted.ToString("N0"), 2);
+                row++;
+
+                // Row 6: Time stats
+                statsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var videoMin = achievements.TotalVideoMinutes;
+                var videoTimeStr = videoMin >= 60 ? $"{videoMin / 60:F1} {Loc.Get("label_hrs")}" : $"{videoMin:F1} {Loc.Get("label_min_abbrev")}";
+                AddStatRow(Loc.Get("label_video_time"), videoTimeStr, 0);
+                var pinkMin = achievements.TotalPinkFilterMinutes;
+                var pinkTimeStr = pinkMin >= 60 ? $"{pinkMin / 60:F1} {Loc.Get("label_hrs")}" : $"{pinkMin:F1} {Loc.Get("label_min_abbrev")}";
+                AddStatRow(Loc.Get("label_pink_filter_time"), pinkTimeStr, 1);
+                var spiralMin = achievements.TotalSpiralMinutes;
+                var spiralTimeStr = spiralMin >= 60 ? $"{spiralMin / 60:F1} {Loc.Get("label_hrs")}" : $"{spiralMin:F1} {Loc.Get("label_min_abbrev")}";
+                AddStatRow(Loc.Get("label_spiral_time"), spiralTimeStr, 2);
+                row++;
+
+                // Row 7: Misc stats
+                statsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                AddStatRow(Loc.Get("label_consecutive_days"), achievements.ConsecutiveDays.ToString("N0"), 0);
+
+                detailedStatsStack.Children.Add(statsGrid);
+            }
+
+            detailedStatsBorder.Child = detailedStatsStack;
+            if (hasDitzyData)
+                mainStack.Children.Add(detailedStatsBorder);
+
+            // Stats section
+            var statsBorder = new Border
+            {
+                Background = Application.Current.Resources["SurfaceBgBrush"] as SolidColorBrush ?? new SolidColorBrush(Color.FromRgb(30, 30, 58)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12)
+            };
+            var statsStack = new StackPanel();
+
+            // XP Mult
+            var multiplier = App.SkillTree?.GetTotalXpMultiplier() ?? 1.0;
+            var xpStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            xpStack.Children.Add(new TextBlock
+            {
+                Text = Loc.Get("label_xp_mult"),
+                Foreground = new SolidColorBrush(Color.FromRgb(176, 176, 176)),
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            xpStack.Children.Add(new TextBlock
+            {
+                Text = $"{multiplier:F2}x",
+                Foreground = new SolidColorBrush(Color.FromRgb(0, 255, 136)),
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            if (settings.PinkRushActive)
+            {
+                xpStack.Children.Add(new TextBlock
+                {
+                    Text = " " + Loc.Get("label_xp_rush"),
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentDarkColorHex() ?? "#FF1493")),
+                    FontSize = 12,
+                    FontWeight = FontWeights.Bold,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+            statsStack.Children.Add(xpStack);
+
+            // Time
+            var conditioningTime = App.SkillTree?.GetFormattedConditioningTime() ?? "0h 0m";
+            var timeStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            timeStack.Children.Add(new TextBlock
+            {
+                Text = "⏱️ ",
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            timeStack.Children.Add(new TextBlock
+            {
+                Text = conditioningTime,
+                Foreground = new SolidColorBrush(Color.FromRgb(176, 176, 176)),
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            statsStack.Children.Add(timeStack);
+
+            statsBorder.Child = statsStack;
+            mainStack.Children.Add(statsBorder);
+
+            // Active Bonuses Section
+            var breakdown = App.SkillTree?.GetMultiplierBreakdown() ?? new List<(string, double)>();
+            if (breakdown.Count > 1) // Only show if there are bonuses beyond base
+            {
+                var bonusesTitle = new TextBlock
+                {
+                    Text = "Active Bonuses:",
+                    Foreground = new SolidColorBrush(Color.FromRgb(176, 176, 176)),
+                    FontSize = 11,
+                    Margin = new Thickness(0, 15, 0, 8)
+                };
+                mainStack.Children.Add(bonusesTitle);
+
+                var bonusesWrap = new WrapPanel { Orientation = Orientation.Horizontal };
+                foreach (var (source, value) in breakdown)
+                {
+                    if (source == "Base") continue; // Don't show base multiplier
+
+                    var chip = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromRgb(60, 40, 80)),
+                        CornerRadius = new CornerRadius(12),
+                        Padding = new Thickness(10, 5, 10, 5),
+                        Margin = new Thickness(0, 0, 8, 8)
+                    };
+
+                    chip.Child = new TextBlock
+                    {
+                        Text = $"{source}: +{value:P0}",
+                        Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentLightColorHex() ?? "#FFB6C1")),
+                        FontSize = 11
+                    };
+
+                    bonusesWrap.Children.Add(chip);
+                }
+                mainStack.Children.Add(bonusesWrap);
+            }
+
+            headerBorder.Child = mainStack;
+            SkillTreeCanvas.Children.Add(headerBorder);
+        }
+
+        /// <summary>
+        /// Creates an animated gradient brush for the skill tree background or header
+        /// </summary>
+        private LinearGradientBrush CreateAnimatedSkillTreeBrush(bool isHeader)
+        {
+            var brush = new LinearGradientBrush();
+            brush.StartPoint = new Point(0, 0);
+            brush.EndPoint = new Point(1, 1);
+
+            if (isHeader)
+            {
+                // Header: dark purple → vivid purple-pink → dark purple
+                brush.GradientStops.Add(new GradientStop(Color.FromRgb(35, 20, 60), 0.0));    // deeper purple edge
+                brush.GradientStops.Add(new GradientStop(Color.FromRgb(80, 30, 100), 0.5));   // vivid purple-pink center
+                brush.GradientStops.Add(new GradientStop(Color.FromRgb(35, 20, 60), 1.0));    // deeper purple edge
+
+                // Animate middle stop offset: drift 0.2 ↔ 0.8
+                var offsetAnim = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    From = 0.2,
+                    To = 0.8,
+                    Duration = TimeSpan.FromSeconds(5),
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                    EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                brush.GradientStops[1].BeginAnimation(GradientStop.OffsetProperty, offsetAnim);
+
+                // Animate middle stop color: shift between purple tones
+                var colorAnim = new System.Windows.Media.Animation.ColorAnimation
+                {
+                    From = Color.FromRgb(80, 30, 100),   // vivid purple
+                    To = Color.FromRgb(120, 40, 90),      // bright magenta-purple
+                    Duration = TimeSpan.FromSeconds(4),
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                    EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                brush.GradientStops[1].BeginAnimation(GradientStop.ColorProperty, colorAnim);
+            }
+            else
+            {
+                // Canvas background: deep purple → vivid purple → rich blue-purple → deep purple
+                brush.GradientStops.Add(new GradientStop(Color.FromRgb(25, 15, 50), 0.0));    // deep purple
+                brush.GradientStops.Add(new GradientStop(Color.FromRgb(60, 25, 80), 0.3));    // vivid purple
+                brush.GradientStops.Add(new GradientStop(Color.FromRgb(30, 35, 75), 0.7));    // rich blue-purple
+                brush.GradientStops.Add(new GradientStop(Color.FromRgb(25, 15, 50), 1.0));    // deep purple
+
+                // Animate stop[1] offset: drift 0.15 ↔ 0.5
+                var offset1Anim = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    From = 0.15,
+                    To = 0.5,
+                    Duration = TimeSpan.FromSeconds(6),
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                    EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                brush.GradientStops[1].BeginAnimation(GradientStop.OffsetProperty, offset1Anim);
+
+                // Animate stop[2] offset: drift 0.5 ↔ 0.85
+                var offset2Anim = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    From = 0.5,
+                    To = 0.85,
+                    Duration = TimeSpan.FromSeconds(8),
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                    EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                brush.GradientStops[2].BeginAnimation(GradientStop.OffsetProperty, offset2Anim);
+
+                // Animate stop[1] color: shift between purple and blue tones
+                var colorAnim = new System.Windows.Media.Animation.ColorAnimation
+                {
+                    From = Color.FromRgb(60, 25, 80),    // vivid purple
+                    To = Color.FromRgb(35, 40, 90),       // bright blue
+                    Duration = TimeSpan.FromSeconds(7),
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                    EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                brush.GradientStops[1].BeginAnimation(GradientStop.ColorProperty, colorAnim);
+            }
+
+            return brush;
+        }
+
+        /// <summary>
+        /// Adds floating sparkle particles to the skill tree canvas background
+        /// </summary>
+        private void AddSkillTreeParticles()
+        {
+            var colors = new[]
+            {
+                Color.FromArgb(90, 255, 105, 180),   // pink
+                Color.FromArgb(80, 180, 130, 255),    // purple
+                Color.FromArgb(70, 255, 255, 255),    // white
+                Color.FromArgb(100, 255, 182, 193),   // light pink
+                Color.FromArgb(85, 200, 160, 255),    // lavender
+            };
+
+            for (int i = 0; i < 35; i++)
+            {
+                var size = 3.0 + Random.Shared.NextDouble() * 5.0; // 3-8px
+                var ellipse = new System.Windows.Shapes.Ellipse
+                {
+                    Width = size,
+                    Height = size,
+                    Fill = new SolidColorBrush(colors[Random.Shared.Next(colors.Length)]),
+                    Opacity = 0
+                };
+
+                Canvas.SetLeft(ellipse, Random.Shared.NextDouble() * 2400);
+                Canvas.SetTop(ellipse, Random.Shared.NextDouble() * 460);
+                Canvas.SetZIndex(ellipse, -1);
+
+                // Pulsing opacity animation with random duration and start delay
+                var opacityAnim = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    From = 0,
+                    To = 1,
+                    Duration = TimeSpan.FromSeconds(2 + Random.Shared.NextDouble() * 3), // 2-5s
+                    BeginTime = TimeSpan.FromSeconds(Random.Shared.NextDouble() * 5),     // 0-5s delay
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                    EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                ellipse.BeginAnimation(System.Windows.UIElement.OpacityProperty, opacityAnim);
+
+                SkillTreeCanvas.Children.Add(ellipse);
+            }
+        }
+
+        /// <summary>
+        /// Redirects vertical mouse wheel scrolling to horizontal scrolling for the skill tree
+        /// </summary>
+        private void SkillTreeScroller_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            if (sender is ScrollViewer scrollViewer)
+            {
+                // Scroll horizontally instead of vertically
+                double offset = scrollViewer.HorizontalOffset - (e.Delta * 0.5);
+                scrollViewer.ScrollToHorizontalOffset(offset);
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Draws connecting lines between parent and child nodes
+        /// </summary>
+        private void DrawConnectionLines(Dictionary<string, (double X, double Y)> positions)
+        {
+            var connections = new List<(string Parent, string Child)>
+            {
+                // Root branches into 3 paths
+                ("pink_hours", "ditzy_data"),
+                ("pink_hours", "sparkle_boost_1"),
+                ("pink_hours", "good_girl_streak"),
+
+                // PATH 1 (TOP): Linear progression
+                ("ditzy_data", "hive_mind"),
+                ("hive_mind", "trophy_case"),
+                ("trophy_case", "popular_girl"),
+                ("popular_girl", "quest_refresh"),
+                ("quest_refresh", "better_quests"),
+
+                // PATH 2 (MIDDLE): Linear progression
+                ("sparkle_boost_1", "sparkle_boost_2"),
+                ("sparkle_boost_2", "lucky_bimbo"),
+                ("lucky_bimbo", "sparkle_boost_3"),
+                ("sparkle_boost_3", "lucky_bubbles"),
+                ("lucky_bubbles", "pink_rush"),
+
+                // PATH 3 (BOTTOM): Linear progression
+                ("good_girl_streak", "milestone_rewards"),
+                ("milestone_rewards", "oopsie_insurance"),
+                ("oopsie_insurance", "streak_power"),
+                ("streak_power", "reroll_addict"),
+                ("reroll_addict", "perfect_bimbo_week"),
+            };
+
+            foreach (var (parent, child) in connections)
+            {
+                if (positions.TryGetValue(parent, out var parentPos) &&
+                    positions.TryGetValue(child, out var childPos))
+                {
+                    var isParentUnlocked = App.SkillTree?.HasSkill(parent) == true;
+                    var isChildUnlocked = App.SkillTree?.HasSkill(child) == true;
+
+                    // Line color based on unlock state
+                    var lineColor = isChildUnlocked ? Color.FromRgb(100, 255, 150) :
+                                   isParentUnlocked ? (Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentColorHex() ?? "#FF69B4") :
+                                   Color.FromRgb(60, 60, 80);
+
+                    // HORIZONTAL LAYOUT: Connect right edge of parent to left edge of child
+                    var line = new System.Windows.Shapes.Line
+                    {
+                        X1 = parentPos.X + NodeWidth,           // Right edge of parent
+                        Y1 = parentPos.Y + NodeHeight / 2,      // Vertical center of parent
+                        X2 = childPos.X,                        // Left edge of child
+                        Y2 = childPos.Y + NodeHeight / 2,       // Vertical center of child
+                        Stroke = new SolidColorBrush(lineColor),
+                        StrokeThickness = isChildUnlocked ? 3 : 2,
+                        Opacity = isParentUnlocked || isChildUnlocked ? 1.0 : 0.3
+                    };
+
+                    // Add glow effect for unlocked paths
+                    if (isChildUnlocked)
+                    {
+                        line.Effect = new DropShadowEffect
+                        {
+                            Color = Colors.LimeGreen,
+                            BlurRadius = 8,
+                            ShadowDepth = 0,
+                            Opacity = 0.6
+                        };
+                    }
+
+                    SkillTreeCanvas.Children.Add(line);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates a skill node for the tree canvas with image background support
+        /// </summary>
+        private Border CreateSkillNode(Models.SkillDefinition skill)
+        {
+            var isUnlocked = App.SkillTree?.HasSkill(skill.Id) == true;
+            var canPurchase = App.SkillTree?.CanPurchaseSkill(skill.Id) == true;
+            var hasPrereq = string.IsNullOrEmpty(skill.PrerequisiteId) ||
+                           App.SkillTree?.HasSkill(skill.PrerequisiteId) == true;
+            var settings = App.Settings?.Current;
+            var isLocked = !isUnlocked && !canPurchase;
+
+            // Border color based on state
+            Color borderColor;
+            if (isUnlocked)
+                borderColor = Color.FromRgb(100, 255, 150);
+            else if (canPurchase)
+                borderColor = (Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentColorHex() ?? "#FF69B4");
+            else
+                borderColor = Color.FromRgb(60, 50, 70);
+
+            var border = new Border
+            {
+                CornerRadius = new CornerRadius(10),
+                Width = NodeWidth,
+                Height = NodeHeight,
+                Cursor = canPurchase ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.Arrow,
+                Tag = skill.Id,
+                ClipToBounds = true,
+                RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
+                RenderTransform = new ScaleTransform(1.0, 1.0)
+            };
+
+            // Add glow effect for unlocked or purchasable nodes
+            if (isUnlocked)
+            {
+                border.Effect = new DropShadowEffect
+                {
+                    Color = Colors.LimeGreen,
+                    BlurRadius = 18,
+                    ShadowDepth = 0,
+                    Opacity = 0.6
+                };
+            }
+            else if (canPurchase)
+            {
+                border.Effect = new DropShadowEffect
+                {
+                    Color = Colors.HotPink,
+                    BlurRadius = 15,
+                    ShadowDepth = 0,
+                    Opacity = 0.7
+                };
+            }
+
+            // Hover animation - scale up with pop effect
+            border.MouseEnter += (s, e) =>
+            {
+                var scaleTransform = border.RenderTransform as ScaleTransform;
+                if (scaleTransform != null)
+                {
+                    Canvas.SetZIndex(border, 10); // bring to front while hovered
+                    var anim = new System.Windows.Media.Animation.DoubleAnimation
+                    {
+                        To = 1.25,
+                        Duration = TimeSpan.FromMilliseconds(250),
+                        EasingFunction = new System.Windows.Media.Animation.BackEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut, Amplitude = 0.4 }
+                    };
+                    scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, anim);
+                    scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
+                }
+            };
+
+            border.MouseLeave += (s, e) =>
+            {
+                var scaleTransform = border.RenderTransform as ScaleTransform;
+                if (scaleTransform != null)
+                {
+                    Canvas.SetZIndex(border, 0); // restore z-order
+                    var anim = new System.Windows.Media.Animation.DoubleAnimation
+                    {
+                        To = 1.0,
+                        Duration = TimeSpan.FromMilliseconds(200),
+                        EasingFunction = new System.Windows.Media.Animation.QuadraticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                    };
+                    scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, anim);
+                    scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
+                }
+            };
+
+            // Click handler
+            if (canPurchase)
+            {
+                border.MouseLeftButtonUp += SkillCard_Click;
+            }
+
+            // Tooltip
+            var tooltipStack = new StackPanel { MaxWidth = 280 };
+            tooltipStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.MakeModAware(skill.FlavorText) ?? skill.LocalizedFlavorText,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentLightColorHex() ?? "#FFB6C1")),
+                FontStyle = FontStyles.Italic,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+            tooltipStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.MakeModAware(skill.Description) ?? skill.LocalizedDescription,
+                Foreground = Brushes.White,
+                TextWrapping = TextWrapping.Wrap
+            });
+            if (!string.IsNullOrEmpty(skill.PrerequisiteId) && !hasPrereq)
+            {
+                var prereqSkill = Models.SkillDefinition.All.FirstOrDefault(s => s.Id == skill.PrerequisiteId);
+                tooltipStack.Children.Add(new TextBlock
+                {
+                    Text = Loc.GetF("label_skill_requires", prereqSkill?.LocalizedName ?? skill.PrerequisiteId),
+                    Foreground = new SolidColorBrush(Color.FromRgb(255, 100, 100)),
+                    Margin = new Thickness(0, 6, 0, 0)
+                });
+            }
+
+            border.ToolTip = new ToolTip
+            {
+                Content = tooltipStack,
+                Background = new SolidColorBrush(Color.FromRgb(30, 30, 50)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentColorHex() ?? "#FF69B4")),
+                Padding = new Thickness(10)
+            };
+
+            // Main content grid: image, name label, gap, button
+            var contentGrid = new Grid();
+            contentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(86) }); // Row 0: Image area
+            contentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) }); // Row 1: Skill name
+            contentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(3) });  // Row 2: Gap
+            contentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) }); // Row 3: Button area
+
+            // Row 0: Image (blurred if locked)
+            bool imageLoaded = false;
+
+            // Try to load skill image (will support individual files like skills/hive_mind.png)
+            try
+            {
+                var skillImageSource = Services.ModResourceResolver.ResolveImage($"skills/{skill.Id}.png");
+                var skillImage = new System.Windows.Controls.Image
+                {
+                    Source = skillImageSource,
+                    Stretch = Stretch.UniformToFill
+                };
+
+                // Blur effect if locked
+                if (isLocked)
+                {
+                    skillImage.Effect = new System.Windows.Media.Effects.BlurEffect
+                    {
+                        Radius = 8
+                    };
+                }
+
+                Grid.SetRow(skillImage, 0);
+                contentGrid.Children.Add(skillImage);
+                imageLoaded = true;
+            }
+            catch
+            {
+                // Fallback to gradient placeholder
+                var imagePlaceholder = new Border
+                {
+                    Background = CreateSkillPlaceholderGradient(skill.Tier),
+                    CornerRadius = new CornerRadius(8, 8, 0, 0)
+                };
+
+                // Blur gradient if locked
+                if (isLocked)
+                {
+                    imagePlaceholder.Effect = new System.Windows.Media.Effects.BlurEffect
+                    {
+                        Radius = 8
+                    };
+                }
+
+                Grid.SetRow(imagePlaceholder, 0);
+                contentGrid.Children.Add(imagePlaceholder);
+            }
+
+            // Row 1: Skill name label
+            var nameLabel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(30, 28, 45)),
+                Child = new TextBlock
+                {
+                    Text = App.Mods?.MakeModAware(skill.Name) ?? skill.LocalizedName,
+                    Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 210)),
+                    FontSize = 9.5,
+                    FontWeight = FontWeights.SemiBold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                }
+            };
+            Grid.SetRow(nameLabel, 1);
+            contentGrid.Children.Add(nameLabel);
+
+            // Row 3: Cost/Status Button
+            var buttonBg = isUnlocked ? Color.FromRgb(100, 255, 150) :
+                          canPurchase ? (Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentColorHex() ?? "#FF69B4") :
+                          Color.FromRgb(40, 35, 50);
+
+            var buttonText = isUnlocked ? $"💎{skill.Cost} {Loc.Get("label_skill_owned")}" :
+                            canPurchase ? $"💎 {skill.Cost}" :
+                            $"🔒 {skill.Cost}";
+
+            var buttonTextColor = isUnlocked ? Color.FromRgb(20, 20, 30) :
+                                 canPurchase ? Colors.White :
+                                 Color.FromRgb(120, 120, 130);
+
+            var statusButton = new Border
+            {
+                Background = new SolidColorBrush(buttonBg),
+                CornerRadius = new CornerRadius(0, 0, 8, 8),
+                Child = new TextBlock
+                {
+                    Text = buttonText,
+                    Foreground = new SolidColorBrush(buttonTextColor),
+                    FontSize = 10,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+
+            Grid.SetRow(statusButton, 3);  // Row 3 (after gap)
+            contentGrid.Children.Add(statusButton);
+
+            border.Child = contentGrid;
+            return border;
+        }
+
+        /// <summary>
+        /// Creates a placeholder gradient for skill nodes based on tier
+        /// </summary>
+        private LinearGradientBrush CreateSkillPlaceholderGradient(int tier)
+        {
+            // Different color schemes per tier for visual distinction
+            var (startColor, endColor) = tier switch
+            {
+                1 => (Color.FromRgb(80, 50, 100), Color.FromRgb(50, 30, 70)),   // Purple - Foundation
+                2 => (Color.FromRgb(100, 50, 80), Color.FromRgb(60, 30, 50)),   // Pink - Core
+                3 => (Color.FromRgb(80, 60, 100), Color.FromRgb(45, 35, 65)),   // Deep Purple - Specialization
+                4 => (Color.FromRgb(100, 40, 90), Color.FromRgb(55, 25, 50)),   // Hot Pink - Mastery
+                _ => (Color.FromRgb(60, 40, 80), Color.FromRgb(35, 25, 50))     // Default
+            };
+
+            return new LinearGradientBrush
+            {
+                StartPoint = new System.Windows.Point(0, 0),
+                EndPoint = new System.Windows.Point(1, 1),
+                GradientStops = new GradientStopCollection
+                {
+                    new GradientStop(startColor, 0),
+                    new GradientStop(endColor, 1)
+                }
+            };
+        }
+
+        /// <summary>
+        /// Determines the cell dimensions of the skill grid images
+        /// </summary>
+        private static (int cellWidth, int cellHeight) GetSkillGridCellSize()
+        {
+            try
+            {
+                var resolvedImg = Services.ModResourceResolver.ResolveImage("skills1.png");
+                var bitmap = resolvedImg as BitmapImage ?? new BitmapImage(new Uri("pack://application:,,,/Resources/skills1.png", UriKind.Absolute));
+
+                // Grid is 3 columns × 2 rows
+                int cellWidth = bitmap.PixelWidth / 3;
+                int cellHeight = bitmap.PixelHeight / 2;
+
+                return (cellWidth, cellHeight);
+            }
+            catch
+            {
+                // Fallback if image doesn't load
+                return (0, 0);
+            }
+        }
+
+        /// <summary>
+        /// Maps skill IDs to their source image and crop coordinates
+        /// </summary>
+        private (string? imageFile, Int32Rect cropRect) GetSkillImageCrop(string skillId)
+        {
+            // Initialize cell dimensions if not already done
+            if (!_skillCellSizeInitialized)
+            {
+                (_skillCellWidth, _skillCellHeight) = GetSkillGridCellSize();
+                _skillCellSizeInitialized = true;
+            }
+
+            // If dimensions couldn't be determined, return null
+            if (_skillCellWidth == 0 || _skillCellHeight == 0)
+                return (null, new Int32Rect(0, 0, 0, 0));
+
+            var mapping = new Dictionary<string, (string file, int col, int row)>
+            {
+                // skills1.png
+                ["hive_mind"] = ("skills1.png", 0, 0),
+                ["trophy_case"] = ("skills1.png", 1, 0),
+                ["sparkle_boost_2"] = ("skills1.png", 2, 0),
+                ["lucky_bimbo"] = ("skills1.png", 0, 1),
+                ["milestone_rewards"] = ("skills1.png", 1, 1),
+                ["oopsie_insurance"] = ("skills1.png", 2, 1),
+
+                // skills2.png
+                ["popular_girl"] = ("skills2.png", 0, 0),
+                ["quest_refresh"] = ("skills2.png", 1, 0),
+                ["better_quests"] = ("skills2.png", 2, 0),
+                ["sparkle_boost_3"] = ("skills2.png", 0, 1),
+                ["lucky_bubbles"] = ("skills2.png", 1, 1),
+                ["pink_rush"] = ("skills2.png", 2, 1),
+
+                // skills3.png
+                ["streak_power"] = ("skills3.png", 0, 0),
+                ["reroll_addict"] = ("skills3.png", 1, 0),
+                ["perfect_bimbo_week"] = ("skills3.png", 2, 0),
+                ["night_shift"] = ("skills3.png", 0, 1),
+                ["early_bird_bimbo"] = ("skills3.png", 1, 1),
+                ["eternal_doll"] = ("skills3.png", 2, 1),
+            };
+
+            if (mapping.TryGetValue(skillId, out var info))
+            {
+                int x = info.col * _skillCellWidth;
+                int y = info.row * _skillCellHeight;
+                return (info.file, new Int32Rect(x, y, _skillCellWidth, _skillCellHeight));
+            }
+
+            return (null, new Int32Rect(0, 0, 0, 0));
+        }
+
+        /// <summary>
+        /// Populates the secret skills panel
+        /// </summary>
+        private void PopulateSecretSkills()
+        {
+            // DISABLED: Secret skills panel removed from UI
+            return;
+            // SecretSkills.Children.Clear();
+            var secrets = Models.SkillDefinition.All.Where(s => s.IsSecret).ToList();
+
+            foreach (var skill in secrets)
+            {
+                var isAvailable = App.SkillTree?.IsSecretSkillAvailable(skill.Id) == true;
+                var isUnlocked = App.SkillTree?.HasSkill(skill.Id) == true;
+
+                // Show hidden card if not available, actual card if available
+                if (isAvailable || isUnlocked)
+                {
+                    // SecretSkills.Children.Add(CreateSecretSkillCard(skill));
+                }
+                else
+                {
+                    // SecretSkills.Children.Add(CreateHiddenSecretCard(skill));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates a hidden secret skill card showing only the requirement hint
+        /// </summary>
+        private Border CreateHiddenSecretCard(Models.SkillDefinition skill)
+        {
+            var border = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(30, 20, 40)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(80, 60, 100)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Width = 140,
+                Height = 100,
+                Margin = new Thickness(5),
+                Padding = new Thickness(8),
+                Opacity = 0.6
+            };
+
+            var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = "🔒",
+                FontSize = 20,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 5)
+            });
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = "???",
+                Foreground = new SolidColorBrush(Color.FromRgb(153, 50, 204)),
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = skill.SecretRequirementDesc ?? "Unknown requirement",
+                Foreground = new SolidColorBrush(Color.FromRgb(128, 128, 128)),
+                FontSize = 9,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+
+            border.Child = stack;
+            return border;
+        }
+
+        /// <summary>
+        /// Creates a secret skill card (revealed but maybe not purchased)
+        /// </summary>
+        private Border CreateSecretSkillCard(Models.SkillDefinition skill)
+        {
+            var settings = App.Settings?.Current;
+            var isUnlocked = App.SkillTree?.HasSkill(skill.Id) == true;
+            var canPurchase = App.SkillTree?.CanPurchaseSkill(skill.Id) == true;
+
+            Color bgColor, borderColor;
+            if (isUnlocked)
+            {
+                bgColor = Color.FromRgb(40, 30, 50);
+                borderColor = Color.FromRgb(180, 100, 255);
+            }
+            else if (canPurchase)
+            {
+                bgColor = Color.FromRgb(50, 30, 60);
+                borderColor = Color.FromRgb(153, 50, 204);
+            }
+            else
+            {
+                bgColor = Color.FromRgb(35, 25, 45);
+                borderColor = Color.FromRgb(100, 70, 130);
+            }
+
+            var border = new Border
+            {
+                Background = new SolidColorBrush(bgColor),
+                BorderBrush = new SolidColorBrush(borderColor),
+                BorderThickness = new Thickness(isUnlocked ? 2 : 1),
+                CornerRadius = new CornerRadius(8),
+                Width = 140,
+                Height = 100,
+                Margin = new Thickness(5),
+                Padding = new Thickness(8),
+                Cursor = canPurchase ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.Arrow,
+                Tag = skill.Id
+            };
+
+            if (isUnlocked)
+            {
+                border.Effect = new DropShadowEffect
+                {
+                    Color = Colors.Purple,
+                    BlurRadius = 12,
+                    ShadowDepth = 0,
+                    Opacity = 0.5
+                };
+            }
+            else if (canPurchase)
+            {
+                border.Effect = new DropShadowEffect
+                {
+                    Color = Colors.MediumPurple,
+                    BlurRadius = 10,
+                    ShadowDepth = 0,
+                    Opacity = 0.4
+                };
+            }
+
+            if (canPurchase)
+            {
+                border.MouseLeftButtonUp += SkillCard_Click;
+            }
+
+            // Tooltip
+            var tooltipStack = new StackPanel { MaxWidth = 280 };
+            tooltipStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.MakeModAware(skill.FlavorText) ?? skill.LocalizedFlavorText,
+                Foreground = new SolidColorBrush(Color.FromRgb(200, 150, 255)),
+                FontStyle = FontStyles.Italic,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+            tooltipStack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.MakeModAware(skill.Description) ?? skill.LocalizedDescription,
+                Foreground = Brushes.White,
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            border.ToolTip = new ToolTip
+            {
+                Content = tooltipStack,
+                Background = new SolidColorBrush(Color.FromRgb(40, 25, 55)),
+                Foreground = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(153, 50, 204)),
+                Padding = new Thickness(10)
+            };
+
+            var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+
+            stack.Children.Add(new Image
+            {
+                Source = Helpers.EmojiImage.Get(skill.Icon),
+                Width = 22,
+                Height = 22,
+                Stretch = System.Windows.Media.Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 3)
+            });
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = App.Mods?.MakeModAware(skill.Name) ?? skill.LocalizedName,
+                Foreground = new SolidColorBrush(isUnlocked ? Color.FromRgb(180, 130, 255) : Color.FromRgb(153, 50, 204)),
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center
+            });
+
+            if (isUnlocked)
+            {
+                stack.Children.Add(new TextBlock
+                {
+                    Text = $"💎{skill.Cost} ✓ OWNED",
+                    Foreground = new SolidColorBrush(Color.FromRgb(180, 130, 255)),
+                    FontSize = 9,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 4, 0, 0)
+                });
+            }
+            else
+            {
+                var costColor = (settings?.SkillPoints >= skill.Cost)
+                    ? Color.FromRgb(255, 215, 0)
+                    : Color.FromRgb(120, 120, 120);
+
+                stack.Children.Add(new TextBlock
+                {
+                    Text = $"💎 {skill.Cost}",
+                    Foreground = new SolidColorBrush(costColor),
+                    FontSize = 10,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 4, 0, 0)
+                });
+            }
+
+            border.Child = stack;
+            return border;
+        }
+
+        /// <summary>
+        /// Handles clicking on a purchasable skill card
+        /// </summary>
+        private async void SkillCard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.Tag is string skillId)
+            {
+                var skill = Models.SkillDefinition.All.FirstOrDefault(s => s.Id == skillId);
+                if (skill == null) return;
+
+                // Show confirmation dialog
+                var skillName = App.Mods?.MakeModAware(skill.Name) ?? skill.LocalizedName;
+                var pointsLabel = (App.Mods?.GetPointsLabel() ?? Loc.Get("label_sparkle_points")).ToLower();
+                var flavorText = App.Mods?.MakeModAware(skill.FlavorText) ?? skill.LocalizedFlavorText;
+                var descText = App.Mods?.MakeModAware(skill.Description) ?? skill.LocalizedDescription;
+                var result = MessageBox.Show(
+                    Loc.GetF("msg_purchase_skill", skillName, skill.Cost, pointsLabel, flavorText, descText),
+                    Loc.Get("dialog_purchase_enhancement"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Disable the card during purchase to prevent double-clicks
+                    border.IsEnabled = false;
+                    try
+                    {
+                        var (success, error) = await (App.SkillTree?.PurchaseSkillAsync(skillId)
+                            ?? Task.FromResult((false, (string?)"Skill tree unavailable")));
+
+                        if (success)
+                        {
+                            // Show celebration
+                            App.Flash?.PlayRandomSound();
+
+                            // Update Trophy Case columns if trophy_case was purchased
+                            if (skillId == "trophy_case")
+                            {
+                                UpdateTrophyCaseColumns();
+                            }
+
+                            App.Logger?.Information("Skill purchased via UI: {SkillId}", skillId);
+                        }
+                        else if (!string.IsNullOrEmpty(error))
+                        {
+                            MessageBox.Show(error, Loc.Get("dialog_purchase_failed"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                        }
+                    }
+                    finally
+                    {
+                        border.IsEnabled = true;
+                        RefreshEnhancementsUI();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Refreshes the active bonuses panel showing current skill effects
+        /// </summary>
+        private void RefreshActiveBonuses()
+        {
+            var breakdown = App.SkillTree?.GetMultiplierBreakdown() ?? new List<(string, double)>();
+
+            if (breakdown.Count <= 1) // Only base
+            {
+                ActiveBonusesPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            ActiveBonusesPanel.Visibility = Visibility.Visible;
+            ActiveBonusesList.Children.Clear();
+
+            foreach (var (source, value) in breakdown)
+            {
+                if (source == "Base") continue; // Don't show base multiplier
+
+                var chip = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(60, 40, 80)),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(10, 5, 10, 5),
+                    Margin = new Thickness(0, 0, 8, 8)
+                };
+
+                chip.Child = new TextBlock
+                {
+                    Text = $"{source}: +{value:P0}",
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(App.Mods?.GetAccentLightColorHex() ?? "#FFB6C1")),
+                    FontSize = 11
+                };
+
+                ActiveBonusesList.Children.Add(chip);
+            }
+        }
+
+        /// <summary>
+        /// Called when skill tree service fires Pink Rush events
+        /// </summary>
+        private void OnPinkRushStarted(object? sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                TxtPinkRushIndicator.Visibility = Visibility.Visible;
+
+                // Full-screen pink flash effect
+                try
+                {
+                    var flashWindow = new Window
+                    {
+                        WindowStyle = WindowStyle.None,
+                        AllowsTransparency = true,
+                        Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(100, 0xFF, 0x14, 0x93)),
+                        Topmost = true,
+                        ShowInTaskbar = false,
+                        ShowActivated = false,
+                        Left = SystemParameters.VirtualScreenLeft,
+                        Top = SystemParameters.VirtualScreenTop,
+                        Width = SystemParameters.VirtualScreenWidth,
+                        Height = SystemParameters.VirtualScreenHeight,
+                        IsHitTestVisible = false,
+                        Focusable = false,
+                        Opacity = 0.6
+                    };
+                    flashWindow.Show();
+
+                    var fadeOut = new DoubleAnimation(0.6, 0, TimeSpan.FromMilliseconds(500));
+                    fadeOut.Completed += (s, args) =>
+                    {
+                        try { flashWindow.Close(); } catch { }
+                    };
+                    flashWindow.BeginAnimation(Window.OpacityProperty, fadeOut);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("Pink Rush flash effect failed: {Error}", ex.Message);
+                }
+
+                // Show toast notification popup
+                try
+                {
+                    _pinkRushPopup?.Close();
+                }
+                catch { }
+
+                _pinkRushPopup = new PinkRushPopup();
+                _pinkRushPopup.Show();
+                App.Logger?.Information("Pink Rush activated! Showing popup.");
+            });
+        }
+
+        private void OnPinkRushEnded(object? sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                TxtPinkRushIndicator.Visibility = Visibility.Collapsed;
+
+                try
+                {
+                    _pinkRushPopup?.Close();
+                }
+                catch { }
+                _pinkRushPopup = null;
+            });
+        }
+
+        private void OnLuckyProc(object? sender, LuckyProcEventArgs e)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    // Close previous lucky popup if still showing
+                    try { _luckyProcPopup?.Close(); } catch { }
+
+                    var isGold = e.ProcType.Contains("Flash");
+                    var glowColor = isGold
+                        ? System.Windows.Media.Color.FromRgb(0xFF, 0xD7, 0x00)
+                        : System.Windows.Media.Color.FromRgb(0xFF, 0x69, 0xB4);
+
+                    var border = new Border
+                    {
+                        Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xE0, 0x15, 0x15, 0x30)),
+                        CornerRadius = new CornerRadius(12),
+                        BorderBrush = new SolidColorBrush(glowColor),
+                        BorderThickness = new Thickness(2),
+                        Padding = new Thickness(20, 12, 20, 12),
+                        Effect = new DropShadowEffect
+                        {
+                            Color = glowColor,
+                            BlurRadius = 30,
+                            ShadowDepth = 0,
+                            Opacity = 0.8
+                        }
+                    };
+
+                    var stack = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = System.Windows.HorizontalAlignment.Center };
+                    stack.Children.Add(new TextBlock
+                    {
+                        Text = "LUCKY!",
+                        Foreground = new SolidColorBrush(glowColor),
+                        FontWeight = FontWeights.Bold,
+                        FontSize = 22,
+                        HorizontalAlignment = System.Windows.HorizontalAlignment.Center
+                    });
+                    stack.Children.Add(new TextBlock
+                    {
+                        Text = $"{e.Multiplier}x XP!",
+                        Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xB6, 0xC1)),
+                        FontSize = 14,
+                        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                        Margin = new Thickness(0, 4, 0, 0)
+                    });
+
+                    border.Child = stack;
+
+                    var popup = new Window
+                    {
+                        WindowStyle = WindowStyle.None,
+                        AllowsTransparency = true,
+                        Background = System.Windows.Media.Brushes.Transparent,
+                        Topmost = true,
+                        ShowInTaskbar = false,
+                        ShowActivated = false,
+                        SizeToContent = SizeToContent.WidthAndHeight,
+                        Content = border
+                    };
+
+                    // Position at top-center of primary screen
+                    popup.Loaded += (s, args) =>
+                    {
+                        try
+                        {
+                            var workArea = SystemParameters.WorkArea;
+                            popup.Left = workArea.Left + (workArea.Width - popup.ActualWidth) / 2;
+                            popup.Top = workArea.Top + 40;
+                        }
+                        catch { }
+                    };
+
+                    _luckyProcPopup = popup;
+
+                    // Fade in
+                    popup.Opacity = 0;
+                    popup.Show();
+
+                    var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200));
+                    popup.BeginAnimation(Window.OpacityProperty, fadeIn);
+
+                    // Auto-close after 3 seconds with fade-out
+                    var closeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                    closeTimer.Tick += (s, args) =>
+                    {
+                        closeTimer.Stop();
+                        try
+                        {
+                            var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(300));
+                            fadeOut.Completed += (s2, args2) =>
+                            {
+                                try { popup.Close(); } catch { }
+                                if (_luckyProcPopup == popup) _luckyProcPopup = null;
+                            };
+                            popup.BeginAnimation(Window.OpacityProperty, fadeOut);
+                        }
+                        catch
+                        {
+                            try { popup.Close(); } catch { }
+                        }
+                    };
+                    closeTimer.Start();
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("Lucky proc popup failed: {Error}", ex.Message);
+                }
+            });
+        }
+
+        #endregion
+    }
+}
