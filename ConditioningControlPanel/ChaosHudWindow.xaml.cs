@@ -272,6 +272,14 @@ public partial class ChaosHudWindow : Window
     {
         try
         {
+            // Stop any prior Forever pulse before swapping/clearing the effect. A
+            // RepeatBehavior.Forever animation keeps its target DropShadowEffect pinned by the
+            // app-global timing manager — and its GPU render-target alive — even after the effect
+            // is detached, until cleared with BeginAnimation(prop, null). Without this, every
+            // ripple ready→not-ready cycle orphaned one still-animating effect (leaked effect+clock).
+            if (RippleStripText.Effect is System.Windows.Media.Effects.DropShadowEffect old)
+                old.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, null);
+
             if (ready)
             {
                 var glow = new System.Windows.Media.Effects.DropShadowEffect

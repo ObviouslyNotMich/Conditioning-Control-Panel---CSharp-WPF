@@ -13,14 +13,20 @@
 ; - Store install path in registry for Velopack updates
 
 #define MyAppName "Conditioning Control Panel"
-#define MyAppVersion "6.1.0"
+#define MyAppVersion "6.1.4"
 #define MyAppPublisher "CodeBambi"
 #define MyAppURL "https://github.com/CodeBambi/Conditioning-Control-Panel---CSharp-WPF"
 #define MyAppExeName "ConditioningControlPanel.exe"
 #define MyAppDescription "A professional visual conditioning application with gamification features"
 
 ; Path to the published output (adjust if needed)
-#define PublishDir "ConditioningControlPanel\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish"
+; PublishDir can be overridden from the command line (ISCC /DPublishDir=...), which
+; build-installer.bat uses to point at a SHORT staging path. The publish tree is nested
+; ~131 chars deep, and a handful of builtin-sissyhypno audio files push past MAX_PATH (260)
+; from there, aborting the ISCC compile. Staging to e.g. C:\ccpb\pub keeps every path short.
+#ifndef PublishDir
+  #define PublishDir "ConditioningControlPanel\bin\Release\net8.0-windows10.0.19041.0\win-x64\publish"
+#endif
 
 [Setup]
 ; Application identity

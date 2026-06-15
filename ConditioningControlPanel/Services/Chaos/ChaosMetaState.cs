@@ -10,7 +10,7 @@ namespace ConditioningControlPanel.Services.Chaos;
 /// </summary>
 public sealed class ChaosMetaState
 {
-    public int SchemaVersion { get; set; } = 1;   // for future migrations
+    public int SchemaVersion { get; set; } = 2;   // v2: added narrative-line persistence (additive, no migration)
 
     public int Sparks { get; set; } = 0;
     public HashSet<string> PurchasedUpgrades { get; set; } = new();
@@ -95,6 +95,12 @@ public sealed class ChaosMetaState
 
     /// <summary>Highest rank index the player has been shown a rank card for (0 = curious).</summary>
     public int LastRankSeen { get; set; } = 0;
+
+    // ---- narrative layer (the Madam): seen-once story lines + per-line cooldown ends ----
+    /// <summary>Narrative cue ids that have played and must never repeat (mode == once). Accretes across descents.</summary>
+    public HashSet<string> SeenNarrativeLines { get; set; } = new();
+    /// <summary>Per-line cooldown ends for pooled lines: cue id -> Unix epoch ms when it may play again.</summary>
+    public Dictionary<string, long> NarrativeCooldownEnds { get; set; } = new();
 
     // lifetime stats (consumed by the Stats tab in a later session)
     public int RunsCompleted { get; set; } = 0;

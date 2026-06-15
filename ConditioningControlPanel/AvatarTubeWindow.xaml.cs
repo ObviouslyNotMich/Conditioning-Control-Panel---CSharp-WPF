@@ -237,6 +237,8 @@ namespace ConditioningControlPanel
         private DispatcherTimer? _fullscreenCheckTimer;
         private bool _hiddenForFullscreen = false;
         private bool _wasAttachedBeforeFullscreen = false;
+        // [AVATAR-BLINK DIAG] last window that tripped the fullscreen detector (class/proc/pid/rect).
+        private string _diagLastFullscreenWindow = "(none)";
 
         // Win32 API
         [DllImport("user32.dll", SetLastError = true)]
@@ -1539,7 +1541,9 @@ namespace ConditioningControlPanel
                         _hiddenForFullscreen = true;
                         _wasAttachedBeforeFullscreen = _isAttached;
                         Hide();
-                        App.Logger?.Debug("Avatar hidden - fullscreen app detected (attached mode)");
+                        // [AVATAR-BLINK DIAG] Info-level so we can catch the "random disappear":
+                        // _diagLastFullscreenWindow holds the offending window's class/pid/rect.
+                        App.Logger?.Information("[AVATAR-BLINK] hidden — fullscreen app detected (attached). Offender: {Win}", _diagLastFullscreenWindow);
                     }
                     else if (!isOtherAppFullscreen && _hiddenForFullscreen)
                     {
@@ -1559,7 +1563,7 @@ namespace ConditioningControlPanel
                             {
                                 UpdatePosition();
                             }
-                            App.Logger?.Debug("Avatar restored - fullscreen app closed");
+                            App.Logger?.Information("[AVATAR-BLINK] restored — fullscreen app closed");
                         }
                     }
                 }
@@ -1670,8 +1674,11 @@ namespace ConditioningControlPanel
 
                 if (coversFullScreen)
                 {
-                    App.Logger?.Debug("Exclusive fullscreen detected: class={Class}, popup={Popup}, topmost={Topmost}",
-                        windowClass, isPopup, isTopmost);
+                    GetWindowThreadProcessId(foregroundWindow, out uint offPid);
+                    string procName = "?";
+                    try { procName = System.Diagnostics.Process.GetProcessById((int)offPid).ProcessName; } catch { }
+                    _diagLastFullscreenWindow = $"class={windowClass} proc={procName}(pid {offPid}) rect=[{windowRect.Left},{windowRect.Top},{windowRect.Right},{windowRect.Bottom}]";
+                    App.Logger?.Debug("Exclusive fullscreen detected: {Win}", _diagLastFullscreenWindow);
                 }
 
                 return coversFullScreen;
@@ -2447,6 +2454,7 @@ namespace ConditioningControlPanel
                         PauseAvatarGif();
                         if (_isAttached)
                         {
+                            App.Logger?.Information("[AVATAR-BLINK] hidden — parent window minimized");
                             Hide();
                         }
                         else
@@ -2496,6 +2504,7 @@ namespace ConditioningControlPanel
                     PauseAvatarGif();
                     if (_isAttached)
                     {
+                        App.Logger?.Information("[AVATAR-BLINK] hidden — parent IsVisible went false (state={State})", _parentWindow.WindowState);
                         Hide();
                     }
                     else
@@ -3906,7 +3915,38 @@ namespace ConditioningControlPanel
                     linkPositions.Add((idx, linkText.Length, linkText, url));
             }
 
-            foreach (var kvp in KnownVideoLinks.OrderByDescending(k => k.Key.Length)) // Longest first to avoid partial matches
+            // Match against BOTH the static link table AND the active mod's LIVE video pool — the
+            // exact same source the AI prompt drew its suggestions from (App.Mods.GetVideoLinks()).
+            // ReloadVideoLinks() is supposed to keep KnownVideoLinks in sync on mod switch, but if
+            // it runs before the active mod is set the table lags behind, so a real Sissy pool title
+            // the companion was told to say (e.g. "Sissy Dreams 3") isn't in KnownVideoLinks and
+            // renders as dead plain text. Merging the live pool here guarantees any title the prompt
+            // could offer is clickable. (Static table wins on key collisions — it's the canonical URL.)
+            var linkTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var livePool = App.Mods?.GetVideoLinks();
+            if (livePool != null)
+            {
+                foreach (var kvp in livePool)
+                {
+                    if (Uri.TryCreate(kvp.Value, UriKind.Absolute, out var pu) && pu.Scheme == "https")
+                        linkTable[kvp.Key] = kvp.Value;
+                }
+            }
+            foreach (var kvp in KnownVideoLinks)
+                linkTable[kvp.Key] = kvp.Value;
+            // Also fold in the FULL built-in catalogue (all videos + the BambiCloud audio
+            // playlists). The prompt already controls what gets SUGGESTED per mod; the linker
+            // should be permissive so anything offered renders clickable. Without this, a mod
+            // swap replaces KnownVideoLinks with the mod's video-only pool, dropping the audio
+            // playlists — so a bare "IQ Programming" (named without markdown) wouldn't link.
+            if (_builtInVideoLinks != null)
+            {
+                foreach (var kvp in _builtInVideoLinks)
+                    if (!linkTable.ContainsKey(kvp.Key))
+                        linkTable[kvp.Key] = kvp.Value;
+            }
+
+            foreach (var kvp in linkTable.OrderByDescending(k => k.Key.Length)) // Longest first to avoid partial matches
             {
                 var idx = processedText.IndexOf(kvp.Key, StringComparison.OrdinalIgnoreCase);
                 if (idx >= 0)
@@ -3966,7 +4006,7 @@ namespace ConditioningControlPanel
                 var displayText = actualText;
                 if (actualText.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
-                    var known = KnownVideoLinks.FirstOrDefault(kvp =>
+                    var known = linkTable.FirstOrDefault(kvp =>
                         string.Equals(kvp.Value, url, StringComparison.OrdinalIgnoreCase)).Key;
                     displayText = known ?? Helpers.HtUrlHelper.DeriveTitleFromUrl(url);
                 }
@@ -5896,15 +5936,70 @@ namespace ConditioningControlPanel
                 App.Settings?.Save(suppressCloudBackup: true);
             }
 
-            var greeting = BuildAbsenceGreeting(lastSeen);
-            if (greeting == null)
+            // Voiced, time-aware welcome via the bark system: the greeting bark shows its line in
+            // the bubble AND plays audio (per-mod flavored, no-repeat). We pass an away-bucket so
+            // rules can pick a line matching how long the user's been gone. If no greeting bark
+            // fired (bark system disabled, or no matching rule) we fall back to the legacy
+            // text-only absence greeting so the bubble is never silent.
+            bool spoke = App.Bark?.NotifyAppOpened(GreetingAwayBucket(lastSeen)) ?? false;
+            if (!spoke)
             {
-                // No prior timestamp (first run) — keep the existing startup greeting.
-                GiggleFromCategory("StartupGreeting");
-                return;
+                var greeting = BuildAbsenceGreeting(lastSeen);
+                if (greeting == null)
+                    GiggleFromCategory("StartupGreeting"); // first run, no prior timestamp
+                else
+                    Giggle(greeting);
             }
 
-            Giggle(greeting);
+            // Celebrate a daily-streak milestone once (queues after the welcome line).
+            CheckStreakMilestoneGreeting();
+        }
+
+        /// <summary>Daily-login-streak day counts the companion calls out on app open. Ascending.</summary>
+        private static readonly int[] StreakMilestoneDays = { 7, 14, 30, 60, 100, 365 };
+
+        /// <summary>
+        /// Buckets the time-since-last-seen into a coarse label the AppOpened bark rules key off
+        /// (mirrors the thresholds in <see cref="BuildAbsenceGreeting"/>). "first" = no prior
+        /// timestamp (first run on this device).
+        /// </summary>
+        private static string GreetingAwayBucket(DateTime? lastSeen)
+        {
+            if (lastSeen == null) return "first";
+            var elapsed = DateTime.UtcNow - lastSeen.Value;
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+            if (elapsed < TimeSpan.FromHours(6)) return "soon";
+            if (elapsed < TimeSpan.FromHours(18)) return "back";
+            if (elapsed < TimeSpan.FromDays(3)) return "while";
+            return "long";
+        }
+
+        /// <summary>
+        /// Fires a one-time voiced celebration the first time the daily login streak reaches a
+        /// milestone (7/14/30/60/100/365 days). The latch lives in
+        /// <see cref="AppSettings.LastAnnouncedStreakMilestone"/>: we announce only when a higher
+        /// milestone is newly reached, and silently reset the latch downward if the streak drops
+        /// so re-reaching a milestone announces again. Tone is celebratory only — never loss
+        /// pressure (matching the welcome greeting's intent).
+        /// </summary>
+        private void CheckStreakMilestoneGreeting()
+        {
+            var settings = App.Settings?.Current;
+            if (settings == null || App.Bark == null) return;
+
+            int streak = settings.CurrentStreak;
+            int reached = 0;
+            foreach (var m in StreakMilestoneDays)
+                if (m <= streak) reached = m;
+
+            if (reached == settings.LastAnnouncedStreakMilestone) return;
+
+            bool isNewMilestone = reached > settings.LastAnnouncedStreakMilestone;
+            settings.LastAnnouncedStreakMilestone = reached; // also resets the latch on a streak drop
+            App.Settings?.Save(suppressCloudBackup: true);
+
+            if (isNewMilestone && reached > 0)
+                App.Bark.NotifyStreakMilestone(reached);
         }
 
         /// <summary>
@@ -6691,6 +6786,10 @@ namespace ConditioningControlPanel
             AvatarBorder.Cursor = Cursors.SizeAll;
             SpeechBubble.Cursor = Cursors.SizeAll;
             TitleBox.Cursor = Cursors.SizeAll;
+            // Let the whole visible tube vessel be grabbed (not just the avatar art) — it's
+            // IsHitTestVisible=False in XAML for attached mode; turn it on while detached.
+            ImgTubeFrame.IsHitTestVisible = true;
+            ImgTubeFrame.Cursor = Cursors.SizeAll;
             MouseLeftButtonDown += Window_MouseLeftButtonDown;
 
             // Update context menu visibility
@@ -6733,6 +6832,9 @@ namespace ConditioningControlPanel
             AvatarBorder.Cursor = Cursors.Arrow;
             SpeechBubble.Cursor = Cursors.Arrow;
             TitleBox.Cursor = Cursors.Arrow;
+            // Restore the attached-mode tube frame (non-interactive, behind everything).
+            ImgTubeFrame.IsHitTestVisible = false;
+            ImgTubeFrame.Cursor = Cursors.Arrow;
             MouseLeftButtonDown -= Window_MouseLeftButtonDown;
 
             // Reset scale BEFORE updating position - otherwise position is calculated
@@ -6921,7 +7023,12 @@ namespace ConditioningControlPanel
                 var hit = e.OriginalSource as DependencyObject;
                 bool onAvatar = IsDescendantOf(hit, AvatarBorder)
                                 || IsDescendantOf(hit, SpeechBubble)
-                                || IsDescendantOf(hit, TitleBox);
+                                || IsDescendantOf(hit, TitleBox)
+                                // The visible tube vessel is draggable too (enabled only when
+                                // detached — see Detach). Z-index 0, so it only catches clicks the
+                                // avatar/bubble/menu didn't, and the far transparent margins past
+                                // the tube image's rect stay non-draggable (#346 dead-zone guard).
+                                || IsDescendantOf(hit, ImgTubeFrame);
                 if (!onAvatar) return;
 
                 _isDragging = true;

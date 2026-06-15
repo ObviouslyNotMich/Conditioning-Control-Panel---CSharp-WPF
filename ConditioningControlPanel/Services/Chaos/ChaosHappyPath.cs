@@ -61,6 +61,14 @@ public static class ChaosHappyPath
     private static string? _shieldRigBoonId;   // this sin's downside cannot fire this once
     private static bool _firstSinDraftPending; // SeenFirstSin flips when the rigged draft resolves
 
+    /// <summary>Number of opening descents the happy path still shepherds (scripted run 1 + light
+    /// debut/rig beats through run 4). The narrative layer stays silent while this is true.</summary>
+    private const int SCRIPTED_DESCENTS = 4;
+
+    /// <summary>True while the happy path is still teaching an early descent — used by the narrative
+    /// layer to hold the Madam's voice (and so it never doubles the run-4 rigged-sin announcement).</summary>
+    public static bool IsScripting => _state != null && _runsAtStart < SCRIPTED_DESCENTS;
+
     // ============================ entry points ============================
 
     /// <summary>The forced naked config for the very first descent (RunsCompleted == 0):

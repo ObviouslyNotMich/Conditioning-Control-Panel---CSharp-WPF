@@ -1,22 +1,31 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using ConditioningControlPanel.Models;
 using Microsoft.Win32;
-using ConditioningControlPanel.Localization;
 
 namespace ConditioningControlPanel
 {
     public partial class CompanionPhraseEditorDialog : Window
     {
-        private readonly List<CompanionPhrase> _allPhrases = new();
-        private readonly HashSet<string> _selectedIds = new();
+        // Filter sentinel that matches every bark line (Category == "Bark"), so the dropdown needs
+        // one "Bark Lines" entry instead of ~80 per-trigger entries; per-rule headers come from grouping.
+        private const string BarkCategory = "Bark";
+
+        private ObservableCollection<CompanionPhrase> _phrases = new();
+        private readonly CollectionViewSource _view;
         private string _currentFilter = "All Categories";
+        private string _searchTerm = "";
+        // Set while a bulk op mutates many rows so per-row persistence defers to a single Save() at the end.
+        private bool _bulkUpdating;
 
         private static readonly Dictionary<string, string> _categoryDisplayNames = new()
         {
@@ -50,6 +59,7 @@ namespace ConditioningControlPanel
             { "BrainDrain", "Brain Drain" },
             { "VoiceLine", "Voice Line" },
             { "Custom", "Custom (General)" },
+            { BarkCategory, "🐰 Bark Lines" },
         };
 
         private static string GetDisplayName(string category) =>
@@ -58,6 +68,8 @@ namespace ConditioningControlPanel
         public CompanionPhraseEditorDialog()
         {
             InitializeComponent();
+            _view = (CollectionViewSource)Resources["PhrasesView"];
+            _view.Filter += PhrasesView_Filter;
             PopulateCategoryFilter();
             RefreshPhraseList();
         }
@@ -68,330 +80,156 @@ namespace ConditioningControlPanel
             foreach (var cat in Services.CompanionPhraseService.GetCategoryNames())
                 CmbCategoryFilter.Items.Add(new ComboBoxItem { Content = GetDisplayName(cat), Tag = cat });
             CmbCategoryFilter.Items.Add(new ComboBoxItem { Content = GetDisplayName("Custom"), Tag = "Custom" });
+            // One entry for the ~1,200 bark lines; the list still groups them per rule via GroupLabel.
+            CmbCategoryFilter.Items.Add(new ComboBoxItem { Content = GetDisplayName(BarkCategory), Tag = BarkCategory });
             CmbCategoryFilter.SelectedIndex = 0;
         }
 
+        /// <summary>
+        /// Rebuilds the full phrase set (built-in + voice lines + custom + bark lines) and rebinds the
+        /// grouped, virtualized view. Only called when the row SET changes (add/remove); plain
+        /// enable/disable/select toggles mutate the bound rows in place and skip this.
+        /// </summary>
         private void RefreshPhraseList()
         {
-            PhraseListPanel.Children.Clear();
-            _allPhrases.Clear();
+            // Preserve selection across the rebuild (rows are fresh CompanionPhrase instances).
+            var selected = new HashSet<string>(_phrases.Where(p => p.IsSelected).Select(p => p.Id));
 
-            var allPhrases = App.CompanionPhrases?.GetAllPhrases() ?? new List<CompanionPhrase>();
-            // Restore selection state from tracked IDs
-            foreach (var p in allPhrases)
-                p.IsSelected = _selectedIds.Contains(p.Id);
-            _allPhrases.AddRange(allPhrases);
-
-            // Group by category
-            var grouped = _currentFilter == "All Categories"
-                ? allPhrases.GroupBy(p => p.Category)
-                : allPhrases.Where(p => p.Category == _currentFilter).GroupBy(p => p.Category);
-
-            foreach (var group in grouped)
+            var all = App.CompanionPhrases?.GetAllPhrases() ?? new List<CompanionPhrase>();
+            var fresh = new ObservableCollection<CompanionPhrase>();
+            foreach (var p in all)
             {
-                var enabledCount = group.Count(p => p.IsEnabled);
-                var totalCount = group.Count();
-
-                // Category header
-                var headerBorder = new Border
-                {
-                    Background = new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x3C)),
-                    CornerRadius = new CornerRadius(6, 6, 0, 0),
-                    Padding = new Thickness(10, 8, 10, 8),
-                    Margin = new Thickness(0, 8, 0, 0)
-                };
-
-                var headerGrid = new Grid();
-                var headerText = new TextBlock
-                {
-                    Text = $"{GetDisplayName(group.Key).ToUpperInvariant()} ({enabledCount}/{totalCount} active)",
-                    Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4)),
-                    FontSize = 13,
-                    FontWeight = FontWeights.SemiBold,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                headerGrid.Children.Add(headerText);
-                headerBorder.Child = headerGrid;
-                PhraseListPanel.Children.Add(headerBorder);
-
-                // Phrase rows in this category
-                foreach (var phrase in group)
-                {
-                    var row = CreatePhraseRow(phrase);
-                    PhraseListPanel.Children.Add(row);
-                }
+                // Barks arrive with their own "Bark · {trigger}" GroupLabel; give everything else one.
+                if (!p.IsBark) p.GroupLabel = GetDisplayName(p.Category);
+                p.IsSelected = selected.Contains(p.Id);
+                p.PropertyChanged += Phrase_PropertyChanged;
+                fresh.Add(p);
             }
 
+            _phrases = fresh;
+            _view.Source = _phrases; // single reset → one regroup, not 1,500 collection-changed events
             UpdateTotalCount();
         }
 
-        private Border CreatePhraseRow(CompanionPhrase phrase)
+        // ============================================================
+        // Filtering (category dropdown + search box)
+        // ============================================================
+
+        private void PhrasesView_Filter(object sender, FilterEventArgs e)
         {
-            var isSelected = _selectedIds.Contains(phrase.Id);
-            var border = new Border
+            if (e.Item is not CompanionPhrase p) { e.Accepted = false; return; }
+
+            if (_currentFilter != "All Categories" && p.Category != _currentFilter)
             {
-                Background = new SolidColorBrush(isSelected
-                    ? Color.FromRgb(0x2A, 0x1E, 0x3A) : Color.FromRgb(0x1E, 0x1E, 0x3A)),
-                Padding = new Thickness(10, 6, 10, 6),
-                Margin = new Thickness(0, 0, 0, 1),
-                BorderBrush = new SolidColorBrush(isSelected
-                    ? Color.FromRgb(0xFF, 0x69, 0xB4) : Color.FromRgb(0x2A, 0x2A, 0x45)),
-                BorderThickness = new Thickness(isSelected ? 1 : 0, 0, 0, 1),
-                Tag = phrase.Id,
-                Cursor = Cursors.Hand
-            };
-            border.MouseLeftButtonDown += RowBorder_Click;
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });  // Select checkbox
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Text
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) }); // Audio
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });  // Enable toggle
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });  // Remove
-
-            // Selection checkbox (Column 0)
-            var selectChk = new CheckBox
-            {
-                IsChecked = phrase.IsSelected,
-                Tag = phrase.Id,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0)
-            };
-            selectChk.Checked += (s, e) => SetPhraseSelected(phrase.Id, true);
-            selectChk.Unchecked += (s, e) => SetPhraseSelected(phrase.Id, false);
-            Grid.SetColumn(selectChk, 0);
-            grid.Children.Add(selectChk);
-
-            // Phrase text (Column 1)
-            if (phrase.IsBuiltIn)
-            {
-                var textBlock = new TextBlock
-                {
-                    Text = phrase.Text,
-                    Foreground = new SolidColorBrush(phrase.IsEnabled ? Colors.White : Color.FromRgb(0x60, 0x60, 0x60)),
-                    FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    ToolTip = phrase.Text
-                };
-                Grid.SetColumn(textBlock, 1);
-                grid.Children.Add(textBlock);
-            }
-            else
-            {
-                var textBox = new TextBox
-                {
-                    Text = phrase.Text,
-                    Tag = phrase.Id,
-                    Background = new SolidColorBrush(Color.FromRgb(0x25, 0x25, 0x42)),
-                    Foreground = new SolidColorBrush(phrase.IsEnabled ? Colors.White : Color.FromRgb(0x60, 0x60, 0x60)),
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(0x40, 0x40, 0x60)),
-                    BorderThickness = new Thickness(1),
-                    Padding = new Thickness(4, 2, 4, 2),
-                    FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                textBox.LostFocus += TxtCustomPhrase_LostFocus;
-                Grid.SetColumn(textBox, 1);
-                grid.Children.Add(textBox);
-            }
-
-            // Audio status (Column 2)
-            var audioPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 0, 0)
-            };
-
-            bool isVoiceLine = phrase.Category == Services.CompanionPhraseService.VoiceLineCategory;
-
-            if (phrase.HasAudio)
-            {
-                audioPanel.Children.Add(new TextBlock
-                {
-                    Text = "\u266B ",
-                    Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78)),
-                    FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center
-                });
-                audioPanel.Children.Add(new TextBlock
-                {
-                    Text = (isVoiceLine && phrase.IsBuiltIn) ? "Built-in audio" : phrase.AudioFileName,
-                    Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78)),
-                    FontSize = 10,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    MaxWidth = 90,
-                    ToolTip = phrase.AudioFileName
-                });
-                // Voice line audio is inherent to the file - no clear button (only for built-in)
-                if (!(isVoiceLine && phrase.IsBuiltIn))
-                {
-                    var clearAudioBtn = new Button
-                    {
-                        Content = "\u2716",
-                        Tag = phrase.Id,
-                        Background = Brushes.Transparent,
-                        Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x6B)),
-                        BorderThickness = new Thickness(0),
-                        FontSize = 10,
-                        Padding = new Thickness(4, 0, 0, 0),
-                        Cursor = Cursors.Hand,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        ToolTip = "Remove audio"
-                    };
-                    clearAudioBtn.Click += BtnClearAudio_Click;
-                    audioPanel.Children.Add(clearAudioBtn);
-                }
-            }
-            else
-            {
-                audioPanel.Children.Add(new TextBlock
-                {
-                    Text = "No Audio",
-                    Foreground = new SolidColorBrush(Color.FromRgb(0x60, 0x60, 0x60)),
-                    FontSize = 10,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 6, 0)
-                });
-                var browseBtn = new Button
-                {
-                    Content = "Browse",
-                    Tag = phrase.Id,
-                    Background = new SolidColorBrush(Color.FromRgb(0x35, 0x35, 0x50)),
-                    Foreground = new SolidColorBrush(Colors.White),
-                    BorderThickness = new Thickness(0),
-                    FontSize = 10,
-                    Padding = new Thickness(6, 2, 6, 2),
-                    Cursor = Cursors.Hand,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                browseBtn.Click += BtnBrowseAudio_Click;
-                audioPanel.Children.Add(browseBtn);
-            }
-            Grid.SetColumn(audioPanel, 2);
-            grid.Children.Add(audioPanel);
-
-            // Enable/Disable toggle (Column 3)
-            var enableChk = new CheckBox
-            {
-                IsChecked = phrase.IsEnabled,
-                Tag = phrase.Id,
-                Content = phrase.IsEnabled ? "On" : "Off",
-                Foreground = new SolidColorBrush(phrase.IsEnabled
-                    ? Color.FromRgb(0x50, 0xC8, 0x78) : Color.FromRgb(0x80, 0x80, 0x80)),
-                FontSize = 10,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 0, 0)
-            };
-            enableChk.Checked += ChkPhraseEnabled_Changed;
-            enableChk.Unchecked += ChkPhraseEnabled_Changed;
-            Grid.SetColumn(enableChk, 3);
-            grid.Children.Add(enableChk);
-
-            // Remove button (Column 4)
-            var removeBtn = new Button
-            {
-                Content = "\u2716",
-                Tag = phrase.Id,
-                Background = Brushes.Transparent,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4)),
-                BorderThickness = new Thickness(0),
-                FontSize = 13,
-                Padding = new Thickness(6, 0, 2, 0),
-                Cursor = Cursors.Hand,
-                VerticalAlignment = VerticalAlignment.Center,
-                ToolTip = phrase.IsBuiltIn ? "Hide phrase" : "Delete phrase"
-            };
-            removeBtn.Click += BtnRemovePhrase_Click;
-            Grid.SetColumn(removeBtn, 4);
-            grid.Children.Add(removeBtn);
-
-            border.Child = grid;
-            return border;
-        }
-
-        private void RowBorder_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (sender is not Border border || border.Tag is not string id) return;
-
-            // Don't toggle if clicking on a button, textbox, or combobox
-            if (e.OriginalSource is System.Windows.Controls.Primitives.ButtonBase
-                || e.OriginalSource is TextBox
-                || e.OriginalSource is ComboBox)
+                e.Accepted = false;
                 return;
+            }
 
-            var isSelected = _selectedIds.Contains(id);
-            SetPhraseSelected(id, !isSelected);
-            RefreshPhraseList();
+            if (!string.IsNullOrWhiteSpace(_searchTerm) &&
+                (p.Text == null || p.Text.IndexOf(_searchTerm, StringComparison.OrdinalIgnoreCase) < 0))
+            {
+                e.Accepted = false;
+                return;
+            }
+
+            e.Accepted = true;
         }
 
-        private void SetPhraseSelected(string id, bool selected)
+        private void CmbCategoryFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (selected)
-                _selectedIds.Add(id);
-            else
-                _selectedIds.Remove(id);
+            if (CmbCategoryFilter.SelectedItem is ComboBoxItem item && item.Tag is string filter)
+            {
+                _currentFilter = filter;
+                _view.View?.Refresh();
+            }
+        }
 
-            var phrase = _allPhrases.FirstOrDefault(p => p.Id == id);
-            if (phrase != null) phrase.IsSelected = selected;
+        private void TxtSearch_Changed(object sender, TextChangedEventArgs e)
+        {
+            _searchTerm = TxtSearch.Text ?? "";
+            if (TxtSearchPlaceholder != null)
+                TxtSearchPlaceholder.Visibility = string.IsNullOrEmpty(_searchTerm)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            _view.View?.Refresh();
+        }
+
+        // ============================================================
+        // Per-row handlers (resolve the row's phrase via DataContext)
+        // ============================================================
+
+        private static CompanionPhrase? PhraseOf(object sender) =>
+            (sender as FrameworkElement)?.DataContext as CompanionPhrase;
+
+        private void RowBorder_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (PhraseOf(sender) is not CompanionPhrase p) return;
+            // Let the interactive controls handle their own clicks. e.OriginalSource is an INNER visual of
+            // the control (e.g. the checkbox's bullet), so walk up to find a ButtonBase/TextBox ancestor —
+            // otherwise a click on the select/enable box would also flip selection and cancel itself out.
+            if (HitsInteractive(e.OriginalSource as DependencyObject, sender as DependencyObject)) return;
+            p.IsSelected = !p.IsSelected;
+        }
+
+        private static bool HitsInteractive(DependencyObject? source, DependencyObject? stopAt)
+        {
+            for (var d = source; d != null && d != stopAt; d = VisualTreeHelper.GetParent(d))
+                if (d is ButtonBase || d is TextBox) return true;
+            return false;
+        }
+
+        /// <summary>Fires when a bound row's IsEnabled flips (user toggled the On/Off box) — persists it.</summary>
+        private void Phrase_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not CompanionPhrase p) return;
+            if (e.PropertyName == nameof(CompanionPhrase.IsEnabled))
+                PersistEnabled(p);
+        }
+
+        /// <summary>
+        /// Persist a row's enabled state. Built-in phrases, voice lines and bark lines all share
+        /// <see cref="AppSettings.DisabledPhraseIds"/> (the "Bark:" id prefix keeps them distinct);
+        /// custom phrases store it on their own model.
+        /// </summary>
+        private void PersistEnabled(CompanionPhrase p)
+        {
+            var settings = App.Settings?.Current;
+            if (settings == null) return;
+
+            if (p.IsBuiltIn)
+            {
+                if (p.IsEnabled) settings.DisabledPhraseIds.Remove(p.Id);
+                else settings.DisabledPhraseIds.Add(p.Id);
+            }
+            else
+            {
+                var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == p.Id);
+                if (custom != null) custom.Enabled = p.IsEnabled;
+            }
+
+            if (!_bulkUpdating)
+            {
+                App.Settings?.Save();
+                UpdateTotalCount();
+            }
         }
 
         private void UpdateTotalCount()
         {
-            var active = _allPhrases.Count(p => p.IsEnabled);
-            var total = _allPhrases.Count;
+            var active = _phrases.Count(p => p.IsEnabled);
+            var total = _phrases.Count;
             TxtTotalCount.Text = $"{active}/{total} phrases active";
-        }
-
-        // ============================================================
-        // Event Handlers
-        // ============================================================
-
-        private void ChkPhraseEnabled_Changed(object sender, RoutedEventArgs e)
-        {
-            if (sender is not CheckBox chk || chk.Tag is not string id) return;
-            var settings = App.Settings?.Current;
-            if (settings == null) return;
-
-            var enabled = chk.IsChecked == true;
-            var phrase = _allPhrases.FirstOrDefault(p => p.Id == id);
-
-            if (phrase?.IsBuiltIn == true)
-            {
-                if (enabled)
-                    settings.DisabledPhraseIds.Remove(id);
-                else
-                    settings.DisabledPhraseIds.Add(id);
-            }
-            else
-            {
-                var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == id);
-                if (custom != null) custom.Enabled = enabled;
-            }
-
-            App.Settings?.Save();
-            RefreshPhraseList();
         }
 
         private void BtnRemovePhrase_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.Tag is not string id) return;
+            if (PhraseOf(sender) is not CompanionPhrase phrase) return;
             var settings = App.Settings?.Current;
             if (settings == null) return;
 
-            var phrase = _allPhrases.FirstOrDefault(p => p.Id == id);
-            if (phrase == null) return;
-
             if (phrase.IsBuiltIn)
-            {
-                settings.RemovedPhraseIds.Add(id);
-            }
+                settings.RemovedPhraseIds.Add(phrase.Id);   // bark + built-in: hide (also silences barks)
             else
-            {
-                settings.CustomCompanionPhrases.RemoveAll(c => c.Id == id);
-            }
+                settings.CustomCompanionPhrases.RemoveAll(c => c.Id == phrase.Id);
 
             App.Settings?.Save();
             RefreshPhraseList();
@@ -399,26 +237,20 @@ namespace ConditioningControlPanel
 
         private void BtnBrowseAudio_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.Tag is not string id) return;
-            BrowseAndSetAudio(id);
+            if (PhraseOf(sender) is CompanionPhrase p) BrowseAndSetAudio(p);
         }
 
         private void BtnClearAudio_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.Tag is not string id) return;
+            if (PhraseOf(sender) is not CompanionPhrase phrase) return;
             var settings = App.Settings?.Current;
             if (settings == null) return;
 
-            var phrase = _allPhrases.FirstOrDefault(p => p.Id == id);
-            if (phrase == null) return;
-
             if (phrase.IsBuiltIn)
-            {
-                settings.PhraseAudioOverrides.Remove(id);
-            }
+                settings.PhraseAudioOverrides.Remove(phrase.Id);
             else
             {
-                var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == id);
+                var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == phrase.Id);
                 if (custom != null) custom.AudioFileName = null;
             }
 
@@ -426,13 +258,10 @@ namespace ConditioningControlPanel
             RefreshPhraseList();
         }
 
-        private void BrowseAndSetAudio(string phraseId)
+        private void BrowseAndSetAudio(CompanionPhrase phrase)
         {
             var settings = App.Settings?.Current;
             if (settings == null) return;
-
-            var phrase = _allPhrases.FirstOrDefault(p => p.Id == phraseId);
-            if (phrase == null) return;
 
             var dialog = new OpenFileDialog
             {
@@ -446,12 +275,10 @@ namespace ConditioningControlPanel
             if (fileName == null) return;
 
             if (phrase.IsBuiltIn)
-            {
-                settings.PhraseAudioOverrides[phraseId] = fileName;
-            }
+                settings.PhraseAudioOverrides[phrase.Id] = fileName;
             else
             {
-                var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == phraseId);
+                var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == phrase.Id);
                 if (custom != null) custom.AudioFileName = fileName;
             }
 
@@ -461,11 +288,11 @@ namespace ConditioningControlPanel
 
         private void TxtCustomPhrase_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is not TextBox txt || txt.Tag is not string id) return;
+            if (sender is not TextBox txt || PhraseOf(sender) is not CompanionPhrase p) return;
             var settings = App.Settings?.Current;
             if (settings == null) return;
 
-            var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == id);
+            var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == p.Id);
             if (custom != null && custom.Text != txt.Text)
             {
                 custom.Text = txt.Text;
@@ -473,9 +300,78 @@ namespace ConditioningControlPanel
             }
         }
 
+        // ============================================================
+        // Toolbar / bulk actions
+        // ============================================================
+
+        private void BtnSelectAll_Click(object sender, RoutedEventArgs e)
+        {
+            // Only the rows currently visible through the filter, so "select all" respects search/category.
+            foreach (var p in VisiblePhrases()) p.IsSelected = true;
+        }
+
+        private void BtnDeselectAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var p in _phrases) p.IsSelected = false;
+        }
+
+        private void BtnEnableSelected_Click(object sender, RoutedEventArgs e) => SetSelectedEnabled(true);
+
+        private void BtnDisableSelected_Click(object sender, RoutedEventArgs e) => SetSelectedEnabled(false);
+
+        private void SetSelectedEnabled(bool enabled)
+        {
+            var selected = _phrases.Where(p => p.IsSelected).ToList();
+            if (selected.Count == 0) return;
+
+            _bulkUpdating = true;
+            foreach (var p in selected) p.IsEnabled = enabled; // PropertyChanged → PersistEnabled (Save deferred)
+            _bulkUpdating = false;
+
+            App.Settings?.Save();
+            UpdateTotalCount();
+        }
+
+        private void BtnRemoveSelected_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = _phrases.Where(p => p.IsSelected).ToList();
+            if (selected.Count == 0)
+            {
+                MessageBox.Show(this, "No phrases selected.", "Remove Selected", MessageBoxButton.OK);
+                return;
+            }
+
+            var result = MessageBox.Show(this,
+                $"Remove {selected.Count} selected phrase(s)?\n\nBuilt-in phrases and bark lines will be hidden (can be restored by clearing settings).\nCustom phrases will be permanently deleted.",
+                "Remove Selected",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            var settings = App.Settings?.Current;
+            if (settings == null) return;
+
+            foreach (var phrase in selected)
+            {
+                if (phrase.IsBuiltIn)
+                    settings.RemovedPhraseIds.Add(phrase.Id);
+                else
+                    settings.CustomCompanionPhrases.RemoveAll(c => c.Id == phrase.Id);
+            }
+
+            App.Settings?.Save();
+            RefreshPhraseList();
+        }
+
+        private IEnumerable<CompanionPhrase> VisiblePhrases()
+        {
+            var view = _view.View;
+            return view == null ? _phrases : view.Cast<CompanionPhrase>();
+        }
+
         private void BtnAddPhrase_Click(object sender, RoutedEventArgs e)
         {
-            // Show a simple input dialog
             var inputWindow = new Window
             {
                 Title = "Add Custom Phrase",
@@ -506,7 +402,6 @@ namespace ConditioningControlPanel
             };
             stack.Children.Add(inputBox);
 
-            // Category selector
             stack.Children.Add(new TextBlock
             {
                 Text = "Category:",
@@ -524,16 +419,16 @@ namespace ConditioningControlPanel
                 Padding = new Thickness(8, 5, 8, 5),
                 FontSize = 13
             };
-            // Apply DarkComboBox style from parent window resources
             if (TryFindResource("DarkComboBox") is Style darkStyle)
                 categoryCombo.Style = darkStyle;
 
-            // Populate with all categories
             foreach (var cat in Services.CompanionPhraseService.GetCategoryNames())
                 categoryCombo.Items.Add(new ComboBoxItem { Content = GetDisplayName(cat), Tag = cat });
 
-            // Pre-select the current filter category, or "VoiceLine" by default
-            var preselect = _currentFilter != "All Categories" ? _currentFilter : "VoiceLine";
+            // Custom phrases can't be authored into the bark system, so pre-select the current filter
+            // only when it's a real authorable category; otherwise default to VoiceLine.
+            var preselect = (_currentFilter != "All Categories" && _currentFilter != BarkCategory)
+                ? _currentFilter : "VoiceLine";
             for (int i = 0; i < categoryCombo.Items.Count; i++)
             {
                 if (categoryCombo.Items[i] is ComboBoxItem ci && ci.Tag is string tag && tag == preselect)
@@ -601,7 +496,6 @@ namespace ConditioningControlPanel
                 Enabled = true
             };
 
-            // Ask if they want to add audio
             var result = MessageBox.Show(this,
                 "Would you like to connect an audio file to this phrase?",
                 "Audio File",
@@ -626,106 +520,6 @@ namespace ConditioningControlPanel
             settings.CustomCompanionPhrases.Add(newPhrase);
             App.Settings?.Save();
             RefreshPhraseList();
-        }
-
-        private void BtnRemoveSelected_Click(object sender, RoutedEventArgs e)
-        {
-            var selected = _allPhrases.Where(p => p.IsSelected).ToList();
-            if (selected.Count == 0)
-            {
-                MessageBox.Show(this, "No phrases selected.", "Remove Selected", MessageBoxButton.OK);
-                return;
-            }
-
-            var result = MessageBox.Show(this,
-                $"Remove {selected.Count} selected phrase(s)?\n\nBuilt-in phrases will be hidden (can be restored by clearing settings).\nCustom phrases will be permanently deleted.",
-                "Remove Selected",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-
-            if (result != MessageBoxResult.Yes) return;
-
-            var settings = App.Settings?.Current;
-            if (settings == null) return;
-
-            foreach (var phrase in selected)
-            {
-                if (phrase.IsBuiltIn)
-                {
-                    settings.RemovedPhraseIds.Add(phrase.Id);
-                }
-                else
-                {
-                    settings.CustomCompanionPhrases.RemoveAll(c => c.Id == phrase.Id);
-                }
-            }
-
-            App.Settings?.Save();
-            RefreshPhraseList();
-        }
-
-        private void BtnSelectAll_Click(object sender, RoutedEventArgs e)
-        {
-            foreach (var phrase in _allPhrases)
-                _selectedIds.Add(phrase.Id);
-            RefreshPhraseList();
-        }
-
-        private void BtnDeselectAll_Click(object sender, RoutedEventArgs e)
-        {
-            _selectedIds.Clear();
-            RefreshPhraseList();
-        }
-
-        private void BtnEnableSelected_Click(object sender, RoutedEventArgs e)
-        {
-            var settings = App.Settings?.Current;
-            if (settings == null) return;
-
-            var selected = _allPhrases.Where(p => p.IsSelected).ToList();
-            foreach (var phrase in selected)
-            {
-                if (phrase.IsBuiltIn)
-                    settings.DisabledPhraseIds.Remove(phrase.Id);
-                else
-                {
-                    var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == phrase.Id);
-                    if (custom != null) custom.Enabled = true;
-                }
-            }
-
-            App.Settings?.Save();
-            RefreshPhraseList();
-        }
-
-        private void BtnDisableSelected_Click(object sender, RoutedEventArgs e)
-        {
-            var settings = App.Settings?.Current;
-            if (settings == null) return;
-
-            var selected = _allPhrases.Where(p => p.IsSelected).ToList();
-            foreach (var phrase in selected)
-            {
-                if (phrase.IsBuiltIn)
-                    settings.DisabledPhraseIds.Add(phrase.Id);
-                else
-                {
-                    var custom = settings.CustomCompanionPhrases.FirstOrDefault(c => c.Id == phrase.Id);
-                    if (custom != null) custom.Enabled = false;
-                }
-            }
-
-            App.Settings?.Save();
-            RefreshPhraseList();
-        }
-
-        private void CmbCategoryFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (CmbCategoryFilter.SelectedItem is ComboBoxItem item && item.Tag is string filter)
-            {
-                _currentFilter = filter;
-                RefreshPhraseList();
-            }
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)

@@ -94,12 +94,17 @@ namespace ConditioningControlPanel.Services
             {
                 Log.Debug("AudioSyncService: Skipping - Enabled={Enabled}, Connected={Connected}",
                     _settings.Enabled, _hapticService.IsConnected);
+                // Unblock the page: the JS overlay waits for a ready signal before it lets the
+                // video play, so a skip MUST still complete or the user is stuck staring at
+                // "Preparing Haptic Sync...". Video just plays un-synced.
+                ProcessingCompleted?.Invoke(this, EventArgs.Empty);
                 return;
             }
 
             if (!VideoDownloader.IsLikelyVideoUrl(videoUrl))
             {
                 Log.Debug("AudioSyncService: URL doesn't look like a video: {Url}", videoUrl);
+                ProcessingCompleted?.Invoke(this, EventArgs.Empty);
                 return;
             }
 

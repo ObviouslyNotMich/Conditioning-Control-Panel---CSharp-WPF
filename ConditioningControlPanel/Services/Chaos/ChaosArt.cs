@@ -17,24 +17,39 @@ namespace ConditioningControlPanel.Services.Chaos;
 /// </summary>
 public static class ChaosArt
 {
-    /// <summary>Load an image from an explicit path, or null if absent/blank/unreadable.</summary>
+    // Frozen decoded bitmaps are immutable and safely shareable across every visual that
+    // shows the same art. WITHOUT this cache, each call decoded a fresh native MIL bitmap —
+    // and per-bubble-spawn callers (ChaosBubbleVariants, several per second during a run)
+    // piled up hundreds of decoded sprites in unmanaged memory, climbing to an OOM hard
+    // crash (working set 2GB+, GC heap flat — see chaos-bubble-oom-leak). One shared frozen
+    // bitmap per distinct file collapses that to a handful. Keyed by full path so user-asset
+    // overrides and bundled art never collide.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ImageSource?> _cache = new();
+
+    /// <summary>Load an image from an explicit path, or null if absent/blank/unreadable.
+    /// Results (including the null "no such file") are cached and the bitmap is frozen +
+    /// shared across all callers — never decode the same sprite twice.</summary>
     public static ImageSource? TryLoad(string? path)
     {
-        try
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        return _cache.GetOrAdd(path!, static p =>
         {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.UriSource = new Uri(path!, UriKind.Absolute);
-            bmp.EndInit();
-            bmp.Freeze();
-            return bmp;
-        }
-        catch
-        {
-            return null;
-        }
+            try
+            {
+                if (!File.Exists(p)) return null;
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.UriSource = new Uri(p, UriKind.Absolute);
+                bmp.EndInit();
+                bmp.Freeze();
+                return bmp;
+            }
+            catch
+            {
+                return null;
+            }
+        });
     }
 
     /// <summary>

@@ -41,6 +41,11 @@ namespace ConditioningControlPanel.Services
         // UI-thread only (heartbeat/spawn/close all run on the dispatcher).
         private readonly Stack<FlashWindow> _windowPool = new();
         private const int WINDOW_POOL_MAX = 12;
+        // Hard cap on concurrent live flash windows. Each is a WS_EX_LAYERED topmost window with
+        // its own native compositor surface; 30 was enough to back up the render thread under chaos
+        // (which both starved CompleteRender into the resize deadlock and drove the native-memory
+        // ramp — managed heap stayed ~82MB while private memory hit 3GB). 10 relieves both.
+        private const int MAX_CONCURRENT_FLASH = 10;
         private List<string> _imageList = new();  // Cached image list for random selection
         private List<(string PackId, PackFileEntry File)> _packImageList = new();  // Cached pack images for random selection
         private Queue<string> _soundQueue = new();  // Performance: Changed to Queue for O(1) dequeue
@@ -106,6 +111,25 @@ namespace ConditioningControlPanel.Services
         /// automatic performance-tier escalation (see Services/PerformanceProfile.cs).
         /// </summary>
         public int ActiveWindowCount => _activeWindows.Count;
+
+        /// <summary>
+        /// Re-assert HWND_TOPMOST on every live flash window. Flashes (and gif cascades) are the
+        /// top attention layer by design, sitting ABOVE the chaos bubbles. The chaos run re-raises
+        /// its bubbles over the HUD/boons/active-skill chrome ~once a second; this lets the chaos
+        /// layer kick the flashes back on top afterwards so an already-showing flash is never
+        /// briefly buried under a re-raised bubble. Focus-free, cheap, no-op when nothing is live.
+        /// </summary>
+        public void RaiseAllToFront()
+        {
+            DispatcherHelper.RunOnUI(() =>
+            {
+                lock (_lockObj)
+                {
+                    foreach (var w in _activeWindows)
+                        if (!w.IsFadingOut) ForceTopmost(w);
+                }
+            });
+        }
 
         /// <summary>
         /// File paths of images shown by the most recent FlashDisplayed event.
@@ -448,22 +472,10 @@ namespace ConditioningControlPanel.Services
                 // Scale is percentage: 50-250%, stored as 50-250, so divide by 100
                 var scale = (size ?? settings.ImageScale) / 100.0;
 
-                // Load images in parallel on background threads
-                var loadTasks = images.Select(imagePath => LoadImageAsync(imagePath)).ToArray();
-                var results = await Task.WhenAll(loadTasks);
-
-                var loadedImages = new List<LoadedImageData>();
-                foreach (var data in results)
-                {
-                    if (data != null)
-                    {
-                        var monitor = PickMonitor(settings);
-                        var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
-                        data.Geometry = geometry;
-                        data.Monitor = monitor;
-                        loadedImages.Add(data);
-                    }
-                }
+                // Load images, retrying with fresh picks if some are corrupted/unsupported,
+                // until we reach the requested count or run out of candidates.
+                var targetCount = amount ?? settings.SimultaneousImages;
+                var loadedImages = await LoadImagesUntilAsync(targetCount);
 
                 if (loadedImages.Count == 0)
                 {
@@ -482,6 +494,64 @@ namespace ConditioningControlPanel.Services
                 App.Logger.Error(ex, "Error loading flash images");
                 _isBusy = false;
             }
+        }
+
+        /// <summary>
+        /// Loads up to <paramref name="targetCount"/> images, retrying with new candidates
+        /// when a file is missing, corrupted, or uses an unsupported codec. Images are used
+        /// as soon as they decode successfully; slow or broken files do not block the others.
+        /// </summary>
+        private async Task<List<LoadedImageData>> LoadImagesUntilAsync(int targetCount)
+        {
+            var loaded = new List<LoadedImageData>(targetCount);
+            var attempted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var settings = App.Settings.Current;
+            var scale = settings.ImageScale / 100.0;
+            int attempts = 0;
+            int maxAttempts = Math.Max(targetCount * 5, 20);
+            var pending = new List<Task<LoadedImageData?>>();
+
+            while (loaded.Count < targetCount && attempts < maxAttempts)
+            {
+                int need = targetCount - loaded.Count;
+
+                // Keep a generous pipeline of decode tasks running.
+                int fetch = Math.Min(Math.Max(need * 3, 3), maxAttempts - attempts - pending.Count);
+                if (fetch > 0)
+                {
+                    var candidates = GetNextImages(fetch);
+                    if (candidates.Count == 0 && pending.Count == 0) break;
+
+                    var newCandidates = candidates.Where(c => attempted.Add(c)).ToList();
+                    if (newCandidates.Count == 0 && pending.Count == 0) break;
+
+                    pending.AddRange(newCandidates.Select(LoadImageAsync));
+                    attempts += newCandidates.Count;
+                }
+
+                if (pending.Count == 0) break;
+
+                // Use the first image that finishes decoding, whether it succeeds or fails.
+                var completed = await Task.WhenAny(pending);
+                pending.Remove(completed);
+                var data = await completed;
+                if (data != null && loaded.Count < targetCount)
+                {
+                    var monitor = PickMonitor(settings);
+                    var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
+                    data.Geometry = geometry;
+                    data.Monitor = monitor;
+                    loaded.Add(data);
+                }
+            }
+
+            // Drain any stragglers so unobserved exceptions don't linger.
+            if (pending.Count > 0)
+            {
+                try { await Task.WhenAll(pending); } catch { /* individual tasks are already guarded */ }
+            }
+
+            return loaded;
         }
 
         private async Task<LoadedImageData?> LoadImageAsync(string path)
@@ -511,30 +581,50 @@ namespace ConditioningControlPanel.Services
                     var extension = Path.GetExtension(path).ToLowerInvariant();
                     var data = new LoadedImageData { FilePath = path };
 
+                    if (!File.Exists(path))
+                    {
+                        App.Logger?.Debug("FlashService: image file not found: {Path}", path);
+                        return null;
+                    }
+
                     if (extension == ".gif")
                     {
                         LoadGifFrames(path, data, decodeMax);
                     }
                     else
                     {
-                        // Load static image, downscaling to the decode cap if larger.
-                        using var bitmap = new System.Drawing.Bitmap(path);
-                        var (tw, th) = ScaledSize(bitmap.Width, bitmap.Height, decodeMax);
-                        BitmapSource bitmapSource;
-                        if (tw != bitmap.Width || th != bitmap.Height)
+                        // Decode the static image through WIC (WPF BitmapImage), NOT System.Drawing/GDI+.
+                        // GDI+ allocates decoded pixels on the native Win32 heap and bloats/leaks it under
+                        // the high-frequency flash decode churn — VMMap pinned ~1.3GB in the native heap as
+                        // the chaos OOM, while the managed GC heap, GDI handles and MILCore all stayed small.
+                        // WIC decodes into a WPF-owned buffer and DecodePixelWidth/Height scales DURING the
+                        // decode (no full-size intermediate, nothing on the GDI+ heap).
+                        int srcW = 0, srcH = 0;
+                        try
                         {
-                            using var scaled = DownscaleBitmap(bitmap, tw, th);
-                            bitmapSource = ConvertToBitmapSource(scaled);
+                            var probe = BitmapFrame.Create(new Uri(path, UriKind.Absolute),
+                                BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
+                            srcW = probe.PixelWidth; srcH = probe.PixelHeight;
                         }
-                        else
-                        {
-                            bitmapSource = ConvertToBitmapSource(bitmap);
-                        }
-                        bitmapSource.Freeze();
+                        catch { }
 
-                        data.Frames.Add(bitmapSource);
-                        data.Width = tw;
-                        data.Height = th;
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;                  // decode now, release the file handle
+                        bmp.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                        bmp.UriSource = new Uri(path, UriKind.Absolute);
+                        // Only DOWNSCALE (never upscale a small source): cap the larger edge to decodeMax.
+                        if (srcW > decodeMax || srcH > decodeMax)
+                        {
+                            if (srcW >= srcH) bmp.DecodePixelWidth = decodeMax;
+                            else bmp.DecodePixelHeight = decodeMax;
+                        }
+                        bmp.EndInit();
+                        bmp.Freeze();
+
+                        data.Frames.Add(bmp);
+                        data.Width = bmp.PixelWidth;
+                        data.Height = bmp.PixelHeight;
                         data.FrameDelay = TimeSpan.FromMilliseconds(100);
                     }
 
@@ -943,10 +1033,10 @@ namespace ConditioningControlPanel.Services
         {
             if (!_isRunning && !_oneShotActive) return;
 
-            // Prevent memory explosion from too many concurrent flash windows
+            // Prevent memory explosion / compositor backup from too many concurrent flash windows
             lock (_lockObj)
             {
-                if (_activeWindows.Count >= 30) return;
+                if (_activeWindows.Count >= MAX_CONCURRENT_FLASH) return;
             }
 
             // Create per-window CTS with automatic cancellation after the lifetime expires~ ✨
@@ -975,11 +1065,14 @@ namespace ConditioningControlPanel.Services
                 }
 
                 // Recycled from the pool when possible — all per-spawn state must be (re)set here.
-                window = AcquireFlashWindow();
+                // The window comes back already at geom's size (matched from the pool or freshly
+                // created at that size). NEVER assign Width/Height here: changing the size of an
+                // already-realized layered window forces a synchronous MediaContext.CompleteRender
+                // on the compositor and deadlocks the UI thread under chaos load (see AcquireFlashWindow).
+                // Left/Top is a move (no surface resize) and is safe on a live window.
+                window = AcquireFlashWindow(geom.Width, geom.Height);
                 window.Left = finalX;
                 window.Top = finalY;
-                window.Width = geom.Width;
-                window.Height = geom.Height;
                 window.Frames = imageData.Frames;
                 window.FrameDelay = imageData.FrameDelay;
                 window.StartTime = DateTime.Now;
@@ -1104,6 +1197,7 @@ namespace ConditioningControlPanel.Services
 
                     window.Background = System.Windows.Media.Brushes.Transparent;
                     window.Content = border;
+                    window.GlowEffect = glowEffect;   // tracked so SafeCloseFlashWindow can stop its animations + free the native blur target
 
                     // Expand window to accommodate glow padding
                     var padding = blurRadius / 2;
@@ -1690,7 +1784,7 @@ namespace ConditioningControlPanel.Services
 
             // Load regular images (include common extensions and variants)
             // GetMediaFiles has its own 60-second cache, so this is efficient
-            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif" });
+            _imageList = GetMediaFiles(_imagesPath, new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif", ".ico" });
 
             // Load pack images from active packs
             _packImageList = App.ContentPacks?.GetAllActivePackImages() ?? new List<(string, PackFileEntry)>();
@@ -1992,12 +2086,28 @@ namespace ConditioningControlPanel.Services
         /// one-time hooks (click handler, CTS safety net, Alt+Tab hiding) are wired here
         /// exactly once; everything per-spawn is assigned by SpawnFlashWindow.
         /// </summary>
-        private FlashWindow AcquireFlashWindow()
+        private FlashWindow AcquireFlashWindow(int width, int height)
         {
-            while (_windowPool.Count > 0)
+            // Reuse ONLY a pooled window whose size already matches the request. Resizing a
+            // realized layered window is the render-thread-deadlock trigger (dump-confirmed
+            // 2026-06-13: SetValue(Width) -> OnResize -> MediaContext.CompleteRender wedges the
+            // UI thread on a backed-up compositor), so a size mismatch gets a fresh window
+            // sized BEFORE its first Show() instead — never a live resize.
+            if (_windowPool.Count > 0)
             {
-                var pooled = _windowPool.Pop();
-                if (pooled.IsLoaded) return pooled;   // skip any window that got closed externally
+                FlashWindow? match = null;
+                var keep = new List<FlashWindow>(_windowPool.Count);
+                while (_windowPool.Count > 0)
+                {
+                    var pooled = _windowPool.Pop();
+                    if (!pooled.IsLoaded) continue;   // drop any window that got closed externally
+                    if (match == null && (int)pooled.Width == width && (int)pooled.Height == height)
+                        match = pooled;
+                    else
+                        keep.Add(pooled);
+                }
+                foreach (var w2 in keep) _windowPool.Push(w2);   // restore the non-matching windows
+                if (match != null) return match;
             }
 
             var w = new FlashWindow
@@ -2011,6 +2121,9 @@ namespace ConditioningControlPanel.Services
                 ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation = WindowStartupLocation.Manual,
                 Opacity = 0,
+                // Size the shell before it is ever shown (no HWND yet => no live resize).
+                Width = width,
+                Height = height,
             };
 
             // One-time click handler — gated on the per-spawn IsClickable flag so a
@@ -2085,7 +2198,26 @@ namespace ConditioningControlPanel.Services
                     window.ImageControl = null;
                 }
                 window.Frames.Clear();
+
+                // Stop the glow's animations BEFORE dropping the content. A lucky proc starts
+                // RepeatBehavior.Forever blur+opacity animations on this DropShadowEffect; a Forever
+                // animation keeps its target pinned by the app-global timing manager (it survives
+                // run teardown) until cleared with BeginAnimation(prop, null). The effect pins a
+                // native GPU blur render-target, so leaving it animated leaked native memory every
+                // glowed flash — the chaos-mode OOM climb (managed heap stayed flat the whole time).
+                if (window.GlowEffect is { } glow)
+                {
+                    try
+                    {
+                        glow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.BlurRadiusProperty, null);
+                        glow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, null);
+                    }
+                    catch { }
+                    window.GlowEffect = null;
+                }
+
                 window.Content = null;
+                window.Effect = null;   // belt-and-suspenders: ensure no effect render-target lingers on the pooled shell
                 window.IsFadingOut = false;
                 window.Opacity = 0;
 
@@ -2197,6 +2329,16 @@ namespace ConditioningControlPanel.Services
         public int CurrentFrameIndex { get; set; }
         public Image? ImageControl { get; set; }
         public bool IsClickable { get; set; }
+
+        /// <summary>
+        /// The lucky/sparkle glow effect applied this spawn, if any. Held so the pool-return path
+        /// can stop its animations: a lucky proc starts RepeatBehavior.Forever blur+opacity
+        /// animations on this DropShadowEffect, and a Forever animation keeps its target (plus the
+        /// effect's native GPU blur render-target) pinned by the global timing manager until it is
+        /// explicitly cleared with BeginAnimation(prop, null). Without that, every glowed flash
+        /// leaked a native render surface that survived run teardown — the chaos OOM climb.
+        /// </summary>
+        public System.Windows.Media.Effects.DropShadowEffect? GlowEffect { get; set; }
 
         /// <summary>
         /// Per-window cancellation source — cancel this to begin fade-out for THIS window only~ 🌙

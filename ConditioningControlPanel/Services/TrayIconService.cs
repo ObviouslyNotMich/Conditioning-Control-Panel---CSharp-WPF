@@ -20,6 +20,10 @@ namespace ConditioningControlPanel.Services;
         private readonly Window _mainWindow;
         private bool _isDisposed;
         private bool _hasShownFirstMinimizeNotification;
+        // WPF forbids Show() after a Window is closed. A second app instance can signal us to show the
+        // window (App's show-signal handler) AFTER the MainWindow has been closed — MainWindowRef is then
+        // a stale, non-null reference — which threw InvalidOperationException. Track closure to no-op.
+        private bool _windowClosed;
 
         public event Action? OnShowRequested;
         public event Action? OnExitRequested;
@@ -27,6 +31,7 @@ namespace ConditioningControlPanel.Services;
     public TrayIconService(Window mainWindow)
     {
         _mainWindow = mainWindow;
+        _mainWindow.Closed += (_, _) => _windowClosed = true;
         Initialize();
     }
 
@@ -147,6 +152,14 @@ namespace ConditioningControlPanel.Services;
 
     public void ShowWindow()
     {
+        // The MainWindow has been closed (app shutting down / tray-only with a dead window) — re-showing
+        // it would throw. No-op: there's no live window to bring forward.
+        if (_windowClosed)
+        {
+            App.Logger?.Debug("TrayIconService.ShowWindow ignored — MainWindow already closed");
+            return;
+        }
+
         // Dismiss any active balloon tip by hiding the icon (this clears balloon notifications)
         if (_notifyIcon != null)
         {

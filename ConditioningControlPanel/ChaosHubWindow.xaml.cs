@@ -67,8 +67,28 @@ public partial class ChaosHubWindow : Window
         LoadBanner();
         BuildDebugStrip();   // CCP_CHAOS_DEBUG=1 only — a normal launch builds nothing
         ShowTab("loadout");
-        Loaded += (_, _) => OnHubOpenedReveals();
+        Loaded += (_, _) => { OnHubOpenedReveals(); FireHubGreeting(); };
         _uiSoundsReady = true;
+    }
+
+    /// <summary>The Madam's hub-return greeting (gated on NarrativeModeEnabled inside the director).
+    /// A short beat lets the hub paint before the card slides in over it.</summary>
+    private void FireHubGreeting()
+    {
+        try
+        {
+            if (App.Settings?.Current?.NarrativeModeEnabled != true) return;
+            var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                if (Current != this) return;   // hub was closed in the meantime
+                var ctx = new Services.Chaos.ChaosNarrativeContext { RankIndex = (int)Services.Chaos.ChaosMeta.RankIndex };
+                Services.Chaos.ChaosNarrativeHooks.OnHubMoment("hub_return", ctx);
+            };
+            t.Start();
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChaosHub.FireHubGreeting: {E}", ex.Message); }
     }
 
     private void LoadBanner()
@@ -1517,6 +1537,9 @@ public partial class ChaosHubWindow : Window
         ChkCurses.IsChecked = s.ChaosAllowCurses;
         ChkDarters.IsChecked = s.ChaosDartersEnabled;
         ChkAnnouncer.IsChecked = s.ChaosAnnouncerEnabled;
+        ChkNarrative.IsChecked = s.NarrativeModeEnabled;
+        ChkBackdrop.IsChecked = s.BackdropEnabled;
+        SldBackdropOpacity.Value = s.BackdropOpacity;
 
         // Accessory keybinds (future active-use; the binds persist now so loadouts feel real).
         var keyOpts = new[] { "Q", "E", "R", "F", "Z", "X", "C", "V", "1", "2", "3", "4" };
@@ -1581,6 +1604,9 @@ public partial class ChaosHubWindow : Window
         ChkBoonDraft.IsChecked = true; ChkCurses.IsChecked = true;
         ChkDarters.IsChecked = true;
         ChkAnnouncer.IsChecked = true;
+        ChkNarrative.IsChecked = true;
+        ChkBackdrop.IsChecked = true;
+        SldBackdropOpacity.Value = 0.55;
     }
 
     private void SaveToSettings()
@@ -1607,6 +1633,9 @@ public partial class ChaosHubWindow : Window
         s.ChaosAllowCurses = ChkCurses.IsChecked == true;
         s.ChaosDartersEnabled = ChkDarters.IsChecked == true;
         s.ChaosAnnouncerEnabled = ChkAnnouncer.IsChecked == true;
+        s.NarrativeModeEnabled = ChkNarrative.IsChecked == true;
+        s.BackdropEnabled = ChkBackdrop.IsChecked == true;
+        s.BackdropOpacity = SldBackdropOpacity.Value;
     }
 
     // ============================ run-setup controls ============================
@@ -1669,6 +1698,14 @@ public partial class ChaosHubWindow : Window
     public void FallIn() => BtnBegin_Click(this, new RoutedEventArgs());
 
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Re-open the spoiler-free rules card on demand (the same card shown the first
+    /// time the Dollhouse opened) — a "how do I play this" refresher anytime.</summary>
+    private void BtnGuide_Click(object sender, RoutedEventArgs e)
+    {
+        try { new ChaosIntroWindow { Owner = this }.ShowDialog(); }
+        catch (Exception ex) { App.Logger?.Debug("Chaos guide reshow: {E}", ex.Message); }
+    }
 
     // ============================ helpers ============================
 

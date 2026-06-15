@@ -841,12 +841,45 @@ namespace ConditioningControlPanel
                     ClearGifLayer(outImg); // stop + free the outgoing clip
                 }
             };
-            outImg.BeginAnimation(UIElement.OpacityProperty, fout);
-            inImg.BeginAnimation(UIElement.OpacityProperty, fin);
-
             _circeActiveImg = inImg;
             _circeCurrentClip = clip;
             _circeClipStartTick = Environment.TickCount64;
+
+            // Gate the visible crossfade on the incoming clip being LOADED (its animator exists / first
+            // frame is decoded). Until then the outgoing layer keeps its current opacity, so the avatar
+            // never blanks while the new GIF loads async — the "disappears for a few seconds" bug, where
+            // the outgoing faded to 0 over ~1s before the incoming had a frame (and a stranded load left
+            // it blank until the 13s watchdog). Bounded by an 800ms timeout so a slow/failed load still
+            // proceeds and the existing AnimationCompleted / watchdog recovery takes over. Idle/reaction
+            // rotation only: talk sequences switch clips on a tight timer and stay on the immediate path
+            // so their mouth-join timing is unchanged.
+            void StartFade()
+            {
+                outImg.BeginAnimation(UIElement.OpacityProperty, fout);
+                inImg.BeginAnimation(UIElement.OpacityProperty, fin);
+            }
+            bool ready = AnimationBehavior.GetAnimator(inImg) != null || inImg.Source != null;
+            if (ready || _circeTalkSeqActive)
+            {
+                StartFade();
+            }
+            else
+            {
+                long gateStart = Environment.TickCount64;
+                var gate = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+                gate.Tick += (_, __) =>
+                {
+                    // A newer crossfade claimed these layers — abandon this gate, it owns them now.
+                    if (!ReferenceEquals(_circeActiveImg, inImg) || _circeCurrentClip != clip) { gate.Stop(); return; }
+                    bool nowReady = AnimationBehavior.GetAnimator(inImg) != null || inImg.Source != null;
+                    if (nowReady || Environment.TickCount64 - gateStart > 800)
+                    {
+                        gate.Stop();
+                        StartFade();
+                    }
+                };
+                gate.Start();
+            }
 
             // (Re)arm the watchdog so the rotation survives a missed AnimationCompleted.
             _circeWatchdog ??= CreateWatchdog();

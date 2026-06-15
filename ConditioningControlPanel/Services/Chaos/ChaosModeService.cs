@@ -25,6 +25,7 @@ public sealed class ChaosModeService
     private ChaosFxWindow? _fx;
     private DispatcherTimer? _runTimer;
     private DispatcherTimer? _spawnTimer;
+    private int _chromeRaiseTick;   // throttles the per-tick chrome topmost re-assert (see RunTick)
     private bool _active;        // a run session exists (countdown → results dismissed)
     private bool _spawning;      // GO fired, bubbles spawning, not yet ended
     private bool _paused;        // boon draft on screen (clock + spawns held)
@@ -439,6 +440,61 @@ public sealed class ChaosModeService
         _spawnTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _spawnTimer.Tick += SpawnTick;
         _spawnTimer.Start();
+
+        // Narrative layer (the Madam) + per-zone backdrop. Both gated on their settings internally;
+        // the backdrop spawns no window when off, so classic Chaos keeps its desktop click-through.
+        ChaosNarrativeHooks.OnRunStarted();
+        _pendingDepthVCard = false;
+        ChaosBackdropService.Show(_state.ActIndex);
+        ChaosNarrativeHooks.OnMoment("run_start", BuildNarrativeCtx());
+    }
+
+    /// <summary>
+    /// Open a STORY conversation card in the run overlay (routed here by <see cref="ChaosStoryCards"/>
+    /// when a descent is live). Reuses the lesson-card pause — freeze clock + spawns + bubble motion +
+    /// input — and resumes the field when the card closes. The card paints over the live zone plate.
+    /// </summary>
+    public void PlayStoryCard(ChaosConversation convo)
+    {
+        var disp = Application.Current?.Dispatcher;
+        if (disp == null || disp.HasShutdownStarted) return;
+        disp.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                if (_overlay == null || !_active) return;
+                // Claim a pause only if the field is live and unheld; otherwise let the existing owner
+                // (draft/manual/lesson) keep ownership and just show the card without resuming on close.
+                bool claimPause = _spawning && !_paused && !_manualPaused && !_lessonCardPaused;
+                if (claimPause)
+                {
+                    _lessonCardPaused = true;
+                    _paused = true;
+                    _spawnTimer?.Stop();
+                    App.Bubbles?.SetChaosFrozen(true);
+                    App.Bubbles?.SetChaosInputLocked(true);
+                }
+                var bg = ChaosBackdropService.CurrentSource
+                         ?? ChaosArt.Resolve("backdrops", "depth" + (_state?.ActIndex ?? 1));
+                _overlay.ShowConversation(convo, bg,
+                    onComplete: claimPause ? ResumeAfterLessonCard : (Action?)null);
+            }
+            catch (Exception ex) { App.Logger?.Debug("Chaos.PlayStoryCard: {E}", ex.Message); }
+        }));
+    }
+
+    /// <summary>Snapshot the live run into a narrative context (depth/rank/owned/run-stats) for the director.</summary>
+    private ChaosNarrativeContext BuildNarrativeCtx()
+    {
+        var stats = new System.Collections.Generic.Dictionary<string, double>();
+        if (_state != null) stats["streak"] = _state.Combo;
+        return new ChaosNarrativeContext
+        {
+            Depth = _state?.ActIndex ?? 1,
+            RankIndex = (int)ChaosMeta.RankIndex,
+            OwnedItemIds = TakenBoonIds(),
+            RunStats = stats,
+        };
     }
 
     // ---- pre-run loadout sidebar (shown beside the Warren hub, before any run exists) ----
@@ -603,22 +659,55 @@ public sealed class ChaosModeService
     public void RaiseGameLayerAboveVideo()
     {
         if (!_spawning) return;
+        // Bottom of the gameplay band: ambient FX that read fine UNDER the bubbles.
         try { ChaosFieldFxOverlay.RaiseActive(); } catch { }
         try { ChaosPopText.RaiseActive(); } catch { }
         try { ChaosDvdOverlay.RaiseActive(); } catch { }
         try { ChaosEffectBannerOverlay.RaiseActive(); } catch { }
         try { ChaosAnnouncerOverlay.RaiseActive(); } catch { }
-        try { ChaosGifCascadeOverlay.RaiseActive(); } catch { }
-        try { ChaosFlashOverlay.RaiseActive(); } catch { }
         try { ChaosCursorGlowOverlay.RaiseActive(); } catch { }
         try { ChaosEStimOverlay.RaiseActive(); } catch { }
         try { ChaosVibeTrailOverlay.RaiseActive(); } catch { }
-        App.Bubbles?.BringAllToFront();
+        // Run chrome sits BELOW the bubbles so the player can always pop what's drifting over the
+        // sidebar / boon ribbon / active-skill buttons instead of the chrome stealing the click.
         try { _fx?.RaiseToTopmost(); } catch { }
         try { ChaosWaveTimerOverlay.RaiseActive(); } catch { }
         try { ChaosBoonBarOverlay.RaiseActive(); } catch { }
         try { _hud?.RaiseToTopmost(); } catch { }
         foreach (var b in _toyButtons) { try { b.RaiseToTopmost(); } catch { } }
+        // Bubbles ride ABOVE the chrome...
+        App.Bubbles?.BringAllToFront();
+        // ...and the big attention assets (gif cascades + flashes) ride ABOVE the bubbles.
+        try { ChaosGifCascadeOverlay.RaiseActive(); } catch { }
+        try { ChaosFlashOverlay.RaiseActive(); } catch { }
+        try { App.Flash?.RaiseAllToFront(); } catch { }
+    }
+
+    /// <summary>
+    /// Re-assert HWND_TOPMOST on the persistent run chrome (HUD/sidebar, wave clock, boon bar,
+    /// active-skill toy buttons) so it never sinks behind a foreground or fullscreen window
+    /// mid-run. Then re-stack the bubbles ABOVE the chrome and the attention assets (gif cascades +
+    /// flashes) above THEM — the chrome raise would otherwise bury the bubbles every tick, the
+    /// "bubbles spawn behind the sidebar/boons" report. The re-stack is a handful of focus-free
+    /// SetWindowPos calls (no layered-window churn), so it's cheap to run every ~1s. Called
+    /// throttled (~1s) from <see cref="RunTick"/>. UI thread only; each call no-ops if a window
+    /// isn't up.
+    /// </summary>
+    private void KeepChromeTopmost()
+    {
+        if (!_spawning) return;
+        // Chrome first (lowest of the pinned set).
+        try { _hud?.RaiseToTopmost(); } catch { }
+        try { _fx?.RaiseToTopmost(); } catch { }
+        try { ChaosWaveTimerOverlay.RaiseActive(); } catch { }
+        try { ChaosBoonBarOverlay.RaiseActive(); } catch { }
+        foreach (var b in _toyButtons) { try { b.RaiseToTopmost(); } catch { } }
+        // Bubbles above the chrome so they stay poppable over the sidebar / boons / active buttons.
+        App.Bubbles?.BringAllToFront();
+        // Attention assets above the bubbles.
+        try { ChaosGifCascadeOverlay.RaiseActive(); } catch { }
+        try { ChaosFlashOverlay.RaiseActive(); } catch { }
+        try { App.Flash?.RaiseAllToFront(); } catch { }
     }
 
     /// <summary>
@@ -647,6 +736,25 @@ public sealed class ChaosModeService
     private void RunTick(object? sender, EventArgs e)
     {
         if (!_spawning || _state == null || _paused || _manualPaused) return;
+
+        // Keep the run chrome (HUD/sidebar, clock, boon bar, active-skill buttons) pinned above
+        // whatever grabs the foreground mid-run — other apps AND fullscreen surfaces, not just the
+        // mandatory-video case RaiseGameLayerAboveVideo already covers. A Topmost window still sinks
+        // under another process's topmost/fullscreen window, so we re-kick HWND_TOPMOST (focus-free,
+        // cheap) ~once a second. Throttled so it never churns z-order or fights clicks every frame.
+        if (++_chromeRaiseTick >= 4)
+        {
+            _chromeRaiseTick = 0;
+            KeepChromeTopmost();
+            // While a mandatory video is on screen, re-lift the WHOLE game layer above it ~once a
+            // second — not just the chrome. The game layer is raised above the video once at video
+            // start, but anything that disturbs the topmost band afterwards (a full-screen SUBLIMINAL
+            // re-asserting HWND_TOPMOST on each show, a video attention-kick, a stray click) can leave
+            // the video sitting over the bubbles, and nothing re-lifts them until new bubbles spawn —
+            // the "video pops over the bubbles, then they come back" report. Gated to video-playing so
+            // a normal run never pays this z-order churn.
+            if (App.Video?.IsPlaying == true) RaiseGameLayerAboveVideo();
+        }
 
         double dt = 0.25;
         double elapsed = _state.ElapsedSec + dt;
@@ -808,7 +916,10 @@ public sealed class ChaosModeService
         double effIntensity = Math.Clamp(intensity + (cfg.DifficultyMult - 1.0) * 0.15, 0, 1);
         double diffFactor = cfg.DifficultyMult;
 
-        int maxConcurrent = (int)Math.Round((4 + intensity * 7) * Math.Sqrt(diffFactor));
+        // Field density: power-ups (ripple/freeze/chains/sweeps) clear the screen in bulk, so the
+        // cap has to be high enough that the field refills instead of sitting empty. 6 early → 16
+        // late (×√difficulty). Bumped 2026-06-13 from 4→11 — runs played "always cleared".
+        int maxConcurrent = (int)Math.Round((6 + intensity * 10) * Math.Sqrt(diffFactor));
         // Behavioral bubbles (Echo/Chaperone/Tease/Bound): each rolls to REPLACE this ordinary
         // spawn slot, so the field density stays the same. Darters still roll below either way.
         bool behavioralSpawned = (App.Bubbles?.ActiveBubbles ?? 0) < maxConcurrent
@@ -823,7 +934,7 @@ public sealed class ChaosModeService
             double waveLeft = waveLen - (_state.ElapsedSec % waveLen);
             double runLeft = _state.RunDurationSec - _state.ElapsedSec;
             if (enabled != null && enabled.Contains("video")
-                && (HeavyEffectActive || waveLeft < 20 || runLeft < 25))
+                && (HeavyEffectActive || waveLeft < 14 || runLeft < 18))
             {
                 enabled = enabled.Where(id => id != "video").ToList();
             }
@@ -908,7 +1019,10 @@ public sealed class ChaosModeService
             }
         }
 
-        double interval = (1300 - intensity * 850) / diffFactor;
+        // Refill cadence: 1000ms early → 320ms late (÷difficulty), steeper late ramp so the field
+        // gets "progressively faster" as the run deepens. Quickened 2026-06-13 from 1300→450 to keep
+        // the bigger cap actually filled against bulk-clearing power-ups.
+        double interval = (1000 - intensity * 680) / diffFactor;
         // SpawnRateMult scales SPAWNS, so it divides the interval: 0.6 rate = fewer
         // spawns = a LONGER gap between ticks (the scripted run 1 breathes at ~0.6).
         interval /= Math.Clamp(cfg.SpawnRateMult, 0.1, 10.0);
@@ -1256,6 +1370,9 @@ public sealed class ChaosModeService
                 App.Bark?.NotifyChaosCursePicked(boon.Name, boon.Rarity.ToString(), boon.RunMultBonus);
                 ChaosSfx.Play("sin_accept", 0.6f);
                 ChaosAnnouncerOverlay.Announce($"☠ {boon.Name}", ChaosAnnounceKind.Temptation, artKey: boon.Id);
+                // Narrative: a sin accepted at the draft (suppressed during scripted descents incl. the run-4 rig).
+                var sinCtx = BuildNarrativeCtx(); sinCtx.SinId = boon.Id;
+                ChaosNarrativeHooks.OnMoment("sin_accepted", sinCtx);
             }
             else
             {
@@ -1307,6 +1424,13 @@ public sealed class ChaosModeService
         // Welcome Shower: every loop's GO! dumps a quick rain of treats from the top.
         if (_state?.WelcomeShowerEnabled == true) SpawnWelcomeShower();
         AnnounceFinalLoopIfEntering();
+        // The depth-V story card, deferred from the act-cross so it didn't fight the draft/ReadyGo.
+        // The field is live now, so the card claims its own (lesson-card-style) pause cleanly.
+        if (_pendingDepthVCard)
+        {
+            _pendingDepthVCard = false;
+            ChaosNarrativeHooks.OnMoment("depthV_enter", BuildNarrativeCtx());
+        }
     }
 
     /// <summary>FINAL LOOP banner the moment the run's last loop actually begins — for the
@@ -1721,6 +1845,8 @@ public sealed class ChaosModeService
         }
         if (slowburn > 1) _state.PushEvent("🐌 slow burn! x3");
         _state.PushEvent($"✔ snapped {spec.Payload.DisplayName}");
+        // Narrative: a brink defuse — snapped with under 0.8s of fuse left.
+        if (fuseSecLeft <= 0.8) ChaosNarrativeHooks.OnMoment("brink_defuse", BuildNarrativeCtx());
         CheckComboMilestone();
     }
 
@@ -1802,6 +1928,9 @@ public sealed class ChaosModeService
             Shake(0.4 + s * 0.5, 380);                           // the malus jolt
             // Real-hit branch (unshielded only now).
             App.Bark?.NotifyChaosBubbleDetonated(variant, spec.Strength, _runDetonations, comboBeforeBreak, diff);
+            // Narrative: the first bare detonation of the run.
+            if (ChaosNarrativeHooks.TryFirstBareDeto())
+                ChaosNarrativeHooks.OnMoment("first_bare_deto", BuildNarrativeCtx());
         }
     }
 
@@ -1828,7 +1957,7 @@ public sealed class ChaosModeService
     /// video windows + disposing LibVLC players runs async for several seconds; raising the
     /// cascade's layered window into that churn wedged the render thread twice (22:41, 22:50
     /// freezes — both were "cascade ~4s after video teardown").</summary>
-    private const double VIDEO_TEARDOWN_QUARANTINE_SEC = 6;
+    private const double VIDEO_TEARDOWN_QUARANTINE_SEC = 3;   // 2026-06-13: loosened 6→3 — cascades may now follow a video much sooner (tail-overlap with teardown), the keep-alive cascade window no longer churns layered HWNDs into LibVLC disposal
 
     private void ExtendHeavyQuarantine(double sec)
     {
@@ -2674,8 +2803,16 @@ public sealed class ChaosModeService
             ChaosSfx.Play("depth_change", 0.55f);
             ChaosAnnouncerOverlay.Announce($"DEPTH {_state.ActIndex}", ChaosAnnounceKind.Depth,
                 artKey: "depth", subText: $"{_state.ActIndex}");
+            // Zone border: swap the backdrop plate and let the Madam mark the descent.
+            ChaosBackdropService.SwapTo(_state.ActIndex);
+            // Depth V is a STORY card moment, not a reactive line — defer it past this transition's
+            // draft/ReadyGo (which would overwrite the card) and open it once the field resumes.
+            if (_state.ActIndex >= 5) _pendingDepthVCard = true;
+            else ChaosNarrativeHooks.OnMoment("zone_border", BuildNarrativeCtx());
         }
     }
+
+    private bool _pendingDepthVCard;   // entered depth V this transition → open the card after resume
 
     /// <summary>Make heat visible: a subtle rising temperature tint as Heat climbs (additive
     /// held-edge overlay only — never touches scoring/multiplier math). Honors the color-flashes toggle.</summary>
@@ -2862,9 +2999,11 @@ public sealed class ChaosModeService
         try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
         try { ChaosEStimOverlay.CloseActive(); } catch { }
         try { ChaosFieldFxOverlay.CloseActive(); } catch { }
+        try { ChaosBackdropService.CloseActive(); } catch { }
         try { ChaosPopText.ShutdownPool(); } catch { }
         App.AvatarWindow?.SetChaosRunActive(false);   // restore the avatar's normal attached z-order
         ChaosHappyPath.OnRunEnded();   // the script never outlives its run (idempotent)
+        ChaosNarrativeHooks.OnRunEnded();   // drop the Madam's run-scoped state + any duck
         _runTimer = null;
         _spawnTimer = null;
         _hud = null;

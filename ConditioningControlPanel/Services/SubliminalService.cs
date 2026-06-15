@@ -581,6 +581,12 @@ namespace ConditioningControlPanel.Services
                 PositionSubliminalText(win);
                 AnimateSubliminal(win, targetOpacity, durationMs);
             }
+
+            // Subliminal cards now record (capture-exclusion dropped), so the awareness OCR
+            // relies on the text rect from GetActiveTextScreenRects to skip them. Force the OCR
+            // rect cache to rebuild now instead of waiting out its 250ms window — a flash can be
+            // shorter than that, and we don't want OCR reading our own text mid-flash.
+            App.InvalidateCcpWindowRectsCache();
         }
 
         private const int WS_EX_LAYERED = 0x00080000;
@@ -713,13 +719,83 @@ namespace ConditioningControlPanel.Services
                     targetBounds.X, targetBounds.Y, targetBounds.Width, targetBounds.Height,
                     SWP_NOACTIVATE | SWP_SHOWWINDOW);
 
-                // Exclude from screen capture so OCR doesn't read subliminal text
-                SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+                // Subliminal cards are intentionally LEFT in screen capture so they show up in the
+                // user's screen recordings. The awareness OCR no longer relies on capture exclusion
+                // to skip our own text — App.GetCcpWindowRectsCached lists this sized popup's rect and
+                // ScreenOcrService drops any word inside it, so there's no OCR feedback loop. WDA_NONE
+                // also clears any stale EXCLUDEFROMCAPTURE left on a pooled/reused window.
+                SetWindowDisplayAffinity(hwnd, WDA_NONE);
             }
             catch (Exception ex)
             {
                 App.Logger?.Debug("Subliminal ApplyWindowStyles: {E}", ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Physical virtual-desktop pixel rects of any subliminal text that is CURRENTLY visible
+        /// (the keep-alive window is shown and mid-flash, opacity &gt; 0), padded. Subliminal cards
+        /// are intentionally left in screen capture so they show up in the user's recordings, but the
+        /// avatar's awareness OCR must still skip them. The full-screen keep-alive window is dropped
+        /// from the exclusion set by the per-monitor span filter, so — mirroring BouncingText (#287) —
+        /// only the small centered text region is excluded here. Returns empty when nothing is flashing.
+        /// Must be called on the UI thread (reads live WPF visual state); consumed by
+        /// <see cref="App.GetCcpWindowRectsCached"/>.
+        /// </summary>
+        public System.Drawing.Rectangle[] GetActiveTextScreenRects()
+        {
+            var rects = new List<System.Drawing.Rectangle>();
+            try
+            {
+                foreach (var win in _screenWindows.Values)
+                {
+                    // Only while a flash is actually on screen — between flashes the window stays
+                    // shown but fades to 0, and we must NOT permanently blind OCR to the centre.
+                    if (win == null || !win.IsVisible || win.Opacity <= 0.01) continue;
+                    if (win.Content is not Grid grid) continue;
+
+                    Canvas? canvas = null;
+                    foreach (var child in grid.Children)
+                        if (child is Canvas c) { canvas = c; break; }
+                    if (canvas == null) continue;
+
+                    var hwnd = new System.Windows.Interop.WindowInteropHelper(win).Handle;
+                    if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var wr)) continue;
+                    double winDipW = win.ActualWidth;
+                    if (winDipW <= 0) continue;
+                    double scale = (wr.Right - wr.Left) / winDipW; // physical px per DIP
+
+                    double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+                    bool any = false;
+                    foreach (var child in canvas.Children)
+                    {
+                        if (child is not TextBlock tb || string.IsNullOrEmpty(tb.Text)) continue;
+                        double l = Canvas.GetLeft(tb), t = Canvas.GetTop(tb);
+                        if (double.IsNaN(l) || double.IsNaN(t)) continue;
+                        tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        double w = tb.DesiredSize.Width, h = tb.DesiredSize.Height;
+                        if (w <= 0 || h <= 0) continue;
+                        minX = Math.Min(minX, l); minY = Math.Min(minY, t);
+                        maxX = Math.Max(maxX, l + w); maxY = Math.Max(maxY, t + h);
+                        any = true;
+                    }
+                    if (!any) continue;
+
+                    // Pad to absorb the OCR rect-cache staleness and fade frames.
+                    const double pad = 40;
+                    int left = wr.Left + (int)Math.Floor((minX - pad) * scale);
+                    int top = wr.Top + (int)Math.Floor((minY - pad) * scale);
+                    int right = wr.Left + (int)Math.Ceiling((maxX + pad) * scale);
+                    int bottom = wr.Top + (int)Math.Ceiling((maxY + pad) * scale);
+                    if (right > left && bottom > top)
+                        rects.Add(new System.Drawing.Rectangle(left, top, right - left, bottom - top));
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Subliminal GetActiveTextScreenRects: {E}", ex.Message);
+            }
+            return rects.Count == 0 ? Array.Empty<System.Drawing.Rectangle>() : rects.ToArray();
         }
 
         /// <summary>Center the border/main text blocks for the current content + window size.</summary>
@@ -926,6 +1002,14 @@ namespace ConditioningControlPanel.Services
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
 
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct RECT { public int Left, Top, Right, Bottom; }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        private const uint WDA_NONE = 0x0;
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
 
         #endregion

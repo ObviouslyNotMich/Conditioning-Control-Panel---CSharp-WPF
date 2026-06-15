@@ -154,7 +154,7 @@ public static class ChaosBubbleVariants
     /// </summary>
     public static EffectBubbleSpec? RollDarter(double intensity, double rateMult = 1.0, bool spotlight = false)
     {
-        double chance = (0.025 + Math.Clamp(intensity, 0, 1) * 0.06) * Math.Max(0, rateMult);  // ~0.025 early → ~0.085 late (halved AGAIN 2026-06-12: still too many rabbits; was 0.05+0.12 / first halved 2026-06-10)
+        double chance = (0.0125 + Math.Clamp(intensity, 0, 1) * 0.03) * Math.Max(0, rateMult);  // ~0.0125 early → ~0.0425 late (halved a THIRD time 2026-06-13: still felt rabbit-heavy; was 0.025+0.06 / 0.05+0.12)
         if (_rng.NextDouble() >= chance) return null;
         return BuildDarter(intensity, spotlight);
     }

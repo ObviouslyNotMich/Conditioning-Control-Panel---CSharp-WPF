@@ -2161,8 +2161,8 @@
                             </Style>
                         </ComboBox.ItemContainerStyle>
                     </ComboBox>
-                    <Button x:Name="BtnUpdateAvailable" Content="{loc:Str btn_v6_1_0_is_out}"
-                            Click="BtnUpdateAvailable_Click" ToolTip="{loc:Str tooltip_v6_1_0_down_the_rabbit_hole}"
+                    <Button x:Name="BtnUpdateAvailable" Content="{loc:Str btn_v6_1_4_is_out}"
+                            Click="BtnUpdateAvailable_Click" ToolTip="{loc:Str tooltip_v6_1_4_down_the_rabbit_hole}"
                             FontSize="11" FontWeight="Bold" Cursor="Hand">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -7650,6 +7650,103 @@
                         </Grid>
                     </Border>
 
+                    <!-- ===================== HOW TO PLAY (newcomer guide, collapsible) ===================== -->
+                    <Expander Style="{StaticResource CollapsibleCard}" IsExpanded="True" Margin="9,0,9,8">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📖 HOW TO PLAY" Foreground="White" FontSize="16" FontWeight="Bold"/>
+                                <TextBlock Text="new here? thirty seconds and you'll have it."
+                                           Foreground="{DynamicResource TextDimBrush}" FontStyle="Italic" FontSize="12"
+                                           VerticalAlignment="Center" Margin="12,2,0,0"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel>
+                            <!-- what it is -->
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,6,0,2" MaxWidth="760" HorizontalAlignment="Left">
+                                <Run Text="Bubbles drift up the screen carrying flashes, videos and overlays. Pop the good ones, snap the dangerous ones before they go off, and ride it deeper. One descent is about five minutes — survive the waves, take what she offers, climb out a little more hers."
+                                     Foreground="#FFC8C8DE"/>
+                            </TextBlock>
+
+                            <!-- the verbs -->
+                            <TextBlock Text="WHAT YOU DO" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,14,0,6"/>
+
+                            <Grid Margin="0,4,0,4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="🫧" FontSize="18" VerticalAlignment="Top"/>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="13" MaxWidth="720" HorizontalAlignment="Left">
+                                    <Run Text="LEFT-CLICK  " Foreground="#FFFF9FD0" FontWeight="Bold" FontFamily="Consolas"/>
+                                    <Run Text="pop the treats. " Foreground="White" FontWeight="Bold"/>
+                                    <Run Text="the soft pink bubbles. a single click is enough — they build your streak and refill your focus." Foreground="#FFC8C8DE"/>
+                                </TextBlock>
+                            </Grid>
+                            <Grid Margin="0,4,0,4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="◉" FontSize="18" Foreground="#FFFFD228" VerticalAlignment="Top"/>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="13" MaxWidth="720" HorizontalAlignment="Left">
+                                    <Run Text="PRESS &amp; HOLD  " Foreground="#FFFFD228" FontWeight="Bold" FontFamily="Consolas"/>
+                                    <Run Text="hold the burning ones. " Foreground="White" FontWeight="Bold"/>
+                                    <Run Text="the glowing bubbles are live — press and keep pressing until they snap. let one finish its trance and it goes off (a flash or video fires)." Foreground="#FFC8C8DE"/>
+                                </TextBlock>
+                            </Grid>
+                            <Grid Margin="0,4,0,4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="🌊" FontSize="18" Foreground="#FF7AE0FF" VerticalAlignment="Top"/>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="13" MaxWidth="720" HorizontalAlignment="Left">
+                                    <Run Text="RIGHT-CLICK  " Foreground="#FF7AE0FF" FontWeight="Bold" FontFamily="Consolas"/>
+                                    <Run Text="the ripple. " Foreground="White" FontWeight="Bold"/>
+                                    <Run Text="a right-click near the bubbles sends out a wave — treats pop, live ones snap, rabbits scatter. strong, but it takes a while to gather another." Foreground="#FFC8C8DE"/>
+                                </TextBlock>
+                            </Grid>
+                            <Grid Margin="0,4,0,4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="🐇" FontSize="18" Foreground="#FFFF69B4" VerticalAlignment="Top"/>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="13" MaxWidth="720" HorizontalAlignment="Left">
+                                    <Run Text="the rabbits  " Foreground="#FFFF69B4" FontWeight="Bold" FontFamily="Consolas"/>
+                                    <Run Text="chase them for little bonuses. everything else down there is yours to find out." Foreground="#FFC8C8DE"/>
+                                </TextBlock>
+                            </Grid>
+
+                            <!-- the two bars -->
+                            <TextBlock Text="THE TWO BARS" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,14,0,6"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,3" MaxWidth="760" HorizontalAlignment="Left">
+                                <Run Text="FOCUS — " Foreground="White" FontWeight="Bold"/>
+                                <Run Text="your nerve. snapping live bubbles spends it; popping treats refills it. run dry and you can't snap — so keep feeding." Foreground="#FFC8C8DE"/>
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,3" MaxWidth="760" HorizontalAlignment="Left">
+                                <Run Text="HEAT — " Foreground="White" FontWeight="Bold"/>
+                                <Run Text="the burn. it climbs every time something triggers. let it run high and the descent gets harder to resist." Foreground="#FFC8C8DE"/>
+                            </TextBlock>
+
+                            <!-- a descent -->
+                            <TextBlock Text="A DESCENT" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,14,0,6"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,2" MaxWidth="760" HorizontalAlignment="Left">
+                                <Run Text="Four waves, then it ends. Between waves she offers you a " Foreground="#FFC8C8DE"/>
+                                <Run Text="MANTRA" Foreground="White" FontWeight="Bold"/>
+                                <Run Text=" — pick one and it bends the rules for that run only. Finish the whole descent for the full reward; slip out early and you forfeit it." Foreground="#FFC8C8DE"/>
+                            </TextBlock>
+
+                            <!-- progression -->
+                            <TextBlock Text="WHAT YOU KEEP" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,14,0,6"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,3" MaxWidth="760" HorizontalAlignment="Left">
+                                <Run Text="Every descent earns " Foreground="#FFC8C8DE"/>
+                                <Run Text="XP" Foreground="White" FontWeight="Bold"/>
+                                <Run Text=" toward your normal level, plus " Foreground="#FFC8C8DE"/>
+                                <Run Text="SPARKS" Foreground="#FFFFD228" FontWeight="Bold"/>
+                                <Run Text=" (gold) you carry back out." Foreground="#FFC8C8DE"/>
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,3" MaxWidth="760" HorizontalAlignment="Left">
+                                <Run Text="Spend Sparks in " Foreground="#FFC8C8DE"/>
+                                <Run Text="the dollhouse" Foreground="White" FontWeight="Bold"/>
+                                <Run Text=" — the hub between runs: accessories at the table by the door, charms, active toys you trigger mid-descent, and the seamstress's bench for permanent upgrades." Foreground="#FFC8C8DE"/>
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,0,0,0" MaxWidth="760" HorizontalAlignment="Left">
+                                <Run Text="The more descents you finish, the higher your " Foreground="#FFC8C8DE"/>
+                                <Run Text="RANK" Foreground="White" FontWeight="Bold"/>
+                                <Run Text=" — curious, tempted, slipping, entranced, devoted… — and the more of the Rabbit Hole opens up to you." Foreground="#FFC8C8DE"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Expander>
+
                     <!-- ===================== ZONE: MIND ===================== -->
                     <Grid Margin="2,4,2,8">
                         <Grid.ColumnDefinitions>
@@ -9283,6 +9380,15 @@
                                            FontSize="13" FontWeight="SemiBold"
                                            TextTrimming="CharacterEllipsis"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <!-- Catalogue submission status pill (pending / published / rejected) -->
+                                    <Border Background="{Binding SubmissionBadgeBg}"
+                                            Visibility="{Binding ShowSubmissionBadge}"
+                                            CornerRadius="8" Padding="6,1" Margin="0,0,6,0"
+                                            ToolTip="{Binding SubmissionBadgeTooltip}">
+                                        <TextBlock Foreground="{Binding SubmissionBadgeFg}" FontSize="10" FontWeight="SemiBold">
+                                            <Run Text="{Binding SubmissionBadgeGlyph, Mode=OneTime}"/><Run Text=" "/><Run Text="{Binding SubmissionBadgeLabel, Mode=OneTime}"/>
+                                        </TextBlock>
+                                    </Border>
                                     <!-- Creator -->
                                     <TextBlock Text="{Binding CreatorDisplay}"
                                                Visibility="{Binding ShowCreator}"

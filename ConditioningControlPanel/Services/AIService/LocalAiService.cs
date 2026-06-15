@@ -474,19 +474,44 @@ namespace ConditioningControlPanel.Services.AIService
                     _messages.Remove(oldEnrichment);
                 }
 
-                // Append the new user turn.
-                _messages.Add(new ChatMessage("user", userInput));
+                // Build the outgoing message list. Genuine USER chat carries the full persistent
+                // history for conversational continuity. AUTOMATED ambient reactions (screen
+                // awareness, "still on", keyword, idle, video-done) do NOT: they used to share this
+                // same chat thread, so every past "...watch Naughty Bambi~" line became a few-shot
+                // example the local model parroted — fixating it on one title regardless of the
+                // (randomized) system prompt and bleeding suggestions across mods. Ambient reactions
+                // now send a STATELESS [system, (enrichment), userInput] and are never appended or
+                // persisted, so the system prompt's rotating video pool actually drives variety.
+                List<ChatMessage> outgoing;
+                if (isUser)
+                {
+                    _messages.Add(new ChatMessage("user", userInput));
+                    outgoing = _messages;
+                }
+                else
+                {
+                    outgoing = new List<ChatMessage>();
+                    var sysMsg = _messages.FirstOrDefault(m => m.Role == "system");
+                    if (sysMsg != null) outgoing.Add(sysMsg);
+                    if (effectsEnabled)
+                    {
+                        var enr = _messages.FirstOrDefault(m => m.Content?.Contains("[CONTEXT BLOCK — NOT DIALOGUE]") == true);
+                        if (enr != null) outgoing.Add(enr);
+                    }
+                    outgoing.Add(new ChatMessage("user", userInput));
+                }
 
-                App.Logger?.Information("LocalAiService: sending to Ollama (model={Model}, effects={Effects}, msgs={MsgCount})",
-                    model, effectsEnabled, _messages.Count);
+                App.Logger?.Information("LocalAiService: sending to Ollama (model={Model}, effects={Effects}, isUser={IsUser}, msgs={MsgCount})",
+                    model, effectsEnabled, isUser, outgoing.Count);
 
-                var (status, body) = await SendChatAsync(model, _messages);
+                var (status, body) = await SendChatAsync(model, outgoing);
 
                 if (status != 200)
                 {
                     App.Logger?.Warning("LocalAiService: Ollama returned HTTP {Status}: {Body}", status, body);
                     // Roll back the user turn so we don't poison history with an unanswered turn.
-                    if (_messages.Count > 0 && _messages[^1].Role == "user") _messages.RemoveAt(_messages.Count - 1);
+                    // (Automated reactions never appended to _messages, so there's nothing to undo.)
+                    if (isUser && _messages.Count > 0 && _messages[^1].Role == "user") _messages.RemoveAt(_messages.Count - 1);
                     return DescribeOllamaError(status, body, model);
                 }
 
@@ -494,14 +519,16 @@ namespace ConditioningControlPanel.Services.AIService
                 if (string.IsNullOrEmpty(content))
                 {
                     App.Logger?.Warning("LocalAiService: empty content in 200 response: {Body}", Truncate(body, 300));
-                    if (_messages.Count > 0 && _messages[^1].Role == "user") _messages.RemoveAt(_messages.Count - 1);
+                    if (isUser && _messages.Count > 0 && _messages[^1].Role == "user") _messages.RemoveAt(_messages.Count - 1);
                     return GetFallbackResponse();
                 }
 
                 App.Logger?.Information("LocalAiService: got reply ({Len} chars)", content.Length);
 
-                // Append assistant turn so future requests have context.
-                _messages.Add(new ChatMessage("assistant", content));
+                // Append assistant turn so future requests have context — USER chat only.
+                // Automated ambient reactions stay stateless (see outgoing-list note above).
+                if (isUser)
+                    _messages.Add(new ChatMessage("assistant", content));
 
                 var parsed = _parser.Parse(content);
                 _currentCommands = parsed.Commands;
@@ -537,9 +564,13 @@ namespace ConditioningControlPanel.Services.AIService
                         _currentCommands = new List<AiCommandData>();
                         // Roll back assistant turn first (most recent), then the user turn
                         // that produced it. PersistHistory is NOT called — the file on disk
-                        // remains at the prior known-clean state.
-                        if (_messages.Count > 0 && _messages[^1].Role == "assistant") _messages.RemoveAt(_messages.Count - 1);
-                        if (_messages.Count > 0 && _messages[^1].Role == "user") _messages.RemoveAt(_messages.Count - 1);
+                        // remains at the prior known-clean state. (Automated reactions never
+                        // appended to _messages, so there's nothing to roll back for them.)
+                        if (isUser)
+                        {
+                            if (_messages.Count > 0 && _messages[^1].Role == "assistant") _messages.RemoveAt(_messages.Count - 1);
+                            if (_messages.Count > 0 && _messages[^1].Role == "user") _messages.RemoveAt(_messages.Count - 1);
+                        }
                         return returnRefusalSentinel ? ModerationRefusal.OutputSentinel : null;
                     }
                     if (outputCheck.Allow && outputCheck.Category == ProhibitedCategory.ProfessionalAdvice)
@@ -549,8 +580,10 @@ namespace ConditioningControlPanel.Services.AIService
                 }
 
                 // Persist asynchronously so chat latency isn't impacted by disk I/O.
-                // Runs only after output moderation passed (P2/H5).
-                _ = Task.Run(PersistHistory);
+                // Runs only after output moderation passed (P2/H5), and only for genuine USER
+                // chat — automated ambient reactions are stateless and must not be saved/replayed.
+                if (isUser)
+                    _ = Task.Run(PersistHistory);
 
                 // she_remembers: a reply was produced while turns restored from a previous
                 // session are in context — persistent memory surfacing across launches.

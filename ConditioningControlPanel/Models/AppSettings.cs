@@ -370,6 +370,31 @@ namespace ConditioningControlPanel.Models
         public bool IsBarkFired(string key) =>
             !string.IsNullOrEmpty(key) && _barkLifetimeFired.Contains(key);
 
+        private Dictionary<string, List<string>> _barkVariantRotation = new();
+        /// <summary>
+        /// Persisted per-rule variant rotation: rule id → bark line ids (BarkService.BarkLineId)
+        /// already spoken in the CURRENT cycle. Carries the no-repeat-until-exhausted guarantee across
+        /// sessions so a rule's pool doesn't restart every launch (the main cause of "same few" webcam
+        /// lines). Reset for a rule when its pool recycles.
+        /// </summary>
+        public Dictionary<string, List<string>> BarkVariantRotation
+        {
+            get => _barkVariantRotation;
+            set { _barkVariantRotation = value ?? new(); OnPropertyChanged(); }
+        }
+
+        private List<string> _barkIdleRotation = new();
+        /// <summary>
+        /// Persisted idle-bark rotation: rule ids of idle lines already played this cycle (idle lines are
+        /// single-variant rules, tracked by id). Same cross-session no-repeat intent as
+        /// <see cref="BarkVariantRotation"/>. Reset when the idle pool is exhausted.
+        /// </summary>
+        public List<string> BarkIdleRotation
+        {
+            get => _barkIdleRotation;
+            set { _barkIdleRotation = value ?? new(); OnPropertyChanged(); }
+        }
+
         #endregion
 
         private DateTime? _lastDailyQuestDate = null;
@@ -514,6 +539,18 @@ namespace ConditioningControlPanel.Models
         {
             get => _highestStreak;
             set { _highestStreak = Math.Max(0, value); OnPropertyChanged(); }
+        }
+
+        private int _lastAnnouncedStreakMilestone = 0;
+        /// <summary>
+        /// Highest daily-streak milestone (7/14/30/60/100/365) the companion has already
+        /// celebrated in her app-open greeting, so each milestone is voiced once. Reset
+        /// downward when the streak drops below it so re-reaching it announces again.
+        /// </summary>
+        public int LastAnnouncedStreakMilestone
+        {
+            get => _lastAnnouncedStreakMilestone;
+            set { _lastAnnouncedStreakMilestone = Math.Max(0, value); OnPropertyChanged(); }
         }
 
         private DateTime? _lastStreakDate = null;
@@ -1549,6 +1586,18 @@ namespace ConditioningControlPanel.Models
             set { _dismissedNotificationKeys = value ?? new List<string>(); OnPropertyChanged(); }
         }
 
+        // Catalogue submissions the user has made, keyed by the canonical
+        // .ccpenh.json path. Drives the Deeper library status badge + the
+        // one-time "published to the catalogue" notification. See
+        // DeeperSubmissionRecord.
+        private Dictionary<string, DeeperSubmissionRecord> _deeperSubmissions = new();
+        [JsonProperty]
+        public Dictionary<string, DeeperSubmissionRecord> DeeperSubmissions
+        {
+            get => _deeperSubmissions;
+            set { _deeperSubmissions = value ?? new Dictionary<string, DeeperSubmissionRecord>(); OnPropertyChanged(); }
+        }
+
         private bool _runOnStartup = false;
         public bool RunOnStartup
         {
@@ -2084,6 +2133,30 @@ namespace ConditioningControlPanel.Models
         {
             get => _chaosAnnouncerEnabled;
             set { _chaosAnnouncerEnabled = value; OnPropertyChanged(); }
+        }
+
+        // ---- Narrative layer (the Madam) + per-zone backdrops ----
+        private bool _narrativeModeEnabled = true;
+        /// <summary>Master switch for the reactive narrator (voiced + text lines) during a Chaos run.</summary>
+        public bool NarrativeModeEnabled
+        {
+            get => _narrativeModeEnabled;
+            set { _narrativeModeEnabled = value; OnPropertyChanged(); }
+        }
+        private bool _backdropEnabled = true;
+        /// <summary>Show per-zone backdrop plates under the chaos bubbles. When OFF, no backdrop window
+        /// spawns and classic Chaos keeps its desktop click-through behavior exactly.</summary>
+        public bool BackdropEnabled
+        {
+            get => _backdropEnabled;
+            set { _backdropEnabled = value; OnPropertyChanged(); }
+        }
+        private double _backdropOpacity = 0.55;
+        /// <summary>Backdrop window opacity (0 = invisible, 1 = fully covers desktop). Default 0.55 lets the desktop bleed through.</summary>
+        public double BackdropOpacity
+        {
+            get => _backdropOpacity;
+            set { _backdropOpacity = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
         }
 
         private string _chaosAccessoryKey1 = "Q";

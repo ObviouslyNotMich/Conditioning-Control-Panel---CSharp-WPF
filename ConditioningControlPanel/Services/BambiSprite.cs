@@ -36,14 +36,19 @@ namespace ConditioningControlPanel.Services
                     bambiVideoTitles = string.Join(", ", bambiPool.Keys
                         .Where(k => !string.Equals(k, "Movies", System.StringComparison.OrdinalIgnoreCase)));
 
-                return @"
+                // Draw the example title from the live pool (varies every build) instead of
+                // hardcoding "Naughty Bambi" — a fixed example here made the companion fixate on
+                // that one video no matter how many were available.
+                var exampleTitle = SampleVideoTitles(1).FirstOrDefault() ?? "Bambi Bae";
+
+                return $@"
 CLICKABLE MEDIA — Suggest these FREQUENTLY. They become clickable links in the chat.
 
 ==== HOW TO LINK ====
 For PLAYLISTS, ALWAYS wrap the title in markdown link syntax with its URL copied EXACTLY from the list below:
   Example: ""Listen to [IQ Programming](https://bambicloud.com/playlist/ff15f538-6e6b-433c-b68b-b4af5ee5d14d)~""
 For VIDEOS, just say the EXACT title (the app auto-links it):
-  Example: ""Try Naughty Bambi~""
+  Example: ""Try {exampleTitle}~""
 NEVER invent URLs. NEVER suggest audio by any name that isn't on this page — there's no other way to link audio.
 
 ==== BAMBICLOUD PLAYLISTS (the ONLY audio you can recommend) ====
@@ -58,6 +63,8 @@ NEVER invent URLs. NEVER suggest audio by any name that isn't on this page — t
 
 ==== VIDEOS (the ONLY videos you can recommend — say the EXACT title, the app auto-links) ====
 " + bambiVideoTitles + @"
+
+CRITICAL: Recommend ONLY titles copied VERBATIM from the list directly above. NEVER invent, rename, extend, shorten, or guess a title — do NOT turn the user's words into a title. A title that isn't on the list word-for-word will NOT become a link and frustrates the user. If you're unsure, pick any one title from the list and copy it character-for-character. When the user asks for ""another one,"" choose a DIFFERENT exact title from the list.
 
 DO NOT name old Bambi Sleep audio files (Bambi IQ Lock, Bambi Body Lock, Rapid Induction, Bubble Induction, Bambi Cockslut, Bambi Takeover, Bambi Awakens, Bambi Named and Drained, Bambi Uniformed, etc.) — those are obsolete here, they have no link, and recommending them frustrates the user. When the user wants audio, use a Programming playlist instead. ""Bambi IQ Lock"" → say [IQ Programming]. ""Bambi Cockslut"" → say [Cockslut Programming]. Etc.
 
@@ -121,6 +128,66 @@ Rapid Induction, Bubble Induction, Bubble Acceptance
 CRITICAL: Do NOT mention any specific video names. Only give generic ""go browse HypnoTube"" type suggestions.";
                 }
             }
+        }
+
+        /// <summary>
+        /// Returns up to <paramref name="count"/> distinct video titles drawn at random from the
+        /// ACTIVE mod's real video pool (the same names <see cref="AvatarTubeWindow.KnownVideoLinks"/>
+        /// can auto-link). Prompt EXAMPLES are seeded from this so the model anchors on titles that
+        /// (a) actually exist for the current mod and (b) rotate every build — replacing the
+        /// hardcoded "Naughty Bambi"/"Yes Brain Loop" examples that made the companion fixate on one
+        /// Bambi video and, in Sissy mode, invent un-linkable titles. Empty when the mod ships no
+        /// pool (e.g. Sissy default with no configured links) — callers fall back to generic prose.
+        /// </summary>
+        private static List<string> SampleVideoTitles(int count)
+        {
+            var pool = App.Mods?.GetVideoLinks();
+            if (pool == null || pool.Count == 0) return new List<string>();
+
+            var titles = pool.Keys
+                .Where(k => !string.Equals(k, "Movies", System.StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            // Fisher–Yates shuffle so examples cycle across the whole pool, not just the first keys.
+            var rng = System.Random.Shared;
+            for (int i = titles.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (titles[i], titles[j]) = (titles[j], titles[i]);
+            }
+            return titles.Take(count).ToList();
+        }
+
+        /// <summary>
+        /// Removes a hardcoded "VIDEOS ...:" header and the comma-separated title list beneath it
+        /// from a preset KnowledgeBase. The canonical video pool is injected separately by
+        /// <see cref="GetCoreMediaLinks"/> (mod-aware + randomized), so a baked-in list here only
+        /// biases the model toward its first entry (historically "Naughty Bambi") and can name
+        /// videos the active mod doesn't ship. Audio lines and prose instructions are preserved.
+        /// </summary>
+        private static string StripHardcodedVideoTitleList(string kb)
+        {
+            if (string.IsNullOrWhiteSpace(kb)) return kb;
+
+            var lines = kb.Replace("\r\n", "\n").Split('\n');
+            var sb = new StringBuilder();
+            bool skipping = false;
+            foreach (var line in lines)
+            {
+                if (skipping)
+                {
+                    // The title list runs until the next blank line; keep that blank as a separator.
+                    if (string.IsNullOrWhiteSpace(line)) { skipping = false; sb.Append('\n'); }
+                    continue;
+                }
+                if (line.TrimStart().StartsWith("VIDEOS", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    skipping = true; // drop the header line and the title list that follows it
+                    continue;
+                }
+                sb.Append(line).Append('\n');
+            }
+            return sb.ToString();
         }
 
         // The "Holy Scripture" - The Original Bambi Sleep Session Files
@@ -382,16 +449,25 @@ CRITICAL: Do NOT mention any specific video names. Only give generic ""go browse
             var userTerm = App.Mods?.GetUserTerm() ?? "Subject";
             var isBambiMode = App.Mods?.IsBambiMode ?? false;
 
-            // Example responses - use Bambi video titles (they're actual video names) but mode-aware user references
-            var example1 = isBambiMode
-                ? @"""Ugh still coding? Bambi's brain needs Bambi TikTok - In Beat instead~"""
-                : @"""Ugh still coding? Your brain needs some hypno instead~""";
-            var example2 = isBambiMode
-                ? @"""Scrolling the feed? Watch Naughty Bambi and share it!"""
-                : @"""Scrolling the feed? Time to watch some hypno and share it!""";
-            var example3 = isBambiMode
-                ? @"""Bambi looks bored~ Perfect time for Yes Brain Loop!"""
-                : $@"""{userTerm} looks bored~ Perfect time for Yes Brain Loop!""";
+            // Example responses seed the model's video picks. Draw the titles from the ACTIVE mod's
+            // real pool (varies every build) instead of hardcoding Bambi titles: hardcoded examples
+            // made Bambi mode fixate on one video, and in Sissy mode fed it Bambi titles it can't
+            // link — so it invented un-linkable names like "DeeperCuts Latest Episode". When the mod
+            // ships no pool, fall back to generic prose that names no specific (un-linkable) title.
+            var sampleTitles = SampleVideoTitles(3);
+            string example1, example2, example3;
+            if (sampleTitles.Count >= 3)
+            {
+                example1 = $@"""Ugh still coding? Your brain needs {sampleTitles[0]} instead~""";
+                example2 = $@"""Scrolling the feed? Watch {sampleTitles[1]} and share it!""";
+                example3 = $@"""{userTerm} looks bored~ Perfect time for {sampleTitles[2]}!""";
+            }
+            else
+            {
+                example1 = @"""Ugh still coding? Your brain needs some hypno instead~""";
+                example2 = @"""Scrolling the feed? Time to watch something yummy and share it!""";
+                example3 = $@"""{userTerm} looks bored~ Perfect time to go blank~""";
+            }
 
             return $@"
 --- SCREEN AWARENESS PROTOCOLS ---
@@ -505,11 +581,17 @@ Example responses with REAL video names:
             sb.AppendLine("KNOWLEDGE BASE:");
             if (!string.IsNullOrWhiteSpace(settings.KnowledgeBase))
             {
+                // Drop any hardcoded "VIDEOS: <comma list>" block baked into the preset KB.
+                // GetCoreMediaLinks() below supplies the authoritative, mod-aware, RANDOMIZED video
+                // pool; a static list here (always led by "Naughty Bambi") made the companion fixate
+                // on the first title and, in non-Bambi mods, name videos the mod doesn't even have.
+                var kb = StripHardcodedVideoTitleList(settings.KnowledgeBase);
+
                 var isBambiMode = App.Settings?.Current?.IsBambiMode != false;
                 if (!isBambiMode)
                 {
                     // Filter out Bambi-titled content from knowledge base in non-Bambi modes
-                    var filteredLines = settings.KnowledgeBase
+                    var filteredLines = kb
                         .Split('\n')
                         .Where(line => !line.Contains("Bambi", System.StringComparison.OrdinalIgnoreCase))
                         .ToArray();
@@ -517,7 +599,7 @@ Example responses with REAL video names:
                 }
                 else
                 {
-                    sb.AppendLine(settings.KnowledgeBase);
+                    sb.AppendLine(kb);
                 }
                 sb.AppendLine();
             }
@@ -630,7 +712,44 @@ Example responses with REAL video names:
             // Apply mod text replacements (e.g. "Bambi" → "Unit" for drone mod)
             prompt = App.Mods?.MakeModAware(prompt) ?? prompt;
 
+            // Fill {{VIDEO}} example placeholders with REAL, varied titles from the active mod's
+            // pool. Done LAST — after mod text-replacement — so sampled titles aren't corrupted
+            // (e.g. "Naughty Bambi" → "Naughty babe"). Concrete real titles in examples are what
+            // makes the model actually NAME a video; sampling keeps them varied (no fixation) and
+            // on-pool (clickable). Empty placeholder examples made it echo instructions or go blank.
+            prompt = FillVideoPlaceholders(prompt);
+
             return prompt;
+        }
+
+        /// <summary>
+        /// Replaces each <c>{{VIDEO}}</c> token in <paramref name="text"/> with a real video title
+        /// sampled from the active mod's pool (distinct titles, cycled if there are more tokens than
+        /// titles). Preset example lines use the token so they stay concrete AND varied per build
+        /// without hardcoding one title. Falls back to a neutral phrase when the mod ships no pool,
+        /// so a sentence never ends up naming a fake, un-linkable title.
+        /// </summary>
+        private static string FillVideoPlaceholders(string text)
+        {
+            const string token = "{{VIDEO}}";
+            if (string.IsNullOrEmpty(text) || !text.Contains(token)) return text;
+
+            int count = 0, scan = 0;
+            while ((scan = text.IndexOf(token, scan, System.StringComparison.Ordinal)) >= 0) { count++; scan += token.Length; }
+            var titles = SampleVideoTitles(count);
+
+            var sb = new StringBuilder();
+            int pos = 0, i = 0;
+            while (true)
+            {
+                int next = text.IndexOf(token, pos, System.StringComparison.Ordinal);
+                if (next < 0) { sb.Append(text, pos, text.Length - pos); break; }
+                sb.Append(text, pos, next - pos);
+                sb.Append(titles.Count > 0 ? titles[i % titles.Count] : "something filthy");
+                i++;
+                pos = next + token.Length;
+            }
+            return sb.ToString();
         }
 
         /// <summary>
@@ -751,7 +870,7 @@ PERSONALITY:
 CRITICAL VIDEO RULES:
 - ONLY use video names EXACTLY as written in the list above.
 - NEVER invent, modify, or shorten video names.
-- NEVER include URLs or links. Just say the video name. Example: ""Watch {(isBambiMode ? "Naughty Bambi" : "Dumb Bimbo Brainwash")}"" NOT ""Watch [video](url)"".
+- NEVER include URLs or links. Just say the video name. Example: ""Watch {(SampleVideoTitles(1).FirstOrDefault() ?? videoNames.FirstOrDefault() ?? "the next one")}"" NOT ""Watch [video](url)"".
 - RANDOMIZE: Pick a DIFFERENT video each time. Never suggest the same video twice in a row.
 - Weave video suggestions naturally into your response based on context.
 

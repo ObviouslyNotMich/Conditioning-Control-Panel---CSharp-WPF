@@ -35,11 +35,26 @@ namespace ConditioningControlPanel.Services
         // --- reused gate primitives (cooldown dict / global min-gap / one-fire latch / variant rotation) ---
         private readonly Dictionary<string, DateTime> _lastFiredUtc = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _firedOnceSession = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, HashSet<int>> _usedVariants = new(StringComparer.OrdinalIgnoreCase);
-        // Last variant index fired per rule — used to avoid an immediate repeat when a repeatable
+        // Per-rule variant rotation, keyed by the variant's stable LINE ID (not index) so it survives
+        // content edits AND can be PERSISTED across sessions (AppSettings.BarkVariantRotation). This is
+        // the hard no-repeat-until-exhausted guarantee: a rule never replays a line until every line in
+        // its pool has been spoken this cycle. Loaded from settings on Start().
+        private readonly Dictionary<string, HashSet<string>> _usedVariantKeys = new(StringComparer.OrdinalIgnoreCase);
+        // Last variant line id fired per rule — used to avoid an immediate repeat when a repeatable
         // pool is exhausted and recycled (see EvaluateGate).
-        private readonly Dictionary<string, int> _lastVariantIndex = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _lastVariantKey = new(StringComparer.OrdinalIgnoreCase);
         private DateTime _globalLastFireUtc = DateTime.MinValue;
+
+        // Audio filenames of the last few barks spoken across ALL rules — a soft, global de-dupe.
+        // Per-rule variant rotation (_usedVariantKeys) only stops a rule repeating ITS OWN lines; it
+        // does nothing for the felt repetition of a high-frequency rule (flash/subliminal) cycling
+        // its small pool over a long session, nor for two rules echoing the same line back-to-back.
+        // Variant selection prefers a line whose audio isn't in this window — a preference, not a
+        // hard gate (if every candidate is recent we still speak rather than go silent).
+        private readonly Queue<string> _recentlySpoken = new();
+        private readonly HashSet<string> _recentlySpokenSet = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>How many distinct just-spoken lines to avoid replaying across all rules.</summary>
+        private const int RecentlySpokenMemory = 8;
 
         /// <summary>Global minimum gap between any two barks.</summary>
         private const int GlobalMinGapMs = 4000;
@@ -100,6 +115,7 @@ namespace ConditioningControlPanel.Services
                     DryRun = true;
 
                 _rules = BarkRuleLoader.Load();
+                LoadRotationFromSettings(); // restore persisted no-repeat rotation so pools don't reset each launch
                 // Instant-relaunch egg threshold: relaunched within 60s of last seen.
                 _state.CaptureLaunchRecency(App.Settings?.Current?.LastSeenUtc, instantThresholdSeconds: 60);
                 _lastTier = App.Patreon?.CurrentTier ?? PatreonTier.None;
@@ -145,6 +161,24 @@ namespace ConditioningControlPanel.Services
         /// safety-class "Panic" bark, which bypasses the gate and holds the floor.
         /// </summary>
         public void NotifyPanic() => Raise("Panic");
+
+        /// <summary>
+        /// The app was just opened — fires the voiced, time-aware welcome greeting. The bucket
+        /// (first/soon/back/while/long) reflects how long the user has been away so rules can
+        /// select an appropriately-warm line. Returns whether a greeting bark actually spoke so
+        /// the caller can fall back to the legacy text-only greeting when the bark system is
+        /// unavailable.
+        /// </summary>
+        public bool NotifyAppOpened(string awayBucket)
+            => Raise("AppOpened", c => c.Set("away_bucket", awayBucket ?? "first"));
+
+        /// <summary>
+        /// A daily-login-streak milestone (7/14/30/60/100/365 days) was reached for the first
+        /// time. Caller owns the once-per-milestone latch (AppSettings.LastAnnouncedStreakMilestone);
+        /// guaranteed so it isn't dropped by the min-gap behind the welcome greeting it queues after.
+        /// </summary>
+        public void NotifyStreakMilestone(int days)
+            => Raise("StreakMilestone", c => c.Set("streak_days", (double)days), guaranteed: true);
 
         /// <summary>A dashboard feature popup was opened (feature = control type name w/o "FeatureControl", e.g. "Flash").</summary>
         public void NotifyFeatureOpened(string? feature)
@@ -359,14 +393,13 @@ namespace ConditioningControlPanel.Services
                 lock (_gate)
                 {
                     _rules = fresh;
-                    _usedVariants.Clear();
                     _firedOnceSession.Clear();
                     _lastFiredUtc.Clear();
-                    _lastVariantIndex.Clear();
-                    _usedIdleRules.Clear();
-                    _lastIdleRuleId = null;
+                    // Variant/idle rotation is intentionally NOT cleared — it's persistent no-repeat state
+                    // (line ids filter against whatever the new mod's pool contains), so a mod switch must
+                    // not restart every pool. Session one-shots above are still re-armed.
                 }
-                App.Logger?.Information("BarkService: reloaded {Count} rules (per-rule rotation state reset)", fresh.Count);
+                App.Logger?.Information("BarkService: reloaded {Count} rules (rotation preserved)", fresh.Count);
             }
             catch (Exception ex) { App.Logger?.Warning(ex, "BarkService: rule reload failed"); }
         }
@@ -718,12 +751,13 @@ namespace ConditioningControlPanel.Services
         /// safety-hold) and a variant is always selected — used for direct reactions that must
         /// fire exactly once (e.g. the lock-card pool bark on a tails coin flip).
         /// </param>
-        private void Raise(string trigger, Action<BarkContext>? fill = null, bool guaranteed = false)
+        /// <returns>True if a bark was actually spoken (rule matched + gate passed + not dry-run).</returns>
+        private bool Raise(string trigger, Action<BarkContext>? fill = null, bool guaranteed = false)
         {
             try
             {
                 var rules = _rules.ForTrigger(trigger);
-                if (rules.Count == 0) return;
+                if (rules.Count == 0) return false;
 
                 var ctx = new BarkContext(trigger);
                 fill?.Invoke(ctx);
@@ -744,18 +778,23 @@ namespace ConditioningControlPanel.Services
                     if (winner == null)
                     {
                         App.Logger?.Debug("[BARK] trigger={Trigger} no rule matched conditions", trigger);
-                        return;
+                        return false;
                     }
 
                     (toSpeak, variantIndex, pool) = DecideLocked(trigger, winner, guaranteed);
                 }
 
                 if (toSpeak != null && pool != null)
+                {
                     Speak(toSpeak, variantIndex, ctx, pool);
+                    return true;
+                }
+                return false;
             }
             catch (Exception ex)
             {
                 App.Logger?.Warning(ex, "BarkService: Raise('{Trigger}') failed", trigger);
+                return false;
             }
         }
 
@@ -774,7 +813,7 @@ namespace ConditioningControlPanel.Services
 
             if (!decision.WouldFire) return (null, -1, null);
 
-            CommitFire(winner, decision.VariantIndex);
+            CommitFire(winner, decision.VariantIndex, resolved);
             return DryRun ? (null, -1, null) : (winner, decision.VariantIndex, resolved);
         }
 
@@ -826,6 +865,7 @@ namespace ConditioningControlPanel.Services
             {
                 _usedIdleRules.Clear();
                 if (_lastIdleRuleId != null) _usedIdleRules.Add(_lastIdleRuleId);
+                PersistIdleRotation(); // exhausted → recycle; mirror the reset so it persists
                 unused = eligible.Where(r => !_usedIdleRules.Contains(r.Id)).ToList();
                 if (unused.Count == 0) unused = eligible; // single eligible rule — unavoidable repeat
             }
@@ -1109,7 +1149,12 @@ namespace ConditioningControlPanel.Services
 
         private List<BarkVariant> ResolvePool(BarkRule rule)
         {
-            if (rule.VariantPool != null && rule.VariantPool.Count > 0) return rule.VariantPool;
+            // Inline pool: drop any lines the user disabled/hid in the Phrase Manager (shares
+            // DisabledPhraseIds / RemovedPhraseIds with built-in phrases via the "Bark:" id prefix).
+            // A filtered copy — never mutate the rule's live VariantPool. If everything's disabled the
+            // pool comes back empty and EvaluateGate short-circuits on "empty-pool" (rule stays silent).
+            if (rule.VariantPool != null && rule.VariantPool.Count > 0)
+                return rule.VariantPool.Where(v => IsBarkLineEnabled(rule.Id, v)).ToList();
             if (!string.IsNullOrWhiteSpace(rule.PoolRef))
             {
                 var phrases = App.Mods?.GetPhrases(rule.PoolRef!);
@@ -1117,6 +1162,62 @@ namespace ConditioningControlPanel.Services
                     return phrases.Select(p => new BarkVariant(p)).ToList(); // pool-ref lines are text-only
             }
             return new List<BarkVariant>();
+        }
+
+        /// <summary>
+        /// Stable identifier for a single bark line, used to toggle it in the Phrase Manager and to
+        /// gate it at speak time. Keyed off the audio filename (e.g. <c>flash_12</c>) so it survives
+        /// reordering/content edits — an index-based id would silence the wrong line after a content
+        /// update. Text-only variants fall back to a slug of their text. The <c>Bark:</c> prefix never
+        /// collides with the manager's <c>Category:index</c> / GUID ids, so it shares
+        /// <see cref="AppSettings.DisabledPhraseIds"/> / <see cref="AppSettings.RemovedPhraseIds"/>.
+        /// </summary>
+        public static string BarkLineId(string ruleId, BarkVariant v)
+        {
+            var key = string.IsNullOrWhiteSpace(v.Audio)
+                ? "t_" + CompanionPhraseService.Slugify(v.Text)
+                : System.IO.Path.GetFileNameWithoutExtension(v.Audio);
+            return "Bark:" + ruleId + ":" + key;
+        }
+
+        /// <summary>True unless the user disabled or hid this bark line in the Phrase Manager.</summary>
+        private static bool IsBarkLineEnabled(string ruleId, BarkVariant v)
+        {
+            var s = App.Settings?.Current;
+            if (s == null) return true;
+            var id = BarkLineId(ruleId, v);
+            return !s.DisabledPhraseIds.Contains(id) && !s.RemovedPhraseIds.Contains(id);
+        }
+
+        /// <summary>One enumerable bark line, surfaced to the Phrase Manager.</summary>
+        public readonly record struct BarkLineInfo(
+            string LineId, string RuleId, string Trigger, string Text, string? AudioFileName, string? AudioFolder);
+
+        /// <summary>
+        /// All inline bark lines for the ACTIVE mod's loaded rule set, for display in the Phrase
+        /// Manager. Skips <c>pool_ref</c> rules — those reuse existing phrase categories already shown
+        /// in the manager, so surfacing them here would double them up.
+        /// </summary>
+        public IReadOnlyList<BarkLineInfo> GetAllBarkLines()
+        {
+            var result = new List<BarkLineInfo>();
+            BarkRuleSet rules;
+            lock (_gate) rules = _rules;
+
+            foreach (var rule in rules.AllRules)
+            {
+                if (rule.VariantPool == null || rule.VariantPool.Count == 0) continue; // skip pool_ref
+                foreach (var v in rule.VariantPool)
+                {
+                    if (!v.HasText) continue;
+                    string? folder = null;
+                    var path = ResolveBarkAudio(v.Audio);
+                    if (path != null) folder = System.IO.Path.GetDirectoryName(path);
+                    result.Add(new BarkLineInfo(
+                        BarkLineId(rule.Id, v), rule.Id, rule.Trigger, v.Text, v.Audio, folder));
+                }
+            }
+            return result;
         }
 
         /// <summary>
@@ -1173,6 +1274,11 @@ namespace ConditioningControlPanel.Services
                 if (App.Audio?.IsWhisperAudioPlaying == true)
                     return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = "whisper-active" };
 
+                // Don't talk over the Chaos narrator (the Madam). She holds the floor; the next
+                // eligible event speaks once she's done (anti-stale drops stale queued barks naturally).
+                if (Services.Chaos.ChaosNarrator.IsPlaying)
+                    return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = "narrator-active" };
+
                 // Chat-suppression: don't talk over an active conversation.
                 int window = App.Settings?.Current?.BarkChatSuppressionMs ?? 10000;
                 if (CompanionBusy(window))
@@ -1224,17 +1330,18 @@ namespace ConditioningControlPanel.Services
             {
                 if (rule.Repeatable)
                 {
-                    var used = _usedVariants.TryGetValue(rule.Id, out var set) ? set : null;
-                    idx = RandomUnused(pool.Count, used);
+                    var usedKeys = _usedVariantKeys.TryGetValue(rule.Id, out var set) ? set : null;
+                    idx = PickVariant(pool, rule.Id, usedKeys);
                     if (idx < 0)
                     {
-                        // Exhausted → recycle. Reseed the used-set with the last-fired index so the
+                        // Exhausted → recycle. Reseed the used-set with the last-fired line so the
                         // next pick avoids repeating the line we just played.
-                        var reseed = new HashSet<int>();
-                        if (_lastVariantIndex.TryGetValue(rule.Id, out var lastIdx))
-                            reseed.Add(lastIdx);
-                        _usedVariants[rule.Id] = reseed;
-                        idx = RandomUnused(pool.Count, reseed);
+                        var reseed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        if (_lastVariantKey.TryGetValue(rule.Id, out var lastKey))
+                            reseed.Add(lastKey);
+                        _usedVariantKeys[rule.Id] = reseed;
+                        PersistVariantRotation(rule.Id);
+                        idx = PickVariant(pool, rule.Id, reseed);
                         if (idx < 0) idx = 0; // safety (pool>1 means reseed has ≤1 entry, so unreachable)
                     }
                 }
@@ -1267,11 +1374,15 @@ namespace ConditioningControlPanel.Services
             return windowMs > 0 && (DateTime.UtcNow - _lastUserMessageUtc).TotalMilliseconds < windowMs;
         }
 
-        private void CommitFire(BarkRule rule, int variantIndex)
+        private void CommitFire(BarkRule rule, int variantIndex, List<BarkVariant> pool)
         {
             var now = DateTime.UtcNow;
             _lastFiredUtc[rule.Id] = now;
             _globalLastFireUtc = now;
+
+            // Feed the global recency window so the NEXT pick (any rule) avoids this exact line.
+            if (variantIndex >= 0 && variantIndex < pool.Count)
+                RememberSpoken(pool[variantIndex].Audio);
 
             // A fired safety bark holds the floor.
             if (rule.Class == BarkClass.Safety)
@@ -1285,15 +1396,17 @@ namespace ConditioningControlPanel.Services
                     App.Settings?.Current?.MarkBarkFired(LatchKey(rule));
             }
 
-            if (variantIndex >= 0)
+            if (variantIndex >= 0 && variantIndex < pool.Count)
             {
-                if (!_usedVariants.TryGetValue(rule.Id, out var set))
+                var key = BarkLineId(rule.Id, pool[variantIndex]);
+                if (!_usedVariantKeys.TryGetValue(rule.Id, out var set))
                 {
-                    set = new HashSet<int>();
-                    _usedVariants[rule.Id] = set;
+                    set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    _usedVariantKeys[rule.Id] = set;
                 }
-                set.Add(variantIndex);
-                _lastVariantIndex[rule.Id] = variantIndex; // for no-immediate-repeat on pool recycle
+                set.Add(key);
+                _lastVariantKey[rule.Id] = key; // for no-immediate-repeat on pool recycle
+                PersistVariantRotation(rule.Id);
             }
 
             // Pool-wide no-repeat for the idle class (each idle line is its own single-variant rule,
@@ -1302,23 +1415,94 @@ namespace ConditioningControlPanel.Services
             {
                 _usedIdleRules.Add(rule.Id);
                 _lastIdleRuleId = rule.Id;
+                PersistIdleRotation();
             }
         }
 
         /// <summary>
-        /// A RANDOM index in [0,count) not present in <paramref name="used"/>, or -1 if all are used.
-        /// Random (not first-in-order) so a pool's play order is reshuffled every cycle — there's no
-        /// learnable rhythm, only the no-repeat-until-exhausted guarantee.
+        /// Choose a variant index for a repeatable pool. Two layers, both no-repeat:
+        ///  1. per-rule — only lines whose LINE ID is NOT in <paramref name="usedKeys"/> (the rule's own
+        ///     rotation set); this is the HARD guarantee — a line never replays until the pool's exhausted;
+        ///  2. global — among those, PREFER lines whose audio isn't in <see cref="_recentlySpokenSet"/>
+        ///     (the last few lines spoken across ALL rules), so a small high-frequency pool stops
+        ///     dominating a session and two rules can't echo the same line back-to-back.
+        /// Layer 2 is a soft preference: if every per-rule-unused line is also globally-recent we fall
+        /// back to the unused set rather than going silent. Random (not first-in-order) within the
+        /// chosen set so there's no learnable rhythm. Returns -1 only when every line is in
+        /// <paramref name="usedKeys"/> (caller recycles).
         /// </summary>
-        private int RandomUnused(int count, HashSet<int>? used)
+        private int PickVariant(List<BarkVariant> pool, string ruleId, HashSet<string>? usedKeys)
         {
-            // Small pools — gather the unused indices and pick one uniformly.
-            List<int>? candidates = null;
-            for (int i = 0; i < count; i++)
-                if (used == null || !used.Contains(i))
-                    (candidates ??= new List<int>()).Add(i);
-            if (candidates == null || candidates.Count == 0) return -1;
-            return candidates[_rng.Next(candidates.Count)];
+            // Layer 1: per-rule no-repeat — gather indices whose line id isn't yet used this cycle.
+            List<int>? unused = null;
+            for (int i = 0; i < pool.Count; i++)
+                if (usedKeys == null || !usedKeys.Contains(BarkLineId(ruleId, pool[i])))
+                    (unused ??= new List<int>()).Add(i);
+            if (unused == null || unused.Count == 0) return -1;
+
+            // Layer 2: global recency — prefer lines not spoken in the last RecentlySpokenMemory barks.
+            List<int>? fresh = null;
+            if (_recentlySpokenSet.Count > 0)
+                foreach (var i in unused)
+                    if (!_recentlySpokenSet.Contains(pool[i].Audio ?? string.Empty))
+                        (fresh ??= new List<int>()).Add(i);
+
+            var pick = fresh ?? unused;
+            return pick[_rng.Next(pick.Count)];
+        }
+
+        /// <summary>Record a just-spoken line's audio in the bounded global recency window.</summary>
+        private void RememberSpoken(string? audio)
+        {
+            if (string.IsNullOrEmpty(audio)) return;
+            if (!_recentlySpokenSet.Add(audio)) return; // already in-window
+            _recentlySpoken.Enqueue(audio);
+            while (_recentlySpoken.Count > RecentlySpokenMemory)
+                _recentlySpokenSet.Remove(_recentlySpoken.Dequeue());
+        }
+
+        // ===================== persistent rotation =====================
+        // The no-repeat rotation is mirrored to AppSettings so it survives restarts — otherwise every
+        // launch restarts each pool and the "same few" lines get heard again. Save() is debounced (500ms),
+        // so persisting on each bark coalesces to ~one write per bark and flushes on shutdown.
+
+        /// <summary>Restore persisted variant/idle rotation into the in-memory sets on startup.</summary>
+        private void LoadRotationFromSettings()
+        {
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            try
+            {
+                _usedVariantKeys.Clear();
+                foreach (var kv in s.BarkVariantRotation)
+                    _usedVariantKeys[kv.Key] = new HashSet<string>(kv.Value ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+
+                _usedIdleRules.Clear();
+                foreach (var id in s.BarkIdleRotation)
+                    _usedIdleRules.Add(id);
+            }
+            catch (Exception ex) { App.Logger?.Debug("BarkService: rotation restore failed: {Error}", ex.Message); }
+        }
+
+        /// <summary>Mirror one rule's variant rotation into settings and request a (debounced) save.</summary>
+        private void PersistVariantRotation(string ruleId)
+        {
+            if (DryRun) return; // dry-run must not mutate settings
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.BarkVariantRotation[ruleId] = _usedVariantKeys.TryGetValue(ruleId, out var set)
+                ? new List<string>(set) : new List<string>();
+            App.Settings?.Save(suppressCloudBackup: true); // local-only; low-value, rides next real change to cloud
+        }
+
+        /// <summary>Mirror the idle rotation into settings and request a (debounced) save.</summary>
+        private void PersistIdleRotation()
+        {
+            if (DryRun) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.BarkIdleRotation = new List<string>(_usedIdleRules);
+            App.Settings?.Save(suppressCloudBackup: true);
         }
 
         // ===================== speak =====================

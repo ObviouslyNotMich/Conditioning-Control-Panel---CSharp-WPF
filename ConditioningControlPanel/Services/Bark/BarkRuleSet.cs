@@ -42,6 +42,10 @@ namespace ConditioningControlPanel.Services.Bark
 
         public IEnumerable<string> Triggers => _byTrigger.Keys;
 
+        /// <summary>Every loaded rule, in no particular order. Each rule lives in exactly one
+        /// trigger list (keyed by its own <see cref="BarkRule.Trigger"/>), so this yields each once.</summary>
+        public IEnumerable<BarkRule> AllRules => _byTrigger.Values.SelectMany(list => list);
+
         public static BarkRuleSet Empty => new(Enumerable.Empty<BarkRule>());
     }
 }

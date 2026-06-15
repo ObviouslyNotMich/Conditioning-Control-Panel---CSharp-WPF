@@ -157,6 +157,11 @@
                         </Border>
                     </StackPanel>
                 </StackPanel>
+                <Button x:Name="BtnGuide" Content="?" Click="BtnGuide_Click"
+                        ToolTip="How to play — the rules card"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,34,0"
+                        Width="28" Height="28" Background="#22FFFFFF" Foreground="White"
+                        FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
                 <Button x:Name="BtnCloseX" Content="✕" Click="BtnClose_Click"
                         HorizontalAlignment="Right" VerticalAlignment="Top"
                         Width="28" Height="28" Background="#22FFFFFF" Foreground="White" BorderThickness="0" Cursor="Hand"/>
@@ -309,6 +314,13 @@
                                 <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
                                 <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
                                 <CheckBox x:Name="ChkAnnouncer" Style="{StaticResource Chk}" Content="Announcements" Margin="0,8,0,0"/>
+                                <TextBlock Text="THE MADAM" Style="{StaticResource SectionHdr}" Margin="0,12,0,0"/>
+                                <CheckBox x:Name="ChkNarrative" Style="{StaticResource Chk}" Content="Narrator (voiced reactions)"
+                                          ToolTip="A reactive narrator speaks voiced + text lines during a descent."/>
+                                <CheckBox x:Name="ChkBackdrop" Style="{StaticResource Chk}" Content="Zone backdrops" Margin="0,4,0,0"
+                                          ToolTip="Per-zone backdrop plates under the bubbles. Off = classic Chaos over your live desktop."/>
+                                <TextBlock Text="Backdrop opacity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
+                                <Slider x:Name="SldBackdropOpacity" Minimum="0" Maximum="1"/>
                             </StackPanel>
                         </Border>
 

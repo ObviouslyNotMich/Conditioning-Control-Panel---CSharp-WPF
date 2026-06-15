@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -121,6 +122,35 @@ namespace ConditioningControlPanel.Services
             // shows them and the companion keeps suggesting them. Idempotent — only seeds a mod
             // that has no override yet.
             MigrateLegacyHypnotubeLinks();
+
+            // Whenever the user edits one of the active text pools, mirror it into the per-mod
+            // backup immediately so the changes survive a restart.
+            var settings = App.Settings?.Current;
+            if (settings != null)
+            {
+                settings.PropertyChanged += CurrentSettings_PropertyChanged;
+            }
+        }
+
+        /// <summary>
+        /// Keeps the active mod's per-mod pool backups in sync whenever the user edits a pool.
+        /// Without this, pool editors only update the active pool in settings.json; on next
+        /// startup RestorePoolsFromSettings copies the stale backup over the active pool and
+        /// the user's changes appear to disappear.
+        /// </summary>
+        private void CurrentSettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is not (nameof(AppSettings.SubliminalPool)
+                or nameof(AppSettings.AttentionPool)
+                or nameof(AppSettings.LockCardPhrases)
+                or nameof(AppSettings.CustomTriggers)
+                or nameof(AppSettings.BouncingTextPool)))
+            {
+                return;
+            }
+
+            SaveCurrentPoolsToSettings(_activeMod.Id);
+            _log?.Debug("ModService: synced active pools to per-mod backup for {ModId}", _activeMod.Id);
         }
 
         /// <summary>

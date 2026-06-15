@@ -20,13 +20,13 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.1.0";
+        public const string AppVersion = "6.1.4";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.1.0 - Down the Rabbit Hole
+        public const string CurrentPatchNotes = @"v6.1.4 - Down the Rabbit Hole
 
 🐇 A new little game: ""Down the Rabbit Hole"" is available in testing for the
    Prime Subject.
@@ -34,9 +34,28 @@ namespace ConditioningControlPanel.Services
 🎭 Companion animations: first attempt at animating the companion (hope you
    girls like it, tho I know it has a lot of room to improve).
 
+🗣️ Your companion now greets you out loud when you open the app - a different
+   line depending on how long you've been away - and celebrates your daily
+   login-streak milestones.
+
 🔊 Added ""some"" extra voicelines :3
 
-— Everything else since 6.0.8 —
+- Fixes since 6.1.1 -
+
+🐇 Down the Rabbit Hole: killed the ~30-min out-of-memory crash and a video
+   z-order flicker, ran a balance pass, and added a how-to-play card.
+🐇 Rabbit Hole stability: fixed a flash-window render-thread deadlock and
+   stopped glow effects from leaking memory on long runs (smoother, lighter).
+🎥 Webcam: de-jittered gaze tracking and made calibration more robust.
+🗂️ Deeper: in-app feedback when your catalogue submission gets published.
+🔊 Voicelines: less repetition (deeper rotation + a global no-repeat guard),
+   and you can now manage barks from the Phrase Manager.
+🚪 Fixed the app lingering in the background after the in-app Exit button.
+🎥 Companion AI no longer fixates on one video, and Sissy's links are clickable
+   again.
+🖥️ Fixed a tray / single-instance click trying to revive a closed window.
+
+- Everything else since 6.0.8 -
 
 🎭 COMPANION
 - Animated emotive portraits for all three mods (Bambi / Sissy / Circe),
@@ -45,14 +64,14 @@ namespace ConditioningControlPanel.Services
   apps, and dragging from invisible dead-zones.
 
 🔊 VOICELINES
-- Reactive bark system — your companion knows what app you're in and reacts to
+- Reactive bark system - your companion knows what app you're in and reacts to
   the moment.
 - More idle variety, fresh reactions that don't pile up stale, and proper
   coordination so she won't talk over whispers (and goes quiet when whispers
   are muted).
 
 ✨ DEEPER (TIMELINE EDITOR)
-- Three dedicated lanes — Regions / Effects / Haptics.
+- Three dedicated lanes - Regions / Effects / Haptics.
 - Overlay opacity ramp (fade across a region).
 - Per-effect ""don't buzz on pop"" for flash & subliminal.
 - A round of editor quality-of-life fixes plus a darker restyle.
