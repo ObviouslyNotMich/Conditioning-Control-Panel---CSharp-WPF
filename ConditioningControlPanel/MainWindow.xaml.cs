@@ -16285,69 +16285,6 @@ namespace ConditioningControlPanel
 
         #endregion
 
-        #region Quests
-
-        private QuestCompletePopup? _questCompletePopup;
-        private SolidColorBrush? _dailySegmentGold;
-        private SolidColorBrush? _dailySegmentGrey;
-
-        private void OnQuestCompleted(object? sender, Services.QuestCompletedEventArgs e)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                // Play celebration sound from flashes audio
-                App.Flash?.PlayRandomSound();
-
-                // Show floating popup notification
-                try
-                {
-                    _questCompletePopup?.Close();
-                }
-                catch { }
-
-                _questCompletePopup = new QuestCompletePopup(e.QuestDefinition.Name, e.XPAwarded);
-                _questCompletePopup.Show();
-
-                // Also show inline banner if quest tab is visible
-                QuestCompleteBanner.Visibility = Visibility.Visible;
-                TxtQuestComplete.Text = $"{e.QuestDefinition.Name} COMPLETE! +{e.XPAwarded} XP";
-
-                // Refresh the quest UI
-                RefreshQuestUI();
-
-                // Hide inline banner after 5 seconds
-                Task.Delay(5000).ContinueWith(_ =>
-                {
-                    DispatcherHelper.RunOnUISync(() =>
-                    {
-                        QuestCompleteBanner.Visibility = Visibility.Collapsed;
-                    });
-                });
-
-                App.Logger?.Information("Quest completed: {Name} (+{XP} XP)", e.QuestDefinition.Name, e.XPAwarded);
-
-                // Sync quest streak data to server
-                if (App.ProfileSync?.IsSyncEnabled == true)
-                {
-                    _ = App.ProfileSync.SyncProfileAsync();
-                }
-            });
-        }
-
-        private void OnQuestProgressChanged(object? sender, Services.QuestProgressEventArgs e)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                // Only refresh if we're on the quests tab
-                if (QuestsTab.Visibility == Visibility.Visible)
-                {
-                    RefreshQuestUI();
-                }
-            });
-        }
-
-        #endregion
-
         #region Enhancements (Skill Tree)
 
         // Node size constants for skill tree (sized for image backgrounds)
