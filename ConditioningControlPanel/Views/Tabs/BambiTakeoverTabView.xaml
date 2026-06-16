@@ -1,0 +1,269 @@
+<UserControl x:Class="ConditioningControlPanel.Views.Tabs.BambiTakeoverTabView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:helpers="clr-namespace:ConditioningControlPanel.Helpers"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Localization"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="36,28,36,28" MaxWidth="1180" HorizontalAlignment="Center">
+            <!-- Header -->
+            <Grid Margin="0,0,0,22">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Image Grid.Column="0" Width="44" Height="44" VerticalAlignment="Center" Margin="0,0,16,0"
+                       Source="{Binding Source='🤖', Converter={StaticResource EmojiToImageSource}}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtBambiTakeoverHeader" x:FieldModifier="internal" Text="{loc:Str tab_takeover}" Foreground="White" FontSize="26" FontWeight="Bold"/>
+                </StackPanel>
+            </Grid>
+    
+            <!-- Description card (always visible — even to free users) -->
+            <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="{DynamicResource PinkBrush}"
+                    BorderThickness="1" CornerRadius="12" Padding="24,20" Margin="0,0,0,22">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="22"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="160" Height="160" CornerRadius="12" ClipToBounds="True"
+                            BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2" VerticalAlignment="Top">
+                        <Image x:Name="ImgBambiTakeoverDesc" x:FieldModifier="internal"
+                               Source="pack://application:,,,/Resources/features/bambi takeover.png"
+                               Stretch="UniformToFill"/>
+                    </Border>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="{loc:Str label_what_is_this}" Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+                        <TextBlock Text="{loc:Str desc_takeover}" Foreground="White" FontSize="15"
+                                   TextWrapping="Wrap" Margin="0,0,0,12" LineHeight="22"/>
+                        <TextBlock Text="{loc:Str desc_takeover_bullets}"
+                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="13"
+                                   TextWrapping="Wrap" LineHeight="20"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+    
+            <!-- Interactive controls (2/3) + explanatory guide (1/3) -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="22"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+    
+                <!-- Controls + translucent gating overlay (column 0) -->
+                <Grid Grid.Column="0">
+                <StackPanel x:Name="BambiTakeoverControls">
+            <!-- Lifted from old Bambi Expander — every x:Name preserved -->
+            <!-- Locked State (legacy — kept hidden, replaced by gating overlay below) -->
+            <StackPanel x:Name="AutonomyLocked" x:FieldModifier="internal" Visibility="Collapsed">
+                <Grid>
+                    <helpers:EmojiTextBlock x:Name="TxtTakeoverLocked" x:FieldModifier="internal" Text="{loc:Str label_takeover}" Foreground="#666666" FontWeight="Bold" FontSize="13"/>
+                    <helpers:EmojiTextBlock x:Name="TxtAutonomyLockStatus" x:FieldModifier="internal" Text="{loc:Str label_patreon_only}" Foreground="{DynamicResource SecondaryBrush}" HorizontalAlignment="Right" FontSize="11"/>
+                </Grid>
+                <TextBlock x:Name="TxtAutonomyLockMessage" x:FieldModifier="internal" Text="{loc:Str label_support_on_patreon_to_unlock}" Foreground="{DynamicResource PinkBrush}" FontSize="11" Margin="0,4,0,0"/>
+            </StackPanel>
+    
+            <!-- Unlocked State — always visible now; gating handled by overlay -->
+            <StackPanel x:Name="AutonomyUnlocked" x:FieldModifier="internal" Visibility="Visible">
+                <StackPanel x:Name="AutonomySettings">
+    
+                    <!-- ============ SUBSECTION 1: CADENCE ============ -->
+                    <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
+                            BorderThickness="1" CornerRadius="10" Padding="20,16" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Str setting_interval}" Foreground="{DynamicResource PinkBrush}"
+                                       FontSize="13" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="10"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Grid.Column="0" ToolTip="{loc:Str tooltip_autonomy_interval}">
+                                    <Grid><TextBlock Text="{loc:Str setting_interval}" Foreground="#AAA" FontSize="12"/><TextBlock x:Name="TxtAutonomyInterval" x:FieldModifier="internal" Text="{loc:Str label_60s}" Foreground="{DynamicResource PinkBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="SliderAutonomyInterval" x:FieldModifier="internal" Minimum="30" Maximum="300" Value="60" Height="22" ValueChanged="SliderAutonomyInterval_Changed"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2" ToolTip="{loc:Str tooltip_autonomy_cooldown}">
+                                    <Grid><TextBlock Text="{loc:Str label_cooldown}" Foreground="#AAA" FontSize="12"/><TextBlock x:Name="TxtAutonomyCooldown" x:FieldModifier="internal" Text="{loc:Str label_30s}" Foreground="{DynamicResource PinkBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="SliderAutonomyCooldown" x:FieldModifier="internal" Minimum="10" Maximum="300" Value="30" Height="22" ValueChanged="SliderAutonomyCooldown_Changed"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="0" ToolTip="{loc:Str tooltip_autonomy_intensity}">
+                                    <Grid><TextBlock Text="{loc:Str setting_intensity}" Foreground="#AAA" FontSize="12"/><TextBlock x:Name="TxtAutonomyIntensity" x:FieldModifier="internal" Text="5" Foreground="{DynamicResource PinkBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="SliderAutonomyIntensity" x:FieldModifier="internal" Minimum="1" Maximum="10" Value="5" Height="22" ValueChanged="SliderAutonomyIntensity_Changed"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="2" ToolTip="{loc:Str tooltip_autonomy_announce}">
+                                    <Grid><TextBlock Text="{loc:Str label_announce}" Foreground="#AAA" FontSize="12"/><TextBlock x:Name="TxtAutonomyAnnounce" x:FieldModifier="internal" Text="50%" Foreground="{DynamicResource PinkBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="SliderAutonomyAnnounce" x:FieldModifier="internal" Minimum="0" Maximum="100" Value="50" Height="22" ValueChanged="SliderAutonomyAnnounce_Changed"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+    
+                    <!-- ============ SUBSECTION 2: TRIGGERS ============ -->
+                    <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
+                            BorderThickness="1" CornerRadius="10" Padding="20,16" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Str label_triggers}" Foreground="{DynamicResource PinkBrush}"
+                                       FontSize="13" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0" Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_idle}"><TextBlock Text="{loc:Str label_idle}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyIdle" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyIdle_Changed" Unchecked="ChkAutonomyIdle_Changed"/></Grid>
+                                <Grid Grid.Column="2" Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_random}"><TextBlock Text="{loc:Str label_random_2}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyRandom" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyRandom_Changed" Unchecked="ChkAutonomyRandom_Changed"/></Grid>
+                                <Grid Grid.Column="4" Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_time_aware}"><TextBlock Text="{loc:Str label_time_aware}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyTimeAware" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyTimeAware_Changed" Unchecked="ChkAutonomyTimeAware_Changed"/></Grid>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+    
+                    <!-- ============ SUBSECTION 3: BEHAVIORS ============ -->
+                    <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
+                            BorderThickness="1" CornerRadius="10" Padding="20,16" Margin="0,0,0,14">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{loc:Str label_basic}" Foreground="{DynamicResource PinkBrush}" FontWeight="Bold" FontSize="13"/>
+                                <TextBlock Grid.Column="2" Text="{loc:Str label_advanced_2}" Foreground="{DynamicResource PinkBrush}" FontWeight="Bold" FontSize="13"/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- Basic column -->
+                                <StackPanel Grid.Column="0">
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_flash}"><TextBlock x:Name="TxtAutoFlash" x:FieldModifier="internal" Text="{loc:Str tab_flashes}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyFlash" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_video}"><TextBlock x:Name="TxtAutoVideo" x:FieldModifier="internal" Text="{loc:Str tab_videos}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyVideo" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_auto_plays_hypnotube_videos_fullscreen}"><TextBlock Text="{loc:Str label_web_videos}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyWebVideo" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_subliminal}"><TextBlock x:Name="TxtAutoSubliminal" x:FieldModifier="internal" Text="{loc:Str tab_subliminals}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomySubliminal" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_comment}"><TextBlock Text="{loc:Str label_comments}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyComment" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                </StackPanel>
+                                <!-- Advanced column -->
+                                <StackPanel Grid.Column="2">
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_bubbles}"><TextBlock x:Name="TxtAutoBubbles" x:FieldModifier="internal" Text="{loc:Str label_bubbles}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyBubbles" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_pink_filter}"><TextBlock x:Name="TxtAutoPinkFilter" x:FieldModifier="internal" Text="{loc:Str label_pink_filter_2}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyPinkFilter" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_lock_cards}"><TextBlock x:Name="TxtAutoLockCards" x:FieldModifier="internal" Text="{loc:Str label_lock_cards}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyLockCard" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_bouncing_text}"><TextBlock x:Name="TxtAutoBouncing" x:FieldModifier="internal" Text="{loc:Str label_bouncing}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyBouncingText" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                    <Grid Margin="0,2" ToolTip="{loc:Str tooltip_autonomy_mind_wipe}"><TextBlock x:Name="TxtAutoMindwipe" x:FieldModifier="internal" Text="{loc:Str label_mindwipe}" FontSize="12" Foreground="#CCC" VerticalAlignment="Center"/><CheckBox x:Name="ChkAutonomyMindWipe" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/></Grid>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+    
+                    <!-- ============ SUBSECTION 4: CONTROLS ============ -->
+                    <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
+                            BorderThickness="1" CornerRadius="10" Padding="20,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="BtnAutonomyStartStop" x:FieldModifier="internal" Grid.Column="0" Content="{loc:Str btn_start_2}" Background="#2A1A3A" Foreground="#90EE90"
+                                    FontWeight="Bold" FontSize="14" Padding="14,8"
+                                    Click="BtnAutonomyStartStop_Click" ToolTip="{loc:Str tooltip_start_stop_takeover}"/>
+                            <Button Grid.Column="2" Content="{loc:Str btn_test}" Background="{DynamicResource PinkBrush}" Foreground="White" FontWeight="Bold" FontSize="14"
+                                    Padding="14,8" Click="BtnTestAutonomy_Click" ToolTip="{loc:Str tooltip_test_action}"/>
+                        </Grid>
+                    </Border>
+    
+                    <!-- Hidden elements -->
+                    <TextBlock x:Name="TxtTakeoverUnlocked" x:FieldModifier="internal" Visibility="Collapsed"/>
+                    <CheckBox x:Name="ChkAutonomySpiral" x:FieldModifier="internal" Visibility="Collapsed" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/>
+                    <CheckBox x:Name="ChkAutonomyBubbleCount" x:FieldModifier="internal" Visibility="Collapsed" Checked="ChkAutonomyBehavior_Changed" Unchecked="ChkAutonomyBehavior_Changed"/>
+                    <Button x:Name="BtnForceStartAutonomy" Visibility="Collapsed" Click="BtnForceStartAutonomy_Click"/>
+                    <CheckBox x:Name="ChkAutonomyEnabled" x:FieldModifier="internal" Visibility="Collapsed" Checked="ChkAutonomyEnabled_Changed" Unchecked="ChkAutonomyEnabled_Changed"/>
+                </StackPanel>
+            </StackPanel>
+                </StackPanel>
+    
+                <!-- Translucent gating overlay (only for free users) -->
+                <Border x:Name="BambiTakeoverGate" x:FieldModifier="internal" Visibility="Collapsed"
+                        Background="#99000010" BorderBrush="#FF69B4" BorderThickness="2"
+                        CornerRadius="10" IsHitTestVisible="True">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Image Width="52" Height="52" HorizontalAlignment="Center" Source="{Binding Source='🔒', Converter={StaticResource EmojiToImageSource}}"/>
+                        <TextBlock Text="{loc:Str gate_premium_locked}" FontSize="22"
+                                   FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{loc:Str gate_premium_subtitle}" FontSize="14"
+                                   Foreground="#CCCCCC" HorizontalAlignment="Center" Margin="0,4,0,12"/>
+                        <Button Click="BtnGateUnlock_Click" Padding="20,8" Background="#FF69B4"
+                                Foreground="White" FontWeight="Bold" Cursor="Hand" BorderThickness="0">
+                            <helpers:EmojiTextBlock Text="{loc:Str gate_unlock_with_patreon}"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+                </Grid>
+                <!-- end controls column -->
+    
+                <!-- Explanatory guide (column 2) -->
+                <Border Grid.Column="2" VerticalAlignment="Top"
+                        Background="{DynamicResource SurfaceBgBrush}" BorderBrush="{DynamicResource PinkBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="18,16">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                            <Image Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Source="{Binding Source='💡', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str guide_takeover_title}" Foreground="{DynamicResource PinkBrush}"
+                                       FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+    
+                        <!-- Step 1 -->
+                        <TextBlock Text="{loc:Str guide_takeover_step1_title}" Foreground="White"
+                                   FontSize="13" FontWeight="Bold" Margin="0,0,0,2"/>
+                        <TextBlock Text="{loc:Str guide_takeover_step1_body}" Foreground="{DynamicResource TextMutedBrush}"
+                                   FontSize="12" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12"/>
+                        <!-- Step 2 -->
+                        <TextBlock Text="{loc:Str guide_takeover_step2_title}" Foreground="White"
+                                   FontSize="13" FontWeight="Bold" Margin="0,0,0,2"/>
+                        <TextBlock Text="{loc:Str guide_takeover_step2_body}" Foreground="{DynamicResource TextMutedBrush}"
+                                   FontSize="12" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12"/>
+                        <!-- Step 3 -->
+                        <TextBlock Text="{loc:Str guide_takeover_step3_title}" Foreground="White"
+                                   FontSize="13" FontWeight="Bold" Margin="0,0,0,2"/>
+                        <TextBlock Text="{loc:Str guide_takeover_step3_body}" Foreground="{DynamicResource TextMutedBrush}"
+                                   FontSize="12" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,4"/>
+    
+                        <Border Height="1" Background="#2E2E48" Margin="0,8,0,12"/>
+    
+                        <TextBlock Text="{loc:Str guide_takeover_settings_title}" Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="12" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <TextBlock Text="{loc:Str guide_takeover_settings_body}" Foreground="{DynamicResource TextMutedBrush}"
+                                   FontSize="12" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,12"/>
+    
+                        <Border Background="#22FF69B4" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                            <TextBlock Text="{loc:Str guide_takeover_tip}" Foreground="{DynamicResource PinkBrush}"
+                                       FontSize="12" TextWrapping="Wrap" LineHeight="17"/>
+                        </Border>
+    
+                        <TextBlock Text="{loc:Str guide_takeover_patreon}" Foreground="{DynamicResource TextMutedBrush}"
+                                   FontSize="11" TextWrapping="Wrap" LineHeight="16" FontStyle="Italic"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+    
+            </StackPanel>
+        </ScrollViewer>
+</UserControl>

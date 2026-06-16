@@ -1,0 +1,426 @@
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+
+namespace ConditioningControlPanel.Views.Tabs
+{
+    public partial class SettingsTabView : UserControl
+    {
+        public SettingsTabView()
+        {
+            InitializeComponent();
+        }
+
+        private void BrowserLoadingText_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BrowserLoadingText_Click(sender, e);
+        }
+        private void BrowserSiteToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BrowserSiteToggle_Changed(sender, e);
+        }
+        private void BtnAttentionStyle_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnAttentionStyle_Click(sender, e);
+        }
+        private void BtnAudioOutputRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnAudioOutputRefresh_Click(sender, e);
+        }
+        private void BtnClearStartupVideo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnClearStartupVideo_Click(sender, e);
+        }
+        private void BtnDiscord_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnDiscord_Click(sender, e);
+        }
+        private void BtnManageAttention_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnManageAttention_Click(sender, e);
+        }
+        private void BtnManageMessages_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnManageMessages_Click(sender, e);
+        }
+        private void BtnOpenAssetsFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnOpenAssetsFolder_Click(sender, e);
+        }
+        private void BtnPanicKey_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnPanicKey_Click(sender, e);
+        }
+        private void BtnPickAssetsFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnPickAssetsFolder_Click(sender, e);
+        }
+        private void BtnPopOutBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnPopOutBrowser_Click(sender, e);
+        }
+        private void BtnQuickLogout_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnQuickLogout_Click(sender, e);
+        }
+        private void BtnReloadBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnReloadBrowser_Click(sender, e);
+        }
+        private void BtnSelectStartupVideo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnSelectStartupVideo_Click(sender, e);
+        }
+        private void BtnSubliminalSettings_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnSubliminalSettings_Click(sender, e);
+        }
+        private void BtnTestAudio_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnTestAudio_Click(sender, e);
+        }
+        private void BtnTestVideo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnTestVideo_Click(sender, e);
+        }
+        private void BtnUnifiedLogin_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnUnifiedLogin_Click(sender, e);
+        }
+        private void BtnWebcamTracking_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnWebcamTracking_Click(sender, e);
+        }
+        private void CardBouncingText_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardBouncingText_Click(sender, e);
+        }
+        private void CardBubbleCount_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardBubbleCount_Click(sender, e);
+        }
+        private void CardBubblePop_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardBubblePop_Click(sender, e);
+        }
+        private void CardFlash_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardFlash_Click(sender, e);
+        }
+        private void CardLockCard_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardLockCard_Click(sender, e);
+        }
+        private void CardMindWipe_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardMindWipe_Click(sender, e);
+        }
+        private void CardPinkFilter_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardPinkFilter_Click(sender, e);
+        }
+        private void CardSpiral_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardSpiral_Click(sender, e);
+        }
+        private void CardSubliminal_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardSubliminal_Click(sender, e);
+        }
+        private void CardSystem_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardSystem_Click(sender, e);
+        }
+        private void CardVideo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardVideo_Click(sender, e);
+        }
+        private void CardVisuals_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CardVisuals_Click(sender, e);
+        }
+        private void ChkAudioDuck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkAudioDuck_Changed(sender, e);
+        }
+        private void ChkAudioWhispers_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkAudioWhispers_Changed(sender, e);
+        }
+        private void ChkAutoPerformance_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkAutoPerformance_Changed(sender, e);
+        }
+        private void ChkClickable_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkClickable_Changed(sender, e);
+        }
+        private void ChkCorruption_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkCorruption_Changed(sender, e);
+        }
+        private void ChkDiscordRichPresence_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkDiscordRichPresence_Changed(sender, e);
+        }
+        private void ChkDualMon_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkDualMon_Changed(sender, e);
+        }
+        private void ChkEnableDeeper_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkEnableDeeper_Changed(sender, e);
+        }
+        private void ChkExcludeBambiCloudDucking_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkExcludeBambiCloudDucking_Changed(sender, e);
+        }
+        private void ChkFlashAudio_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkFlashAudio_Changed(sender, e);
+        }
+        private void ChkFlashEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkFlashEnabled_Changed(sender, e);
+        }
+        private void ChkFlashGlow_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkFlashGlow_Changed(sender, e);
+        }
+        private void ChkHydraLinked_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkHydraLinked_Changed(sender, e);
+        }
+        private void ChkMiniGameEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkMiniGameEnabled_Changed(sender, e);
+        }
+        private void ChkNoPanic_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkNoPanic_Changed(sender, e);
+        }
+        private void ChkOfflineMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkOfflineMode_Changed(sender, e);
+        }
+        private void ChkPerformanceMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkPerformanceMode_Changed(sender, e);
+        }
+        private void ChkRandomizeTargets_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkRandomizeTargets_Changed(sender, e);
+        }
+        private void ChkStartHidden_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkStartHidden_Click(sender, e);
+        }
+        private void ChkStrictLock_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkStrictLock_Changed(sender, e);
+        }
+        private void ChkSubliminalEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkSubliminalEnabled_Changed(sender, e);
+        }
+        private void ChkVideoEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkVideoEnabled_Changed(sender, e);
+        }
+        private void ChkVideoHwDecode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkVideoHwDecode_Changed(sender, e);
+        }
+        private void ChkWinStart_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkWinStart_Click(sender, e);
+        }
+        private void CmbAudioOutputDevice_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.CmbAudioOutputDevice_SelectionChanged(sender, e);
+        }
+        private void ImgLogo_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ImgLogo_MouseLeftButtonDown(sender, e);
+        }
+        private void SliderAudioSyncIntensity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderAudioSyncIntensity_Changed(sender, e);
+        }
+        private void SliderAudioSyncLatency_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderAudioSyncLatency_Changed(sender, e);
+        }
+        private void SliderDuck_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderDuck_Changed(sender, e);
+        }
+        private void SliderDuration_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderDuration_Changed(sender, e);
+        }
+        private void SliderFade_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderFade_Changed(sender, e);
+        }
+        private void SliderFlashDuration_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderFlashDuration_Changed(sender, e);
+        }
+        private void SliderFrames_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderFrames_Changed(sender, e);
+        }
+        private void SliderImages_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderImages_Changed(sender, e);
+        }
+        private void SliderMaster_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderMaster_Changed(sender, e);
+        }
+        private void SliderMaxOnScreen_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderMaxOnScreen_Changed(sender, e);
+        }
+        private void SliderOpacity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderOpacity_Changed(sender, e);
+        }
+        private void SliderPerHour_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderPerHour_Changed(sender, e);
+        }
+        private void SliderPerMin_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderPerMin_Changed(sender, e);
+        }
+        private void SliderSize_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderSize_Changed(sender, e);
+        }
+        private void SliderSubOpacity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderSubOpacity_Changed(sender, e);
+        }
+        private void SliderSubPerMin_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderSubPerMin_Changed(sender, e);
+        }
+        private void SliderTargetSize_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderTargetSize_Changed(sender, e);
+        }
+        private void SliderTargets_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderTargets_Changed(sender, e);
+        }
+        private void SliderVideoVolume_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderVideoVolume_Changed(sender, e);
+        }
+        private void SliderWhisperVol_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.SliderWhisperVol_Changed(sender, e);
+        }
+        private void ToggleEnhanceIfPossible_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ToggleEnhanceIfPossible_Changed(sender, e);
+        }
+        private void VelvetBtnAppInfo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.VelvetBtnAppInfo_Click(sender, e);
+        }
+        private void VelvetBtnSchedulerRamp_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.VelvetBtnSchedulerRamp_Click(sender, e);
+        }
+        private void VelvetBtnWebcam_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.VelvetBtnWebcam_Click(sender, e);
+        }
+    }
+}

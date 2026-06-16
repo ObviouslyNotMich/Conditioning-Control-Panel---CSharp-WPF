@@ -1,0 +1,1619 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Threading;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Services;
+using ConditioningControlPanel.Services.Moderation;
+using XamlAnimatedGif;
+using ConditioningControlPanel.Helpers;
+using ConditioningControlPanel.Localization;
+
+namespace ConditioningControlPanel
+{
+    public partial class AvatarTubeWindow : Window
+    {
+        private IntPtr _tubeHandle;
+        private IntPtr _parentHandle;
+        private bool _chaosRunActive;       // A Chaos run owns the screen (see SetChaosRunActive)
+        private bool _reattachAfterChaos;   // we auto-detached for the run and should re-attach when it ends
+
+        // ============================================================
+        // POSITIONING & SCALING - ADJUST THESE VALUES AS NEEDED
+        // ============================================================
+
+        // Design reference size (what the XAML is designed for)
+        private const double DesignWidth = 780;
+        private const double DesignHeight = 1020;
+
+        // Gap between tube window and main window (negative = overlap)
+        // This will be scaled based on actual window size
+        private const double BaseOffsetFromParent = -350;
+
+        // Vertical offset from center (positive = lower, negative = higher)
+        private const double VerticalOffset = 20;
+
+        // Floating animation settings
+        private const double FloatDistance = 4;
+        private const double FloatDuration = 2.0;
+
+        // Current scale factor
+        private double _scaleFactor = 1.0;
+
+        // Current avatar scale (for Ctrl+scroll/arrow key/menu resizing when detached)
+        private double _currentScale = 1.0;
+        private const double MinScale = 0.5;   // 50% - can shrink twice from 100%
+        private const double MaxScale = 1.5;   // 150% - can grow twice from 100%
+        private const double ScaleStep = 0.25; // 25% per step
+
+        // Fullscreen detection
+        private DispatcherTimer? _fullscreenCheckTimer;
+        private bool _hiddenForFullscreen = false;
+        private bool _wasAttachedBeforeFullscreen = false;
+        // [AVATAR-BLINK DIAG] last window that tripped the fullscreen detector (class/proc/pid/rect).
+        private string _diagLastFullscreenWindow = "(none)";
+
+        // Win32 API
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+        // Used by ForceForegroundWindow to bypass Windows' focus-stealing prevention
+        // on this tool window (WS_EX_TOOLWINDOW). Without this, Activate() is silently
+        // ignored when the user clicks the avatar from another foreground app.
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, [MarshalAs(UnmanagedType.Bool)] bool fAttach);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_SHOWWINDOW = 0x0040;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_FRAMECHANGED = 0x0020;
+        private const uint GW_HWNDPREV = 3;
+        private const int GWL_EXSTYLE = -20;
+        private const int GWL_STYLE = -16;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int WS_EX_TOPMOST = 0x00000008;
+        private const uint WS_POPUP = 0x80000000;
+        private const uint WS_CAPTION = 0x00C00000;
+        private static readonly IntPtr HWND_TOP = IntPtr.Zero;
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+
+        // Window message hook for maintaining topmost during drag
+        private const int WM_WINDOWPOSCHANGING = 0x0046;
+        private const int WM_WINDOWPOSCHANGED = 0x0047;
+        private HwndSource? _hwndSource;
+        // Hook on the PARENT window so we can lift the tube back above main the
+        // instant main changes z-order (click, flash/overlay close, subsystem
+        // re-activation) — event-driven, no polling gap.
+        private HwndSource? _parentHwndSource;
+        private bool _reassertingAboveParent;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WINDOWPOS
+        {
+            public IntPtr hwnd;
+            public IntPtr hwndInsertAfter;
+            public int x;
+            public int y;
+            public int cx;
+            public int cy;
+            public uint flags;
+        }
+
+        /// <summary>
+        /// Start monitoring for fullscreen applications
+        /// </summary>
+        private void StartFullscreenDetection()
+        {
+            _fullscreenCheckTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500) // Check every 500ms
+            };
+            _fullscreenCheckTimer.Tick += FullscreenCheckTimer_Tick;
+            _fullscreenCheckTimer.Start();
+        }
+
+        private void FullscreenCheckTimer_Tick(object? sender, EventArgs e)
+        {
+            try
+            {
+                bool isOtherAppFullscreen = IsOtherAppFullscreen();
+
+                // When DETACHED, avatar should stay visible as a widget overlay
+                // Only hide for fullscreen when ATTACHED
+                if (_isAttached)
+                {
+                    if (isOtherAppFullscreen && !_hiddenForFullscreen)
+                    {
+                        // Another app went fullscreen - hide the avatar (attached mode only)
+                        _hiddenForFullscreen = true;
+                        _wasAttachedBeforeFullscreen = _isAttached;
+                        Hide();
+                        // [AVATAR-BLINK DIAG] Info-level so we can catch the "random disappear":
+                        // _diagLastFullscreenWindow holds the offending window's class/pid/rect.
+                        App.Logger?.Information("[AVATAR-BLINK] hidden — fullscreen app detected (attached). Offender: {Win}", _diagLastFullscreenWindow);
+                    }
+                    else if (!isOtherAppFullscreen && _hiddenForFullscreen)
+                    {
+                        // Fullscreen app closed - restore the avatar.
+                        // IMPORTANT: only clear the flag once we actually Show(). If the parent
+                        // is momentarily minimized/hidden during the fullscreen-exit transition
+                        // (common when leaving an exclusive-fullscreen game), clearing the flag
+                        // here without showing would leave the avatar stuck hidden forever - the
+                        // hide-branch can't re-fire (no fullscreen) and this branch can't re-fire
+                        // (flag cleared). Keeping the flag set lets us retry on the next tick.
+                        if (_parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized
+                            && App.Settings?.Current?.AvatarEnabled == true)
+                        {
+                            _hiddenForFullscreen = false;
+                            Show();
+                            if (_wasAttachedBeforeFullscreen && _isAttached)
+                            {
+                                UpdatePosition();
+                            }
+                            App.Logger?.Information("[AVATAR-BLINK] restored — fullscreen app closed");
+                        }
+                    }
+                }
+                else
+                {
+                    // DETACHED mode - periodically reassert topmost to stay visible as widget
+                    // This handles cases where other topmost windows or focus changes demote us
+                    if (_hiddenForFullscreen && App.Settings?.Current?.AvatarEnabled == true)
+                    {
+                        _hiddenForFullscreen = false;
+                        Show();
+                    }
+                    ReassertTopmost();
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Error checking fullscreen state");
+            }
+        }
+
+        /// <summary>
+        /// Check if another application (not our app) is running in EXCLUSIVE fullscreen mode.
+        /// This is conservative - only hides for true DirectX/OpenGL exclusive fullscreen,
+        /// NOT for borderless windowed games or browser video fullscreen.
+        /// </summary>
+        private bool IsOtherAppFullscreen()
+        {
+            try
+            {
+                IntPtr foregroundWindow = GetForegroundWindow();
+                if (foregroundWindow == IntPtr.Zero) return false;
+
+                // Check if it's our own window
+                if (foregroundWindow == _tubeHandle || foregroundWindow == _parentHandle)
+                    return false;
+
+                // Get the process ID of the foreground window
+                GetWindowThreadProcessId(foregroundWindow, out uint foregroundPid);
+                uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+                if (foregroundPid == ourPid)
+                    return false;
+
+                // Get window class name to exclude known safe applications
+                var className = new System.Text.StringBuilder(256);
+                GetClassName(foregroundWindow, className, className.Capacity);
+                string windowClass = className.ToString();
+
+                // Exclude browsers and common media applications - these use "fake" fullscreen
+                // that covers the screen but isn't exclusive DirectX/OpenGL fullscreen
+                string[] safeClasses = {
+                    "Chrome_WidgetWin",      // Chrome, Edge (Chromium), Brave, etc.
+                    "MozillaWindowClass",    // Firefox
+                    "ApplicationFrameWindow", // UWP apps (Netflix, Disney+, etc.)
+                    "Windows.UI.Core",       // Modern Windows apps
+                    "CabinetWClass",         // Windows Explorer
+                    "Shell_TrayWnd",         // Taskbar
+                    "Progman",               // Desktop
+                    "WorkerW",               // Desktop worker
+                    "XLMAIN",                // Excel
+                    "OpusApp",               // Word
+                    "PPTFrameClass",         // PowerPoint
+                    "VLC",                   // VLC media player
+                    "mpv",                   // mpv player
+                    "MediaPlayerClassicW",   // MPC
+                };
+
+                foreach (var safeClass in safeClasses)
+                {
+                    if (windowClass.StartsWith(safeClass, StringComparison.OrdinalIgnoreCase))
+                        return false;
+                }
+
+                // Get the window style
+                int style = GetWindowLong(foregroundWindow, GWL_STYLE);
+                int exStyle = GetWindowLong(foregroundWindow, GWL_EXSTYLE);
+
+                bool hasCaption = (style & WS_CAPTION) == WS_CAPTION;
+                bool isPopup = (style & WS_POPUP) == WS_POPUP;
+                bool isTopmost = (exStyle & WS_EX_TOPMOST) == WS_EX_TOPMOST;
+
+                // If the window has a caption (title bar), it's definitely not exclusive fullscreen
+                if (hasCaption)
+                    return false;
+
+                // For exclusive fullscreen, we require BOTH:
+                // 1. Window is popup style (no borders) AND
+                // 2. Window is topmost (exclusive fullscreen apps set this)
+                // This excludes borderless windowed games which usually aren't topmost
+                if (!isPopup || !isTopmost)
+                    return false;
+
+                // Get the window rect
+                if (!GetWindowRect(foregroundWindow, out RECT windowRect))
+                    return false;
+
+                // Get FULL screen bounds (not working area - must cover taskbar too)
+                var screen = System.Windows.Forms.Screen.FromHandle(foregroundWindow);
+                var screenBounds = screen.Bounds;
+
+                // For true fullscreen, window must cover the ENTIRE screen including taskbar
+                int tolerance = 5;
+                bool coversFullScreen =
+                    windowRect.Left <= screenBounds.Left + tolerance &&
+                    windowRect.Top <= screenBounds.Top + tolerance &&
+                    windowRect.Right >= screenBounds.Right - tolerance &&
+                    windowRect.Bottom >= screenBounds.Bottom - tolerance;
+
+                if (coversFullScreen)
+                {
+                    GetWindowThreadProcessId(foregroundWindow, out uint offPid);
+                    string procName = "?";
+                    try { procName = System.Diagnostics.Process.GetProcessById((int)offPid).ProcessName; } catch { }
+                    _diagLastFullscreenWindow = $"class={windowClass} proc={procName}(pid {offPid}) rect=[{windowRect.Left},{windowRect.Top},{windowRect.Right},{windowRect.Bottom}]";
+                    App.Logger?.Debug("Exclusive fullscreen detected: {Win}", _diagLastFullscreenWindow);
+                }
+
+                return coversFullScreen;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Window procedure hook (minimal - no longer forcing z-order to allow normal window switching)
+        /// </summary>
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            // No longer intercepting z-order changes - let Windows handle it normally
+            return IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// Hook on the PARENT (main) window. When main's z-order changes, lift the tube
+        /// back above it immediately so the avatar/speech bubble never gets buried behind
+        /// main's UI. This is the event-driven counterpart to the (Background-priority,
+        /// pollable-to-starvation) keep-on-top timer — it fires synchronously the moment
+        /// main moves up, closing the gap the timer leaves during busy AI speech.
+        /// </summary>
+        private IntPtr ParentWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg != WM_WINDOWPOSCHANGED) return IntPtr.Zero;
+            if (!_isAttached || _tubeHandle == IntPtr.Zero) return IntPtr.Zero;
+            if (_reassertingAboveParent) return IntPtr.Zero; // guard against re-entrancy
+
+            try
+            {
+                // Only react when the z-order actually changed (ignore pure move/resize —
+                // those are already handled by LocationChanged/SizeChanged).
+                var wp = Marshal.PtrToStructure<WINDOWPOS>(lParam);
+                if ((wp.flags & SWP_NOZORDER) != 0) return IntPtr.Zero;
+
+                // Don't fight pop quiz (it owns HWND_TOPMOST), and don't pop over other
+                // apps — only lift the tube when our own app owns the foreground.
+                if (PopQuizWindow.IsOpen || QuizWindow.IsOpen) return IntPtr.Zero;
+                if (!IsOurAppForeground()) return IntPtr.Zero;
+
+                // Place the tube directly above main. Moving the tube only triggers
+                // WM_WINDOWPOSCHANGED on the TUBE (its WndProc is a no-op), not on the
+                // parent, so this can't loop — but guard anyway for safety.
+                _reassertingAboveParent = true;
+                SetWindowPos(_tubeHandle, HWND_TOP, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+            catch { /* parent may be tearing down */ }
+            finally { _reassertingAboveParent = false; }
+
+            return IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// True when the foreground window belongs to our process. Used to gate z-order
+        /// raises so we lift the tube only when our app is actually in front — never
+        /// stealing z-order from other apps (e.g. a fullscreen video player).
+        /// </summary>
+        private bool IsOurAppForeground()
+        {
+            var foreground = GetForegroundWindow();
+            if (foreground == IntPtr.Zero) return false;
+            if (foreground == _parentHandle || foreground == _tubeHandle) return true;
+            GetWindowThreadProcessId(foreground, out uint foregroundPid);
+            uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+            return foregroundPid == ourPid;
+        }
+
+        private void CalculateScaleFactor()
+        {
+            try
+            {
+                // Get DPI scaling
+                var source = PresentationSource.FromVisual(this);
+                double dpiScale = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+
+                // Get primary screen working area
+                var screen = System.Windows.Forms.Screen.PrimaryScreen;
+                if (screen == null) return;
+
+                double screenHeight = screen.WorkingArea.Height / dpiScale;
+                double screenWidth = screen.WorkingArea.Width / dpiScale;
+
+                // Calculate max scale that fits on screen (leave some margin)
+                double maxHeightScale = (screenHeight * 0.85) / DesignHeight;
+                double maxWidthScale = (screenWidth * 0.3) / DesignWidth; // Tube shouldn't be more than 30% of screen width
+
+                _scaleFactor = Math.Min(maxHeightScale, maxWidthScale);
+                _scaleFactor = Math.Max(0.4, Math.Min(1.0, _scaleFactor)); // Clamp between 40% and 100%
+
+                // Apply scale to viewbox
+                ContentViewbox.Width = DesignWidth * _scaleFactor;
+                ContentViewbox.Height = DesignHeight * _scaleFactor;
+
+                App.Logger?.Information("AvatarTube scale factor: {Scale:F2} (Screen: {W}x{H}, DPI: {DPI:F2})",
+                    _scaleFactor, screenWidth, screenHeight, dpiScale);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("Failed to calculate scale factor: {Error}", ex.Message);
+                _scaleFactor = 0.7; // Safe default for smaller screens
+                ContentViewbox.Width = DesignWidth * _scaleFactor;
+                ContentViewbox.Height = DesignHeight * _scaleFactor;
+            }
+        }
+
+        /// <summary>
+        /// Ensure the window is visible when detached - acts as a persistent widget
+        /// </summary>
+        private void EnsureVisibleWhenDetached()
+        {
+            if (!_isAttached)
+            {
+                Show();
+                // Reassert topmost so avatar stays visible as a widget overlay
+                ReassertTopmost();
+            }
+        }
+
+        /// <summary>
+        /// Toggle the WS_EX_TOOLWINDOW style (controls Alt+Tab visibility)
+        /// </summary>
+        private void SetToolWindowStyle(bool isToolWindow)
+        {
+            if (_tubeHandle == IntPtr.Zero) return;
+
+            int exStyle = GetWindowLong(_tubeHandle, GWL_EXSTYLE);
+            if (isToolWindow)
+            {
+                SetWindowLong(_tubeHandle, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW);
+            }
+            else
+            {
+                SetWindowLong(_tubeHandle, GWL_EXSTYLE, exStyle & ~WS_EX_TOOLWINDOW);
+            }
+            // SetWindowLong frame data is cached — flush with SWP_FRAMECHANGED
+            // so the new style takes effect without requiring a window move.
+            SetWindowPos(_tubeHandle, IntPtr.Zero, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+
+        private DispatcherTimer? _floatTimer;
+        private double _floatPhase = 0;
+
+        private void StartFloatingAnimation()
+        {
+            // Stop any existing animation first
+            StopFloatingAnimation();
+
+            // Use a timer-based approach instead of WPF animations for maximum reliability
+            // This won't interfere with other animations on the element
+            _floatPhase = 0;
+            _floatTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(16) // ~60fps
+            };
+            _floatTimer.Tick += (s, e) =>
+            {
+                // Sine wave oscillation (the existing gentle vertical bob)
+                _floatPhase += 0.05; // Speed of oscillation
+                var y = Math.Sin(_floatPhase) * FloatDistance;
+                AvatarTranslate.Y = y;
+
+                // Portrait mode adds breathing (subtle scale), wobble (subtle rotation), and a drifting
+                // pink mist. Written every tick to BOTH portrait layers so the incoming crossfade image
+                // isn't snapped back to neutral mid-pulse. Crossfade lives on Opacity (orthogonal to these
+                // transform DPs), so nothing fights the 60fps writes. Legacy mods skip this block entirely.
+                if (_portraitMode)
+                {
+                    _breathPhase += 0.013;
+                    _wobblePhase += 0.017;
+                    _mistPhase += 0.009;
+
+                    double scale = 1.0 + Math.Sin(_breathPhase) * BreathAmplitude;
+                    double angle = Math.Sin(_wobblePhase) * WobbleAmplitudeDeg;
+                    double xJit = 0.0;
+
+                    // While a clip is actually playing: add a faster vibration + a tiny horizontal jitter,
+                    // so she visibly "talks". Stops the instant the audio ends (_isSpeakingAudio flips false).
+                    bool speaking = _isSpeakingAudio;
+                    if (speaking)
+                    {
+                        _speakPhase += 0.45;       // fast carrier
+                        _speakEnvPhase += 0.035;   // slow envelope (~3s) → intermittent bursts
+                        // env is ~0 most of the time and briefly swells toward 1 → occasional, barely-there shimmer.
+                        double env = Math.Pow(Math.Max(0.0, Math.Sin(_speakEnvPhase)), 3);
+                        double vib = Math.Sin(_speakPhase) * env;
+                        angle += vib * SpeakWobbleDeg;
+                        xJit = vib * SpeakShakePx;
+                    }
+
+                    AvatarScale.ScaleX = AvatarScale.ScaleY = scale;
+                    AvatarRotate.Angle = angle;
+                    AvatarTranslate.X = xJit;
+                    AvatarScaleB.ScaleX = AvatarScaleB.ScaleY = scale;
+                    AvatarRotateB.Angle = angle;
+                    AvatarTranslateB.X = xJit;
+                    AvatarTranslateB.Y = y; // layer B bobs in lockstep with layer A
+
+                    if (MistOverlay.Visibility == Visibility.Visible)
+                    {
+                        // Pink mist drifts over the avatar; thicker + livelier while she's speaking.
+                        double mistBase = speaking ? 0.26 : 0.15;
+                        double mistAmp = speaking ? 0.10 : 0.06;
+                        double driftSpeed = speaking ? 1.0 : 0.7;
+                        MistOverlay.Opacity = mistBase + (Math.Sin(_mistPhase) + 1.0) * 0.5 * mistAmp;
+                        double mistScale = 1.0 + (Math.Sin(_mistPhase * driftSpeed) + 1.0) * 0.5 * (speaking ? 0.06 : 0.04);
+                        MistScale.ScaleX = MistScale.ScaleY = mistScale;
+                    }
+                }
+            };
+            _floatTimer.Start();
+        }
+
+        private void StopFloatingAnimation()
+        {
+            _floatTimer?.Stop();
+            _floatTimer = null;
+            AvatarTranslate.Y = 0;
+            // Reset portrait-mode transforms so a stopped avatar isn't frozen mid-breath/wobble.
+            if (_portraitMode)
+            {
+                AvatarScale.ScaleX = AvatarScale.ScaleY = 1.0;
+                AvatarRotate.Angle = 0;
+                AvatarScaleB.ScaleX = AvatarScaleB.ScaleY = 1.0;
+                AvatarRotateB.Angle = 0;
+                AvatarTranslateB.Y = 0;
+            }
+        }
+
+        public void UpdatePosition()
+        {
+            if (!_isAttached || _parentWindow == null) return;
+
+            // Don't update position if parent window has invalid dimensions (can happen during focus changes)
+            if (_parentWindow.ActualHeight <= 0 || _parentWindow.ActualWidth <= 0) return;
+
+            // Don't update if parent window is at origin with zero size (likely transitioning)
+            if (_parentWindow.Top == 0 && _parentWindow.Left == 0 && _parentWindow.ActualHeight < 100) return;
+
+            // Get actual window dimensions (scaled)
+            double actualWidth = ActualWidth > 0 ? ActualWidth : DesignWidth * _scaleFactor;
+            double actualHeight = ActualHeight > 0 ? ActualHeight : DesignHeight * _scaleFactor;
+
+            // Scale the offset based on current scale factor
+            double scaledOffset = BaseOffsetFromParent * _scaleFactor;
+
+            // Calculate new position
+            double newLeft = _parentWindow.Left - actualWidth - scaledOffset;
+            double newTop = _parentWindow.Top + (_parentWindow.ActualHeight - actualHeight) / 2 + (VerticalOffset * _scaleFactor);
+
+            // Sanity check: don't jump to extreme positions (likely invalid data)
+            // This prevents the "bounce to top" issue during focus changes
+            if (newTop < -500 || newTop > 5000 || newLeft < -2000 || newLeft > 5000) return;
+
+            // Position to the LEFT of the parent window
+            Left = newLeft;
+            Top = newTop;
+        }
+
+        private void ParentWindow_PositionChanged(object? sender, EventArgs e)
+        {
+            // Skip if parent is null, window is closing, or parent is minimized
+            if (_parentWindow == null) return;
+            try
+            {
+                if (_parentWindow.WindowState == WindowState.Minimized) return;
+                UpdatePosition();
+                // Keep tube in front when attached, during parent move
+                if (_isAttached) BringAttachedPairToFront();
+            }
+            catch { /* Window may be closing */ }
+        }
+
+        private void ParentWindow_StateChanged(object? sender, EventArgs e)
+        {
+            if (_parentWindow == null) return;
+            try
+            {
+                switch (_parentWindow.WindowState)
+                {
+                    case WindowState.Minimized:
+                        PauseAvatarGif();
+                        if (_isAttached)
+                        {
+                            App.Logger?.Information("[AVATAR-BLINK] hidden — parent window minimized");
+                            Hide();
+                        }
+                        else
+                        {
+                            // When detached, force visibility and topmost
+                            EnsureVisibleWhenDetached();
+                        }
+                        break;
+                    case WindowState.Normal:
+                    case WindowState.Maximized:
+                        ResumeAvatarGif();
+                        if (_parentWindow.IsVisible && App.Settings?.Current?.AvatarEnabled == true)
+                        {
+                            Show();
+                            if (_isAttached)
+                            {
+                                UpdatePosition();
+                                BringAttachedPairToFront();
+                            }
+                            // When detached, WPF Topmost property handles it
+                        }
+                        break;
+                }
+            }
+            catch { /* Window may be closing */ }
+        }
+
+        private void ParentWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (_parentWindow == null) return;
+            try
+            {
+                if ((bool)e.NewValue && _parentWindow.WindowState != WindowState.Minimized
+                    && App.Settings?.Current?.AvatarEnabled == true)
+                {
+                    ResumeAvatarGif();
+                    Show();
+                    if (_isAttached)
+                    {
+                        UpdatePosition();
+                        BringAttachedPairToFront();
+                    }
+                    // When detached, WPF Topmost property handles it
+                }
+                else
+                {
+                    PauseAvatarGif();
+                    if (_isAttached)
+                    {
+                        App.Logger?.Information("[AVATAR-BLINK] hidden — parent IsVisible went false (state={State})", _parentWindow.WindowState);
+                        Hide();
+                    }
+                    else
+                    {
+                        // When detached, force visibility and topmost
+                        EnsureVisibleWhenDetached();
+                    }
+                }
+            }
+            catch { /* Window may be closing */ }
+        }
+
+        private void ParentWindow_Activated(object? sender, EventArgs e)
+        {
+            if (_parentWindow == null) return;
+
+            // Don't do any z-order work when pop quiz is open
+            if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+
+            try
+            {
+                if (_parentWindow.WindowState != WindowState.Minimized && _parentWindow.IsVisible
+                    && App.Settings?.Current?.AvatarEnabled == true)
+                {
+                    Show();
+                    UpdatePosition();
+
+                    if (_isAttached)
+                    {
+                        // Delay BringToFront to ensure it happens AFTER parent activation completes
+                        // Use Background priority so all window activation processing finishes first
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+                            if (_isAttached && _tubeHandle != IntPtr.Zero)
+                            {
+                                BringAttachedPairToFront();
+                            }
+                        }), System.Windows.Threading.DispatcherPriority.Background);
+                    }
+                }
+            }
+            catch { /* Window may be closing */ }
+        }
+
+        private void ParentWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // Don't fight z-order when pop quiz is open
+            if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+
+            // When main window is clicked (even if already active), immediately bring tube to front
+            // This handles the case where Activated event doesn't fire (window already active)
+            if (_isAttached && _tubeHandle != IntPtr.Zero && SpeechBubble.Visibility == Visibility.Visible)
+            {
+                // Use Background priority to ensure this happens after the click processing
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+                    if (_isAttached && _tubeHandle != IntPtr.Zero && SpeechBubble.Visibility == Visibility.Visible)
+                    {
+                        BringAttachedPairToFront();
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+        }
+
+        private void ParentWindow_Closed(object? sender, EventArgs e)
+        {
+            if (_isAttached)
+            {
+                // Attached mode: close the tube with the main window
+                try { Close(); } catch { /* Already closing */ }
+            }
+            else
+            {
+                // Detached mode: keep floating independently
+                App.Logger?.Information("Main window closed while detached - tube continues floating");
+                // Wrap in try-catch in case app is shutting down
+                try
+                {
+                    if (Application.Current != null && !Application.Current.Dispatcher.HasShutdownStarted)
+                    {
+                        Giggle("Main window closed! Right-click to dismiss~");
+                    }
+                }
+                catch { /* App shutting down */ }
+            }
+        }
+
+        // ============================================================
+        // PUBLIC METHODS
+        // ============================================================
+
+        public void ShowTube()
+        {
+            try
+            {
+                // Manual/explicit show (checkbox toggle, tray "Wake Bambi Up", session events)
+                // is a deliberate user/system request to make the avatar visible, so clear the
+                // fullscreen-hidden flag. Otherwise IsAvatarVisibleOnScreen and the fullscreen
+                // timer would still think we're hidden and could fight this show.
+                _hiddenForFullscreen = false;
+
+                // When attached, only show if our process owns the foreground window
+                if (_isAttached && _parentWindow != null)
+                {
+                    var foreground = GetForegroundWindow();
+                    if (foreground != IntPtr.Zero)
+                    {
+                        GetWindowThreadProcessId(foreground, out uint foregroundPid);
+                        uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+                        if (foregroundPid != ourPid)
+                            return; // Don't show tube if our app isn't in front
+                    }
+                }
+
+                Show();
+
+                // Only update position if parent is visible
+                if (_parentWindow != null && _parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized)
+                {
+                    UpdatePosition();
+                    if (_isAttached && !(PopQuizWindow.IsOpen || QuizWindow.IsOpen)) BringAttachedPairToFront();
+                }
+
+                StartFloatingAnimation();
+
+                // Ensure TOOLWINDOW style is applied when attached
+                if (_isAttached)
+                {
+                    SetToolWindowStyle(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("Error showing tube: {Error}", ex.Message);
+            }
+        }
+
+        public void HideTube()
+        {
+            Hide();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            try
+            {
+                _poseTimer?.Stop();
+                _fullscreenCheckTimer?.Stop();
+                StopFloatingAnimation();
+
+                // Stop companion timers
+                _speechTimer?.Stop();
+                _speechDelayTimer?.Stop();
+                _idleTimer?.Stop();
+                _triggerTimer?.Stop();
+                _randomBubbleTimer?.Stop();
+
+                // Stop voice line audio
+                StopVoiceLineAudio();
+
+                // Release GIF animation frames to prevent memory leak
+                AnimationBehavior.SetSourceUri(ImgAvatarAnimated, null);
+
+                // Remove window message hooks
+                _hwndSource?.RemoveHook(WndProc);
+                _hwndSource = null;
+                _parentHwndSource?.RemoveHook(ParentWndProc);
+                _parentHwndSource = null;
+
+                // Unsubscribe from video service events
+                if (App.Video != null)
+                {
+                    App.Video.VideoAboutToStart -= OnVideoAboutToStart;
+                    App.Video.VideoEnded -= OnVideoEnded;
+                }
+
+                // LockCardCompleted is owned by BarkService now (no self-subscription to remove).
+
+                // Unsubscribe from game events
+                if (App.BubbleCount != null)
+                {
+                    App.BubbleCount.GameCompleted -= OnGameCompleted;
+                    App.BubbleCount.GameFailed -= OnGameFailed;
+                }
+
+                // Unsubscribe from flash events
+                if (App.Flash != null)
+                {
+                    App.Flash.FlashAboutToDisplay -= OnFlashAboutToDisplay;
+                    App.Flash.FlashClicked -= OnFlashClicked;
+                    App.Flash.FlashAudioPlaying -= OnFlashAudioPlaying;
+                }
+
+                // Unsubscribe from bubble events
+                if (App.Bubbles != null)
+                {
+                    App.Bubbles.OnBubblePopped -= OnBubblePopped;
+                    App.Bubbles.OnBubbleMissed -= OnBubbleMissed;
+                }
+
+                // Unsubscribe from achievement events
+                if (App.Achievements != null)
+                {
+                    App.Achievements.AchievementUnlocked -= OnAchievementUnlocked;
+                }
+
+                // Unsubscribe from progression events
+                if (App.Progression != null)
+                {
+                    App.Progression.LevelUp -= OnLevelUp;
+                }
+
+                // Unsubscribe from window awareness events
+                if (App.WindowAwareness != null)
+                {
+                    App.WindowAwareness.ActivityChanged -= OnActivityChanged;
+                    App.WindowAwareness.StillOnActivity -= OnStillOnActivity;
+                }
+
+                // Unsubscribe from MindWipe events
+                if (App.MindWipe != null)
+                {
+                    App.MindWipe.MindWipeTriggered -= OnMindWipeTriggered;
+                }
+
+                // Unsubscribe from BrainDrain events
+                if (App.BrainDrain != null)
+                {
+                    App.BrainDrain.BrainDrainTriggered -= OnBrainDrainTriggered;
+                }
+
+                // Unsubscribe from engine stop event
+                if (_parentWindow is MainWindow mainWindow)
+                {
+                    mainWindow.EngineStopped -= OnEngineStopped;
+                }
+
+                if (_parentWindow != null)
+                {
+                    _parentWindow.LocationChanged -= ParentWindow_PositionChanged;
+                    _parentWindow.SizeChanged -= ParentWindow_PositionChanged;
+                    _parentWindow.StateChanged -= ParentWindow_StateChanged;
+                    _parentWindow.IsVisibleChanged -= ParentWindow_IsVisibleChanged;
+                    _parentWindow.Activated -= ParentWindow_Activated;
+                    _parentWindow.PreviewMouseDown -= ParentWindow_PreviewMouseDown;
+                    _parentWindow.Closed -= ParentWindow_Closed;
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("Error during tube window cleanup: {Error}", ex.Message);
+            }
+
+            base.OnClosed(e);
+        }
+
+        /// <summary>
+        /// Temporarily brings the tube window to front (above main window)
+        /// Only works if attached and parent window is visible and not minimized
+        /// </summary>
+        private void BringToFrontTemporarily()
+        {
+            if (_tubeHandle == IntPtr.Zero) return;
+
+            // Don't bring to front if detached (topmost handles that)
+            if (!_isAttached) return;
+
+            // Don't bring to front if parent window is not visible or minimized
+            if (_parentWindow == null || !_parentWindow.IsVisible || _parentWindow.WindowState == WindowState.Minimized)
+                return;
+
+            // Bring window to top of z-order (above main window)
+            // Use only SWP_NOACTIVATE - do NOT use SWP_SHOWWINDOW as it can interfere with keyboard focus
+            SetWindowPos(_tubeHandle, IntPtr.Zero, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+
+        /// <summary>
+        /// Public hook for App.ForceWindowToFront: after main pulses Topmost
+        /// to defeat ForegroundLockTimeout, the tube needs to be re-raised so
+        /// the attached pair stays paired. Wraps the existing private method.
+        /// </summary>
+        public void RaiseAttachedTubeAboveOwner() => BringAttachedPairToFront(force: true);
+
+        /// <summary>
+        /// Bring both the parent window and the tube to the top of z-order together.
+        /// This prevents the tube from being separated from the parent (e.g. tube on top,
+        /// parent behind other apps) after video ends, fullscreen exit, or tab changes.
+        /// </summary>
+        /// <param name="force">
+        /// When true, skip the "our process owns the foreground" gate. Use this only when
+        /// the caller is DELIBERATELY foregrounding our app right now (startup show, a
+        /// Topmost true→false pulse, panic/video-end restore). In those moments Activate()
+        /// hasn't transferred foreground yet, so the gate sees the previous app and wrongly
+        /// bails — leaving the tube/bubble buried behind the main window. Passive callers
+        /// (poll timer, Activated, mouse-down, position changes) leave this false so we
+        /// never steal z-order from other apps (e.g. fullscreen video players).
+        /// </param>
+        private void BringAttachedPairToFront(bool force = false)
+        {
+            if (_tubeHandle == IntPtr.Zero) return;
+            if (!_isAttached) return;
+            if (_parentWindow == null || !_parentWindow.IsVisible || _parentWindow.WindowState == WindowState.Minimized)
+                return;
+
+            // Don't fight with pop quiz — it uses HWND_TOPMOST and must stay on top
+            if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen))
+                return;
+
+            if (_parentHandle == IntPtr.Zero)
+                _parentHandle = new WindowInteropHelper(_parentWindow).Handle;
+            if (_parentHandle == IntPtr.Zero) return;
+
+            // Only bring to front when our process owns the foreground window —
+            // otherwise we'd steal z-order from other apps (e.g. fullscreen video players).
+            // Skipped when force=true (caller is intentionally foregrounding our app).
+            if (!force)
+            {
+                var foreground = GetForegroundWindow();
+                if (foreground != IntPtr.Zero && foreground != _parentHandle && foreground != _tubeHandle)
+                {
+                    GetWindowThreadProcessId(foreground, out uint foregroundPid);
+                    uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+                    if (foregroundPid != ourPid)
+                        return;
+                }
+            }
+
+            // Parent to top first, then tube above it — keeps them as a pair
+            SetWindowPos(_parentHandle, HWND_TOP, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            SetWindowPos(_tubeHandle, HWND_TOP, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+
+        /// <summary>
+        /// When the tube window gets activated while attached (e.g. after a topmost video window closes),
+        /// redirect activation to the parent window so they stay paired.
+        /// </summary>
+        private void TubeWindow_Activated(object? sender, EventArgs e)
+        {
+            if (!_isAttached || _parentWindow == null) return;
+
+            // Don't redirect activation when user is typing in the chat input
+            if (_isInputVisible) return;
+
+            // Don't activate parent when pop quiz is open — it would cover the quiz
+            if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+
+            try
+            {
+                // Only redirect activation to parent if our process already owns the foreground —
+                // otherwise we'd steal focus from other apps (e.g. fullscreen video players)
+                var foreground = GetForegroundWindow();
+                if (foreground != IntPtr.Zero)
+                {
+                    GetWindowThreadProcessId(foreground, out uint foregroundPid);
+                    uint ourPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+                    if (foregroundPid != ourPid)
+                        return; // Another app is in front, don't steal focus
+                }
+
+                // Don't redirect activation when speech bubble is showing —
+                // redirecting brings parent to front, hiding the bubble behind it
+                if (SpeechBubble.Visibility == Visibility.Visible)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (_isAttached && _tubeHandle != IntPtr.Zero)
+                            BringAttachedPairToFront();
+                    }), DispatcherPriority.Background);
+                    return;
+                }
+
+                // Defer activation to parent so Windows finishes current activation first.
+                // Include BringAttachedPairToFront in the same callback to avoid a double-deferral
+                // gap where the tube drops behind the parent between two Background dispatches.
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+                        if (_isAttached && _parentWindow != null && _parentWindow.IsVisible
+                            && _parentWindow.WindowState != WindowState.Minimized)
+                        {
+                            _parentWindow.Activate();
+                            BringAttachedPairToFront();
+                        }
+                    }
+                    catch { /* Window may be closing */ }
+                }), DispatcherPriority.Background);
+            }
+            catch { /* Window may be closing */ }
+        }
+
+        /// <summary>
+        /// Called by <see cref="Services.Chaos.ChaosModeService"/> around a run. A chaos run blankets the
+        /// screen with TOPMOST windows (the FX vignette, payload washes, effect bubbles); an ATTACHED tube
+        /// lives in the non-topmost band, so its speech bubbles get buried under that layer. Rather than
+        /// fight the z-order, we simply auto-detach for the run — detached mode is a self-contained topmost
+        /// widget that stays visible on top — and re-attach when the run ends. Only auto-restores if WE
+        /// detached it (an already-detached avatar is left as the user set it).
+        /// </summary>
+        public void SetChaosRunActive(bool active)
+        {
+            if (_chaosRunActive == active) return;
+            _chaosRunActive = active;
+            try
+            {
+                if (active)
+                {
+                    // Detach so the companion floats above the run as a topmost widget. Remember to
+                    // re-attach afterwards only if it was attached to begin with.
+                    if (_isAttached)
+                    {
+                        _reattachAfterChaos = true;
+                        Detach(silent: true);
+                        // The attached anchor sits over the sidebar's Stop button; drop the
+                        // detached widget down so the Chaos run's controls stay clickable.
+                        try
+                        {
+                            double drop = 250;
+                            var area = System.Windows.Forms.Screen.FromHandle(_tubeHandle).WorkingArea;
+                            double maxTop = area.Bottom - Math.Max(120, ActualHeight) - 8;
+                            Top = Math.Min(Top + drop, maxTop);
+                        }
+                        catch { /* positioning is best-effort */ }
+                    }
+                }
+                else if (_reattachAfterChaos)
+                {
+                    _reattachAfterChaos = false;
+                    Attach(silent: true);
+                }
+            }
+            catch { /* window may be tearing down */ }
+        }
+
+        /// <summary>
+        /// Reassert topmost status when detached - ensures avatar stays on top as a widget
+        /// </summary>
+        private void ReassertTopmost()
+        {
+            if (_tubeHandle == IntPtr.Zero || _isAttached) return;
+
+            // Don't fight with pop quiz for topmost z-order
+            if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+
+            // Use Win32 SetWindowPos with HWND_TOPMOST to force topmost z-order
+            // This is more reliable than WPF's Topmost property across monitor/focus changes
+            SetWindowPos(_tubeHandle, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+
+        /// <summary>
+        /// Start a timer that periodically brings the window to front while speech bubble is visible.
+        /// This ensures the bubble stays on top even when user interacts with main window.
+        /// </summary>
+        private void StartZOrderRefreshTimer()
+        {
+            StopZOrderRefreshTimer();
+            // Backstop to the ParentWndProc z-order hook. Runs at Render priority (NOT the
+            // DispatcherTimer default of Background, which gets starved during busy AI
+            // speech — GIF animation, text streaming, effects — and was letting the bubble
+            // sit behind main for far longer than one tick). The hook does the heavy
+            // lifting now; this just catches anything message-driven raises miss.
+            _zOrderRefreshTimer = new DispatcherTimer(DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(300)
+            };
+            _zOrderRefreshTimer.Tick += (s, e) =>
+            {
+                if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+                if (_isAttached && _tubeHandle != IntPtr.Zero && SpeechBubble.Visibility == Visibility.Visible)
+                {
+                    // Only refresh z-order when our app owns the foreground — don't steal
+                    // z-order from other apps. ParentWindow_Activated handles restoration
+                    // when the user returns to us.
+                    if (IsOurAppForeground())
+                    {
+                        BringAttachedPairToFront();
+                    }
+                }
+            };
+            _zOrderRefreshTimer.Start();
+        }
+
+        /// <summary>
+        /// Stop the z-order refresh timer when speech bubble is hidden
+        /// </summary>
+        private void StopZOrderRefreshTimer()
+        {
+            _zOrderRefreshTimer?.Stop();
+            _zOrderRefreshTimer = null;
+        }
+
+        /// <summary>
+        /// True when the active mod overrides tube.png but not tube2.png. In that case
+        /// the detached state would otherwise mix the mod's avatar with the embedded
+        /// default tube2.png — leaving the avatar floating outside the mod's chamber.
+        /// We treat this as "use the mod's tube.png and the attached layout" so the
+        /// avatar lands inside the chamber the mod author actually drew.
+        /// </summary>
+        private static bool ModOverridesAttachedTubeOnly()
+        {
+            return Services.ModResourceResolver.HasModOverride("tube.png")
+                && !Services.ModResourceResolver.HasModOverride("tube2.png");
+        }
+
+        /// <summary>
+        /// Switch between tube.png and tube2.png
+        /// </summary>
+        public void SetTubeStyle(bool useAlternative)
+        {
+            try
+            {
+                // If the active mod only ships a tube.png override, use it in both states
+                // so the chamber stays consistent with the mod's art.
+                if (useAlternative && ModOverridesAttachedTubeOnly())
+                    useAlternative = false;
+
+                var tubeName = useAlternative ? "tube2.png" : "tube.png";
+                ImgTubeFrame.Source = Services.ModResourceResolver.ResolveImage(tubeName);
+                App.Logger?.Information("Tube style changed to: {Style}", tubeName);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to change tube style");
+            }
+        }
+
+        // ============================================================
+        // DETACH/ATTACH FUNCTIONALITY
+        // ============================================================
+
+        /// <summary>
+        /// Gets whether the avatar tube is currently detached (floating independently)
+        /// </summary>
+        public bool IsDetached => !_isAttached;
+
+        /// <summary>
+        /// Gets whether the avatar is currently visible on screen.
+        /// Returns false if attached and main window is minimized or not visible.
+        /// Returns true if detached (independent widget window).
+        /// </summary>
+        private bool IsAvatarVisibleOnScreen
+        {
+            get
+            {
+                // If avatar is disabled, it's never visible
+                if (App.Settings?.Current?.AvatarEnabled != true)
+                    return false;
+
+                // Detached mode - avatar is always visible as independent widget
+                if (!_isAttached)
+                    return true;
+
+                // Attached mode - check parent window visibility
+                if (_parentWindow == null)
+                    return false;
+
+                // Hidden for fullscreen app
+                if (_hiddenForFullscreen)
+                    return false;
+
+                // Check window state
+                return _parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized;
+            }
+        }
+
+        /// <summary>
+        /// Toggles between attached and detached states
+        /// </summary>
+        public void ToggleDetached()
+        {
+            if (_isAttached)
+            {
+                Detach();
+            }
+            else
+            {
+                Attach();
+            }
+        }
+
+        /// <summary>
+        /// Detach the avatar tube from the main window, making it a free-floating draggable widget.
+        /// <paramref name="silent"/> suppresses the "I'm free!" giggle for automatic detaches (e.g. the
+        /// auto-detach when a chaos run starts), where a spoken line would be intrusive.
+        /// </summary>
+        public void Detach(bool silent = false)
+        {
+            if (!_isAttached) return;
+
+            _isAttached = false;
+
+            // Switch to alternative tube image
+            SetTubeStyle(true);
+
+            // Apply tube layout offsets for detached mode
+            ApplyTubeLayoutOffsets();
+
+            // Speech bubble stays at same position in both modes (right side of tube, clearly visible)
+            if (SpeechBubble.Visibility == Visibility.Visible && !string.IsNullOrEmpty(TxtSpeech.Text))
+            {
+                AdjustBubbleSize(TxtSpeech.Text);
+            }
+
+            // Keep hidden from taskbar and Alt+Tab
+            ShowInTaskbar = false;
+            SetToolWindowStyle(true);
+
+            // Set topmost - use both WPF property and Win32 for reliability
+            Topmost = true;
+            ReassertTopmost(); // Use Win32 to ensure topmost is applied immediately
+
+            // Show the move cursor only over the draggable avatar visuals (not the transparent
+            // dead-zones — see Window_MouseLeftButtonDown, #346). Window cursor stays default.
+            AvatarBorder.Cursor = Cursors.SizeAll;
+            SpeechBubble.Cursor = Cursors.SizeAll;
+            TitleBox.Cursor = Cursors.SizeAll;
+            // Let the whole visible tube vessel be grabbed (not just the avatar art) — it's
+            // IsHitTestVisible=False in XAML for attached mode; turn it on while detached.
+            ImgTubeFrame.IsHitTestVisible = true;
+            ImgTubeFrame.Cursor = Cursors.SizeAll;
+            MouseLeftButtonDown += Window_MouseLeftButtonDown;
+
+            // Update context menu visibility
+            UpdateContextMenuForState();
+
+            App.Logger?.Information("Avatar tube detached - now floating independently");
+            if (!silent) Giggle("I'm free! Ctrl+scroll to resize!");
+        }
+
+        /// <summary>
+        /// Attach the avatar tube back to the main window. <paramref name="silent"/> suppresses the
+        /// "Back home~" giggle for automatic re-attaches (e.g. when a chaos run ends).
+        /// </summary>
+        public void Attach(bool silent = false)
+        {
+            if (_isAttached) return;
+
+            _isAttached = true;
+
+            // Switch back to original tube image
+            SetTubeStyle(false);
+
+            // Apply tube layout offsets for attached mode
+            ApplyTubeLayoutOffsets();
+
+            // Restore speech bubble position when attached
+            if (SpeechBubble.Visibility == Visibility.Visible && !string.IsNullOrEmpty(TxtSpeech.Text))
+            {
+                AdjustBubbleSize(TxtSpeech.Text);
+            }
+
+            // Hide from taskbar and Alt+Tab when attached
+            ShowInTaskbar = false;
+
+            // No longer topmost when attached
+            Topmost = false;
+
+            // Disable dragging
+            Cursor = Cursors.Arrow;
+            AvatarBorder.Cursor = Cursors.Arrow;
+            SpeechBubble.Cursor = Cursors.Arrow;
+            TitleBox.Cursor = Cursors.Arrow;
+            // Restore the attached-mode tube frame (non-interactive, behind everything).
+            ImgTubeFrame.IsHitTestVisible = false;
+            ImgTubeFrame.Cursor = Cursors.Arrow;
+            MouseLeftButtonDown -= Window_MouseLeftButtonDown;
+
+            // Reset scale BEFORE updating position - otherwise position is calculated
+            // using the old scaled dimensions from when it was detached
+            _currentScale = 1.0;
+            try
+            {
+                // Reset to base calculated size
+                ContentViewbox.Width = DesignWidth * _scaleFactor;
+                ContentViewbox.Height = DesignHeight * _scaleFactor;
+            }
+            catch { }
+            UpdateLayout(); // Force layout update so ActualWidth/Height reflect new size
+
+            // Snap back to parent window position
+            UpdatePosition();
+            BringAttachedPairToFront();
+
+            // Defer the TOOLWINDOW style to ensure it's applied after all window state changes
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                SetToolWindowStyle(true);
+            }), System.Windows.Threading.DispatcherPriority.Background);
+
+            // Update context menu visibility
+            UpdateContextMenuForState();
+
+            App.Logger?.Information("Avatar tube attached - anchored to main window");
+            if (!silent) Giggle("Back home~");
+        }
+
+        /// <summary>
+        /// Handle Ctrl+scroll wheel to resize avatar when detached
+        /// </summary>
+        private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            try
+            {
+                // Only resize when detached and Ctrl is held
+                if (_isAttached || !Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
+                    return;
+
+                e.Handled = true;
+
+                // Scroll up = bigger, scroll down = smaller
+                if (e.Delta > 0)
+                    _currentScale = Math.Min(MaxScale, _currentScale + ScaleStep);
+                else
+                    _currentScale = Math.Max(MinScale, _currentScale - ScaleStep);
+
+                ApplyScale();
+                // Clamp position after resize to keep avatar visible
+                Dispatcher.BeginInvoke(new Action(ClampAvatarPosition), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("Mouse wheel resize error: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Handle Up/Down arrow keys to resize avatar when detached
+        /// </summary>
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            try
+            {
+                // Only resize when detached
+                if (_isAttached)
+                    return;
+
+                if (e.Key == Key.Up)
+                {
+                    e.Handled = true;
+                    _currentScale = Math.Min(MaxScale, _currentScale + ScaleStep);
+                    ApplyScale();
+                    // Clamp position after resize to keep avatar visible
+                    Dispatcher.BeginInvoke(new Action(ClampAvatarPosition), System.Windows.Threading.DispatcherPriority.Loaded);
+                }
+                else if (e.Key == Key.Down)
+                {
+                    e.Handled = true;
+                    _currentScale = Math.Max(MinScale, _currentScale - ScaleStep);
+                    ApplyScale();
+                    // Clamp position after resize to keep avatar visible
+                    Dispatcher.BeginInvoke(new Action(ClampAvatarPosition), System.Windows.Threading.DispatcherPriority.Loaded);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("Key resize error: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Apply the current scale to the avatar content
+        /// </summary>
+        private void ApplyScale()
+        {
+            try
+            {
+                if (ContentViewbox == null || !IsLoaded) return;
+
+                // Use Width/Height instead of transforms - much safer with animated GIFs
+                // Calculate new size based on current scale factor and user scale
+                var newWidth = DesignWidth * _scaleFactor * _currentScale;
+                var newHeight = DesignHeight * _scaleFactor * _currentScale;
+
+                ContentViewbox.Width = newWidth;
+                ContentViewbox.Height = newHeight;
+                // Window follows via the ContentViewbox.SizeChanged handler wired in OnLoaded
+                // (auto-sizing is off after first paint — see OnFirstContentRendered).
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("ApplyScale error: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Updates context menu items based on attached/detached state
+        /// </summary>
+        private void UpdateContextMenuForState()
+        {
+            if (_isAttached)
+            {
+                // When attached: show Detach, hide Attach, Dismiss, and resize options
+                MenuItemDetach.Visibility = Visibility.Visible;
+                MenuItemAttach.Visibility = Visibility.Collapsed;
+                MenuItemShrink.Visibility = Visibility.Collapsed;
+                MenuItemGrow.Visibility = Visibility.Collapsed;
+                MenuItemDismiss.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                // When detached: hide Detach, show Attach, Dismiss, and resize options
+                MenuItemDetach.Visibility = Visibility.Collapsed;
+                MenuItemAttach.Visibility = Visibility.Visible;
+                MenuItemShrink.Visibility = Visibility.Visible;
+                MenuItemGrow.Visibility = Visibility.Visible;
+                MenuItemDismiss.Visibility = Visibility.Visible;
+
+                // Update resize button states
+                UpdateResizeMenuState();
+            }
+        }
+
+        /// <summary>
+        /// Updates the shrink/grow menu items based on current scale
+        /// </summary>
+        private void UpdateResizeMenuState()
+        {
+            // Disable shrink at minimum, grow at maximum
+            MenuItemShrink.IsEnabled = _currentScale > MinScale;
+            MenuItemGrow.IsEnabled = _currentScale < MaxScale;
+
+            // Show current scale percentage
+            int scalePercent = (int)(_currentScale * 100);
+            MenuItemShrink.Header = _currentScale > MinScale ? Loc.Get("menu_shrink") : Loc.Get("menu_shrink_min");
+            MenuItemGrow.Header = _currentScale < MaxScale ? Loc.Get("menu_grow") : Loc.Get("menu_grow_max");
+
+            // Gray out disabled items
+            MenuItemShrink.Foreground = MenuItemShrink.IsEnabled
+                ? new SolidColorBrush(Colors.White)
+                : new SolidColorBrush(Colors.Gray);
+            MenuItemGrow.Foreground = MenuItemGrow.IsEnabled
+                ? new SolidColorBrush(Colors.White)
+                : new SolidColorBrush(Colors.Gray);
+        }
+
+        // Manual drag tracking
+        private bool _isDragging = false;
+        private Point _dragStartPoint;
+        private double _dragStartLeft;
+        private double _dragStartTop;
+
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Allow dragging the window when detached — but only when the click actually lands on a
+            // visible part of the avatar (art, speech bubble, or name tag). The window is sized to its
+            // content with large transparent margins around the corner-positioned avatar; without this
+            // guard those invisible dead-zones to the top/bottom-right were draggable, which felt like
+            // a phantom hitbox (#346 — BUG-7KHMJW9CH7).
+            if (!_isAttached)
+            {
+                var hit = e.OriginalSource as DependencyObject;
+                bool onAvatar = IsDescendantOf(hit, AvatarBorder)
+                                || IsDescendantOf(hit, SpeechBubble)
+                                || IsDescendantOf(hit, TitleBox)
+                                // The visible tube vessel is draggable too (enabled only when
+                                // detached — see Detach). Z-index 0, so it only catches clicks the
+                                // avatar/bubble/menu didn't, and the far transparent margins past
+                                // the tube image's rect stay non-draggable (#346 dead-zone guard).
+                                || IsDescendantOf(hit, ImgTubeFrame);
+                if (!onAvatar) return;
+
+                _isDragging = true;
+                _dragStartPoint = PointToScreen(e.GetPosition(this));
+                _dragStartLeft = Left;
+                _dragStartTop = Top;
+                CaptureMouse();
+            }
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (_isDragging && !_isAttached)
+            {
+                var currentPoint = PointToScreen(e.GetPosition(this));
+                Left = _dragStartLeft + (currentPoint.X - _dragStartPoint.X);
+                Top = _dragStartTop + (currentPoint.Y - _dragStartPoint.Y);
+            }
+        }
+
+        protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+        {
+            base.OnMouseLeftButtonUp(e);
+            if (_isDragging)
+            {
+                _isDragging = false;
+                ReleaseMouseCapture();
+            }
+        }
+
+        /// <summary>
+        /// Clamps the avatar window position to ensure it stays at least half visible on screen
+        /// </summary>
+        private void ClampAvatarPosition()
+        {
+            if (_isAttached) return;
+
+            try
+            {
+                // Get DPI scale factor for proper coordinate conversion
+                var source = PresentationSource.FromVisual(this);
+                var dpiScale = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+
+                // Convert WPF coordinates to physical pixels for screen comparison
+                var physicalLeft = Left * dpiScale;
+                var physicalTop = Top * dpiScale;
+                var physicalWidth = ActualWidth * dpiScale;
+                var physicalHeight = ActualHeight * dpiScale;
+
+                // Get the screen that contains most of the avatar (using physical pixel coordinates)
+                var screen = System.Windows.Forms.Screen.FromPoint(
+                    new System.Drawing.Point(
+                        (int)(physicalLeft + physicalWidth / 2),
+                        (int)(physicalTop + physicalHeight / 2)));
+
+                var bounds = screen.WorkingArea;
+
+                // Calculate how much of the avatar must remain visible in physical pixels
+                var minVisibleWidth = physicalWidth / 2;
+
+                // Calculate allowed bounds in physical pixels
+                var minPhysicalLeft = bounds.Left - physicalWidth + minVisibleWidth;
+                var maxPhysicalLeft = bounds.Right - minVisibleWidth;
+                // Allow avatar to go way off the top - practically no limit
+                var minPhysicalTop = bounds.Top - physicalHeight - 1000;
+                var maxPhysicalTop = bounds.Bottom - (physicalHeight / 2);
+
+                // Clamp position in physical pixels (only clamp left/right, not top)
+                var newPhysicalLeft = Math.Max(minPhysicalLeft, Math.Min(maxPhysicalLeft, physicalLeft));
+                // Don't clamp top - allow avatar to go anywhere vertically
+                var newPhysicalTop = Math.Min(maxPhysicalTop, physicalTop); // Only prevent going off bottom
+
+                // Convert back to WPF units
+                var newLeft = newPhysicalLeft / dpiScale;
+                var newTop = newPhysicalTop / dpiScale;
+
+                // Only update if position changed to avoid unnecessary redraws
+                if (Math.Abs(newLeft - Left) > 1 || Math.Abs(newTop - Top) > 1)
+                {
+                    Left = newLeft;
+                    Top = newTop;
+                }
+            }
+            catch
+            {
+                // Ignore errors - position clamping is best-effort
+            }
+        }
+    }
+}

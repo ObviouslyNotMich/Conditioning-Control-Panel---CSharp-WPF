@@ -1,0 +1,690 @@
+<UserControl x:Class="ConditioningControlPanel.Views.Tabs.DeeperTabView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:helpers="clr-namespace:ConditioningControlPanel.Helpers"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Localization"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+    
+                <ContentControl.Resources>
+                    <!-- Polish pass: implicit Button style rounds every plain Button
+                         in the hub. Buttons with explicit Style or local Button.Template
+                         (BtnDeeperNewEnhancement, the per-row action buttons) override. -->
+                    <Style TargetType="Button" BasedOn="{StaticResource DeeperRoundButton}"/>
+    
+                    <!-- Pill style for the All / Video / Audio / Haptics / Webcam toggles. -->
+                    <Style x:Key="DeeperPillStyle" TargetType="ToggleButton">
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="{DynamicResource DeeperAccentBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentTransparent40Brush}"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="Padding" Value="12,5"/>
+                        <Setter Property="Margin" Value="0,0,6,0"/>
+                        <Setter Property="FontSize" Value="11"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="bd"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="12"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource DeeperAccentTransparent20Brush}"/>
+                                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+    
+                    <!-- Row icon-button style for the per-row action cluster (play/submit/delete). -->
+                    <Style x:Key="DeeperRowActionBtnStyle" TargetType="Button">
+                        <Setter Property="Width" Value="28"/>
+                        <Setter Property="Height" Value="28"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="{DynamicResource DeeperAccentBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentTransparent40Brush}"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="Margin" Value="4,0,0,0"/>
+                    </Style>
+    
+                    <!-- Per-row template. DataContext = DeeperLibraryRowVm; the original
+                         EnhancementLibraryEntry hangs off vm.Entry for action handlers. -->
+                    <DataTemplate x:Key="DeeperLibraryRowTemplate">
+                        <Border x:Name="RowBorder"
+                                Background="{DynamicResource PanelBgBrush}"
+                                BorderBrush="{DynamicResource DeeperAccentTransparent20Brush}"
+                                BorderThickness="1" CornerRadius="6"
+                                Padding="10,8" Margin="0,0,0,6"
+                                Cursor="Hand"
+                                MouseLeftButtonUp="DeeperRow_Click"
+                                ToolTip="{loc:Str deeper_hub_tip_row_open}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+    
+                                <!-- LEFT: type badge -->
+                                <Border Grid.Column="0" Width="36" Height="36"
+                                        CornerRadius="6" Margin="0,0,10,0"
+                                        Background="{Binding MediaTypeBadgeBg}"
+                                        VerticalAlignment="Center">
+                                    <Image Width="20" Height="20"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Source="{Binding MediaTypeIcon, Converter={StaticResource EmojiToImageSource}}"/>
+                                </Border>
+    
+                                <!-- CENTER: name + meta line -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="{DynamicResource TextLightBrush}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <!-- Catalogue submission status pill (pending / published / rejected) -->
+                                        <Border Background="{Binding SubmissionBadgeBg}"
+                                                Visibility="{Binding ShowSubmissionBadge}"
+                                                CornerRadius="8" Padding="6,1" Margin="0,0,6,0"
+                                                ToolTip="{Binding SubmissionBadgeTooltip}">
+                                            <TextBlock Foreground="{Binding SubmissionBadgeFg}" FontSize="10" FontWeight="SemiBold">
+                                                <Run Text="{Binding SubmissionBadgeGlyph, Mode=OneTime}"/><Run Text=" "/><Run Text="{Binding SubmissionBadgeLabel, Mode=OneTime}"/>
+                                            </TextBlock>
+                                        </Border>
+                                        <!-- Creator -->
+                                        <TextBlock Text="{Binding CreatorDisplay}"
+                                                   Visibility="{Binding ShowCreator}"
+                                                   Foreground="{DynamicResource TextDimBrush}" FontSize="11"/>
+                                        <TextBlock Text=" · "
+                                                   Visibility="{Binding ShowCreator}"
+                                                   Foreground="{DynamicResource TextDimBrush}" FontSize="11"/>
+                                        <!-- Media source (status glyph + label) -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    Visibility="{Binding ShowMediaSource}">
+                                            <TextBlock Text="{Binding MediaSourceGlyph}"
+                                                       Foreground="{Binding MediaSourceBrush}"
+                                                       FontSize="11" FontWeight="Bold"
+                                                       Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding MediaSourceLabel}"
+                                                       Foreground="{DynamicResource TextDimBrush}" FontSize="11"
+                                                       MaxWidth="220" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text=" · "
+                                                       Foreground="{DynamicResource TextDimBrush}" FontSize="11"/>
+                                        </StackPanel>
+                                        <!-- Auto-tag chips -->
+                                        <ItemsControl ItemsSource="{Binding Tags}"
+                                                      Visibility="{Binding ShowTags}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{Binding Background}"
+                                                            CornerRadius="8"
+                                                            Padding="6,1" Margin="0,0,4,0">
+                                                        <TextBlock Foreground="{Binding Foreground}" FontSize="10">
+                                                            <Run Text="{Binding Glyph, Mode=OneTime}"/><Run Text=" "/><Run Text="{Binding Label, Mode=OneTime}"/>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <!-- Timestamp -->
+                                        <TextBlock Text="{Binding TimestampDisplay}"
+                                                   Visibility="{Binding ShowTimestamp}"
+                                                   Foreground="{DynamicResource TextDimBrush}" FontSize="11"/>
+                                    </StackPanel>
+                                </StackPanel>
+    
+                                <!-- RIGHT: hover-only action buttons. Style trigger on
+                                     RowBorder.IsMouseOver fades the cluster in. -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Opacity" Value="0"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=RowBorder}" Value="True">
+                                                    <Setter Property="Opacity" Value="1"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Button Content="📤" Click="DeeperRowSubmit_Click"
+                                            Visibility="{Binding ShowSubmitButton}"
+                                            IsEnabled="{Binding SubmitEnabled}"
+                                            ToolTip="{Binding SubmitTooltip}"
+                                            Style="{StaticResource DeeperRowActionBtnStyle}"/>
+                                    <Button Content="▶" Click="DeeperRowPlay_Click"
+                                            ToolTip="{loc:Str deeper_hub_tip_row_play}"
+                                            Style="{StaticResource DeeperRowActionBtnStyle}"/>
+                                    <Button Content="🗑" Click="DeeperRowDelete_Click"
+                                            ToolTip="{loc:Str deeper_hub_tip_row_delete}"
+                                            Foreground="{DynamicResource DangerBrush}"
+                                            Style="{StaticResource DeeperRowActionBtnStyle}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ContentControl.Resources>
+    
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <Grid Margin="28,20,28,20" MaxWidth="1080" HorizontalAlignment="Center">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Header -->
+                        <RowDefinition Height="Auto"/> <!-- Welcome card (first-run) -->
+                        <RowDefinition Height="Auto"/> <!-- Filter + sort strip -->
+                        <RowDefinition Height="Auto"/> <!-- Unified library list -->
+                        <RowDefinition Height="Auto"/> <!-- Webcam setup card (gateway to free webcam features) -->
+                    </Grid.RowDefinitions>
+    
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Image Grid.Column="0" Width="38" Height="38"
+                               VerticalAlignment="Center" Margin="0,0,14,0"
+                               Source="{Binding Source='🌊', Converter={StaticResource EmojiToImageSource}}"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{loc:Str deeper_empty_title}"
+                                           Foreground="{DynamicResource DeeperAccentBrush}"
+                                           FontSize="22" FontWeight="Bold"/>
+                                <Border Margin="10,4,0,0" Padding="7,2"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource DeeperAccentTransparent20Brush}"
+                                        BorderBrush="{DynamicResource DeeperAccentBrush}" BorderThickness="1"
+                                        CornerRadius="8"
+                                        ToolTip="{loc:Str deeper_beta_notice}">
+                                    <TextBlock Text="{loc:Str deeper_beta_badge}"
+                                               Foreground="{DynamicResource DeeperAccentBrush}"
+                                               FontSize="10" FontWeight="Bold"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{loc:Str deeper_empty_pitch}"
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="12"
+                                       Margin="0,2,0,0" TextWrapping="Wrap" MaxWidth="700"
+                                       HorizontalAlignment="Left"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="BtnDeeperTutorial"
+                                    ToolTip="{loc:Str deeper_tab_tutorial_tooltip}"
+                                    Click="BtnDeeperTutorial_Click"
+                                    Padding="14,10" FontSize="12" Cursor="Hand"
+                                    Background="Transparent"
+                                    Foreground="{DynamicResource DeeperAccentBrush}"
+                                    BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}" BorderThickness="1"
+                                    Margin="0,0,8,0">
+                                <helpers:EmojiTextBlock Text="{loc:Str deeper_tab_tutorial_btn}"/>
+                            </Button>
+                            <Button x:Name="BtnDeeperOpenPlayer"
+                                    Content="{loc:Str deeper_tab_open_player}"
+                                    ToolTip="{loc:Str deeper_tab_open_player_tooltip}"
+                                    Click="BtnDeeperOpenPlayer_Click"
+                                    Padding="16,10" FontSize="12" Cursor="Hand"
+                                    Background="Transparent"
+                                    Foreground="{DynamicResource DeeperAccentBrush}"
+                                    BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}" BorderThickness="1"
+                                    Margin="0,0,8,0"/>
+                            <Button x:Name="BtnDeeperImport"
+                                    ToolTip="Import a .ccpenh.json file into your library (or drag &amp; drop one anywhere on this tab)"
+                                    Click="BtnDeeperImport_Click"
+                                    Padding="16,10" FontSize="12" Cursor="Hand"
+                                    Background="Transparent"
+                                    Foreground="{DynamicResource DeeperAccentBrush}"
+                                    BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}" BorderThickness="1"
+                                    Margin="0,0,8,0">
+                                <helpers:EmojiTextBlock Text="📥 Import"/>
+                            </Button>
+                            <Button x:Name="BtnDeeperNewEnhancement"
+                                    Content="{loc:Str deeper_empty_cta}"
+                                    ToolTip="{loc:Str deeper_tab_new_enh_tooltip}"
+                                    Click="BtnDeeperNewEnhancement_Click"
+                                    Padding="22,10" FontSize="13" FontWeight="SemiBold"
+                                    Foreground="White" BorderThickness="0" Cursor="Hand"
+                                    Background="{DynamicResource DeeperAccentBrush}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" CornerRadius="8" Padding="{TemplateBinding Padding}"
+                                                Background="{TemplateBinding Background}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="{DynamicResource DeeperAccentSoftBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+    
+                    <!-- First-run welcome card. Visibility flipped to Collapsed in code
+                         once the user clicks Tour, Open Demo, or Got it. -->
+                    <Border x:Name="DeeperWelcomeCard" x:FieldModifier="internal" Grid.Row="1" Visibility="Collapsed"
+                            Background="{DynamicResource SurfaceBgBrush}"
+                            BorderBrush="{DynamicResource DeeperAccentBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="22,18" Margin="0,0,0,18">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Image Grid.Column="0" Width="38" Height="38"
+                                   VerticalAlignment="Top" Margin="0,0,18,0"
+                                   Source="{Binding Source='✨', Converter={StaticResource EmojiToImageSource}}"/>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{loc:Str deeper_welcome_card_title}"
+                                           Foreground="{DynamicResource DeeperAccentBrush}"
+                                           FontSize="16" FontWeight="Bold" Margin="0,0,0,8"/>
+                                <TextBlock Text="{loc:Str deeper_welcome_card_body}"
+                                           Foreground="{DynamicResource TextLightBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnDeeperWelcomeTour"
+                                            Content="{loc:Str deeper_welcome_card_take_tour}"
+                                            Click="BtnDeeperWelcomeTour_Click"
+                                            Padding="14,7" Cursor="Hand" FontWeight="SemiBold"
+                                            Background="{DynamicResource DeeperAccentBrush}" Foreground="White"
+                                            BorderThickness="0" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnDeeperWelcomeDemo"
+                                            Content="{loc:Str deeper_welcome_card_open_demo}"
+                                            Click="BtnDeeperWelcomeDemo_Click"
+                                            Padding="14,7" Cursor="Hand"
+                                            Background="{DynamicResource DeeperAccentTransparent20Brush}"
+                                            Foreground="{DynamicResource DeeperAccentBrush}"
+                                            BorderBrush="{DynamicResource DeeperAccentBrush}" BorderThickness="1"
+                                            Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnDeeperWelcomeDismiss"
+                                            Content="{loc:Str deeper_welcome_card_dismiss}"
+                                            Click="BtnDeeperWelcomeDismiss_Click"
+                                            Padding="14,7" Cursor="Hand"
+                                            Background="Transparent"
+                                            Foreground="{DynamicResource TextMutedBrush}"
+                                            BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}"
+                                            BorderThickness="1"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+    
+                    <!-- Filter + sort strip. x:Name DeeperLibraryFilterStrip is the
+                         retarget for the hub tour's old dp_recent step (now
+                         dp_filters per the Mission 2 tutorial sync). -->
+                    <StackPanel x:Name="DeeperLibraryFilterStrip" Grid.Row="2" Margin="0,0,0,12">
+                        <!-- Row A: search + folder button -->
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0">
+                                <TextBox x:Name="TxtDeeperSearch" x:FieldModifier="internal"
+                                         Background="{DynamicResource PanelBgBrush}"
+                                         Foreground="{DynamicResource TextLightBrush}"
+                                         BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}"
+                                         BorderThickness="1"
+                                         Padding="10,8" FontSize="12"
+                                         ToolTip="{loc:Str deeper_hub_tip_search}"
+                                         TextChanged="DeeperSearch_TextChanged"/>
+                                <TextBlock IsHitTestVisible="False"
+                                           Text="{loc:Str deeper_hub_search_placeholder}"
+                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12"
+                                           Margin="12,0,0,0"
+                                           VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=TxtDeeperSearch}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                            <Button Grid.Column="1" x:Name="BtnDeeperOpenLibraryFolder"
+                                    Content="📁" Click="BtnDeeperOpenLibraryFolder_Click"
+                                    ToolTip="{loc:Str deeper_library_open_folder_tooltip}"
+                                    Width="36" Height="36" Padding="0" FontSize="14"
+                                    Margin="8,0,0,0" Cursor="Hand"
+                                    Background="Transparent"
+                                    Foreground="{DynamicResource DeeperAccentBrush}"
+                                    BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}"
+                                    BorderThickness="1"/>
+                        </Grid>
+    
+                        <!-- Row B: filter pills + sort dropdown -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <ToggleButton x:Name="BtnDeeperPillAll" x:FieldModifier="internal"
+                                              Style="{StaticResource DeeperPillStyle}"
+                                              Click="DeeperPillAll_Click" IsChecked="True"
+                                              ToolTip="{loc:Str deeper_hub_tip_pill_all}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{loc:Str deeper_hub_pill_all}"/>
+                                        <TextBlock x:Name="TxtDeeperPillAllCount" x:FieldModifier="internal" Text="0"
+                                                   Foreground="{DynamicResource TextDimBrush}"
+                                                   Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="BtnDeeperPillVideo" x:FieldModifier="internal"
+                                              Style="{StaticResource DeeperPillStyle}"
+                                              Click="DeeperPillVideo_Click"
+                                              ToolTip="{loc:Str deeper_hub_tip_pill_video}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{loc:Str deeper_hub_pill_video}"/>
+                                        <TextBlock x:Name="TxtDeeperPillVideoCount" x:FieldModifier="internal" Text="0"
+                                                   Foreground="{DynamicResource TextDimBrush}"
+                                                   Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="BtnDeeperPillAudio" x:FieldModifier="internal"
+                                              Style="{StaticResource DeeperPillStyle}"
+                                              Click="DeeperPillAudio_Click"
+                                              ToolTip="{loc:Str deeper_hub_tip_pill_audio}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{loc:Str deeper_hub_pill_audio}"/>
+                                        <TextBlock x:Name="TxtDeeperPillAudioCount" x:FieldModifier="internal" Text="0"
+                                                   Foreground="{DynamicResource TextDimBrush}"
+                                                   Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <Border Width="1" Margin="6,4,10,4"
+                                        Background="{DynamicResource DeeperAccentTransparent40Brush}"/>
+                                <ToggleButton x:Name="BtnDeeperPillHaptics" x:FieldModifier="internal"
+                                              Style="{StaticResource DeeperPillStyle}"
+                                              Click="DeeperPillHaptics_Click"
+                                              ToolTip="{loc:Str deeper_hub_tip_pill_haptics}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"
+                                               Source="{Binding Source='📳', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <TextBlock Text="{loc:Str deeper_hub_pill_haptics}"/>
+                                        <TextBlock x:Name="TxtDeeperPillHapticsCount" x:FieldModifier="internal" Text="0"
+                                                   Foreground="{DynamicResource TextDimBrush}"
+                                                   Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="BtnDeeperPillWebcam" x:FieldModifier="internal"
+                                              Style="{StaticResource DeeperPillStyle}"
+                                              Click="DeeperPillWebcam_Click"
+                                              ToolTip="{loc:Str deeper_hub_tip_pill_webcam}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"
+                                               Source="{Binding Source='📷', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <TextBlock Text="{loc:Str deeper_hub_pill_webcam}"/>
+                                        <TextBlock x:Name="TxtDeeperPillWebcamCount" x:FieldModifier="internal" Text="0"
+                                                   Foreground="{DynamicResource TextDimBrush}"
+                                                   Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Bright CTA pointing at the web catalogue. Solid
+                                     accent fill so it reads as the loud "go shop"
+                                     affordance next to the muted Sort dropdown.
+                                     Opens app.cclabs.app/catalogue in the user's
+                                     default browser via Process.Start (ShellExecute). -->
+                                <Button x:Name="BtnDeeperCatalogue"
+                                        Click="BtnDeeperCatalogue_Click"
+                                        ToolTip="{loc:Str deeper_hub_tip_catalogue}"
+                                        Padding="12,5" Margin="0,0,12,0" Cursor="Hand" FontSize="11"
+                                        FontWeight="SemiBold"
+                                        Background="{DynamicResource DeeperAccentBrush}"
+                                        Foreground="White"
+                                        BorderBrush="{DynamicResource DeeperAccentBrush}" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"
+                                               Source="{Binding Source='🛍', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <TextBlock Text="{loc:Str deeper_hub_catalogue_btn}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text=" ↗" Margin="2,0,0,0"
+                                                   Foreground="{DynamicResource DeeperAccentSoftBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock Text="{loc:Str deeper_hub_sort_label}"
+                                           Foreground="{DynamicResource TextDimBrush}" FontSize="11"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox x:Name="CmbDeeperSort" x:FieldModifier="internal"
+                                          SelectionChanged="DeeperSort_SelectionChanged"
+                                          ToolTip="{loc:Str deeper_hub_tip_sort}"
+                                          Background="White" Foreground="Black"
+                                          MinWidth="100" Padding="6,4">
+                                    <ComboBoxItem Content="{loc:Str deeper_hub_sort_recent}"
+                                                  Tag="recent" Foreground="Black" Background="White"
+                                                  IsSelected="True"/>
+                                    <ComboBoxItem Content="{loc:Str deeper_hub_sort_name}"
+                                                  Tag="name" Foreground="Black" Background="White"/>
+                                    <ComboBoxItem Content="{loc:Str deeper_hub_sort_creator}"
+                                                  Tag="creator" Foreground="Black" Background="White"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+    
+                    <!-- Unified library list. x:Name preserved (tutorial dp_library
+                         retargets to this element). Empty-state hint is painted on
+                         top via the wrapping Grid, controlled from code-behind.
+                         MinHeight=320 so the empty-state hint has room while the
+                         enclosing ScrollViewer handles overflow. -->
+                    <Border Grid.Row="3" MinHeight="320"
+                            Background="{DynamicResource SurfaceBgBrush}"
+                            BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}" BorderThickness="1"
+                            CornerRadius="10" Padding="14,12">
+                        <DockPanel LastChildFill="True">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10" LastChildFill="True">
+                                <TextBlock x:Name="TxtDeeperLibraryCount" x:FieldModifier="internal" DockPanel.Dock="Right"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextDimBrush}" FontSize="11"/>
+                                <TextBlock Text="{loc:Str deeper_section_library}"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextLightBrush}"
+                                           FontSize="12" FontWeight="Bold"/>
+                            </DockPanel>
+                            <Grid>
+                                <ItemsControl x:Name="DeeperLibraryList" x:FieldModifier="internal"
+                                              ItemsSource="{Binding DeeperFilteredEntries, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              ItemTemplate="{StaticResource DeeperLibraryRowTemplate}"
+                                              VirtualizingPanel.IsVirtualizing="True"
+                                              VirtualizingPanel.VirtualizationMode="Recycling"
+                                              ScrollViewer.CanContentScroll="True">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ScrollViewer CanContentScroll="True"
+                                                          VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                <ItemsPresenter/>
+                                            </ScrollViewer>
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+                                </ItemsControl>
+                                <TextBlock x:Name="TxtDeeperLibraryEmpty" x:FieldModifier="internal"
+                                           Visibility="Collapsed"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           FontSize="12" FontStyle="Italic"
+                                           HorizontalAlignment="Center" VerticalAlignment="Top"
+                                           TextWrapping="Wrap" MaxWidth="500"
+                                           Margin="0,40,0,0"
+                                           TextAlignment="Center"/>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+    
+                    <!-- Webcam setup card. Mirrors the Blink Trainer setup card so
+                         non-Patreon users can grant consent + calibrate without
+                         hitting the Blink Trainer paywall. Lives at the bottom of
+                         the hub so the library stays the focal point above; users
+                         scroll down when they need to set up webcam triggers.
+                         Cross-tab sync is automatic (PopulateWebcamDeviceCombos,
+                         FillMonitorCombo, and RefreshBlinkTrainerWebcamColumn all
+                         fan out to the DeeperWebcam_* widgets too). -->
+                    <Border Grid.Row="4" x:Name="DeeperWebcamSetupCard"
+                            Background="{DynamicResource PanelBgBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10" Padding="14,12" Margin="0,14,0,0">
+                        <Border.BorderBrush>
+                            <SolidColorBrush Color="{DynamicResource PinkColor}" Opacity="0.25"/>
+                        </Border.BorderBrush>
+                        <StackPanel>
+                            <Grid Margin="0,0,0,4">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <Image Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,8,0"
+                                           Source="{Binding Source='📷', Converter={StaticResource EmojiToImageSource}}"/>
+                                    <TextBlock Text="{loc:Str blink_trainer_section_webcam}"
+                                               Foreground="{DynamicResource PinkBrush}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            ToolTip="Blink fast 6 times in a row to stop everything and jump to recalibration.">
+                                    <CheckBox x:Name="ChkBlinkRecalDeeper" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                                              Checked="ChkBlinkRecalShortcut_Changed" Unchecked="ChkBlinkRecalShortcut_Changed"/>
+                                    <TextBlock Text="Blink to recal" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="Webcam-driven Deeper triggers (gaze, blink, face-lost) need camera consent + a calibration. Both are free and configured right here."
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="10"
+                                       TextWrapping="Wrap" Margin="0,0,0,10"/>
+    
+                            <!-- Two-column layout: left = device/monitor pickers; right = consent + calibration -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+    
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{loc:Str blink_trainer_camera_device}" Foreground="White" FontSize="11" FontWeight="Medium" Margin="0,0,0,4"/>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox Grid.Column="0" x:Name="CmbDeeperWebcamDevice" x:FieldModifier="internal"
+                                                  Foreground="Black" Background="White" FontSize="10"
+                                                  SelectionChanged="CmbDeeperWebcamDevice_SelectionChanged"/>
+                                        <Button Grid.Column="1" Content="{loc:Str blink_trainer_camera_refresh}"
+                                                Margin="6,0,0,0" Padding="8,3" FontSize="10"
+                                                Style="{StaticResource OutlineButton}"
+                                                Click="BtnDeeperWebcamRefresh_Click"/>
+                                    </Grid>
+    
+                                    <TextBlock Text="{loc:Str webcam_monitor_label}"
+                                               Foreground="White" FontSize="11" FontWeight="Medium" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="CmbDeeperWebcamMonitor" x:FieldModifier="internal"
+                                              Foreground="Black" Background="White" FontSize="10"
+                                              Margin="0,0,0,10"
+                                              ToolTip="{loc:Str webcam_monitor_tooltip}"
+                                              SelectionChanged="CmbDeeperWebcamMonitor_SelectionChanged"/>
+    
+                                    <CheckBox x:Name="ChkDeeperWebcamRestrictGazeToCalScreen" x:FieldModifier="internal"
+                                              Content="Restrict gaze-reactive effects to the calibrated screen"
+                                              ToolTip="Advanced: leave on unless you know what you're doing. Affects how gaze-reactive effects map to your monitors."
+                                              Foreground="#AAAAAA" FontSize="10"
+                                              Margin="0,4,0,0"
+                                              Checked="ChkDeeperWebcamRestrictGazeToCalScreen_Changed"
+                                              Unchecked="ChkDeeperWebcamRestrictGazeToCalScreen_Changed"/>
+                                </StackPanel>
+    
+                                <StackPanel Grid.Column="2">
+                                    <Border x:Name="DeeperWebcamConsentCard" x:FieldModifier="internal"
+                                            CornerRadius="6" Padding="10,8" Margin="0,0,0,10"
+                                            Background="#1A4ADE80"
+                                            BorderBrush="#4ADE80" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock x:Name="DeeperWebcamConsentStatus" x:FieldModifier="internal"
+                                                       Foreground="White" FontSize="11" FontWeight="Medium"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                <Button x:Name="BtnDeeperWebcamManageConsent" x:FieldModifier="internal"
+                                                        Padding="8,3" FontSize="10"
+                                                        Style="{StaticResource OutlineButton}"
+                                                        Click="BtnDeeperWebcamManageConsent_Click"/>
+                                                <Button x:Name="BtnDeeperWebcamRevokeConsent" x:FieldModifier="internal"
+                                                        Margin="6,0,0,0" Padding="8,3" FontSize="10"
+                                                        Visibility="Collapsed"
+                                                        Background="Transparent" Foreground="#FF6060"
+                                                        BorderBrush="#FF6060" BorderThickness="1"
+                                                        Cursor="Hand"
+                                                        Content="{loc:Str blink_trainer_consent_revoke}"
+                                                        ToolTip="{loc:Str blink_trainer_consent_revoke_tooltip}"
+                                                        Click="BtnDeeperWebcamRevokeConsent_Click"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+    
+                                    <TextBlock Text="{loc:Str blink_trainer_calibration_label}" Foreground="White" FontSize="11" FontWeight="Medium" Margin="0,0,0,4"/>
+                                    <TextBlock x:Name="DeeperWebcamCalibrationStatus" x:FieldModifier="internal"
+                                               Text="{loc:Str blink_trainer_calibration_none}"
+                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="10"
+                                               TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                    <WrapPanel Orientation="Horizontal" ItemHeight="26">
+                                        <Button Content="{loc:Str blink_trainer_calibration_btn}"
+                                                Padding="10,4" Margin="0,0,6,6" FontSize="10"
+                                                Style="{StaticResource OutlineButton}"
+                                                Click="BtnDeeperWebcamCalibrate_Click"/>
+                                        <Button Content="{loc:Str blink_trainer_calibration_quick}"
+                                                Padding="10,4" Margin="0,0,6,6" FontSize="10"
+                                                Style="{StaticResource OutlineButton}"
+                                                Click="BtnDeeperWebcamQuickRecal_Click"/>
+                                        <!-- Start/Stop tracker. Required to actually
+                                             calibrate: the calibration window needs
+                                             the camera streaming. Label is kept in
+                                             sync with the Blink Trainer toggle via
+                                             RefreshBlinkTrainerTrackerButton. -->
+                                        <Button x:Name="BtnDeeperWebcamStartStopTracker" x:FieldModifier="internal"
+                                                Content="Start tracker"
+                                                Padding="10,4" Margin="0,0,0,6" FontSize="10"
+                                                Style="{StaticResource OutlineButton}"
+                                                Click="BtnDeeperWebcamStartStopTracker_Click"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                </ScrollViewer>
+            
+</UserControl>

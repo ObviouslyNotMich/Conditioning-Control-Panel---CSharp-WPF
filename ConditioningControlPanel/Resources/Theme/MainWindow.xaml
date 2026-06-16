@@ -1,0 +1,1642 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:helpers="clr-namespace:ConditioningControlPanel.Helpers"
+                    xmlns:features="clr-namespace:ConditioningControlPanel.Features"
+                    xmlns:loc="clr-namespace:ConditioningControlPanel.Localization">
+        <!-- Note: BoolToVisibility and InverseBoolToVisibility converters are defined in
+             Application.Resources (Converters.xaml) to ensure availability in all DataTemplates -->
+
+        <!-- Custom Tooltip Style -->
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{StaticResource DarkerBgBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Placement" Value="Mouse"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="8" Opacity="0.5" ShadowDepth="2"/>
+                            </Border.Effect>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Tab Button Style (for header navigation) — outlined with bottom indicator on active -->
+        <Style x:Key="TabButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="6,6"/>
+            <Setter Property="MinWidth" Value="65"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="Transparent"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource TransparentPink20Brush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Exclusives Submenu Button Style — used inside the Exclusives popup -->
+        <Style x:Key="ExclusivesSubmenuButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#33FF69B4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Tab Button Active Style — filled accent with bottom indicator -->
+        <Style x:Key="TabButtonActive" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="6,6"/>
+            <Setter Property="MinWidth" Value="65"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource PinkButtonHoveredBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- v6 brand-anchor variant. Only the dashboard's primary nav tabs use this; quest sub-tabs
+             and roadmap track buttons keep TabButtonActive so they don't get pulled into the gradient.
+             On every non-CCP-Default mod AccentGradientBrush resolves to SolidColorBrush(accent), so
+             primary-nav active state renders byte-identical to today on Bambi / Sissy / Drone.
+
+             Template is overridden so hover applies a translucent white tint via an overlay Border
+             instead of swapping Background to PinkButtonHoveredBrush. The parent's swap-Background
+             trigger would flicker the gradient out to a solid pink on CCP Default hover; the overlay
+             pattern keeps the gradient intact and adds a gentle hover lift on top, which also reads
+             well on the solid-accent active state every other mod sees. -->
+        <Style x:Key="TabButtonActivePrimary" TargetType="Button" BasedOn="{StaticResource TabButtonActive}">
+            <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <Border x:Name="hoverOverlay" Background="Transparent" IsHitTestVisible="False"/>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="hoverOverlay" Property="Background" Value="#1AFFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Deeper Tab Button Styles — violet accent variant of TabButton/TabButtonActive
+             so the new Deeper tab carries a distinct visual identity in the tab strip. -->
+        <Style x:Key="TabButtonDeeper" TargetType="Button" BasedOn="{StaticResource TabButton}">
+            <Setter Property="Foreground" Value="{DynamicResource DeeperAccentBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="Transparent"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource DeeperAccentTransparent20Brush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TabButtonDeeperActive" TargetType="Button" BasedOn="{StaticResource TabButtonActive}">
+            <Setter Property="Background" Value="{DynamicResource DeeperAccentBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource DeeperAccentSoftBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- SP5 layer 3: NeonPurple tab styles for the Available Subjects tab.
+             Mirror of TabButtonDeeper/Active but with #B47BFF accent — distinct
+             from the Deeper violet so the two purple-tinted tabs don't read as
+             the same family. -->
+        <Style x:Key="TabButtonNeon" TargetType="Button" BasedOn="{StaticResource TabButton}">
+            <Setter Property="Foreground" Value="{DynamicResource NeonPurpleBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NeonPurpleBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="Transparent"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource NeonPurpleTransparent20Brush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TabButtonNeonActive" TargetType="Button" BasedOn="{StaticResource TabButtonActive}">
+            <Setter Property="Background" Value="{DynamicResource NeonPurpleBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NeonPurpleBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource NeonPurpleSoftBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Small Pink Button Style (for tutorial guide buttons) -->
+        <Style x:Key="SmallPinkButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="borderScale" ScaleX="1" ScaleY="1"/>
+                            </Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource PinkButtonHoveredBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="borderScale" Storyboard.TargetProperty="ScaleX"
+                                                             To="0.97" Duration="0:0:0.08"/>
+                                            <DoubleAnimation Storyboard.TargetName="borderScale" Storyboard.TargetProperty="ScaleY"
+                                                             To="0.97" Duration="0:0:0.08"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="borderScale" Storyboard.TargetProperty="ScaleX"
+                                                             To="1.0" Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <BackEase Amplitude="0.3" EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="borderScale" Storyboard.TargetProperty="ScaleY"
+                                                             To="1.0" Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <BackEase Amplitude="0.3" EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- OutlineButton moved to Resources/Theme/Controls.xaml so feature UserControls can reach it. -->
+
+        <!-- Shared template for expandable icon buttons -->
+
+        <!-- Window Control Button Style -->
+        <Style x:Key="WindowControlButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" Padding="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource TransparentWhiteBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Window Close Button Style -->
+        <Style x:Key="WindowCloseButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" Padding="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Session Action Button Style (small icon buttons for Edit/Export/Delete) -->
+        <Style x:Key="SessionActionButton" TargetType="Button">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Background" Value="{DynamicResource PanelAccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="2,0,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="4" Padding="0"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource PinkBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Session Delete Button Style (red hover) -->
+        <Style x:Key="SessionDeleteButton" TargetType="Button" BasedOn="{StaticResource SessionActionButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E81123"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Slider Style -->
+        <Style x:Key="PinkSlider" TargetType="Slider">
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Border Height="3" Background="{DynamicResource PanelAccentBrush}" CornerRadius="1.5" VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="3" Background="{DynamicResource PinkBrush}" CornerRadius="1.5"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate>
+                                                <Border Width="14" Height="14" CornerRadius="7"
+                                                        Background="White" Cursor="Hand"
+                                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Slider" BasedOn="{StaticResource PinkSlider}" />
+
+        <!-- Blink Trainer page sliders. Heavier track (6px), gradient fill from
+             PinkColor -> NeonPurpleColor, larger 16px thumb with pink glow.
+             Used by the new Exclusives Blink Trainer tab; the rest of the app
+             keeps the lighter PinkSlider defaults. -->
+        <Style x:Key="BlinkTrainerGradientSlider" TargetType="Slider">
+            <Setter Property="MinHeight" Value="22"/>
+            <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Height="22">
+                            <!-- Background track (full width, fixed dark surface) -->
+                            <Border Height="6" CornerRadius="3"
+                                    Background="#22FFFFFF"
+                                    VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge" IsTabStop="False" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="6" CornerRadius="3" VerticalAlignment="Center">
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                            <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                                                            <GradientStop Color="{DynamicResource NeonPurpleColor}" Offset="1"/>
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" IsTabStop="False" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="16" Height="16" Cursor="Hand">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse Fill="{DynamicResource PinkBrush}"
+                                                         Stroke="White" StrokeThickness="1.5">
+                                                    <Ellipse.Effect>
+                                                        <DropShadowEffect Color="{DynamicResource PinkColor}"
+                                                                          BlurRadius="8" ShadowDepth="0" Opacity="0.8"/>
+                                                    </Ellipse.Effect>
+                                                </Ellipse>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Simple, minimal girly ScrollBar + Utilities -->
+        <!-- Invisible RepeatButton for ScrollBar -->
+        <Style x:Key="InvisibleRepeatButton" TargetType="RepeatButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsTabStop" Value="False"/>
+        </Style>
+
+        <!-- Thumb for controlling ScrollBar -->
+        <Style x:Key="SimpleCuteThumb" TargetType="Thumb">
+            <Setter Property="MinWidth" Value="6"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="Bd"
+                                CornerRadius="4"
+                                Background="{DynamicResource PinkBrush}"
+                                Opacity="0.6"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                SnapsToDevicePixels="True"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent" SnapsToDevicePixels="True">
+                            <Border x:Name="TrackBg"
+                                    Background="{DynamicResource PanelAccentBrush}"
+                                    CornerRadius="4"
+                                    Opacity="0.2"
+                                    Margin="1"/>
+                            <Track x:Name="PART_Track"
+                                   Orientation="{TemplateBinding Orientation}">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource InvisibleRepeatButton}" Command="ScrollBar.LineUpCommand"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource InvisibleRepeatButton}" Command="ScrollBar.LineDownCommand"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb x:Name="ThumbElement" Style="{StaticResource SimpleCuteThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Orientation" Value="Horizontal">
+                                <Setter Property="Height" Value="8"/>
+                                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                                <Setter TargetName="ThumbElement" Property="MinWidth" Value="30"/>
+                                <Setter TargetName="ThumbElement" Property="MinHeight" Value="6"/>
+                            </Trigger>
+                            <Trigger Property="Orientation" Value="Vertical">
+                                <Setter Property="Width" Value="8"/>
+                                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="True"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="TrackBg" Property="Opacity" Value="0.1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Custom TreeView style with bigger scrollbars -->
+        <Style TargetType="TreeView">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeView">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer Focusable="False"
+                                          CanContentScroll="False"
+                                          Padding="{TemplateBinding Padding}"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Auto">
+                                <ItemsPresenter/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Section Panel Style -->
+        <Style x:Key="SectionPanel" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderBrush}"/>
+        </Style>
+
+        <!-- TextBox Focus Glow Style -->
+        <Style x:Key="FocusGlowTextBox" TargetType="TextBox">
+            <Setter Property="CaretBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="8" ShadowDepth="0" Opacity="0"/>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <EventTrigger RoutedEvent="GotKeyboardFocus">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Effect.Opacity"
+                                             To="0.5" Duration="0:0:0.25"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="LostKeyboardFocus">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Effect.Opacity"
+                                             To="0" Duration="0:0:0.3"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Section Header Style -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource PinkSoftBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <!-- Label Style -->
+        <Style x:Key="SettingLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Value Label Style -->
+        <Style x:Key="ValueLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        
+        <!-- Achievement Tile Style -->
+        <Style x:Key="AchievementTile" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+            <Setter Property="CornerRadius" Value="15"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="MinHeight" Value="100"/>
+            <Setter Property="MinWidth" Value="100"/>
+        </Style>
+        
+        <!-- Feature Image Style -->
+        <Style x:Key="FeatureImageBorder" TargetType="Border">
+            <Setter Property="Width" Value="180"/>
+            <Setter Property="Height" Value="180"/>
+            <Setter Property="CornerRadius" Value="15"/>
+            <Setter Property="Background" Value="{StaticResource DarkerBgBrush}"/>
+            <Setter Property="Margin" Value="10,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Rounded Image Rectangle Style -->
+        <Style x:Key="RoundedFeatureImage" TargetType="Rectangle">
+            <Setter Property="Width" Value="180"/>
+            <Setter Property="Height" Value="180"/>
+            <Setter Property="RadiusX" Value="15"/>
+            <Setter Property="RadiusY" Value="15"/>
+            <Setter Property="Margin" Value="10,0,0,0"/>
+        </Style>
+
+        <!-- Help Button Style - Small circular (?) icon for section help -->
+        <Style x:Key="HelpButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelAccentBrush}"/>
+            <Setter Property="Cursor" Value="Help"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="100"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="60000"/>
+            <Setter Property="ToolTipService.BetweenShowDelay" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9"
+                                Width="18" Height="18">
+                            <TextBlock Text="?"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Margin="0,-1,0,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource TransparentPink20Brush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Enhanced Help Tooltip Style -->
+        <Style x:Key="HelpTooltipStyle" TargetType="ToolTip">
+            <Setter Property="Background" Value="#F0252542"/>
+            <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MaxWidth" Value="380"/>
+            <Setter Property="Placement" Value="Right"/>
+            <Setter Property="HorizontalOffset" Value="10"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#FFFF69B4" BlurRadius="10" ShadowDepth="0" Opacity="0.15"/>
+                            </Border.Effect>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Animated Gradient Panel Style with Particles (using ContentControl) -->
+        <Style x:Key="AnimatedGradientPanel" TargetType="ContentControl">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContentControl">
+                        <Border x:Name="OuterBorder" CornerRadius="15"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                ClipToBounds="True">
+                            <Grid>
+                                <!-- Animated Gradient Background -->
+                                <Rectangle RadiusX="15" RadiusY="15">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush x:Name="GradientFill" StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop x:Name="Stop1" Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                            <GradientStop x:Name="Stop2" Color="{DynamicResource AccentMidGradient}" Offset="0.5"/>
+                                            <GradientStop x:Name="Stop3" Color="{DynamicResource DarkerBg}" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+
+                                <!-- Radial Glow Effect (pulsing) -->
+                                <Ellipse x:Name="GlowPink" Width="200" Height="200" Opacity="0.15"
+                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-50,-50,0,0">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                                            <GradientStop Color="Transparent" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <Ellipse x:Name="GlowPurple" Width="180" Height="180" Opacity="0.12"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-40,-40">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="{DynamicResource PatreonPurple}" Offset="0"/>
+                                            <GradientStop Color="Transparent" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+
+                                <!-- Floating Particles -->
+                                <Canvas IsHitTestVisible="False">
+                                    <!-- Particle 1 -->
+                                    <Ellipse Width="4" Height="4" Fill="{DynamicResource PinkBrush}" Opacity="0.4" Canvas.Left="20" Canvas.Top="80">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle1Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <!-- Particle 2 -->
+                                    <Ellipse Width="3" Height="3" Fill="{DynamicResource SecondaryBrush}" Opacity="0.35" Canvas.Left="80" Canvas.Top="120">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle2Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <!-- Particle 3 -->
+                                    <Ellipse Width="5" Height="5" Fill="{DynamicResource PinkBrush}" Opacity="0.3" Canvas.Left="150" Canvas.Top="60">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle3Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <!-- Particle 4 -->
+                                    <Ellipse Width="3" Height="3" Fill="{DynamicResource SecondaryBrush}" Opacity="0.35" Canvas.Left="220" Canvas.Top="100">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle4Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <!-- Particle 5 -->
+                                    <Ellipse Width="4" Height="4" Fill="{DynamicResource SecondaryBrush}" Opacity="0.3" Canvas.Left="280" Canvas.Top="40">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle5Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <!-- Particle 6 -->
+                                    <Ellipse Width="3" Height="3" Fill="{DynamicResource PinkBrush}" Opacity="0.4" Canvas.Left="50" Canvas.Top="150">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle6Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                </Canvas>
+
+                                <!-- Content -->
+                                <Border Padding="20">
+                                    <ContentPresenter/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsVisible" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard x:Name="PanelAnimationStoryboard">
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <!-- Particle floating animations -->
+                                            <DoubleAnimation Storyboard.TargetName="Particle1Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-60" Duration="0:0:8" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle1Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="15" Duration="0:0:6" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle2Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-50" Duration="0:0:10" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle2Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="-10" Duration="0:0:7" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle3Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-70" Duration="0:0:12" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle3Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="20" Duration="0:0:9" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle4Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-55" Duration="0:0:9" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle4Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="-15" Duration="0:0:11" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle5Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-65" Duration="0:0:11" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle5Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="12" Duration="0:0:8" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle6Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-45" Duration="0:0:7" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle6Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="-8" Duration="0:0:10" AutoReverse="True"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <StopStoryboard BeginStoryboardName="PanelAnimationStoryboard"/>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Animated Gradient Panel for Roadmap (wider, less padding) -->
+        <Style x:Key="AnimatedGradientPanelWide" TargetType="ContentControl">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContentControl">
+                        <Border x:Name="OuterBorder" CornerRadius="10"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                ClipToBounds="True">
+                            <Grid>
+                                <!-- Animated Gradient Background -->
+                                <Rectangle RadiusX="10" RadiusY="10">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush x:Name="GradientFill" StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop x:Name="Stop1" Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                            <GradientStop x:Name="Stop2" Color="{DynamicResource AccentMidGradient}" Offset="0.5"/>
+                                            <GradientStop x:Name="Stop3" Color="{DynamicResource DarkerBg}" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+
+                                <!-- Radial Glow Effect (pulsing) -->
+                                <Ellipse x:Name="GlowPink" Width="250" Height="150" Opacity="0.12"
+                                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-80,-40,0,0">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                                            <GradientStop Color="Transparent" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <Ellipse x:Name="GlowPurple" Width="200" Height="120" Opacity="0.1"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-60,-30">
+                                    <Ellipse.Fill>
+                                        <RadialGradientBrush>
+                                            <GradientStop Color="{DynamicResource PatreonPurple}" Offset="0"/>
+                                            <GradientStop Color="Transparent" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+
+                                <!-- Floating Particles (more spread out for wider panel) -->
+                                <Canvas IsHitTestVisible="False">
+                                    <Ellipse Width="4" Height="4" Fill="{DynamicResource PinkBrush}" Opacity="0.4" Canvas.Left="30" Canvas.Top="60">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle1Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <Ellipse Width="3" Height="3" Fill="{DynamicResource SecondaryBrush}" Opacity="0.35" Canvas.Left="120" Canvas.Top="100">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle2Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <Ellipse Width="5" Height="5" Fill="{DynamicResource PinkBrush}" Opacity="0.3" Canvas.Left="250" Canvas.Top="40">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle3Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <Ellipse Width="3" Height="3" Fill="{DynamicResource SecondaryBrush}" Opacity="0.35" Canvas.Left="380" Canvas.Top="80">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle4Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <Ellipse Width="4" Height="4" Fill="{DynamicResource SecondaryBrush}" Opacity="0.3" Canvas.Left="500" Canvas.Top="50">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle5Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <Ellipse Width="3" Height="3" Fill="{DynamicResource PinkBrush}" Opacity="0.4" Canvas.Left="180" Canvas.Top="120">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="Particle6Transform"/>
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                </Canvas>
+
+                                <!-- Content -->
+                                <Border Padding="10">
+                                    <ContentPresenter/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsVisible" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard x:Name="WideAnimationStoryboard">
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <!-- Particle animations -->
+                                            <DoubleAnimation Storyboard.TargetName="Particle1Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-40" Duration="0:0:8" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle1Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="15" Duration="0:0:6" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle2Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-35" Duration="0:0:10" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle2Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="-10" Duration="0:0:7" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle3Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-50" Duration="0:0:12" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle3Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="20" Duration="0:0:9" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle4Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-45" Duration="0:0:9" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle4Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="-15" Duration="0:0:11" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle5Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-55" Duration="0:0:11" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle5Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="12" Duration="0:0:8" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle6Transform" Storyboard.TargetProperty="Y"
+                                                             From="0" To="-30" Duration="0:0:7" AutoReverse="True"/>
+                                            <DoubleAnimation Storyboard.TargetName="Particle6Transform" Storyboard.TargetProperty="X"
+                                                             From="0" To="-8" Duration="0:0:10" AutoReverse="True"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <StopStoryboard BeginStoryboardName="WideAnimationStoryboard"/>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Full-Tab Animated Background (no padding, covers entire tab area) -->
+        <ControlTemplate x:Key="AnimatedTabBackground" TargetType="ContentControl">
+            <Border CornerRadius="12" ClipToBounds="True">
+                <Grid>
+                    <!-- Animated Gradient Background -->
+                    <Rectangle RadiusX="12" RadiusY="12">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush x:Name="GradientFill" StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop x:Name="Stop1" Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                <GradientStop x:Name="Stop2" Color="{DynamicResource AccentMidGradient}" Offset="0.5"/>
+                                <GradientStop x:Name="Stop3" Color="{DynamicResource DarkerBg}" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <!-- Multiple Radial Glow Effects spread across tab -->
+                    <Ellipse x:Name="GlowPink1" Width="400" Height="300" Opacity="0.1"
+                             HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-100,-80,0,0">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <Ellipse x:Name="GlowPurple1" Width="350" Height="250" Opacity="0.08"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-80,-60">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Color="{DynamicResource PatreonPurple}" Offset="0"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <Ellipse x:Name="GlowPink2" Width="300" Height="200" Opacity="0.06"
+                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-50,-50,0">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <Ellipse x:Name="GlowPurple2" Width="280" Height="180" Opacity="0.07"
+                             HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-60,0,0,-40">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Color="{DynamicResource PatreonPurple}" Offset="0"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+
+                    <!-- Floating Particles spread across entire tab -->
+                    <Canvas IsHitTestVisible="False">
+                        <!-- Row 1 - Top -->
+                        <Ellipse Width="4" Height="4" Fill="{DynamicResource PinkBrush}" Opacity="0.4" Canvas.Left="50" Canvas.Top="40">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P1"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource SecondaryBrush}" Opacity="0.35" Canvas.Left="200" Canvas.Top="60">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P2"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="5" Height="5" Fill="{DynamicResource SecondaryBrush}" Opacity="0.3" Canvas.Left="400" Canvas.Top="30">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P3"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource PinkBrush}" Opacity="0.35" Canvas.Left="600" Canvas.Top="50">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P4"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="4" Height="4" Fill="{DynamicResource SecondaryBrush}" Opacity="0.3" Canvas.Left="800" Canvas.Top="40">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P5"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <!-- Row 2 - Middle -->
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource PinkBrush}" Opacity="0.4" Canvas.Left="100" Canvas.Top="150">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P6"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="4" Height="4" Fill="{DynamicResource SecondaryBrush}" Opacity="0.35" Canvas.Left="300" Canvas.Top="180">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P7"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource SecondaryBrush}" Opacity="0.3" Canvas.Left="500" Canvas.Top="160">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P8"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="5" Height="5" Fill="{DynamicResource PinkBrush}" Opacity="0.35" Canvas.Left="700" Canvas.Top="140">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P9"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <!-- Row 3 - Lower -->
+                        <Ellipse Width="4" Height="4" Fill="{DynamicResource SecondaryBrush}" Opacity="0.4" Canvas.Left="150" Canvas.Top="280">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P10"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource PinkBrush}" Opacity="0.3" Canvas.Left="350" Canvas.Top="300">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P11"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <Ellipse Width="4" Height="4" Fill="{DynamicResource SecondaryBrush}" Opacity="0.35" Canvas.Left="550" Canvas.Top="260">
+                            <Ellipse.RenderTransform><TranslateTransform x:Name="P12"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                    </Canvas>
+
+                    <!-- Content -->
+                    <ContentPresenter/>
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <!-- Start animation when visible, stop when hidden (saves resources) -->
+                <Trigger Property="IsVisible" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard x:Name="TabAnimationStoryboard">
+                            <Storyboard RepeatBehavior="Forever">
+                                <!-- Glow pulses -->
+                                <DoubleAnimation Storyboard.TargetName="GlowPink1" Storyboard.TargetProperty="Opacity"
+                                                 From="0.1" To="0.18" Duration="0:0:4" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="GlowPurple1" Storyboard.TargetProperty="Opacity"
+                                                 From="0.08" To="0.15" Duration="0:0:5" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="GlowPink2" Storyboard.TargetProperty="Opacity"
+                                                 From="0.06" To="0.12" Duration="0:0:6" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="GlowPurple2" Storyboard.TargetProperty="Opacity"
+                                                 From="0.07" To="0.14" Duration="0:0:4.5" AutoReverse="True"/>
+                                <!-- Particle animations - varied speeds and directions -->
+                                <DoubleAnimation Storyboard.TargetName="P1" Storyboard.TargetProperty="Y" From="0" To="-50" Duration="0:0:9" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P1" Storyboard.TargetProperty="X" From="0" To="20" Duration="0:0:7" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P2" Storyboard.TargetProperty="Y" From="0" To="-40" Duration="0:0:11" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P2" Storyboard.TargetProperty="X" From="0" To="-15" Duration="0:0:8" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P3" Storyboard.TargetProperty="Y" From="0" To="-60" Duration="0:0:13" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P3" Storyboard.TargetProperty="X" From="0" To="25" Duration="0:0:10" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P4" Storyboard.TargetProperty="Y" From="0" To="-45" Duration="0:0:10" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P4" Storyboard.TargetProperty="X" From="0" To="-18" Duration="0:0:12" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P5" Storyboard.TargetProperty="Y" From="0" To="-55" Duration="0:0:12" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P5" Storyboard.TargetProperty="X" From="0" To="15" Duration="0:0:9" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P6" Storyboard.TargetProperty="Y" From="0" To="-35" Duration="0:0:8" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P6" Storyboard.TargetProperty="X" From="0" To="-12" Duration="0:0:11" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P7" Storyboard.TargetProperty="Y" From="0" To="-50" Duration="0:0:14" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P7" Storyboard.TargetProperty="X" From="0" To="22" Duration="0:0:10" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P8" Storyboard.TargetProperty="Y" From="0" To="-40" Duration="0:0:10" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P8" Storyboard.TargetProperty="X" From="0" To="-20" Duration="0:0:13" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P9" Storyboard.TargetProperty="Y" From="0" To="-55" Duration="0:0:11" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P9" Storyboard.TargetProperty="X" From="0" To="18" Duration="0:0:8" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P10" Storyboard.TargetProperty="Y" From="0" To="-45" Duration="0:0:9" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P10" Storyboard.TargetProperty="X" From="0" To="-16" Duration="0:0:12" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P11" Storyboard.TargetProperty="Y" From="0" To="-35" Duration="0:0:12" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P11" Storyboard.TargetProperty="X" From="0" To="14" Duration="0:0:9" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P12" Storyboard.TargetProperty="Y" From="0" To="-50" Duration="0:0:10" AutoReverse="True"/>
+                                <DoubleAnimation Storyboard.TargetName="P12" Storyboard.TargetProperty="X" From="0" To="-22" Duration="0:0:14" AutoReverse="True"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <StopStoryboard BeginStoryboardName="TabAnimationStoryboard"/>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Custom ScrollBar Style for Skill Tree (Larger horizontal scrollbar) -->
+        <Style x:Key="SkillTreeScrollBarStyle" TargetType="ScrollBar">
+            <Setter Property="Background" Value="{DynamicResource DarkerBgBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+            <Style.Triggers>
+                <!-- Horizontal scrollbar -->
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="20"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ScrollBar">
+                                <Grid>
+                                    <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                        <Track.Thumb>
+                                            <Thumb>
+                                                <Thumb.Style>
+                                                    <Style TargetType="Thumb">
+                                                        <Setter Property="Background" Value="{DynamicResource PinkBrush}"/>
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="Thumb">
+                                                                    <Border Background="{TemplateBinding Background}"
+                                                                            CornerRadius="8"
+                                                                            Margin="2"/>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Background" Value="#FF85C4"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsDragging" Value="True">
+                                                                <Setter Property="Background" Value="#FF4D9E"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Thumb.Style>
+                                            </Thumb>
+                                        </Track.Thumb>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ScrollViewer Style for Skill Tree -->
+        <Style x:Key="SkillTreeScrollViewerStyle" TargetType="ScrollViewer">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Row="0"/>
+                            <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="1"
+                                      Orientation="Horizontal"
+                                      Style="{StaticResource SkillTreeScrollBarStyle}"
+                                      Value="{TemplateBinding HorizontalOffset}"
+                                      Maximum="{TemplateBinding ScrollableWidth}"
+                                      ViewportSize="{TemplateBinding ViewportWidth}"
+                                      Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Default ComboBoxItem style: black text on dropdown so items are readable -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="Black"/>
+        </Style>
+
+        <!-- Dark theme ComboBox style for code-behind usage -->
+        <Style x:Key="DarkComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{DynamicResource PanelBgBrush}" BorderBrush="#3A3A5C" BorderThickness="1" CornerRadius="3" Cursor="Hand">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="16"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="1" Fill="#B0B0B0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      Data="M 0 0 L 3.5 3.5 L 7 0 Z"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="6,3,18,3" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border Background="{DynamicResource PanelBgBrush}" BorderBrush="#3A3A5C" BorderThickness="1" CornerRadius="3" Margin="0,1,0,0"
+                                        MinWidth="{TemplateBinding ActualWidth}">
+                                    <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="Background" Value="{DynamicResource PanelBgBrush}"/>
+                        <Setter Property="Padding" Value="6,4"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PinkBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Exclusives Section Expander Style -->
+        <!-- Reusable collapsible card: gradient-border chrome + animated chevron + left accent strip.
+             Used by the Patreon Exclusives tab and the Companion accordions. Defaults to expanded;
+             set IsExpanded="False" per-instance for collapsed-by-default sections. -->
+        <Style x:Key="CollapsibleCard" TargetType="Expander">
+            <Setter Property="IsExpanded" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border CornerRadius="10" Margin="0,0,0,10" BorderThickness="1" ClipToBounds="True">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                    <GradientStop Color="#252548" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.BorderBrush>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                                    <GradientStop Color="{DynamicResource PatreonPurple}" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.BorderBrush>
+                            <Border.Effect>
+                                <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="15" ShadowDepth="0" Opacity="0.15"/>
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Header (clickable) -->
+                                <ToggleButton Grid.Row="0" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                              Cursor="Hand">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent" Padding="12,10">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="3"/>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <!-- Left accent strip -->
+                                                    <Rectangle Grid.Column="0" RadiusX="1.5" RadiusY="1.5">
+                                                        <Rectangle.Fill>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                                <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
+                                                                <GradientStop Color="{DynamicResource PatreonPurple}" Offset="1"/>
+                                                            </LinearGradientBrush>
+                                                        </Rectangle.Fill>
+                                                    </Rectangle>
+                                                    <!-- Header content -->
+                                                    <ContentPresenter Grid.Column="2" Content="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}"
+                                                                      VerticalAlignment="Center"/>
+                                                    <!-- Chevron -->
+                                                    <TextBlock x:Name="Chevron" Grid.Column="3" Text="▸" Foreground="{DynamicResource PinkBrush}" FontSize="14"
+                                                               FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,4,0"
+                                                               RenderTransformOrigin="0.5,0.5">
+                                                        <TextBlock.RenderTransform>
+                                                            <RotateTransform x:Name="ChevronRotate" Angle="0"/>
+                                                        </TextBlock.RenderTransform>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Trigger.EnterActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetName="ChevronRotate" Storyboard.TargetProperty="Angle"
+                                                                                 To="90" Duration="0:0:0.2"/>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.EnterActions>
+                                                    <Trigger.ExitActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetName="ChevronRotate" Storyboard.TargetProperty="Angle"
+                                                                                 To="0" Duration="0:0:0.2"/>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.ExitActions>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" TargetName="Chevron" Value="Transparent"/>
+                                                    <Setter Property="Foreground" TargetName="Chevron" Value="White"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+
+                                <!-- Content -->
+                                <ContentPresenter x:Name="ExpanderContent" Grid.Row="1" Margin="15,0,15,15"
+                                                  Visibility="Collapsed"/>
+                            </Grid>
+                            </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpanderContent" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+        <!-- ════════════════════════════════════════════════════════════════
+             Emote picker (remote-control tab). See MainWindow.xaml.cs handlers:
+             BtnEmotePreset_Click, BtnEmoteCustomSend_Click, BtnEmoteEdit_Click.
+             Watermark uses helpers:EmoteHelper attached properties + the
+             HintOrPlaceholderConverter declared below.
+             ════════════════════════════════════════════════════════════════ -->
+        <helpers:HintOrPlaceholderConverter x:Key="HintOrPlaceholderConverter"/>
+        <helpers:EmojiToImageSourceConverter x:Key="EmojiToImageSource"/>
+        <helpers:EmojiFallbackVisibilityConverter x:Key="EmojiFallbackVisibility"/>
+
+        <!-- Circular preset button: 44x44, emoji inside, pink-on-surface. -->
+        <Style x:Key="EmoteCircleButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Background" Value="#252542"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="22">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#33335A"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#3F3F66"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Big preset circle for the splash-overlay picker (72x72 vs the small 44x44).
+             Same hover/press behavior as EmoteCircleButtonStyle; only sizing differs. -->
+        <Style x:Key="EmoteCircleButtonBigStyle" TargetType="Button">
+            <Setter Property="Width" Value="72"/>
+            <Setter Property="Height" Value="72"/>
+            <Setter Property="Background" Value="#252542"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="36">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#33335A"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#3F3F66"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Small pencil overlay on top-right of each preset slot. -->
+        <Style x:Key="EmoteEditOverlayStyle" TargetType="Button">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Background" Value="#3A3A55"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="9">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource PinkBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Square badge matching preset-circle size; visual anchor for the custom slot. -->
+        <Style x:Key="EmoteCustomBadgeStyle" TargetType="Border">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Background" Value="#252542"/>
+            <Setter Property="BorderBrush" Value="#3A3A55"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="22"/>
+        </Style>
+
+        <!-- Custom-text TextBox with dynamic watermark: ghost of last-sent text
+             when EmoteHelper.LastSentEmoteHint is non-empty, else the placeholder
+             from EmoteHelper.PlaceholderText. Both are attached properties; the
+             converter picks the first non-empty. Watermark is collapsed once the
+             TextBox has any text. -->
+        <Style x:Key="EmoteCustomTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#252542"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3A3A55"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="MaxLength" Value="60"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Grid>
+                            <Border x:Name="bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="6">
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Padding="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"/>
+                            </Border>
+                            <!-- Default Collapsed so the grey last-sent ghost doesn't sit on
+                                 top of text the user is typing (#289). The empty-text trigger
+                                 below re-shows it; a template-child attribute is lower
+                                 precedence than ControlTemplate.Triggers, so that still works. -->
+                            <TextBlock x:Name="WatermarkText"
+                                       Visibility="Collapsed"
+                                       Foreground="#5A5A75"
+                                       FontStyle="Italic"
+                                       IsHitTestVisible="False"
+                                       Padding="{TemplateBinding Padding}"
+                                       VerticalAlignment="Center">
+                                <TextBlock.Text>
+                                    <MultiBinding Converter="{StaticResource HintOrPlaceholderConverter}">
+                                        <Binding Path="(helpers:EmoteHelper.LastSentEmoteHint)" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                        <Binding Path="(helpers:EmoteHelper.PlaceholderText)" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter TargetName="WatermarkText" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Text.Length}" Value="0">
+                                <Setter TargetName="WatermarkText" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+</ResourceDictionary>

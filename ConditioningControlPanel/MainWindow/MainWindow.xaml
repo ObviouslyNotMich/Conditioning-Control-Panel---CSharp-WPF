@@ -1,0 +1,1646 @@
+<Window x:Class="ConditioningControlPanel.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:helpers="clr-namespace:ConditioningControlPanel.Helpers"
+        xmlns:features="clr-namespace:ConditioningControlPanel.Features"
+        xmlns:loc="clr-namespace:ConditioningControlPanel.Localization"
+        xmlns:local="clr-namespace:ConditioningControlPanel"
+        xmlns:views="clr-namespace:ConditioningControlPanel.Views.Tabs"
+        Title="Conditioning Control Panel"
+        Height="943" Width="1385"
+        MinHeight="620" MinWidth="978"
+        Background="{DynamicResource DarkerBgBrush}"
+        WindowStartupLocation="Manual"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        ResizeMode="CanResizeWithGrip"
+        AllowDrop="True"
+        Drop="Window_Drop"
+        DragEnter="Window_DragEnter"
+        DragLeave="Window_DragLeave"
+        DragOver="Window_DragOver"
+        FontFamily="Segoe UI">
+
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static local:AvatarTubeWindow.OpenChatCommand}" Executed="OpenAvatarChat_Executed"/>
+    </Window.CommandBindings>
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" 
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- Shared template for expandable icon buttons -->
+        <ControlTemplate x:Key="ExpandableIconTemplate" TargetType="Button">
+            <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6" Padding="8,6" MinWidth="42">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock x:Name="IconText" Text="{TemplateBinding Content}"
+                               FontSize="{TemplateBinding FontSize}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LabelText" Text="{TemplateBinding Tag}"
+                               FontSize="12" FontWeight="Bold" VerticalAlignment="Center"
+                               Margin="0" Visibility="Collapsed" Opacity="1"/>
+                </StackPanel>
+            </Border>
+        </ControlTemplate>
+
+        <!-- Base style with shared behavior (animated Width handled in code-behind) -->
+        <Style x:Key="ExpandableIconButtonBase" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="MinWidth" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Template" Value="{StaticResource ExpandableIconTemplate}"/>
+            <EventSetter Event="MouseEnter" Handler="ExpandableIcon_MouseEnter"/>
+            <EventSetter Event="MouseLeave" Handler="ExpandableIcon_MouseLeave"/>
+        </Style>
+
+        <!-- Default (pink-outline) variant -->
+        <Style x:Key="ExpandableIconButton" TargetType="Button" BasedOn="{StaticResource ExpandableIconButtonBase}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Active (pink filled) variant -->
+        <Style x:Key="ExpandableIconButtonActive" TargetType="Button" BasedOn="{StaticResource ExpandableIconButtonBase}">
+            <Setter Property="Background" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="White"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource PinkButtonHoveredBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Patreon (purple) variant -->
+        <Style x:Key="ExpandableIconButtonPatreon" TargetType="Button" BasedOn="{StaticResource ExpandableIconButtonBase}">
+            <Setter Property="Background" Value="{DynamicResource SecondaryBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PatreonLightPurpleBrush}"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource PatreonDarkPurpleBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <!-- Root grid allows browser fullscreen overlay without reparenting WebView across HWNDs -->
+    <Grid x:Name="RootGrid">
+    <!-- Viewbox scales all content proportionally with window size -->
+    <Viewbox Stretch="Fill">
+        <!-- Design canvas at reference size - wider to fit all header buttons -->
+        <Grid Width="1405" Height="901">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar -->
+        <Border x:Name="TitleBarBorder" Grid.Row="0" Background="{DynamicResource PinkBrush}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Icon and Title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                           Source="{Binding Source='💗', Converter={StaticResource EmojiToImageSource}}"/>
+                    <TextBlock x:Name="TxtTitleBarVersion" Text="{loc:Str app_title}" Foreground="White" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Title-bar status pills (right-aligned, visible from every tab):
+                     directory-listing status + camera-active indicator. -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+
+                    <!-- Directory listing status — Listed / Private only / Claimed.
+                         Visible only while a remote-control session is active. Text,
+                         dot colour and tooltip are set in UpdateDirectoryListingStatus(). -->
+                    <Border x:Name="DirectoryStatusPill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#2E2E48" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="DirectoryStatusDot" Width="8" Height="8"
+                                     Fill="#B47BFF" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtDirectoryStatus" Text="Private only"
+                                       Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Camera-active indicator — visible whenever WebcamTrackingService.IsRunning is true.
+                         Click to stop tracking. -->
+                    <Border x:Name="WebcamActivePill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#882B2B" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="WebcamActivePill_Click"
+                            ToolTip="Webcam tracking is active. Click to stop.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="#FF4444" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#FF4444" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Text="Camera active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Window Control Buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="BtnTitleBarBugReport" Content="🐛" Width="46" Height="36"
+                            Click="BtnReportBug_Click" Style="{StaticResource WindowControlButton}"
+                            ToolTip="{loc:Str btn_report_bug}" FontSize="14"/>
+                    <Button x:Name="BtnMinimize" Content="─" Width="46" Height="36"
+                            Click="BtnMinimize_Click" Style="{StaticResource WindowControlButton}"/>
+                    <Button x:Name="BtnMaximize" Content="☐" Width="46" Height="36" 
+                            Click="BtnMaximize_Click" Style="{StaticResource WindowControlButton}"/>
+                    <Button x:Name="BtnClose" Content="✕" Width="46" Height="36" 
+                            Click="BtnClose_Click" Style="{StaticResource WindowCloseButton}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Header Bar - Row 1 -->
+        <Border Grid.Row="1" Background="{StaticResource PanelBgBrush}" Padding="15,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Title + Player Title + App Name + Version -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- v6.0 Mod Switcher: ComboBox + gear button for management -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <ComboBox x:Name="ModSelectorCombo"
+                                  Style="{StaticResource DarkComboBoxStyle}"
+                                  ItemsSource="{Binding AvailableMods, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  SelectedValuePath="Id"
+                                  SelectionChanged="ModSelectorCombo_SelectionChanged"
+                                  MinWidth="100" Height="22" VerticalAlignment="Center"
+                                  FontSize="11" FontWeight="SemiBold"
+                                  ToolTip="{loc:Str tooltip_switch_mod}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="8" Height="8" CornerRadius="4" Margin="0,0,8,0"
+                                                Background="{Binding AccentBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name}" Foreground="White" VerticalAlignment="Center" FontSize="11"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button x:Name="BtnManageMods" Click="BtnManageMods_Click"
+                                ToolTip="{loc:Str tooltip_manage_mods}"
+                                Margin="4,0,0,0" Width="22" Height="22"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand">
+                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Button>
+                    </StackPanel>
+                    <TextBlock x:Name="TxtPlayerTitle" Text="{loc:Str label_basic_subject}" Foreground="{DynamicResource PinkBrush}"
+                               FontSize="18" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"
+                               MaxWidth="200" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding ElementName=TxtPlayerTitle, Path=Text}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.6"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <Border Background="{DynamicResource PinkBrush}" CornerRadius="12" Padding="10,4" Margin="0,0,20,0">
+                        <TextBlock x:Name="TxtLevel" Text="{loc:Str label_lvl_1}" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                    </Border>
+                    <TextBlock x:Name="TxtHeaderVersion" Text="" Foreground="{DynamicResource PinkBrush}" FontSize="10" FontWeight="Normal"
+                               VerticalAlignment="Bottom" Margin="4,0,0,3"/>
+                    <!-- Streak Fire Icon (unlocked by Good Girl Streak skill) -->
+                    <Border x:Name="StreakFirePill" VerticalAlignment="Center"
+                            Margin="10,0,0,0" Visibility="Collapsed" CornerRadius="11" Padding="7,4"
+                            Background="#1E1232" BorderBrush="#5C3D6E" BorderThickness="1"
+                            ToolTip="{loc:Str tooltip_daily_login_streak_good_girl_streak_skill}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Flame vector icon -->
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Path Fill="#C47DAA"
+                                      Data="M8,1 C8,1 2.5,6.5 2.5,10 C2.5,13 5,15.5 8,15.5 C11,15.5 13.5,13 13.5,10 C13.5,6.5 8,1 8,1 Z M8,13.5 C6,13.5 4.5,12 4.5,10 C4.5,8 7,5 8,3.8 C9,5 11.5,8 11.5,10 C11.5,12 10,13.5 8,13.5 Z"/>
+                            </Viewbox>
+                            <TextBlock x:Name="TxtStreakFireCount" Text="0" Foreground="#C9A0D0" FontSize="13"
+                                       FontWeight="Bold" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                            <!-- Shield vector icon -->
+                            <Viewbox x:Name="TxtStreakShieldIcon" Width="12" Height="12"
+                                     VerticalAlignment="Center" Margin="5,0,0,0" Visibility="Collapsed"
+                                     ToolTip="{loc:Str tooltip_streak_shield_available_protects_your_streak}">
+                                <Path Fill="#8B7BA0"
+                                      Data="M8,1 L2,4 V9.5 C2,13 5,15.5 8,17 C11,15.5 14,13 14,9.5 V4 Z M8,15 C5.8,13.8 4,11.8 4,9.5 V5.2 L8,3 L12,5.2 V9.5 C12,11.8 10.2,13.8 8,15 Z"/>
+                            </Viewbox>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Row 1 Tab Buttons: Settings, Presets, Progression, Assets -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BtnSettings" Tag="Settings" Style="{StaticResource TabButtonActivePrimary}"
+                            Margin="3,0" Click="BtnSettings_Click" ToolTip="{loc:Str tooltip_dashboard}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='📊', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_dashboard}" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnPresets" Tag="Presets" Style="{StaticResource TabButton}"
+                            Margin="3,0" Click="BtnPresets_Click" ToolTip="{loc:Str tooltip_presets_sessions}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='📋', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_presets}" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- BtnProgression removed in velvet-mosaic phase 6 — progression features
+                         are now cards on the main Dashboard instead of a separate tab. -->
+                    <Button x:Name="BtnQuests" Tag="Quests" Style="{StaticResource TabButton}"
+                            Margin="3,0" Click="BtnQuests_Click" ToolTip="{loc:Str tooltip_daily_weekly_quests}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='📜', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_quests}" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnEnhancements" Tag="Enhancements" Style="{StaticResource TabButton}"
+                            Margin="3,0" Click="BtnEnhancements_Click" ToolTip="{loc:Str tooltip_enhancement_tree}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='✨', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_enhancements}" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnDeeper" Tag="Deeper" Style="{StaticResource TabButtonDeeper}"
+                            Margin="3,0" Click="BtnDeeper_Click" ToolTip="{loc:Str tooltip_deeper}"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Button.RenderTransform>
+                            <ScaleTransform x:Name="BtnDeeperScale" ScaleX="1" ScaleY="1"/>
+                        </Button.RenderTransform>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='🌊', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_deeper}" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- SP5 layer 3: Available Subjects directory tab. Free-tier
+                         (controller side of Remote Control). NeonPurple accent. -->
+                    <Button x:Name="BtnAvailableSubjects" Tag="AvailableSubjects"
+                            Style="{StaticResource TabButtonNeon}"
+                            Margin="3,0" Click="BtnAvailableSubjects_Click"
+                            ToolTip="{loc:Str tooltip_available_subjects}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='🛰️', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_available_subjects}" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOpenAssetsTop" Tag="Assets" Style="{StaticResource TabButton}"
+                            Margin="3,0" Click="BtnAssets_Click" ToolTip="{loc:Str tooltip_assets_packs}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='📁', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_assets}" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Right side: Latest Version Button -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ComboBox x:Name="CmbPresets" Width="160" Margin="0,0,10,0" Visibility="Collapsed"
+                              SelectionChanged="CmbPresets_SelectionChanged"
+                              ToolTip="{loc:Str tooltip_select_a_preset_configuration}">
+                        <ComboBox.Style>
+                            <Style TargetType="ComboBox">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Setter Property="Padding" Value="8,6"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ComboBox">
+                                            <Grid>
+                                                <ToggleButton x:Name="ToggleButton"
+                                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                              Focusable="False" ClickMode="Press">
+                                                    <ToggleButton.Template>
+                                                        <ControlTemplate TargetType="ToggleButton">
+                                                            <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="{DynamicResource PinkBrush}"
+                                                                    BorderThickness="1" CornerRadius="4" Cursor="Hand">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="20"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Path Grid.Column="1" Fill="#E0E0E0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                          Data="M 0 0 L 4 4 L 8 0 Z"/>
+                                                                </Grid>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </ToggleButton.Template>
+                                                </ToggleButton>
+                                                <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                  Margin="8,6,25,6" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                    <ContentPresenter.Resources>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+                                                        </Style>
+                                                    </ContentPresenter.Resources>
+                                                </ContentPresenter>
+                                                <TextBlock x:Name="Watermark" Text="{loc:Str label_preset}" Foreground="{DynamicResource TextMutedBrush}"
+                                                           Margin="8,6,25,6" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                           Visibility="Collapsed"/>
+                                                <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                       Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                                                       PopupAnimation="Slide">
+                                                    <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="{DynamicResource PinkBrush}"
+                                                            BorderThickness="1" CornerRadius="4" Margin="0,2,0,0"
+                                                            MinWidth="{TemplateBinding ActualWidth}">
+                                                        <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                                                            <ItemsPresenter/>
+                                                        </ScrollViewer>
+                                                    </Border>
+                                                </Popup>
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="SelectedItem" Value="{x:Null}">
+                                                    <Setter TargetName="Watermark" Property="Visibility" Value="Visible"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ComboBox.Style>
+                        <ComboBox.ItemContainerStyle>
+                            <Style TargetType="ComboBoxItem">
+                                <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+                                <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+                                <Setter Property="Padding" Value="8,6"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ComboBoxItem">
+                                            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource PinkBrush}"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ComboBox.ItemContainerStyle>
+                    </ComboBox>
+                    <!-- Language Pill -->
+                    <ComboBox x:Name="CmbLanguagePill" Width="90" Margin="0,0,10,0"
+                              SelectionChanged="CmbLanguagePill_SelectionChanged"
+                              ToolTip="{loc:Str tooltip_change_language}">
+                        <ComboBox.Style>
+                            <Style TargetType="ComboBox">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+                                <Setter Property="BorderBrush" Value="#3D3D60"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="FontSize" Value="12"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ComboBox">
+                                            <Grid>
+                                                <ToggleButton x:Name="ToggleButton"
+                                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                              Focusable="False" ClickMode="Press">
+                                                    <ToggleButton.Template>
+                                                        <ControlTemplate TargetType="ToggleButton">
+                                                            <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#3D3D60"
+                                                                    BorderThickness="1" CornerRadius="4" Cursor="Hand">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="16"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Path Grid.Column="1" Fill="#808080" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                          Data="M 0 0 L 3 3 L 6 0 Z"/>
+                                                                </Grid>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </ToggleButton.Template>
+                                                </ToggleButton>
+                                                <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                  Margin="6,4,18,4" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                    <ContentPresenter.Resources>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+                                                        </Style>
+                                                    </ContentPresenter.Resources>
+                                                </ContentPresenter>
+                                                <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                       Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                                                       PopupAnimation="Slide">
+                                                    <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#3D3D60"
+                                                            BorderThickness="1" CornerRadius="4" Margin="0,2,0,0"
+                                                            MinWidth="{TemplateBinding ActualWidth}">
+                                                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
+                                                            <ItemsPresenter/>
+                                                        </ScrollViewer>
+                                                    </Border>
+                                                </Popup>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ComboBox.Style>
+                        <ComboBox.ItemContainerStyle>
+                            <Style TargetType="ComboBoxItem">
+                                <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+                                <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ComboBoxItem">
+                                            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource PinkBrush}"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ComboBox.ItemContainerStyle>
+                    </ComboBox>
+                    <Button x:Name="BtnUpdateAvailable" Content="{loc:Str btn_v6_1_4_is_out}"
+                            Click="BtnUpdateAvailable_Click" ToolTip="{loc:Str tooltip_v6_1_4_down_the_rabbit_hole}"
+                            FontSize="11" FontWeight="Bold" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#3D1A3D"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
+                                <Setter Property="MinWidth" Value="110"/>
+                                <Setter Property="Height" Value="32"/>
+                                <Setter Property="Padding" Value="12,6"/>
+                                <Setter Property="Tag" Value="NoUpdate"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="border" Background="{TemplateBinding Background}"
+                                                    CornerRadius="6" BorderThickness="1" BorderBrush="#3D3D60"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="border" Property="Background" Value="#2D2D50"/>
+                                                    <Setter TargetName="border" Property="BorderBrush" Value="#5D5D80"/>
+                                                </Trigger>
+                                                <Trigger Property="Tag" Value="UpdateAvailable">
+                                                    <Setter TargetName="border" Property="Background" Value="{DynamicResource DarkPinkBrush}"/>
+                                                    <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                                    <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                    <Setter Property="FontSize" Value="13"/>
+                                                </Trigger>
+                                                <!-- Server-controlled urgent update - bright red -->
+                                                <Trigger Property="Tag" Value="UrgentUpdate">
+                                                    <Setter TargetName="border" Property="Background" Value="#DC143C"/>
+                                                    <Setter TargetName="border" Property="BorderBrush" Value="#FF4444"/>
+                                                    <Setter TargetName="border" Property="BorderThickness" Value="3"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                    <Setter Property="FontSize" Value="12"/>
+                                                    <Setter Property="FontWeight" Value="ExtraBold"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Row 2: Banner + Second row buttons + Patreon Login -->
+        <Border Grid.Row="2" Background="{StaticResource PanelBgBrush}" Padding="10,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.85*"/>
+                    <ColumnDefinition Width="1.15*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Banner -->
+                <Border Grid.Column="0" Background="{DynamicResource SurfaceBgBrush}"
+                        BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="12,8" Margin="0,0,6,0">
+                    <Grid>
+                        <TextBlock x:Name="TxtBannerPrimary" Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="14" FontStyle="Italic"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   TextAlignment="Center" Opacity="1">
+                            <Run Text="{loc:Str label_if_you_love_the_project_please}"/>
+                            <Run Text="{loc:Str label_consider_supporting_it}" FontWeight="Bold"/>
+                            <Run Text=" "/>
+                            <Hyperlink NavigateUri="https://linktr.ee/CodeBambi" RequestNavigate="HandleHyperlinkClick">
+                                <Run Text="https://linktr.ee/CodeBambi"/>
+                            </Hyperlink>
+                        </TextBlock>
+                        <TextBlock x:Name="TxtBannerSecondary" Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="14" FontStyle="Italic"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   TextAlignment="Center" Opacity="0" IsHitTestVisible="False"
+                                   Text="{loc:Str login_welcome_back}"/>
+                        <TextBlock x:Name="TxtBannerTertiary" Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="14" FontStyle="Italic" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   TextAlignment="Center" Opacity="0" IsHitTestVisible="False">
+                            <Hyperlink NavigateUri="https://www.patreon.com/c/PlatinumPuppets" RequestNavigate="HandleHyperlinkClick">
+                                <Run Text="{loc:Str label_a_special_thanks_to_platinum_puppets_for_prov}"/>
+                            </Hyperlink>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+
+                <!-- Right side: Achievements, Leaderboard, Companion, Assets buttons + Patreon Login + Help -->
+                <Grid Grid.Column="1" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="1.1*"/>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="0.7*"/>
+                        <ColumnDefinition Width="1.2*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" x:Name="BtnAchievements" Tag="Achievements" Style="{StaticResource TabButton}"
+                            Margin="2,0" Click="BtnAchievements_Click" ToolTip="{loc:Str tab_achievements}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='🏆', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_achievements}" FontSize="10"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" x:Name="BtnLeaderboard" Tag="Leaderboard" Style="{StaticResource TabButton}"
+                            Margin="2,0" Click="BtnLeaderboard_Click" ToolTip="{loc:Str tab_leaderboard}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='📊', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_leaderboard}" FontSize="10"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="2" x:Name="BtnCompanion" Tag="Companion" Style="{StaticResource TabButton}"
+                            Margin="2,0" Click="BtnCompanion_Click" ToolTip="{loc:Str tooltip_companion_settings}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='🤖', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_companion}" FontSize="10"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="3" x:Name="BtnDiscordTab" Tag="Profile" Click="BtnDiscordTab_Click"
+                            ToolTip="{loc:Str tab_profile}" Cursor="Hand" Height="32" Margin="2,0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#5865F2"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="FontSize" Value="10"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="border" Background="{TemplateBinding Background}"
+                                                    CornerRadius="6" BorderThickness="2" BorderBrush="#4752C4"
+                                                    Padding="7,3">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="border" Property="Background" Value="#4752C4"/>
+                                                    <Setter TargetName="border" Property="BorderBrush" Value="#5865F2"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='👤', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_profile}" FontSize="10"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="4" x:Name="BtnLab" Tag="Lab" Style="{StaticResource TabButton}"
+                            Margin="2,0" Click="BtnLab_Click" ToolTip="{loc:Str tooltip_lab}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"
+                                   Source="{Binding Source='🧪', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str tab_lab}" FontSize="10"/>
+                        </StackPanel>
+                    </Button>
+                    <Grid Grid.Column="5">
+                        <Button x:Name="BtnPatreonExclusives" Tag="Patreon" Click="BtnPatreonExclusives_Click"
+                                MouseEnter="BtnPatreonExclusives_MouseEnter"
+                                MouseLeave="ExclusivesMenu_MouseLeave"
+                                ToolTip="{loc:Str tooltip_patreon_exclusives}" Cursor="Hand" Height="32" Margin="2,0">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="#FF424D"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="FontSize" Value="10"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" Background="{TemplateBinding Background}"
+                                                        CornerRadius="6" BorderThickness="2" BorderBrush="#E8363F"
+                                                        Padding="7,3">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#E8363F"/>
+                                                        <Setter TargetName="border" Property="BorderBrush" Value="#FF424D"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⭐" FontSize="10" Margin="0,0,3,0"/>
+                                <TextBlock Text="{loc:Str tab_exclusives}" FontSize="10"/>
+                            </StackPanel>
+                        </Button>
+                        <Popup x:Name="ExclusivesSubmenuPopup"
+                               PlacementTarget="{Binding ElementName=BtnPatreonExclusives}"
+                               Placement="Bottom" StaysOpen="True" AllowsTransparency="True"
+                               PopupAnimation="None"
+                               Closed="ExclusivesSubmenuPopup_Closed"
+                               MouseLeave="ExclusivesMenu_MouseLeave"
+                               MouseEnter="ExclusivesSubmenuPopup_MouseEnter">
+                            <!-- Outer transparent border bridges the visual gap between the
+                                 launcher button and the menu so the mouse doesn't fall through
+                                 dead space (which would otherwise fire MouseLeave on the popup). -->
+                            <Border Background="Transparent" Padding="0,4,0,0">
+                            <Border Background="#1A1A2E" BorderBrush="#FF69B4" BorderThickness="2"
+                                    CornerRadius="6" Padding="6" MinWidth="220">
+                                <StackPanel Orientation="Vertical">
+                                    <Button x:Name="BtnSubBlinkTrainer" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubBlinkTrainer_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeBlinkTrainer"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='💫', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock Text="{loc:Str tab_blink_trainer}" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                    <Button x:Name="BtnSubRemoteControl" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubRemoteControl_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeRemoteControl"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='🎮', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock Text="{loc:Str tab_remote_control}" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                    <Button x:Name="BtnSubBambiTakeover" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubBambiTakeover_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeBambiTakeover"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='🤖', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock x:Name="TxtSubBambiTakeover" Text="{loc:Str tab_takeover}" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                    <Button x:Name="BtnSubHaptics" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubHaptics_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeHaptics"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='💜', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock Text="{loc:Str tab_haptics}" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                    <Button x:Name="BtnSubAwareness" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubAwareness_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeAwareness"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='👁', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock Text="{loc:Str tab_awareness}" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                    <Button x:Name="BtnSubLockdown" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubLockdown_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeLockdown"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='🔒', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock Text="{loc:Str tab_lockdown_mode}" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <Button x:Name="BtnMainHelp" Grid.Column="6" Content="?" Click="BtnMainHelp_Click"
+                            Width="26" Height="26" ToolTip="{loc:Str tooltip_how_to_use}" Margin="3,0">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{DynamicResource PinkBrush}" CornerRadius="13" Width="26" Height="26" Cursor="Hand">
+                                    <TextBlock Text="?" Foreground="White" FontWeight="Bold" FontSize="16"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                    <Button x:Name="BtnMainBugReport" Grid.Column="7" Click="BtnReportBug_Click"
+                            Width="26" Height="26" ToolTip="{loc:Str btn_report_bug}" Margin="3,0">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="#3D3D60" CornerRadius="13" Width="26" Height="26" Cursor="Hand">
+                                    <Image Width="15" Height="15"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Source="{Binding Source='🐛', Converter={StaticResource EmojiToImageSource}}"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- XP Progress Bar + Stat Pills - Row 3 -->
+        <Grid Grid.Row="3" Margin="15,10,15,5">
+            <!-- Main content with XP bar and stat pills -->
+            <Grid x:Name="XPBarContent">
+                <Grid.ColumnDefinitions>
+                    <!-- XP Bar section (fills remaining space) -->
+                    <ColumnDefinition Width="*"/>
+                    <!-- Bonuses + Stat Pills (shrinks to fit content) -->
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT SIDE: XP Bar -->
+                <Grid Grid.Column="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtLevelLabel" Grid.Column="0" Text="{loc:Str label_lvl_1_2}" Foreground="{DynamicResource PinkBrush}"
+                               FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Border Grid.Column="1" Background="{DynamicResource PanelAccentBrush}" CornerRadius="4" Height="8" Margin="0,0,10,0">
+                        <Grid>
+                            <Border x:Name="XPBar" Background="{DynamicResource PinkBrush}" CornerRadius="4"
+                                    HorizontalAlignment="Left" Width="100"/>
+                            <Border x:Name="XPBarFlashOverlay" Background="{DynamicResource PinkBrush}" CornerRadius="4"
+                                    HorizontalAlignment="Left"
+                                    Width="{Binding Width, ElementName=XPBar}"
+                                    Opacity="0" IsHitTestVisible="False">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.95"/>
+                                </Border.Effect>
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="TxtXP" Grid.Column="2" Text="{loc:Str label_0_70_xp}" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                </Grid>
+
+                <!-- RIGHT SIDE: Active Bonuses + Stat Pills -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- Active XP Bonus Chips (dynamically populated) -->
+                    <StackPanel x:Name="XPBarBonusList" Orientation="Horizontal"/>
+
+                    <!-- Pink Hours Stat: Total Conditioning Time (Unlocks at 5 points) -->
+                    <Border x:Name="PillConditioningTime" Background="#2A2A4A" CornerRadius="10" Padding="10,4" Margin="0,0,8,0"
+                            Visibility="Collapsed" ToolTip="{loc:Str tooltip_total_conditioning_time_pink_hours_skill}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⏱️" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBlock x:Name="TxtPillConditioningTime" Text="{loc:Str label_0h_0m}" Foreground="#B0B0B0" FontSize="11" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Hive Mind Stat: Online Users (Unlocks at 60 points total) -->
+                    <Border x:Name="PillOnlineUsers" Background="#2A2A4A" CornerRadius="10" Padding="10,4" Margin="0,0,8,0"
+                            Visibility="Collapsed" ToolTip="{loc:Str tooltip_bimbos_online_now_hive_mind_skill}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   Source="{Binding Source='👯‍♀️', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock x:Name="TxtPillOnlineUsers" Text="0" Foreground="#00FF88" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Popular Girl Stat: Rank Percentile (Unlocks at 130 points total) -->
+                    <Border x:Name="PillRankPercentile" Background="#2A2A4A" CornerRadius="10" Padding="10,4"
+                            Visibility="Collapsed" ToolTip="{loc:Str tooltip_your_rank_percentile_popular_girl_skill}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   Source="{Binding Source='👑', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock x:Name="TxtPillRankPercentile" Text="{loc:Str label_top_0}" Foreground="#FFD700" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- Login overlay - shown when not logged in -->
+            <Border x:Name="XPBarLoginOverlay" Background="#CC1A1A2E" CornerRadius="4" Visibility="Collapsed">
+                <TextBlock Text="{loc:Str label_login_with_discord_or_patreon_to_track_your_x}"
+                           Foreground="{DynamicResource PinkBrush}" FontSize="11" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Opacity="0.9"/>
+            </Border>
+        </Grid>
+
+        <!-- Main Content - Settings Tab -->
+        <views:SettingsTabView x:Name="SettingsTab" Grid.Row="4" Margin="10,5,10,2" />
+
+
+        <!-- Presets Tab (Hidden by default) -->
+        <views:PresetsTabView x:Name="PresetsTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Progression Tab (Hidden by default) -->
+        <views:ProgressionTabView x:Name="ProgressionTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Quests Tab -->
+        <views:QuestsTabView x:Name="QuestsTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Achievements Tab -->
+        <views:AchievementsTabView x:Name="AchievementsTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+        <!-- Companion Tab (v5.9 - Hero + AI Brain redesign) -->
+        <views:CompanionTabView x:Name="CompanionTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Patreon Exclusives Tab -->
+        <views:PatreonTabView x:Name="PatreonTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Profile Tab -->
+        <views:DiscordTabView x:Name="DiscordTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+        <!-- Lab Tab -->
+        <views:LabTabView x:Name="LabTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Leaderboard Tab -->
+        <views:LeaderboardTabView x:Name="LeaderboardTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+        <!-- Assets & Packs Tab -->
+        <views:AssetsTabView x:Name="AssetsTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+        <!-- Enhancements Tab (Skill Tree) -->
+        <views:EnhancementsTabView x:Name="EnhancementsTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+        <!-- Deeper Tab — universal media enhancement system.
+             Mission 2 (hub redesign): single-column layout, unified library
+             list with virtualization, search + filter pills + sort dropdown
+             replace the two-column Library/Recent grid. -->
+        <!-- Drag-and-drop is handled by the window-wide Window_Drop system (media →
+             Play/Edit/Library prompt, *.ccpenh.json → library import) so the whole
+             tab is a uniform drop target. A tab-local AllowDrop handler here would
+             steal the bubbling events from the global overlay and only cover part of
+             the tab, so it's intentionally absent. -->
+        <views:DeeperTabView x:Name="DeeperTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Awareness Engine Tab -->
+        <views:AwarenessTabView x:Name="AwarenessTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Remote Control Tab — Patreon premium feature, full redesign with QR pairing -->
+        <views:RemoteControlTabView x:Name="RemoteControlTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- SP5 layer 3: Available Subjects directory tab. Controller side of
+             remote control. NeonPurple accent throughout. Free-tier; the
+             content is fetched per-poll from /v2/directory/list (X-Auth-Token
+             auth). Click Connect on a card → POST /v2/directory/claim → on
+             200, the returned session_url opens in the user's default browser
+             via Process.Start (one-click pairing URL with PIN in the hash
+             fragment, never logged or persisted on the desktop). -->
+        <views:AvailableSubjectsTabView x:Name="AvailableSubjectsTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Bambi Takeover Tab — Patreon premium feature, visible-but-locked for free users -->
+        <views:BambiTakeoverTabView x:Name="BambiTakeoverTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Haptics Tab — Patreon premium feature, visible-but-locked for free users -->
+        <views:HapticsTabView x:Name="HapticsTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Lockdown Mode Tab (graduated from Lab in v5.8.4) -->
+        <views:LockdownTabView x:Name="LockdownTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- Blink Trainer Tab — Patreon premium feature, flagship webcam experience.
+             Promoted from Lab Webcam Games card in v5.9.8. Phase A: scaffold + header only. -->
+        <views:BlinkTrainerTabView x:Name="BlinkTrainerTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+
+        <!-- Global Bottom Bar: Start / Save / Exit (Always visible) -->
+        <Border Grid.Row="5" Background="{StaticResource PanelBgBrush}" Margin="10,5,10,10" CornerRadius="10" Padding="15,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Status Text (overlaid on top of buttons, shown when running) -->
+                <TextBlock x:Name="TxtPresetsStatus" Grid.ColumnSpan="2"
+                           Text="" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
+                           HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,-20,0,0"/>
+
+                <!-- START Button (with session timer display) -->
+                <Grid Grid.Column="0" Margin="0,0,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="BtnStart" Grid.Column="0" Style="{StaticResource PinkButton}"
+                            Background="{DynamicResource AccentGradientBrush}"
+                            Height="50" FontSize="18" Click="BtnStart_Click"
+                            ToolTip="{loc:Str tooltip_start_stop_the_conditioning_engine}">
+                        <StackPanel x:Name="StartButtonContent" Orientation="Horizontal" Height="24" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtStartIcon" Text="▶" FontSize="16" Width="20" Margin="0,0,10,0" VerticalAlignment="Center" TextAlignment="Center"/>
+                            <TextBlock x:Name="TxtStartLabel" Text="{loc:Str label_start}" FontSize="18" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- Pause Button (visible only during sessions) -->
+                    <Button x:Name="BtnPauseSession" Grid.Column="1" Width="50" Height="50" Margin="5,0,0,0"
+                            Visibility="Collapsed" Click="BtnPauseSession_Click"
+                            ToolTip="{loc:Str tooltip_pause_session_100_xp_penalty_per_pause}">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#FFA500"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="FontSize" Value="20"/>
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock x:Name="TxtPauseIcon" Text="⏸" FontSize="20"/>
+                    </Button>
+                </Grid>
+                
+                <!-- Save / Exit (other half) -->
+                <Grid Grid.Column="1" Margin="8,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="{loc:Str btn_save_2}" Style="{StaticResource PinkButton}" 
+                            Height="50" FontSize="16" Margin="0,0,5,0" Click="BtnSave_Click"
+                            ToolTip="{loc:Str tooltip_save_all_settings_to_disk}"/>
+                    <Button Grid.Column="1" Content="{loc:Str btn_exit}" Height="50" FontSize="16" Margin="5,0,0,0" Click="BtnExit_Click"
+                            ToolTip="{loc:Str tooltip_exit_the_application_completely}">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#FF6B6B"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="20,10">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Remote Control Overlay (shown when controller is connected) -->
+        <Border x:Name="RemoteControlOverlay" Grid.Row="1" Grid.RowSpan="5" Panel.ZIndex="999" Visibility="Collapsed" Background="#E0000000" Opacity="0">
+            <Grid>
+                <!-- Command notification banner at top -->
+                <Border x:Name="RemoteCommandNotification" VerticalAlignment="Top" HorizontalAlignment="Center"
+                        Background="#2200FF88" CornerRadius="0,0,10,10" Padding="24,10" Margin="0,0,0,0" Opacity="0">
+                    <TextBlock x:Name="TxtRemoteCommand" Text="" Foreground="#00FF88" FontSize="16" FontWeight="SemiBold"
+                               HorizontalAlignment="Center"/>
+                </Border>
+
+                <!-- Center content -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Image Width="60" Height="60" HorizontalAlignment="Center" Margin="0,0,0,10"
+                           Source="{Binding Source='🎮', Converter={StaticResource EmojiToImageSource}}"/>
+                    <TextBlock Text="{loc:Str label_remote_controlled}" Foreground="#00FF88" FontSize="28" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="TxtOverlaySessionCode" Text="" Foreground="{DynamicResource TextMutedBrush}" FontSize="18"
+                               FontFamily="Consolas" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+
+                    <TextBlock x:Name="TxtRemoteOverlaySubtitle" Text="{loc:Str label_someone_else_is_controlling_your_app}" Foreground="#A0A0A0" FontSize="14"
+                               HorizontalAlignment="Center" Margin="0,0,0,24"/>
+
+                    <!-- Session info card — always visible -->
+                    <Border HorizontalAlignment="Center" Margin="0,0,0,24"
+                            Background="#18FFFFFF" CornerRadius="10" Padding="32,16" MinWidth="320">
+                        <Grid>
+                            <!-- Idle state: no session running -->
+                            <StackPanel x:Name="RemoteSessionIdle" HorizontalAlignment="Center">
+                                <Image Width="32" Height="32" HorizontalAlignment="Center" Margin="0,0,0,4"
+                                       Source="{Binding Source='📋', Converter={StaticResource EmojiToImageSource}}"/>
+                                <TextBlock Text="{loc:Str label_no_active_session}" Foreground="#606080" FontSize="14"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                            <!-- Active state: session name + timer -->
+                            <StackPanel x:Name="RemoteSessionActive" Visibility="Collapsed" HorizontalAlignment="Center">
+                                <helpers:EmojiTextBlock x:Name="TxtRemoteSessionName" Text="" Foreground="{DynamicResource PinkBrush}" FontSize="20" FontWeight="Bold"
+                                                        HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                <TextBlock x:Name="TxtRemoteSessionTime" Text="" Foreground="#FFFFFF" FontSize="28"
+                                           FontFamily="Consolas" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                                <TextBlock x:Name="TxtRemoteSessionPhase" Text="" Foreground="#A0A0B0" FontSize="13"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- ════════════════════════════════════════════════════════════════
+                         Big emote picker — only visible while the splash overlay is shown
+                         (i.e. an active controller session). The small picker in the
+                         remote-control tab body stays the source-of-truth for editing.
+                         Both bind to App.Settings.Current.RemoteEmotePresets so edits
+                         propagate via INotifyPropertyChanged on EmotePreset.
+                         The 3-above / 2-below split + ItemsSource for each row is wired
+                         in LoadSettings() via two ListCollectionView filters keyed on
+                         the item's index in the source list.
+                         ════════════════════════════════════════════════════════════════ -->
+                    <ItemsControl x:Name="LstEmotePresetsBigTop"
+                                  HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="10,0" HorizontalAlignment="Center" Width="110">
+                                    <Button Style="{StaticResource EmoteCircleButtonBigStyle}"
+                                            Tag="{Binding}"
+                                            Click="BtnEmotePresetBig_Click"
+                                            HorizontalAlignment="Center"
+                                            ToolTip="{Binding Text}">
+                                        <Grid>
+                                            <Image Width="40" Height="40"
+                                                   Source="{Binding Icon, Converter={StaticResource EmojiToImageSource}}"/>
+                                            <TextBlock Text="{Binding Icon}" FontSize="32"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Visibility="{Binding Icon, Converter={StaticResource EmojiFallbackVisibility}}"/>
+                                        </Grid>
+                                    </Button>
+                                    <TextBlock Text="{Binding Text}"
+                                               Foreground="White" FontSize="13"
+                                               HorizontalAlignment="Center" TextAlignment="Center"
+                                               TextWrapping="Wrap" MaxHeight="36"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="104" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- End Session button -->
+                    <Button Content="{loc:Str btn_end_session}" Click="BtnEndRemoteSession_Click" Cursor="Hand"
+                            Foreground="White" FontSize="15" FontWeight="SemiBold" Padding="32,12"
+                            HorizontalAlignment="Center">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="BtnBorder" Background="#CC3333" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#FF4444"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#AA2222"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Bottom row of presets (4-5) -->
+                    <ItemsControl x:Name="LstEmotePresetsBigBottom"
+                                  HorizontalAlignment="Center" Margin="0,16,0,12">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="10,0" HorizontalAlignment="Center" Width="110">
+                                    <Button Style="{StaticResource EmoteCircleButtonBigStyle}"
+                                            Tag="{Binding}"
+                                            Click="BtnEmotePresetBig_Click"
+                                            HorizontalAlignment="Center"
+                                            ToolTip="{Binding Text}">
+                                        <Grid>
+                                            <Image Width="40" Height="40"
+                                                   Source="{Binding Icon, Converter={StaticResource EmojiToImageSource}}"/>
+                                            <TextBlock Text="{Binding Icon}" FontSize="32"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Visibility="{Binding Icon, Converter={StaticResource EmojiFallbackVisibility}}"/>
+                                        </Grid>
+                                    </Button>
+                                    <TextBlock Text="{Binding Text}"
+                                               Foreground="White" FontSize="13"
+                                               HorizontalAlignment="Center" TextAlignment="Center"
+                                               TextWrapping="Wrap" MaxHeight="36"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="104" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Custom textbox row, centered, max width 400. Reuses
+                         EmoteCustomTextBoxStyle; bumped FontSize/Padding for the
+                         bigger surface. Watermark uses the same EmoteHelper
+                         attached properties — independent ghost state from the
+                         small picker because it's a different TextBox instance. -->
+                    <Grid HorizontalAlignment="Center" MaxWidth="400" Width="400">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" x:Name="TxtEmoteCustomBig"
+                                 Style="{StaticResource EmoteCustomTextBoxStyle}"
+                                 helpers:EmoteHelper.PlaceholderText="{loc:Str watermark_emote_custom}"
+                                 helpers:EmoteHelper.LastSentEmoteHint=""
+                                 FontSize="16" Padding="12,10"
+                                 Margin="0,0,8,0"
+                                 KeyDown="TxtEmoteCustomBig_KeyDown"/>
+                        <Button Grid.Column="1" x:Name="BtnEmoteCustomSendBig"
+                                Content="{loc:Str btn_emote_send}"
+                                Click="BtnEmoteCustomSendBig_Click"
+                                Background="{DynamicResource PinkBrush}" Foreground="White"
+                                FontWeight="Bold" Padding="20,10"
+                                BorderThickness="0" Cursor="Hand"/>
+                    </Grid>
+
+                    <TextBlock x:Name="TxtEmoteStatusBig" Text=""
+                               Foreground="#A0A0A0" FontSize="12"
+                               HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Global Drop Overlay (shown when dragging files anywhere) -->
+        <Border x:Name="GlobalDropOverlay" Grid.RowSpan="5" Visibility="Collapsed" Background="#D0000000" IsHitTestVisible="False">
+            <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="16" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="3"
+                    MaxWidth="450" MaxHeight="220" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Padding="40,30">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock x:Name="DropOverlayIcon" Text="📂" FontSize="48" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="DropOverlayTitle" Text="{loc:Str label_drop_to_import}" Foreground="{DynamicResource PinkBrush}" FontSize="20" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,15,0,5"/>
+                    <TextBlock x:Name="DropOverlaySubtitle" Text="{loc:Str label_images_videos_zips_folders}" Foreground="#909090" FontSize="14"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- Main App Tutorial Overlay -->
+        <Border x:Name="MainTutorialOverlay" Grid.RowSpan="5" Panel.ZIndex="1000" Visibility="Collapsed" Background="#E8000000">
+            <Grid>
+                <Border Background="Transparent" MouseLeftButtonDown="MainTutorial_Close"/>
+                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="12" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2"
+                        MaxWidth="700" MaxHeight="600" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Margin="40" MouseLeftButtonDown="MainTutorial_ContentClick">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Header -->
+                        <Border Grid.Row="0" Background="{DynamicResource SurfaceBgBrush}" CornerRadius="10,10,0,0" Padding="20,15">
+                            <Grid>
+                                <TextBlock Text="{loc:Str label_how_to_use_the_app}" Foreground="{DynamicResource PinkBrush}" FontSize="18" FontWeight="Bold"
+                                           HorizontalAlignment="Center"/>
+                                <Button Content="✕" Click="MainTutorial_Close" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Background="Transparent" Foreground="#888" FontSize="14" BorderThickness="0" Cursor="Hand"
+                                        Margin="0,-5,-5,0"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Tutorial Content -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,15">
+                            <StackPanel>
+                                <!-- Quick Tip -->
+                                <Border Background="#3A2542" CornerRadius="8" Padding="12" Margin="0,0,0,15" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0"
+                                               Source="{Binding Source='💡', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <TextBlock Text="{loc:Str label_hover_over_any_control_for_tooltips_click_a_g}"
+                                                   Foreground="#D0B0C0" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Getting Started -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='🚀', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_getting_started}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_quick_overview_of_the_basics_start_button_add}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialGettingStarted_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Settings Tab -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="⚙️" FontSize="20" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_settings_tab}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_flash_images_videos_subliminals_overlays_audi}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialSettings_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Presets Tab -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='💾', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_presets_sessions}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_save_configurations_run_timed_sessions_create}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialPresets_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Progression Tab -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='📊', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str tab_progression}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_xp_system_level_unlocks_scheduler_and_intensi}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialProgression_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Achievements Tab -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='🏆', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str tab_achievements}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_unlock_achievements_by_reaching_milestones_an}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialAchievements_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Companion Tab -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='💬', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_companion_settings_2}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_speech_bubbles_trigger_messages_and_ai_person}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialCompanion_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Patreon Tab -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='💎', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_patreon_exclusives}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_ai_chat_window_awareness_slut_mode_and_premiu}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialPatreon_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Awareness Engine -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='👁', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_awareness_engine}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_awareness_engine_desc}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialAwareness_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Avatar -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='💗', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_avatar_companion}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_interacting_detaching_resizing_evolution_stag}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialAvatar_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Modding Guide -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <helpers:EmojiTextBlock Grid.Column="0" Text="{loc:Str label_text_4}" FontSize="20" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str label_modding_guide}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str label_opens_the_mod_creator_with_a_step_by_step_wal}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_start_guide}" Click="BtnTutorialModding_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Report a Bug -->
+                                <Border Background="{DynamicResource SurfaceBgBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Image Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,12,0"
+                                               Source="{Binding Source='🐞', Converter={StaticResource EmojiToImageSource}}"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Str btn_report_bug}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{loc:Str bug_report_privacy_notice}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="{loc:Str btn_report_bug}" Click="BtnTutorialReportBug_Click"
+                                                Style="{StaticResource SmallPinkButton}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Pro Tips -->
+                                <Border Background="#3A2542" CornerRadius="8" Padding="12" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" Margin="0,8,0,0">
+                                    <StackPanel>
+                                        <helpers:EmojiTextBlock Text="{loc:Str label_pro_tips}" Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <TextBlock Foreground="#D0B0C0" FontSize="11" TextWrapping="Wrap">
+                                            <Run Text="•"/><Run Text="{loc:Str label_assets_images}" FontWeight="SemiBold"/><Run Text="{loc:Str label_add_your_flash_images_here}"/>
+                                        </TextBlock>
+                                        <TextBlock Foreground="#D0B0C0" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0">
+                                            <Run Text="•"/><Run Text="{loc:Str label_assets_videos}" FontWeight="SemiBold"/><Run Text="{loc:Str label_add_your_videos_here}"/>
+                                        </TextBlock>
+                                        <TextBlock Foreground="#D0B0C0" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0">
+                                            <Run Text="{loc:Str label_use_borderless_windowed_mode_in_games_for_bes}"/>
+                                        </TextBlock>
+                                        <TextBlock Foreground="#D0B0C0" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0">
+                                            <Run Text="{loc:Str label_right_click_on_features_for_additional_option}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Footer -->
+                        <Border Grid.Row="2" Background="{DynamicResource SurfaceBgBrush}" CornerRadius="0,0,10,10" Padding="20,15">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Content="{loc:Str btn_start_interactive_tutorial}" Click="BtnStartTutorial_Click" Margin="0,0,15,0"
+                                        Background="Transparent" Foreground="{DynamicResource PinkBrush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                                        Padding="20,10" FontWeight="SemiBold" Cursor="Hand">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="border" Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="border" Property="Background" Value="{DynamicResource TransparentPink20Brush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <Button Content="{loc:Str btn_got_it}" Style="{StaticResource PinkButton}"
+                                        Click="MainTutorial_Close" Padding="40,10"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+        </Grid>
+    </Viewbox>
+
+    <!-- Browser fullscreen overlay - sits outside Viewbox so WebView gets native resolution.
+         WebView stays within same Window HWND, avoiding DirectX swapchain recreation that causes HDR blinks. -->
+    <Grid x:Name="BrowserFullscreenOverlay" Background="Black" Visibility="Collapsed" Panel.ZIndex="9999"/>
+
+    <!-- In-app toast/banner host. No Background = empty area is click-through
+         (WPF rule: panels with unset/null Background do not hit-test on empty
+         pixels even with IsHitTestVisible=True, while individual toast Borders
+         have their own Background and capture their own clicks). Panel.ZIndex
+         sits below the browser overlay so a fullscreen browser still covers
+         it. -->
+    <StackPanel x:Name="NotificationHost"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,40,16,0" Width="380"
+                Panel.ZIndex="9998"/>
+    </Grid>
+</Window>

@@ -1,0 +1,67 @@
+<UserControl x:Class="ConditioningControlPanel.Views.Tabs.AchievementsTabView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Localization"
+             xmlns:helpers="clr-namespace:ConditioningControlPanel.Helpers"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Border Style="{StaticResource SectionPanel}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <helpers:EmojiTextBlock Style="{StaticResource SectionHeader}" Text="{loc:Str section_achievements}" Margin="0"/>
+                    <Button x:Name="HelpBtnAchievements" x:FieldModifier="internal" Style="{StaticResource HelpButtonStyle}" HorizontalAlignment="Right" Tag="Achievements"/>
+                </Grid>
+                <TextBlock Text="{loc:Str label_complete_challenges_to_unlock_achievements_lo}" 
+                           Foreground="#888888" FontSize="12" Margin="0,0,0,15"/>
+                
+                <!-- Achievement Grid (populated in code-behind) -->
+                <UniformGrid x:Name="AchievementGrid" x:FieldModifier="internal" Columns="7" Margin="0,5">
+                </UniformGrid>
+
+                <TextBlock x:Name="TxtAchievementCount" x:FieldModifier="internal" Text="{loc:Str label_0_25_achievements_unlocked}" Foreground="#888888" FontSize="14"
+                           HorizontalAlignment="Center" Margin="0,15,0,0"/>
+
+                <!-- Patron-exclusive achievements: separate section with its OWN counter.
+                     Free and patron counts are never summed. Free users see the locked
+                     collection via the overlay (content stays in the tree, just covered). -->
+                <Border Height="1" Background="#33FFFFFF" Margin="0,24,0,0"/>
+                <helpers:EmojiTextBlock Style="{StaticResource SectionHeader}"
+                           Text="{loc:Str section_patron_achievements}" Margin="0,18,0,0"/>
+                <TextBlock Text="{loc:Str label_patron_achievements_subtitle}"
+                           Foreground="#888888" FontSize="12" Margin="0,0,0,12"/>
+
+                <Grid Margin="0,5,0,0">
+                    <StackPanel>
+                        <UniformGrid x:Name="PatronAchievementGrid" x:FieldModifier="internal" Columns="7" Margin="0,5">
+                        </UniformGrid>
+                        <TextBlock x:Name="TxtPatronAchievementCount" x:FieldModifier="internal" Foreground="#888888" FontSize="14"
+                                   HorizontalAlignment="Center" Margin="0,15,0,0"/>
+                    </StackPanel>
+
+                    <!-- Lock overlay for free users (mirrors PatreonFeaturesOverlay) -->
+                    <Border x:Name="PatronAchievementsOverlay" x:FieldModifier="internal" Background="#CC1A1A2E" CornerRadius="12"
+                            Panel.ZIndex="100" Visibility="Collapsed">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
+                            <Image Width="52" Height="52" HorizontalAlignment="Center" Margin="0,0,0,15"
+                                   Source="{Binding Source='🔒', Converter={StaticResource EmojiToImageSource}}"/>
+                            <TextBlock Text="{loc:Str section_patron_achievements}" Foreground="{DynamicResource PinkBrush}"
+                                       FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" ShadowDepth="0" Opacity="0.5"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            <TextBlock Text="{loc:Str label_patron_achievements_locked}" Foreground="#AAAAAA" FontSize="14"
+                                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="380"/>
+                            <Button Content="{loc:Str btn_visit_patreon}" Background="#FF424D" Foreground="White"
+                                    BorderThickness="0" Padding="18,8" Margin="0,15,0,0" Cursor="Hand"
+                                    HorizontalAlignment="Center" Click="BtnVisitPatreon_Click"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>
