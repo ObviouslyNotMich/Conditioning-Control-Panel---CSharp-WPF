@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -250,13 +250,37 @@ namespace ConditioningControlPanel
             // Update AI connection status
             if (TxtAiStatus != null)
             {
+                var provider = App.Settings?.Current?.CompanionPrompt?.AiProvider ?? Models.AiProviderType.Cloud;
                 if (App.Ai?.IsAvailable == true)
                 {
-                    TxtAiStatus.Text = $"AI Ready - {App.Ai.DailyRequestsRemaining} requests remaining today";
+                    var remaining = App.Ai.DailyRequestsRemaining;
+                    if (provider == Models.AiProviderType.Cloud)
+                    {
+                        TxtAiStatus.Text = $"AI Ready - {remaining} requests remaining today";
+                    }
+                    else if (remaining < 0)
+                    {
+                        // Unlimited (local + custom provider with limit 0) → no remaining-count suffix
+                        TxtAiStatus.Text = "AI Ready";
+                    }
+                    else
+                    {
+                        // Custom provider with a finite limit
+                        TxtAiStatus.Text = $"AI Ready - {remaining} requests remaining today";
+                    }
                 }
                 else
                 {
-                    TxtAiStatus.Text = Loc.Get("label_ai_initializing");
+                    // For the custom OpenAI-compatible provider, surface a clearer error hint
+                    // when the service is not available (likely bad endpoint/API key/model).
+                    if (provider == Models.AiProviderType.OpenAiCompatible)
+                    {
+                        TxtAiStatus.Text = Loc.Get("label_ai_custom_error");
+                    }
+                    else
+                    {
+                        TxtAiStatus.Text = Loc.Get("label_ai_initializing");
+                    }
                 }
             }
 
@@ -1140,6 +1164,8 @@ namespace ConditioningControlPanel
             s.AiChatEnabled = false;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
+            if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Collapsed;
             // Drop any stale Live Actions — only local AI populates this feed.
             App.AiLiveActions?.Clear();
             UpdateAiBrainPills();
@@ -1151,12 +1177,14 @@ namespace ConditioningControlPanel
             var s = App.Settings?.Current;
             if (s?.CompanionPrompt == null) return;
             s.AiChatEnabled = true;
-            s.CompanionPrompt.UseLocalAi = false;
+            s.CompanionPrompt.AiProvider = Models.AiProviderType.Cloud;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
+            if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Collapsed;
             // Cloud can't trigger effects, so prior local-session entries would be misleading.
             App.AiLiveActions?.Clear();
-            UpdateAiBrainPills();
+            SyncAiBrainUI();
         }
 
         private void RadioAiLocal_Checked(object sender, RoutedEventArgs e)
@@ -1165,14 +1193,30 @@ namespace ConditioningControlPanel
             var s = App.Settings?.Current;
             if (s?.CompanionPrompt == null) return;
             s.AiChatEnabled = true;
-            s.CompanionPrompt.UseLocalAi = true;
+            s.CompanionPrompt.AiProvider = Models.AiProviderType.Local;
             App.Settings.Save();
             if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Visible;
-            UpdateAiBrainPills();
+            if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Collapsed;
+            SyncAiBrainUI();
 
             // First-time opt-in: if Ollama isn't reachable, offer the setup wizard so
             // the user doesn't have to hunt for the button. Detect runs on a 2s timeout.
             _ = MaybeOfferLocalAiSetupAsync();
+        }
+
+        private void RadioAiOpenAiCompatible_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s?.CompanionPrompt == null) return;
+            s.AiChatEnabled = true;
+            s.CompanionPrompt.AiProvider = Models.AiProviderType.OpenAiCompatible;
+            App.Settings.Save();
+            if (LocalConfigPanel != null) LocalConfigPanel.Visibility = Visibility.Collapsed;
+            if (OpenAiCompatibleConfigPanel != null) OpenAiCompatibleConfigPanel.Visibility = Visibility.Visible;
+            if (DailyLimitPanel != null) DailyLimitPanel.Visibility = Visibility.Visible;
+            SyncAiBrainUI();
         }
 
         private async Task MaybeOfferLocalAiSetupAsync()
@@ -1285,6 +1329,54 @@ namespace ConditioningControlPanel
             App.Settings.Save();
         }
 
+        private void TxtOpenAiEndpoint_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtOpenAiEndpoint == null) return;
+            s.OpenAiCompatibleEndpoint = (TxtOpenAiEndpoint.Text ?? string.Empty).Trim();
+            App.Settings.Save();
+        }
+
+        private void TxtOpenAiModel_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtOpenAiModel == null) return;
+            s.OpenAiCompatibleModel = (TxtOpenAiModel.Text ?? string.Empty).Trim();
+            App.Settings.Save();
+        }
+
+        private void TxtOpenAiApiKey_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtOpenAiApiKey == null) return;
+
+            var plain = TxtOpenAiApiKey.Password ?? string.Empty;
+            s.OpenAiCompatibleApiKey = Services.SecureStringHelper.Protect(plain);
+            App.Settings.Save();
+        }
+
+        private void TxtDailyLimit_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null || TxtDailyLimit == null) return;
+
+            var text = (TxtDailyLimit.Text ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(text))
+            {
+                s.DailyRequestLimit = 0;
+            }
+            else if (int.TryParse(text, out var value) && value >= 0)
+            {
+                s.DailyRequestLimit = value;
+            }
+
+            App.Settings.Save();
+        }
+
         private async void BtnTestOllamaConnection_Click(object sender, RoutedEventArgs e)
         {
             if (TxtAiHealthStatus == null || TxtAiHost == null) return;
@@ -1323,6 +1415,70 @@ namespace ConditioningControlPanel
             {
                 TxtAiHealthStatus.Text = $"{Loc.Get("label_status_failed")} · {ex.GetType().Name}";
                 TxtAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+            }
+        }
+
+        private void BtnOpenAiSamplerSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s == null) return;
+
+            var dialog = new OpenAiCompatibleSamplerSettingsDialog(s)
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                App.Settings.Save();
+            }
+        }
+
+        private async void BtnTestOpenAiConnection_Click(object sender, RoutedEventArgs e)
+        {
+            if (TxtOpenAiHealthStatus == null) return;
+
+            // Flush any pending text box edits to settings before testing. The text boxes
+            // normally persist on LostFocus, but clicking the test button does not always
+            // move focus in time, so the service would otherwise read stale/empty values.
+            // The API key is left alone — it is already saved on PasswordChanged, and the
+            // PasswordBox is not pre-populated, so re-reading it here could wipe a saved key.
+            var s = App.Settings?.Current?.CompanionPrompt;
+            if (s != null)
+            {
+                if (TxtOpenAiEndpoint != null)
+                    s.OpenAiCompatibleEndpoint = (TxtOpenAiEndpoint.Text ?? string.Empty).Trim();
+                if (TxtOpenAiModel != null)
+                    s.OpenAiCompatibleModel = (TxtOpenAiModel.Text ?? string.Empty).Trim();
+                App.Settings.Save();
+            }
+
+            TxtOpenAiHealthStatus.Text = Loc.Get("label_status_testing");
+            TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Gray);
+
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                using var service = new Services.AIService.OpenAiCompatibleService();
+                var diag = await service.TestEndpointAsync(cts.Token);
+
+                if (diag.Success)
+                {
+                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_connected")} · {diag.ElapsedMs ?? 0}ms";
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0xC8, 0x78));
+                }
+                else
+                {
+                    var codePart = diag.HttpStatusCode.HasValue ? $" (HTTP {diag.HttpStatusCode.Value})" : string.Empty;
+                    TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_failed")} · {diag.Message}{codePart}";
+                    TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+                }
+            }
+            catch (Exception ex)
+            {
+                TxtOpenAiHealthStatus.Text = $"{Loc.Get("label_status_failed")} · {ex.GetType().Name}";
+                TxtOpenAiHealthStatus.Foreground = new SolidColorBrush(Colors.Red);
+                App.Logger?.Warning(ex, "MainWindow: OpenAI-compatible test connection failed");
             }
         }
 
@@ -1430,10 +1586,11 @@ namespace ConditioningControlPanel
             var s = App.Settings?.Current;
             if (s?.CompanionPrompt == null) return;
             var aiOn = s.AiChatEnabled;
-            var local = s.CompanionPrompt.UseLocalAi;
+            var provider = s.CompanionPrompt.AiProvider;
             PillAiProvider.Text = !aiOn ? Loc.Get("label_ai_status_pill_off")
-                                : local ? Loc.Get("label_ai_status_pill_local")
-                                        : Loc.Get("label_ai_status_pill_cloud");
+                                : provider == Models.AiProviderType.Local ? Loc.Get("label_ai_status_pill_local")
+                                : provider == Models.AiProviderType.OpenAiCompatible ? Loc.Get("label_ai_status_pill_custom")
+                                : Loc.Get("label_ai_status_pill_cloud");
             PillAwareness.Text = s.AwarenessModeEnabled
                                 ? Loc.Get("label_awareness_pill_on")
                                 : Loc.Get("label_awareness_pill_off");
@@ -1441,7 +1598,7 @@ namespace ConditioningControlPanel
             // Effects only work with local AI (cloud has no command output). Hide the
             // Live Actions feed in the AI Brain panel and show the "needs local" notice
             // in the Lab effects card whenever the user isn't on local AI.
-            var localAiActive = aiOn && local;
+            var localAiActive = aiOn && provider == Models.AiProviderType.Local;
             if (LiveActionsContainer != null)
                 LiveActionsContainer.Visibility = localAiActive ? Visibility.Visible : Visibility.Collapsed;
             if (LabEffectsNeedsLocalNotice != null)
@@ -1465,16 +1622,46 @@ namespace ConditioningControlPanel
 
             // Provider radios
             var aiOn = s.AiChatEnabled;
-            var local = s.CompanionPrompt.UseLocalAi;
+            var provider = s.CompanionPrompt.AiProvider;
             if (RadioAiOff != null)   RadioAiOff.IsChecked   = !aiOn;
-            if (RadioAiCloud != null) RadioAiCloud.IsChecked = aiOn && !local;
-            if (RadioAiLocal != null) RadioAiLocal.IsChecked = aiOn && local;
+            if (RadioAiCloud != null) RadioAiCloud.IsChecked = aiOn && provider == Models.AiProviderType.Cloud;
+            if (RadioAiLocal != null) RadioAiLocal.IsChecked = aiOn && provider == Models.AiProviderType.Local;
+            if (RadioAiOpenAiCompatible != null)
+                RadioAiOpenAiCompatible.IsChecked = aiOn && provider == Models.AiProviderType.OpenAiCompatible;
+
             if (LocalConfigPanel != null)
-                LocalConfigPanel.Visibility = (aiOn && local) ? Visibility.Visible : Visibility.Collapsed;
+                LocalConfigPanel.Visibility = (aiOn && provider == Models.AiProviderType.Local)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            if (OpenAiCompatibleConfigPanel != null)
+                OpenAiCompatibleConfigPanel.Visibility = (aiOn && provider == Models.AiProviderType.OpenAiCompatible)
+                    ? Visibility.Visible : Visibility.Collapsed;
+
+            // Daily request limit row is only meaningful for the OpenAI-compatible provider
+            if (DailyLimitPanel != null)
+            {
+                // Only show the daily request limit row when the custom OpenAI-compatible
+                // provider is active. Cloud uses built-in free/Patreon limits that are
+                // not user-editable; Local has unlimited requests.
+                DailyLimitPanel.Visibility = (aiOn && provider == Models.AiProviderType.OpenAiCompatible)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            }
 
             // Local config fields
             if (TxtAiModel != null) TxtAiModel.Text = s.CompanionPrompt.AiModel ?? "";
             if (TxtAiHost != null)  TxtAiHost.Text  = s.CompanionPrompt.AiOllamaHost ?? "";
+
+            // OpenAI-compatible provider fields
+            if (TxtOpenAiEndpoint != null)
+                TxtOpenAiEndpoint.Text = s.CompanionPrompt.OpenAiCompatibleEndpoint ?? string.Empty;
+            if (TxtOpenAiModel != null)
+                TxtOpenAiModel.Text = s.CompanionPrompt.OpenAiCompatibleModel ?? string.Empty;
+
+            // Daily request limit (0 = unlimited) – only for OpenAI-compatible provider
+            if (TxtDailyLimit != null)
+            {
+                var limit = s.CompanionPrompt.DailyRequestLimit;
+                TxtDailyLimit.Text = limit > 0 ? limit.ToString() : string.Empty;
+            }
 
             // Capability checkboxes (ChkAwarenessMode handled by its own sync path; AiChatEnabled is driven solely by the provider radios)
             if (ChkCapEffects != null)
