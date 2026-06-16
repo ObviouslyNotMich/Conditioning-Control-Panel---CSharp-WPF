@@ -1,0 +1,2395 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Rectangle = System.Windows.Shapes.Rectangle;
+using NAudio.Wave;
+using ConditioningControlPanel.Localization;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Helpers;
+using ConditioningControlPanel.Services;
+
+namespace ConditioningControlPanel
+{
+    // Browser tab: embedded WebView2 browser, popout/fullscreen, and Profile Viewer (nested).
+    public partial class MainWindow
+    {
+        #region Browser
+
+        private async System.Threading.Tasks.Task InitializeBrowserAsync(string? overrideStartUrl = null)
+        {
+            if (_browserInitialized) return;
+
+            try
+            {
+                TxtBrowserStatus.Text = Loc.Get("label_loading");
+                TxtBrowserStatus.Foreground = FindResource("PinkBrush") as SolidColorBrush;
+                BrowserLoadingText.Text = Loc.Get("label_initializing_webview2");
+
+                // If a previous BrowserService was disposed but the bridge
+                // survived, it's still subscribed to the dead service's events
+                // and pointing at a dead WebView. Drop it so the BrowserReady
+                // handler below re-creates a bridge wired to the new service.
+                if (App.BrowserEnhanceBridge != null)
+                {
+                    try { App.BrowserEnhanceBridge.MatchChanged -= OnBrowserEnhanceMatchChanged; } catch { }
+                    try { App.BrowserEnhanceBridge.Dispose(); } catch { }
+                    App.BrowserEnhanceBridge = null;
+                }
+
+                _browser = new BrowserService();
+
+                // Arm the audio-sync vibe track if the device is connected AFTER the user
+                // is already sitting on a HypnoTube page (the natural "open video, then turn
+                // the toy on" order). Nav-time injection only fires when already connected, so
+                // without this the track would silently never start for that ordering.
+                HookHapticAudioSyncRearm();
+
+                _browser.BrowserReady += (s, e) =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        TxtBrowserStatus.Text = Loc.Get("label_connected_2");
+                        TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(0, 230, 118)); // Green
+
+                        // Now that CoreWebView2 is ready, attach message handler for video end notifications
+                        if (_browser?.WebView?.CoreWebView2 != null)
+                        {
+                            _browser.WebView.CoreWebView2.WebMessageReceived += OnBrowserWebMessageReceived;
+                            App.Logger?.Information("Browser WebMessageReceived handler attached");
+                        }
+
+                        // Phase 9: wire Deeper auto-discovery onto the WebView.
+                        // Discovery is a separate listener so it doesn't interfere
+                        // with audio-sync injection above. Bound/Unbound events
+                        // drive the inline badge in the browser status row.
+                        if (_browser?.WebView != null)
+                        {
+                            App.DeeperBrowserDiscovery?.Attach(_browser.WebView);
+                            if (App.DeeperBrowserDiscovery != null)
+                            {
+                                App.DeeperBrowserDiscovery.Bound += OnDeeperBrowserBound;
+                                App.DeeperBrowserDiscovery.Unbound += OnDeeperBrowserUnbound;
+                            }
+                        }
+
+                        // Browser Enhancement Bridge: when the user navigates to
+                        // a URL we have a saved enhancement for, drive effects on
+                        // top of the browser. Toggle ON/OFF via the toolbar.
+                        if (_browser?.WebView != null && App.BrowserEnhanceBridge == null)
+                        {
+                            App.BrowserEnhanceBridge = new Services.Deeper.BrowserEnhancementBridge(_browser.WebView, _browser);
+                            App.BrowserEnhanceBridge.MatchChanged += OnBrowserEnhanceMatchChanged;
+                        }
+                    });
+                };
+                
+                _browser.NavigationCompleted += (s, url) =>
+                {
+                    Dispatcher.Invoke(async () =>
+                    {
+                        TxtBrowserStatus.Text = Loc.Get("label_connected_2");
+                        TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(0, 230, 118)); // Green
+
+                        // Inject audio sync script when navigating to video sites
+                        var audioSyncEnabled = App.Settings.Current.Haptics.AudioSync.Enabled;
+                        var hapticsConnected = App.Haptics?.IsConnected == true;
+                        var isHypnotube = url.Contains("hypnotube", StringComparison.OrdinalIgnoreCase);
+
+                        App.Logger?.Information("AudioSync check: Enabled={Enabled}, HapticsConnected={Connected}, IsHypnotube={IsHT}, URL={Url}",
+                            audioSyncEnabled, hapticsConnected, isHypnotube, url);
+
+                        if (audioSyncEnabled && hapticsConnected && isHypnotube)
+                        {
+                            App.Logger?.Information("AudioSync: Injecting script for HypnoTube page");
+                            await _browser.InjectAudioSyncScriptAsync();
+                        }
+
+                        // W3 Piece 1 — fire a catalogue lookup for HT video URLs.
+                        // Fully async, fire-and-forget; doesn't block navigation
+                        // or anything else. Eligibility is re-checked inside the
+                        // service so a non-HT URL just returns InvalidUrl
+                        // without hitting the network.
+                        TriggerCatalogueLookupForNavigation(url);
+                    });
+                };
+
+                _browser.FullscreenChanged += (s, isFullscreen) =>
+                {
+                    Dispatcher.Invoke(() => HandleBrowserFullscreenChanged(isFullscreen));
+                };
+
+                // Chromium render/browser process crash. Tear down so the next
+                // BrowserSiteToggle click lazy-reinits instead of throwing
+                // InvalidOperationException at the user.
+                _browser.BrowserProcessFailed += (s, e) =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            var dead = _browser?.WebView;
+                            if (dead != null) BrowserContainer.Children.Remove(dead);
+                            try { (_browser as IDisposable)?.Dispose(); } catch { }
+                        }
+                        catch (Exception ex) { App.Logger?.Debug("Browser teardown after ProcessFailed: {Error}", ex.Message); }
+                        _browser = null;
+                        _browserInitialized = false;
+                        BrowserLoadingText.Visibility = Visibility.Visible;
+                        BrowserLoadingText.Text = "Browser crashed - click a site to restart";
+                        TxtBrowserStatus.Text = "Disconnected";
+                        TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(230, 80, 80));
+                    });
+                };
+
+                BrowserLoadingText.Text = Loc.Get("label_creating_browser");
+
+                // Navigate directly to the requested URL when lazy-init was triggered by
+                // a speech-bubble link click. Otherwise fall back to the mod-appropriate
+                // default site. The WebView2's _pendingUrl is the FIRST page Chromium
+                // navigates to once CoreWebView2 finishes initializing — if we don't pass
+                // the user's URL here, a subsequent Navigate would race the default-URL
+                // load and get silently dropped.
+                var startUrl = overrideStartUrl ?? App.Mods?.GetDefaultBrowserUrl() ?? "https://bambicloud.com/";
+                var webView = await _browser.CreateBrowserAsync(startUrl);
+
+                if (webView != null)
+                {
+                    BrowserLoadingText.Visibility = Visibility.Collapsed;
+                    BrowserContainer.Children.Add(webView);
+                    _browserInitialized = true;
+
+                    // Note: WebMessageReceived handler is attached in BrowserReady event
+                    // because CoreWebView2 isn't ready until then
+
+                    App.Logger?.Information("Browser initialized - {Site} loaded", startUrl);
+                }
+                else
+                {
+                    var errorMsg = Loc.Get("msg_webview2_returned_null");
+                    BrowserLoadingText.Text = Loc.GetF("label_0_n_ninstall_webview2_runtime_ngo_microsoft_c", errorMsg);
+                    TxtBrowserStatus.Text = Loc.Get("label_error_2");
+                    TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(255, 107, 107));
+                    MessageBox.Show(errorMsg, Loc.Get("title_browser_error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (InvalidOperationException invEx)
+            {
+                BrowserLoadingText.Text = $"❌ {invEx.Message}";
+                TxtBrowserStatus.Text = Loc.Get("label_not_installed");
+                TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(255, 107, 107));
+                MessageBox.Show(invEx.Message, Loc.Get("title_webview2_not_installed"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            catch (System.Runtime.InteropServices.COMException comEx)
+            {
+                var errorMsg = Loc.GetF("msg_webview2_com_error_0_1", comEx.Message, comEx.HResult);
+                BrowserLoadingText.Text = Loc.Get("label_com_error_install_webview2");
+                TxtBrowserStatus.Text = Loc.Get("label_com_error");
+                TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(255, 107, 107));
+                MessageBox.Show(errorMsg, Loc.Get("title_webview2_error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (System.DllNotFoundException dllEx)
+            {
+                var errorMsg = Loc.GetF("msg_webview2_dll_not_found_0", dllEx.Message);
+                BrowserLoadingText.Text = Loc.Get("label_missing_dll_install_webview2");
+                TxtBrowserStatus.Text = Loc.Get("label_missing_dll");
+                TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(255, 107, 107));
+                MessageBox.Show(errorMsg, Loc.Get("title_missing_dll"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (Exception ex)
+            {
+                var stack = ex.StackTrace;
+                var errorMsg = $"Browser Error:\n\nType: {ex.GetType().Name}\n\nMessage: {ex.Message}\n\nStack: {(stack != null ? stack.Substring(0, Math.Min(500, stack.Length)) : "(none)")}";
+                BrowserLoadingText.Text = $"❌ {ex.GetType().Name}\n{ex.Message}";
+                TxtBrowserStatus.Text = Loc.Get("label_error_2");
+                TxtBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(255, 107, 107));
+                MessageBox.Show(errorMsg, Loc.Get("title_browser_error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void BrowserLoadingText_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            await InitializeBrowserAsync();
+        }
+
+        private async System.Threading.Tasks.Task InitAndNavigateAsync(string url, bool autoPlayFullscreen)
+        {
+            // Pass the user's URL as the WebView2 start URL so initialization navigates
+            // directly to it. Calling _browser.Navigate(url) right after init silently
+            // dropped the call — BrowserService's _isInitialized only flips true inside
+            // WebView_Loaded (which runs after we'd return), so the request never reached
+            // CoreWebView2 and the start-URL load (BambiCloud) stuck.
+            await InitializeBrowserAsync(url);
+            if (!_browserInitialized || _browser == null) return;
+
+            // Sync the radio button to the URL we just initialized to so the toggle UI
+            // matches the page. Suppress the toggle handler's homepage navigation since
+            // the WebView2 is already on its way to the right URL.
+            var lowerUrl = url.ToLowerInvariant();
+            if (lowerUrl.Contains("bambicloud.com"))
+            {
+                _skipSiteToggleNavigation = true;
+                RbBambiCloud.IsChecked = true;
+            }
+            else if (lowerUrl.Contains("hypnotube.com"))
+            {
+                _skipSiteToggleNavigation = true;
+                RbHypnoTube.IsChecked = true;
+            }
+            else
+            {
+                // External URL — deselect both so re-clicking either fires Checked again
+                RbBambiCloud.IsChecked = false;
+                RbHypnoTube.IsChecked = false;
+            }
+
+            _browser.ZoomFactor = 0.5;
+
+            // Wire one-shot autoplay handler. BrowserService raises NavigationCompleted
+            // for the start-URL load, so this catches it without us having to issue a
+            // second Navigate. BambiCloud playlists need a different injection (audio,
+            // no <video> element) — mirror the branch in NavigateToUrlInBrowser so the
+            // first-ever click on a playlist link auto-plays just like subsequent ones.
+            if (autoPlayFullscreen)
+            {
+                var isBambiCloudPlaylist = lowerUrl.Contains("bambicloud.com/playlist/");
+                void OnNavCompleted(object? s, string completedUrl)
+                {
+                    _browser.NavigationCompleted -= OnNavCompleted;
+                    if (isBambiCloudPlaylist)
+                        _ = AutoPlayBambiCloudPlaylistAsync();
+                    else
+                        _ = AutoPlayAndFullscreenVideoAsync();
+                }
+                _browser.NavigationCompleted += OnNavCompleted;
+            }
+
+            // Show the Settings tab and bring the window forward
+            ShowTab("settings");
+            Activate();
+            Focus();
+        }
+
+        private async void BrowserSiteToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return; // Don't auto-load browser during XAML init
+
+            // Lazy-load browser on first toggle interaction. Pass the URL
+            // matching the radio button the user just clicked — without an
+            // override, InitializeBrowserAsync defaults to BambiCloud and the
+            // first HT click would land on BC, forcing the user to bounce
+            // BC→HT to actually get to HT.
+            if (!_browserInitialized)
+            {
+                var initialUrl = RbHypnoTube?.IsChecked == true
+                    ? "https://hypnotube.com/"
+                    : "https://bambicloud.com/";
+                await InitializeBrowserAsync(initialUrl);
+                return;
+            }
+            if (_browser == null) return;
+
+            // Block navigation in offline mode
+            if (App.Settings?.Current?.OfflineMode == true) return;
+
+            // Skip navigation if we're already navigating to a specific URL (from speech bubble link)
+            if (_skipSiteToggleNavigation)
+            {
+                _skipSiteToggleNavigation = false;
+                return;
+            }
+
+            var isBambiCloud = RbBambiCloud.IsChecked == true;
+            var url = isBambiCloud
+                ? "https://bambicloud.com/"
+                : "https://hypnotube.com/";
+
+            // Any property/method touching the WebView2 throws InvalidOperationException
+            // if the underlying browser process has crashed. Tear down and lazy-reinit
+            // on the next toggle rather than propagating the crash.
+            try
+            {
+                _browser.ZoomFactor = 0.5;
+                _browser.Navigate(url);
+                App.Logger?.Information("Browser navigated to {Site} (zoom: 50%)",
+                    isBambiCloud ? "BambiCloud" : "HypnoTube");
+            }
+            catch (InvalidOperationException ex)
+            {
+                App.Logger?.Warning(ex, "WebView2 unusable (browser process likely crashed) - resetting for next toggle");
+                try { (_browser as IDisposable)?.Dispose(); } catch { }
+                _browser = null;
+                _browserInitialized = false;
+            }
+        }
+
+        /// <summary>
+        /// Navigates to a URL in the embedded browser, automatically selecting the correct tab.
+        /// Called by speech bubble links in AvatarTubeWindow.
+        /// </summary>
+        /// <param name="url">The URL to navigate to</param>
+        /// <param name="autoPlayFullscreen">If true, auto-plays video and requests fullscreen on the video element</param>
+        /// <returns>True if navigation was initiated, false if browser unavailable</returns>
+        public bool NavigateToUrlInBrowser(string url, bool autoPlayFullscreen = false)
+        {
+            // Block navigation in offline mode
+            if (App.Settings?.Current?.OfflineMode == true)
+            {
+                App.Logger?.Debug("Browser navigation blocked in offline mode: {Url}", url);
+                return false;
+            }
+
+            // Lazy-load browser if not yet initialized
+            if (!_browserInitialized)
+            {
+                _ = InitAndNavigateAsync(url, autoPlayFullscreen);
+                return true; // Navigation will happen after init completes
+            }
+
+            if (_browser == null)
+            {
+                App.Logger?.Warning("Browser not available for navigation: {Url}", url);
+                return false;
+            }
+
+            try
+            {
+                // Bring window to focus and show the Settings tab (where the browser is)
+                ShowTab("settings");
+                Activate();
+                Focus();
+
+                var lowerUrl = url.ToLowerInvariant();
+
+                // Switch to correct site tab based on URL
+                // Set flag to skip the homepage navigation in the toggle handler
+                if (lowerUrl.Contains("bambicloud.com") && RbBambiCloud.IsChecked != true)
+                {
+                    _skipSiteToggleNavigation = true;
+                    RbBambiCloud.IsChecked = true;
+                }
+                else if (lowerUrl.Contains("hypnotube.com") && RbHypnoTube.IsChecked != true)
+                {
+                    _skipSiteToggleNavigation = true;
+                    RbHypnoTube.IsChecked = true;
+                }
+                else if (!lowerUrl.Contains("bambicloud.com") && !lowerUrl.Contains("hypnotube.com"))
+                {
+                    // External URL — deselect both radio buttons so clicking either one
+                    // fires a Checked event to navigate back (RadioButton.Checked only fires
+                    // on false→true transitions, so re-clicking an already-checked button does nothing)
+                    RbBambiCloud.IsChecked = false;
+                    RbHypnoTube.IsChecked = false;
+                }
+
+                _browser.ZoomFactor = 0.5;
+
+                // If auto-play fullscreen requested, set up handler for when navigation completes.
+                // BambiCloud playlists are audio (no <video> element, no fullscreen) — they need a
+                // different injection that clicks the playlist's main play button.
+                if (autoPlayFullscreen && _browser.WebView?.CoreWebView2 != null)
+                {
+                    var isBambiCloudPlaylist = lowerUrl.Contains("bambicloud.com/playlist/");
+
+                    void OnNavigationCompleted(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs e)
+                    {
+                        _browser.WebView.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
+
+                        if (e.IsSuccess)
+                        {
+                            if (isBambiCloudPlaylist)
+                                _ = AutoPlayBambiCloudPlaylistAsync();
+                            else
+                                _ = AutoPlayAndFullscreenVideoAsync();
+                        }
+                    }
+
+                    _browser.WebView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+                }
+
+                // Navigate
+                _browser.Navigate(url);
+
+                App.Logger?.Information("Speech link navigated to: {Url} (Site: {Site}, AutoPlay: {AutoPlay})",
+                    url, lowerUrl.Contains("bambicloud") ? "BambiCloud" : "HypnoTube", autoPlayFullscreen);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "Browser navigation failed for URL: {Url}", url);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Injects JavaScript to find the video element, play it, and request fullscreen.
+        /// Also adds handlers for: video ended (exit fullscreen), double-click (exit fullscreen).
+        /// Notifies AutonomyService when video playback ends.
+        /// </summary>
+        private async Task AutoPlayAndFullscreenVideoAsync()
+        {
+            if (_browser?.WebView?.CoreWebView2 == null) return;
+
+            try
+            {
+                // Inject audio sync script if enabled
+                if (App.Settings.Current.Haptics.AudioSync.Enabled && App.Haptics?.IsConnected == true)
+                {
+                    await _browser.InjectAudioSyncScriptAsync();
+                }
+
+                // Wait a moment for the page to fully render
+                await Task.Delay(1500);
+
+                // JavaScript to find video, play it, request fullscreen, and add event handlers
+                // Posts message back to C# when video ends or fullscreen exits
+                // Retries up to 10 times (5s total) if video element isn't in the DOM yet
+                var script = @"
+                    (async function() {
+                        let video = document.querySelector('video');
+                        if (!video) {
+                            for (let i = 0; i < 10; i++) {
+                                await new Promise(r => setTimeout(r, 500));
+                                video = document.querySelector('video');
+                                if (video) break;
+                            }
+                        }
+                        if (video) {
+                            let notified = false;
+
+                            // Notify C# that video playback ended
+                            const notifyVideoEnded = (reason) => {
+                                if (!notified) {
+                                    notified = true;
+                                    window.chrome.webview.postMessage({ type: 'videoEnded', reason: reason });
+                                }
+                            };
+
+                            // Exit fullscreen helper
+                            const exitFullscreen = () => {
+                                if (document.exitFullscreen) {
+                                    document.exitFullscreen();
+                                } else if (document.webkitExitFullscreen) {
+                                    document.webkitExitFullscreen();
+                                } else if (document.msExitFullscreen) {
+                                    document.msExitFullscreen();
+                                }
+                            };
+
+                            // When video ends, exit fullscreen and notify
+                            video.addEventListener('ended', () => {
+                                console.log('Video ended, exiting fullscreen');
+                                exitFullscreen();
+                                notifyVideoEnded('ended');
+                            }, { once: true });
+
+                            // Double-click to exit fullscreen and notify
+                            video.addEventListener('dblclick', (e) => {
+                                if (document.fullscreenElement || document.webkitFullscreenElement) {
+                                    console.log('Double-click, exiting fullscreen');
+                                    exitFullscreen();
+                                    notifyVideoEnded('doubleclick');
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }
+                            });
+
+                            // Also notify when fullscreen is exited by any means (Escape key, etc.)
+                            document.addEventListener('fullscreenchange', () => {
+                                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                                    notifyVideoEnded('fullscreenExit');
+                                }
+                            }, { once: true });
+
+                            // Notify C# that playback has actually begun so the autonomy
+                            // watchdog (30s) can be cancelled — long videos must NOT free
+                            // up _webVideoActive while still on screen.
+                            const notifyVideoStarted = () => {
+                                window.chrome.webview.postMessage({ type: 'videoStarted' });
+                            };
+
+                            // Start playing and go fullscreen
+                            video.muted = false;
+                            video.play().then(() => {
+                                notifyVideoStarted();
+                                if (video.requestFullscreen) {
+                                    video.requestFullscreen();
+                                } else if (video.webkitRequestFullscreen) {
+                                    video.webkitRequestFullscreen();
+                                } else if (video.msRequestFullscreen) {
+                                    video.msRequestFullscreen();
+                                }
+                            }).catch(e => {
+                                console.log('Autoplay blocked:', e);
+                                // Still notify so the watchdog doesn't fire mid-playback if
+                                // the user manually unblocks/plays the video later.
+                                video.addEventListener('playing', notifyVideoStarted, { once: true });
+                            });
+                        } else {
+                            console.log('No video element found after retries');
+                            window.chrome.webview.postMessage({ type: 'videoEnded', reason: 'noVideoElement' });
+                        }
+                    })();
+                ";
+
+                await _browser.WebView.CoreWebView2.ExecuteScriptAsync(script);
+                App.Logger?.Debug("Auto-play and fullscreen script injected with exit handlers");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to auto-play/fullscreen video");
+            }
+        }
+
+        /// <summary>
+        /// BambiCloud playlists are audio (no &lt;video&gt; element). The page renders a single
+        /// .play-action button that starts the whole playlist; we click it once it hydrates,
+        /// then post videoStarted/videoEnded messages so AutonomyService treats the playlist
+        /// like a fullscreen video for blocking purposes.
+        /// </summary>
+        private async Task AutoPlayBambiCloudPlaylistAsync()
+        {
+            if (_browser?.WebView?.CoreWebView2 == null) return;
+
+            try
+            {
+                // Wait for React hydration before looking for the button.
+                await Task.Delay(1500);
+
+                var script = @"
+                    (async function() {
+                        // Poll for the .play-action button - SPA hydration can take a few seconds.
+                        let btn = document.querySelector('button.play-action');
+                        for (let i = 0; i < 20 && !btn; i++) {
+                            await new Promise(r => setTimeout(r, 250));
+                            btn = document.querySelector('button.play-action');
+                        }
+                        if (!btn) {
+                            window.chrome.webview.postMessage({ type: 'videoEnded', reason: 'noPlayButton' });
+                            return;
+                        }
+
+                        let notified = false;
+                        const notifyStarted = () => {
+                            if (!notified) {
+                                notified = true;
+                                window.chrome.webview.postMessage({ type: 'videoStarted' });
+                            }
+                        };
+                        const notifyEnded = (reason) => {
+                            window.chrome.webview.postMessage({ type: 'videoEnded', reason: reason });
+                        };
+
+                        // Bind to any current/future <audio> element so we know when the
+                        // playlist actually plays and when the last track ends.
+                        const bindAudio = (audio) => {
+                            if (!audio || audio.__bcBound) return;
+                            audio.__bcBound = true;
+                            audio.addEventListener('playing', notifyStarted);
+                            audio.addEventListener('ended', () => notifyEnded('ended'));
+                        };
+                        document.querySelectorAll('audio').forEach(bindAudio);
+
+                        // Also watch for audio elements added later (each track may swap one in).
+                        const obs = new MutationObserver(() => {
+                            document.querySelectorAll('audio').forEach(bindAudio);
+                        });
+                        obs.observe(document.body, { childList: true, subtree: true });
+
+                        // Click the play button. Browser autoplay policies usually allow this
+                        // because navigation-from-app counts as a user gesture in WebView2.
+                        btn.click();
+
+                        // Fallback: if no <audio> 'playing' fires within 3s, assume click took
+                        // effect anyway and notify, so the autonomy watchdog doesn't fire.
+                        setTimeout(notifyStarted, 3000);
+                    })();
+                ";
+
+                await _browser.WebView.CoreWebView2.ExecuteScriptAsync(script);
+                App.Logger?.Debug("BambiCloud playlist auto-play script injected");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to auto-play BambiCloud playlist");
+            }
+        }
+
+        /// <summary>
+        /// Handles messages from JavaScript in the browser (video ended, fullscreen exit, etc.)
+        /// </summary>
+        private void OnBrowserWebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            try
+            {
+                // Use TryGetWebMessageAsString to get the raw JSON (not double-encoded)
+                var message = e.TryGetWebMessageAsString();
+                if (string.IsNullOrEmpty(message))
+                {
+                    // Fallback to WebMessageAsJson if string is not available
+                    message = e.WebMessageAsJson;
+                }
+
+                // Log audio sync messages at Information level for debugging
+                if (message.Contains("audioSync"))
+                {
+                    App.Logger?.Information("AudioSync message received: {Message}", message);
+                }
+                else
+                {
+                    App.Logger?.Debug("Browser web message received: {Message}", message);
+                }
+
+                // Force-exit our WPF "forced fullscreen" surface — sent by the
+                // dblclick / click-pair / fullscreenchange handlers injected
+                // into every CCP WebView. Fires the same path Esc/F11 do.
+                if (message == "ccp_exit_fullscreen")
+                {
+                    App.Logger?.Information("MainWindow: ccp_exit_fullscreen received (forced FS active = {Active})", _isBrowserFullscreen);
+                    if (_isBrowserFullscreen) ExitBrowserFullscreen();
+                    return;
+                }
+
+                // Parse the JSON message
+                if (message.Contains("\"type\":\"videoStarted\""))
+                {
+                    // Playback confirmed - cancel the autonomy load-failure watchdog so
+                    // long videos can't have _webVideoActive flipped off mid-stream.
+                    App.Logger?.Information("Web video playback started");
+                    App.Autonomy?.OnWebVideoStarted();
+                }
+                else if (message.Contains("\"type\":\"videoEnded\""))
+                {
+                    // Video ended or fullscreen exited - notify AutonomyService
+                    App.Logger?.Information("Web video playback ended");
+                    App.Autonomy?.OnWebVideoEnded();
+                    ExitBrowserFullscreen();
+                }
+                // Audio sync messages
+                else if (message.Contains("\"type\":\"audioSyncVideoDetected\""))
+                {
+                    App.Logger?.Information("AudioSync: Video detected message received");
+                    HandleAudioSyncVideoDetected(message);
+                }
+                else if (message.Contains("\"type\":\"audioSyncState\""))
+                {
+                    HandleAudioSyncState(message);
+                }
+                else if (message.Contains("\"type\":\"audioSyncSeek\""))
+                {
+                    App.Logger?.Information("AudioSync: Seek message received");
+                    HandleAudioSyncSeek(message);
+                }
+                else if (message.Contains("\"type\":\"audioSyncEnded\""))
+                {
+                    App.Logger?.Information("AudioSync: Video ended message received");
+                    HandleAudioSyncEnded();
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to process browser web message");
+            }
+        }
+
+        private void HandleAudioSyncVideoDetected(string message)
+        {
+            if (App.AudioSync == null)
+            {
+                App.Logger?.Warning("AudioSync: Service is null, cannot process video");
+                // Signal ready anyway so video plays (without haptics)
+                _ = _browser?.SignalHapticReadyAsync();
+                return;
+            }
+
+            try
+            {
+                // Extract URL from message
+                var urlMatch = System.Text.RegularExpressions.Regex.Match(message, "\"url\":\"([^\"]+)\"");
+                if (urlMatch.Success)
+                {
+                    var videoUrl = urlMatch.Groups[1].Value;
+                    App.Logger?.Information("AudioSync: Starting processing for video URL: {Url}", videoUrl);
+
+                    // Wire up progress events
+                    void OnProgress(object? sender, Services.Audio.ChunkProgressEventArgs e)
+                    {
+                        Dispatcher.BeginInvoke(async () =>
+                        {
+                            if (_browser != null)
+                            {
+                                await _browser.UpdateHapticProgressAsync(e.PercentComplete, e.Status);
+                            }
+                        });
+                    }
+
+                    void OnCompleted(object? sender, EventArgs e)
+                    {
+                        // Unsubscribe
+                        App.AudioSync!.ProcessingProgress -= OnProgress;
+                        App.AudioSync.ProcessingCompleted -= OnCompleted;
+
+                        Dispatcher.BeginInvoke(async () =>
+                        {
+                            App.Logger?.Information("AudioSync: Processing completed, signaling browser");
+                            if (_browser != null)
+                            {
+                                await _browser.SignalHapticReadyAsync();
+                            }
+                        });
+                    }
+
+                    // Wire up chunk loading events (for seek to unloaded sections)
+                    void OnChunkLoadingRequired(object? sender, int chunkIndex)
+                    {
+                        Dispatcher.BeginInvoke(async () =>
+                        {
+                            App.Logger?.Information("AudioSync: Chunk {Index} loading required, showing overlay", chunkIndex);
+                            if (_browser != null)
+                            {
+                                await _browser.ShowChunkLoadingOverlayAsync(chunkIndex);
+                            }
+                        });
+                    }
+
+                    void OnChunkLoadingCompleted(object? sender, EventArgs e)
+                    {
+                        Dispatcher.BeginInvoke(async () =>
+                        {
+                            App.Logger?.Information("AudioSync: Chunk loading completed, hiding overlay");
+                            if (_browser != null)
+                            {
+                                await _browser.HideChunkLoadingOverlayAsync();
+                            }
+                        });
+                    }
+
+                    App.AudioSync.ProcessingProgress += OnProgress;
+                    App.AudioSync.ProcessingCompleted += OnCompleted;
+                    App.AudioSync.ChunkLoadingRequired += OnChunkLoadingRequired;
+                    App.AudioSync.ChunkLoadingCompleted += OnChunkLoadingCompleted;
+
+                    // Start processing in background
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await App.AudioSync.OnVideoDetectedAsync(videoUrl);
+                        }
+                        catch (Exception ex)
+                        {
+                            App.Logger?.Error(ex, "AudioSync: Processing failed");
+                            // Signal ready anyway so video plays (without haptics)
+                            await Dispatcher.InvokeAsync(async () =>
+                            {
+                                if (_browser != null)
+                                {
+                                    await _browser.SignalHapticReadyAsync();
+                                }
+                            });
+                        }
+                    });
+                }
+                else
+                {
+                    // No URL found, signal ready so video plays
+                    App.Logger?.Warning("AudioSync: No URL found in message");
+                    _ = _browser?.SignalHapticReadyAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to handle audio sync video detected");
+                // Signal ready anyway so video plays (without haptics)
+                _ = _browser?.SignalHapticReadyAsync();
+            }
+        }
+
+        private void HandleAudioSyncState(string message)
+        {
+            if (App.AudioSync == null) return;
+
+            try
+            {
+                // Extract currentTime and paused from message
+                var timeMatch = System.Text.RegularExpressions.Regex.Match(message, "\"currentTime\":([\\d.]+)");
+                var pausedMatch = System.Text.RegularExpressions.Regex.Match(message, "\"paused\":(true|false)");
+
+                if (timeMatch.Success)
+                {
+                    var currentTime = double.Parse(timeMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    var paused = pausedMatch.Success && pausedMatch.Groups[1].Value == "true";
+
+                    App.AudioSync.OnPlaybackStateUpdate(currentTime, paused);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Failed to handle audio sync state: {Error}", ex.Message);
+            }
+        }
+
+        private void HandleAudioSyncSeek(string message)
+        {
+            if (App.AudioSync == null) return;
+
+            try
+            {
+                var timeMatch = System.Text.RegularExpressions.Regex.Match(message, "\"currentTime\":([\\d.]+)");
+                if (timeMatch.Success)
+                {
+                    var newTime = double.Parse(timeMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    App.AudioSync.OnVideoSeek(newTime);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("Failed to handle audio sync seek: {Error}", ex.Message);
+            }
+        }
+
+        private void HandleAudioSyncEnded()
+        {
+            App.AudioSync?.OnVideoEnded();
+        }
+
+        // Subscribed once to App.Haptics.ConnectionChanged so a late device connection can
+        // arm the vibe track on a page that's already open. The browser can be torn down and
+        // re-created (process-failure recovery), so the handler always uses the live _browser.
+        private bool _hapticAudioSyncConnHooked;
+
+        private void HookHapticAudioSyncRearm()
+        {
+            if (_hapticAudioSyncConnHooked || App.Haptics == null) return;
+            _hapticAudioSyncConnHooked = true;
+            App.Haptics.ConnectionChanged += OnHapticConnectionChangedForAudioSync;
+        }
+
+        private void OnHapticConnectionChangedForAudioSync(object? sender, bool connected)
+        {
+            if (!connected) return;
+
+            // Device just connected. If the user is already on a HypnoTube page with audio-sync
+            // enabled, inject (idempotent) and re-arm so the currently-loaded/playing video gets
+            // synced now — instead of forcing a re-navigation. Marshalled to the UI thread because
+            // ConnectionChanged fires from the provider's thread and GetCurrentUrl touches the WebView.
+            Dispatcher.BeginInvoke(async () =>
+            {
+                try
+                {
+                    if (!App.Settings.Current.Haptics.AudioSync.Enabled) return;
+                    var url = _browser?.GetCurrentUrl();
+                    if (string.IsNullOrEmpty(url) ||
+                        !url.Contains("hypnotube", StringComparison.OrdinalIgnoreCase))
+                        return;
+
+                    App.Logger?.Information("AudioSync: Haptics connected on HypnoTube page — arming vibe track for the current video");
+                    await _browser!.InjectAudioSyncScriptAsync();
+                    await _browser.RearmAudioSyncAsync();
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("AudioSync rearm-on-connect failed: {Error}", ex.Message);
+                }
+            });
+        }
+
+        private void BtnDiscordTab_Click(object sender, RoutedEventArgs e)
+        {
+            ShowTab("discord");
+        }
+
+        private async void BtnDiscordTabLogin_Click(object sender, RoutedEventArgs e)
+        {
+            if (App.Discord == null) return;
+
+            if (App.Discord.IsAuthenticated)
+            {
+                App.Discord.Logout();
+                if (App.Patreon?.IsAuthenticated != true)
+                {
+                    // No provider left — full logout
+                    ClearAccountData();
+                }
+                else
+                {
+                    // Patreon still active — just update Discord UI
+                    UpdateDiscordTabUI();
+                    UpdateDiscordUI();
+                }
+            }
+            else
+            {
+                // Check if user is already logged in with another provider
+                var hasUnifiedId = !string.IsNullOrEmpty(App.Settings?.Current?.UnifiedId);
+
+                if (hasUnifiedId)
+                {
+                    // Link Discord to existing account
+                    BtnDiscordTabLogin.IsEnabled = false;
+                    BtnDiscordTabLogin.Content = Loc.Get("login_connecting");
+
+                    try
+                    {
+                        await App.Discord.StartOAuthFlowAsync();
+                        var success = await AccountService.LinkProviderV2Async(this, "discord");
+
+                        if (success)
+                        {
+                            UpdateQuickDiscordUI();
+                            UpdateDiscordUI();
+                            UpdateDiscordTabUI();
+                            UpdatePatreonUI();
+                            UpdateAccountLinkingUI();
+                            UpdateBannerWelcomeMessage();
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // User cancelled
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Logger?.Error(ex, "Failed to link Discord");
+                        MessageBox.Show($"Failed to link Discord account.\n\n{ex.Message}",
+                            "Link Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                    finally
+                    {
+                        BtnDiscordTabLogin.IsEnabled = true;
+                        UpdateDiscordTabUI();
+                    }
+                }
+                else
+                {
+                    // No account yet - open unified login dialog
+                    OpenUnifiedLoginDialog();
+                }
+            }
+        }
+
+        private void UpdateDiscordTabUI()
+        {
+            if (App.Discord == null) return;
+
+            var isLoggedIn = App.Discord.IsAuthenticated;
+            var s = App.Settings?.Current;
+
+            // Update login status in Community Settings section
+            if (TxtDiscordTabStatus != null && TxtDiscordTabInfo != null && BtnDiscordTabLogin != null)
+            {
+                if (isLoggedIn)
+                {
+                    TxtDiscordTabStatus.Text = Loc.GetF("label_connected_as_0", App.Discord.Username);
+                    TxtDiscordTabInfo.Text = Loc.Get("label_discord_account_linked");
+                    BtnDiscordTabLogin.Content = Loc.Get("btn_logout");
+                }
+                else
+                {
+                    // Check if user is logged in with another provider (has unified_id)
+                    var hasUnifiedId = !string.IsNullOrEmpty(App.Settings?.Current?.UnifiedId);
+
+                    TxtDiscordTabStatus.Text = Loc.Get("label_not_connected");
+                    TxtDiscordTabInfo.Text = Loc.Get("label_link_discord_for_community_features");
+
+                    // Show "Link Discord" if logged in via Patreon, otherwise "Login"
+                    BtnDiscordTabLogin.Content = hasUnifiedId ? Loc.Get("btn_link_discord_2") : Loc.Get("btn_login");
+                }
+            }
+
+            // Sync checkbox states
+            if (s != null)
+            {
+                if (ChkDiscordTabRichPresence != null) ChkDiscordTabRichPresence.IsChecked = s.DiscordRichPresenceEnabled;
+                if (ChkDiscordTabShowLevel != null) ChkDiscordTabShowLevel.IsChecked = s.DiscordShowLevelInPresence;
+                if (ChkDiscordTabShareAchievements != null) ChkDiscordTabShareAchievements.IsChecked = s.DiscordShareAchievements;
+                if (ChkDiscordTabShareLevelUps != null) ChkDiscordTabShareLevelUps.IsChecked = s.DiscordShareLevelUps;
+                if (ChkDiscordTabAllowDm != null) ChkDiscordTabAllowDm.IsChecked = s.AllowDiscordDm;
+                if (ChkDiscordTabSharePfp != null) ChkDiscordTabSharePfp.IsChecked = s.ShareProfilePicture;
+                if (ChkDiscordTabShowOnline != null) ChkDiscordTabShowOnline.IsChecked = s.ShowOnlineStatus;
+            }
+
+            // Pre-fill search bar with user's unified display name (V2 auth) or fallback
+            var displayName = App.Settings?.Current?.UserDisplayName
+                ?? App.Discord?.CustomDisplayName ?? App.Discord?.DisplayName ?? App.Patreon?.DisplayName;
+            if (TxtProfileSearch != null && !string.IsNullOrEmpty(displayName))
+            {
+                TxtProfileSearch.Text = displayName;
+            }
+
+            // Auto-display own profile when Discord tab is opened
+            DisplayOwnProfile();
+        }
+
+        #region Profile Viewer
+
+        private void TxtProfileSearch_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter)
+            {
+                SearchAndDisplayProfile(TxtProfileSearch?.Text);
+            }
+        }
+
+        private void BtnProfileSearch_Click(object sender, RoutedEventArgs e)
+        {
+            SearchAndDisplayProfile(TxtProfileSearch?.Text);
+        }
+
+        private void BtnViewMyProfile_Click(object sender, RoutedEventArgs e)
+        {
+            // Find current user in leaderboard by their unified display name (V2 auth) or fallback
+            var displayName = App.Settings?.Current?.UserDisplayName
+                ?? App.Discord?.CustomDisplayName ?? App.Discord?.DisplayName ?? App.Patreon?.DisplayName;
+            if (string.IsNullOrEmpty(displayName))
+            {
+                // Not logged in - show own local stats
+                DisplayOwnProfile();
+                return;
+            }
+
+            // Try leaderboard search first, fall back to local profile if not found
+            if (!SearchAndDisplayProfile(displayName))
+            {
+                DisplayOwnProfile();
+            }
+        }
+
+        private void BtnClearProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (TxtProfileSearch != null) TxtProfileSearch.Text = "";
+            ClearProfileViewer();
+        }
+
+        private void ClearProfileViewer()
+        {
+            if (ProfileCardWrapper != null) ProfileCardWrapper.Visibility = Visibility.Collapsed;
+            if (NoProfileSelected != null) NoProfileSelected.Visibility = Visibility.Visible;
+            if (ProfileAchievementGrid != null) ProfileAchievementGrid.ItemsSource = null;
+            // Hide OG border and stop animation
+            if (OgBorderContainer != null)
+            {
+                OgBorderContainer.Visibility = Visibility.Collapsed;
+                if (OgBorderContainer.Resources["OgBorderAnimation"] is System.Windows.Media.Animation.Storyboard storyboard)
+                {
+                    storyboard.Stop(OgBorderContainer);
+                }
+            }
+            // Hide OG banner badge
+            if (OgBannerBadge != null)
+            {
+                OgBannerBadge.Visibility = Visibility.Collapsed;
+            }
+            // Hide Patreon tier badge
+            if (ProfilePatreonTierBadge != null)
+            {
+                ProfilePatreonTierBadge.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void ProfileDiscordHandle_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var discordId = TxtProfileDiscordId?.Text;
+            if (!string.IsNullOrEmpty(discordId))
+            {
+                try
+                {
+                    System.Windows.Clipboard.SetText(discordId);
+                    // Show brief feedback
+                    var originalText = TxtProfileDiscordId.Text;
+                    TxtProfileDiscordId.Text = Loc.Get("btn_copied");
+                    Task.Delay(1000).ContinueWith(_ =>
+                    {
+                        if (Application.Current?.Dispatcher?.HasShutdownStarted == true) return;
+                        Dispatcher.Invoke(() =>
+                        {
+                            if (TxtProfileDiscordId != null)
+                                TxtProfileDiscordId.Text = originalText;
+                        });
+                    });
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning(ex, "Failed to copy Discord ID to clipboard");
+                }
+            }
+        }
+
+        private void BtnProfileDiscord_Click(object sender, RoutedEventArgs e)
+        {
+            // Get Discord ID from button's Tag
+            var button = sender as Button;
+            var discordId = button?.Tag as string;
+
+            if (string.IsNullOrEmpty(discordId))
+            {
+                discordId = TxtProfileDiscordId?.Text;
+            }
+
+            if (!string.IsNullOrEmpty(discordId))
+            {
+                try
+                {
+                    // Open Discord profile in browser using rundll32 to force browser
+                    var profileUrl = $"https://discord.com/users/{discordId}";
+                    var startInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "rundll32.exe",
+                        Arguments = $"url.dll,FileProtocolHandler {profileUrl}",
+                        UseShellExecute = false
+                    };
+                    System.Diagnostics.Process.Start(startInfo);
+                    App.Logger?.Information("Opened Discord profile for user: {DiscordId}", discordId);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning(ex, "Failed to open Discord profile");
+                    // Fallback: copy to clipboard
+                    try
+                    {
+                        System.Windows.Clipboard.SetText(discordId);
+                        if (TxtProfileDiscordId != null)
+                        {
+                            var originalText = TxtProfileDiscordId.Text;
+                            TxtProfileDiscordId.Text = Loc.Get("label_id_copied");
+                            Task.Delay(1500).ContinueWith(_ =>
+                            {
+                                if (Application.Current?.Dispatcher?.HasShutdownStarted == true) return;
+                                Dispatcher.Invoke(() =>
+                                {
+                                    if (TxtProfileDiscordId != null)
+                                        TxtProfileDiscordId.Text = originalText;
+                                });
+                            });
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+
+        private async void BtnChangeDisplayName_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var currentName = App.Settings?.Current?.UserDisplayName ?? "";
+                var dialog = new DisplayNameDialog(isChangeName: true, currentName: currentName);
+                dialog.Owner = this;
+                if (dialog.ShowDialog() != true) return;
+
+                var newName = dialog.DisplayName;
+                if (string.Equals(newName, currentName, StringComparison.Ordinal)) return;
+
+                if (App.ProfileSync == null) return;
+
+                // Disable button during request
+                if (BtnChangeDisplayName != null) BtnChangeDisplayName.IsEnabled = false;
+
+                var (success, error, resultName) = await App.ProfileSync.ChangeDisplayNameAsync(newName);
+
+                if (success && resultName != null)
+                {
+                    if (App.Settings?.Current != null)
+                    {
+                        App.Settings.Current.UserDisplayName = resultName;
+                        App.Settings.Save();
+                    }
+                    if (TxtProfileViewerName != null)
+                        TxtProfileViewerName.Text = resultName;
+                    UpdateQuickLoginUI();
+                }
+                else
+                {
+                    MessageBox.Show(
+                        error ?? Loc.Get("msg_failed_to_change_display_name"),
+                        Loc.Get("title_name_change_failed"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Error changing display name");
+                MessageBox.Show(
+                    Loc.Get("msg_error_changing_name"),
+                    Loc.Get("label_error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                if (BtnChangeDisplayName != null) BtnChangeDisplayName.IsEnabled = true;
+            }
+        }
+
+        private async void BtnDeleteProfile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dialog = new DisplayNameDialog("delete");
+                dialog.Owner = this;
+                if (dialog.ShowDialog() != true) return;
+
+                if (App.ProfileSync == null) return;
+
+                // Disable button during request
+                if (BtnDeleteProfile != null) BtnDeleteProfile.IsEnabled = false;
+
+                var (success, error) = await App.ProfileSync.DeleteAccountAsync();
+
+                if (success)
+                {
+                    App.ProfileSync?.StopHeartbeat();
+                    App.Patreon?.Logout();
+                    App.Discord?.Logout();
+
+                    ClearAccountData();
+
+                    MessageBox.Show(
+                        Loc.Get("msg_profile_deleted"),
+                        Loc.Get("title_profile_deleted"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        error ?? Loc.Get("msg_failed_to_delete_profile"),
+                        Loc.Get("title_deletion_failed"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Error deleting profile");
+                MessageBox.Show(
+                    Loc.Get("msg_error_deleting_profile"),
+                    Loc.Get("label_error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                if (BtnDeleteProfile != null) BtnDeleteProfile.IsEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Search leaderboard for a profile by display name and show it.
+        /// Returns true if a match was found and displayed, false otherwise.
+        /// </summary>
+        private bool SearchAndDisplayProfile(string? searchName)
+        {
+            if (string.IsNullOrWhiteSpace(searchName))
+            {
+                return false;
+            }
+
+            App.Logger?.Information("SearchAndDisplayProfile: Searching for '{SearchName}'", searchName);
+
+            // Search in leaderboard entries
+            var entries = App.Leaderboard?.Entries;
+            if (entries == null || entries.Count == 0)
+            {
+                App.Logger?.Information("SearchAndDisplayProfile: No entries, refreshing leaderboard...");
+                // Try to refresh leaderboard first
+                _ = RefreshAndSearchAsync(searchName);
+                return false;
+            }
+
+            App.Logger?.Information("SearchAndDisplayProfile: Searching {Count} entries", entries.Count);
+
+            // Find matching entry (case-insensitive)
+            var entry = entries.FirstOrDefault(e =>
+                e.DisplayName?.Equals(searchName, StringComparison.OrdinalIgnoreCase) == true);
+
+            if (entry != null)
+            {
+                App.Logger?.Information("SearchAndDisplayProfile: Found exact match '{Name}'", entry.DisplayName);
+                DisplayProfileEntry(entry);
+                return true;
+            }
+
+            // No exact match - try partial match
+            entry = entries.FirstOrDefault(e =>
+                e.DisplayName?.Contains(searchName, StringComparison.OrdinalIgnoreCase) == true);
+
+            if (entry != null)
+            {
+                App.Logger?.Information("SearchAndDisplayProfile: Found partial match '{Name}'", entry.DisplayName);
+                DisplayProfileEntry(entry);
+                return true;
+            }
+
+            App.Logger?.Information("SearchAndDisplayProfile: No match found for '{SearchName}'", searchName);
+            // Show not found message
+            if (NoProfileSelected != null)
+            {
+                NoProfileSelected.Visibility = Visibility.Visible;
+            }
+            if (ProfileCardWrapper != null)
+            {
+                ProfileCardWrapper.Visibility = Visibility.Collapsed;
+            }
+            return false;
+        }
+
+        private async Task RefreshAndSearchAsync(string searchName)
+        {
+            if (App.Leaderboard != null)
+            {
+                await App.Leaderboard.RefreshAsync();
+
+                // After refresh, try to find the profile but don't recurse if still empty
+                var entries = App.Leaderboard?.Entries;
+                if (entries != null && entries.Count > 0)
+                {
+                    var entry = entries.FirstOrDefault(e =>
+                        e.DisplayName?.Equals(searchName, StringComparison.OrdinalIgnoreCase) == true);
+
+                    if (entry == null)
+                    {
+                        entry = entries.FirstOrDefault(e =>
+                            e.DisplayName?.Contains(searchName, StringComparison.OrdinalIgnoreCase) == true);
+                    }
+
+                    if (entry != null)
+                    {
+                        DisplayProfileEntry(entry);
+                        return;
+                    }
+                }
+
+                // Show not found message
+                if (NoProfileSelected != null)
+                {
+                    NoProfileSelected.Visibility = Visibility.Visible;
+                }
+                if (ProfileCardWrapper != null)
+                {
+                    ProfileCardWrapper.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+
+        private void DisplayOwnProfile()
+        {
+            // Display local profile when not on leaderboard
+            if (ProfileCardWrapper != null) ProfileCardWrapper.Visibility = Visibility.Visible;
+            if (NoProfileSelected != null) NoProfileSelected.Visibility = Visibility.Collapsed;
+
+            // OG user animated border for own profile
+            var isOg = App.Settings?.Current?.IsSeason0Og == true;
+            if (OgBorderContainer != null)
+            {
+                if (isOg)
+                {
+                    OgBorderContainer.Visibility = Visibility.Visible;
+                    if (OgBorderContainer.Resources["OgBorderAnimation"] is System.Windows.Media.Animation.Storyboard storyboard)
+                    {
+                        storyboard.Begin(OgBorderContainer, true);
+                    }
+                }
+                else
+                {
+                    OgBorderContainer.Visibility = Visibility.Collapsed;
+                    if (OgBorderContainer.Resources["OgBorderAnimation"] is System.Windows.Media.Animation.Storyboard storyboard)
+                    {
+                        storyboard.Stop(OgBorderContainer);
+                    }
+                }
+            }
+            // OG GOOD GIRL banner badge for own profile
+            if (OgBannerBadge != null)
+            {
+                OgBannerBadge.Visibility = isOg ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Avatar - load from Discord only if ShareProfilePicture is enabled
+            if (ProfileViewerAvatar != null)
+            {
+                string? avatarUrl = null;
+                // Only show avatar if user has ShareProfilePicture enabled
+                if (App.Settings?.Current?.ShareProfilePicture == true && App.Discord?.IsAuthenticated == true)
+                {
+                    avatarUrl = App.Discord.GetAvatarUrl(256);
+                }
+
+                if (!string.IsNullOrEmpty(avatarUrl))
+                {
+                    try
+                    {
+                        var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(avatarUrl);
+                        bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+                        ProfileViewerAvatar.ImageSource = bitmap;
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Logger?.Warning(ex, "Failed to load profile avatar");
+                        ProfileViewerAvatar.ImageSource = null;
+                    }
+                }
+                else
+                {
+                    ProfileViewerAvatar.ImageSource = null;
+                }
+            }
+
+            // Name - use V2 unified display name (leaderboard name), never raw provider names
+            if (TxtProfileViewerName != null)
+                TxtProfileViewerName.Text = App.Settings?.Current?.UserDisplayName
+                    ?? App.Discord?.CustomDisplayName ?? App.Patreon?.DisplayName ?? "You";
+
+            // Show edit name button for own profile (only if logged in with unified ID)
+            if (BtnChangeDisplayName != null)
+                BtnChangeDisplayName.Visibility = !string.IsNullOrEmpty(App.Settings?.Current?.UnifiedId)
+                    ? Visibility.Visible : Visibility.Collapsed;
+
+            // Show delete profile button for own profile (only if logged in with unified ID)
+            if (BtnDeleteProfile != null)
+                BtnDeleteProfile.Visibility = !string.IsNullOrEmpty(App.Settings?.Current?.UnifiedId)
+                    ? Visibility.Visible : Visibility.Collapsed;
+
+            // Online status
+            if (TxtProfileViewerOnline != null)
+            {
+                TxtProfileViewerOnline.Text = Loc.Get("label_online");
+                TxtProfileViewerOnline.Foreground = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#43B581"));
+            }
+            if (ProfileOnlineIndicator != null)
+                ProfileOnlineIndicator.Fill = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#43B581"));
+
+            // Discord button
+            if (BtnProfileDiscord != null && TxtProfileDiscordId != null)
+            {
+                if (App.Settings?.Current?.AllowDiscordDm == true && !string.IsNullOrEmpty(App.Discord?.UserId))
+                {
+                    BtnProfileDiscord.Visibility = Visibility.Visible;
+                    // Use V2 unified name for consistency, fall back to Discord display
+                    TxtProfileDiscordId.Text = App.Settings?.Current?.UserDisplayName
+                        ?? App.Discord.CustomDisplayName ?? App.Discord.UserId;
+                    BtnProfileDiscord.Tag = App.Discord.UserId; // Store ID for click handler
+                }
+                else
+                {
+                    BtnProfileDiscord.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // Stats from local data
+            var level = App.Settings?.Current?.PlayerLevel ?? 1;
+            var localXp = App.Settings?.Current?.PlayerXP ?? 0;
+            var xp = App.Progression?.GetTotalXP(level, localXp) ?? localXp;
+            var progress = App.Achievements?.Progress;
+
+            if (TxtProfileViewerLevel != null) TxtProfileViewerLevel.Text = level.ToString();
+
+            // Rank (own rank from leaderboard, if available)
+            if (TxtProfileViewerRank != null)
+            {
+                // Prefer server-provided rank (works even beyond top 200)
+                var serverRank = App.Leaderboard?.YourRank;
+                if (serverRank.HasValue && serverRank.Value > 0)
+                {
+                    TxtProfileViewerRank.Text = $"#{serverRank.Value}";
+                }
+                else
+                {
+                    // Fallback: scan local entries by unified_id or display name
+                    var unifiedId = App.UnifiedUserId;
+                    var displayName = App.Settings?.Current?.UserDisplayName;
+
+                    var ownEntry = !string.IsNullOrEmpty(unifiedId)
+                        ? App.Leaderboard?.Entries?.FirstOrDefault(e =>
+                            e.UnifiedId == unifiedId)
+                        : null;
+
+                    ownEntry ??= !string.IsNullOrEmpty(displayName)
+                        ? App.Leaderboard?.Entries?.FirstOrDefault(e =>
+                            e.DisplayName?.Equals(displayName, StringComparison.OrdinalIgnoreCase) == true)
+                        : null;
+
+                    TxtProfileViewerRank.Text = ownEntry?.Rank > 0 ? $"#{ownEntry.Rank}" : "#-";
+                }
+            }
+            if (TxtProfileViewerXp != null) TxtProfileViewerXp.Text = FormatNumber(xp);
+            if (TxtProfileViewerBubbles != null) TxtProfileViewerBubbles.Text = FormatNumber(progress?.TotalBubblesPopped ?? 0);
+            if (TxtProfileViewerVideos != null)
+            {
+                var minutes = progress?.TotalVideoMinutes ?? 0;
+                TxtProfileViewerVideos.Text = minutes >= 60 ? $"{minutes / 60:F1}h" : $"{minutes:F0}m";
+            }
+            if (TxtProfileViewerGifs != null) TxtProfileViewerGifs.Text = FormatNumber(progress?.TotalFlashImages ?? 0);
+            if (TxtProfileViewerLockCards != null) TxtProfileViewerLockCards.Text = FormatNumber(progress?.TotalLockCardsCompleted ?? 0);
+            if (TxtProfileViewerAchievements != null)
+            {
+                // Free-only count so the patron-exclusive set is never folded into this number.
+                var unlocked = App.Achievements?.GetUnlockedCount(exclusive: false) ?? 0;
+                var total = App.Achievements?.GetTotalCount(exclusive: false)
+                            ?? System.Linq.Enumerable.Count(Models.Achievement.All.Values, a => !a.IsExclusive && !a.IsHidden);
+                TxtProfileViewerAchievements.Text = $"{unlocked} / {total}";
+            }
+
+            // Patreon badge - use settings tier (works for Discord-only login with linked Patreon)
+            var patreonTier = App.Settings?.Current?.PatreonTier ?? (int)(App.Patreon?.CurrentTier ?? 0);
+            var hasPatreon = patreonTier >= 1 || App.Patreon?.IsWhitelisted == true;
+
+            if (ProfilePatreonBadge != null)
+            {
+                if (patreonTier > 0)
+                {
+                    ProfilePatreonBadge.Visibility = Visibility.Visible;
+                    ProfilePatreonBadge.Source = LoadPatreonBadgeImage(patreonTier);
+                }
+                else
+                {
+                    ProfilePatreonBadge.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // Patreon tier badge next to Discord button (same as leaderboard)
+            if (ProfilePatreonTierBadge != null)
+            {
+                if (hasPatreon)
+                {
+                    ProfilePatreonTierBadge.Visibility = Visibility.Visible;
+                    // Use tier 1 as fallback for whitelisted users with tier 0
+                    ProfilePatreonTierBadge.Source = LoadPatreonBadgeImage(patreonTier > 0 ? patreonTier : 1);
+                }
+                else
+                {
+                    ProfilePatreonTierBadge.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // Patreon tier banner (Pink filter / Prime subject images)
+            // Shows for tier 1+, tier 2+, tier 3, OR whitelisted users
+            if (ProfilePatreonTierBanner != null && ImgPatreonTierBanner != null)
+            {
+                if (hasPatreon)
+                {
+                    ProfilePatreonTierBanner.Visibility = Visibility.Visible;
+                    try
+                    {
+                        // Tier 3 = Prime subject, everyone else = Pink filter
+                        var bannerImage = patreonTier >= 3 ? "prime subject.webp" : "Pink filter.webp";
+                        ImgPatreonTierBanner.Source = new System.Windows.Media.Imaging.BitmapImage(
+                            new Uri($"pack://application:,,,/Resources/{bannerImage}", UriKind.Absolute));
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Logger?.Warning(ex, "Failed to load Patreon tier banner image");
+                        ProfilePatreonTierBanner.Visibility = Visibility.Collapsed;
+                    }
+                }
+                else
+                {
+                    ProfilePatreonTierBanner.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // Load achievement images for own profile
+            if (progress?.UnlockedAchievements != null && progress.UnlockedAchievements.Count > 0)
+            {
+                LoadProfileAchievementImages(progress.UnlockedAchievements);
+            }
+            else
+            {
+                if (ProfileAchievementGrid != null) ProfileAchievementGrid.ItemsSource = null;
+                if (TxtNoAchievements != null)
+                {
+                    TxtNoAchievements.Text = Loc.Get("label_no_achievements_yet");
+                    TxtNoAchievements.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
+        private void DisplayProfileEntry(Services.LeaderboardEntry entry)
+        {
+            try
+            {
+            if (ProfileCardWrapper != null) ProfileCardWrapper.Visibility = Visibility.Visible;
+            if (NoProfileSelected != null) NoProfileSelected.Visibility = Visibility.Collapsed;
+
+            // OG user animated border
+            if (OgBorderContainer != null)
+            {
+                if (entry.IsSeason0Og)
+                {
+                    OgBorderContainer.Visibility = Visibility.Visible;
+                    // Start the rotation animation
+                    if (OgBorderContainer.Resources["OgBorderAnimation"] is System.Windows.Media.Animation.Storyboard storyboard)
+                    {
+                        storyboard.Begin(OgBorderContainer, true);
+                    }
+                }
+                else
+                {
+                    OgBorderContainer.Visibility = Visibility.Collapsed;
+                    // Stop any running animation
+                    if (OgBorderContainer.Resources["OgBorderAnimation"] is System.Windows.Media.Animation.Storyboard storyboard)
+                    {
+                        storyboard.Stop(OgBorderContainer);
+                    }
+                }
+            }
+            // OG GOOD GIRL banner badge next to name
+            if (OgBannerBadge != null)
+            {
+                OgBannerBadge.Visibility = entry.IsSeason0Og ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Avatar - clear previous, will be loaded async
+            if (ProfileViewerAvatar != null)
+            {
+                ProfileViewerAvatar.ImageSource = null;
+            }
+
+            // Name
+            if (TxtProfileViewerName != null)
+                TxtProfileViewerName.Text = entry.DisplayName ?? "Unknown";
+
+            // Online status (from cached data initially)
+            if (TxtProfileViewerOnline != null)
+            {
+                TxtProfileViewerOnline.Text = entry.IsOnline ? "Online" : "Offline";
+                TxtProfileViewerOnline.Foreground = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+                        entry.IsOnline ? "#43B581" : "#747F8D"));
+            }
+            if (ProfileOnlineIndicator != null)
+                ProfileOnlineIndicator.Fill = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+                        entry.IsOnline ? "#43B581" : "#747F8D"));
+
+            // Trigger async lookup to get fresh online status and avatar
+            if (!string.IsNullOrEmpty(entry.DisplayName))
+            {
+                _ = RefreshProfileViewerAsync(entry.DisplayName);
+            }
+
+            // Discord button (only if they have it and allow DMs)
+            if (BtnProfileDiscord != null && TxtProfileDiscordId != null)
+            {
+                if (entry.HasDiscord && !string.IsNullOrEmpty(entry.DiscordId))
+                {
+                    BtnProfileDiscord.Visibility = Visibility.Visible;
+                    TxtProfileDiscordId.Text = entry.DisplayName ?? "Message on Discord";
+                    BtnProfileDiscord.Tag = entry.DiscordId; // Store ID for click handler
+                }
+                else
+                {
+                    BtnProfileDiscord.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // Stats
+            if (TxtProfileViewerLevel != null) TxtProfileViewerLevel.Text = entry.Level.ToString();
+
+            // Rank
+            if (TxtProfileViewerRank != null)
+            {
+                TxtProfileViewerRank.Text = entry.Rank > 0 ? $"#{entry.Rank}" : "#-";
+            }
+            if (TxtProfileViewerXp != null) TxtProfileViewerXp.Text = entry.XpDisplay;
+            if (TxtProfileViewerBubbles != null) TxtProfileViewerBubbles.Text = entry.BubblesPoppedDisplay;
+            if (TxtProfileViewerVideos != null)
+            {
+                var hours = entry.VideoMinutes / 60.0;
+                TxtProfileViewerVideos.Text = hours >= 1 ? $"{hours:F1}h" : $"{entry.VideoMinutes:F0}m";
+            }
+            if (TxtProfileViewerGifs != null) TxtProfileViewerGifs.Text = entry.GifsSpawnedDisplay;
+            if (TxtProfileViewerLockCards != null) TxtProfileViewerLockCards.Text = entry.LockCardsCompleted.ToString();
+            if (TxtProfileViewerAchievements != null) TxtProfileViewerAchievements.Text = entry.AchievementsDisplay;
+
+            // Check if this is the current user's profile - if so, use local Patreon data
+            // which is more accurate than leaderboard cache
+            var isOwnProfile = entry.DisplayName?.Equals(
+                App.Settings?.Current?.UserDisplayName, StringComparison.OrdinalIgnoreCase) == true;
+
+            // Edit name button - only visible on own profile
+            if (BtnChangeDisplayName != null)
+                BtnChangeDisplayName.Visibility = isOwnProfile && !string.IsNullOrEmpty(App.Settings?.Current?.UnifiedId)
+                    ? Visibility.Visible : Visibility.Collapsed;
+
+            // Delete profile button - only visible on own profile
+            if (BtnDeleteProfile != null)
+                BtnDeleteProfile.Visibility = isOwnProfile && !string.IsNullOrEmpty(App.Settings?.Current?.UnifiedId)
+                    ? Visibility.Visible : Visibility.Collapsed;
+
+            int tierToUse;
+            bool hasPatreonAccess;
+
+            if (isOwnProfile)
+            {
+                // Use local Patreon data for own profile
+                tierToUse = App.Settings?.Current?.PatreonTier ?? (int)(App.Patreon?.CurrentTier ?? 0);
+                hasPatreonAccess = tierToUse >= 1 || App.Patreon?.IsWhitelisted == true;
+            }
+            else
+            {
+                // Use leaderboard entry data for other users
+                tierToUse = entry.PatreonTier;
+                hasPatreonAccess = entry.IsPatreon && entry.PatreonTier >= 1;
+            }
+
+            // Patreon badge (next to Level/Rank)
+            if (ProfilePatreonBadge != null)
+            {
+                if (hasPatreonAccess && tierToUse > 0)
+                {
+                    ProfilePatreonBadge.Visibility = Visibility.Visible;
+                    ProfilePatreonBadge.Source = LoadPatreonBadgeImage(tierToUse);
+                }
+                else
+                {
+                    ProfilePatreonBadge.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // Patreon tier badge next to Discord button (same as leaderboard)
+            if (ProfilePatreonTierBadge != null)
+            {
+                if (hasPatreonAccess)
+                {
+                    ProfilePatreonTierBadge.Visibility = Visibility.Visible;
+                    // Use tier 1 as fallback for whitelisted users with tier 0
+                    ProfilePatreonTierBadge.Source = LoadPatreonBadgeImage(tierToUse > 0 ? tierToUse : 1);
+                }
+                else
+                {
+                    ProfilePatreonTierBadge.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // Patreon tier banner (Pink filter / Prime subject images)
+            // Shows for any Patreon supporter (tier 1+)
+            if (ProfilePatreonTierBanner != null && ImgPatreonTierBanner != null)
+            {
+                if (hasPatreonAccess)
+                {
+                    ProfilePatreonTierBanner.Visibility = Visibility.Visible;
+                    try
+                    {
+                        // Tier 3 = Prime subject, everyone else = Pink filter
+                        var bannerImage = tierToUse >= 3 ? "prime subject.webp" : "Pink filter.webp";
+                        ImgPatreonTierBanner.Source = new System.Windows.Media.Imaging.BitmapImage(
+                            new Uri($"pack://application:,,,/Resources/{bannerImage}", UriKind.Absolute));
+                    }
+                    catch
+                    {
+                        ProfilePatreonTierBanner.Visibility = Visibility.Collapsed;
+                    }
+                }
+                else
+                {
+                    ProfilePatreonTierBanner.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // We don't have detailed achievement list from leaderboard, just the count
+            // So hide the achievement grid for other users or show placeholder
+            if (ProfileAchievementGrid != null)
+            {
+                ProfileAchievementGrid.ItemsSource = null;
+            }
+            if (TxtNoAchievements != null)
+            {
+                TxtNoAchievements.Text = $"{entry.AchievementsCount} achievements unlocked";
+                TxtNoAchievements.Visibility = Visibility.Visible;
+            }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "DisplayProfileEntry failed for {Name}", entry?.DisplayName);
+            }
+        }
+
+        /// <summary>
+        /// Refresh profile viewer with fresh data from server (online status, avatar)
+        /// </summary>
+        private async Task RefreshProfileViewerAsync(string displayName)
+        {
+            try
+            {
+                var lookup = await App.Leaderboard?.LookupUserAsync(displayName);
+                if (lookup == null) return;
+
+                // Update on UI thread
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    // Verify we're still showing this user (user may have clicked away)
+                    if (TxtProfileViewerName?.Text != displayName) return;
+
+                    // Update online status
+                    if (TxtProfileViewerOnline != null)
+                    {
+                        TxtProfileViewerOnline.Text = lookup.IsOnline ? "Online" : "Offline";
+                        TxtProfileViewerOnline.Foreground = new System.Windows.Media.SolidColorBrush(
+                            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+                                lookup.IsOnline ? "#43B581" : "#747F8D"));
+                    }
+                    if (ProfileOnlineIndicator != null)
+                    {
+                        ProfileOnlineIndicator.Fill = new System.Windows.Media.SolidColorBrush(
+                            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+                                lookup.IsOnline ? "#43B581" : "#747F8D"));
+                    }
+
+                    // Load avatar if available
+                    if (ProfileViewerAvatar != null)
+                    {
+                        string? avatarUrl = lookup.AvatarUrl;
+
+                        // Fallback: if viewing own profile and server didn't return avatar, use local Discord avatar
+                        // BUT only if user has ShareProfilePicture enabled (respect their privacy setting)
+                        if (string.IsNullOrEmpty(avatarUrl) && App.Settings?.Current?.ShareProfilePicture == true)
+                        {
+                            var ownDisplayName = App.Settings?.Current?.UserDisplayName
+                                               ?? App.Discord?.CustomDisplayName
+                                               ?? App.Discord?.DisplayName
+                                               ?? App.Patreon?.DisplayName;
+                            if (displayName.Equals(ownDisplayName, StringComparison.OrdinalIgnoreCase) && App.Discord?.IsAuthenticated == true)
+                            {
+                                avatarUrl = App.Discord.GetAvatarUrl(256);
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(avatarUrl))
+                        {
+                            try
+                            {
+                                var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                                bitmap.BeginInit();
+                                bitmap.UriSource = new Uri(avatarUrl);
+                                bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                                bitmap.EndInit();
+                                ProfileViewerAvatar.ImageSource = bitmap;
+                            }
+                            catch (Exception ex)
+                            {
+                                App.Logger?.Warning(ex, "Failed to load profile avatar from {Url}", avatarUrl);
+                                ProfileViewerAvatar.ImageSource = null;
+                            }
+                        }
+                        else
+                        {
+                            // No avatar URL - clear any previous image
+                            ProfileViewerAvatar.ImageSource = null;
+                        }
+                    }
+
+                    // Load achievements from lookup result (for other users)
+                    if (lookup.Achievements != null && lookup.Achievements.Count > 0)
+                    {
+                        var achievementSet = new HashSet<string>(lookup.Achievements);
+                        LoadProfileAchievementImages(achievementSet);
+                    }
+                    else if (lookup.AchievementsCount > 0)
+                    {
+                        // Fallback: server returned count but no list (shouldn't happen with updated server)
+                        if (TxtNoAchievements != null)
+                        {
+                            TxtNoAchievements.Text = $"{lookup.AchievementsCount} achievements unlocked";
+                            TxtNoAchievements.Visibility = Visibility.Visible;
+                        }
+                        if (ProfileAchievementGrid != null)
+                        {
+                            ProfileAchievementGrid.ItemsSource = null;
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to refresh profile viewer for {Name}", displayName);
+            }
+        }
+
+        private System.Windows.Media.Imaging.BitmapImage? LoadPatreonBadgeImage(int tier)
+        {
+            try
+            {
+                var imageName = tier switch
+                {
+                    1 => "Patreon tier1.png",
+                    2 => "Patreon tier2.png",
+                    3 => "Patreon tier3.png",
+                    _ => "Patreon tier1.png"
+                };
+                return new System.Windows.Media.Imaging.BitmapImage(
+                    new Uri($"pack://application:,,,/Resources/{imageName}", UriKind.Absolute));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void LoadProfileAchievementImages(HashSet<string>? unlockedAchievements)
+        {
+            if (ProfileAchievementGrid == null) return;
+
+            if (unlockedAchievements == null || unlockedAchievements.Count == 0)
+            {
+                ProfileAchievementGrid.ItemsSource = null;
+                if (TxtNoAchievements != null) TxtNoAchievements.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (TxtNoAchievements != null) TxtNoAchievements.Visibility = Visibility.Collapsed;
+
+            var achievementItems = new List<object>();
+            foreach (var achievementId in unlockedAchievements)
+            {
+                var achievement = Models.Achievement.All.Values.FirstOrDefault(a => a.Id == achievementId);
+                if (achievement != null)
+                {
+                    var image = LoadAchievementImage(achievement.ImageName);
+                    if (image != null)
+                    {
+                        achievementItems.Add(new { Name = App.Mods?.MakeModAware(achievement.Name) ?? achievement.Name, Image = image });
+                    }
+                }
+            }
+
+            ProfileAchievementGrid.ItemsSource = achievementItems;
+        }
+
+        private string FormatNumber(double number)
+        {
+            if (number >= 1_000_000) return $"{number / 1_000_000:F1}M";
+            if (number >= 1_000) return $"{number / 1_000:F1}k";
+            return number.ToString("N0");
+        }
+
+        #endregion
+
+        private async void BtnPopOutBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            // Block in offline mode
+            if (App.Settings?.Current?.OfflineMode == true) return;
+
+            // Lazy-load browser on first pop-out
+            if (!_browserInitialized)
+            {
+                await InitializeBrowserAsync();
+            }
+
+            if (_browser?.WebView == null) return;
+
+            // If already popped out, bring the window to front
+            if (_browserPopoutWindow != null)
+            {
+                _browserPopoutWindow.Activate();
+                return;
+            }
+
+            try
+            {
+                // Remove WebView from embedded container
+                if (BrowserContainer.Children.Contains(_browser.WebView))
+                {
+                    BrowserContainer.Children.Remove(_browser.WebView);
+                }
+
+                // Show placeholder in the embedded container
+                BrowserLoadingText.Text = Loc.Get("label_browser_popped_out_nclick_to_focus_window");
+                BrowserLoadingText.Visibility = Visibility.Visible;
+
+                // Create popup window
+                _browserPopoutWindow = new Window
+                {
+                    Title = Loc.Get("title_browser_window"),
+                    Width = 1024,
+                    Height = 768,
+                    MinWidth = 400,
+                    MinHeight = 300,
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                    Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1A, 0x1A, 0x2E)),
+                    Content = _browser.WebView
+                };
+
+                // Handle window CLOSING (before close) - detach WebView to prevent parent/child errors
+                _browserPopoutWindow.Closing += (s, args) =>
+                {
+                    // Exit browser fullscreen first if the popout is being closed while fullscreen
+                    if (_isBrowserFullscreen && _browserFullscreenWasPopout)
+                    {
+                        _isBrowserFullscreen = false;
+                        _browserFullscreenWasPopout = false;
+                        if (_browser != null)
+                            _browser.ZoomFactor = _browserPreFullscreenZoom;
+                    }
+
+                    if (_browserPopoutWindow != null)
+                    {
+                        // CRITICAL: Remove WebView from window content BEFORE closing
+                        // This prevents "window is a parent/child of another" errors
+                        _browserPopoutWindow.Content = null;
+                    }
+                };
+
+                // Handle window CLOSED (after close) - return browser to embedded container
+                _browserPopoutWindow.Closed += (s, args) =>
+                {
+                    if (_browser?.WebView != null)
+                    {
+                        // Add back to embedded container
+                        if (!BrowserContainer.Children.Contains(_browser.WebView))
+                        {
+                            BrowserContainer.Children.Add(_browser.WebView);
+                        }
+                        BrowserLoadingText.Visibility = Visibility.Collapsed;
+                    }
+                    _browserPopoutWindow = null;
+                    BtnPopOutBrowser.Content = Loc.Get("btn_pop_out");
+                    BtnPopOutBrowser.ToolTip = Loc.Get("tooltip_pop_out_browser_to_resizable_window");
+                };
+
+                // Update button to show it's popped out
+                BtnPopOutBrowser.Content = Loc.Get("btn_focus");
+                BtnPopOutBrowser.ToolTip = Loc.Get("tooltip_browser_is_popped_out_click_to_focus");
+
+                _browserPopoutWindow.Show();
+                App.Logger?.Information("Browser popped out to separate window");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "Failed to pop out browser");
+                // Try to restore browser to container
+                if (_browser?.WebView != null && !BrowserContainer.Children.Contains(_browser.WebView))
+                {
+                    BrowserContainer.Children.Add(_browser.WebView);
+                    BrowserLoadingText.Visibility = Visibility.Collapsed;
+                }
+                _browserPopoutWindow = null;
+            }
+        }
+
+        private void HandleBrowserFullscreenChanged(bool isFullscreen)
+        {
+            if (_browser?.WebView == null) return;
+
+            if (isFullscreen)
+            {
+                var screens = App.GetAllScreensCached();
+                var useDualMonitor = App.Settings.Current.DualMonitorEnabled && screens.Length > 1;
+
+                if (useDualMonitor)
+                {
+                    _isDualMonitorPlaybackActive = App.ScreenMirror.EnableMirror();
+                    if (_isDualMonitorPlaybackActive)
+                    {
+                        App.Logger?.Information("Screen mirroring enabled for fullscreen video");
+                    }
+                }
+
+                // Always reparent — single-monitor users still need real
+                // full-monitor fullscreen, otherwise HT's HTML5 fullscreen
+                // just renders inside the dashboard cell. The dblclick exit
+                // works via the JS click-pair detector + ccp_exit_fullscreen
+                // WebMessage path (window._ccpForcedFs flag covers the case
+                // where the page lost HTML5 fullscreen during reparent).
+                EnterBrowserFullscreen();
+            }
+            else
+            {
+                if (_isDualMonitorPlaybackActive)
+                {
+                    App.ScreenMirror.DisableMirror();
+                    _isDualMonitorPlaybackActive = false;
+                    App.Logger?.Information("Screen mirroring disabled");
+                }
+
+                ExitBrowserFullscreen();
+            }
+        }
+
+        public void EnterBrowserFullscreen()
+        {
+            if (_browser?.WebView == null || _isBrowserFullscreen) return;
+
+            try
+            {
+                // Save avatar attached state before entering fullscreen
+                _avatarWasAttachedBeforeBrowserFullscreen = _avatarTubeWindow != null && !_avatarTubeWindow.IsDetached;
+                _browserPreFullscreenZoom = _browser.ZoomFactor;
+                _browser.ZoomFactor = 1.0;
+                _isBrowserFullscreen = true;
+
+                if (_browserPopoutWindow != null)
+                {
+                    // === POPOUT MODE: user already had browser popped out ===
+                    _browserFullscreenWasPopout = true;
+
+                    // Save popout window state for restore
+                    _popoutPreFsStyle = _browserPopoutWindow.WindowStyle;
+                    _popoutPreFsResize = _browserPopoutWindow.ResizeMode;
+                    _popoutPreFsState = _browserPopoutWindow.WindowState;
+                    _popoutPreFsLeft = _browserPopoutWindow.Left;
+                    _popoutPreFsTop = _browserPopoutWindow.Top;
+                    _popoutPreFsWidth = _browserPopoutWindow.Width;
+                    _popoutPreFsHeight = _browserPopoutWindow.Height;
+                    _popoutPreFsTopmost = _browserPopoutWindow.Topmost;
+
+                    // Go fullscreen in-place
+                    if (_browserPopoutWindow.WindowState == WindowState.Maximized)
+                        _browserPopoutWindow.WindowState = WindowState.Normal;
+
+                    _browserPopoutWindow.WindowStyle = WindowStyle.None;
+                    _browserPopoutWindow.ResizeMode = ResizeMode.NoResize;
+                    _browserPopoutWindow.Topmost = true;
+                    _browserPopoutWindow.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
+                    _browserPopoutWindow.WindowState = WindowState.Maximized;
+                }
+                else
+                {
+                    // === EMBEDDED MODE: create fullscreen window directly ===
+                    // Same approach as the mandatory video windows which work correctly:
+                    // Create Window with WindowStyle.None from the start, Show, then Maximize.
+                    _browserFullscreenWasPopout = false;
+
+                    // Remove WebView from embedded container
+                    if (BrowserContainer.Children.Contains(_browser.WebView))
+                    {
+                        BrowserContainer.Children.Remove(_browser.WebView);
+                    }
+                    BrowserLoadingText.Text = "\ud83c\udf10 Browser in fullscreen";
+                    BrowserLoadingText.Visibility = Visibility.Visible;
+
+                    var screen = System.Windows.Forms.Screen.FromHandle(
+                        new System.Windows.Interop.WindowInteropHelper(this).Handle);
+
+                    // Create window with fullscreen properties from the start (like video windows)
+                    _browserPopoutWindow = new Window
+                    {
+                        WindowStyle = WindowStyle.None,
+                        ResizeMode = ResizeMode.NoResize,
+                        ShowInTaskbar = false,
+                        Topmost = true,
+                        Background = System.Windows.Media.Brushes.Black,
+                        WindowStartupLocation = WindowStartupLocation.Manual,
+                        Left = screen.Bounds.X + 100,
+                        Top = screen.Bounds.Y + 100,
+                        Width = 400,
+                        Height = 300,
+                        Content = _browser.WebView
+                    };
+
+                    _browserPopoutWindow.Closing += (s, args) =>
+                    {
+                        if (_isBrowserFullscreen)
+                        {
+                            _isBrowserFullscreen = false;
+                            if (_browser != null)
+                                _browser.ZoomFactor = _browserPreFullscreenZoom;
+                        }
+                        if (_browserPopoutWindow != null)
+                            _browserPopoutWindow.Content = null;
+                    };
+
+                    _browserPopoutWindow.Closed += (s, args) =>
+                    {
+                        if (_browser?.WebView != null && !BrowserContainer.Children.Contains(_browser.WebView))
+                        {
+                            BrowserContainer.Children.Add(_browser.WebView);
+                            BrowserLoadingText.Visibility = Visibility.Collapsed;
+                        }
+                        _browserPopoutWindow = null;
+                    };
+
+                    // Show small first, pump render queue, then maximize — exactly like video windows
+                    _browserPopoutWindow.Show();
+                    _browserPopoutWindow.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
+                    _browserPopoutWindow.WindowState = WindowState.Maximized;
+                }
+
+                // (Removed: ReRequestVideoFullscreenAsync.) That stacked a
+                // second HTML5 fullscreen entry on top of HT's wrapper-level
+                // one, and document.exitFullscreen() only pops one stack
+                // entry per call — so HT's minimize button and dblclick
+                // appeared to do nothing. Letting HT's original wrapper
+                // fullscreen ride through the transition gives a single-layer
+                // exit that pops cleanly on one exitFullscreen call.
+
+                // Flag the page so the JS click-pair / dblclick handlers
+                // (injected in BrowserService) fire even if the page lost
+                // HTML5 fullscreen state during the reparent. The user can
+                // always exit our WPF "forced fullscreen" by double-clicking
+                // the video — same as Esc.
+                try { _ = _browser.WebView.CoreWebView2.ExecuteScriptAsync("window._ccpForcedFs = true;"); }
+                catch { }
+
+                App.Logger?.Information("Browser entered fullscreen");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "Failed to enter browser fullscreen");
+                ExitBrowserFullscreen();
+            }
+        }
+
+        private void ExitBrowserFullscreen()
+        {
+            if (!_isBrowserFullscreen) return;
+
+            try
+            {
+                // Clear the JS flag and best-effort exit any lingering HTML5
+                // fullscreen on the page side before we restore window state.
+                try
+                {
+                    if (_browser?.WebView?.CoreWebView2 != null)
+                    {
+                        _ = _browser.WebView.CoreWebView2.ExecuteScriptAsync(
+                            "window._ccpForcedFs = false; try { if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen(); } catch (_) {}");
+                    }
+                }
+                catch { }
+
+                if (_browserPopoutWindow != null)
+                {
+                    if (_browserFullscreenWasPopout)
+                    {
+                        // === Was already popped out by user — restore popout window state ===
+                        _browserPopoutWindow.WindowStyle = _popoutPreFsStyle;
+                        _browserPopoutWindow.ResizeMode = _popoutPreFsResize;
+                        _browserPopoutWindow.Topmost = _popoutPreFsTopmost;
+                        _browserPopoutWindow.Left = _popoutPreFsLeft;
+                        _browserPopoutWindow.Top = _popoutPreFsTop;
+                        _browserPopoutWindow.Width = _popoutPreFsWidth;
+                        _browserPopoutWindow.Height = _popoutPreFsHeight;
+                        _browserPopoutWindow.WindowState = _popoutPreFsState;
+                    }
+                    else
+                    {
+                        // === Was embedded — close the auto-popout to return to embedded ===
+                        _browserPopoutWindow.Close();
+                        // The Closed handler returns the WebView to BrowserContainer
+                    }
+                }
+
+                // Restore zoom
+                if (_browser != null)
+                    _browser.ZoomFactor = _browserPreFullscreenZoom;
+
+                _isBrowserFullscreen = false;
+                _avatarWasAttachedBeforeBrowserFullscreen = false;
+
+                App.Logger?.Information("Browser exited fullscreen");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "Failed to exit browser fullscreen");
+            }
+        }
+
+        // True while a remote controller's "play_hypnotube" video is showing in the embedded
+        // browser. Gates StopBrowserVideoFromRemote so panic/session-end only touches the
+        // browser when the controller actually started a video here — never the page the user
+        // was browsing themselves.
+        private bool _remoteBrowserVideoActive;
+
+        /// <summary>
+        /// Play a controller-supplied HypnoTube URL in the embedded browser (remote-control
+        /// "play_hypnotube" command). Marks the browser video as remote-active so a later panic
+        /// / session-end can stop it. The URL has already been allowlist-validated by
+        /// RemoteControlService (HtUrlHelper.IsEligibleHtUrl).
+        /// </summary>
+        public void PlayHypnotubeFromRemote(string url)
+        {
+            _remoteBrowserVideoActive = true;
+            NavigateToUrlInBrowser(url, autoPlayFullscreen: true);
+        }
+
+        /// <summary>
+        /// Stop a video a remote controller started in the embedded browser (panic /
+        /// session-end / controller-disconnect path). Exits forced fullscreen and navigates
+        /// back to the currently-selected site's homepage — this tears down the playing
+        /// &lt;video&gt; (halting playback) while leaving the browser on a usable page, rather
+        /// than a dead-end about:blank. No-op unless a remote video was actually playing.
+        /// </summary>
+        public void StopBrowserVideoFromRemote()
+        {
+            if (!_remoteBrowserVideoActive) return;
+            _remoteBrowserVideoActive = false;
+            try
+            {
+                if (_isBrowserFullscreen) ExitBrowserFullscreen();
+                NavigateBrowserToCurrentSiteHome();
+                App.Logger?.Information("[RemoteControl] Stopped remote browser video, restored site homepage");
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("StopBrowserVideoFromRemote failed: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Navigate the embedded browser to the homepage of whichever site (HypnoTube /
+        /// BambiCloud) is currently selected in the toggle. Shared by the remote video-stop
+        /// path and the toolbar Reload button — re-selecting an already-checked site radio
+        /// won't fire its Checked handler, so this gives a reliable way back to a live page.
+        /// </summary>
+        private void NavigateBrowserToCurrentSiteHome()
+        {
+            if (_browser?.WebView?.CoreWebView2 == null) return;
+            try
+            {
+                var isBambiCloud = RbBambiCloud?.IsChecked == true;
+                var url = isBambiCloud ? "https://bambicloud.com/" : "https://hypnotube.com/";
+                _browser.Navigate(url);
+                App.Logger?.Information("Browser navigated to current site home: {Url}", url);
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("NavigateBrowserToCurrentSiteHome failed: {Error}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Toolbar Reload button: reload the browser onto the currently-selected site's
+        /// homepage (or lazy-init the browser if it was never opened). Gives the user a way
+        /// out of a stuck/blank page — e.g. after a remote video was stopped.
+        /// </summary>
+        private void BtnReloadBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_browserInitialized)
+            {
+                var initialUrl = RbHypnoTube?.IsChecked == true
+                    ? "https://hypnotube.com/"
+                    : "https://bambicloud.com/";
+                _ = InitializeBrowserAsync(initialUrl);
+                return;
+            }
+            if (App.Settings?.Current?.OfflineMode == true) return;
+            NavigateBrowserToCurrentSiteHome();
+        }
+
+        #endregion
+    }
+}
