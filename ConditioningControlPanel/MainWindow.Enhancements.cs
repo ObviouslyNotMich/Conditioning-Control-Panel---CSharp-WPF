@@ -1321,8 +1321,10 @@ namespace ConditioningControlPanel
 
                         if (success)
                         {
-                            // Show celebration
-                            App.Flash?.PlayRandomSound();
+                            // Celebration audio intentionally omitted: SkillTree
+                            // raises SkillUnlocked, which BarkService voices via the
+                            // skill_unlock rule. Playing a random flash-pool clip here
+                            // too produced two overlapping voicelines. (#366)
 
                             // Update Trophy Case columns if trophy_case was purchased
                             if (skillId == "trophy_case")
