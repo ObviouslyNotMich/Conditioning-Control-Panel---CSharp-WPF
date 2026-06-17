@@ -557,11 +557,26 @@ namespace ConditioningControlPanel
                 IsChecked = true // Will be recalculated based on DisabledAssetPaths
             };
 
-            // Count files in this folder
+            // Count files in this folder.
+            // Enumeration is wrapped because a folder can be deleted/renamed or
+            // an external/network drive can drop out between the parent's
+            // GetDirectories and this recursive call (TOCTOU). An unguarded
+            // DirectoryNotFoundException here reached the dispatcher and crashed
+            // the app when opening the assets tab. (#379 / #370)
             var validExtensions = new[] { ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".avif", ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".webm" };
-            var files = Directory.GetFiles(path)
-                .Where(f => validExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                .ToList();
+            List<string> files;
+            try
+            {
+                files = Directory.GetFiles(path)
+                    .Where(f => validExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                    .ToList();
+            }
+            catch (Exception ex) when (ex is DirectoryNotFoundException or UnauthorizedAccessException or IOException)
+            {
+                App.Logger?.Debug("BuildFolderTree: skipping unreadable folder {Path}: {Error}", path, ex.Message);
+                node.UpdateCheckState();
+                return node;
+            }
             node.FileCount = files.Count;
 
             // Count checked files using blacklist (files NOT in DisabledAssetPaths are active)
@@ -572,8 +587,19 @@ namespace ConditioningControlPanel
                 return !App.Settings.Current.DisabledAssetPaths.Contains(relativePath);
             });
 
-            // Add subfolders
-            foreach (var dir in Directory.GetDirectories(path))
+            // Add subfolders (same TOCTOU guard as above — skip subfolders that
+            // throw rather than letting the whole tree build crash).
+            string[] subDirs;
+            try
+            {
+                subDirs = Directory.GetDirectories(path);
+            }
+            catch (Exception ex) when (ex is DirectoryNotFoundException or UnauthorizedAccessException or IOException)
+            {
+                App.Logger?.Debug("BuildFolderTree: cannot enumerate subfolders of {Path}: {Error}", path, ex.Message);
+                subDirs = Array.Empty<string>();
+            }
+            foreach (var dir in subDirs)
             {
                 var child = BuildFolderTree(dir, Path.GetFileName(dir));
                 child.Parent = node;
