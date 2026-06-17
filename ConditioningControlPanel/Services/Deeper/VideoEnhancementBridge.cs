@@ -119,6 +119,15 @@ namespace ConditioningControlPanel.Services.Deeper
             }
         }
 
+        /// <summary>
+        /// Tears down any engine currently bound to the playing video, on the
+        /// UI thread. Used by the panic / StopEngine path: panic stops video via
+        /// VideoService.CloseAll, which does NOT raise VideoEnded, so the normal
+        /// OnVideoEnded → Unbind never fires and active text/band overlays (e.g.
+        /// "Don't blink") would keep dispatching after the video is gone. (#364)
+        /// </summary>
+        public void ForceUnbind() => RunOnUi(Unbind);
+
         private void Unbind()
         {
             try { _host.UnbindEngine(); } catch { }

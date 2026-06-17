@@ -221,10 +221,35 @@ namespace ConditioningControlPanel
             MaybePromptMandatoryVideoEnhancement();
         }
 
+        private bool _stopInProgress;
+
         public void StopEngine()
+        {
+            // Re-entrancy guard: the body below pumps the dispatcher (LibVLC
+            // cleanup, GC, window force-closes), so a rapid second panic press
+            // could re-enter and race overlay dispatches against teardown. (#364)
+            if (_stopInProgress) return;
+            _stopInProgress = true;
+            try
+            {
+                StopEngineCore();
+            }
+            finally
+            {
+                _stopInProgress = false;
+            }
+        }
+
+        private void StopEngineCore()
         {
             // Stop flash first (safe, no complex cleanup)
             App.Flash.Stop();
+
+            // Tear down any Deeper enhancement engine bound to the playing video.
+            // App.Video.Stop() below closes windows via CloseAll, which does NOT
+            // raise VideoEnded, so the bridge's normal unbind never fires and its
+            // text overlays ("Don't blink") would keep flashing after panic. (#364)
+            App.VideoEnhanceBridge?.ForceUnbind();
 
             // Stop bubbles BEFORE video to avoid UI thread contention
             // Bubbles use high-priority animation timers that can interfere with video cleanup
