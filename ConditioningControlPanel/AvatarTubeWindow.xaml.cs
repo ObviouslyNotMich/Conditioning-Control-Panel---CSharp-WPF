@@ -4280,6 +4280,17 @@ namespace ConditioningControlPanel
             {
                 if (active)
                 {
+                    // Story mode renders its OWN characters (backdrop + the Madam): the floating
+                    // companion would clutter the immersive scene, so hide it for the run. Free
+                    // Desktop has no story characters — the companion IS the on-screen character,
+                    // so keep it floating over the desktop (the detach-and-drop path below).
+                    if (Services.Chaos.ChaosModeService.ActiveMode == Services.Chaos.ChaosPlayMode.Story)
+                    {
+                        _hiddenForChaos = Visibility == Visibility.Visible;
+                        if (_hiddenForChaos) Visibility = Visibility.Hidden;
+                        return;
+                    }
+
                     // Detach so the companion floats above the run as a topmost widget. Remember to
                     // re-attach afterwards only if it was attached to begin with.
                     if (_isAttached)
@@ -4298,14 +4309,27 @@ namespace ConditioningControlPanel
                         catch { /* positioning is best-effort */ }
                     }
                 }
-                else if (_reattachAfterChaos)
+                else
                 {
-                    _reattachAfterChaos = false;
-                    Attach(silent: true);
+                    // Restore from a Story-run hide (only if WE hid it).
+                    if (_hiddenForChaos)
+                    {
+                        _hiddenForChaos = false;
+                        Visibility = Visibility.Visible;
+                    }
+                    if (_reattachAfterChaos)
+                    {
+                        _reattachAfterChaos = false;
+                        Attach(silent: true);
+                    }
                 }
             }
             catch { /* window may be tearing down */ }
         }
+
+        /// <summary>Set while a Story-mode chaos run hides the companion, so we only un-hide a window
+        /// we actually hid (never force-show one the user had turned off).</summary>
+        private bool _hiddenForChaos;
 
         /// <summary>
         /// Reassert topmost status when detached - ensures avatar stays on top as a widget
@@ -5190,68 +5214,87 @@ namespace ConditioningControlPanel
         /// </summary>
         private async void OnActivityChanged(object? sender, ActivityChangedEventArgs e)
         {
-            // Don't trigger during startup cooldown (let greeting show first)
-            if ((DateTime.Now - _startupTime).TotalSeconds < StartupCooldownSeconds)
-                return;
-
-            // Don't trigger if speech bubble is still showing - wait for user to clear it
-            if (SpeechBubble.Visibility == Visibility.Visible)
-                return;
-
-            // Check if we're allowed to react to this category
-            if (!App.WindowAwareness?.IsCategoryEnabled(e.Category) ?? true)
-                return;
-
-            // Check user-configured cooldown from settings
-            if (!App.WindowAwareness?.CanReact() ?? true)
-                return;
-
-            // Mark that we're reacting (resets cooldown timer)
-            App.WindowAwareness?.MarkReaction();
-
-            // Always use the currently focused window's full context
-            // Use service name as primary, with page title for additional context
-            string displayName = string.IsNullOrEmpty(e.ServiceName) ? e.DetectedName : e.ServiceName;
-            string pageTitle = e.PageTitle ?? "";
-
-            // Try AI first, fall back to preset phrase
-            string? reaction = null;
-            bool isAiResponse = false;
-
-            if (App.Settings?.Current?.AiChatEnabled == true && App.Ai?.IsAvailable == true)
+            // async void: a leaked exception (especially from the post-await
+            // continuation) escapes to the dispatcher and kills the whole
+            // process. Guard the entire body and bail if the app is tearing
+            // down. (#386)
+            try
             {
-                try
+                if (Application.Current?.Dispatcher?.HasShutdownStarted ?? true)
+                    return;
+
+                // Don't trigger during startup cooldown (let greeting show first)
+                if ((DateTime.Now - _startupTime).TotalSeconds < StartupCooldownSeconds)
+                    return;
+
+                // Don't trigger if speech bubble is still showing - wait for user to clear it
+                if (SpeechBubble.Visibility == Visibility.Visible)
+                    return;
+
+                // Check if we're allowed to react to this category
+                if (!App.WindowAwareness?.IsCategoryEnabled(e.Category) ?? true)
+                    return;
+
+                // Check user-configured cooldown from settings
+                if (!App.WindowAwareness?.CanReact() ?? true)
+                    return;
+
+                // Mark that we're reacting (resets cooldown timer)
+                App.WindowAwareness?.MarkReaction();
+
+                // Always use the currently focused window's full context
+                // Use service name as primary, with page title for additional context
+                string displayName = string.IsNullOrEmpty(e.ServiceName) ? e.DetectedName : e.ServiceName;
+                string pageTitle = e.PageTitle ?? "";
+
+                // Try AI first, fall back to preset phrase
+                string? reaction = null;
+                bool isAiResponse = false;
+
+                if (App.Settings?.Current?.AiChatEnabled == true && App.Ai?.IsAvailable == true)
                 {
-                    // Pass full context from currently focused window
-                    reaction = await App.Ai.GetAwarenessReactionAsync(displayName, e.Category.ToString(), e.ServiceName, pageTitle);
-                    if (reaction != null)
+                    try
                     {
-                        // No truncation - scrollable speech bubble handles long text
-                        isAiResponse = true;
+                        // Pass full context from currently focused window
+                        reaction = await App.Ai.GetAwarenessReactionAsync(displayName, e.Category.ToString(), e.ServiceName, pageTitle);
+                        if (reaction != null)
+                        {
+                            // No truncation - scrollable speech bubble handles long text
+                            isAiResponse = true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Logger?.Warning(ex, "Failed to get AI awareness reaction");
                     }
                 }
-                catch (Exception ex)
+
+                // The await above may have spanned an app shutdown — re-check
+                // before touching any UI. (#386)
+                if (Application.Current?.Dispatcher?.HasShutdownStarted ?? true)
+                    return;
+
+                // Use preset if AI didn't work
+                reaction ??= GetPhraseForCategory(e.Category, displayName);
+
+                // AI responses get priority and double bounce, presets queue normally
+                if (isAiResponse)
                 {
-                    App.Logger?.Warning(ex, "Failed to get AI awareness reaction");
+                    PlayDoubleBounce();
+                    GigglePriority(reaction);
                 }
+                else
+                {
+                    Giggle(reaction);
+                }
+
+                App.Logger?.Debug("Awareness reaction for {DisplayName} ({Category}): {Reaction}",
+                    displayName, e.Category, reaction);
             }
-
-            // Use preset if AI didn't work
-            reaction ??= GetPhraseForCategory(e.Category, displayName);
-
-            // AI responses get priority and double bounce, presets queue normally
-            if (isAiResponse)
+            catch (Exception ex)
             {
-                PlayDoubleBounce();
-                GigglePriority(reaction);
+                App.Logger?.Warning(ex, "OnActivityChanged handler failed");
             }
-            else
-            {
-                Giggle(reaction);
-            }
-
-            App.Logger?.Debug("Awareness reaction for {DisplayName} ({Category}): {Reaction}",
-                displayName, e.Category, reaction);
         }
 
         /// <summary>
@@ -5259,72 +5302,89 @@ namespace ConditioningControlPanel
         /// </summary>
         private async void OnStillOnActivity(object? sender, ActivityChangedEventArgs e)
         {
-            // Don't trigger during startup cooldown (let greeting show first)
-            if ((DateTime.Now - _startupTime).TotalSeconds < StartupCooldownSeconds)
-                return;
-
-            // Don't trigger if speech bubble is still showing - wait for user to clear it
-            if (SpeechBubble.Visibility == Visibility.Visible)
-                return;
-
-            // Check if we're allowed to react to this category
-            if (!App.WindowAwareness?.IsCategoryEnabled(e.Category) ?? true)
-                return;
-
-            // Check user-configured cooldown from settings
-            if (!App.WindowAwareness?.CanStillOnReact() ?? true)
-                return;
-
-            // Mark that we're reacting (resets cooldown timer)
-            App.WindowAwareness?.MarkStillOnReaction();
-
-            // Get duration from the awareness service
-            var duration = App.WindowAwareness?.CurrentActivityDuration ?? TimeSpan.Zero;
-
-            // 50/50 chance to use just service name vs page title
-            bool useServiceNameOnly = _random.Next(2) == 0;
-            string displayName = useServiceNameOnly || string.IsNullOrEmpty(e.PageTitle)
-                ? e.ServiceName
-                : e.PageTitle;
-
-            // Try AI first, fall back to preset phrase
-            string? reaction = null;
-            bool isAiResponse = false;
-
-            if (App.Settings?.Current?.AiChatEnabled == true && App.Ai?.IsAvailable == true)
+            // async void: guard the whole body so a leaked exception can't kill
+            // the process, and bail if the app is tearing down. (#386)
+            try
             {
-                try
+                if (Application.Current?.Dispatcher?.HasShutdownStarted ?? true)
+                    return;
+
+                // Don't trigger during startup cooldown (let greeting show first)
+                if ((DateTime.Now - _startupTime).TotalSeconds < StartupCooldownSeconds)
+                    return;
+
+                // Don't trigger if speech bubble is still showing - wait for user to clear it
+                if (SpeechBubble.Visibility == Visibility.Visible)
+                    return;
+
+                // Check if we're allowed to react to this category
+                if (!App.WindowAwareness?.IsCategoryEnabled(e.Category) ?? true)
+                    return;
+
+                // Check user-configured cooldown from settings
+                if (!App.WindowAwareness?.CanStillOnReact() ?? true)
+                    return;
+
+                // Mark that we're reacting (resets cooldown timer)
+                App.WindowAwareness?.MarkStillOnReaction();
+
+                // Get duration from the awareness service
+                var duration = App.WindowAwareness?.CurrentActivityDuration ?? TimeSpan.Zero;
+
+                // 50/50 chance to use just service name vs page title
+                bool useServiceNameOnly = _random.Next(2) == 0;
+                string displayName = useServiceNameOnly || string.IsNullOrEmpty(e.PageTitle)
+                    ? e.ServiceName
+                    : e.PageTitle;
+
+                // Try AI first, fall back to preset phrase
+                string? reaction = null;
+                bool isAiResponse = false;
+
+                if (App.Settings?.Current?.AiChatEnabled == true && App.Ai?.IsAvailable == true)
                 {
-                    // Use the selected display name based on 50/50 choice
-                    reaction = await App.Ai.GetStillOnReactionAsync(displayName, e.Category.ToString(), duration);
-                    if (reaction != null)
+                    try
                     {
-                        // No truncation - scrollable speech bubble handles long text
-                        isAiResponse = true;
+                        // Use the selected display name based on 50/50 choice
+                        reaction = await App.Ai.GetStillOnReactionAsync(displayName, e.Category.ToString(), duration);
+                        if (reaction != null)
+                        {
+                            // No truncation - scrollable speech bubble handles long text
+                            isAiResponse = true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Logger?.Warning(ex, "Failed to get AI still-on reaction");
                     }
                 }
-                catch (Exception ex)
+
+                // The await above may have spanned an app shutdown — re-check
+                // before touching any UI. (#386)
+                if (Application.Current?.Dispatcher?.HasShutdownStarted ?? true)
+                    return;
+
+                // Use preset if AI didn't work - include time in the fallback
+                if (reaction == null)
                 {
-                    App.Logger?.Warning(ex, "Failed to get AI still-on reaction");
+                    var minutes = (int)duration.TotalMinutes;
+                    var timeText = minutes < 1 ? "a bit" : $"{minutes} min";
+                    reaction = $"Still on {displayName}? {timeText} already~ Do your nails instead!";
                 }
-            }
 
-            // Use preset if AI didn't work - include time in the fallback
-            if (reaction == null)
+                // AI responses get priority
+                if (isAiResponse)
+                    GigglePriority(reaction);
+                else
+                    Giggle(reaction);
+
+                App.Logger?.Debug("Still-on reaction for {DisplayName} ({Duration}, useServiceOnly={UseService}): {Reaction}",
+                    displayName, duration, useServiceNameOnly, reaction);
+            }
+            catch (Exception ex)
             {
-                var minutes = (int)duration.TotalMinutes;
-                var timeText = minutes < 1 ? "a bit" : $"{minutes} min";
-                reaction = $"Still on {displayName}? {timeText} already~ Do your nails instead!";
+                App.Logger?.Warning(ex, "OnStillOnActivity handler failed");
             }
-
-            // AI responses get priority
-            if (isAiResponse)
-                GigglePriority(reaction);
-            else
-                Giggle(reaction);
-
-            App.Logger?.Debug("Still-on reaction for {DisplayName} ({Duration}, useServiceOnly={UseService}): {Reaction}",
-                displayName, duration, useServiceNameOnly, reaction);
         }
 
         /// <summary>
