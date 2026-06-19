@@ -20,74 +20,61 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.1.4";
+        public const string AppVersion = "6.1.5";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.1.4 - Down the Rabbit Hole
+        public const string CurrentPatchNotes = @"v6.1.5 - Down the Rabbit Hole
 
-🐇 A new little game: ""Down the Rabbit Hole"" is available in testing for the
-   Prime Subject.
+✨ THE RABBIT HOLE - PRETTIER THAN EVER
+- Pops burst into light, throwing off rings and shards in each bubble's colour.
+- Shockwave ripples bloom outward when you snap or set off a field effect.
+- Round bubbles now shine like glass.
+- The score multiplier swells, rounds out and glows brighter the higher it climbs.
+- E-Stim lightning, the rabbit's sparkle trail and the Rabbit-Caller cursor glow
+  are all rebuilt as soft, additive, bloomed light.
+- Little flourishes everywhere - boon cards pop on pick, the combo number blooms
+  on tier-up, your score pulses as it ticks up.
+- A consistent colour language across boons, tiles and banners (electric cyan /
+  pleasure pink / economy gold / mind purple / risk red).
+- New ""Enhanced FX"" and ""Keep on top"" toggles, and the whole layer now stays
+  pinned above other windows so it won't sink when you click away.
 
-🎭 Companion animations: first attempt at animating the companion (hope you
-   girls like it, tho I know it has a lot of room to improve).
+🤖 BRING YOUR OWN AI
+- New OpenAI-compatible provider: point your companion at any OpenAI-style
+  endpoint (local models, other backends) - with endpoint diagnostics, a
+  sampler-settings popup and a test-connection check.
+- Custom AI error messages and a clearer daily-request-limit display.
 
-🗣️ Your companion now greets you out loud when you open the app - a different
-   line depending on how long you've been away - and celebrates your daily
-   login-streak milestones.
+🔗 SUBSCRIBESTAR
+- You can now log in with SubscribeStar alongside the existing options.
 
-🔊 Added ""some"" extra voicelines :3
-
-- Fixes since 6.1.1 -
-
-🐇 Down the Rabbit Hole: killed the ~30-min out-of-memory crash and a video
-   z-order flicker, ran a balance pass, and added a how-to-play card.
-🐇 Rabbit Hole stability: fixed a flash-window render-thread deadlock and
-   stopped glow effects from leaking memory on long runs (smoother, lighter).
-🎥 Webcam: de-jittered gaze tracking and made calibration more robust.
-🗂️ Deeper: in-app feedback when your catalogue submission gets published.
-🔊 Voicelines: less repetition (deeper rotation + a global no-repeat guard),
-   and you can now manage barks from the Phrase Manager.
-🚪 Fixed the app lingering in the background after the in-app Exit button.
-🎥 Companion AI no longer fixates on one video, and Sissy's links are clickable
-   again.
-🖥️ Fixed a tray / single-instance click trying to revive a closed window.
-
-- Everything else since 6.0.8 -
+🗂️ CATALOGUE
+- Share your Presets & Sessions straight to the catalogue.
+- Drag-and-drop to import Presets & Sessions others have shared.
 
 🎭 COMPANION
-- Animated emotive portraits for all three mods (Bambi / Sissy / Circe),
-  replacing the old static images.
-- Fixed mod-switch freeze, the avatar getting stuck hidden after fullscreen
-  apps, and dragging from invisible dead-zones.
+- Your companion no longer blinks out for a beat while she's talking (she holds
+  the last frame instead of going blank on a slow-loading animation).
 
-🔊 VOICELINES
-- Reactive bark system - your companion knows what app you're in and reacts to
-  the moment.
-- More idle variety, fresh reactions that don't pile up stale, and proper
-  coordination so she won't talk over whispers (and goes quiet when whispers
-  are muted).
+🔧 FIXES & STABILITY
+- The window's X button now fully closes the app instead of leaving it running
+  in the background.
+- A cloud restore no longer wipes your per-mod phrase lists (subliminals,
+  bouncing text, lock cards, custom triggers).
+- Flash: stopped a ""stare to keep"" flash that could become immortal, and guarded
+  against unsupported image formats.
+- Multi-monitor: capped video decoders so extra screens don't overload things,
+  and your custom assets folder is now created on import.
+- Brain Drain: smoother opacity ramp, and it survives Windows running low on
+  window handles during very long sessions.
+- Assets tree no longer crashes if a folder disappears mid-build.
+- Fixed a double voiceline when unlocking a skill-tree enhancement.
+- Hardened some async handlers and hit-testing paths against rare crashes.
 
-✨ DEEPER (TIMELINE EDITOR)
-- Three dedicated lanes - Regions / Effects / Haptics.
-- Overlay opacity ramp (fade across a region).
-- Per-effect ""don't buzz on pop"" for flash & subliminal.
-- A round of editor quality-of-life fixes plus a darker restyle.
-
-⚡ PERFORMANCE & STABILITY
-- Tier-aware flash decode/scaling/glow and GPU video decode for smoother
-  playback on lower-end machines.
-- Window pooling to stop render-thread hangs during heavy sessions.
-
-🔧 FIXES & EXTRAS
-- Webcam capture crash fixed (bundled the missing VC++ runtime).
-- Mindwipe custom audio-clip selector.
-- Spiral library preview plus folder picker.
-- Refresh assets without restarting the app.
-
-Season:";
+Season: Juicy June";
 
         private const string GitHubOwner = "CodeBambi";
         private const string GitHubRepo = "Conditioning-Control-Panel---CSharp-WPF";
