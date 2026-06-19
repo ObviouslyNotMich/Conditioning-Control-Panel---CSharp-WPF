@@ -1576,7 +1576,8 @@
                                       SelectionChanged="CmbOverlayKind_SelectionChanged">
                                 <ComboBoxItem Content="Pink Filter" Tag="pink_filter"/>
                                 <ComboBoxItem Content="Spiral" Tag="spiral"/>
-                                <ComboBoxItem Content="Brain Drain" Tag="braindrain"/>
+                                <!-- Brain Drain temporarily removed while we test/verify the blur feature. -->
+                                <!-- <ComboBoxItem Content="Brain Drain" Tag="braindrain"/> -->
                             </ComboBox>
                             <TextBlock Text="Duration (ms)" Style="{StaticResource EditorLabel}"/>
                             <TextBox x:Name="TxtOverlayDuration" Style="{StaticResource EditorTextBox}"

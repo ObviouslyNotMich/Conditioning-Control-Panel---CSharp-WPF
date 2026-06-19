@@ -3549,7 +3549,9 @@ namespace ConditioningControlPanel.Views.Deeper
                 Style = (Style)FindResource("EditorComboBox"),
                 ItemContainerStyle = (Style)FindResource("EditorComboBoxItem")
             };
-            string[] kinds = { OverlayKinds.PinkFilter, OverlayKinds.Spiral, OverlayKinds.BrainDrain };
+            // Brain Drain temporarily withheld from the editor while we test/verify the blur
+            // feature. Constant + runtime kept so existing saved scripts still load/run.
+            string[] kinds = { OverlayKinds.PinkFilter, OverlayKinds.Spiral };
             foreach (var k in kinds)
             {
                 combo.Items.Add(new ComboBoxItem { Content = k, Tag = k });
