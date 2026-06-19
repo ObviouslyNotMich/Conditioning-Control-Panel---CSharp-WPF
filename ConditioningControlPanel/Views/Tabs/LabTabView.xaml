@@ -96,6 +96,13 @@
                                              Checked="ChaosPlayMode_Changed" Cursor="Hand"
                                              Foreground="{DynamicResource TextMutedBrush}" FontSize="12"
                                              ToolTip="The Madam's narrated descent — coming soon."/>
+                                <!-- Hidden in code-behind once ChaosModeService.StoryModeEnabled flips true. -->
+                                <Border x:Name="ChaosStorySoonBadge" Background="{DynamicResource TransparentPink20Brush}"
+                                        BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" CornerRadius="5"
+                                        Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="COMING SOON" Foreground="{DynamicResource PinkBrush}"
+                                               FontFamily="Consolas" FontWeight="Bold" FontSize="9"/>
+                                </Border>
                             </StackPanel>
                             <Button x:Name="BtnStartChaos" Content="▶ FALL IN" Cursor="Hand" ToolTip="you were always going to."
                                     Background="{DynamicResource PinkBrush}" Foreground="White" FontWeight="Bold" FontSize="16"

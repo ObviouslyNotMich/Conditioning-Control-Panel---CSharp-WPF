@@ -15,6 +15,9 @@ namespace ConditioningControlPanel.Views.Tabs
             // disabled until there's story content — ChaosModeService.StoryModeEnabled is the
             // single reversible switch. Reflect the current selection so the radios stay in sync.
             RbChaosStory.IsEnabled = Services.Chaos.ChaosModeService.StoryModeEnabled;
+            ChaosStorySoonBadge.Visibility = Services.Chaos.ChaosModeService.StoryModeEnabled
+                ? System.Windows.Visibility.Collapsed
+                : System.Windows.Visibility.Visible;
             if (Services.Chaos.ChaosModeService.StoryModeEnabled
                 && Services.Chaos.ChaosModeService.SelectedPlayMode == Services.Chaos.ChaosPlayMode.Story)
                 RbChaosStory.IsChecked = true;
