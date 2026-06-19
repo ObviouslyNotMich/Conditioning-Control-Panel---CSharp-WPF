@@ -125,11 +125,43 @@ namespace ConditioningControlPanel.Services
 
             // Whenever the user edits one of the active text pools, mirror it into the per-mod
             // backup immediately so the changes survive a restart.
+            BindToCurrentSettings();
+
+            // A cloud restore / reset swaps App.Settings.Current for a brand-new AppSettings
+            // instance. Without re-binding, we'd stay subscribed to the discarded instance and
+            // every pool edit would silently fail to reach the per-mod backup — so the user's
+            // subliminal/bouncing-text/lock-card phrases would vanish on the next restart.
+            if (App.Settings != null)
+                App.Settings.CurrentReplaced += OnSettingsReplaced;
+        }
+
+        /// <summary>The AppSettings instance our PropertyChanged hook is currently attached to.</summary>
+        private Models.AppSettings? _subscribedSettings;
+
+        /// <summary>
+        /// (Re)attach <see cref="CurrentSettings_PropertyChanged"/> to the live
+        /// <c>App.Settings.Current</c>, detaching from any previous instance first. Idempotent.
+        /// </summary>
+        private void BindToCurrentSettings()
+        {
             var settings = App.Settings?.Current;
-            if (settings != null)
-            {
-                settings.PropertyChanged += CurrentSettings_PropertyChanged;
-            }
+            if (settings == null || ReferenceEquals(settings, _subscribedSettings)) return;
+
+            if (_subscribedSettings != null)
+                _subscribedSettings.PropertyChanged -= CurrentSettings_PropertyChanged;
+            settings.PropertyChanged += CurrentSettings_PropertyChanged;
+            _subscribedSettings = settings;
+        }
+
+        /// <summary>
+        /// Handles a settings-instance swap (cloud restore / reset). Re-derives the active mod's
+        /// pools from the freshly-restored settings exactly like startup, then re-binds the
+        /// per-mod sync hook to the new instance.
+        /// </summary>
+        private void OnSettingsReplaced()
+        {
+            RestorePoolsFromSettings(_activeMod.Id);
+            BindToCurrentSettings();
         }
 
         /// <summary>
@@ -1376,8 +1408,14 @@ namespace ConditioningControlPanel.Services
             }
             else
             {
-                // No saved pool for this mod yet — seed the full default set.
-                settings.SubliminalPool = new Dictionary<string, bool>(GetDefaultSubliminalPool());
+                // No per-mod backup yet (fresh ByMod store / pre-ByMod upgrade / cloud restore).
+                // Preserve whatever flat pool was just loaded from disk/cloud rather than
+                // reverting to defaults — discarding loaded customizations here is the bug that
+                // silently reset the user's phrases on the first launch after the backup store
+                // was added. Only fall back to defaults when there is genuinely nothing loaded.
+                settings.SubliminalPool = settings.SubliminalPool is { Count: > 0 }
+                    ? new Dictionary<string, bool>(settings.SubliminalPool)
+                    : new Dictionary<string, bool>(GetDefaultSubliminalPool());
             }
 
             // Strip any cross-mod contamination from the subliminal pool. A legacy load-time
@@ -1392,20 +1430,38 @@ namespace ConditioningControlPanel.Services
             if (settings.AttentionPoolByMod?.TryGetValue(modId, out var savedAttention) == true)
                 settings.AttentionPool = new Dictionary<string, bool>(savedAttention);
 
+            // Lock-card / bouncing-text / custom-trigger pools: same rule as subliminals —
+            // when there's no per-mod backup, keep the loaded flat pool instead of stamping
+            // defaults over the user's customizations.
             if (settings.LockCardPhrasesByMod?.TryGetValue(modId, out var savedLock) == true)
                 settings.LockCardPhrases = new Dictionary<string, bool>(savedLock);
             else
-                settings.LockCardPhrases = new Dictionary<string, bool>(GetDefaultLockCardPhrases());
+                settings.LockCardPhrases = settings.LockCardPhrases is { Count: > 0 }
+                    ? new Dictionary<string, bool>(settings.LockCardPhrases)
+                    : new Dictionary<string, bool>(GetDefaultLockCardPhrases());
 
             if (settings.CustomTriggersByMod?.TryGetValue(modId, out var savedTriggers) == true)
                 settings.CustomTriggers = new List<string>(savedTriggers);
             else
-                settings.CustomTriggers = new List<string>(GetDefaultCustomTriggers());
+                settings.CustomTriggers = settings.CustomTriggers is { Count: > 0 }
+                    ? new List<string>(settings.CustomTriggers)
+                    : new List<string>(GetDefaultCustomTriggers());
 
             if (settings.BouncingTextPoolByMod?.TryGetValue(modId, out var savedBounce) == true)
                 settings.BouncingTextPool = new Dictionary<string, bool>(savedBounce);
             else
-                settings.BouncingTextPool = new Dictionary<string, bool>(GetDefaultBouncingTextPool());
+                settings.BouncingTextPool = settings.BouncingTextPool is { Count: > 0 }
+                    ? new Dictionary<string, bool>(settings.BouncingTextPool)
+                    : new Dictionary<string, bool>(GetDefaultBouncingTextPool());
+
+            // Self-heal: capture any pool that had no per-mod backup (upgrade / cloud restore)
+            // into the backup store now — after the cross-mod prune above — so the next launch
+            // restores it cleanly even if the user never opens an editor again. TryAdd never
+            // overwrites an existing backup.
+            (settings.SubliminalPoolByMod ??= new()).TryAdd(modId, new Dictionary<string, bool>(settings.SubliminalPool));
+            (settings.LockCardPhrasesByMod ??= new()).TryAdd(modId, new Dictionary<string, bool>(settings.LockCardPhrases));
+            (settings.BouncingTextPoolByMod ??= new()).TryAdd(modId, new Dictionary<string, bool>(settings.BouncingTextPool));
+            (settings.CustomTriggersByMod ??= new()).TryAdd(modId, new List<string>(settings.CustomTriggers));
         }
 
         /// <summary>
