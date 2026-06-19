@@ -45,6 +45,9 @@ namespace ConditioningControlPanel
         // Forces the next rotation if a clip's AnimationCompleted never arrives (load failure, etc.).
         private DispatcherTimer? _circeWatchdog;
         private const int CirceWatchdogMs = 13000; // clips ~8s + 1s fade + margin
+        // Hold the previous frame up to this long for a slow GIF first-frame decode before giving up on a
+        // crossfade — long enough that a heavy clip decoding under load (video/chaos/GC) never fades to blank.
+        private const int CirceLoadGraceMs = 5000;
 
         // Minimum on-screen time per clip: a swap requested sooner is coalesced and deferred, so no clip
         // ever flashes by faster than this (rapid back-to-back bark lines interrupting mid-clip).
@@ -841,6 +844,10 @@ namespace ConditioningControlPanel
                     ClearGifLayer(outImg); // stop + free the outgoing clip
                 }
             };
+            // Capture the still-visible state so a stalled load can roll back to it without blanking.
+            var prevActive = _circeActiveImg;
+            var prevClip = _circeCurrentClip;
+            var prevStartTick = _circeClipStartTick;
             _circeActiveImg = inImg;
             _circeCurrentClip = clip;
             _circeClipStartTick = Environment.TickCount64;
@@ -858,24 +865,43 @@ namespace ConditioningControlPanel
                 outImg.BeginAnimation(UIElement.OpacityProperty, fout);
                 inImg.BeginAnimation(UIElement.OpacityProperty, fin);
             }
-            bool ready = AnimationBehavior.GetAnimator(inImg) != null || inImg.Source != null;
-            if (ready || _circeTalkSeqActive)
+            bool InReady() => AnimationBehavior.GetAnimator(inImg) != null || inImg.Source != null;
+            if (InReady() || _circeTalkSeqActive)
             {
                 StartFade();
             }
             else
             {
+                // Hold the OUTGOING frame at its current opacity until the incoming clip actually has a frame —
+                // never fade to blank just because a (now much heavier) GIF is slow to decode. The old 800ms cap
+                // gave up and faded out into nothing under decode contention (video/chaos/GC), which read as
+                // "the avatar disappears for a few seconds." If the grace window elapses with still no frame,
+                // ROLL BACK the eager active-layer commit so the visible outgoing frame stays on screen (no
+                // blank), drop the stalled layer, and let the watchdog retry the rotation with a fresh pick.
                 long gateStart = Environment.TickCount64;
                 var gate = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
                 gate.Tick += (_, __) =>
                 {
                     // A newer crossfade claimed these layers — abandon this gate, it owns them now.
                     if (!ReferenceEquals(_circeActiveImg, inImg) || _circeCurrentClip != clip) { gate.Stop(); return; }
-                    bool nowReady = AnimationBehavior.GetAnimator(inImg) != null || inImg.Source != null;
-                    if (nowReady || Environment.TickCount64 - gateStart > 800)
+                    if (InReady())
                     {
                         gate.Stop();
                         StartFade();
+                    }
+                    else if (Environment.TickCount64 - gateStart > CirceLoadGraceMs)
+                    {
+                        gate.Stop();
+                        ClearGifLayer(inImg);              // drop the stalled incoming layer
+                        _circeActiveImg = prevActive;      // keep the still-visible outgoing frame active
+                        _circeCurrentClip = prevClip;
+                        _circeClipStartTick = prevStartTick;
+                        if (_circeWatchdog != null)
+                        {
+                            _circeWatchdog.Stop();
+                            _circeWatchdog.Interval = TimeSpan.FromMilliseconds(2000);
+                            _circeWatchdog.Start();
+                        }
                     }
                 };
                 gate.Start();
