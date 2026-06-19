@@ -86,13 +86,13 @@ namespace ConditioningControlPanel
                 return;
             }
 
-            if (!TryParseDouble(TxtTemperature.Text, "temperature", out var temperature)
-                || !TryParseDouble(TxtTopP.Text, "top_p", out var topP)
-                || !TryParseInt(TxtTopK.Text, "top_k", out var topK)
-                || !TryParseDouble(TxtFrequencyPenalty.Text, "frequency_penalty", out var frequencyPenalty)
-                || !TryParseDouble(TxtPresencePenalty.Text, "presence_penalty", out var presencePenalty)
-                || !TryParseDouble(TxtRepetitionPenalty.Text, "repetition_penalty", out var repetitionPenalty)
-                || !TryParseDouble(TxtMinP.Text, "min_p", out var minP))
+            if (!TryParseDouble(TxtTemperature.Text, "temperature", 0d, 2d, out var temperature)
+                || !TryParseDouble(TxtTopP.Text, "top_p", 0d, 1d, out var topP)
+                || !TryParseInt(TxtTopK.Text, "top_k", 0, 1000, out var topK)
+                || !TryParseDouble(TxtFrequencyPenalty.Text, "frequency_penalty", -2d, 2d, out var frequencyPenalty)
+                || !TryParseDouble(TxtPresencePenalty.Text, "presence_penalty", -2d, 2d, out var presencePenalty)
+                || !TryParseDouble(TxtRepetitionPenalty.Text, "repetition_penalty", 0d, 2d, out var repetitionPenalty)
+                || !TryParseDouble(TxtMinP.Text, "min_p", 0d, 1d, out var minP))
             {
                 return;
             }
@@ -110,7 +110,7 @@ namespace ConditioningControlPanel
             Close();
         }
 
-        private bool TryParseDouble(string? text, string fieldName, out double? value)
+        private bool TryParseDouble(string? text, string fieldName, double min, double max, out double? value)
         {
             value = null;
             var trimmed = (text ?? string.Empty).Trim();
@@ -122,11 +122,17 @@ namespace ConditioningControlPanel
                 return false;
             }
 
+            if (parsed < min || parsed > max)
+            {
+                ShowError($"'{fieldName}' must be between {min.ToString(CultureInfo.InvariantCulture)} and {max.ToString(CultureInfo.InvariantCulture)}.");
+                return false;
+            }
+
             value = parsed;
             return true;
         }
 
-        private bool TryParseInt(string? text, string fieldName, out int? value)
+        private bool TryParseInt(string? text, string fieldName, int min, int max, out int? value)
         {
             value = null;
             var trimmed = (text ?? string.Empty).Trim();
@@ -135,6 +141,12 @@ namespace ConditioningControlPanel
             if (!int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
             {
                 ShowError($"'{fieldName}' must be a whole number.");
+                return false;
+            }
+
+            if (parsed < min || parsed > max)
+            {
+                ShowError($"'{fieldName}' must be between {min} and {max}.");
                 return false;
             }
 

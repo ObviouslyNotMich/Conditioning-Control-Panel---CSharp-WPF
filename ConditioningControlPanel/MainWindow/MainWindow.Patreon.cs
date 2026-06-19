@@ -1167,7 +1167,7 @@ namespace ConditioningControlPanel
             if (CompanionTab.LocalConfigPanel != null) CompanionTab.LocalConfigPanel.Visibility = Visibility.Collapsed;
             if (CompanionTab.OpenAiCompatibleConfigPanel != null) CompanionTab.OpenAiCompatibleConfigPanel.Visibility = Visibility.Collapsed;
             if (CompanionTab.DailyLimitPanel != null) CompanionTab.DailyLimitPanel.Visibility = Visibility.Collapsed;
-            // Drop any stale Live Actions — only local AI populates this feed.
+            // Drop any stale Live Actions — with AI off, nothing populates this feed.
             App.AiLiveActions?.Clear();
             UpdateAiBrainPills();
         }
@@ -1596,15 +1596,23 @@ namespace ConditioningControlPanel
                                 ? Loc.Get("label_awareness_pill_on")
                                 : Loc.Get("label_awareness_pill_off");
 
-            // Effects only work with local AI (cloud has no command output). Hide the
-            // Live Actions feed in the AI Brain panel and show the "needs local" notice
-            // in the Lab effects card whenever the user isn't on local AI.
-            var localAiActive = aiOn && provider == Models.AiProviderType.Local;
+            // Effects work with any provider that parses + executes command output
+            // (Local and OpenAI-compatible); cloud is stateless and has none. Show the
+            // Live Actions feed in the AI Brain panel and hide the "needs local" notice
+            // in the Lab effects card whenever the user is on an effects-capable provider.
+            var effectsActive = aiOn && ProviderSupportsEffects(provider);
             if (CompanionTab.LiveActionsContainer != null)
-                CompanionTab.LiveActionsContainer.Visibility = localAiActive ? Visibility.Visible : Visibility.Collapsed;
+                CompanionTab.LiveActionsContainer.Visibility = effectsActive ? Visibility.Visible : Visibility.Collapsed;
             if (LabTab.LabEffectsNeedsLocalNotice != null)
-                LabTab.LabEffectsNeedsLocalNotice.Visibility = localAiActive ? Visibility.Collapsed : Visibility.Visible;
+                LabTab.LabEffectsNeedsLocalNotice.Visibility = effectsActive ? Visibility.Collapsed : Visibility.Visible;
         }
+
+        // Providers that parse the model's response for command output and run it
+        // through App.Commands (populating the Live Actions feed). Cloud is excluded —
+        // it is stateless and produces no executable effects.
+        private static bool ProviderSupportsEffects(Models.AiProviderType provider)
+            => provider == Models.AiProviderType.Local
+               || provider == Models.AiProviderType.OpenAiCompatible;
 
         private void UpdateLiveActionsPlaceholder()
         {
