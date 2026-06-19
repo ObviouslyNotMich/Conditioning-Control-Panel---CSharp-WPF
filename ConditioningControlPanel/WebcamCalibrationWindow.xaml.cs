@@ -33,7 +33,13 @@ namespace ConditioningControlPanel
         private const int SampleMs = 1100;        // ~33 samples at 30fps; well above MinSamplesPerPoint after the saccade-settle drop
         private const int SettleMs = 200;         // pause between dots
         private const int RetryReadyMs = 900;     // longer pause before retrying a missed dot
-        private const int MinSamplesPerPoint = 20;
+        // Minimum surviving iris samples to accept a dot. The SampleMs window yields
+        // ~33 raw frames at 30fps, but the gaze-jitter pass (3-frame iris median warm-up
+        // + head-pose validity gating) drops a chunk of those — and the first/top-left
+        // dot is sampled before the eye-corner smoothing buffers warm up, so it routinely
+        // landed at 16-17 against a floor of 20 and failed calibration outright (#382/#385).
+        // 12 keeps a meaningful sample count while staying reliably reachable cold.
+        private const int MinSamplesPerPoint = 12;
         private const int MaxAttemptsPerPoint = 2; // miss twice in a row → fail calibration
         private const int GridSize = 4;            // 4×4 = 16 calibration points (corners + interior)
         private const double EdgeMargin = 40;      // distance from screen edge for corner dots (DIPs); small enough that polynomial extrapolation to bezel is negligible
