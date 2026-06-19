@@ -2594,7 +2594,7 @@ Application State:
         /// falls back to the default location, sending imports/extractions to the wrong
         /// place even though settings show the custom path (#391).
         /// </summary>
-        private static void EnsureCustomAssetsDirectories()
+        internal static void EnsureCustomAssetsDirectories()
         {
             var customPath = Settings?.Current?.CustomAssetsPath;
             if (string.IsNullOrWhiteSpace(customPath)) return;

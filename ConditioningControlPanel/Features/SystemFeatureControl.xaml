@@ -25,6 +25,21 @@
                               Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
                               Checked="ChkMultiMon_Changed" Unchecked="ChkMultiMon_Changed"/>
                 </Grid>
+                <Grid Margin="16,4,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="{loc:Str setting_fill_all_monitors_video}" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:Str tooltip_fill_all_monitors_video}"
+                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" x:Name="ChkFillAllMon"
+                              Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                              Checked="ChkFillAllMon_Changed" Unchecked="ChkFillAllMon_Changed"/>
+                </Grid>
                 <Grid Margin="0,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

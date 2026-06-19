@@ -30,6 +30,12 @@ namespace ConditioningControlPanel.Services
         {
             var result = new ImportResult();
 
+            // Recreate the custom assets dirs first so a drag-drop import doesn't silently
+            // fall back to the default folder when the custom path's subfolders are missing
+            // (e.g. path set after startup, or folder cleaned out). If the custom drive is
+            // gone this no-ops with a warning and EffectiveAssetsPath falls back as before. (#391)
+            App.EnsureCustomAssetsDirectories();
+
             // Ensure destination folders exist
             var imagesFolder = Path.Combine(App.EffectiveAssetsPath, "images");
             var videosFolder = Path.Combine(App.EffectiveAssetsPath, "videos");

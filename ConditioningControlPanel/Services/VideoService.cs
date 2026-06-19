@@ -897,8 +897,8 @@ namespace ConditioningControlPanel.Services
                 var primaryWin = CreateLibVLCUrlWindow(url, primary, withAudio: true);
                 _windows.Add(primaryWin);
 
-                // Create secondary windows (muted)
-                if (App.Settings.Current.DualMonitorEnabled)
+                // Create secondary windows (muted), unless capped on a high monitor count (#389)
+                if (ShouldFillSecondaryMonitors(allScreens.Count))
                 {
                     foreach (var screen in secondaries)
                     {
@@ -906,9 +906,28 @@ namespace ConditioningControlPanel.Services
                         _windows.Add(win);
                     }
                 }
+                else if (App.Settings.Current.DualMonitorEnabled && secondaries.Count > 0)
+                {
+                    App.Logger?.Information("Skipping {N} secondary video decoder(s) on {Total} monitors to avoid lag (#389); enable 'Fill all monitors with video' to override.",
+                        secondaries.Count, allScreens.Count);
+                }
 
                 App.Logger?.Information("Playing URL via LibVLC on {Count} screen(s): {Url}", _windows.Count, url);
             });
+        }
+
+        /// <summary>
+        /// Whether each secondary monitor should get its own LibVLC decoder. To avoid the lag
+        /// of N independent decoders on high monitor counts (#389), 3+ monitors only fill the
+        /// secondaries when the user opts in via FillAllMonitorsWithVideo. 1–2 monitor setups
+        /// are unaffected (they still fill every screen when DualMonitor is on).
+        /// <paramref name="screenCount"/> is the total screen count, including the primary.
+        /// </summary>
+        private static bool ShouldFillSecondaryMonitors(int screenCount)
+        {
+            if (!App.Settings.Current.DualMonitorEnabled) return false;
+            if (screenCount <= 2) return true; // 1–2 monitors: unchanged
+            return App.Settings.Current.FillAllMonitorsWithVideo;
         }
 
         private Window CreateLibVLCUrlWindow(string url, Screen screen, bool withAudio)
@@ -1174,14 +1193,20 @@ namespace ConditioningControlPanel.Services
                             var primaryWin = CreateLibVLCVideoWindow(path, primary, strict, withAudio: true);
                             _windows.Add(primaryWin);
 
-                            // Create secondary screens with their own LibVLC players (muted)
-                            if (App.Settings.Current.DualMonitorEnabled)
+                            // Create secondary screens with their own LibVLC players (muted),
+                            // unless capped on a high monitor count to avoid decoder lag (#389)
+                            if (ShouldFillSecondaryMonitors(allScreens.Count))
                             {
                                 foreach (var scr in secondaries)
                                 {
                                     var win = CreateLibVLCVideoWindow(path, scr, strict, withAudio: false);
                                     _windows.Add(win);
                                 }
+                            }
+                            else if (App.Settings.Current.DualMonitorEnabled && secondaries.Count > 0)
+                            {
+                                App.Logger?.Information("Skipping {N} secondary video decoder(s) on {Total} monitors to avoid lag (#389); enable 'Fill all monitors with video' to override.",
+                                    secondaries.Count, allScreens.Count);
                             }
                         }
                         else

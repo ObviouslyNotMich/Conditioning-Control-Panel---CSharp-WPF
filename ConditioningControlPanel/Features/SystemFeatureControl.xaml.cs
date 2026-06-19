@@ -44,6 +44,7 @@ namespace ConditioningControlPanel.Features
             try
             {
                 ChkMultiMon.IsChecked = s.DualMonitorEnabled;
+                ChkFillAllMon.IsChecked = s.FillAllMonitorsWithVideo;
                 ChkWinStart.IsChecked = Services.StartupManager.IsRegistered();
                 ChkVidLaunch.IsChecked = s.ForceVideoOnLaunch;
                 ChkAutoRun.IsChecked = s.AutoStartEngine;
@@ -69,6 +70,7 @@ namespace ConditioningControlPanel.Features
         private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(Models.AppSettings.DualMonitorEnabled) ||
+                e.PropertyName == nameof(Models.AppSettings.FillAllMonitorsWithVideo) ||
                 e.PropertyName == nameof(Models.AppSettings.ForceVideoOnLaunch) ||
                 e.PropertyName == nameof(Models.AppSettings.AutoStartEngine) ||
                 e.PropertyName == nameof(Models.AppSettings.StartMinimized) ||
@@ -90,6 +92,15 @@ namespace ConditioningControlPanel.Features
             var s = App.Settings?.Current;
             if (s == null) return;
             s.DualMonitorEnabled = ChkMultiMon.IsChecked ?? false;
+            App.Settings?.Save();
+        }
+
+        private void ChkFillAllMon_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.FillAllMonitorsWithVideo = ChkFillAllMon.IsChecked ?? false;
             App.Settings?.Save();
         }
 
