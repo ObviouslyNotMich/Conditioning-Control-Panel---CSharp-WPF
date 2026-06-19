@@ -58,7 +58,16 @@ namespace ConditioningControlPanel
             while (node != null)
             {
                 if (node == ancestor) return true;
-                var parent = VisualTreeHelper.GetParent(node) ?? LogicalTreeHelper.GetParent(node);
+                // VisualTreeHelper.GetParent only accepts Visual/Visual3D; content
+                // elements (Run, Hyperlink, Span, …) throw "is not a Visual or
+                // Visual3D". A click whose OriginalSource is a Run (text inside a
+                // TextBlock/Hyperlink) would otherwise crash here, so fall back to
+                // the logical tree for non-visual nodes.
+                DependencyObject? parent =
+                    (node is Visual || node is System.Windows.Media.Media3D.Visual3D)
+                        ? VisualTreeHelper.GetParent(node)
+                        : null;
+                parent ??= LogicalTreeHelper.GetParent(node);
                 node = parent;
             }
             return false;
