@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using ConditioningControlPanel.Services.Chaos;
 
 namespace ConditioningControlPanel;
@@ -138,14 +139,36 @@ public sealed class ChaosBoonBarOverlay : Window
         SourceInitialized += (_, _) => ApplyExStyles();
     }
 
+    private int _shownCount;   // how many tiles were on the ribbon last rebuild — newcomers get the pop-in
+
     private void Rebuild(List<ChaosSidebarBoon> picks)
     {
         _row.Children.Clear();
-        if (picks.Count == 0) { _pill.Visibility = Visibility.Collapsed; return; }
+        if (picks.Count == 0) { _pill.Visibility = Visibility.Collapsed; _shownCount = 0; return; }
         _pill.Visibility = Visibility.Visible;
 
-        foreach (var p in picks)
-            _row.Children.Add(BuildTile(p));
+        for (int i = 0; i < picks.Count; i++)
+        {
+            var tile = BuildTile(picks[i]);
+            _row.Children.Add(tile);
+            if (i >= _shownCount) AnimateTileIn(tile, i - _shownCount);   // only freshly drafted tiles pop in
+        }
+        _shownCount = picks.Count;
+    }
+
+    /// <summary>A new ribbon tile lands: scale-pop + fade in, staggered so a multi-pick rebuild cascades.</summary>
+    private static void AnimateTileIn(FrameworkElement tile, int order)
+    {
+        var st = new ScaleTransform(0.4, 0.4);
+        tile.RenderTransformOrigin = new Point(0.5, 0.5);
+        tile.RenderTransform = st;
+        tile.Opacity = 0;
+        var delay = TimeSpan.FromMilliseconds(70 * order);
+        var pop = new DoubleAnimation(0.4, 1.0, TimeSpan.FromMilliseconds(340))
+        { BeginTime = delay, EasingFunction = new BackEase { Amplitude = 0.7, EasingMode = EasingMode.EaseOut } };
+        st.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        st.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        tile.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(190)) { BeginTime = delay });
     }
 
     private static FrameworkElement BuildTile(ChaosSidebarBoon b)

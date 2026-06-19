@@ -48,6 +48,10 @@ namespace ConditioningControlPanel
         // Hold the previous frame up to this long for a slow GIF first-frame decode before giving up on a
         // crossfade — long enough that a heavy clip decoding under load (video/chaos/GC) never fades to blank.
         private const int CirceLoadGraceMs = 5000;
+        // Same hold for the TALK path, but much shorter: mid-sentence the mouth timing matters, so we
+        // wait only briefly for a slow mouth-clip decode (never blanking) and then proceed if it's still
+        // not ready, letting AnimationCompleted / the watchdog recover rather than stranding the line.
+        private const int CirceTalkLoadGraceMs = 900;
 
         // Minimum on-screen time per clip: a swap requested sooner is coalesced and deferred, so no clip
         // ever flashes by faster than this (rapid back-to-back bark lines interrupting mid-clip).
@@ -866,7 +870,8 @@ namespace ConditioningControlPanel
                 inImg.BeginAnimation(UIElement.OpacityProperty, fin);
             }
             bool InReady() => AnimationBehavior.GetAnimator(inImg) != null || inImg.Source != null;
-            if (InReady() || _circeTalkSeqActive)
+            bool talkSeq = _circeTalkSeqActive;
+            if (InReady())
             {
                 StartFade();
             }
@@ -878,6 +883,7 @@ namespace ConditioningControlPanel
                 // "the avatar disappears for a few seconds." If the grace window elapses with still no frame,
                 // ROLL BACK the eager active-layer commit so the visible outgoing frame stays on screen (no
                 // blank), drop the stalled layer, and let the watchdog retry the rotation with a fresh pick.
+                long graceCap = talkSeq ? CirceTalkLoadGraceMs : CirceLoadGraceMs;
                 long gateStart = Environment.TickCount64;
                 var gate = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
                 gate.Tick += (_, __) =>
@@ -889,18 +895,27 @@ namespace ConditioningControlPanel
                         gate.Stop();
                         StartFade();
                     }
-                    else if (Environment.TickCount64 - gateStart > CirceLoadGraceMs)
+                    else if (Environment.TickCount64 - gateStart > graceCap)
                     {
                         gate.Stop();
-                        ClearGifLayer(inImg);              // drop the stalled incoming layer
-                        _circeActiveImg = prevActive;      // keep the still-visible outgoing frame active
-                        _circeCurrentClip = prevClip;
-                        _circeClipStartTick = prevStartTick;
-                        if (_circeWatchdog != null)
+                        if (talkSeq)
                         {
-                            _circeWatchdog.Stop();
-                            _circeWatchdog.Interval = TimeSpan.FromMilliseconds(2000);
-                            _circeWatchdog.Start();
+                            // Mid-sentence: keep the line moving even if the mouth clip is still decoding
+                            // (rare, only under heavy load) — AnimationCompleted / the watchdog recover.
+                            StartFade();
+                        }
+                        else
+                        {
+                            ClearGifLayer(inImg);              // drop the stalled incoming layer
+                            _circeActiveImg = prevActive;      // keep the still-visible outgoing frame active
+                            _circeCurrentClip = prevClip;
+                            _circeClipStartTick = prevStartTick;
+                            if (_circeWatchdog != null)
+                            {
+                                _circeWatchdog.Stop();
+                                _circeWatchdog.Interval = TimeSpan.FromMilliseconds(2000);
+                                _circeWatchdog.Start();
+                            }
                         }
                     }
                 };

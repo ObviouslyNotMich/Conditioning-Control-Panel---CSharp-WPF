@@ -2140,6 +2140,24 @@ namespace ConditioningControlPanel.Models
             get => _chaosColorFlashesEnabled;
             set { _chaosColorFlashesEnabled = value; OnPropertyChanged(); }
         }
+        private bool _chaosSkiaFxEnabled = true;
+        /// <summary>A/B flag for the Skia GPU-style FX prototype (ChaosSkiaFxOverlay): when on, the
+        /// rabbit trail + Rabbit-Caller cursor glow render as an additive bloomed particle field
+        /// instead of the legacy WPF ellipse pool. Off falls back to the old overlays.</summary>
+        public bool ChaosSkiaFxEnabled
+        {
+            get => _chaosSkiaFxEnabled;
+            set { _chaosSkiaFxEnabled = value; OnPropertyChanged(); }
+        }
+        private bool _chaosPinOnTop = true;
+        /// <summary>Pin the whole Rabbit Hole layer (HUD/sidebar, bubbles, overlays) topmost so it
+        /// stays above other apps and never sinks when you click another window. Off restores the
+        /// old Free Desktop behavior where the run yields to whatever you bring forward.</summary>
+        public bool ChaosPinOnTop
+        {
+            get => _chaosPinOnTop;
+            set { _chaosPinOnTop = value; OnPropertyChanged(); }
+        }
         private double _chaosShakeIntensity = 0.8;
         public double ChaosShakeIntensity
         {

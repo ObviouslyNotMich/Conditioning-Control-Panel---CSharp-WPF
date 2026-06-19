@@ -44,7 +44,16 @@ public sealed class ChaosSidebarBoon
     public Visibility DescVisibility => string.IsNullOrEmpty(Desc) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility FlavorVisibility => string.IsNullOrEmpty(Flavor) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility ExtraVisibility => string.IsNullOrEmpty(Extra) ? Visibility.Collapsed : Visibility.Visible;
-    public Brush AccentBrush => IsEmptySlot ? EmptyAccent : IsModifier ? ModAccent : IsCurse ? CurseAccent : Level > 0 ? PocketAccent : BoonAccent;
+    public Brush AccentBrush
+    {
+        get
+        {
+            var fallback = IsEmptySlot ? EmptyAccent : IsModifier ? ModAccent : IsCurse ? CurseAccent : Level > 0 ? PocketAccent : BoonAccent;
+            // Payload-based color language: a mapped boon shows its family color; everything else
+            // (empty slots, unmapped mechanics) keeps the category fallback above.
+            return IsEmptySlot ? fallback : ConditioningControlPanel.ChaosBoonColors.BrushForOrDefault(Id, fallback);
+        }
+    }
     public Brush TileBackBrush => IsEmptySlot ? Brushes.Transparent : IsModifier ? ModBack : IsCurse ? CurseBack : Level > 0 ? PocketBack : BoonBack;
     public double TileOpacity => IsEmptySlot ? 0.55 : 1.0;
 
@@ -563,6 +572,7 @@ public sealed class ChaosRunState : INotifyPropertyChanged
         (boon.IsCurse ? ActiveCurses : ActiveBoons).Add(boon);
         RunPickTiles.Add(new ChaosSidebarBoon
         {
+            Id = boon.Id,   // carry the id so the ribbon tile colors by payload family
             Icon = ChaosArt.Resolve("boons", boon.Id),
             Glyph = boon.IsCurse ? "☠" : "◈",
             Name = boon.Name,

@@ -344,7 +344,7 @@ public class BubbleService : IDisposable
             };
             hop.Start();
         }
-        ChaosEStimOverlay.Strike(bolts);
+        if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.Strike(bolts); else ChaosEStimOverlay.Strike(bolts);
         _chaosOnEStimArc?.Invoke(_estimChargesLeft);
     }
 
@@ -382,7 +382,7 @@ public class BubbleService : IDisposable
             };
             hop.Start();
         }
-        ChaosEStimOverlay.Strike(bolts);
+        if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.Strike(bolts); else ChaosEStimOverlay.Strike(bolts);
         var now = DateTime.UtcNow;
         if ((now - _lastBurstZap).TotalMilliseconds >= 140)
         {
@@ -398,7 +398,8 @@ public class BubbleService : IDisposable
         if (!_chaosActive) return;
         DispatcherHelper.RunOnUI(() =>
         {
-            ChaosFieldFxOverlay.Ripple(centerPx, SHOCKWAVE_RADIUS_PX, 450);
+            if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.Ripple(centerPx, SHOCKWAVE_RADIUS_PX, 450, strong: false);
+            else ChaosFieldFxOverlay.Ripple(centerPx, SHOCKWAVE_RADIUS_PX, 450);
             EStimBurstAt(centerPx, maxArcs: 8, rangePx: SHOCKWAVE_RADIUS_PX);
         });
     }
@@ -941,7 +942,8 @@ public class BubbleService : IDisposable
         DispatcherHelper.RunOnUI(() =>
         {
             _playerRipples.Add(new PlayerRipple { CenterPx = centerPx, RadiusPx = radiusPx, LifeMs = Math.Max(100, lifeMs) });
-            ChaosFieldFxOverlay.SnapRipple(centerPx, radiusPx, lifeMs);
+            if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.Ripple(centerPx, radiusPx, lifeMs, strong: true);
+            else ChaosFieldFxOverlay.SnapRipple(centerPx, radiusPx, lifeMs);
         });
     }
 
@@ -953,7 +955,8 @@ public class BubbleService : IDisposable
         DispatcherHelper.RunOnUI(() =>
         {
             _ripples.Add((centerPx, 0));
-            ChaosFieldFxOverlay.Ripple(centerPx, RIPPLE_RADIUS_PX, RIPPLE_LIFE_MS);
+            if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.Ripple(centerPx, RIPPLE_RADIUS_PX, RIPPLE_LIFE_MS, strong: false);
+            else ChaosFieldFxOverlay.Ripple(centerPx, RIPPLE_RADIUS_PX, RIPPLE_LIFE_MS);
         });
     }
 
@@ -1029,7 +1032,8 @@ public class BubbleService : IDisposable
                 if (b.Spec.IsDarter || b.Spec.IsFreeze) continue;
                 if (DistSq(b.CenterPx, c) <= RESIDUE_RADIUS_PX * RESIDUE_RADIUS_PX)
                 {
-                    ChaosEStimOverlay.Strike(new[] { (c, b.CenterPx) });
+                    if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.Strike(new[] { (c, b.CenterPx) });
+                    else ChaosEStimOverlay.Strike(new[] { (c, b.CenterPx) });
                     b.Pop();
                 }
             }
@@ -1673,6 +1677,29 @@ internal class Bubble
 
     private readonly Image _bubbleImage;
     private readonly int _size;
+
+    // Glassy specular highlight — a soft white blob in the upper-left, the classic glass-marble
+    // shine. Shared frozen brush (relative coords, so size-independent); applied to plain round
+    // bubbles only (variant sprites like rabbits/golden carry their own art). Gated on the Skia FX flag.
+    private static readonly Brush _shineBrush = BuildShineBrush();
+    private static Brush BuildShineBrush()
+    {
+        var b = new RadialGradientBrush
+        {
+            GradientOrigin = new Point(0.34, 0.27),
+            Center = new Point(0.34, 0.27),
+            RadiusX = 0.32,
+            RadiusY = 0.32,
+            GradientStops =
+            {
+                new GradientStop(Color.FromArgb(190, 255, 255, 255), 0.0),
+                new GradientStop(Color.FromArgb(70, 255, 255, 255), 0.5),
+                new GradientStop(Color.FromArgb(0, 255, 255, 255), 1.0),
+            }
+        };
+        b.Freeze();
+        return b;
+    }
     private double _screenTop;   // mutable: InsetRoamBounds tightens it for chaperone lives
     private readonly Canvas _sparkleCanvas;
     private readonly Grid _grid;
@@ -2175,6 +2202,20 @@ internal class Bubble
         };
         _grid.Children.Add(hitArea);         // Hit area first (behind)
         _grid.Children.Add(_bubbleImage);    // Image on top
+        // Glassy specular shine over plain round bubbles (variant sprites bring their own art).
+        if (ChaosSkiaFxOverlay.Enabled && !_hasVariantSprite)
+        {
+            var shine = new System.Windows.Shapes.Ellipse
+            {
+                Width = _size,
+                Height = _size,
+                Fill = _shineBrush,
+                IsHitTestVisible = false,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            _grid.Children.Add(shine);
+        }
         BuildChaosLayers();                  // tint + label + fuse ring (no-op for ambient bubbles)
         _grid.Children.Add(_sparkleCanvas);  // Sparkles on top of everything
 
@@ -2490,11 +2531,13 @@ internal class Bubble
             {
                 var nowPx = CenterPx;
                 double tdx = nowPx.X - _lastTrailEmitPx.X, tdy = nowPx.Y - _lastTrailEmitPx.Y;
-                if (tdx * tdx + tdy * tdy >= 40 * 40 * _dpiScale * _dpiScale)
+                double trailGap = ChaosSkiaFxOverlay.Enabled ? 22.0 : 40.0;   // Skia particle trail runs denser
+                if (tdx * tdx + tdy * tdy >= trailGap * trailGap * _dpiScale * _dpiScale)
                 {
                     _lastTrailEmitPx = nowPx;
                     _trailPts.Add((nowPx, DateTime.UtcNow));
-                    ChaosFieldFxOverlay.TrailDot(nowPx, trailSec, warm: sweeperTrail);
+                    if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.TrailDot(nowPx, trailSec, sweeperTrail, tdx, tdy);
+                    else ChaosFieldFxOverlay.TrailDot(nowPx, trailSec, warm: sweeperTrail);
                 }
                 var cutoff = DateTime.UtcNow.AddSeconds(-trailSec);
                 while (_trailPts.Count > 0 && _trailPts[0].T < cutoff) _trailPts.RemoveAt(0);
@@ -2540,7 +2583,9 @@ internal class Bubble
                 {
                     double lt = _random.NextDouble();
                     var sa = CenterPx; var sb = _orbitTarget.CenterPx;
-                    ChaosFieldFxOverlay.TrailDot(new Point(sa.X + (sb.X - sa.X) * lt, sa.Y + (sb.Y - sa.Y) * lt), 0.35);
+                    var shimmerPt = new Point(sa.X + (sb.X - sa.X) * lt, sa.Y + (sb.Y - sa.Y) * lt);
+                    if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.TrailDot(shimmerPt, 0.35);
+                    else ChaosFieldFxOverlay.TrailDot(shimmerPt, 0.35);
                 }
                 goto Visuals;
             }
@@ -3113,6 +3158,10 @@ internal class Bubble
                 var popPx = CenterPx;
                 BubbleService.ChaosLastPopXPx = popPx.X;
                 BubbleService.ChaosLastPopYPx = popPx.Y;
+                // Additive pop burst on the Skia FX layer, in this bubble's payload colour.
+                // A live snap reads as a bigger "release"; teases/brittles burst on their own paths.
+                if (ChaosSkiaFxOverlay.Enabled)
+                    ChaosSkiaFxOverlay.Burst(popPx, _spec.IsLive ? SnapColor : _spec.Tint, _spec.IsLive ? 1.3 : 1.0);
             }
             catch { }
             // Mimic prism: the shadow pop — the copied bubble ghosts out underneath the burst.
@@ -3221,6 +3270,8 @@ internal class Bubble
             var px = CenterPx;
             BubbleService.ChaosLastPopXPx = px.X;
             BubbleService.ChaosLastPopYPx = px.Y;
+            if (ChaosSkiaFxOverlay.Enabled)
+                ChaosSkiaFxOverlay.Burst(px, Color.FromRgb(0xFF, 0x3D, 0x5A), 1.4);   // risk-red detonation
         }
         catch { }
         ShowChaosLabel("✖", Color.FromRgb(0xFF, 0x3D, 0x5A));

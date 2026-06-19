@@ -372,6 +372,7 @@ public partial class ChaosOverlayWindow : Window
         var accent = boon.IsCurse ? Color.FromRgb(255, 120, 120)
                    : boon.RequiresAny != null || boon.RequiresAll != null ? Color.FromRgb(255, 215, 0)
                    : Color.FromRgb(156, 232, 160);
+        accent = ChaosBoonColors.ForOrDefault(boon.Id, accent);   // payload-based color language
         var accentBrush = new SolidColorBrush(accent);
 
         var panel = new StackPanel { Width = 190 };
@@ -490,10 +491,21 @@ public partial class ChaosOverlayWindow : Window
         chosen.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         chosen.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
         chosen.Scale.ScaleX = chosen.Scale.ScaleY = 1;
-        var hi = chosen.Boon.IsCurse ? Color.FromRgb(255, 150, 150) : Color.FromRgb(120, 255, 170);
+        // Pick flourish: an elastic scale burst so the chosen card "pops" as it's locked in.
+        var burst = new DoubleAnimation(1.22, 1.0, TimeSpan.FromMilliseconds(540))
+        { EasingFunction = new ElasticEase { Oscillations = 2, Springiness = 5, EasingMode = EasingMode.EaseOut } };
+        chosen.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, burst);
+        chosen.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, burst);
+        // Highlight in the boon's family color (falls back to the old green/red if unmapped).
+        var hi = ChaosBoonColors.ForOrDefault(chosen.Boon.Id,
+            chosen.Boon.IsCurse ? Color.FromRgb(255, 150, 150) : Color.FromRgb(120, 255, 170));
         chosen.Card.BorderBrush = new SolidColorBrush(hi);
         chosen.Card.BorderThickness = new Thickness(3);
-        chosen.Card.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = hi, BlurRadius = 28, ShadowDepth = 0, Opacity = 0.9 };
+        var cardGlow = new System.Windows.Media.Effects.DropShadowEffect { Color = hi, BlurRadius = 28, ShadowDepth = 0, Opacity = 0.9 };
+        chosen.Card.Effect = cardGlow;
+        // ...with a one-shot bloom shockwave: the glow blooms wide then contracts to its resting size.
+        cardGlow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.BlurRadiusProperty,
+            new DoubleAnimation(64, 28, TimeSpan.FromMilliseconds(520)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
 
         // Flash the chosen art-square's thick border: pulse its colour bright↔accent on a loop, and
         // give the square a matching glow. The loop tears down with the draft a moment later.

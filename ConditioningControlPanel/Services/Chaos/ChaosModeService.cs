@@ -299,6 +299,10 @@ public sealed class ChaosModeService
         cfg.PlayMode = resolvedMode;
         ActiveMode = resolvedMode;
         ChaosWindowZ.DesktopMode = resolvedMode == ChaosPlayMode.FreeDesktop;
+        // Pin the whole layer topmost (default) regardless of mode — Free Desktop keeps its other
+        // traits but no longer sinks behind whatever window you click. Set BEFORE any chaos window
+        // is created (they read ChaosWindowZ.BornTopmost in their constructors).
+        ChaosWindowZ.PinTopmost = App.Settings?.Current?.ChaosPinOnTop ?? true;
         // Free Desktop is meant for keeping your PC usable, so soften intrusive payloads (no fullscreen
         // video yanking you out of what you're doing). Story keeps whatever the run config said.
         if (resolvedMode == ChaosPlayMode.FreeDesktop) cfg.AmbientMode = true;
@@ -384,6 +388,7 @@ public sealed class ChaosModeService
         App.Overlay?.WarmSpiralCache();   // pre-decode the spiral off-thread so its first show doesn't hitch
         ChaosEffectBannerOverlay.EnsureCreated();   // birth the banner window NOW, not mid-chaos
         ChaosFieldFxOverlay.EnsureCreated();        // ripples/residue/trails are drafted mid-run — pre-create always
+        ChaosSkiaFxOverlay.EnsureCreated();         // PROTOTYPE Skia FX layer (rabbit trail + caller glow); self-gates on AppSettings flag
 
         // The run-pick ribbon along the top: shows ONLY mantras/sins drafted during THIS descent,
         // in pick order, beside the clock. Bind to this run's collection so each drafted card lands
@@ -423,7 +428,7 @@ public sealed class ChaosModeService
         // Pocket Watch: birth the wave-countdown window NOW (keep-alive contract — never mid-run).
         if (_state.ShowWaveTimer) ChaosWaveTimerOverlay.EnsureCreated();
         // Rabbit Caller equipped: pre-create the cursor-glow halo for the summon-at-click.
-        if (ChaosMeta.IsBoonActive("rabbit_caller")) ChaosCursorGlowOverlay.EnsureCreated();
+        if (ChaosMeta.IsBoonActive("rabbit_caller") && !ChaosSkiaFxOverlay.Enabled) ChaosCursorGlowOverlay.EnsureCreated();
         if (ChaosMeta.IsBoonActive("e_stim")) ChaosEStimOverlay.EnsureCreated();
         // VibePopping equipped: pre-create the pointer glow + trail for the buzz window.
         if (ChaosMeta.IsBoonActive("vibe_popping")) ChaosVibeTrailOverlay.EnsureCreated();
@@ -703,11 +708,12 @@ public sealed class ChaosModeService
     public void RaiseGameLayerAboveVideo()
     {
         if (!_spawning) return;
-        // Free Desktop is deliberately not pinned above other apps — re-raising would fight the
-        // player bringing their browser/work window forward. (AmbientMode also keeps videos out.)
-        if (IsDesktopMode) return;
+        // Only re-raise while the layer is pinned. If the player opted out of pinning, re-raising
+        // would fight them bringing a browser/work window forward.
+        if (!ChaosWindowZ.PinTopmost) return;
         // Bottom of the gameplay band: ambient FX that read fine UNDER the bubbles.
         try { ChaosFieldFxOverlay.RaiseActive(); } catch { }
+        try { ChaosSkiaFxOverlay.RaiseActive(); } catch { }
         try { ChaosPopText.RaiseActive(); } catch { }
         try { ChaosDvdOverlay.RaiseActive(); } catch { }
         try { ChaosEffectBannerOverlay.RaiseActive(); } catch { }
@@ -743,9 +749,9 @@ public sealed class ChaosModeService
     private void KeepChromeTopmost()
     {
         if (!_spawning) return;
-        // Free Desktop runs let other windows sit in front; skip the topmost re-assertion entirely
-        // (this also avoids BringAllToFront yanking the bubbles back over the foreground app).
-        if (IsDesktopMode) return;
+        // If the player opted out of pinning, skip the topmost re-assertion entirely (this also
+        // avoids BringAllToFront yanking the bubbles back over the foreground app).
+        if (!ChaosWindowZ.PinTopmost) return;
         // Chrome first (lowest of the pinned set).
         try { _hud?.RaiseToTopmost(); } catch { }
         try { _fx?.RaiseToTopmost(); } catch { }
@@ -2101,8 +2107,14 @@ public sealed class ChaosModeService
         if (name.Length > 0) ChaosSfx.Play(name, 0.45f);
     }
 
+    // What the desktop-friendly (ambient) mode soft-remaps to a cascade/text instead of firing.
+    // NOTE: Video is intentionally NOT here. Story mode is disabled, so every run is forced to
+    // FreeDesktop (AmbientMode=true) — if Video were remapped, video bubbles could NEVER play a
+    // video (they'd always fizzle to a cascade/text). Players who don't want videos just disable
+    // the "video" bubble in the pool toggles. HT links stay softened: they hijack the embedded
+    // browser fullscreen and have no equivalent opt-out.
     private static bool IsIntrusivePayload(EffectBubblePayloadKind k) =>
-        k == EffectBubblePayloadKind.Video || k == EffectBubblePayloadKind.HtLink;
+        k == EffectBubblePayloadKind.HtLink;
 
     private static readonly Random _ambientRng = new();
 
@@ -2608,7 +2620,7 @@ public sealed class ChaosModeService
         _rabbitCallPending = rabbits;
         _rabbitCallMaxed = maxed;
         _rabbitAimPrevDown = true;   // swallow the press that armed us (HUD/toy-button click)
-        ChaosCursorGlowOverlay.Arm();
+        if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.ArmCursorGlow(); else ChaosCursorGlowOverlay.Arm();
         if (_rabbitAimTimer == null)
         {
             _rabbitAimTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(25) };
@@ -2622,7 +2634,7 @@ public sealed class ChaosModeService
     {
         _rabbitCallPending = 0;
         _rabbitAimTimer?.Stop();
-        ChaosCursorGlowOverlay.Disarm();
+        if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.DisarmCursorGlow(); else ChaosCursorGlowOverlay.Disarm();
     }
 
     private void RabbitAimTick(object? sender, EventArgs e)
@@ -2635,7 +2647,7 @@ public sealed class ChaosModeService
                 return;
             }
             if (!GetCursorPos(out var cur)) return;
-            ChaosCursorGlowOverlay.MoveToPx(cur.X, cur.Y);
+            if (ChaosSkiaFxOverlay.Enabled) ChaosSkiaFxOverlay.MoveCursorGlowToPx(cur.X, cur.Y); else ChaosCursorGlowOverlay.MoveToPx(cur.X, cur.Y);
 
             bool down = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
             bool pressed = down && !_rabbitAimPrevDown;
@@ -2931,6 +2943,7 @@ public sealed class ChaosModeService
         try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
         try { ChaosEStimOverlay.CloseActive(); } catch { }
         try { ChaosFieldFxOverlay.CloseActive(); } catch { }
+        try { ChaosSkiaFxOverlay.CloseActive(); } catch { }
         try { ChaosPopText.ShutdownPool(); } catch { }
         try { _fx?.Close(); } catch { }
         if (_overlay != null)
@@ -2976,6 +2989,7 @@ public sealed class ChaosModeService
         try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
         try { ChaosEStimOverlay.CloseActive(); } catch { }
         try { ChaosFieldFxOverlay.CloseActive(); } catch { }
+        try { ChaosSkiaFxOverlay.CloseActive(); } catch { }
         try { ChaosPopText.ShutdownPool(); } catch { }
         try { _fx?.Close(); } catch { }
         _fx = null;
@@ -3059,6 +3073,7 @@ public sealed class ChaosModeService
         try { ChaosVibeTrailOverlay.CloseActive(); } catch { }
         try { ChaosEStimOverlay.CloseActive(); } catch { }
         try { ChaosFieldFxOverlay.CloseActive(); } catch { }
+        try { ChaosSkiaFxOverlay.CloseActive(); } catch { }
         try { ChaosBackdropService.CloseActive(); } catch { }
         try { ChaosPopText.ShutdownPool(); } catch { }
         App.AvatarWindow?.SetChaosRunActive(false);   // restore the avatar's normal attached z-order
