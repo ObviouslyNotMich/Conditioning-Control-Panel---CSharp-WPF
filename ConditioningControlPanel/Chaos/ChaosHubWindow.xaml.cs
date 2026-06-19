@@ -77,6 +77,9 @@ public partial class ChaosHubWindow : Window
     {
         try
         {
+            // Story is disabled until there's story content, so the Madam stays silent in the hub
+            // too (this greeting isn't tied to a run mode otherwise). See ChaosModeService.StoryModeEnabled.
+            if (!Services.Chaos.ChaosModeService.StoryModeEnabled) return;
             if (App.Settings?.Current?.NarrativeModeEnabled != true) return;
             var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
             t.Tick += (_, _) =>

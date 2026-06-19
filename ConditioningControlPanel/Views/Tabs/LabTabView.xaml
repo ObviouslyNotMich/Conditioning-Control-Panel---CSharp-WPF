@@ -84,6 +84,19 @@
     
                         <!-- right: launch -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="24,0,0,0">
+                            <!-- Play-mode pick (moved here from the in-game hub). Story is disabled
+                                 until there's story content — RbChaosStory.IsEnabled is driven by
+                                 ChaosModeService.StoryModeEnabled in code-behind. -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                                <RadioButton x:Name="RbChaosFreeDesktop" GroupName="ChaosPlayMode" Content="🖥 Free Desktop"
+                                             Checked="ChaosPlayMode_Changed" Cursor="Hand"
+                                             Foreground="{DynamicResource TextMutedBrush}" FontSize="12" Margin="0,0,14,0"
+                                             ToolTip="Play over your real desktop — your companion floats along."/>
+                                <RadioButton x:Name="RbChaosStory" GroupName="ChaosPlayMode" Content="▶ Story"
+                                             Checked="ChaosPlayMode_Changed" Cursor="Hand"
+                                             Foreground="{DynamicResource TextMutedBrush}" FontSize="12"
+                                             ToolTip="The Madam's narrated descent — coming soon."/>
+                            </StackPanel>
                             <Button x:Name="BtnStartChaos" Content="▶ FALL IN" Cursor="Hand" ToolTip="you were always going to."
                                     Background="{DynamicResource PinkBrush}" Foreground="White" FontWeight="Bold" FontSize="16"
                                     BorderThickness="0" Padding="30,14" HorizontalAlignment="Right"

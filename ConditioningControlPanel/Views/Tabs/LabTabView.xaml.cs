@@ -10,6 +10,28 @@ namespace ConditioningControlPanel.Views.Tabs
         public LabTabView()
         {
             InitializeComponent();
+
+            // The Chaos play-mode pick lives here now (moved from the in-game hub). Story stays
+            // disabled until there's story content — ChaosModeService.StoryModeEnabled is the
+            // single reversible switch. Reflect the current selection so the radios stay in sync.
+            RbChaosStory.IsEnabled = Services.Chaos.ChaosModeService.StoryModeEnabled;
+            if (Services.Chaos.ChaosModeService.StoryModeEnabled
+                && Services.Chaos.ChaosModeService.SelectedPlayMode == Services.Chaos.ChaosPlayMode.Story)
+                RbChaosStory.IsChecked = true;
+            else
+                RbChaosFreeDesktop.IsChecked = true;
+        }
+
+        // Records the Lab-card play-mode pick (read by ChaosModeService.StartRun for every launch
+        // path). While Story is disabled this can only ever be Free Desktop. Null-guarded because
+        // a Checked event can fire mid-InitializeComponent before the sibling radio exists.
+        private void ChaosPlayMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (RbChaosStory == null || RbChaosFreeDesktop == null) return;
+            Services.Chaos.ChaosModeService.SelectedPlayMode =
+                (RbChaosStory.IsChecked == true && Services.Chaos.ChaosModeService.StoryModeEnabled)
+                    ? Services.Chaos.ChaosPlayMode.Story
+                    : Services.Chaos.ChaosPlayMode.FreeDesktop;
         }
 
         private void BtnClearChatMemory_Click(object sender, RoutedEventArgs e)

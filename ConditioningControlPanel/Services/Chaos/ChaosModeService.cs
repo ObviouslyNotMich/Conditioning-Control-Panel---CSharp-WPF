@@ -25,6 +25,20 @@ public sealed class ChaosModeService
     /// saved <c>NarrativeModeEnabled</c> so a Free Desktop run never clobbers their Story settings.</summary>
     public static ChaosPlayMode ActiveMode { get; private set; } = ChaosPlayMode.Story;
 
+    /// <summary>Master switch for the Madam's Story descent. While <c>false</c> the Lab-card Story
+    /// option is disabled, every run is forced to <see cref="ChaosPlayMode.FreeDesktop"/>, and the
+    /// narrative/backdrop/avatar-hide never engage — i.e. the game plays exactly as it did before
+    /// story support was added. Flip to <c>true</c> once real story content exists to bring Story
+    /// mode + the Madam back. (Reversible single switch — no other code needs to change.)
+    /// static readonly (not const) so the guards don't fold to unreachable-code warnings.</summary>
+    public static readonly bool StoryModeEnabled = false;
+
+    /// <summary>The play mode chosen on the Lab card. The pick moved here from the in-hub picker, so
+    /// this is the single source of truth that <see cref="StartRun"/> reads. Defaults to Free Desktop
+    /// (the pre-Story behaviour); <see cref="StartRun"/> forces Free Desktop anyway while
+    /// <see cref="StoryModeEnabled"/> is false.</summary>
+    public static ChaosPlayMode SelectedPlayMode { get; set; } = ChaosPlayMode.FreeDesktop;
+
     /// <summary>True only in a Free Desktop run: the run must NOT pin itself above other apps, so the
     /// per-tick topmost re-assertion stands down and chaos windows are born non-topmost.</summary>
     public static bool IsDesktopMode => ActiveMode == ChaosPlayMode.FreeDesktop;
@@ -278,11 +292,16 @@ public sealed class ChaosModeService
 
         // Lock in the play mode BEFORE any run window is built — the chaos windows read
         // ChaosWindowZ.BornTopmost in their constructors, so this must be set first.
-        ActiveMode = cfg.PlayMode;
-        ChaosWindowZ.DesktopMode = cfg.PlayMode == ChaosPlayMode.FreeDesktop;
+        // The mode is picked on the Lab card (SelectedPlayMode), not per-config — the in-hub
+        // picker was retired. While Story is disabled (no story content yet) we force Free
+        // Desktop, so the Madam narrative/backdrop/avatar-hide never engage.
+        var resolvedMode = StoryModeEnabled ? SelectedPlayMode : ChaosPlayMode.FreeDesktop;
+        cfg.PlayMode = resolvedMode;
+        ActiveMode = resolvedMode;
+        ChaosWindowZ.DesktopMode = resolvedMode == ChaosPlayMode.FreeDesktop;
         // Free Desktop is meant for keeping your PC usable, so soften intrusive payloads (no fullscreen
         // video yanking you out of what you're doing). Story keeps whatever the run config said.
-        if (cfg.PlayMode == ChaosPlayMode.FreeDesktop) cfg.AmbientMode = true;
+        if (resolvedMode == ChaosPlayMode.FreeDesktop) cfg.AmbientMode = true;
 
         try
         {
