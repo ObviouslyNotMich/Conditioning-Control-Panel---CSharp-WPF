@@ -934,6 +934,21 @@ namespace ConditioningControlPanel
             {
                 LogCrashDetails("DISPATCHER", args.Exception);
 
+                // GDI / desktop-heap quota exhaustion while WPF shows a layered window
+                // (heavy effect load, esp. many full-screen subliminal/flash surfaces on a
+                // multi-monitor setup). This is RECOVERABLE — the failed window-show just
+                // drops a frame. Swallow it instead of crashing or wedging the UI.
+                // (#394/#395: "Not enough quota is available to process this command",
+                //  ERROR_NOT_ENOUGH_QUOTA 1816 / ERROR_NO_SYSTEM_RESOURCES 1450.)
+                if (args.Exception is System.ComponentModel.Win32Exception quotaEx &&
+                    (quotaEx.NativeErrorCode == 1816 || quotaEx.NativeErrorCode == 1450 ||
+                     quotaEx.Message.Contains("Not enough quota")))
+                {
+                    try { Logger?.Warning("Window-show quota exhausted (GDI/desktop heap) — dropped an effect frame: {Msg}", quotaEx.Message); } catch { }
+                    args.Handled = true;
+                    return;
+                }
+
                 // Check for rendering thread failure - this is unrecoverable and can cause dialog loops
                 var isRenderFailure = args.Exception.Message.Contains("RENDER") ||
                                       args.Exception.Message.Contains("0x88980406") ||
