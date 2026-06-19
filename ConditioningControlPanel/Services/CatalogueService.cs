@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -151,6 +152,103 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
+        /// Submit a generalized catalogue asset (a Preset or Session) to the
+        /// /api/catalogue/{kind} endpoint. Unlike enhancements — whose .ccpenh.json
+        /// already IS the bundle — preset/session native files carry no creator or
+        /// tags, so we build the bundle wrapper here:
+        ///
+        ///   { affirmation, bundle: { $schema, version, metadata:{creator,tags}, asset } }
+        ///
+        /// <paramref name="kind"/> is the route segment ("presets" | "sessions").
+        /// <paramref name="asset"/> is the pristine native object (the bytes the
+        /// catalogue will store and serve back for drag-drop import).
+        /// All failure modes surface as a SubmissionResult variant.
+        /// </summary>
+        public async Task<SubmissionResult> SubmitCatalogueAssetAsync(
+            string kind,
+            JToken asset,
+            string schemaTag,
+            string creator,
+            IReadOnlyList<string> tags,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(kind) || asset == null)
+                {
+                    return new SubmissionResult.UnknownError(0, "invalid_asset");
+                }
+
+                var tagArray = new JArray();
+                if (tags != null)
+                {
+                    foreach (var t in tags)
+                    {
+                        if (!string.IsNullOrWhiteSpace(t)) tagArray.Add(t.Trim());
+                    }
+                }
+
+                var envelope = new JObject
+                {
+                    ["affirmation"] = new JObject
+                    {
+                        ["guidelines_version"] = GuidelinesVersion,
+                        ["affirmed"] = true,
+                    },
+                    ["bundle"] = new JObject
+                    {
+                        ["$schema"] = schemaTag,
+                        ["version"] = 1,
+                        ["metadata"] = new JObject
+                        {
+                            ["creator"] = creator ?? "",
+                            ["tags"] = tagArray,
+                        },
+                        ["asset"] = asset,
+                    },
+                };
+                var envelopeJson = envelope.ToString(Formatting.None);
+
+                var token = await GetSupabaseTokenAsync(ct).ConfigureAwait(false);
+                if (token == null)
+                {
+                    return new SubmissionResult.AuthFailed();
+                }
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{CclabsBaseUrl}/api/catalogue/{kind}")
+                {
+                    Content = new StringContent(envelopeJson, Encoding.UTF8, "application/json"),
+                };
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+                var status = (int)response.StatusCode;
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+                // Reuse the enhancement status mapping, but suppress the
+                // enhancement-only SubmissionSucceeded gamification event.
+                return MapResponse(status, body, response.Headers, fireSuccessEvent: false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "[CatalogueService] SubmitCatalogueAsset threw");
+                return new SubmissionResult.UnknownError(0, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Fetch the authenticated user's submissions for a catalogue asset kind
+        /// ("presets" | "sessions") from GET /api/catalogue/{kind}/mine. Same
+        /// contract + recovery as <see cref="FetchMySubmissionsAsync"/>.
+        /// </summary>
+        public Task<Dictionary<string, string>?> FetchMyCatalogueAssetsAsync(string kind, CancellationToken ct)
+            => FetchMineAsync($"{CclabsBaseUrl}/api/catalogue/{kind}/mine", "assets", ct);
+
+        /// <summary>
         /// Fetch the authenticated user's catalogue submissions and their
         /// current status, so the app can surface acceptance/publication
         /// feedback after the otherwise fire-and-forget submit. Returns a map of
@@ -166,14 +264,23 @@ namespace ConditioningControlPanel.Services
         /// Until that route exists this returns null (non-2xx) and the caller
         /// simply leaves the last-known status untouched.
         /// </summary>
-        public async Task<Dictionary<string, string>?> FetchMySubmissionsAsync(CancellationToken ct)
+        public Task<Dictionary<string, string>?> FetchMySubmissionsAsync(CancellationToken ct)
+            => FetchMineAsync($"{CclabsBaseUrl}/api/enhancements/mine", "enhancements", ct);
+
+        /// <summary>
+        /// Shared "GET …/mine" reader: returns a map of submission id → status, or
+        /// null on no-auth/network/non-2xx. <paramref name="arrayKey"/> is the
+        /// preferred JSON array property; if absent we fall back to the first array
+        /// in the payload so a presets/sessions endpoint keyed differently still works.
+        /// </summary>
+        private async Task<Dictionary<string, string>?> FetchMineAsync(string url, string arrayKey, CancellationToken ct)
         {
             try
             {
                 var token = await GetSupabaseTokenAsync(ct).ConfigureAwait(false);
                 if (token == null) return null;
 
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"{CclabsBaseUrl}/api/enhancements/mine");
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
                 using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
@@ -185,7 +292,7 @@ namespace ConditioningControlPanel.Services
                 }
                 if (!response.IsSuccessStatusCode)
                 {
-                    App.Logger?.Debug("[CatalogueService] FetchMySubmissions non-success status={Status}", (int)response.StatusCode);
+                    App.Logger?.Debug("[CatalogueService] FetchMine non-success status={Status} url={Url}", (int)response.StatusCode, url);
                     return null;
                 }
 
@@ -194,7 +301,11 @@ namespace ConditioningControlPanel.Services
                 try { parsed = JObject.Parse(body); }
                 catch { return null; }
 
-                if (parsed["enhancements"] is not JArray arr) return null;
+                if (parsed[arrayKey] is not JArray arr)
+                {
+                    arr = parsed.Properties().Select(p => p.Value).OfType<JArray>().FirstOrDefault();
+                    if (arr == null) return null;
+                }
 
                 var map = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var item in arr)
@@ -212,12 +323,12 @@ namespace ConditioningControlPanel.Services
             }
             catch (Exception ex)
             {
-                App.Logger?.Debug("[CatalogueService] FetchMySubmissions threw: {Error}", ex.Message);
+                App.Logger?.Debug("[CatalogueService] FetchMine threw: {Error}", ex.Message);
                 return null;
             }
         }
 
-        private SubmissionResult MapResponse(int status, string body, System.Net.Http.Headers.HttpResponseHeaders headers)
+        private SubmissionResult MapResponse(int status, string body, System.Net.Http.Headers.HttpResponseHeaders headers, bool fireSuccessEvent = true)
         {
             // The catalogue API responds with JSON for every documented status.
             // Parse defensively — an unparseable body just means we treat it as
@@ -234,7 +345,10 @@ namespace ConditioningControlPanel.Services
                     var rowStatus = parsed?["status"]?.ToString() ?? "pending";
                     App.Logger?.Information("[CatalogueService] Submission succeeded id={Id}", id);
                     var success = new SubmissionResult.Success(id, rowStatus);
-                    try { SubmissionSucceeded?.Invoke(this, success); } catch (Exception ex) { App.Logger?.Debug("SubmissionSucceeded subscriber error: {Error}", ex.Message); }
+                    if (fireSuccessEvent)
+                    {
+                        try { SubmissionSucceeded?.Invoke(this, success); } catch (Exception ex) { App.Logger?.Debug("SubmissionSucceeded subscriber error: {Error}", ex.Message); }
+                    }
                     return success;
                 }
                 case 409:

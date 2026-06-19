@@ -423,6 +423,8 @@
                     </Grid>
                     <TextBlock x:Name="TxtDetailSubtitle" x:FieldModifier="internal" Text="{loc:Str label_click_on_a_preset_or_session_to_see_details}"
                                Foreground="#909090" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                    <!-- Catalogue share status badge (preset view) -->
+                    <StackPanel x:Name="PresetShareStatusHost" x:FieldModifier="internal" Orientation="Horizontal" Margin="0,6,0,0"/>
                 </StackPanel>
                 
                 <!-- Details Content - Preset View -->
@@ -610,9 +612,21 @@
                         <Button x:Name="BtnSaveOverPreset" x:FieldModifier="internal" Grid.Column="0" Content="{loc:Str btn_save_2}" 
                                 Style="{StaticResource OutlineButton}" Margin="0,0,3,0" Padding="10,8"
                                 Click="BtnSaveOverPreset_Click" IsEnabled="False" FontSize="12"/>
-                        <Button x:Name="BtnDeletePreset" x:FieldModifier="internal" Grid.Column="1" Content="{loc:Str btn_delete_2}" 
+                        <Button x:Name="BtnDeletePreset" x:FieldModifier="internal" Grid.Column="1" Content="{loc:Str btn_delete_2}"
                                 Style="{StaticResource OutlineButton}" Margin="3,0,0,0" Padding="10,8"
                                 Click="BtnDeletePreset_Click" IsEnabled="False" FontSize="12"/>
+                    </Grid>
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="BtnExportPreset" x:FieldModifier="internal" Grid.Column="0" Content="{loc:Str btn_export_preset}"
+                                Style="{StaticResource OutlineButton}" Margin="0,0,3,0" Padding="10,8"
+                                Click="BtnExportPreset_Click" IsEnabled="False" FontSize="12"/>
+                        <Button x:Name="BtnSharePreset" x:FieldModifier="internal" Grid.Column="1" Content="{loc:Str btn_share_to_catalogue}"
+                                Style="{StaticResource OutlineButton}" Margin="3,0,0,0" Padding="10,8"
+                                Click="BtnSharePreset_Click" IsEnabled="False" FontSize="12"/>
                     </Grid>
                 </StackPanel>
                 

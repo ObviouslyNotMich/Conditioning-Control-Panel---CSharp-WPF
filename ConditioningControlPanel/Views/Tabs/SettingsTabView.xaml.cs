@@ -422,5 +422,10 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.VelvetBtnWebcam_Click(sender, e);
         }
+        private void VelvetBtnCatalogue_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnCatalogue_Click(sender, e);
+        }
     }
 }

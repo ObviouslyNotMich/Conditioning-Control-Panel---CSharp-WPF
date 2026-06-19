@@ -385,6 +385,10 @@ namespace ConditioningControlPanel
             PresetsTab.BtnLoadPreset.IsEnabled = true;
             PresetsTab.BtnSaveOverPreset.IsEnabled = !preset.IsDefault;
             PresetsTab.BtnDeletePreset.IsEnabled = !preset.IsDefault;
+            // Export any preset; share only user-created ones (user decision).
+            PresetsTab.BtnExportPreset.IsEnabled = true;
+            PresetsTab.BtnSharePreset.IsEnabled = !preset.IsDefault;
+            UpdatePresetShareStatusBadge(preset);
         }
         
         internal void SessionCard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -1048,6 +1052,21 @@ namespace ConditioningControlPanel
             ShowFeaturePopup(new Features.SchedulerRampFeatureControl(),
                 Localization.Loc.Get("section_scheduler") + " + " + Localization.Loc.Get("section_intensity_ramp"),
                 glyph: "📅");
+
+        // Opens the web catalogue (browse/share community presets & sessions).
+        // Surfaced by the dashboard "CCP Catalogue" pill.
+        internal void BtnCatalogue_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                    "https://app.cclabs.app/catalogue") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Failed to open CCP Catalogue URL");
+            }
+        }
 
         internal void BtnSessionHistory_Click(object sender, RoutedEventArgs e)
         {

@@ -163,6 +163,10 @@ namespace ConditioningControlPanel
                     PresetsTab.Visibility = Visibility.Visible;
                     AnimateTabIn(PresetsTab);
                     BtnPresets.Style = activeStyle;
+                    // Refresh catalogue share statuses on tab open (throttled) so an
+                    // approval/rejection reflects on preset + session cards.
+                    _ = CheckCatalogueSubmissionStatusesAsync(CatalogueKindPresets);
+                    _ = CheckCatalogueSubmissionStatusesAsync(CatalogueKindSessions);
                     break;
 
                 // "progression" tab removed in velvet-mosaic phase 6 — its content

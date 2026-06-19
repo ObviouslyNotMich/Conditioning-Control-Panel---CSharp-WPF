@@ -22,6 +22,16 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnDeletePreset_Click(sender, e);
         }
+        private void BtnExportPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnExportPreset_Click(sender, e);
+        }
+        private void BtnSharePreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnSharePreset_Click(sender, e);
+        }
         private void BtnExportSession_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)

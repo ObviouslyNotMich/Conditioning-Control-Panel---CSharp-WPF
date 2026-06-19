@@ -1945,6 +1945,9 @@ namespace ConditioningControlPanel
             // surface a one-time notification. Host is attached above, so a
             // sticky toast shows even though the Deeper tab hasn't been opened.
             _ = CheckDeeperSubmissionStatusesAsync(force: true);
+            // Same one-time accepted feedback for shared Presets & Sessions.
+            _ = CheckCatalogueSubmissionStatusesAsync(CatalogueKindPresets, force: true);
+            _ = CheckCatalogueSubmissionStatusesAsync(CatalogueKindSessions, force: true);
 
 
             // Enable Windows 11 rounded corners

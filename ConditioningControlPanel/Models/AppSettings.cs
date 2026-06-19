@@ -1612,6 +1612,28 @@ namespace ConditioningControlPanel.Models
             set { _deeperSubmissions = value ?? new Dictionary<string, DeeperSubmissionRecord>(); OnPropertyChanged(); }
         }
 
+        // Session catalogue submissions, keyed by the canonical .session.json file
+        // path (custom sessions are file-backed). Drives the share status badge +
+        // accepted notification. See DeeperSubmissionRecord / MainWindow.CatalogueSubmissions.
+        private Dictionary<string, DeeperSubmissionRecord> _catalogueSessionSubmissions = new();
+        [JsonProperty]
+        public Dictionary<string, DeeperSubmissionRecord> CatalogueSessionSubmissions
+        {
+            get => _catalogueSessionSubmissions;
+            set { _catalogueSessionSubmissions = value ?? new Dictionary<string, DeeperSubmissionRecord>(); OnPropertyChanged(); }
+        }
+
+        // Preset catalogue submissions, keyed by the in-memory preset Id (presets
+        // live in UserPresets, not on disk). Drives the share status badge +
+        // accepted notification.
+        private Dictionary<string, DeeperSubmissionRecord> _cataloguePresetSubmissions = new();
+        [JsonProperty]
+        public Dictionary<string, DeeperSubmissionRecord> CataloguePresetSubmissions
+        {
+            get => _cataloguePresetSubmissions;
+            set { _cataloguePresetSubmissions = value ?? new Dictionary<string, DeeperSubmissionRecord>(); OnPropertyChanged(); }
+        }
+
         private bool _runOnStartup = false;
         public bool RunOnStartup
         {

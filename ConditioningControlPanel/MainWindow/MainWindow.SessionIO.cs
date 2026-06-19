@@ -176,6 +176,12 @@ namespace ConditioningControlPanel
             };
             headerPanel.Children.Add(customBadge);
 
+            // Catalogue share status badge (pending/approved/rejected), if shared.
+            var sessKey = string.IsNullOrEmpty(session.SourceFilePath) ? null : CanonicalCataloguePathKey(session.SourceFilePath);
+            var sessRec = sessKey != null ? GetCatalogueRecord(CatalogueKindSessions, sessKey) : null;
+            var sessStatusBadge = CreateCatalogueStatusBadge(sessRec);
+            if (sessStatusBadge != null) headerPanel.Children.Add(sessStatusBadge);
+
             infoPanel.Children.Add(headerPanel);
 
             // Description
@@ -202,10 +208,12 @@ namespace ConditioningControlPanel
 
             var editBtn = CreateSessionActionButton("✏", "Edit Session", session.Id, SessionBtn_Edit);
             var exportBtn = CreateSessionActionButton("📤", Loc.Get("tooltip_export_session"), session.Id, SessionBtn_Export);
+            var shareBtn = CreateSessionActionButton("☁", Loc.Get("tooltip_share_to_catalogue"), session.Id, SessionBtn_Share);
             var deleteBtn = CreateSessionDeleteButton("🗑", "Delete Session", session.Id, SessionBtn_Delete);
 
             buttonPanel.Children.Add(editBtn);
             buttonPanel.Children.Add(exportBtn);
+            buttonPanel.Children.Add(shareBtn);
             buttonPanel.Children.Add(deleteBtn);
 
             grid.Children.Add(buttonPanel);
@@ -664,6 +672,10 @@ namespace ConditioningControlPanel
                     HandleSessionDrop(files[0]);
                     break;
 
+                case DropType.Preset:
+                    HandlePresetDrop(files[0]);
+                    break;
+
                 case DropType.Enhancement:
                     ImportEnhancementFiles(files);
                     break;
@@ -676,7 +688,7 @@ namespace ConditioningControlPanel
             }
         }
 
-        private enum DropType { None, Session, Assets, Zip, Folder, Enhancement }
+        private enum DropType { None, Session, Preset, Assets, Zip, Folder, Enhancement }
 
         private static readonly HashSet<string> AssetVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -718,11 +730,17 @@ namespace ConditioningControlPanel
             if (files.Length == 1 && files[0].EndsWith(".session.json", StringComparison.OrdinalIgnoreCase))
                 return DropType.Session;
 
+            // Single preset file
+            if (files.Length == 1 && files[0].EndsWith(".preset.json", StringComparison.OrdinalIgnoreCase))
+                return DropType.Preset;
+
             // Deeper enhancement project file(s). Accept the canonical *.ccpenh.json
             // double-suffix or a plain *.json (the serializer rejects non-enhancement
-            // JSON on import), but never a *.session.json — that's handled above.
+            // JSON on import), but never a *.session.json / *.preset.json — those are
+            // handled above and would otherwise be swallowed by the plain-*.json rule.
             if (files.All(IsImportableEnhancementPath)
-                && !files.Any(f => f.EndsWith(".session.json", StringComparison.OrdinalIgnoreCase)))
+                && !files.Any(f => f.EndsWith(".session.json", StringComparison.OrdinalIgnoreCase))
+                && !files.Any(f => f.EndsWith(".preset.json", StringComparison.OrdinalIgnoreCase)))
                 return DropType.Enhancement;
 
             // Single folder
@@ -761,6 +779,12 @@ namespace ConditioningControlPanel
                 case DropType.Session:
                     DropOverlayIcon.Text = "📋";
                     DropOverlayTitle.Text = Loc.Get("label_drop_to_import_session");
+                    DropOverlaySubtitle.Text = Path.GetFileName(files[0]);
+                    break;
+
+                case DropType.Preset:
+                    DropOverlayIcon.Text = "🎛️";
+                    DropOverlayTitle.Text = Loc.Get("label_drop_to_import_preset");
                     DropOverlaySubtitle.Text = Path.GetFileName(files[0]);
                     break;
 
@@ -946,6 +970,31 @@ namespace ConditioningControlPanel
                 }
             }
             e.Handled = true;
+        }
+
+        private async void SessionBtn_Share(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not Button btn || btn.Tag is not string sessionId) return;
+            var session = GetSessionById(sessionId);
+            if (session == null) return;
+            await ShareSessionToCatalogueAsync(session);
+        }
+
+        // Clears and repopulates the custom session cards (used to refresh share
+        // status badges after a submission resolves or a status poll updates).
+        private void RefreshCustomSessionCards()
+        {
+            if (_sessionManager == null) return;
+            PresetsTab.CustomSessionsPanel.Children.Clear();
+            foreach (var session in _sessionManager.CustomSessions)
+            {
+                AddCustomSessionCard(session);
+            }
+            if (PresetsTab.CustomSessionsPanel.Children.Count == 0)
+            {
+                PresetsTab.TxtCustomSessionsHeader.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void SessionBtn_Delete(object sender, RoutedEventArgs e)

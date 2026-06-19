@@ -1139,6 +1139,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="10"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <!-- Webcam card — surfaced from the Lab for discoverability.
                  Distinct Secondary (cyan) accent + tinted fill so it stands
@@ -1225,8 +1227,38 @@
                     </ControlTemplate>
                 </Button.Template>
             </Button>
+
+            <!-- CCP Catalogue card — opens the web catalogue to browse/share
+                 community presets and sessions. Pink-tinted to flag it as the
+                 community/social action of the row. -->
+            <Button Grid.Column="6" x:Name="VelvetBtnCatalogue"
+                    Click="VelvetBtnCatalogue_Click"
+                    Cursor="Hand" FontSize="12" FontWeight="Bold"
+                    ToolTip="Opens app.cclabs.app/catalogue in your browser">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b"
+                                Background="{DynamicResource TransparentPinkBrush}"
+                                BorderBrush="{DynamicResource PinkBrush}"
+                                BorderThickness="1.5"
+                                CornerRadius="14">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Image Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Source="{Binding Source='📚', Converter={StaticResource EmojiToImageSource}}"/>
+                                <TextBlock Text="CCP Catalogue" Foreground="White" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource SecondaryBrush}"/>
+                                <Setter TargetName="b" Property="Background" Value="{DynamicResource AccentTintedBgBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
         </Grid>
-    
+
         <!-- Scrolling Marquee Banner - row 2, spans both columns -->
         <Border x:Name="MarqueeBanner" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                 Background="#1A0A1A" BorderBrush="{DynamicResource DarkPinkBrush}" BorderThickness="2"
