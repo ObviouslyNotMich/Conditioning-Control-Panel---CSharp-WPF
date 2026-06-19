@@ -676,7 +676,271 @@ Target: `IUpdateInstaller` abstraction.
 
 ---
 
-## 13. Conclusion
+## 13. Build & Test Strategy
+
+Every phase must end with a **build checkpoint** and a **test checkpoint**. The goal is to never have a "big bang" integration; the WPF app must stay runnable until the Avalonia desktop app can fully replace it.
+
+### 13.1 Testing Pyramid
+
+| Layer | Purpose | Tools / Approach |
+|---|---|---|
+| Unit | Models, parsers, gamification rules, session state machines, JSON contracts | xUnit / NUnit + `CCP.Core` only |
+| Integration | Service orchestration, AI pipeline, mod loading, asset resolution | TestHost or custom harness in `CCP.Core.Tests` |
+| UI / Functional | Window creation, navigation, control binding, media playback | Avalonia.Headless, Appium, or manual QA |
+| Performance | Startup time, memory usage, effect frame rates, LibVLC memory callbacks | BenchmarkDotNet, dotMemory, custom telemetry |
+| Platform | Native lib discovery, screen/DPI, audio device enumeration, file dialogs | CI matrix on Windows/Linux/macOS + simulators |
+
+### 13.2 Build Checkpoints by Phase
+
+| Phase | Build Checkpoint | Success Criteria |
+|---|---|---|
+| Phase 0 | WPF app builds with dead packages removed. | No build warnings from removed packages; all existing tests pass. |
+| Phase 1 | `CCP.Core` + WPF shim build; legacy WPF app still runs. | `CCP.Core` compiles on Windows, Linux, and macOS; WPF app launches and plays a video. |
+| Phase 2 | `CCP.Core` builds on Linux/macOS CI with no Windows-only references. | `dotnet build` passes on `ubuntu-latest`, `macos-latest`, and `windows-latest`. |
+| Phase 3 | Avalonia solution builds for all heads. | `CCP.Avalonia`, `CCP.Avalonia.Desktop`, `CCP.Avalonia.iOS`, `CCP.Avalonia.Android` all compile. |
+| Phase 4 | Avalonia desktop app builds and launches. | Main window renders; navigation/tabs work; no runtime XAML exceptions. |
+| Phase 5 | Media/audio pipeline builds on all desktop RIDs. | LibVLC initializes; video plays; audio SFX plays on Windows/Linux/macOS. |
+| Phase 6 | OS-shell feature stubs build on all platforms. | Tray icon on desktop; hooks on Windows; no crashes on Linux/macOS without hooks. |
+| Phase 7 | CI produces signed/publishable artifacts for all RIDs. | `dotnet publish` succeeds for `win-x64`, `linux-x64`, `osx-arm64`; mobile AAB/IPA produced. |
+| Phase 8 | Mobile heads build and deploy to simulators/devices. | iOS/Android apps launch; reduced feature set loads; camera + LibVLC work. |
+
+### 13.3 Test Checkpoints by Phase
+
+| Phase | Test Checkpoint | What to Verify |
+|---|---|---|
+| Phase 0 | Regression test baseline | Run existing manual QA script on WPF app; capture startup time and memory baseline. |
+| Phase 1 | Core unit tests | Session engine, AI command parsing, mod manifest parsing, settings serialization. |
+| Phase 2 | Cross-platform Core build | No `System.Windows` leaks; all Core tests pass on Linux/macOS. |
+| Phase 3 | Avalonia head smoke test | `Program.Main` runs; `App.axaml` parses; `MainWindow` shows without crash. |
+| Phase 4 | UI parity matrix | For every ported screen: navigation, data binding, validation, theme, localization. |
+| Phase 5 | Media matrix | Play MP4/MKV/WebM, audio-only files, dual-monitor mirror, GIF animations, SVG emojis. |
+| Phase 6 | OS integration matrix | Single instance, file dialogs, tray menu, hotkeys (Windows), wallpaper (Windows), browser host. |
+| Phase 7 | Publish & deploy matrix | Single-file desktop starts; native libs load; mobile apps install and launch. |
+| Phase 8 | Mobile acceptance | Touch navigation, camera permission, background audio behavior, reduced feature set. |
+
+### 13.4 Continuous Quality Gates
+
+- **Build gate:** every PR must build all heads on Windows, Linux, and macOS.
+- **Test gate:** Core unit/integration tests must pass on all three desktop OSs.
+- **Static analysis gate:** enable nullable reference types in Core; enable `CA1416` again and prove no cross-platform leaks.
+- **Performance gate:** startup time and working-set memory must not regress vs. WPF baseline.
+- **Accessibility gate:** keyboard navigation and screen-reader labels for every new view.
+
+---
+
+## 14. Quality & Improvement Goals
+
+The rebuild is not just a port. It must leave the codebase faster, more stable, more testable, and more maintainable than the WPF original.
+
+### 14.1 Stability Improvements
+
+| Current Pain Point | Root Cause | Migration Fix |
+|---|---|---|
+| Render-thread deadlocks (Application Hang 1002) | Layered WPF popups + avatar tube share single render thread | Avalonia/Skia render model; separate effect surfaces; remove ComboBox/tooltip layering hacks. |
+| GDI/desktop heap quota exhaustion | Too many full-screen layered windows | Pool and reuse overlay surfaces; limit concurrent surfaces; gate heavy effects. |
+| Dispatcher hang crashes | UI thread blocked by synchronous service init | Move all service initialization off the UI thread; use async startup with progress reporting. |
+| Cascading crash dialogs | `MessageBox.Show` on failing dispatcher | Replace with async `IDialogService`; no nested dispatcher pumps during error handling. |
+| Memory leaks from static services | ~50 static service references in `App.xaml.cs` | Replace static locator with scoped DI container; implement `IAsyncDisposable` for services. |
+| WPF airspace issues | Native video HWND behind WPF controls | Avalonia `VideoView` integrates into the scene graph; no HWND airspace. |
+
+### 14.2 Performance Improvements
+
+| Area | Current | Target |
+|---|---|---|
+| Startup time | Custom `Main` synchronously initializes Serilog, services, Patreon, etc. | Async startup pipeline; lazy service initialization; splash screen with real progress. |
+| UI render thread | Single WPF render thread can deadlock | Avalonia/Skia composition; 60 FPS independent render thread. |
+| GIF animation | XamlAnimatedGif decodes on UI thread | SkiaSharp/ImageSharp decode on thread pool; upload frames to GPU. |
+| Audio SFX | `WaveOutEvent` per sound can exhaust devices | Pool audio players; use LibVLC for short SFX on all platforms. |
+| Screen enumeration | `System.Windows.Forms.Screen.AllScreens` cached with Win32 P/Invoke | Avalonia `Screens` API with built-in change notifications. |
+| Asset loading | `pack://` URI resolution + embedded resources | `avares://` + `AvaloniaResource`; lazy load large assets. |
+| Webcam tracking | DirectShow/WinRT enumerator + WPF dispatcher | Cross-platform capture abstraction; frame processing on background thread. |
+
+### 14.3 Maintainability Improvements
+
+- **Dependency injection:** replace static service locator with `Microsoft.Extensions.DependencyInjection`.
+- **MVVM:** split 13,333 LOC `MainWindow.xaml`/`MainWindow.xaml.cs` into small Views + ViewModels.
+- **Async/await:** replace fire-and-forget tasks with `CancellationToken` propagation and `IAsyncDisposable`.
+- **Configuration:** move hard-coded paths and constants to `appsettings.json` + options pattern.
+- **Logging:** keep Serilog but add structured logging with correlation IDs across async operations.
+- **Feature flags:** gate experimental/Windows-only features so they can be toggled per platform or user.
+
+---
+
+## 15. Missed Architectural Concerns
+
+The following concerns were not covered in the subsystem list but must be addressed during the rebuild.
+
+### 15.1 Static Service Locator in `App.xaml.cs`
+
+Current: roughly 50 `public static` service properties on the `App` class (e.g., `App.Video`, `App.Audio`, `App.Chaos`).
+
+Target:
+- Register all services in `Microsoft.Extensions.DependencyInjection`.
+- Use constructor injection in ViewModels and platform services.
+- Keep a small `IServiceProvider` facade only where code-behind cannot easily accept DI.
+- Implement `IHostedService` for long-running background services (Autonomy, Session engine, Remote control).
+
+### 15.2 Mod & Asset Pipeline
+
+Current:
+- Built-in mods (`DroneMod/drone-mode.ccpmod`, `LockedMod/locked-resources.ccpmod`) are extracted to `%LOCALAPPDATA%` on first launch.
+- Assets resolved from `AppContext.BaseDirectory\Assets\Chaos\...` with Windows-style paths.
+
+Target:
+- Keep `.ccpmod` format; extract to platform-appropriate user data folder.
+- Use `Path.Combine` and `AppContext.BaseDirectory` consistently; no hard-coded backslashes.
+- Mark mod assets as `AvaloniaResource` or `Content` depending on whether they ship in the bundle or are downloaded.
+- Validate mod manifests against JSON schema after extraction.
+
+### 15.3 Settings & Data Backward Compatibility
+
+Current settings stored as JSON in `%LOCALAPPDATA%\ConditioningControlPanel\settings.json` (or similar).
+
+Target:
+- Read existing WPF settings format on first launch and migrate to new schema.
+- Version settings schema; provide migration classes (`ISettingsMigration`).
+- Preserve user data path across updates; do not move files unnecessarily.
+- Back up old settings before migration.
+
+### 15.4 Logging, Crash Reporting, and Telemetry
+
+Current:
+- Serilog file sink with daily rolling.
+- `UiHangWatchdog` writes minidumps via `dbghelp.dll`.
+- Crash dialogs log details locally.
+
+Target:
+- Keep file logging; add OS-native crash reporting where appropriate (e.g., App Center, Sentry, or plist crash logs on macOS/iOS).
+- Replace `dbghelp.dll` with cross-platform crash handler or platform-specific minidump APIs.
+- Ensure no PII in logs; continue security practice of logging at `Information` level.
+- Add telemetry for startup time, feature usage, and crash-free sessions (opt-in).
+
+### 15.5 Network, Cache, and Offline Behavior
+
+Current:
+- Patreon/Discord auth, profile sync, leaderboard, remote control, catalogue lookup require cloud identity.
+- Offline mode exists but may assume Windows paths.
+
+Target:
+- Abstract `IHttpClientFactory` and `IConnectivityService`.
+- Cache catalogue and enhancement library metadata locally with expiration.
+- Ensure offline mode works on all platforms without cloud identity.
+- Handle certificate/network errors gracefully on mobile.
+
+### 15.6 Webcam Privacy Contract
+
+Current contract: frames stay on device, never transmitted, never written to disk.
+
+Target:
+- Preserve contract; document it in `CCP.Core`.
+- Use platform camera APIs on mobile; avoid cloud ML APIs.
+- Add permission handling for camera/microphone on all platforms.
+
+### 15.7 AI Service Thread Safety
+
+Current AI services (`AIService`, `AiCommandService`, `CompanionService`, `PersonalityService`) may dispatch to UI thread synchronously.
+
+Target:
+- Make AI pipeline fully async with `CancellationToken`.
+- Run inference/HTTP calls on thread pool; marshal results to UI via `IUiDispatcher`.
+- Add rate limiting and queueing to prevent UI flooding.
+
+### 15.8 Chaos Effects Performance
+
+Current Chaos overlays spawn many windows and use WPF animation/GDI.
+
+Target:
+- Pool overlay windows instead of creating/disposing per effect.
+- Use Avalonia `CompositionCustomVisual` or SkiaSharp for particle/spiral effects instead of many WPF shapes.
+- Limit concurrent effects based on available GPU memory.
+
+### 15.9 File Paths and Case Sensitivity
+
+Current code uses Windows path separators and case-insensitive assumptions.
+
+Target:
+- Use `Path.Combine`, `Path.DirectorySeparatorChar`, and `StringComparison.Ordinal` consistently.
+- Test asset loading on case-sensitive Linux file systems.
+- Normalize locale/emoji file names before saving.
+
+### 15.10 Single-Instance Behavior
+
+Current: named `Mutex` + `EventWaitHandle` + handoff file in `%LOCALAPPDATA%`.
+
+Target:
+- Abstract `ISingleInstanceService`.
+- Windows: keep named mutex/event.
+- Linux/macOS: use file lock (`FileStream.Lock`) + Unix domain socket or signal file.
+- Mobile: not applicable (OS controls single instance).
+
+---
+
+## 16. Feature Flags & Gradual Rollout
+
+Use feature flags to ship the Avalonia app alongside the WPF app without breaking existing users.
+
+| Flag | Purpose | Default |
+|---|---|---|
+| `UseAvaloniaUI` | Launch Avalonia desktop shell instead of WPF | `false` until parity |
+| `EnableLinuxSupport` | Enable Linux-specific native service implementations | `false` during alpha |
+| `EnableMacSupport` | Enable macOS-specific native service implementations | `false` during alpha |
+| `EnableMobileSupport` | Enable iOS/Android heads | `false` until beta |
+| `EnableCrossPlatformAudio` | Use new `IAudioPlayer` abstraction | `false` on Windows until validated |
+| `EnableAvaloniaWebView` | Use Avalonia WebView instead of WebView2 | `false` on Windows until validated |
+| `EnableLockdownOnNonWindows` | Allow lockdown mode on Linux/macOS (degraded) | `false` |
+| `EnableMobileOverlays` | Allow overlay effects on mobile | `false` |
+
+Rollout plan:
+1. **Internal alpha:** WPF app with `CCP.Core` + `UseAvaloniaUI=false`.
+2. **Avalonia alpha:** `UseAvaloniaUI=true` for testers on Windows.
+3. **Desktop beta:** Avalonia on Windows/Linux/macOS.
+4. **Mobile beta:** reduced feature set on iOS/Android.
+5. **General availability:** deprecate WPF head.
+
+---
+
+## 17. Accessibility & Localization
+
+### 17.1 Accessibility
+
+Current WPF app has limited automation properties and custom chrome that confuses screen readers.
+
+Target:
+- Set `AutomationProperties.Name` and `AutomationProperties.HelpText` on every interactive control.
+- Ensure keyboard navigation (Tab order, access keys) for every view.
+- Test with NVDA (Windows), Orca (Linux), and VoiceOver (macOS/iOS).
+- Respect system high-contrast and reduce-motion settings.
+
+### 17.2 Localization
+
+Current: JSON language files + `LocExtension` markup extension.
+
+Target:
+- Keep JSON language files; move to `CCP.Core` as content.
+- Rewrite `LocExtension` for Avalonia binding syntax.
+- Add localization testing: ensure every new XAML string uses the markup extension.
+- Consider ICU message formatting for pluralization and gender.
+
+---
+
+## 18. Code Signing & Distribution Checklist
+
+| Platform | Artifact | Signing / Notarization |
+|---|---|---|
+| Windows | `win-x64` single-file EXE + MSI/INNO | Code signing certificate (EV recommended); sign installer and executable. |
+| Linux | `linux-x64` self-contained folder or AppImage | GPG sign AppImage or package; no OS-level code signing. |
+| macOS | `osx-x64` / `osx-arm64` app bundle + DMG | Apple Developer ID; notarize with `notarytool`; staple ticket. |
+| iOS | IPA | Apple Distribution certificate; App Store Connect upload; TestFlight. |
+| Android | AAB/APK | Upload key + signing key; Google Play App Signing; Play Console. |
+
+Additional distribution notes:
+- Keep update channels separate per platform.
+- Provide SHA256 checksums for all downloadable artifacts.
+- Host native dependencies (Linux libvlc, macOS ARM64 libvlc) on a CDN or in release assets.
+
+---
+
+## 19. Conclusion
 
 Avalonia UI v12 + LibVLCSharp is a capable cross-platform target for Conditioning Control Panel. The dominant cost is the WPF UI rewrite, not the engine. The safest path is:
 
@@ -684,4 +948,4 @@ Avalonia UI v12 + LibVLCSharp is a capable cross-platform target for Conditionin
 2. **Avalonia desktop parity** on Windows first, then Linux/macOS.
 3. **Mobile heads** with a reduced, feature-gated companion experience.
 
-This plan intentionally gates or redesigns Windows-only features (global hooks, system-key suppression, desktop wallpaper, WebView2 on non-Windows, NAudio/WASAPI ducking, GDI capture) rather than pretending they can be mechanically ported. The result will be a maintainable, testable, cross-platform codebase.
+This plan intentionally gates or redesigns Windows-only features (global hooks, system-key suppression, desktop wallpaper, WebView2 on non-Windows, NAudio/WASAPI ducking, GDI capture) rather than pretending they can be mechanically ported. With the added build/test checkpoints, quality goals, and architectural concerns, the rebuild should produce a codebase that is not only cross-platform but also faster, more stable, more testable, and more maintainable than the original WPF application.
