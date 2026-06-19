@@ -1471,7 +1471,7 @@ namespace ConditioningControlPanel.Views.Deeper
             try
             {
                 if (VideoBrowser?.CoreWebView2 == null) return;
-                _ = VideoBrowser.CoreWebView2.ExecuteScriptAsync(@"
+                FireScript(@"
                     (function() {
                         if (window._ccpMaxInstalled) {
                             try { window._ccpMaxApply && window._ccpMaxApply(); } catch (_) {}
@@ -1797,7 +1797,7 @@ namespace ConditioningControlPanel.Views.Deeper
                 // `document.fullscreenElement` in the dblclick handler so the
                 // user can always exit our WPF "forced fullscreen" by
                 // double-clicking the video, regardless of page state.
-                try { _ = VideoBrowser.CoreWebView2.ExecuteScriptAsync("window._ccpForcedFs = true;"); }
+                try { FireScript("window._ccpForcedFs = true;"); }
                 catch { }
 
                 // Commit state only after reparent is fully in place.
@@ -1822,7 +1822,7 @@ namespace ConditioningControlPanel.Views.Deeper
                 {
                     if (VideoBrowser?.CoreWebView2 != null)
                     {
-                        _ = VideoBrowser.CoreWebView2.ExecuteScriptAsync(
+                        FireScript(
                             "window._ccpForcedFs = false; try { if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen(); } catch (_) {}");
                     }
                 }
@@ -1862,6 +1862,26 @@ namespace ConditioningControlPanel.Views.Deeper
             }
         }
 
+        /// <summary>
+        /// Fire-and-forget a page script without leaking an unobserved task exception.
+        /// If the WebView2 is torn down while the script is in flight, the returned task
+        /// faults — and an unobserved fault reaches the finalizer and crashes the app
+        /// (the "CoreWebView2 ... after the WebView2 control is disposed" crash, #381).
+        /// The OnlyOnFaulted continuation observes the exception so it stays contained.
+        /// </summary>
+        private void FireScript(string js)
+        {
+            try
+            {
+                var cw = VideoBrowser?.CoreWebView2;
+                if (cw == null) return;
+                cw.ExecuteScriptAsync(js).ContinueWith(
+                    t => { _ = t.Exception; },
+                    TaskContinuationOptions.OnlyOnFaulted);
+            }
+            catch { }
+        }
+
         private void ExitVideoFullscreen()
         {
             if (_fsTransitionInFlight) return;
@@ -1891,7 +1911,7 @@ namespace ConditioningControlPanel.Views.Deeper
                 {
                     if (VideoBrowser?.CoreWebView2 != null)
                     {
-                        _ = VideoBrowser.CoreWebView2.ExecuteScriptAsync(
+                        FireScript(
                             "window._ccpForcedFs = false; try { if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen(); } catch (_) {}");
                     }
                 }
@@ -1933,7 +1953,7 @@ namespace ConditioningControlPanel.Views.Deeper
             {
                 if (VideoBrowser?.CoreWebView2 != null)
                 {
-                    _ = VideoBrowser.CoreWebView2.ExecuteScriptAsync(
+                    FireScript(
                         "(function(){if(document.fullscreenElement)document.exitFullscreen();})();");
                 }
                 else
@@ -2008,6 +2028,23 @@ namespace ConditioningControlPanel.Views.Deeper
             // the borderless host alive with the flag already cleared, and
             // skipping cleanup here would orphan it past the player's death.
             try { if (_isVideoFullscreen || _videoFullscreenWindow != null) ExitVideoFullscreen(); } catch { }
+
+            // Safety net: ExitVideoFullscreen() early-returns while a fullscreen transition
+            // is in flight (_fsTransitionInFlight) — and EnterVideoFullscreen pumps the
+            // dispatcher at render priority mid-transition, so a close that lands in that
+            // window leaves the borderless host alive as a see-through, un-interactable
+            // ghost AND then disposes VideoBrowser out from under it (#381). Force the host
+            // window closed here regardless of transition state; its Closed handler reparents
+            // VideoBrowser back to the pane before we dispose it below.
+            if (_videoFullscreenWindow != null)
+            {
+                _fsTransitionInFlight = false;
+                try { _videoFullscreenWindow.Close(); }
+                catch (Exception ex) { App.Logger?.Debug("EnhancementPlayer: forced fullscreen window close failed: {Error}", ex.Message); }
+                _videoFullscreenWindow = null;
+                _isVideoFullscreen = false;
+                try { SafeRestoreVideoBrowserToPane(); } catch { }
+            }
 
             try
             {

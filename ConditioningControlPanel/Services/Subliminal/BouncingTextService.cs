@@ -284,12 +284,12 @@ public class BouncingTextService : IDisposable
         // Hide bouncing text while a mandatory video is playing
         if (App.Video?.IsPlaying == true)
         {
-            foreach (var w in _windows) w.Hide();
+            foreach (var w in _windows) { if (w.IsLoaded) w.Hide(); }
             return;
         }
         else
         {
-            foreach (var w in _windows) { if (!w.IsVisible) w.Show(); }
+            foreach (var w in _windows) { if (w.IsLoaded && !w.IsVisible) w.Show(); }
         }
 
         // Move (delta-time based; velocities are DIP/second)

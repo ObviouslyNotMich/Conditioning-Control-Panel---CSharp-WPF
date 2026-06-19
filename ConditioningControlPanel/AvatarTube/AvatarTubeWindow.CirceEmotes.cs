@@ -906,6 +906,19 @@ namespace ConditioningControlPanel
         private Uri CirceClipUri(string clip)
             => new Uri($"pack://application:,,,/Resources/{_emoteFolder}/{clip}.gif", UriKind.Absolute);
 
+        /// <summary>True if the clip's GIF actually ships in the current pose folder.</summary>
+        private bool CirceClipExists(string clip)
+        {
+            try
+            {
+                var sri = Application.GetResourceStream(CirceClipUri(clip));
+                if (sri == null) return false;
+                sri.Stream.Dispose();
+                return true;
+            }
+            catch { return false; }
+        }
+
         private bool LoadCirceMap()
         {
             if (string.IsNullOrEmpty(_emoteFolder)) return false;
@@ -986,6 +999,16 @@ namespace ConditioningControlPanel
                             _circeTiming[p.Name] = ((int?)o["speakStartMs"] ?? 0,
                                                     (int?)o["speakEndMs"] ?? 0,
                                                     (int?)o["durationMs"] ?? 0);
+
+                // Some pose sets ship only a subset of clips — e.g. circe_emotes_p3 ("The
+                // Spiral") has no expressive/click GIFs and no "expressive" key, so the
+                // hardcoded defaults above name clips that don't exist on disk. Picking one
+                // requests a missing GIF, whose load fails and blanks the avatar for ~2s
+                // until the watchdog re-arms (#376/#377). Prune both pools to clips that
+                // actually exist BEFORE they seed _circeKnownClips, so PickExpressive/click
+                // fall back to talk+idle rotation instead of a phantom clip.
+                _expressiveEmotes = _expressiveEmotes.Where(CirceClipExists).Distinct().ToList();
+                _circeClickEmotes.RemoveAll(c => !CirceClipExists(c));
 
                 // Known-clip set = every clip name the map references, so typos/missing clips are rejected
                 // without a hardcoded whitelist (each pose may ship a different set).

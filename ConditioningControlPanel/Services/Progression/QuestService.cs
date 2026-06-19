@@ -777,7 +777,8 @@ public class QuestService : IDisposable
 
             // Record completion date for streak calendar (only once per day)
             var today = DateTime.Today;
-            if (!Progress.DailyQuestCompletionDates.Contains(today))
+            bool firstCompletionToday = !Progress.DailyQuestCompletionDates.Contains(today);
+            if (firstCompletionToday)
             {
                 Progress.DailyQuestCompletionDates.Add(today);
             }
@@ -802,7 +803,16 @@ public class QuestService : IDisposable
                 }
             }
 
-            // Recalculate streak from the calendar (single source of truth)
+            // Grow the streak incrementally on the first completion of a new day.
+            // Tracked independently of the 90-day completion calendar so the streak
+            // is NOT capped at the calendar's trim window (~91 days). The calendar
+            // stays the source of truth for detecting BREAKS (via AdvanceQuestStreak's
+            // yesterday check) and for repairing the streak upward after a sync.
+            if (firstCompletionToday)
+                AdvanceQuestStreak();
+
+            // Repair the streak upward if the calendar proves a longer run than the
+            // stored counter (e.g. after a cloud merge). Never decreases it.
             RecalculateStreak();
         }
         else
@@ -911,21 +921,53 @@ public class QuestService : IDisposable
             checkDate = checkDate.AddDays(-1);
         }
 
-        // Never decrease the streak from recalculation — dates may have been
-        // trimmed or lost during sync. The streak was earned, keep it.
-        if (streak < settings.DailyQuestStreak)
+        // Repair upward only. Day-to-day growth is handled incrementally by
+        // AdvanceQuestStreak (so the streak is not capped at the calendar's ~90-day
+        // trim window). Recalculation may only RAISE the streak — e.g. when a cloud
+        // sync merges in completion dates that prove a longer run than the stored
+        // counter — and must never lower it (dates may have been trimmed/lost).
+        if (streak > settings.DailyQuestStreak)
         {
-            App.Logger?.Debug("RecalculateStreak: calendar shows {Calculated} but current streak is {Current} — keeping higher value",
+            App.Logger?.Debug("RecalculateStreak: calendar proves {Calculated} > stored {Current} — repairing upward",
                 streak, settings.DailyQuestStreak);
-        }
-        else
-        {
             settings.DailyQuestStreak = streak;
         }
 
         // Keep LastDailyQuestDate in sync with actual quest completions (not shield fills)
         if (Progress.DailyQuestCompletionDates.Count > 0)
             settings.LastDailyQuestDate = Progress.DailyQuestCompletionDates.Max();
+    }
+
+    /// <summary>
+    /// Grow (or reset) the persisted daily quest streak on the first daily-quest
+    /// completion of a new day. Growth is tracked incrementally HERE rather than
+    /// recomputed from the completion calendar, because the calendar is trimmed to a
+    /// rolling 90-day window (see CompleteQuest) — recomputing from it caps the streak
+    /// at ~91 and freezes it there permanently. Call exactly once per day, AFTER the
+    /// streak shield has had a chance to fill yesterday.
+    /// </summary>
+    private void AdvanceQuestStreak()
+    {
+        var settings = App.Settings?.Current;
+        if (settings == null) return;
+
+        var yesterday = DateTime.Today.AddDays(-1);
+        bool continuesStreak =
+            Progress.DailyQuestCompletionDates.Any(d => d.Date == yesterday)
+            || (settings.StreakShieldUsedDates?.Any(d => d.Date == yesterday) ?? false);
+
+        if (continuesStreak || settings.DailyQuestStreak <= 0)
+        {
+            // Yesterday completed/shielded (chain continues) — or first streak ever.
+            settings.DailyQuestStreak++;
+        }
+        else
+        {
+            // Gap with no shield: the streak broke; today is day 1 of a new streak.
+            App.Logger?.Information("Quest streak reset to 1 — gap before {Today} (was {Prev})",
+                DateTime.Today.ToString("yyyy-MM-dd"), settings.DailyQuestStreak);
+            settings.DailyQuestStreak = 1;
+        }
     }
 
     /// <summary>

@@ -26,6 +26,7 @@ public partial class ChaosHudWindow : Window
     public ChaosHudWindow(ChaosRunState state, ChaosModeService chaos)
     {
         InitializeComponent();
+        Topmost = ChaosWindowZ.BornTopmost;   // Free Desktop runs aren't pinned above other apps
         _chaos = chaos;
         _state = state;
         DataContext = state;
@@ -69,11 +70,11 @@ public partial class ChaosHudWindow : Window
         Closed += (_, _) => _streakJitterTimer?.Stop();    // never outlive the window
 
         // Top-anchored and ~60% of the work-area height, so it doesn't span the whole
-        // screen (shrinks from the bottom up).
+        // screen (shrinks from the bottom up). Left/right edge is chosen by ApplySide.
         var wa = SystemParameters.WorkArea;
-        Left = wa.Left;
         Top = wa.Top;
         Height = wa.Height * 0.6;
+        ApplySide(App.Settings?.Current?.ChaosHudOnRight ?? false);
         LoadPortrait();
         AttachHudTips();
         SourceInitialized += (_, _) => ApplyExStyles();
@@ -149,12 +150,49 @@ public partial class ChaosHudWindow : Window
     // spurious MouseLeave mid-transition — collapsing instantly flaps the sidebar
     // open/shut until the timing settles. So: never collapse within a grace window of
     // opening, and treat every leave as a debounced "re-check, then fold if truly gone".
+    private const double OPEN_DWELL_MS = 1000;   // rest this long on the strip before it opens
     private const double EXPAND_GRACE_MS = 1000;
     private const double LEAVE_RECHECK_MS = 220;
     private DateTime _expandedAt;
     private System.Windows.Threading.DispatcherTimer? _collapseRecheck;
+    private System.Windows.Threading.DispatcherTimer? _openDwell;
 
+    // Opening is intent-gated: a brush-past on the way to a bubble near the edge shouldn't fling
+    // the panel open. Hovering the strip ARMS a ~1s dwell; it expands only if the cursor is still
+    // on the strip when it fires. Leaving (or clicking) cancels it — a click opens at once.
     private void Hud_MouseEnter(object sender, MouseEventArgs e)
+    {
+        _collapseRecheck?.Stop();
+        if (_expanded || _pinnedOpen) return;
+        if (_openDwell == null)
+        {
+            _openDwell = new System.Windows.Threading.DispatcherTimer
+            { Interval = TimeSpan.FromMilliseconds(OPEN_DWELL_MS) };
+            _openDwell.Tick += (_, _) =>
+            {
+                _openDwell!.Stop();
+                if (_expanded || _pinnedOpen) return;
+                if (!Strip.IsMouseOver) return;   // moved on before the dwell elapsed
+                Expand();
+            };
+        }
+        _openDwell.Stop();
+        _openDwell.Start();
+    }
+
+    private void Strip_MouseLeave(object sender, MouseEventArgs e) => _openDwell?.Stop();
+
+    // Click the strip to open immediately — no need to wait out the dwell if you mean it. Clicks
+    // on the side switch mark themselves handled, so they don't fall through to here.
+    private void Strip_Click(object sender, MouseButtonEventArgs e)
+    {
+        _openDwell?.Stop();
+        if (!_expanded && !_pinnedOpen) Expand();
+    }
+
+    // The actual expand (was the body of Hud_MouseEnter): strip hides, the translucent panel
+    // slides in from its parked off-edge offset.
+    private void Expand()
     {
         _collapseRecheck?.Stop();
         if (_expanded) return;
@@ -190,7 +228,7 @@ public partial class ChaosHudWindow : Window
     {
         if (!_expanded) return;
         _expanded = false;
-        var slide = new DoubleAnimation(-300, TimeSpan.FromMilliseconds(180));
+        var slide = new DoubleAnimation(_hiddenX, TimeSpan.FromMilliseconds(180));
         slide.Completed += (_, _) =>
         {
             if (_expanded) return;
@@ -198,6 +236,79 @@ public partial class ChaosHudWindow : Window
             Strip.Visibility = Visibility.Visible;
         };
         PanelSlide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slide);
+    }
+
+    // ---- left/right side switch (the strip's under-clock toggle) ----
+    private const double HIDDEN_OFFSET = 300;   // = panel width: how far off-edge the collapsed panel parks
+    private bool _onRight;
+    private double _hiddenX = -HIDDEN_OFFSET;    // collapsed-panel rest offset; flips sign with the side
+
+    /// <summary>Park the whole HUD on the chosen screen edge and mirror its chrome (rounded corner,
+    /// borders, slide direction, switch highlight). Only ever called while collapsed — the switch
+    /// lives on the strip, which is hidden once expanded — so re-seating the slide offset is safe.</summary>
+    private void ApplySide(bool onRight)
+    {
+        _onRight = onRight;
+        _hiddenX = onRight ? HIDDEN_OFFSET : -HIDDEN_OFFSET;
+
+        var wa = SystemParameters.WorkArea;
+        Left = onRight ? wa.Right - Width : wa.Left;
+
+        var align = onRight ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        Strip.HorizontalAlignment = align;
+        Panel.HorizontalAlignment = align;
+
+        // Mirror the one rounded inner corner + the painted right/bottom borders to the new edge.
+        Strip.CornerRadius = Panel.CornerRadius = onRight
+            ? new CornerRadius(0, 0, 0, 18) : new CornerRadius(0, 0, 18, 0);
+        Strip.BorderThickness = Panel.BorderThickness = onRight
+            ? new Thickness(8, 0, 0, 8) : new Thickness(0, 0, 8, 8);
+
+        if (!_expanded) PanelSlide.X = _hiddenX;   // keep the collapsed panel parked off the active edge
+
+        // Both switches (strip + expanded-header) stay in sync — whichever is visible reads right.
+        StyleSwitch(SideLeftBtn, SideRightBtn, SideLeftGlyph, SideRightGlyph, onRight);
+        StyleSwitch(SideLeftBtn2, SideRightBtn2, SideLeftGlyph2, SideRightGlyph2, onRight);
+    }
+
+    private void StyleSwitch(System.Windows.Controls.Border leftBtn, System.Windows.Controls.Border rightBtn,
+                             System.Windows.Controls.TextBlock leftGlyph, System.Windows.Controls.TextBlock rightGlyph, bool onRight)
+    {
+        var pink = (System.Windows.Media.Brush)FindResource("Pink");
+        var dim = (System.Windows.Media.Brush)FindResource("TextDim");
+        leftBtn.Background = onRight ? System.Windows.Media.Brushes.Transparent : pink;
+        rightBtn.Background = onRight ? pink : System.Windows.Media.Brushes.Transparent;
+        leftGlyph.Foreground = onRight ? dim : System.Windows.Media.Brushes.Black;
+        rightGlyph.Foreground = onRight ? System.Windows.Media.Brushes.Black : dim;
+    }
+
+    private void SideLeft_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;   // don't fall through to Strip_Click (which would expand the panel)
+        if (!_onRight) return;
+        ApplySide(false);
+        PersistSide(false);
+    }
+
+    private void SideRight_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (_onRight) return;
+        ApplySide(true);
+        PersistSide(true);
+    }
+
+    private void PersistSide(bool onRight)
+    {
+        try
+        {
+            if (App.Settings?.Current != null && App.Settings.Current.ChaosHudOnRight != onRight)
+            {
+                App.Settings.Current.ChaosHudOnRight = onRight;
+                App.Settings.Save();
+            }
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChaosHud side persist: {E}", ex.Message); }
     }
 
     /// <summary>Pin the panel open for the pre-run loadout glance (FALL IN → countdown), then
@@ -621,16 +732,7 @@ public partial class ChaosHudWindow : Window
 
     /// <summary>Re-assert the HUD to the top of the topmost band without stealing focus, so it
     /// stays visible over a mandatory video that a chaos payload raised mid-run.</summary>
-    public void RaiseToTopmost()
-    {
-        try
-        {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero) return;
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        }
-        catch { }
-    }
+    public void RaiseToTopmost() => ChaosWindowZ.RaiseTopmost(this);   // demotes in Free Desktop mode
 
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_TOOLWINDOW = 0x00000080;

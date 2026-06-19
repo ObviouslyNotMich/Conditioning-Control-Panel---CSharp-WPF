@@ -102,7 +102,7 @@ public sealed class ChaosBoonBarOverlay : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
-        Topmost = true;
+        Topmost = ChaosWindowZ.BornTopmost;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;

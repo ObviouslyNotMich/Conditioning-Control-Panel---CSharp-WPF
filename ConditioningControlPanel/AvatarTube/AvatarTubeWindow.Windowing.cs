@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -30,6 +30,7 @@ namespace ConditioningControlPanel
         private IntPtr _parentHandle;
         private bool _chaosRunActive;       // A Chaos run owns the screen (see SetChaosRunActive)
         private bool _reattachAfterChaos;   // we auto-detached for the run and should re-attach when it ends
+        private bool _hiddenForChaos;       // Story-mode run hid the companion; restore only if we hid it
 
         // ============================================================
         // POSITIONING & SCALING - ADJUST THESE VALUES AS NEEDED
@@ -1064,6 +1065,10 @@ namespace ConditioningControlPanel
         /// fight the z-order, we simply auto-detach for the run — detached mode is a self-contained topmost
         /// widget that stays visible on top — and re-attach when the run ends. Only auto-restores if WE
         /// detached it (an already-detached avatar is left as the user set it).
+        ///
+        /// Story mode renders its OWN characters (backdrop + the Madam): the floating companion would
+        /// clutter the immersive scene, so we hide it for the run. Free Desktop has no story characters —
+        /// the companion IS the on-screen character, so keep it floating over the desktop.
         /// </summary>
         public void SetChaosRunActive(bool active)
         {
@@ -1073,6 +1078,17 @@ namespace ConditioningControlPanel
             {
                 if (active)
                 {
+                    // Story mode renders its OWN characters (backdrop + the Madam): the floating
+                    // companion would clutter the immersive scene, so hide it for the run. Free
+                    // Desktop has no story characters — the companion IS the on-screen character,
+                    // so keep it floating over the desktop (the detach-and-drop path below).
+                    if (Services.Chaos.ChaosModeService.ActiveMode == Services.Chaos.ChaosPlayMode.Story)
+                    {
+                        _hiddenForChaos = Visibility == Visibility.Visible;
+                        if (_hiddenForChaos) Visibility = Visibility.Hidden;
+                        return;
+                    }
+
                     // Detach so the companion floats above the run as a topmost widget. Remember to
                     // re-attach afterwards only if it was attached to begin with.
                     if (_isAttached)
@@ -1091,10 +1107,19 @@ namespace ConditioningControlPanel
                         catch { /* positioning is best-effort */ }
                     }
                 }
-                else if (_reattachAfterChaos)
+                else
                 {
-                    _reattachAfterChaos = false;
-                    Attach(silent: true);
+                    // Restore from a Story-run hide (only if WE hid it).
+                    if (_hiddenForChaos)
+                    {
+                        _hiddenForChaos = false;
+                        Visibility = Visibility.Visible;
+                    }
+                    if (_reattachAfterChaos)
+                    {
+                        _reattachAfterChaos = false;
+                        Attach(silent: true);
+                    }
                 }
             }
             catch { /* window may be tearing down */ }

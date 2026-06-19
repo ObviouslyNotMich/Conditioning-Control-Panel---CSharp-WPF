@@ -46,6 +46,7 @@ public class OverlayService : IDisposable
     // Normalized 0..1 (spiral applies its own ×0.1 reduction on top).
     private double? _rampPinkOpacity;
     private double? _rampSpiralOpacity;
+    private double? _rampBrainDrainOpacity;
     private int _consecutiveTopmostLossCount;
     // Tick counter for periodic topmost-layer "kick". The 500ms timer drives this;
     // every ~5s (10 ticks) we re-issue HWND_TOPMOST even if the WS_EX_TOPMOST flag
@@ -582,7 +583,13 @@ public class OverlayService : IDisposable
                         _rampSpiralOpacity = opacity;
                         ApplySpiralOpacityDirect(opacity);
                         break;
-                    // braindrain uses blur-intensity, not opacity — no ramp support.
+                    case "braindrain":
+                        // Brain Drain ramps via blur-intensity, not alpha. Map the normalized
+                        // 0..1 ramp to an intensity the same way the band's start action does
+                        // (StartBrainDrainBlur uses opacity*100), so 0→max actually deepens the blur.
+                        _rampBrainDrainOpacity = opacity;
+                        UpdateBrainDrainBlurOpacity(Math.Max(1, (int)Math.Round(opacity * 100)));
+                        break;
                 }
             }
             catch (Exception ex) { App.Logger?.Debug("SetSustainedOverlayOpacity: {E}", ex.Message); }
@@ -1385,6 +1392,7 @@ public class OverlayService : IDisposable
     {
         try
         {
+            _rampBrainDrainOpacity = null; // release any Deeper ramp ownership
             _brainDrainCaptureTimer?.Stop();
             _brainDrainCaptureTimer = null;
 
@@ -2103,9 +2111,9 @@ public class OverlayService : IDisposable
             {
                 StartBrainDrainBlur((int)settings.BrainDrainIntensity);
             }
-            else
+            else if (!_rampBrainDrainOpacity.HasValue)
             {
-                // Already running, just update intensity
+                // Already running, just update intensity (a Deeper ramp owns it when active).
                 UpdateBrainDrainBlurOpacity((int)settings.BrainDrainIntensity);
             }
         }

@@ -19,6 +19,22 @@ namespace ConditioningControlPanel.Services.Chaos;
 /// </summary>
 public sealed class ChaosModeService
 {
+    /// <summary>Which mode the live (or most recent) run is. Defaults to Story so hub-side narrative
+    /// behaves as before. Set at <see cref="StartRun"/>, reset to Story at <see cref="CleanupAfterRun"/>.
+    /// The backdrop, narrative director, avatar and z-order helpers read this instead of the user's
+    /// saved <c>NarrativeModeEnabled</c> so a Free Desktop run never clobbers their Story settings.</summary>
+    public static ChaosPlayMode ActiveMode { get; private set; } = ChaosPlayMode.Story;
+
+    /// <summary>True only in a Free Desktop run: the run must NOT pin itself above other apps, so the
+    /// per-tick topmost re-assertion stands down and chaos windows are born non-topmost.</summary>
+    public static bool IsDesktopMode => ActiveMode == ChaosPlayMode.FreeDesktop;
+
+    /// <summary>In-run Madam narrative + story cards fire only in Story mode AND when the user setting is
+    /// on. Free Desktop runs are silent regardless of the setting. (Hub-side greetings still honor the
+    /// raw setting — there is no run mode chosen yet at the hub.)</summary>
+    public static bool NarrativeActive =>
+        App.Settings?.Current?.NarrativeModeEnabled == true && ActiveMode == ChaosPlayMode.Story;
+
     private ChaosRunState? _state;
     private ChaosHudWindow? _hud;
     private ChaosOverlayWindow? _overlay;
@@ -38,6 +54,7 @@ public sealed class ChaosModeService
     private int _waveDetonations; // per-loop count — a zero-detonation loop doubles its gold tip
     private int _lastComboBigFired;   // highest ComboBig threshold already fired this combo streak
     private int _lastActFired = 1;    // last ActIndex an ActChanged bark fired for
+    private DateTime _lastNoFocusAnnounceUtc = DateTime.MinValue;   // throttles the big "NO FOCUS" banner so mashed grabs don't stack a queue
 
     // ---- "start small": named tunables (conservative defaults; no magic numbers in logic) ----
     /// <summary>High-combo thresholds that fire ChaosComboBig once per crossing (edge-detected).</summary>
@@ -258,6 +275,14 @@ public sealed class ChaosModeService
 
         CloseLoadoutSidebar();   // the Warren-phase sidebar hands off to the real run HUD
         var cfg = config ?? ChaosRunConfig.FromSettings();
+
+        // Lock in the play mode BEFORE any run window is built — the chaos windows read
+        // ChaosWindowZ.BornTopmost in their constructors, so this must be set first.
+        ActiveMode = cfg.PlayMode;
+        ChaosWindowZ.DesktopMode = cfg.PlayMode == ChaosPlayMode.FreeDesktop;
+        // Free Desktop is meant for keeping your PC usable, so soften intrusive payloads (no fullscreen
+        // video yanking you out of what you're doing). Story keeps whatever the run config said.
+        if (cfg.PlayMode == ChaosPlayMode.FreeDesktop) cfg.AmbientMode = true;
 
         try
         {
@@ -659,6 +684,9 @@ public sealed class ChaosModeService
     public void RaiseGameLayerAboveVideo()
     {
         if (!_spawning) return;
+        // Free Desktop is deliberately not pinned above other apps — re-raising would fight the
+        // player bringing their browser/work window forward. (AmbientMode also keeps videos out.)
+        if (IsDesktopMode) return;
         // Bottom of the gameplay band: ambient FX that read fine UNDER the bubbles.
         try { ChaosFieldFxOverlay.RaiseActive(); } catch { }
         try { ChaosPopText.RaiseActive(); } catch { }
@@ -696,6 +724,9 @@ public sealed class ChaosModeService
     private void KeepChromeTopmost()
     {
         if (!_spawning) return;
+        // Free Desktop runs let other windows sit in front; skip the topmost re-assertion entirely
+        // (this also avoids BringAllToFront yanking the bubbles back over the foreground app).
+        if (IsDesktopMode) return;
         // Chrome first (lowest of the pinned set).
         try { _hud?.RaiseToTopmost(); } catch { }
         try { _fx?.RaiseToTopmost(); } catch { }
@@ -1753,6 +1784,16 @@ public sealed class ChaosModeService
                 ChaosSfx.Play("focus_empty", 0.55f);
                 Pulse(Color.FromRgb(255, 80, 80), 0.22);
                 _hud?.FlashFocusBar();   // point the eye at the empty bar itself
+                // The small bubble-side "NO FOCUS" label reads as "popped for no reason" to a new
+                // player — say WHY loudly, center-screen, so the lesson lands. Throttled: a flurry
+                // of mis-grabs shouldn't stack a queue of identical banners.
+                if ((DateTime.UtcNow - _lastNoFocusAnnounceUtc).TotalSeconds >= 1.5)
+                {
+                    _lastNoFocusAnnounceUtc = DateTime.UtcNow;
+                    // No artKey → the announcer renders only this single 60px line (subText is
+                    // dropped without banner art), so the whole message lives in the headline.
+                    ChaosAnnouncerOverlay.Announce("✋ NO FOCUS TO DEFUSE", ChaosAnnounceKind.Temptation, holdMs: 1300);
+                }
                 _state.PushEvent("✋ no focus — it triggers in your grip");
                 if (!ChaosMeta.State.SeenBarkDefuseNoFocus)
                 {
@@ -3014,6 +3055,10 @@ public sealed class ChaosModeService
         _spawning = false;
         _paused = false;
         _manualPaused = false;
+        // Back to the immersive default so hub-side narrative + a fresh run behave as Story until a
+        // run explicitly opts into Free Desktop again.
+        ActiveMode = ChaosPlayMode.Story;
+        ChaosWindowZ.DesktopMode = false;
         _lessonCardPaused = false;
         _lessonCardsAfterDraft = false;
         _pendingLessonCards.Clear();

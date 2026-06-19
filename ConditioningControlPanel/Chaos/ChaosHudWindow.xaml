@@ -146,11 +146,29 @@
         <!-- COLLAPSED STRIP (always visible, left edge) -->
         <Border x:Name="Strip" HorizontalAlignment="Left" Width="116"
                 Background="{StaticResource StripBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,8,8"
-                CornerRadius="0,0,18,0" MouseEnter="Hud_MouseEnter">
+                CornerRadius="0,0,18,0" MouseEnter="Hud_MouseEnter" MouseLeave="Strip_MouseLeave"
+                MouseLeftButtonDown="Strip_Click">
             <StackPanel VerticalAlignment="Top" Margin="0,20,0,0" HorizontalAlignment="Center">
                 <TextBlock Text="🐇" Foreground="{StaticResource Pink}" FontSize="30" HorizontalAlignment="Center"/>
                 <TextBlock x:Name="TxtStripClock" Text="{Binding ClockText}" Foreground="White" FontFamily="Consolas" FontSize="17"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
+
+                <!-- left/right side switch — parks the whole sidebar on the other screen edge so it's
+                     out of the way of bubbles. Sits right under the clock; click a side to re-anchor. -->
+                <Border Margin="0,8,0,0" HorizontalAlignment="Center" Background="#33000000" CornerRadius="9" Padding="2">
+                    <StackPanel Orientation="Horizontal">
+                        <Border x:Name="SideLeftBtn" Width="28" Height="19" CornerRadius="8" Cursor="Hand"
+                                Background="Transparent" MouseLeftButtonDown="SideLeft_Click">
+                            <TextBlock x:Name="SideLeftGlyph" Text="◀" FontSize="11" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <Border x:Name="SideRightBtn" Width="28" Height="19" CornerRadius="8" Cursor="Hand" Margin="2,0,0,0"
+                                Background="Transparent" MouseLeftButtonDown="SideRight_Click">
+                            <TextBlock x:Name="SideRightGlyph" Text="▶" FontSize="11" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
                 <TextBlock x:Name="TxtStripScore" Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="16"
                            HorizontalAlignment="Center" TextAlignment="Center" Margin="0,14,0,0"/>
                 <TextBlock x:Name="TxtStripMult" Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
@@ -273,6 +291,23 @@
                             <TextBlock x:Name="TxtRunTime" Text="{Binding RunTimeText}" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,2,0,0" Visibility="Collapsed"/>
                         </StackPanel>
                     </StackPanel>
+                    <!-- same left/right side switch, mirrored UNDER the title so it's reachable while the
+                         panel is open (e.g. the pre-run loadout glance, before you fall in) without
+                         overlapping "THE HOLE · DEPTH". -->
+                    <Border HorizontalAlignment="Left" Margin="0,6,0,0" Background="#33000000" CornerRadius="9" Padding="2">
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="SideLeftBtn2" Width="28" Height="19" CornerRadius="8" Cursor="Hand"
+                                    Background="Transparent" MouseLeftButtonDown="SideLeft_Click">
+                                <TextBlock x:Name="SideLeftGlyph2" Text="◀" FontSize="11" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <Border x:Name="SideRightBtn2" Width="28" Height="19" CornerRadius="8" Cursor="Hand" Margin="2,0,0,0"
+                                    Background="Transparent" MouseLeftButtonDown="SideRight_Click">
+                                <TextBlock x:Name="SideRightGlyph2" Text="▶" FontSize="11" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
                     <ProgressBar x:Name="BarRunProgress" Minimum="0" Maximum="1" Value="{Binding RunProgress, Mode=OneWay}" Height="5" Margin="0,4,0,0"
                                  Foreground="#FF8A7DBD" Background="#33000000" BorderThickness="0" Visibility="Collapsed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">

@@ -335,6 +335,7 @@ namespace ConditioningControlPanel
             var toMove = new System.Windows.FrameworkElement?[]
             {
                 PatreonTab.PatreonLoginCard,
+                PatreonTab.SubscribeStarLoginCard,
                 PatreonTab.DiscordLoginCard,
                 PatreonTab.AccountLinkingSection,
                 PatreonTab.CloudSettingsBackupSection,

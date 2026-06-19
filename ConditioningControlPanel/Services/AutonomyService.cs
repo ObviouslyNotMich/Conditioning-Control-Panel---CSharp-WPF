@@ -1163,20 +1163,27 @@ namespace ConditioningControlPanel.Services
             // Temporarily disable strict mode for autonomous video
             settings.StrictLockEnabled = false;
 
-            App.Video?.TriggerVideo();
-
-            // Restore strict mode after a delay (after video starts)
-            Task.Delay(3000).ContinueWith(_ =>
+            try
             {
-                if (Application.Current?.Dispatcher == null) return;
-                Application.Current?.Dispatcher?.BeginInvoke(() =>
+                App.Video?.TriggerVideo();
+            }
+            finally
+            {
+                // Restore strict mode after a delay (after video starts). This MUST be
+                // scheduled even if TriggerVideo() throws — otherwise an exception leaves
+                // StrictLockEnabled stuck off for the rest of the session (#388).
+                Task.Delay(3000).ContinueWith(_ =>
                 {
-                    if (App.Settings?.Current != null)
+                    if (Application.Current?.Dispatcher == null) return;
+                    Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
-                        App.Settings.Current.StrictLockEnabled = wasStrict;
-                    }
+                        if (App.Settings?.Current != null)
+                        {
+                            App.Settings.Current.StrictLockEnabled = wasStrict;
+                        }
+                    });
                 });
-            });
+            }
         }
 
         /// <summary>

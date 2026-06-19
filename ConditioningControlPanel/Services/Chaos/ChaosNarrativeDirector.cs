@@ -26,7 +26,8 @@ public static class ChaosNarrativeDirector
     {
         try
         {
-            if (App.Settings?.Current?.NarrativeModeEnabled != true) return;
+            // In-run narrative is Story-only (Free Desktop runs are silent) AND honors the user setting.
+            if (!ChaosModeService.NarrativeActive) return;
 
             // STORY conversations are the interrupt: if an in-run conversation is eligible for this
             // moment, open the card instead of speaking a single overlay line.

@@ -1444,6 +1444,20 @@ namespace ConditioningControlPanel.Models
             set { _dualMonitorEnabled = value; OnPropertyChanged(); }
         }
 
+        private bool _fillAllMonitorsWithVideo;
+        /// <summary>
+        /// On 3+ monitors, give every secondary screen its own video decoder. Each LibVLC
+        /// decoder is a full decode pass, so 3+ independent decoders lag high-res rigs (#389).
+        /// Default off: with DualMonitor on, 1–2 monitor setups still fill every screen, but
+        /// 3+ monitors decode the primary only unless the user opts in here. No effect on
+        /// 1–2 monitor setups.
+        /// </summary>
+        public bool FillAllMonitorsWithVideo
+        {
+            get => _fillAllMonitorsWithVideo;
+            set { _fillAllMonitorsWithVideo = value; OnPropertyChanged(); }
+        }
+
         private bool _restrictGazeContentToCalibratedScreen = true;
         /// <summary>
         /// When enabled (and a webcam calibration exists), all gaze-reactive
@@ -2090,6 +2104,13 @@ namespace ConditioningControlPanel.Models
         {
             get => _chaosScreenShakeEnabled;
             set { _chaosScreenShakeEnabled = value; OnPropertyChanged(); }
+        }
+        private bool _chaosHudOnRight;
+        /// <summary>Park the Rabbit Hole HUD sidebar on the RIGHT edge of the screen instead of the left.</summary>
+        public bool ChaosHudOnRight
+        {
+            get => _chaosHudOnRight;
+            set { _chaosHudOnRight = value; OnPropertyChanged(); }
         }
         private bool _chaosColorFlashesEnabled = true;
         public bool ChaosColorFlashesEnabled

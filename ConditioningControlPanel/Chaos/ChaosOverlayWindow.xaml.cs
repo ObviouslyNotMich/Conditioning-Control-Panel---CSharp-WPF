@@ -45,6 +45,7 @@ public partial class ChaosOverlayWindow : Window
     public ChaosOverlayWindow()
     {
         InitializeComponent();
+        Topmost = ChaosWindowZ.BornTopmost;   // Free Desktop runs aren't pinned above other apps
         Left = 0; Top = 0;
         Width = SystemParameters.PrimaryScreenWidth;
         Height = SystemParameters.PrimaryScreenHeight;
@@ -1070,7 +1071,15 @@ public partial class ChaosOverlayWindow : Window
     /// payload window (flash/overlay/video) that fired just before a wave boundary.</summary>
     private void BringToFront()
     {
-        try { Topmost = false; Topmost = true; Activate(); Focus(); } catch { }
+        // Story: pin to the top of the topmost band (toggle forces a re-raise). Free Desktop: bring
+        // the draft/results forward this once (Activate/Focus) but don't lock above other apps.
+        try
+        {
+            if (ChaosWindowZ.BornTopmost) { Topmost = false; Topmost = true; }
+            else Topmost = false;
+            Activate(); Focus();
+        }
+        catch { }
     }
 
     private const int GWL_EXSTYLE = -20;

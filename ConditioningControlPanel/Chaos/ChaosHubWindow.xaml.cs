@@ -1688,13 +1688,21 @@ public partial class ChaosHubWindow : Window
 
     private void BtnBegin_Click(object sender, RoutedEventArgs e)
     {
+        // Tag picks the play mode; default Story (the sidebar hero / programmatic FallIn pass no Tag).
+        var mode = (sender as FrameworkElement)?.Tag?.ToString() == "FreeDesktop"
+            ? Services.Chaos.ChaosPlayMode.FreeDesktop
+            : Services.Chaos.ChaosPlayMode.Story;
         _fallingIn = true;   // keep the avatar detached through the hub→run handoff (no flicker)
         SaveToSettings();
         Close();
-        Application.Current?.Dispatcher.BeginInvoke(new Action(() => App.Chaos?.StartRun()));
+        // Build the run from the just-saved settings (same as StartRun's null path), then stamp the mode.
+        var cfg = Services.Chaos.ChaosRunConfig.FromSettings();
+        cfg.PlayMode = mode;
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() => App.Chaos?.StartRun(cfg)));
     }
 
-    /// <summary>The loadout sidebar's FALL IN hero button lands here — same path as the footer button.</summary>
+    /// <summary>The loadout sidebar's FALL IN hero button lands here — same path as the footer Story
+    /// button (no Tag ⇒ Story mode).</summary>
     public void FallIn() => BtnBegin_Click(this, new RoutedEventArgs());
 
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();

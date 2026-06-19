@@ -28,7 +28,7 @@ public sealed class ChaosFxWindow : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
-        Topmost = true;
+        Topmost = ChaosWindowZ.BornTopmost;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
@@ -189,16 +189,7 @@ public sealed class ChaosFxWindow : Window
 
     /// <summary>Re-assert the FX vignette to the top of the topmost band without stealing focus,
     /// so its impact flashes keep landing over a mandatory video raised mid-run.</summary>
-    public void RaiseToTopmost()
-    {
-        try
-        {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero) return;
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        }
-        catch { }
-    }
+    public void RaiseToTopmost() => ChaosWindowZ.RaiseTopmost(this);   // demotes in Free Desktop mode
 
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_TOOLWINDOW = 0x00000080;

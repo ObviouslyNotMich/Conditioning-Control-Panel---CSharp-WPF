@@ -66,6 +66,7 @@ namespace ConditioningControlPanel
                 UpdateQuickPatreonUI();
                 UpdateQuickDiscordUI();
                 UpdatePatreonUI();
+                UpdateSubscribeStarUI();
                 UpdateDiscordUI();
                 UpdateDiscordTabUI();
                 UpdateBannerWelcomeMessage();

@@ -19,7 +19,17 @@ namespace ConditioningControlPanel;
 /// </summary>
 internal static class ChaosWindowZ
 {
-    /// <summary>Re-assert a window to the top of the topmost band without stealing focus.</summary>
+    /// <summary>Set true for the duration of a Free Desktop run (see ChaosPlayMode). While true the
+    /// chaos windows are born NON-topmost (<see cref="BornTopmost"/>) and <see cref="RaiseTopmost"/>
+    /// actively demotes instead of pinning, so the player can bring any other window to the front.</summary>
+    public static bool DesktopMode;
+
+    /// <summary>What a chaos window's <c>Topmost</c> should be at birth: true normally (Story / ambient),
+    /// false during a Free Desktop run so the run doesn't lock above other apps.</summary>
+    public static bool BornTopmost => !DesktopMode;
+
+    /// <summary>Re-assert a window to the top of the topmost band without stealing focus. In Desktop
+    /// mode this instead demotes the window out of the topmost band so other apps can come forward.</summary>
     public static void RaiseTopmost(Window? w)
     {
         if (w == null) return;
@@ -27,6 +37,12 @@ internal static class ChaosWindowZ
         {
             var hwnd = new WindowInteropHelper(w).Handle;
             if (hwnd == IntPtr.Zero) return;
+            if (DesktopMode)
+            {
+                try { w.Topmost = false; } catch { }
+                SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                return;
+            }
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
         catch { }
@@ -42,7 +58,27 @@ internal static class ChaosWindowZ
         RaiseTopmost(w);
     }
 
+    /// <summary>
+    /// The bounds (DIPs) a full-screen chaos overlay should cover. The Rabbit Hole is a
+    /// single-monitor experience: with multi-monitor OFF every spanning overlay must confine to
+    /// the PRIMARY screen. Sizing these to the whole VIRTUAL desktop (as they used to) stretched
+    /// a layered GIF/flash surface across every monitor — so the cascade/flashes showed up on all
+    /// screens AND the app paid DWM composition for the full virtual span (the all-screen-flash
+    /// perf hit). With multi-monitor ON we keep the virtual span so effects fill every screen.
+    /// Read at window construction only — never resize a realized layered window mid-run (deadlock).
+    /// </summary>
+    public static (double left, double top, double width, double height) StageBounds()
+    {
+        bool dual = App.Settings?.Current?.DualMonitorEnabled ?? true;
+        if (dual)
+            return (SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                    SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        // Primary only: WPF places the primary monitor's top-left at (0,0) in DIP space.
+        return (0, 0, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
+    }
+
     private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private static readonly IntPtr HWND_NOTOPMOST = new(-2);
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOACTIVATE = 0x0010;

@@ -2394,9 +2394,15 @@ namespace ConditioningControlPanel.Services
         public void BoostLifetime(int extraMs)
         {
             if (extraMs <= 0) return;
+            // If the lifetime token has already fired (timer elapsed, window is
+            // fading out) CancelAfter is a silent no-op — but pushing ExpiresAt
+            // into the future would make the heartbeat re-show a window whose
+            // CTS can never re-fire, leaving it immortal on screen. Don't revive
+            // a window that is already on its way out. (#384)
+            if (IsFadingOut || LifetimeCts == null || LifetimeCts.IsCancellationRequested) return;
             try
             {
-                LifetimeCts?.CancelAfter(extraMs);
+                LifetimeCts.CancelAfter(extraMs);
                 ExpiresAt = DateTime.Now.AddMilliseconds(extraMs);
             }
             catch

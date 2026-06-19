@@ -147,13 +147,25 @@ namespace ConditioningControlPanel
             get
             {
                 var customPath = Settings?.Current?.CustomAssetsPath;
-                if (!string.IsNullOrWhiteSpace(customPath) && Directory.Exists(customPath))
+                if (!string.IsNullOrWhiteSpace(customPath))
                 {
-                    return customPath;
+                    if (Directory.Exists(customPath))
+                    {
+                        return customPath;
+                    }
+                    // A custom path is configured but its folder is gone (e.g. unplugged
+                    // drive). Falling back to the default location is silent data desync —
+                    // surface it once so it's diagnosable in the log (#391).
+                    if (!_warnedMissingCustomAssetsPath)
+                    {
+                        _warnedMissingCustomAssetsPath = true;
+                        Logger?.Warning("CustomAssetsPath '{Path}' does not exist — falling back to default assets folder. Imports/extractions will go to the default location.", customPath);
+                    }
                 }
                 return UserAssetsPath;
             }
         }
+        private static bool _warnedMissingCustomAssetsPath;
 
         /// <summary>
         /// Returns a temp directory for media files (decrypted packs, video downloads, etc.)
@@ -281,6 +293,7 @@ namespace ConditioningControlPanel
         public static Services.Moderation.IModerationCounter ModerationCounter { get; private set; } = null!;
         public static WindowAwarenessService WindowAwareness { get; private set; } = null!;
         public static PatreonService Patreon { get; private set; } = null!;
+        public static SubscribeStarService SubscribeStar { get; private set; } = null!;
         public static UpdateService Update { get; private set; } = null!;
         public static ProfileSyncService ProfileSync { get; private set; } = null!;
         public static LeaderboardService Leaderboard { get; private set; } = null!;
@@ -921,6 +934,21 @@ namespace ConditioningControlPanel
             {
                 LogCrashDetails("DISPATCHER", args.Exception);
 
+                // GDI / desktop-heap quota exhaustion while WPF shows a layered window
+                // (heavy effect load, esp. many full-screen subliminal/flash surfaces on a
+                // multi-monitor setup). This is RECOVERABLE — the failed window-show just
+                // drops a frame. Swallow it instead of crashing or wedging the UI.
+                // (#394/#395: "Not enough quota is available to process this command",
+                //  ERROR_NOT_ENOUGH_QUOTA 1816 / ERROR_NO_SYSTEM_RESOURCES 1450.)
+                if (args.Exception is System.ComponentModel.Win32Exception quotaEx &&
+                    (quotaEx.NativeErrorCode == 1816 || quotaEx.NativeErrorCode == 1450 ||
+                     quotaEx.Message.Contains("Not enough quota")))
+                {
+                    try { Logger?.Warning("Window-show quota exhausted (GDI/desktop heap) — dropped an effect frame: {Msg}", quotaEx.Message); } catch { }
+                    args.Handled = true;
+                    return;
+                }
+
                 // Check for rendering thread failure - this is unrecoverable and can cause dialog loops
                 var isRenderFailure = args.Exception.Message.Contains("RENDER") ||
                                       args.Exception.Message.Contains("0x88980406") ||
@@ -1033,6 +1061,12 @@ namespace ConditioningControlPanel
 
             // Check if installer set an assets path in registry
             ApplyInstallerAssetsPath();
+
+            // Ensure the custom assets folder + standard subdirs exist. Without this a
+            // configured CustomAssetsPath whose folder is missing makes EffectiveAssetsPath
+            // silently fall back to the default AppData location, so pack extraction and
+            // drag-drop imports land in the wrong place (#391).
+            EnsureCustomAssetsDirectories();
 
             // Clean up stale temp files from previous sessions (crash recovery, leaked files)
             CleanupStaleTempFiles();
@@ -1168,6 +1202,7 @@ namespace ConditioningControlPanel
 
             WindowAwareness = new WindowAwarenessService();
             Patreon = new PatreonService();
+            SubscribeStar = new SubscribeStarService();
             ProfileSync = new ProfileSyncService();
             Leaderboard = new LeaderboardService();
             Haptics = new HapticService(Settings.Current.Haptics);
@@ -1292,6 +1327,10 @@ namespace ConditioningControlPanel
             // Initialize Patreon (validate subscription in background)
             // Then load cloud profile if authenticated
             _ = InitializePatreonAndSyncAsync();
+
+            // Initialize SubscribeStar (validate subscription in background). Shares
+            // the unified account + premium gate with Patreon (see PatreonService gate).
+            _ = SubscribeStar.InitializeAsync();
 
             // Initialize Discord OAuth (validate session in background)
             _ = InitializeDiscordAsync();
@@ -2545,6 +2584,33 @@ Application State:
             }
 
             return migratedCount;
+        }
+
+        /// <summary>
+        /// Ensures a configured custom assets folder and its standard subfolders
+        /// (images/videos/wallpapers) exist. The default UserAssetsPath subdirs are
+        /// created unconditionally at startup, but a custom path is only known after
+        /// settings load — and if its folder is missing, EffectiveAssetsPath silently
+        /// falls back to the default location, sending imports/extractions to the wrong
+        /// place even though settings show the custom path (#391).
+        /// </summary>
+        internal static void EnsureCustomAssetsDirectories()
+        {
+            var customPath = Settings?.Current?.CustomAssetsPath;
+            if (string.IsNullOrWhiteSpace(customPath)) return;
+
+            try
+            {
+                // CreateDirectory creates the parent customPath too if absent.
+                Directory.CreateDirectory(Path.Combine(customPath, "images"));
+                Directory.CreateDirectory(Path.Combine(customPath, "videos"));
+                Directory.CreateDirectory(Path.Combine(customPath, "wallpapers"));
+                Logger?.Information("Ensured custom assets directories at {Path}", customPath);
+            }
+            catch (Exception ex)
+            {
+                Logger?.Warning(ex, "Could not create custom assets directories at {Path} — EffectiveAssetsPath will fall back to the default location", customPath);
+            }
         }
 
         /// <summary>

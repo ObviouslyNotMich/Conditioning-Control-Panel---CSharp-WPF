@@ -47,7 +47,7 @@ public sealed class ChaosToyButtonWindow : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
-        Topmost = true;
+        Topmost = ChaosWindowZ.BornTopmost;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
@@ -180,16 +180,7 @@ public sealed class ChaosToyButtonWindow : Window
     }
 
     /// <summary>Keep the button clickable above a mid-run mandatory video (same kick as the HUD).</summary>
-    public void RaiseToTopmost()
-    {
-        try
-        {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero) return;
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        }
-        catch { }
-    }
+    public void RaiseToTopmost() => ChaosWindowZ.RaiseTopmost(this);   // demotes in Free Desktop mode
 
     private static Brush Frozen(Color c)
     {

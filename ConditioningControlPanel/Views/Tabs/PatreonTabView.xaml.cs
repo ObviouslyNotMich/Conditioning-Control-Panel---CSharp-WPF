@@ -67,6 +67,11 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnRestoreSettings_Click(sender, e);
         }
+        private void BtnSubscribeStarLogin_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnSubscribeStarLogin_Click(sender, e);
+        }
         private void BtnVisitPatreon_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)
