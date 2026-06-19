@@ -86,12 +86,18 @@ namespace ConditioningControlPanel
                 return;
             }
 
-            if (!TryParseDouble(TxtTemperature.Text, "temperature", 0d, 2d, out var temperature)
+            // Permissive sane-guards: block only mathematically-impossible / clearly
+            // fat-fingered values, NOT cloud limits. This provider targets local
+            // backends (Ollama / vLLM / text-generation-webui) that allow far wider
+            // ranges than OpenAI cloud (e.g. temperature up to ~5+). top_p and min_p
+            // are cumulative probabilities so they are hard-bounded to 0..1; top_k
+            // accepts -1 as the "disabled" sentinel used by vLLM and others.
+            if (!TryParseDouble(TxtTemperature.Text, "temperature", 0d, 10d, out var temperature)
                 || !TryParseDouble(TxtTopP.Text, "top_p", 0d, 1d, out var topP)
-                || !TryParseInt(TxtTopK.Text, "top_k", 0, 1000, out var topK)
+                || !TryParseInt(TxtTopK.Text, "top_k", -1, int.MaxValue, out var topK)
                 || !TryParseDouble(TxtFrequencyPenalty.Text, "frequency_penalty", -2d, 2d, out var frequencyPenalty)
                 || !TryParseDouble(TxtPresencePenalty.Text, "presence_penalty", -2d, 2d, out var presencePenalty)
-                || !TryParseDouble(TxtRepetitionPenalty.Text, "repetition_penalty", 0d, 2d, out var repetitionPenalty)
+                || !TryParseDouble(TxtRepetitionPenalty.Text, "repetition_penalty", 0d, 10d, out var repetitionPenalty)
                 || !TryParseDouble(TxtMinP.Text, "min_p", 0d, 1d, out var minP))
             {
                 return;
