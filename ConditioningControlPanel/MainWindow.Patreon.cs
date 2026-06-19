@@ -311,6 +311,7 @@ namespace ConditioningControlPanel
             var toMove = new System.Windows.FrameworkElement?[]
             {
                 PatreonLoginCard,
+                SubscribeStarLoginCard,
                 DiscordLoginCard,
                 AccountLinkingSection,
                 CloudSettingsBackupSection,
@@ -788,6 +789,9 @@ namespace ConditioningControlPanel
             {
                 App.Patreon.TierChanged += OnPatreonTierChanged;
             }
+
+            // Wire SubscribeStar login card (shares the premium gate with Patreon)
+            InitializeSubscribeStarTab();
 
             // Initialize companion settings
             ChkAvatarEnabledCompanion.IsChecked = settings.AvatarEnabled;

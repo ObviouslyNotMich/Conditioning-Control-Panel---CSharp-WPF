@@ -107,17 +107,17 @@ public sealed class ChaosGifCascadeOverlay : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
-        Topmost = true;
+        Topmost = ChaosWindowZ.BornTopmost;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
         IsHitTestVisible = false;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Left = SystemParameters.VirtualScreenLeft;
-        Top = SystemParameters.VirtualScreenTop;
-        Width = SystemParameters.VirtualScreenWidth;
-        Height = SystemParameters.VirtualScreenHeight;
+        // Single-monitor by default: confine to the primary screen unless multi-monitor is on,
+        // so the falling cascade doesn't rain across every screen (see ChaosWindowZ.StageBounds).
+        var (sl, st, sw, sh) = ChaosWindowZ.StageBounds();
+        Left = sl; Top = st; Width = sw; Height = sh;
 
         _canvas = new Canvas { IsHitTestVisible = false };
         Content = _canvas;

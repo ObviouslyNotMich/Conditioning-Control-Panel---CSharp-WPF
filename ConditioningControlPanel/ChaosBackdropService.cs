@@ -27,6 +27,7 @@ internal static class ChaosBackdropService
     private static int _currentDepth = -1;
 
     private static bool Enabled =>
+        Services.Chaos.ChaosModeService.ActiveMode == Services.Chaos.ChaosPlayMode.Story &&
         App.Settings?.Current?.NarrativeModeEnabled == true &&
         App.Settings?.Current?.BackdropEnabled == true;
 

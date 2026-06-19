@@ -483,15 +483,28 @@
             <!-- footer -->
             <Grid Grid.Row="3" Margin="0,12,0,0">
                 <TextBlock x:Name="TxtHint" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                <Button x:Name="BtnBegin" Content="▶ FALL IN" Click="BtnBegin_Click" HorizontalAlignment="Right"
-                        Background="{StaticResource Brand}" Foreground="White" FontWeight="Bold" FontSize="16" BorderThickness="0" Padding="32,13" Cursor="Hand">
-                    <Button.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="18" ShadowDepth="0" Opacity="0.6"/></Button.Effect>
-                    <Button.Resources>
-                        <Style TargetType="Border">
-                            <Setter Property="CornerRadius" Value="14"/>
-                        </Style>
-                    </Button.Resources>
-                </Button>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- Free Desktop: free-play over the real desktop (no backdrop/story, run not pinned on top). -->
+                    <Button x:Name="BtnBeginDesktop" Content="🖥 FREE DESKTOP" Tag="FreeDesktop" Click="BtnBegin_Click"
+                            ToolTip="Pop bubbles over your real desktop — no story or backdrop, and other windows can stay in front. Your companion floats along."
+                            Background="#332A2A4A" Foreground="{StaticResource TextMut}" FontWeight="SemiBold" FontSize="14"
+                            BorderBrush="#55E84393" BorderThickness="1" Padding="22,12" Margin="0,0,12,0" Cursor="Hand">
+                        <Button.Resources>
+                            <Style TargetType="Border"><Setter Property="CornerRadius" Value="14"/></Style>
+                        </Button.Resources>
+                    </Button>
+                    <!-- Story: the immersive descent (backdrop, the Madam, run locked on top). -->
+                    <Button x:Name="BtnBegin" Content="▶ FALL IN — STORY" Tag="Story" Click="BtnBegin_Click"
+                            ToolTip="The full descent: backdrop, the Madam's narration and story beats, locked on top."
+                            Background="{StaticResource Brand}" Foreground="White" FontWeight="Bold" FontSize="16" BorderThickness="0" Padding="32,13" Cursor="Hand">
+                        <Button.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="18" ShadowDepth="0" Opacity="0.6"/></Button.Effect>
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="14"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Grid>
         <!-- unlock cards float top-center over everything; never blocks clicks (shopping continues under it) -->

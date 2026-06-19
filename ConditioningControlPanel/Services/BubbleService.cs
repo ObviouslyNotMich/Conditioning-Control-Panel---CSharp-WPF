@@ -1629,7 +1629,9 @@ internal class Bubble
     private static void ReturnWindow(Window? w)
     {
         if (w == null) return;
-        try { w.Effect = null; w.Content = null; w.Opacity = 0; w.Hide(); } catch { }
+        // Restore the topmost default: a Free Desktop chaos bubble may have set this false, and the
+        // pool is shared with ambient bubbles that must always ride on top.
+        try { w.Effect = null; w.Content = null; w.Opacity = 0; w.Topmost = true; w.Hide(); } catch { }
         if (_windowPool.Count < WINDOW_POOL_MAX) _windowPool.Push(w);
         else { try { w.Close(); } catch { } }
     }
@@ -2204,6 +2206,11 @@ internal class Bubble
         // Null (not Transparent) background so the quantized margin around the centred _hitSize grid
         // is NOT hit-testable — clicks there pass through; the click area stays exactly the grid.
         _window.Background = null;
+        // Ambient pop-game bubbles always ride on top. Chaos bubbles (spec != null) follow the run's
+        // mode: Story stays topmost; a Free Desktop run keeps them OUT of the topmost band so the
+        // player can bring other windows forward. ReturnWindow resets this to true on recycle, so a
+        // Free-Desktop shell never leaks its non-topmost state to a later ambient bubble.
+        _window.Topmost = spec != null ? ChaosWindowZ.BornTopmost : true;
         double winCx = _posX + _size / 2.0, winCy = _posY + _size / 2.0;
         _window.Left = winCx - _winDim / 2.0;
         _window.Top = winCy - _winDim / 2.0;
@@ -2254,8 +2261,25 @@ internal class Bubble
             try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x8A, 0x14), BlurRadius = 36, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
         }
 
-        // Show window
-        _window.Show();
+        // Show window. A recycled pooled shell can still be parked on the monitor its PREVIOUS bubble
+        // lived on (the pool is shared with dual-monitor ambient bubbles). On Show, WPF can composite
+        // one frame at that stale spot before it re-evaluates Left/Top under the target monitor's DPI
+        // — the "chaos bubbles flash on my second screen first" report. For chaos bubbles (which must
+        // stay on the HUD/primary screen), reveal at zero opacity, pin the native window to the intended
+        // screen in PHYSICAL pixels, then restore opacity, so the first visible frame is already on the
+        // right monitor. Ambient bubbles keep their original show path untouched.
+        if (_spec != null)
+        {
+            double revealOpacity = _window.Opacity;
+            _window.Opacity = 0;
+            _window.Show();
+            PinWindowToTargetScreen();
+            _window.Opacity = revealOpacity;
+        }
+        else
+        {
+            _window.Show();
+        }
 
         // Hide from Alt+Tab
         HideFromAltTab();
@@ -3818,6 +3842,28 @@ internal class Bubble
         catch { }
     }
 
+    /// <summary>
+    /// Pin the native window onto the screen this bubble was positioned for, in PHYSICAL pixels.
+    /// A pooled shell reused across monitors can otherwise flash for one composed frame at its
+    /// previous monitor before WPF relocates it under per-monitor DPI. Position + size only (HWND
+    /// order/focus untouched). <c>Left</c>/<c>Top</c> were computed as physical÷<see cref="_dpiScale"/>,
+    /// so multiplying back yields the intended virtual-desktop physical coordinate.
+    /// </summary>
+    private void PinWindowToTargetScreen()
+    {
+        if (_window == null) return;
+        try
+        {
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(_window).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            int px = (int)Math.Round(_window.Left * _dpiScale);
+            int py = (int)Math.Round(_window.Top * _dpiScale);
+            int side = (int)Math.Round(_winDim * _dpiScale);
+            SetWindowPos(hwnd, IntPtr.Zero, px, py, side, side, SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        catch { }
+    }
+
     #region Win32
 
     internal static double GetDpiForScreen(System.Windows.Forms.Screen screen)
@@ -3909,6 +3955,7 @@ internal class Bubble
     private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOZORDER = 0x0004;
     private const uint SWP_NOACTIVATE = 0x0010;
 
     #endregion

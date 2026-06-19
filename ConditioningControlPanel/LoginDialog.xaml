@@ -51,6 +51,17 @@
                     </StackPanel>
                 </Button>
 
+                <Button x:Name="BtnLoginSubscribeStar"
+                        Padding="20,15" Margin="0,0,0,15"
+                        Background="#009E8F" Foreground="White"
+                        BorderThickness="0" FontWeight="Bold" FontSize="16"
+                        Cursor="Hand" Click="BtnLoginSubscribeStar_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="★" FontSize="20" Margin="0,0,10,0"/>
+                        <TextBlock Text="Login with SubscribeStar" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
                 <Button x:Name="BtnLoginAccount"
                         Padding="20,15" Margin="0,0,0,15"
                         Background="{DynamicResource AccentTintedBgBrush}" Foreground="White"

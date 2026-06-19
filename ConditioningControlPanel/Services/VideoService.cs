@@ -1059,11 +1059,25 @@ namespace ConditioningControlPanel.Services
             _scheduler.Tick += (s, e) =>
             {
                 _scheduler?.Stop();
-                if (_isRunning && !_videoPlaying && !_triggerInProgress)
+                try
                 {
-                    TriggerVideo();
+                    if (_isRunning && !_videoPlaying && !_triggerInProgress)
+                    {
+                        TriggerVideo();
+                    }
+                    // Cleanup() will call ScheduleNext() when video ends
                 }
-                // Cleanup() will call ScheduleNext() when video ends
+                catch (Exception ex)
+                {
+                    // A throw here would otherwise bubble to DispatcherUnhandledException,
+                    // which logs and marks it handled — silently killing all further videos
+                    // while the session timer keeps counting down (#388). Re-arm the
+                    // scheduler so a single bad TriggerVideo (e.g. LibVLC/codec failure)
+                    // doesn't take the rest of the session's mandatory videos with it.
+                    App.Logger?.Error(ex, "VideoService: scheduler tick failed — re-arming scheduler");
+                    _triggerInProgress = false;
+                    ScheduleNext();
+                }
             };
             _scheduler.Start();
         }
@@ -1253,10 +1267,15 @@ namespace ConditioningControlPanel.Services
                     Topmost = true,
                     Background = Brushes.Black,
                     WindowStartupLocation = WindowStartupLocation.Manual,
-                    Left = (screen.Bounds.X + 100) / dpiScale,
-                    Top = (screen.Bounds.Y + 100) / dpiScale,
-                    Width = 400,
-                    Height = 300
+                    // Size to the full screen bounds up-front. Starting at 400x300 and
+                    // maximizing afterward briefly exposed an unpainted (white) region for
+                    // a frame before the black background caught up — and on a secondary
+                    // monitor that white frame could linger (#368). This mirrors the
+                    // flash-free CreateLibVLCUrlWindow path.
+                    Left = screen.Bounds.X / dpiScale,
+                    Top = screen.Bounds.Y / dpiScale,
+                    Width = screen.Bounds.Width / dpiScale,
+                    Height = screen.Bounds.Height / dpiScale
                 };
 
                 // Create LibVLC VideoView
@@ -1460,11 +1479,10 @@ namespace ConditioningControlPanel.Services
                 BringTargetsToFront();
             };
 
+            // Window is already sized to the full screen bounds, so we don't start small
+            // and Maximize — that sequence caused the white-frame flash (#368). A borderless
+            // Topmost window at full bounds covers the taskbar just like the maximized one did.
             win.Show();
-            // Pump the WPF message loop once to let the compositor settle before maximizing —
-            // avoids async rendering artifacts with LibVLC's child HWND
-            win.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Render);
-            win.WindowState = WindowState.Maximized;
             if (withAudio) win.Activate();
             DisableChildWindowInput(win);
 
@@ -1533,12 +1551,16 @@ namespace ConditioningControlPanel.Services
                     Width = screen.Bounds.Width / fallbackDpi,
                     Height = screen.Bounds.Height / fallbackDpi
                 };
-                fallbackWin.Show();
-                fallbackWin.WindowState = WindowState.Maximized;
+                fallbackWin.Show(); // already full-bounds — no Maximize (see #368 above)
 
-                // Auto-close after 3 seconds
+                // Auto-close after 3 seconds. Use ForceCleanup, NOT OnEnded: OnEnded
+                // early-returns when _videoPlaying is already false (or cleanup is in
+                // progress), which would leave this black/white placeholder orphaned on a
+                // secondary monitor (#368). ForceCleanup unconditionally closes every video
+                // window; ScheduleNext re-arms so a single failed video doesn't end the
+                // session's mandatory videos.
                 var closeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-                closeTimer.Tick += (s, e) => { closeTimer.Stop(); OnEnded(); };
+                closeTimer.Tick += (s, e) => { closeTimer.Stop(); ForceCleanup(); ScheduleNext(); };
                 closeTimer.Start();
 
                 return fallbackWin;

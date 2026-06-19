@@ -298,6 +298,51 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
+        /// Authenticate with SubscribeStar using v2 API. Mirrors the Patreon path:
+        /// pass no displayName to probe (server returns needs_registration for a brand-new
+        /// user); pass a chosen displayName to create the account with that name.
+        /// </summary>
+        /// <param name="accessToken">SubscribeStar OAuth access token</param>
+        /// <param name="displayName">Optional display name for registration</param>
+        public async Task<V2AuthResponse> AuthenticateWithSubstarAsync(string accessToken, string? displayName = null)
+        {
+            try
+            {
+                var payload = new JObject
+                {
+                    ["access_token"] = accessToken
+                };
+
+                if (!string.IsNullOrWhiteSpace(displayName))
+                {
+                    payload["display_name"] = displayName;
+                }
+
+                var content = new StringContent(payload.ToString(), Encoding.UTF8, "application/json");
+                var response = await _http.PostAsync($"{SERVER_URL}/v2/auth/substar", content);
+                var json = await response.Content.ReadAsStringAsync();
+
+                Log.Debug("[V2Auth] SubscribeStar auth response: {Json}", RedactSensitiveFields(json));
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new V2AuthResponse
+                    {
+                        Success = false,
+                        Error = ParseErrorMessage(json, response.StatusCode)
+                    };
+                }
+
+                return JsonConvert.DeserializeObject<V2AuthResponse>(json) ?? new V2AuthResponse { Success = false, Error = "Invalid response" };
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[V2Auth] SubscribeStar auth failed");
+                return new V2AuthResponse { Success = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
         /// Register a new account with invite code, display name, and password
         /// </summary>
         public async Task<V2AuthResponse> RegisterAsync(string inviteCode, string displayName, string password)

@@ -2197,9 +2197,20 @@ namespace ConditioningControlPanel.Services
             // absolute floor is crossed. The absolute path is the low-light
             // rescue: when a dim frame inflates the baseline so the ratio can't
             // be reached, a genuinely wide-open mouth still trips the floor.
+            //
+            // BUT an absolute floor is only meaningful when it sits ABOVE the
+            // resting baseline. For users whose resting (closed) mouth MAR is
+            // naturally high (>= MarAbsoluteClose), the fixed close floor sits
+            // *below* their shut mouth, so `mar > MarAbsoluteClose` stays true
+            // even when the mouth is closed — latching MouthOpen on forever and
+            // spamming phantom mouth/tongue gestures (#367/#371). Gate each
+            // absolute path on the floor genuinely exceeding the baseline; when
+            // it doesn't, fall back to the relative ratio alone.
+            bool absoluteOpenUsable  = MarAbsoluteOpen  > _marBaseline;
+            bool absoluteCloseUsable = MarAbsoluteClose > _marBaseline;
             bool nowOpen = _mouthOpen
-                ? (mar > MarCloseRatio * _marBaseline || mar > MarAbsoluteClose)
-                : (mar > MarOpenRatio  * _marBaseline || mar > MarAbsoluteOpen);
+                ? (mar > MarCloseRatio * _marBaseline || (absoluteCloseUsable && mar > MarAbsoluteClose))
+                : (mar > MarOpenRatio  * _marBaseline || (absoluteOpenUsable  && mar > MarAbsoluteOpen));
 
             if (nowOpen && !_mouthOpen)
             {

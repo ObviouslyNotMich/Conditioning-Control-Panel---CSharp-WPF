@@ -98,22 +98,32 @@ namespace ConditioningControlPanel.Services
                 var dateTimeElapsed = _pausedElapsedTime + (DateTime.Now - _startTime);
                 var stopwatchElapsed = _wallClockStopwatch.Elapsed;
 
-                // Anti-cheat: if DateTime-based elapsed diverges from Stopwatch by > 30s,
-                // use the shorter time (conservative against speed hacking)
+                // Anti-cheat / clock-jump guard: if DateTime-based elapsed diverges from the
+                // monotonic Stopwatch by more than 30s in EITHER direction, trust the Stopwatch.
+                // A positive divergence guards against speed-hacking; a negative divergence guards
+                // against a backward wall-clock jump (DST/NTP/sleep-resume), which otherwise makes
+                // RemainingTime balloon (e.g. "149 minutes left" on a 30-minute session). See #369.
                 var divergence = dateTimeElapsed - stopwatchElapsed;
-                if (divergence.TotalSeconds > 30)
+                if (Math.Abs(divergence.TotalSeconds) > 30)
                 {
-                    App.Logger?.Warning("Timer integrity: DateTime elapsed {DateTimeElapsed} vs Stopwatch {StopwatchElapsed} — divergence {Divergence}s, using shorter",
+                    App.Logger?.Warning("Timer integrity: DateTime elapsed {DateTimeElapsed} vs Stopwatch {StopwatchElapsed} — divergence {Divergence}s, using Stopwatch",
                         dateTimeElapsed, stopwatchElapsed, divergence.TotalSeconds);
                     return stopwatchElapsed;
                 }
 
-                return dateTimeElapsed;
+                // Never report negative elapsed time.
+                return dateTimeElapsed < TimeSpan.Zero ? TimeSpan.Zero : dateTimeElapsed;
             }
         }
-        public TimeSpan RemainingTime => _currentSession != null
-            ? TimeSpan.FromMinutes(_currentSession.DurationMinutes) - ElapsedTime
-            : TimeSpan.Zero;
+        public TimeSpan RemainingTime
+        {
+            get
+            {
+                if (_currentSession == null) return TimeSpan.Zero;
+                var remaining = TimeSpan.FromMinutes(_currentSession.DurationMinutes) - ElapsedTime;
+                return remaining < TimeSpan.Zero ? TimeSpan.Zero : remaining;
+            }
+        }
         public double ProgressPercent => _currentSession != null
             ? Math.Min(100, (ElapsedTime.TotalMinutes / _currentSession.DurationMinutes) * 100)
             : 0;

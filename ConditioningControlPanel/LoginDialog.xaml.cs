@@ -106,6 +106,11 @@ namespace ConditioningControlPanel
             await TryLoginWithProviderAsync("patreon");
         }
 
+        private async void BtnLoginSubscribeStar_Click(object sender, RoutedEventArgs e)
+        {
+            await TryLoginWithProviderAsync("substar");
+        }
+
         private void BtnLoginAccount_Click(object sender, RoutedEventArgs e)
         {
             ShowAccountPanel(isRegister: false);
@@ -128,6 +133,16 @@ namespace ConditioningControlPanel
                     }
                     await App.Discord.StartOAuthFlowAsync();
                     accessToken = App.Discord.GetAccessToken();
+                }
+                else if (provider == "substar")
+                {
+                    if (App.SubscribeStar == null)
+                    {
+                        ShowError("SubscribeStar service not available.");
+                        return;
+                    }
+                    await App.SubscribeStar.StartOAuthFlowAsync();
+                    accessToken = App.SubscribeStar.GetAccessToken();
                 }
                 else
                 {
@@ -154,6 +169,8 @@ namespace ConditioningControlPanel
 
                 if (provider == "discord")
                     authResponse = await v2Auth.AuthenticateWithDiscordAsync(accessToken);
+                else if (provider == "substar")
+                    authResponse = await v2Auth.AuthenticateWithSubstarAsync(accessToken);
                 else
                     authResponse = await v2Auth.AuthenticateWithPatreonAsync(accessToken);
 
@@ -289,9 +306,11 @@ namespace ConditioningControlPanel
             try
             {
                 string endpoint;
-                if (_firstProvider == "invite")
+                if (_firstProvider == "invite" || _firstProvider == "substar")
                 {
-                    // Invite code flow: use lightweight unauthenticated endpoint
+                    // Invite + SubscribeStar flows use the lightweight unauthenticated
+                    // name-availability endpoint (display_name uniqueness is global, and
+                    // the substar Bearer token isn't a Patreon token the authed checks expect).
                     endpoint = $"{_serverUrl}/v2/auth/check-name?name={Uri.EscapeDataString(name)}";
                 }
                 else if (_firstProvider == "discord")
@@ -356,6 +375,8 @@ namespace ConditioningControlPanel
                 }
                 else if (_firstProvider == "discord")
                     authResponse = await v2Auth.AuthenticateWithDiscordAsync(_firstProviderToken!, displayName);
+                else if (_firstProvider == "substar")
+                    authResponse = await v2Auth.AuthenticateWithSubstarAsync(_firstProviderToken!, displayName);
                 else
                     authResponse = await v2Auth.AuthenticateWithPatreonAsync(_firstProviderToken!, displayName);
 
@@ -619,6 +640,11 @@ namespace ConditioningControlPanel
                 App.Patreon.UnifiedUserId = unifiedId;
                 App.Patreon.DisplayName = displayName;
             }
+            else if (provider == "substar" && App.SubscribeStar != null)
+            {
+                App.SubscribeStar.UnifiedUserId = unifiedId;
+                App.SubscribeStar.DisplayName = displayName;
+            }
             else if (provider == "discord" && App.Discord != null)
             {
                 App.Discord.UnifiedUserId = unifiedId;
@@ -631,6 +657,8 @@ namespace ConditioningControlPanel
             // Logout any providers that were authenticated during this flow
             if (_firstProvider == "discord")
                 App.Discord?.Logout();
+            else if (_firstProvider == "substar")
+                App.SubscribeStar?.Logout();
             else if (_firstProvider == "patreon")
                 App.Patreon?.Logout();
 

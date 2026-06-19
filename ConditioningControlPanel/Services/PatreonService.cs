@@ -116,15 +116,20 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
-        /// Whether the user has AI access (Tier 1+ OR whitelisted)
-        /// All features are currently Tier 1. Also grants access during 2-week grace period.
+        /// Whether the user has AI access (Tier 1+ OR whitelisted).
+        /// All features are currently Tier 1. Also grants access during the 2-week grace period.
+        /// This is the app's canonical AI gate: SubscribeStar is OR'd in here so either
+        /// provider unlocks features without touching the ~50 call sites that read it.
         /// </summary>
-        public bool HasAiAccess => CurrentTier >= PatreonTier.Level1 || IsWhitelisted || (App.Settings?.Current?.HasCachedPremiumAccess == true);
+        public bool HasAiAccess => CurrentTier >= PatreonTier.Level1 || IsWhitelisted || (App.Settings?.Current?.HasCachedPremiumAccess == true)
+            || (App.SubscribeStar?.HasAiAccess == true);
 
         /// <summary>
-        /// Whether the user has any premium feature access (Tier 1+ OR whitelisted OR within 2-week grace period)
+        /// Whether the user has any premium feature access (Tier 1+ OR whitelisted OR within 2-week grace period).
+        /// Canonical premium gate; SubscribeStar is OR'd in (see <see cref="HasAiAccess"/>).
         /// </summary>
-        public bool HasPremiumAccess => CurrentTier >= PatreonTier.Level1 || IsWhitelisted || (App.Settings?.Current?.HasCachedPremiumAccess == true);
+        public bool HasPremiumAccess => CurrentTier >= PatreonTier.Level1 || IsWhitelisted || (App.Settings?.Current?.HasCachedPremiumAccess == true)
+            || (App.SubscribeStar?.HasPremiumAccess == true);
 
         public PatreonService()
         {

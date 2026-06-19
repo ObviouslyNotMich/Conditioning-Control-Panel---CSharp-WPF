@@ -2091,6 +2091,13 @@ namespace ConditioningControlPanel.Models
             get => _chaosScreenShakeEnabled;
             set { _chaosScreenShakeEnabled = value; OnPropertyChanged(); }
         }
+        private bool _chaosHudOnRight;
+        /// <summary>Park the Rabbit Hole HUD sidebar on the RIGHT edge of the screen instead of the left.</summary>
+        public bool ChaosHudOnRight
+        {
+            get => _chaosHudOnRight;
+            set { _chaosHudOnRight = value; OnPropertyChanged(); }
+        }
         private bool _chaosColorFlashesEnabled = true;
         public bool ChaosColorFlashesEnabled
         {

@@ -91,7 +91,8 @@ public sealed class ChaosAnnouncerOverlay : Window
         try
         {
             if (string.IsNullOrWhiteSpace(text)) return;
-            if (App.Settings?.Current?.NarrativeModeEnabled != true) return;
+            // Madam narrator lines are Story-only (silent in Free Desktop) and honor the user setting.
+            if (!Services.Chaos.ChaosModeService.NarrativeActive) return;
             var disp = Application.Current?.Dispatcher;
             if (disp == null || disp.HasShutdownStarted) return;
             disp.Invoke(() =>
@@ -141,7 +142,7 @@ public sealed class ChaosAnnouncerOverlay : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
-        Topmost = true;
+        Topmost = ChaosWindowZ.BornTopmost;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;

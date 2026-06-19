@@ -351,7 +351,7 @@ public sealed class ChaosUnlockCardOverlay : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
-        Topmost = true;
+        Topmost = ChaosWindowZ.BornTopmost;   // non-topmost during a Free Desktop run; topmost at the hub
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;

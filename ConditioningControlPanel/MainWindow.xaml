@@ -6750,6 +6750,31 @@
                             </Grid>
                         </Border>
 
+                        <!-- SubscribeStar Login Status -->
+                        <Border x:Name="SubscribeStarLoginCard" CornerRadius="12" Padding="15" Margin="0,0,0,15"
+                                Background="{DynamicResource ElevatedSurfaceBrush}"
+                                BorderBrush="#009E8F" BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock x:Name="TxtSubscribeStarStatus" Text="{loc:Str label_not_connected}" Foreground="White" FontSize="14" FontWeight="Bold"/>
+                                    <TextBlock x:Name="TxtSubscribeStarTier" Text="{loc:Str label_login_to_unlock_exclusive_features}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12"/>
+                                </StackPanel>
+
+                                <Button x:Name="BtnSubscribeStarLogin" Grid.Column="1"
+                                        Content="{loc:Str btn_login}"
+                                        Background="#009E8F" Foreground="White"
+                                        BorderThickness="0" Padding="15,8"
+                                        FontWeight="Bold" FontSize="12"
+                                        Cursor="Hand"
+                                        Click="BtnSubscribeStarLogin_Click"/>
+                            </Grid>
+                        </Border>
+
                         <!-- Discord Login Status -->
                         <Border x:Name="DiscordLoginCard" CornerRadius="12" Padding="15" Margin="0,0,0,15"
                                 Background="{DynamicResource ElevatedSurfaceBrush}"
