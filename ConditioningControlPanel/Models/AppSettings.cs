@@ -2161,6 +2161,19 @@ namespace ConditioningControlPanel.Models
             get => _chaosBubbleSharedHost;
             set { _chaosBubbleSharedHost = value; OnPropertyChanged(); }
         }
+        private bool _chaosDvdSharedHost;
+        /// <summary>EXPERIMENTAL A/B (default OFF): render the DVD bouncing-text logos (Porn DVD /
+        /// Intrusive Thoughts / Casting Couch) as cheap Canvas children of ONE shared click-through host
+        /// window instead of one top-level layered Window per logo. The per-logo-window model repositions
+        /// every logo via SetWindowPos each frame; on a split (up to ~16 logos at once) that storm
+        /// saturates the UI thread and freezes the companion avatar. With the host on, logos move via
+        /// Canvas.SetLeft/Top (batched in one render pass). Spanker-clickable logos keep the per-window
+        /// path so the smack still hit-tests. Falls back to the proven per-window path when off.</summary>
+        public bool ChaosDvdSharedHost
+        {
+            get => _chaosDvdSharedHost;
+            set { _chaosDvdSharedHost = value; OnPropertyChanged(); }
+        }
         private bool _avatarOwnThread;
         /// <summary>EXPERIMENTAL A/B (default OFF): run the AI companion (AvatarTubeWindow) on its OWN
         /// dedicated UI thread + Dispatcher instead of sharing the main thread. Its float/breathing/
