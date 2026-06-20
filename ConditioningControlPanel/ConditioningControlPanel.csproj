@@ -10,7 +10,7 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);CCP.Core\**;CCP.Avalonia\**;CCP.Avalonia.Desktop\**;CCP.Avalonia.Desktop.Windows\**;CCP.Avalonia.Desktop.Linux\**;CCP.Avalonia.Desktop.macOS\**;CCP.Avalonia.Android\**;CCP.WindowsOnly\**;tests\**</DefaultItemExcludes>
     <AssemblyName>ConditioningControlPanel</AssemblyName>
     <RootNamespace>ConditioningControlPanel</RootNamespace>
-    <Version>6.1.4</Version>
+    <Version>6.1.6</Version>
     <Company>CodeBambi</Company>
     <Product>Conditioning Control Panel</Product>
     <Description>A professional visual conditioning application with gamification features.</Description>
@@ -59,6 +59,10 @@
 
     <PackageReference Include="MahApps.Metro" Version="2.4.10" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="5.0.0" />
+    <!-- GPU-friendly 2D renderer for the new Chaos FX particle/glow layer (ChaosSkiaFxOverlay).
+         CPU SKElement path is used for now (reliable on AllowsTransparency layered windows);
+         native libSkiaSharp extracts via IncludeNativeLibrariesForSelfExtract for single-file. -->
+    <PackageReference Include="SkiaSharp.Views.WPF" Version="2.88.8" />
     
     <!-- MVVM Framework -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
@@ -162,6 +166,12 @@
     </ItemGroup>
   </Target>
 
+
+  <ItemGroup>
+    <!-- Rounded display font (Fredoka, OFL) for the Chaos multiplier hero number. Embedded as a
+         Resource so the pack:// font URI (/Fonts/#Fredoka) resolves in the single-file build. -->
+    <Resource Include="Fonts\Fredoka.ttf" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- App icon -->

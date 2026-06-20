@@ -65,6 +65,7 @@ public sealed class ChaosEffectBannerOverlay : Window
                 try
                 {
                     if (_active == null) { _active = new ChaosEffectBannerOverlay(); ((Window)_active).Show(); }
+                    accent = ChaosBoonColors.ForOrDefault(id, accent);   // payload-based color language
                     _active.AddEntry(id, text, accent, artKey);
                     ChaosWindowZ.RaiseAboveVideo(_active);   // keep-alive window — re-stack over a playing video
                 }

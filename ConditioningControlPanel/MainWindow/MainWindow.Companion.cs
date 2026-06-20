@@ -157,23 +157,66 @@ namespace ConditioningControlPanel
 
             try
             {
-                _avatarTubeWindow = new AvatarTubeWindow(this);
-                App.AvatarWindow = _avatarTubeWindow; // Set global reference for services
+                // Capture the main-thread state the avatar needs BEFORE (optionally) handing off to
+                // another thread — these read MainWindow's UI and must be read here.
+                bool ownThread = App.Settings?.Current?.AvatarOwnThread == true;
+                bool muted = App.Settings?.Current?.AvatarMuted == true;
+                bool showNow = IsVisible && WindowState != WindowState.Minimized;
 
-                // Restore saved mute state
-                if (App.Settings?.Current?.AvatarMuted == true)
+                if (ownThread)
                 {
-                    _avatarTubeWindow.SetMuteAvatar(true);
+                    // EXPERIMENTAL: run the companion on its OWN dedicated STA UI thread so its animation
+                    // timers aren't starved by chaos's UI work. The window is created + shown on that
+                    // thread, which then pumps its own Dispatcher. Every external avatar call self-marshals.
+                    var ready = new System.Threading.ManualResetEventSlim(false);
+                    var t = new System.Threading.Thread(() =>
+                    {
+                        try
+                        {
+                            var win = new AvatarTubeWindow(this);
+                            _avatarTubeWindow = win;
+                            App.AvatarWindow = win;
+                            if (muted) win.SetMuteAvatar(true);
+                            if (showNow) { win.Show(); win.StartPoseAnimation(); }
+                            ready.Set();
+                            System.Windows.Threading.Dispatcher.Run();   // pump the avatar thread's message loop
+                        }
+                        catch (Exception ex)
+                        {
+                            App.Logger?.Error("Avatar own-thread bootstrap failed: {Error}", ex.Message);
+                            ready.Set();
+                        }
+                    });
+                    t.SetApartmentState(System.Threading.ApartmentState.STA);
+                    t.IsBackground = true;
+                    t.Name = "AvatarTubeUI";
+                    t.Start();
+                    ready.Wait(TimeSpan.FromSeconds(5));
+                    // Seed the parent-geometry cache from the main thread so the attached avatar positions
+                    // correctly on first paint (CaptureParentGeom runs sync here — we ARE the parent thread).
+                    _avatarTubeWindow?.CaptureParentGeom();
+                    App.Logger?.Information("Avatar Tube Window initialized (own UI thread)");
                 }
-
-                // Only show if main window is visible and not minimized
-                if (IsVisible && WindowState != WindowState.Minimized)
+                else
                 {
-                    _avatarTubeWindow.Show();
-                    _avatarTubeWindow.StartPoseAnimation();
-                }
+                    _avatarTubeWindow = new AvatarTubeWindow(this);
+                    App.AvatarWindow = _avatarTubeWindow; // Set global reference for services
 
-                App.Logger?.Information("Avatar Tube Window initialized");
+                    // Restore saved mute state
+                    if (muted)
+                    {
+                        _avatarTubeWindow.SetMuteAvatar(true);
+                    }
+
+                    // Only show if main window is visible and not minimized
+                    if (showNow)
+                    {
+                        _avatarTubeWindow.Show();
+                        _avatarTubeWindow.StartPoseAnimation();
+                    }
+
+                    App.Logger?.Information("Avatar Tube Window initialized");
+                }
             }
             catch (Exception ex)
             {
@@ -233,8 +276,8 @@ namespace ConditioningControlPanel
 
             if (_avatarTubeWindow != null)
             {
-                // Show the tube
-                _avatarTubeWindow.Show();
+                // Show the tube (ShowSafe marshals to the avatar's own thread in own-thread mode)
+                _avatarTubeWindow.ShowSafe();
                 _avatarTubeWindow.StartPoseAnimation();
 
                 // Detach it so it floats independently

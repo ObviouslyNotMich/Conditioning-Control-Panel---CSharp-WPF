@@ -24,12 +24,19 @@ internal static class ChaosWindowZ
     /// actively demotes instead of pinning, so the player can bring any other window to the front.</summary>
     public static bool DesktopMode;
 
-    /// <summary>What a chaos window's <c>Topmost</c> should be at birth: true normally (Story / ambient),
-    /// false during a Free Desktop run so the run doesn't lock above other apps.</summary>
-    public static bool BornTopmost => !DesktopMode;
+    /// <summary>Whether the chaos layer pins itself topmost (default). Decoupled from
+    /// <see cref="DesktopMode"/> so a Free Desktop run can still keep its other traits (avatar
+    /// visible, no mandatory video) while staying pinned above other apps. Driven by
+    /// AppSettings.ChaosPinOnTop; set in ChaosModeService.StartRun before any window is created.</summary>
+    public static bool PinTopmost = true;
 
-    /// <summary>Re-assert a window to the top of the topmost band without stealing focus. In Desktop
-    /// mode this instead demotes the window out of the topmost band so other apps can come forward.</summary>
+    /// <summary>What a chaos window's <c>Topmost</c> should be at birth: true when the layer is
+    /// pinned (the default), false when the player has opted to let other apps sit in front.</summary>
+    public static bool BornTopmost => PinTopmost;
+
+    /// <summary>Re-assert a window to the top of the topmost band without stealing focus. When the
+    /// layer isn't pinned this instead demotes the window out of the topmost band so other apps
+    /// can come forward.</summary>
     public static void RaiseTopmost(Window? w)
     {
         if (w == null) return;
@@ -37,7 +44,7 @@ internal static class ChaosWindowZ
         {
             var hwnd = new WindowInteropHelper(w).Handle;
             if (hwnd == IntPtr.Zero) return;
-            if (DesktopMode)
+            if (!PinTopmost)
             {
                 try { w.Topmost = false; } catch { }
                 SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);

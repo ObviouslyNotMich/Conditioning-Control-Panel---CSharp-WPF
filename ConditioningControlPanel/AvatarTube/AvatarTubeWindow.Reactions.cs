@@ -33,6 +33,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private async void OnActivityChanged(object? sender, ActivityChangedEventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnActivityChanged(sender, e))); return; }
             // async void: a leaked exception (especially from the post-await
             // continuation) escapes to the dispatcher and kills the whole
             // process. Guard the entire body and bail if the app is tearing
@@ -121,6 +122,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private async void OnStillOnActivity(object? sender, ActivityChangedEventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnStillOnActivity(sender, e))); return; }
             // async void: guard the whole body so a leaked exception can't kill
             // the process, and bail if the app is tearing down. (#386)
             try
@@ -256,12 +258,14 @@ namespace ConditioningControlPanel
 
         private void OnVideoAboutToStart(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnVideoAboutToStart(sender, e))); return; }
             const string line = "Ooh! Pretty spir-rals...";
             Giggle(line, Services.CompanionPhraseService.ResolveEventAudio(line));
         }
 
         private async void OnVideoEnded(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnVideoEnded(sender, e))); return; }
             // After video ends, restore z-order so both windows come back together
             if (_isAttached)
             {
@@ -298,6 +302,7 @@ namespace ConditioningControlPanel
 
         private void OnGameCompleted(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnGameCompleted(sender, e))); return; }
             Giggle("Good girl! So smart!");
         }
 
@@ -334,6 +339,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void OnFlashAboutToDisplay(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnFlashAboutToDisplay(sender, e))); return; }
             _flashCounter++;
 
             // Skip pre-phrase if flash audio is enabled - the audio filename will be shown instead
@@ -362,7 +368,7 @@ namespace ConditioningControlPanel
             }
 
             // Show the audio filename text as a speech bubble (audio is already playing from FlashService)
-            DispatcherHelper.RunOnUI(() =>
+            RunOnAvatar(() =>
             {
                 // Double-check in case state changed
                 if (_isGiggling) return;
@@ -383,6 +389,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void OnSubliminalDisplayed(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnSubliminalDisplayed(sender, e))); return; }
             _subliminalCounter++;
 
             // Only acknowledge ~1 in 10 subliminals
@@ -397,6 +404,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void OnBubblePopped()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(OnBubblePopped)); return; }
             _bubblePopCounter++;
 
             // Only acknowledge ~1 in 5 bubble pops
@@ -408,11 +416,13 @@ namespace ConditioningControlPanel
 
         private void OnGameFailed(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnGameFailed(sender, e))); return; }
             GiggleFromCategory("GameFailed");
         }
 
         private void OnBubbleMissed()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(OnBubbleMissed)); return; }
             // Only react occasionally to avoid spam
             if (_random.Next(3) == 0)
             {
@@ -422,6 +432,7 @@ namespace ConditioningControlPanel
 
         private void OnFlashClicked(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnFlashClicked(sender, e))); return; }
             // React to 1 in 3 flash clicks
             if (_random.Next(3) == 0)
             {
@@ -431,11 +442,13 @@ namespace ConditioningControlPanel
 
         private void OnAchievementUnlocked(object? sender, Achievement achievement)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnAchievementUnlocked(sender, achievement))); return; }
             GigglePriority($"Achievement unlocked: {achievement.Name}! *giggles*", aiGenerated: false);
         }
 
         private void OnLevelUp(object? sender, int newLevel)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnLevelUp(sender, newLevel))); return; }
             // Use regular Giggle instead of GigglePriority to avoid cutting off current speech
             // Level up is exciting but shouldn't interrupt active triggers/speech
             GiggleFromCategory("LevelUp");
@@ -446,6 +459,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void OnCompanionLevelUp(object? sender, (Models.CompanionId Companion, int NewLevel) args)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnCompanionLevelUp(sender, args))); return; }
             RefreshCompanionDisplay();
 
             // Special level-up phrases based on companion. Route the roster name through
@@ -471,6 +485,7 @@ namespace ConditioningControlPanel
 
         private void OnCompanionSwitched(object? sender, Models.CompanionId newCompanion)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnCompanionSwitched(sender, newCompanion))); return; }
             RefreshCompanionDisplay();
 
             // Clear any queued speech so rapid cycling doesn't stack up greetings
@@ -501,6 +516,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void OnMindWipeTriggered(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnMindWipeTriggered(sender, e))); return; }
             _mindWipeCounter++;
 
             // Only react ~1 in 6 times to avoid being annoying
@@ -515,6 +531,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void OnBrainDrainTriggered(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnBrainDrainTriggered(sender, e))); return; }
             _brainDrainCounter++;
 
             // Only react ~1 in 6 times to avoid being annoying
@@ -529,6 +546,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void OnEngineStopped(object? sender, EventArgs e)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnEngineStopped(sender, e))); return; }
             GiggleFromCategory("EngineStop");
         }
     }

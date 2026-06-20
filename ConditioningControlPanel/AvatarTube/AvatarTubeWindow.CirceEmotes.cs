@@ -42,12 +42,27 @@ namespace ConditioningControlPanel
         private readonly Queue<string> _circeQueue = new();
         private bool _circeHandlersAttached;
 
-        // Forces the next rotation if a clip's AnimationCompleted never arrives (load failure, etc.).
+        // Rotation safety net. Runs continuously in idle (not during talk) and catches a clip whose
+        // AnimationCompleted was DROPPED — under interrupted crossfades XamlAnimatedGif occasionally swallows
+        // that event, which used to strand the avatar on a finished clip for the full (flat 13s) interval =
+        // the "avatar disappears / freezes for a while, fixes itself on a bark" bug. Now a short repeating
+        // poll reads the animator's IsComplete and advances within ~1 poll of the real clip end.
         private DispatcherTimer? _circeWatchdog;
-        private const int CirceWatchdogMs = 13000; // clips ~8s + 1s fade + margin
+        private const int CircePollMs = 500;          // rotation safety poll cadence
+        private const int CirceStalledLoadMs = 6000;  // force-advance if the active layer never gets an animator
+        private int _circeNoAnimTicks;
+        private string? _circeLastCompleteClip;        // clip seen IsComplete on the previous poll (drop detector)
         // Hold the previous frame up to this long for a slow GIF first-frame decode before giving up on a
         // crossfade — long enough that a heavy clip decoding under load (video/chaos/GC) never fades to blank.
         private const int CirceLoadGraceMs = 5000;
+        // Same hold for the TALK path, but much shorter: mid-sentence the mouth timing matters, so we
+        // wait only briefly for a slow mouth-clip decode (never blanking) and then proceed if it's still
+        // not ready, letting AnimationCompleted / the watchdog recover rather than stranding the line.
+        private const int CirceTalkLoadGraceMs = 900;
+        // When the OUTGOING layer has no visible frame to hold (startup first clip, or a prior swap left it
+        // empty), waiting out the full grace just prolongs a blank tube. Cap the hold short so recovery
+        // re-picks fast and any unavoidable blank is ≤ this, not the full 5s.
+        private const int CirceEmptyHoldGraceMs = 900;
 
         // Minimum on-screen time per clip: a swap requested sooner is coalesced and deferred, so no clip
         // ever flashes by faster than this (rapid back-to-back bark lines interrupting mid-clip).
@@ -383,17 +398,63 @@ namespace ConditioningControlPanel
             img.Visibility = Visibility.Collapsed;
         }
 
+        // Create (once) the repeating rotation-safety poll. See _circeWatchdog above for the why.
         private DispatcherTimer CreateWatchdog()
         {
-            var t = new DispatcherTimer();
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(CircePollMs) };
             t.Tick += (_, __) =>
             {
-                t.Stop();
-                if (!_circeEmoteMode || _circeTalkSeqActive || _circePendingClip != null) return;
-                App.Logger?.Information("[EMOTE] watchdog advance (stuck clip={Clip})", _circeCurrentClip);
-                AdvanceCirce(); // a completion event was missed — keep the rotation alive
+                if (!_circeEmoteMode) { t.Stop(); return; }
+                // Talk sequences / a pending min-hold swap own their own transitions — stay out of their way.
+                if (_circeTalkSeqActive || _circePendingClip != null)
+                {
+                    _circeLastCompleteClip = null; _circeNoAnimTicks = 0; return;
+                }
+                var active = _circeActiveImg;
+                if (active == null) return;
+                var anim = AnimationBehavior.GetAnimator(active);
+                if (anim != null)
+                {
+                    _circeNoAnimTicks = 0;
+                    if (anim.IsComplete)
+                    {
+                        // The active clip has finished its single pass. A clean completion is handled promptly
+                        // by OnCirceClipCompleted; this only steps in when that event was DROPPED. Require the
+                        // clip to read complete on TWO consecutive polls so the real event gets its moment
+                        // first and we never race it on a normal completion.
+                        if (_circeLastCompleteClip == _circeCurrentClip)
+                        {
+                            App.Logger?.Information("[EMOTE] poll advance (dropped completion, clip={Clip})", _circeCurrentClip);
+                            _circeLastCompleteClip = null;
+                            AdvanceCirce();
+                        }
+                        else _circeLastCompleteClip = _circeCurrentClip;
+                    }
+                    else _circeLastCompleteClip = null;
+                }
+                else
+                {
+                    // Active layer never produced an animator (a load that yielded no frame, no crossfade gate
+                    // running to hold it). Give it a grace, then force the rotation on so it can't strand.
+                    _circeLastCompleteClip = null;
+                    if (++_circeNoAnimTicks * CircePollMs >= CirceStalledLoadMs)
+                    {
+                        _circeNoAnimTicks = 0;
+                        App.Logger?.Information("[EMOTE] poll advance (stalled load, clip={Clip})", _circeCurrentClip);
+                        AdvanceCirce();
+                    }
+                }
             };
             return t;
+        }
+
+        /// <summary>Ensure the rotation-safety poll is created and running, and reset its drop detector.</summary>
+        private void EnsureWatchdogRunning()
+        {
+            _circeNoAnimTicks = 0;
+            _circeLastCompleteClip = null;
+            _circeWatchdog ??= CreateWatchdog();
+            if (!_circeWatchdog.IsEnabled) _circeWatchdog.Start();
         }
 
         /// <summary>Bark/voiceline hook (called from PlayEmotionForLine when in emote mode).</summary>
@@ -729,15 +790,9 @@ namespace ConditioningControlPanel
                 e.Kind, layer, _circeCurrentClip, e.Exception?.Message);
             if (!_circeEmoteMode || _circeTalkSeqActive) return;
             if (!ReferenceEquals(sender, _circeActiveImg)) return;
-            // Recover via the watchdog cadence but shortened: re-arm at 2s so a one-off load failure
-            // doesn't leave an empty tube for 13s. (Not advancing synchronously — a persistent failure
-            // would otherwise hot-loop through clips.)
-            if (_circeWatchdog != null)
-            {
-                _circeWatchdog.Stop();
-                _circeWatchdog.Interval = TimeSpan.FromMilliseconds(2000);
-                _circeWatchdog.Start();
-            }
+            // The dead layer is the active one — keep the safety poll running so its stalled-load grace
+            // forces the rotation on (not advancing synchronously — a persistent failure would hot-loop).
+            EnsureWatchdogRunning();
         }
 
         private void AdvanceCirce()
@@ -811,12 +866,9 @@ namespace ConditioningControlPanel
             catch (Exception ex)
             {
                 App.Logger?.Warning("Emote clip load failed ({Clip}): {Error}", clip, ex.Message);
-                // Keep the self-heal alive: without this a failed load left the watchdog unarmed and
+                // Keep the self-heal alive: without this a failed load left the safety poll unarmed and
                 // the rotation permanently dead on whatever was last shown.
-                _circeWatchdog ??= CreateWatchdog();
-                _circeWatchdog.Stop();
-                _circeWatchdog.Interval = TimeSpan.FromMilliseconds(CirceWatchdogMs);
-                _circeWatchdog.Start();
+                EnsureWatchdogRunning();
                 return;
             }
             App.Logger?.Information("[EMOTE] xfade -> {Clip} (in={In}, outOp={OutOp:F2}, talkSeq={Talk})",
@@ -866,7 +918,8 @@ namespace ConditioningControlPanel
                 inImg.BeginAnimation(UIElement.OpacityProperty, fin);
             }
             bool InReady() => AnimationBehavior.GetAnimator(inImg) != null || inImg.Source != null;
-            if (InReady() || _circeTalkSeqActive)
+            bool talkSeq = _circeTalkSeqActive;
+            if (InReady())
             {
                 StartFade();
             }
@@ -878,6 +931,13 @@ namespace ConditioningControlPanel
                 // "the avatar disappears for a few seconds." If the grace window elapses with still no frame,
                 // ROLL BACK the eager active-layer commit so the visible outgoing frame stays on screen (no
                 // blank), drop the stalled layer, and let the watchdog retry the rotation with a fresh pick.
+                // If the outgoing layer has a real, visible frame we can hold it indefinitely (the avatar
+                // never blanks). If it doesn't (first clip / a prior swap left it empty), there is nothing to
+                // hold — waiting only extends the blank, so cap the wait short and let recovery re-pick fast.
+                bool outVisible = outImg.Visibility == Visibility.Visible && outImg.Opacity > 0.01
+                                  && (outImg.Source != null || AnimationBehavior.GetAnimator(outImg) != null);
+                long graceCap = talkSeq ? CirceTalkLoadGraceMs : CirceLoadGraceMs;
+                if (!outVisible) graceCap = Math.Min(graceCap, CirceEmptyHoldGraceMs);
                 long gateStart = Environment.TickCount64;
                 var gate = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
                 gate.Tick += (_, __) =>
@@ -889,29 +949,32 @@ namespace ConditioningControlPanel
                         gate.Stop();
                         StartFade();
                     }
-                    else if (Environment.TickCount64 - gateStart > CirceLoadGraceMs)
+                    else if (Environment.TickCount64 - gateStart > graceCap)
                     {
                         gate.Stop();
+                        // NEVER fade into a layer that still has no frame — that is the "avatar disappears for
+                        // a few seconds" bug. The old talk path force-faded here to keep mouth timing tight;
+                        // under decode load that faded the visible frame to 0 while the incoming was still
+                        // empty (blank mouth) AND left that layer empty, so the FOLLOWING reaction/idle gate
+                        // then had nothing to hold and sat blank for its full grace — the ~5s disappearance.
+                        // Instead always roll back to the still-visible outgoing frame and let recovery retry:
+                        //   - talk: the talk schedule's next clip already fired on its own timer, so the mouth
+                        //     just holds the previous frame a touch longer instead of vanishing;
+                        //   - idle/reaction: the watchdog re-picks shortly.
                         ClearGifLayer(inImg);              // drop the stalled incoming layer
                         _circeActiveImg = prevActive;      // keep the still-visible outgoing frame active
                         _circeCurrentClip = prevClip;
                         _circeClipStartTick = prevStartTick;
-                        if (_circeWatchdog != null)
-                        {
-                            _circeWatchdog.Stop();
-                            _circeWatchdog.Interval = TimeSpan.FromMilliseconds(2000);
-                            _circeWatchdog.Start();
-                        }
+                        // prevActive is a finished clip (IsComplete) — the safety poll re-picks within ~1s.
+                        // During talk the talk timer already armed the next clip; the poll stays out (talkSeq guard).
+                        EnsureWatchdogRunning();
                     }
                 };
                 gate.Start();
             }
 
-            // (Re)arm the watchdog so the rotation survives a missed AnimationCompleted.
-            _circeWatchdog ??= CreateWatchdog();
-            _circeWatchdog.Stop();
-            _circeWatchdog.Interval = TimeSpan.FromMilliseconds(CirceWatchdogMs);
-            _circeWatchdog.Start();
+            // Keep the rotation-safety poll running so the rotation survives a missed AnimationCompleted.
+            EnsureWatchdogRunning();
         }
 
         private string PickWeightedIdle()
@@ -1112,13 +1175,8 @@ namespace ConditioningControlPanel
             if (!_circeEmoteMode) return;
             try { AnimationBehavior.GetAnimator(ImgAvatarAnimated)?.Play(); } catch { }
             try { AnimationBehavior.GetAnimator(ImgAvatarAnimatedB)?.Play(); } catch { }
-            // Re-arm the watchdog so rotation keeps going after returning on-screen.
-            if (_circeCurrentClip != null && _circeWatchdog != null)
-            {
-                _circeWatchdog.Stop();
-                _circeWatchdog.Interval = TimeSpan.FromMilliseconds(CirceWatchdogMs);
-                _circeWatchdog.Start();
-            }
+            // Restart the rotation-safety poll so rotation keeps going after returning on-screen.
+            if (_circeCurrentClip != null) EnsureWatchdogRunning();
         }
     }
 }

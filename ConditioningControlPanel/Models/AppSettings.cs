@@ -2140,6 +2140,72 @@ namespace ConditioningControlPanel.Models
             get => _chaosColorFlashesEnabled;
             set { _chaosColorFlashesEnabled = value; OnPropertyChanged(); }
         }
+        private bool _chaosSkiaFxEnabled = true;
+        /// <summary>A/B flag for the Skia GPU-style FX prototype (ChaosSkiaFxOverlay): when on, the
+        /// rabbit trail + Rabbit-Caller cursor glow render as an additive bloomed particle field
+        /// instead of the legacy WPF ellipse pool. Off falls back to the old overlays.</summary>
+        public bool ChaosSkiaFxEnabled
+        {
+            get => _chaosSkiaFxEnabled;
+            set { _chaosSkiaFxEnabled = value; OnPropertyChanged(); }
+        }
+        private bool _chaosBubbleSharedHost = true;
+        /// <summary>Default ON (proven win): render all chaos bubbles as visuals on ONE shared
+        /// click-through host window (Canvas-positioned) instead of one top-level layered Window per
+        /// bubble. The per-bubble-window model repositions every bubble via SetWindowPos each frame,
+        /// which saturates the UI thread and makes clicks register late under a dense field. With the
+        /// host on, pops are detected via the global mouse hook (swallow on hit) instead of WPF events,
+        /// so they're immune to that starvation. Falls back to the proven per-window path when off.</summary>
+        public bool ChaosBubbleSharedHost
+        {
+            get => _chaosBubbleSharedHost;
+            set { _chaosBubbleSharedHost = value; OnPropertyChanged(); }
+        }
+        private bool _chaosDvdSharedHost = true;
+        /// <summary>Default ON (proven win): render the DVD bouncing-text logos (Porn DVD /
+        /// Intrusive Thoughts / Casting Couch) as cheap Canvas children of ONE shared click-through host
+        /// window instead of one top-level layered Window per logo. The per-logo-window model repositions
+        /// every logo via SetWindowPos each frame; on a split (up to ~16 logos at once) that storm
+        /// saturates the UI thread and freezes the companion avatar. With the host on, logos move via
+        /// Canvas.SetLeft/Top (batched in one render pass). Spanker-clickable logos keep the per-window
+        /// path so the smack still hit-tests. Falls back to the proven per-window path when off.</summary>
+        public bool ChaosDvdSharedHost
+        {
+            get => _chaosDvdSharedHost;
+            set { _chaosDvdSharedHost = value; OnPropertyChanged(); }
+        }
+        private bool _avatarOwnThread;
+        /// <summary>EXPERIMENTAL A/B (default OFF): run the AI companion (AvatarTubeWindow) on its OWN
+        /// dedicated UI thread + Dispatcher instead of sharing the main thread. Its float/breathing/
+        /// typewriter/pose timers then can't be queued behind chaos's UI work, so the companion keeps
+        /// animating + typing while a chaos run is busy (the "avatar stutters during chaos" symptom).
+        /// Caveat: WPF's render thread is still process-wide, so it's smoother, not perfectly immune.
+        /// Falls back to the proven same-thread path when off. Needs an attached-mode play-test.</summary>
+        public bool AvatarOwnThread
+        {
+            get => _avatarOwnThread;
+            set { _avatarOwnThread = value; OnPropertyChanged(); }
+        }
+        private bool _chaosMemTelemetry = true;
+        /// <summary>Diagnostic: write a [CHAOSMEM] working-set / native-memory sample to the app log
+        /// every ~15s during a run (plus run-start/run-end). Pairs with the dirty-shutdown sentinel to
+        /// catch the random mid-play native crash on tester machines — the log tail shows whether native
+        /// memory climbed run-over-run (OOM) or stayed flat (an access violation, e.g. the Skia layer).
+        /// Default on while we hunt the crash; cheap (one line / 15s). Turn off once it's diagnosed.</summary>
+        public bool ChaosMemTelemetry
+        {
+            get => _chaosMemTelemetry;
+            set { _chaosMemTelemetry = value; OnPropertyChanged(); }
+        }
+        private bool _chaosPinOnTop = true;
+        /// <summary>Pin the whole Rabbit Hole layer (HUD/sidebar, bubbles, overlays) topmost so it
+        /// stays above other apps and never sinks when you click another window. Off restores the
+        /// old Free Desktop behavior where the run yields to whatever you bring forward.</summary>
+        public bool ChaosPinOnTop
+        {
+            get => _chaosPinOnTop;
+            set { _chaosPinOnTop = value; OnPropertyChanged(); }
+        }
         private double _chaosShakeIntensity = 0.8;
         public double ChaosShakeIntensity
         {

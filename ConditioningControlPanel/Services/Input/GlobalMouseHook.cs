@@ -16,6 +16,7 @@ public sealed class GlobalMouseHook : IDisposable
 {
     private const int WH_MOUSE_LL = 14;
     private const int WM_RBUTTONDOWN = 0x0204;
+    private const int WM_LBUTTONDOWN = 0x0201;
 
     private IntPtr _hookId = IntPtr.Zero;
     private readonly LowLevelMouseProc _proc;
@@ -23,6 +24,12 @@ public sealed class GlobalMouseHook : IDisposable
 
     /// <summary>Right button pressed at this PHYSICAL-px screen point. Return true to swallow.</summary>
     public Func<Point, bool>? RightDown;
+
+    /// <summary>Left button pressed at this PHYSICAL-px screen point. Return true to swallow.
+    /// Used by the shared-host bubble field to pop a bubble (and swallow the click so it doesn't
+    /// also land on whatever sits behind the click-through host); a miss returns false and passes
+    /// the click through untouched. Same hook-thread contract as <see cref="RightDown"/>.</summary>
+    public Func<Point, bool>? LeftDown;
 
     public GlobalMouseHook()
     {
@@ -48,12 +55,14 @@ public sealed class GlobalMouseHook : IDisposable
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0 && wParam == (IntPtr)WM_RBUTTONDOWN)
+        if (nCode >= 0 && (wParam == (IntPtr)WM_RBUTTONDOWN || wParam == (IntPtr)WM_LBUTTONDOWN))
         {
             try
             {
                 var info = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                if (RightDown?.Invoke(new Point(info.pt.X, info.pt.Y)) == true)
+                var pt = new Point(info.pt.X, info.pt.Y);
+                var cb = wParam == (IntPtr)WM_RBUTTONDOWN ? RightDown : LeftDown;
+                if (cb?.Invoke(pt) == true)
                     return (IntPtr)1;
             }
             catch (Exception ex)

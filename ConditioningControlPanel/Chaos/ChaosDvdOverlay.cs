@@ -64,6 +64,8 @@ public sealed class ChaosDvdOverlay : Window
     private int _splitBouncesLeft;             // Casting Couch: bounce-splits left (2 → two, then four)
     private const int MAX_TOY_LOGOS = 8;       // Casting Couch alive cap (capstone double-launch included)
     private bool _closed;
+    private static bool _sharedHost;           // AppSettings.ChaosDvdSharedHost, latched at run start
+    private bool _useHost;                      // this logo lives in the shared Canvas host (non-clickable + flag on)
     private double _vx, _vy;                   // DIPs per second
     private static DateTime _lastBounceCue;    // shared across logos: one boing per 250ms max
     private double _remainingSec;
@@ -88,6 +90,9 @@ public sealed class ChaosDvdOverlay : Window
         {
             try
             {
+                // Latch the shared-host mode once per run (both lists empty = fresh run after teardown).
+                if (_active.Count == 0 && _pool.Count == 0)
+                    _sharedHost = App.Settings?.Current?.ChaosDvdSharedHost ?? false;
                 for (int i = 0; i < Math.Clamp(count, 1, 2); i++)
                 {
                     if (text != null && ThoughtCount() >= MAX_THOUGHTS) break;
@@ -121,15 +126,17 @@ public sealed class ChaosDvdOverlay : Window
     /// <summary>Re-stack every flying logo above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
     public static void RaiseActive()
     {
-        foreach (var w in _active) ChaosWindowZ.RaiseTopmost(w);
+        if (_sharedHost) ChaosDvdHostOverlay.RaiseActive();   // raise the host once for all hosted logos
+        foreach (var w in _active) if (!w._useHost) ChaosWindowZ.RaiseTopmost(w);
     }
 
     /// <summary>Run teardown: close every flying logo immediately and drain the pool —
     /// the only point where these hwnds actually die.</summary>
     public static void CloseActive()
     {
+        ChaosDvdHostOverlay.CloseActive();   // tear down the shared host too (no-op if it was never created)
         var disp = Application.Current?.Dispatcher;
-        if (disp == null) return;
+        if (disp == null) { _sharedHost = false; return; }
         disp.BeginInvoke(new Action(() =>
         {
             foreach (var w in _active.ToArray()) w.CloseNow();
@@ -137,6 +144,7 @@ public sealed class ChaosDvdOverlay : Window
             {
                 try { _pool.Pop().CloseNow(); } catch { }
             }
+            _sharedHost = false;
         }));
     }
 
@@ -185,6 +193,7 @@ public sealed class ChaosDvdOverlay : Window
         _splitBouncesLeft = Math.Max(0, splitBounces);
 
         _clickable = SpankerRedirect?.Invoke() == true;   // The Spanker capstone: smack to turn
+        _useHost = _sharedHost && !_clickable;             // host the cheap (non-clickable) logos; smack-able ones stay windows
         IsHitTestVisible = _clickable;
         // A near-invisible background makes the whole logo rect clickable for the smack.
         _host.Background = _clickable ? new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)) : null;
@@ -203,19 +212,42 @@ public sealed class ChaosDvdOverlay : Window
         _vy = vyOverride ?? speed * Math.Sin(angle) * (_rng.Next(2) == 0 ? 1 : -1);
 
         _active.Add(this);
-        Show();                                  // first call creates the hwnd; re-shows unhide
-        ChaosWindowZ.RaiseAboveVideo(this);      // un-hiding doesn't re-stack — kick over a playing video
-        ApplyExStyles(_clickable);               // per launch — clickability can differ per run
+        if (_useHost)
+        {
+            // Shared-host: never show this window. Host the logo's visual in the shared Canvas and
+            // move it there (cheap Canvas.SetLeft/Top) instead of a per-frame SetWindowPos.
+            ChaosDvdHostOverlay.EnsureCreated();
+            if (Content == _host) Content = null;            // detach from this (unshown) window
+            _label.Build();
+            Width = _label.Width;
+            Height = _label.Height;
+            Left = startX ?? wa.Left + _rng.NextDouble() * Math.Max(1, wa.Width - Width);
+            Top = startY ?? wa.Top + _rng.NextDouble() * Math.Max(1, wa.Height - Height);
+            _host.Opacity = 0;
+            ChaosDvdHostOverlay.Add(_host);
+            ChaosDvdHostOverlay.Place(_host, Left, Top);
+            _host.BeginAnimation(UIElement.OpacityProperty, null);
+            _host.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, PEAK_OPAC, TimeSpan.FromMilliseconds(180)));
+        }
+        else
+        {
+            // A pooled logo last used in host mode left this window's Content null (its _host went to the
+            // shared canvas, then was removed on retire). Re-attach before showing or the window is empty.
+            if (Content != _host) Content = _host;
+            Show();                                  // first call creates the hwnd; re-shows unhide
+            ChaosWindowZ.RaiseAboveVideo(this);      // un-hiding doesn't re-stack — kick over a playing video
+            ApplyExStyles(_clickable);               // per launch — clickability can differ per run
 
-        _label.Build();
-        Width = _label.Width;
-        Height = _label.Height;
-        Left = startX ?? wa.Left + _rng.NextDouble() * Math.Max(1, wa.Width - Width);
-        Top = startY ?? wa.Top + _rng.NextDouble() * Math.Max(1, wa.Height - Height);
+            _label.Build();
+            Width = _label.Width;
+            Height = _label.Height;
+            Left = startX ?? wa.Left + _rng.NextDouble() * Math.Max(1, wa.Width - Width);
+            Top = startY ?? wa.Top + _rng.NextDouble() * Math.Max(1, wa.Height - Height);
 
-        BeginAnimation(OpacityProperty, null);
-        Opacity = 0;
-        BeginAnimation(OpacityProperty, new DoubleAnimation(0, PEAK_OPAC, TimeSpan.FromMilliseconds(180)));
+            BeginAnimation(OpacityProperty, null);
+            Opacity = 0;
+            BeginAnimation(OpacityProperty, new DoubleAnimation(0, PEAK_OPAC, TimeSpan.FromMilliseconds(180)));
+        }
         _lastRender = TimeSpan.MinValue;
         CompositionTarget.Rendering -= Step;     // guard against double-subscribe on reuse
         CompositionTarget.Rendering += Step;
@@ -280,6 +312,7 @@ public sealed class ChaosDvdOverlay : Window
             else if (y + Height >= wa.Bottom) { y = wa.Bottom - Height; _vy = -Math.Abs(_vy); bounced = true; }
             Left = x;
             Top = y;
+            if (_useHost) ChaosDvdHostOverlay.Place(_host, x, y);   // cheap canvas move (no SetWindowPos)
 
             if (bounced)
             {
@@ -334,9 +367,18 @@ public sealed class ChaosDvdOverlay : Window
     private void FadeOutAndRetire()
     {
         CompositionTarget.Rendering -= Step;
-        var fade = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(240));
-        fade.Completed += (_, _) => Retire();
-        BeginAnimation(OpacityProperty, fade);
+        if (_useHost)
+        {
+            var fade = new DoubleAnimation(_host.Opacity, 0, TimeSpan.FromMilliseconds(240));
+            fade.Completed += (_, _) => Retire();
+            _host.BeginAnimation(UIElement.OpacityProperty, fade);
+        }
+        else
+        {
+            var fade = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(240));
+            fade.Completed += (_, _) => Retire();
+            BeginAnimation(OpacityProperty, fade);
+        }
     }
 
     /// <summary>Hide and return to the pool — the window outlives the flight.</summary>
@@ -347,9 +389,18 @@ public sealed class ChaosDvdOverlay : Window
         if (_closed) return;
         try
         {
-            BeginAnimation(OpacityProperty, null);
-            Opacity = 0;
-            Hide();
+            if (_useHost)
+            {
+                _host.BeginAnimation(UIElement.OpacityProperty, null);
+                _host.Opacity = 0;
+                ChaosDvdHostOverlay.Remove(_host);   // back to the pool; visual leaves the shared canvas
+            }
+            else
+            {
+                BeginAnimation(OpacityProperty, null);
+                Opacity = 0;
+                Hide();
+            }
         }
         catch { }
         if (_pool.Count < POOL_MAX) _pool.Push(this);
@@ -360,6 +411,7 @@ public sealed class ChaosDvdOverlay : Window
     {
         CompositionTarget.Rendering -= Step;
         _active.Remove(this);
+        if (_useHost) { try { ChaosDvdHostOverlay.Remove(_host); } catch { } }
         try { Close(); } catch { }
     }
 

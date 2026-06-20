@@ -311,6 +311,12 @@
                                 <CheckBox x:Name="ChkShake" Style="{StaticResource Chk}" Content="Screen shake"/>
                                 <Slider x:Name="SldShake" Minimum="0" Maximum="1" Margin="0,0,0,6"/>
                                 <CheckBox x:Name="ChkFlashes" Style="{StaticResource Chk}" Content="Color flashes"/>
+                                <CheckBox x:Name="ChkSkiaFx" Style="{StaticResource Chk}" Content="Enhanced FX (bloom &amp; bursts)"
+                                          ToolTip="Additive Skia-rendered glow: rabbit trail, cursor halo, lightning, bubble pop bursts &amp; glassy shine. Off = the classic effects."/>
+                                <CheckBox x:Name="ChkPinTop" Style="{StaticResource Chk}" Content="Keep on top"
+                                          ToolTip="Pins the chaos layer above other windows. Off = other apps can come forward over the descent."/>
+                                <CheckBox x:Name="ChkSharedHost" Style="{StaticResource Chk}" Content="Smooth bubbles (experimental)"
+                                          ToolTip="Renders all bubbles on one shared layer instead of a window each, so clicks stay responsive when the screen is busy. Experimental — turn off if bubbles misbehave."/>
                                 <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
                                 <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
                                 <CheckBox x:Name="ChkAnnouncer" Style="{StaticResource Chk}" Content="Announcements" Margin="0,8,0,0"/>

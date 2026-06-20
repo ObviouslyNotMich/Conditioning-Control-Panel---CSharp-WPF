@@ -21,6 +21,15 @@ namespace ConditioningControlPanel.Services
         public AppSettings Current { get; private set; }
 
         /// <summary>
+        /// Raised after <see cref="Current"/> is swapped for a different instance
+        /// (cloud restore via <see cref="RestoreFrom"/>, or <see cref="Reset"/>).
+        /// Listeners that subscribed to the previous instance's events (e.g.
+        /// <c>ModService</c>'s <c>PropertyChanged</c> hook) must re-bind to the new
+        /// <see cref="Current"/>, otherwise their edits silently stop persisting.
+        /// </summary>
+        public event Action? CurrentReplaced;
+
+        /// <summary>
         /// True if the settings file did not exist when the service was initialized (fresh install).
         /// </summary>
         public bool WasSettingsFileMissing { get; private set; }
@@ -444,6 +453,9 @@ namespace ConditioningControlPanel.Services
         public void RestoreFrom(AppSettings settings)
         {
             Current = settings ?? throw new ArgumentNullException(nameof(settings));
+            // Notify listeners (ModService re-binds its per-mod pool sync + re-derives the
+            // active pools) BEFORE we persist, so any backups they seed get written too.
+            try { CurrentReplaced?.Invoke(); } catch (Exception ex) { App.Logger?.Warning("CurrentReplaced handler failed: {Error}", ex.Message); }
             SaveImmediate();
             App.Logger?.Information("Settings restored from external source");
         }
@@ -451,6 +463,7 @@ namespace ConditioningControlPanel.Services
         public void Reset()
         {
             Current = new AppSettings();
+            try { CurrentReplaced?.Invoke(); } catch (Exception ex) { App.Logger?.Warning("CurrentReplaced handler failed: {Error}", ex.Message); }
             SaveImmediate();
         }
     }

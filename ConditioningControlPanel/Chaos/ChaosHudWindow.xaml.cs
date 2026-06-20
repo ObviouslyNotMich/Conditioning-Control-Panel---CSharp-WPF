@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using ConditioningControlPanel.Services.Chaos;
 
@@ -47,6 +48,16 @@ public partial class ChaosHudWindow : Window
                 OnComboChanged(state.Combo);
                 return;
             }
+            if (args.PropertyName == nameof(ChaosRunState.ScoreText))
+            {
+                PulseScore();
+                return;
+            }
+            if (args.PropertyName == nameof(ChaosRunState.TotalMultText))
+            {
+                OnMultiplierChanged();
+                return;
+            }
             if (args.PropertyName == nameof(ChaosRunState.RippleReady))
             {
                 SetRippleReadyVisual(state.RippleReady);
@@ -67,6 +78,8 @@ public partial class ChaosHudWindow : Window
         SetRippleReadyVisual(state.RippleReady);
         _lastCombo = state.Combo;
         OnComboChanged(state.Combo);                       // seed the tier visuals
+        OnMultiplierChanged();                             // seed the multiplier size/heat
+        StartLustShimmer();                                // sweeping sheen on the heat bar
         Closed += (_, _) => _streakJitterTimer?.Stop();    // never outlive the window
 
         // Top-anchored and ~60% of the work-area height, so it doesn't span the whole
@@ -78,6 +91,41 @@ public partial class ChaosHudWindow : Window
         LoadPortrait();
         AttachHudTips();
         SourceInitialized += (_, _) => ApplyExStyles();
+    }
+
+    /// <summary>A glint that sweeps the heat bar: the foreground becomes a mostly-flat orange
+    /// gradient with one hot highlight band, translated across forever (code-behind animation —
+    /// no XAML storyboard, per the chaos render-thread contract). Gated on the Skia FX flag.</summary>
+    private void StartLustShimmer()
+    {
+        try
+        {
+            if (!ChaosSkiaFxOverlay.Enabled) return;
+            var sheen = new System.Windows.Media.LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0.5),
+                EndPoint = new Point(1, 0.5),
+                SpreadMethod = GradientSpreadMethod.Pad,
+                MappingMode = BrushMappingMode.RelativeToBoundingBox,
+                GradientStops =
+                {
+                    new GradientStop(Color.FromRgb(0xFF, 0x7A, 0x3D), 0.0),
+                    new GradientStop(Color.FromRgb(0xFF, 0x7A, 0x3D), 0.40),
+                    new GradientStop(Color.FromRgb(0xFF, 0xE6, 0xB0), 0.50),   // the glint
+                    new GradientStop(Color.FromRgb(0xFF, 0x7A, 0x3D), 0.60),
+                    new GradientStop(Color.FromRgb(0xFF, 0x7A, 0x3D), 1.0),
+                }
+            };
+            var slide = new TranslateTransform();
+            sheen.RelativeTransform = slide;
+            BarLust.Foreground = sheen;
+            var anim = new System.Windows.Media.Animation.DoubleAnimation(-1.0, 1.0, TimeSpan.FromSeconds(2.4))
+            {
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+            };
+            slide.BeginAnimation(TranslateTransform.XProperty, anim);
+        }
+        catch { }
     }
 
     /// <summary>Themed hover cards for every sidebar element — exact numbers, lexicon voice.
@@ -580,13 +628,14 @@ public partial class ChaosHudWindow : Window
             bool gained = combo > _lastCombo;
             bool dropped = combo < _lastCombo;
             _lastCombo = combo;
+            int prevTier = _streakTier;
             _streakTier = StreakTierFor(combo);
             var tierColor = StreakTierColors[_streakTier];
 
             // Settle visuals for the tier: number, color, size, glow. The brush is fresh
             // per change so the flash ColorAnimations below never fight a frozen brush.
             TxtStreakNum.Text = "x" + combo;
-            TxtStreakNum.FontSize = 24 + _streakTier * 2.5;   // 24 → 34 at fever
+            TxtStreakNum.FontSize = 28.8 + _streakTier * 3.0;   // ~20% larger: 28.8 → 40.8 at fever
             var brush = new System.Windows.Media.SolidColorBrush(tierColor);
             TxtStreakNum.Foreground = brush;
             TxtStreakLbl.Foreground = _streakTier >= 2
@@ -608,6 +657,13 @@ public partial class ChaosHudWindow : Window
                 { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.6 } };
                 StreakScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, punch);
                 StreakScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, punch);
+                // Crossing into a hotter tier: bloom the glow wide, then let it contract to its resting size.
+                if (_streakTier > prevTier && TxtStreakNum.Effect is System.Windows.Media.Effects.DropShadowEffect tierGlow)
+                {
+                    double rest = tierGlow.BlurRadius;
+                    tierGlow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.BlurRadiusProperty,
+                        new DoubleAnimation(rest + 26, rest, TimeSpan.FromMilliseconds(440)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+                }
             }
             else if (dropped)
             {
@@ -696,6 +752,97 @@ public partial class ChaosHudWindow : Window
             st.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, pulse);
         }
         catch { }
+    }
+
+    private DateTime _lastScorePulseUtc;
+    /// <summary>A quick scale pop on the score when it ticks up. Throttled so the per-pop score
+    /// storm doesn't machine-gun the animation — it reads as a lively climb, not a seizure.</summary>
+    private void PulseScore()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _lastScorePulseUtc).TotalMilliseconds < 220) return;
+            _lastScorePulseUtc = now;
+            if (TxtStripScore.RenderTransform is not System.Windows.Media.ScaleTransform st)
+            {
+                st = new System.Windows.Media.ScaleTransform(1, 1);
+                TxtStripScore.RenderTransformOrigin = new Point(0, 0.5);   // grow from the left edge
+                TxtStripScore.RenderTransform = st;
+            }
+            var pop = new DoubleAnimation(1.16, 1.0, TimeSpan.FromMilliseconds(240))
+            { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } };
+            st.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, pop);
+            st.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, pop);
+        }
+        catch { }
+    }
+
+    // ---- Multiplier hero number: the rounded Fredoka digits grow bigger AND heat up (purple →
+    // gold, with bloom) the higher the total multiplier climbs, and punch on each gain. ----
+    private static readonly Color _multCold = Color.FromRgb(0xD2, 0x4D, 0xFF);   // mind-purple, x1
+    private static readonly Color _multHot = Color.FromRgb(0xFF, 0xC8, 0x3D);    // jackpot gold, peak
+    private double _lastMultShown = 1.0;
+    private DateTime _lastMultPulseUtc;
+    private SolidColorBrush? _multBrushStrip, _multBrushPanel;
+    private System.Windows.Media.Effects.DropShadowEffect? _multGlowStrip, _multGlowPanel;
+
+    private static Color LerpColor(Color a, Color b, double t)
+    {
+        byte L(byte x, byte y) => (byte)(x + (y - x) * t);
+        return Color.FromRgb(L(a.R, b.R), L(a.G, b.G), L(a.B, b.B));
+    }
+
+    /// <summary>Resize + recolour the multiplier readout for the current total. <c>t</c> maps
+    /// x1→x7 onto 0→1: scale climbs to ~1.65x, the colour lerps purple→gold, the bloom swells,
+    /// and a gain punches the number (throttled so the per-pop storm doesn't machine-gun it).</summary>
+    private void OnMultiplierChanged()
+    {
+        try
+        {
+            double mult = _state.TotalMult;
+            double t = Math.Clamp((mult - 1.0) / 6.0, 0, 1);
+            double target = 1.0 + 0.65 * t;
+
+            bool increased = mult > _lastMultShown + 0.001;
+            _lastMultShown = mult;
+            var now = DateTime.UtcNow;
+            bool punch = increased && (now - _lastMultPulseUtc).TotalMilliseconds >= 170;
+            if (punch) _lastMultPulseUtc = now;
+
+            var col = LerpColor(_multCold, _multHot, t);
+            var weight = t > 0.66 ? FontWeights.Black : t > 0.33 ? FontWeights.Bold : FontWeights.SemiBold;
+            ApplyMult(TxtStripMult, ref _multBrushStrip, ref _multGlowStrip, target, t, col, weight, punch);
+            ApplyMult(TxtPanelMult, ref _multBrushPanel, ref _multGlowPanel, target, t, col, weight, punch);
+        }
+        catch { }
+    }
+
+    private void ApplyMult(System.Windows.Controls.TextBlock tb, ref SolidColorBrush? brush,
+        ref System.Windows.Media.Effects.DropShadowEffect? glow, double target, double t, Color col,
+        FontWeight weight, bool punch)
+    {
+        if (tb == null) return;
+        if (tb.RenderTransform is not ScaleTransform st)
+        {
+            st = new ScaleTransform(1, 1);
+            tb.RenderTransform = st;   // origin set to 0.5,0.5 in XAML
+        }
+        double from = punch ? target * 1.16 : st.ScaleX;
+        var anim = new DoubleAnimation(from, target, TimeSpan.FromMilliseconds(punch ? 330 : 200))
+        { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = punch ? 0.6 : 0.2 } };
+        st.BeginAnimation(ScaleTransform.ScaleXProperty, anim);
+        st.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
+
+        brush ??= new SolidColorBrush();
+        brush.Color = col;
+        tb.Foreground = brush;
+        tb.FontWeight = weight;
+
+        if (glow == null) { glow = new System.Windows.Media.Effects.DropShadowEffect { ShadowDepth = 0 }; tb.Effect = glow; }
+        glow.Color = col;
+        glow.BlurRadius = 4 + 20 * t;
+        glow.Opacity = 0.45 + 0.45 * t;
     }
 
     private void BtnHero_Click(object sender, RoutedEventArgs e)

@@ -224,7 +224,7 @@ namespace ConditioningControlPanel
                 _keyboardHook?.Dispose();
                 _trayIcon?.Dispose();
                 _browser?.Dispose();
-                _avatarTubeWindow?.Close();
+                _avatarTubeWindow?.CloseSafe();
 
                 // Close any quiz windows (topmost/fullscreen, would keep app alive)
                 try

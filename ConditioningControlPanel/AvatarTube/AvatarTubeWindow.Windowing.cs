@@ -196,8 +196,7 @@ namespace ConditioningControlPanel
                         // here without showing would leave the avatar stuck hidden forever - the
                         // hide-branch can't re-fire (no fullscreen) and this branch can't re-fire
                         // (flag cleared). Keeping the flag set lets us retry on the next tick.
-                        if (_parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized
-                            && App.Settings?.Current?.AvatarEnabled == true)
+                        if (ParentVisibleNotMinimized && App.Settings?.Current?.AvatarEnabled == true)
                         {
                             _hiddenForFullscreen = false;
                             Show();
@@ -559,11 +558,17 @@ namespace ConditioningControlPanel
         {
             if (!_isAttached || _parentWindow == null) return;
 
+            // Read the parent geometry from the cache (refreshed on the parent thread by the parent
+            // events) so this is safe to run on the avatar thread. If the cache isn't seeded yet, seed
+            // it and bail — the next parent event / call will have it.
+            var g = _parentGeom;
+            if (g == null) { CaptureParentGeom(); return; }
+
             // Don't update position if parent window has invalid dimensions (can happen during focus changes)
-            if (_parentWindow.ActualHeight <= 0 || _parentWindow.ActualWidth <= 0) return;
+            if (g.Height <= 0 || g.Width <= 0) return;
 
             // Don't update if parent window is at origin with zero size (likely transitioning)
-            if (_parentWindow.Top == 0 && _parentWindow.Left == 0 && _parentWindow.ActualHeight < 100) return;
+            if (g.Top == 0 && g.Left == 0 && g.Height < 100) return;
 
             // Get actual window dimensions (scaled)
             double actualWidth = ActualWidth > 0 ? ActualWidth : DesignWidth * _scaleFactor;
@@ -573,8 +578,8 @@ namespace ConditioningControlPanel
             double scaledOffset = BaseOffsetFromParent * _scaleFactor;
 
             // Calculate new position
-            double newLeft = _parentWindow.Left - actualWidth - scaledOffset;
-            double newTop = _parentWindow.Top + (_parentWindow.ActualHeight - actualHeight) / 2 + (VerticalOffset * _scaleFactor);
+            double newLeft = g.Left - actualWidth - scaledOffset;
+            double newTop = g.Top + (g.Height - actualHeight) / 2 + (VerticalOffset * _scaleFactor);
 
             // Sanity check: don't jump to extreme positions (likely invalid data)
             // This prevents the "bounce to top" issue during focus changes
@@ -587,14 +592,20 @@ namespace ConditioningControlPanel
 
         private void ParentWindow_PositionChanged(object? sender, EventArgs e)
         {
-            // Skip if parent is null, window is closing, or parent is minimized
+            // Skip if parent is null, window is closing, or parent is minimized.
+            // Fires on the PARENT thread: read parent state + refresh the geom cache here, then run the
+            // avatar-window work on the avatar thread (own-thread mode; a no-op marshal when shared).
             if (_parentWindow == null) return;
             try
             {
                 if (_parentWindow.WindowState == WindowState.Minimized) return;
-                UpdatePosition();
-                // Keep tube in front when attached, during parent move
-                if (_isAttached) BringAttachedPairToFront();
+                CaptureParentGeom();
+                RunOnAvatar(() =>
+                {
+                    UpdatePosition();
+                    // Keep tube in front when attached, during parent move
+                    if (_isAttached) BringAttachedPairToFront();
+                });
             }
             catch { /* Window may be closing */ }
         }
@@ -604,36 +615,42 @@ namespace ConditioningControlPanel
             if (_parentWindow == null) return;
             try
             {
-                switch (_parentWindow.WindowState)
+                CaptureParentGeom();
+                var state = _parentWindow.WindowState;        // parent-thread reads
+                bool parentVisible = _parentWindow.IsVisible;
+                RunOnAvatar(() =>
                 {
-                    case WindowState.Minimized:
-                        PauseAvatarGif();
-                        if (_isAttached)
-                        {
-                            App.Logger?.Information("[AVATAR-BLINK] hidden — parent window minimized");
-                            Hide();
-                        }
-                        else
-                        {
-                            // When detached, force visibility and topmost
-                            EnsureVisibleWhenDetached();
-                        }
-                        break;
-                    case WindowState.Normal:
-                    case WindowState.Maximized:
-                        ResumeAvatarGif();
-                        if (_parentWindow.IsVisible && App.Settings?.Current?.AvatarEnabled == true)
-                        {
-                            Show();
+                    switch (state)
+                    {
+                        case WindowState.Minimized:
+                            PauseAvatarGif();
                             if (_isAttached)
                             {
-                                UpdatePosition();
-                                BringAttachedPairToFront();
+                                App.Logger?.Information("[AVATAR-BLINK] hidden — parent window minimized");
+                                Hide();
                             }
-                            // When detached, WPF Topmost property handles it
-                        }
-                        break;
-                }
+                            else
+                            {
+                                // When detached, force visibility and topmost
+                                EnsureVisibleWhenDetached();
+                            }
+                            break;
+                        case WindowState.Normal:
+                        case WindowState.Maximized:
+                            ResumeAvatarGif();
+                            if (parentVisible && App.Settings?.Current?.AvatarEnabled == true)
+                            {
+                                Show();
+                                if (_isAttached)
+                                {
+                                    UpdatePosition();
+                                    BringAttachedPairToFront();
+                                }
+                                // When detached, WPF Topmost property handles it
+                            }
+                            break;
+                    }
+                });
             }
             catch { /* Window may be closing */ }
         }
@@ -643,32 +660,38 @@ namespace ConditioningControlPanel
             if (_parentWindow == null) return;
             try
             {
-                if ((bool)e.NewValue && _parentWindow.WindowState != WindowState.Minimized
-                    && App.Settings?.Current?.AvatarEnabled == true)
+                CaptureParentGeom();
+                bool nowVisible = (bool)e.NewValue;
+                var state = _parentWindow.WindowState;   // parent-thread read
+                RunOnAvatar(() =>
                 {
-                    ResumeAvatarGif();
-                    Show();
-                    if (_isAttached)
+                    if (nowVisible && state != WindowState.Minimized
+                        && App.Settings?.Current?.AvatarEnabled == true)
                     {
-                        UpdatePosition();
-                        BringAttachedPairToFront();
-                    }
-                    // When detached, WPF Topmost property handles it
-                }
-                else
-                {
-                    PauseAvatarGif();
-                    if (_isAttached)
-                    {
-                        App.Logger?.Information("[AVATAR-BLINK] hidden — parent IsVisible went false (state={State})", _parentWindow.WindowState);
-                        Hide();
+                        ResumeAvatarGif();
+                        Show();
+                        if (_isAttached)
+                        {
+                            UpdatePosition();
+                            BringAttachedPairToFront();
+                        }
+                        // When detached, WPF Topmost property handles it
                     }
                     else
                     {
-                        // When detached, force visibility and topmost
-                        EnsureVisibleWhenDetached();
+                        PauseAvatarGif();
+                        if (_isAttached)
+                        {
+                            App.Logger?.Information("[AVATAR-BLINK] hidden — parent IsVisible went false (state={State})", state);
+                            Hide();
+                        }
+                        else
+                        {
+                            // When detached, force visibility and topmost
+                            EnsureVisibleWhenDetached();
+                        }
                     }
-                }
+                });
             }
             catch { /* Window may be closing */ }
         }
@@ -682,8 +705,11 @@ namespace ConditioningControlPanel
 
             try
             {
-                if (_parentWindow.WindowState != WindowState.Minimized && _parentWindow.IsVisible
-                    && App.Settings?.Current?.AvatarEnabled == true)
+                CaptureParentGeom();
+                bool ok = _parentWindow.WindowState != WindowState.Minimized && _parentWindow.IsVisible
+                    && App.Settings?.Current?.AvatarEnabled == true;
+                if (!ok) return;
+                RunOnAvatar(() =>
                 {
                     Show();
                     UpdatePosition();
@@ -701,7 +727,7 @@ namespace ConditioningControlPanel
                             }
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     }
-                }
+                });
             }
             catch { /* Window may be closing */ }
         }
@@ -711,28 +737,26 @@ namespace ConditioningControlPanel
             // Don't fight z-order when pop quiz is open
             if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
 
-            // When main window is clicked (even if already active), immediately bring tube to front
-            // This handles the case where Activated event doesn't fire (window already active)
-            if (_isAttached && _tubeHandle != IntPtr.Zero && SpeechBubble.Visibility == Visibility.Visible)
+            // When main window is clicked (even if already active), immediately bring tube to front.
+            // This handles the case where Activated event doesn't fire (window already active). Reads
+            // avatar UI (SpeechBubble), so do the whole check on the avatar thread (Background priority
+            // so it lands after the click processing finishes).
+            RunOnAvatar(() =>
             {
-                // Use Background priority to ensure this happens after the click processing
-                Dispatcher.BeginInvoke(new Action(() =>
+                if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
+                if (_isAttached && _tubeHandle != IntPtr.Zero && SpeechBubble.Visibility == Visibility.Visible)
                 {
-                    if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
-                    if (_isAttached && _tubeHandle != IntPtr.Zero && SpeechBubble.Visibility == Visibility.Visible)
-                    {
-                        BringAttachedPairToFront();
-                    }
-                }), System.Windows.Threading.DispatcherPriority.Background);
-            }
+                    BringAttachedPairToFront();
+                }
+            }, System.Windows.Threading.DispatcherPriority.Background);
         }
 
         private void ParentWindow_Closed(object? sender, EventArgs e)
         {
             if (_isAttached)
             {
-                // Attached mode: close the tube with the main window
-                try { Close(); } catch { /* Already closing */ }
+                // Attached mode: close the tube with the main window (Close must run on the avatar thread)
+                RunOnAvatar(() => { try { Close(); } catch { /* Already closing */ } });
             }
             else
             {
@@ -756,6 +780,7 @@ namespace ConditioningControlPanel
 
         public void ShowTube()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(ShowTube)); return; }
             try
             {
                 // Manual/explicit show (checkbox toggle, tray "Wake Bambi Up", session events)
@@ -780,7 +805,7 @@ namespace ConditioningControlPanel
                 Show();
 
                 // Only update position if parent is visible
-                if (_parentWindow != null && _parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized)
+                if (_parentWindow != null && ParentVisibleNotMinimized)
                 {
                     UpdatePosition();
                     if (_isAttached && !(PopQuizWindow.IsOpen || QuizWindow.IsOpen)) BringAttachedPairToFront();
@@ -802,6 +827,7 @@ namespace ConditioningControlPanel
 
         public void HideTube()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(HideTube)); return; }
             Hide();
         }
 
@@ -826,11 +852,18 @@ namespace ConditioningControlPanel
                 // Release GIF animation frames to prevent memory leak
                 AnimationBehavior.SetSourceUri(ImgAvatarAnimated, null);
 
-                // Remove window message hooks
+                // Remove window message hooks. The avatar's own source is fine here; the parent's source
+                // is thread-affine to the main thread, so remove its hook there (inline when shared).
                 _hwndSource?.RemoveHook(WndProc);
                 _hwndSource = null;
-                _parentHwndSource?.RemoveHook(ParentWndProc);
+                var parentSrc = _parentHwndSource;
                 _parentHwndSource = null;
+                if (parentSrc != null)
+                {
+                    var pd = _parentWindow?.Dispatcher;
+                    if (pd == null || pd.CheckAccess()) { try { parentSrc.RemoveHook(ParentWndProc); } catch { } }
+                    else if (!pd.HasShutdownStarted) pd.BeginInvoke(new Action(() => { try { parentSrc.RemoveHook(ParentWndProc); } catch { } }));
+                }
 
                 // Unsubscribe from video service events
                 if (App.Video != null)
@@ -930,8 +963,8 @@ namespace ConditioningControlPanel
             // Don't bring to front if detached (topmost handles that)
             if (!_isAttached) return;
 
-            // Don't bring to front if parent window is not visible or minimized
-            if (_parentWindow == null || !_parentWindow.IsVisible || _parentWindow.WindowState == WindowState.Minimized)
+            // Don't bring to front if parent window is not visible or minimized (cache read — avatar thread)
+            if (_parentWindow == null || !ParentVisibleNotMinimized)
                 return;
 
             // Bring window to top of z-order (above main window)
@@ -945,7 +978,11 @@ namespace ConditioningControlPanel
         /// to defeat ForegroundLockTimeout, the tube needs to be re-raised so
         /// the attached pair stays paired. Wraps the existing private method.
         /// </summary>
-        public void RaiseAttachedTubeAboveOwner() => BringAttachedPairToFront(force: true);
+        public void RaiseAttachedTubeAboveOwner()
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(RaiseAttachedTubeAboveOwner)); return; }
+            BringAttachedPairToFront(force: true);
+        }
 
         /// <summary>
         /// Bring both the parent window and the tube to the top of z-order together.
@@ -965,16 +1002,18 @@ namespace ConditioningControlPanel
         {
             if (_tubeHandle == IntPtr.Zero) return;
             if (!_isAttached) return;
-            if (_parentWindow == null || !_parentWindow.IsVisible || _parentWindow.WindowState == WindowState.Minimized)
+            if (_parentWindow == null || !ParentVisibleNotMinimized)   // cache read — avatar thread
                 return;
 
             // Don't fight with pop quiz — it uses HWND_TOPMOST and must stay on top
             if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen))
                 return;
 
-            if (_parentHandle == IntPtr.Zero)
-                _parentHandle = new WindowInteropHelper(_parentWindow).Handle;
-            if (_parentHandle == IntPtr.Zero) return;
+            // _parentHandle is seeded on the parent thread by CaptureParentGeom (reading the parent's HWND
+            // off its own thread would VerifyAccess-throw here on the avatar thread). If it isn't ready yet,
+            // kick a capture (async on the parent thread) and skip this raise — the HWND is stable once made,
+            // so the next call has it.
+            if (_parentHandle == IntPtr.Zero) { CaptureParentGeom(); return; }
 
             // Only bring to front when our process owns the foreground window —
             // otherwise we'd steal z-order from other apps (e.g. fullscreen video players).
@@ -1045,10 +1084,11 @@ namespace ConditioningControlPanel
                     try
                     {
                         if ((PopQuizWindow.IsOpen || QuizWindow.IsOpen)) return;
-                        if (_isAttached && _parentWindow != null && _parentWindow.IsVisible
-                            && _parentWindow.WindowState != WindowState.Minimized)
+                        if (_isAttached && _parentWindow != null && ParentVisibleNotMinimized)
                         {
-                            _parentWindow.Activate();
+                            // Activate touches the MAIN window — run it on the parent's thread.
+                            if (_parentWindow.Dispatcher.CheckAccess()) _parentWindow.Activate();
+                            else _parentWindow.Dispatcher.BeginInvoke(new Action(() => { try { _parentWindow.Activate(); } catch { } }));
                             BringAttachedPairToFront();
                         }
                     }
@@ -1072,6 +1112,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void SetChaosRunActive(bool active)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => SetChaosRunActive(active))); return; }
             if (_chaosRunActive == active) return;
             _chaosRunActive = active;
             try
@@ -1079,32 +1120,38 @@ namespace ConditioningControlPanel
                 if (active)
                 {
                     // Story mode renders its OWN characters (backdrop + the Madam): the floating
-                    // companion would clutter the immersive scene, so hide it for the run. Free
-                    // Desktop has no story characters — the companion IS the on-screen character,
-                    // so keep it floating over the desktop (the detach-and-drop path below).
-                    if (Services.Chaos.ChaosModeService.ActiveMode == Services.Chaos.ChaosPlayMode.Story)
+                    // companion would clutter the immersive scene, so hide it for the run. BUT Story is
+                    // currently disabled (StoryModeEnabled=false) and ActiveMode DEFAULTS to Story until
+                    // BeginRun resolves it — and the hub opens (and calls this) BEFORE BeginRun runs. So
+                    // gate the hide on StoryModeEnabled; otherwise the hub-open call hid the companion in
+                    // Free Desktop and the (already-active) run-start call no-op'd, leaving it gone.
+                    if (Services.Chaos.ChaosModeService.StoryModeEnabled
+                        && Services.Chaos.ChaosModeService.ActiveMode == Services.Chaos.ChaosPlayMode.Story)
                     {
                         _hiddenForChaos = Visibility == Visibility.Visible;
                         if (_hiddenForChaos) Visibility = Visibility.Hidden;
                         return;
                     }
 
-                    // Detach so the companion floats above the run as a topmost widget. Remember to
-                    // re-attach afterwards only if it was attached to begin with.
+                    // Free Desktop: detach so the companion floats above the run as a topmost widget,
+                    // parked in the BOTTOM-LEFT corner so the run's HUD/sidebar controls stay clear.
+                    // Re-attach afterwards only if it was attached to begin with.
                     if (_isAttached)
                     {
                         _reattachAfterChaos = true;
                         Detach(silent: true);
-                        // The attached anchor sits over the sidebar's Stop button; drop the
-                        // detached widget down so the Chaos run's controls stay clickable.
                         try
                         {
-                            double drop = 250;
-                            var area = System.Windows.Forms.Screen.FromHandle(_tubeHandle).WorkingArea;
-                            double maxTop = area.Bottom - Math.Max(120, ActualHeight) - 8;
-                            Top = Math.Min(Top + drop, maxTop);
+                            // SystemParameters.WorkArea is the primary screen's work area in DIPs (the
+                            // same space as Window.Left/Top) — DPI-correct, and Free Desktop chaos runs
+                            // on the primary screen anyway.
+                            var wa = SystemParameters.WorkArea;
+                            const double margin = 12;
+                            Left = wa.Left + margin;
+                            Top = wa.Bottom - Math.Max(120, ActualHeight) - margin;
                         }
                         catch { /* positioning is best-effort */ }
+                        ReassertTopmost();   // keep the freshly-parked widget above the run's overlays
                     }
                 }
                 else
@@ -1252,8 +1299,8 @@ namespace ConditioningControlPanel
                 if (_hiddenForFullscreen)
                     return false;
 
-                // Check window state
-                return _parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized;
+                // Check window state (cache read — safe on the avatar thread)
+                return ParentVisibleNotMinimized;
             }
         }
 
@@ -1262,6 +1309,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void ToggleDetached()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(ToggleDetached)); return; }
             if (_isAttached)
             {
                 Detach();
@@ -1279,6 +1327,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void Detach(bool silent = false)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => Detach(silent))); return; }
             if (!_isAttached) return;
 
             _isAttached = false;
@@ -1327,6 +1376,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void Attach(bool silent = false)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => Attach(silent))); return; }
             if (_isAttached) return;
 
             _isAttached = true;

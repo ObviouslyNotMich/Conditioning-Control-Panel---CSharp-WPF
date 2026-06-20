@@ -84,6 +84,13 @@ namespace ConditioningControlPanel.Services
         private const long MAX_IMAGE_CACHE_BYTES = 200L * 1024 * 1024; // 200 MB cap
         private long _imageCacheBytes;
 
+        // Decode attribution (cumulative, app-lifetime) for the chaos OOM hunt. A cache MISS that
+        // runs an actual decode increments these; cache hits don't. The GIF path still uses
+        // System.Drawing/GDI+ (native-heap-retaining under churn) — if GifDecodes climbs run-over-run
+        // in lockstep with native~ in [CHAOSMEM], the GIF decode path is the residual leak.
+        public long GifDecodes;     // GDI+ (System.Drawing) decodes — the suspect path
+        public long StaticDecodes;  // WIC (BitmapImage) decodes — already off GDI+
+
         // Snapshot of file paths from the most recent FlashDisplayed batch.
         // Read by SessionLogService after FlashDisplayed fires.
         private IReadOnlyList<string> _lastDisplayedPaths = Array.Empty<string>();
@@ -589,10 +596,12 @@ namespace ConditioningControlPanel.Services
 
                     if (extension == ".gif")
                     {
+                        System.Threading.Interlocked.Increment(ref GifDecodes);
                         LoadGifFrames(path, data, decodeMax);
                     }
                     else
                     {
+                        System.Threading.Interlocked.Increment(ref StaticDecodes);
                         // Decode the static image through WIC (WPF BitmapImage), NOT System.Drawing/GDI+.
                         // GDI+ allocates decoded pixels on the native Win32 heap and bloats/leaks it under
                         // the high-frequency flash decode churn — VMMap pinned ~1.3GB in the native heap as
