@@ -2355,7 +2355,9 @@ internal class Bubble
         _grid.Children.Add(hitArea);         // Hit area first (behind)
         _grid.Children.Add(_bubbleImage);    // Image on top
         // Glassy specular shine over plain round bubbles (variant sprites bring their own art).
-        if (ChaosSkiaFxOverlay.Enabled && !_hasVariantSprite)
+        // Chaos bubbles only — the classic (ambient) bubble feature reads as a harsh white glare with it
+        // (the bubble.png already has its own highlights), so keep the rim-shine to the Rabbit Hole.
+        if (ChaosSkiaFxOverlay.Enabled && !_hasVariantSprite && spec != null)
         {
             var shine = new System.Windows.Shapes.Ellipse
             {

@@ -1120,32 +1120,38 @@ namespace ConditioningControlPanel
                 if (active)
                 {
                     // Story mode renders its OWN characters (backdrop + the Madam): the floating
-                    // companion would clutter the immersive scene, so hide it for the run. Free
-                    // Desktop has no story characters — the companion IS the on-screen character,
-                    // so keep it floating over the desktop (the detach-and-drop path below).
-                    if (Services.Chaos.ChaosModeService.ActiveMode == Services.Chaos.ChaosPlayMode.Story)
+                    // companion would clutter the immersive scene, so hide it for the run. BUT Story is
+                    // currently disabled (StoryModeEnabled=false) and ActiveMode DEFAULTS to Story until
+                    // BeginRun resolves it — and the hub opens (and calls this) BEFORE BeginRun runs. So
+                    // gate the hide on StoryModeEnabled; otherwise the hub-open call hid the companion in
+                    // Free Desktop and the (already-active) run-start call no-op'd, leaving it gone.
+                    if (Services.Chaos.ChaosModeService.StoryModeEnabled
+                        && Services.Chaos.ChaosModeService.ActiveMode == Services.Chaos.ChaosPlayMode.Story)
                     {
                         _hiddenForChaos = Visibility == Visibility.Visible;
                         if (_hiddenForChaos) Visibility = Visibility.Hidden;
                         return;
                     }
 
-                    // Detach so the companion floats above the run as a topmost widget. Remember to
-                    // re-attach afterwards only if it was attached to begin with.
+                    // Free Desktop: detach so the companion floats above the run as a topmost widget,
+                    // parked in the BOTTOM-LEFT corner so the run's HUD/sidebar controls stay clear.
+                    // Re-attach afterwards only if it was attached to begin with.
                     if (_isAttached)
                     {
                         _reattachAfterChaos = true;
                         Detach(silent: true);
-                        // The attached anchor sits over the sidebar's Stop button; drop the
-                        // detached widget down so the Chaos run's controls stay clickable.
                         try
                         {
-                            double drop = 250;
-                            var area = System.Windows.Forms.Screen.FromHandle(_tubeHandle).WorkingArea;
-                            double maxTop = area.Bottom - Math.Max(120, ActualHeight) - 8;
-                            Top = Math.Min(Top + drop, maxTop);
+                            // SystemParameters.WorkArea is the primary screen's work area in DIPs (the
+                            // same space as Window.Left/Top) — DPI-correct, and Free Desktop chaos runs
+                            // on the primary screen anyway.
+                            var wa = SystemParameters.WorkArea;
+                            const double margin = 12;
+                            Left = wa.Left + margin;
+                            Top = wa.Bottom - Math.Max(120, ActualHeight) - margin;
                         }
                         catch { /* positioning is best-effort */ }
+                        ReassertTopmost();   // keep the freshly-parked widget above the run's overlays
                     }
                 }
                 else
