@@ -628,6 +628,10 @@
                                 Style="{StaticResource OutlineButton}" Margin="3,0,0,0" Padding="10,8"
                                 Click="BtnSharePreset_Click" IsEnabled="False" FontSize="12"/>
                     </Grid>
+                    <Button x:Name="BtnOpenCatalogue" x:FieldModifier="internal" Content="{loc:Str btn_open_catalogue}"
+                            Style="{StaticResource OutlineButton}" Margin="0,6,0,0" Padding="10,8"
+                            ToolTip="{loc:Str tooltip_open_catalogue}"
+                            Click="BtnOpenCatalogue_Click" FontSize="12"/>
                 </StackPanel>
                 
                 <!-- Session Action Buttons -->

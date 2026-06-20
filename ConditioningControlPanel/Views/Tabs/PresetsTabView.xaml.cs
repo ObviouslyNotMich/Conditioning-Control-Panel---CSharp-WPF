@@ -32,6 +32,11 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnSharePreset_Click(sender, e);
         }
+        private void BtnOpenCatalogue_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnCatalogue_Click(sender, e);
+        }
         private void BtnExportSession_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)
