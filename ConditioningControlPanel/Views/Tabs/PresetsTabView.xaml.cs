@@ -32,7 +32,7 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnSharePreset_Click(sender, e);
         }
-        private void BtnOpenCatalogue_Click(object sender, RoutedEventArgs e)
+        private void CatalogueCard_Click(object sender, MouseButtonEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnCatalogue_Click(sender, e);
@@ -101,26 +101,6 @@ namespace ConditioningControlPanel.Views.Tabs
         {
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.SessionCard_Click(sender, e);
-        }
-        private void SessionDropZone_DragEnter(object sender, DragEventArgs e)
-        {
-            if (Window.GetWindow(this) is MainWindow mw)
-                mw.SessionDropZone_DragEnter(sender, e);
-        }
-        private void SessionDropZone_DragLeave(object sender, DragEventArgs e)
-        {
-            if (Window.GetWindow(this) is MainWindow mw)
-                mw.SessionDropZone_DragLeave(sender, e);
-        }
-        private void SessionDropZone_DragOver(object sender, DragEventArgs e)
-        {
-            if (Window.GetWindow(this) is MainWindow mw)
-                mw.SessionDropZone_DragOver(sender, e);
-        }
-        private void SessionDropZone_Drop(object sender, DragEventArgs e)
-        {
-            if (Window.GetWindow(this) is MainWindow mw)
-                mw.SessionDropZone_Drop(sender, e);
         }
         private void SliderCornerGifOpacity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {

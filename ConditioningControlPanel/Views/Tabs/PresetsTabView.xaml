@@ -292,7 +292,7 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
     
-                        <!-- Left: Drop Zone -->
+                        <!-- Left: Community Catalogue link (repurposed from the old drag-drop import box) -->
                         <Border Grid.Column="0"
                                 x:Name="SessionDropZone" x:FieldModifier="internal"
                                 Background="{DynamicResource SurfaceBgBrush}"
@@ -300,26 +300,24 @@
                                 BorderThickness="2"
                                 CornerRadius="8"
                                 Margin="0,0,4,0"
-                                AllowDrop="True"
-                                Drop="SessionDropZone_Drop"
-                                DragEnter="SessionDropZone_DragEnter"
-                                DragLeave="SessionDropZone_DragLeave"
-                                DragOver="SessionDropZone_DragOver">
+                                Cursor="Hand"
+                                ToolTip="{loc:Str tooltip_open_catalogue}"
+                                MouseLeftButtonUp="CatalogueCard_Click">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Style.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="BorderBrush" Value="#606080"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
                                         </Trigger>
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                <TextBlock x:Name="DropZoneIcon" x:FieldModifier="internal" Text="📂" FontSize="28" HorizontalAlignment="Center" Foreground="#707090"/>
-                                <TextBlock Text="{loc:Str label_drag_drop}" FontSize="13" FontWeight="SemiBold"
-                                           Foreground="#909090" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                                <TextBlock Text="{loc:Str label_session_json}" FontSize="11"
-                                           Foreground="#606070" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                <TextBlock x:Name="DropZoneIcon" x:FieldModifier="internal" Text="🌐" FontSize="28" HorizontalAlignment="Center" Foreground="{DynamicResource PinkBrush}"/>
+                                <TextBlock Text="{loc:Str label_catalogue_card_title}" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                                <TextBlock Text="{loc:Str label_catalogue_card_sub}" FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
+                                           Foreground="#909090" HorizontalAlignment="Center" Margin="10,2,10,0"/>
                                 <TextBlock x:Name="DropZoneStatus" x:FieldModifier="internal" Text="" FontSize="10"
                                            Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"
                                            Visibility="Collapsed"/>
@@ -628,12 +626,8 @@
                                 Style="{StaticResource OutlineButton}" Margin="3,0,0,0" Padding="10,8"
                                 Click="BtnSharePreset_Click" IsEnabled="False" FontSize="12"/>
                     </Grid>
-                    <Button x:Name="BtnOpenCatalogue" x:FieldModifier="internal" Content="{loc:Str btn_open_catalogue}"
-                            Style="{StaticResource OutlineButton}" Margin="0,6,0,0" Padding="10,8"
-                            ToolTip="{loc:Str tooltip_open_catalogue}"
-                            Click="BtnOpenCatalogue_Click" FontSize="12"/>
                 </StackPanel>
-                
+
                 <!-- Session Action Buttons -->
                 <StackPanel Grid.Row="2" x:Name="SessionButtonsPanel" x:FieldModifier="internal" Margin="0,10,0,0" Visibility="Collapsed">
                     <Button x:Name="BtnStartSession" x:FieldModifier="internal" Content="{loc:Str btn_start_session}" Style="{StaticResource PinkButton}"
