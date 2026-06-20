@@ -253,7 +253,7 @@ namespace ConditioningControlPanel
                 : null;
 
             // Use BeginInvoke for non-blocking UI update
-            DispatcherHelper.RunOnUI(() =>
+            RunOnAvatar(() =>
             {
                 // Double-check AI bubble state on UI thread
                 if (_isShowingAiBubble)
@@ -316,7 +316,7 @@ namespace ConditioningControlPanel
             string? emotionLineId = phraseAudioPath != null
                 ? System.IO.Path.GetFileNameWithoutExtension(phraseAudioPath)
                 : null;
-            DispatcherHelper.RunOnUI(() =>
+            RunOnAvatar(() =>
             {
                 // Only genuine AI replies anchor the chat-suppression window; bark output
                 // (aiGenerated: false) must not suppress subsequent barks via this path.
@@ -358,7 +358,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void ShowModerationRefusalBubble(ModerationSource source)
         {
-            DispatcherHelper.RunOnUI(() =>
+            RunOnAvatar(() =>
             {
                 try
                 {
@@ -1436,7 +1436,7 @@ namespace ConditioningControlPanel
         /// </summary>
         private void ShowVoiceLineBubble(string filePath)
         {
-            DispatcherHelper.RunOnUI(() =>
+            RunOnAvatar(() =>
             {
                 if (_isMuted || !IsAvatarVisibleOnScreen) return;
 
@@ -1533,7 +1533,7 @@ namespace ConditioningControlPanel
         private void ShowTriggerBubble(string trigger)
         {
             // Use direct dispatcher invoke to ensure audio plays exactly when bubble shows
-            DispatcherHelper.RunOnUI(() =>
+            RunOnAvatar(() =>
             {
                 // When muted, still trigger haptic+audio but skip visual queue logic
                 if (_isMuted)
@@ -1896,7 +1896,7 @@ namespace ConditioningControlPanel
                     return false;
                 }
 
-                DispatcherHelper.RunOnUI(() =>
+                RunOnAvatar(() =>
                 {
                     _isPlayingUninterruptibleClip = true;
                     // Silent, top-priority bubble for the clip's duration. Source=AI suppresses the
@@ -1923,7 +1923,7 @@ namespace ConditioningControlPanel
                     catch (Exception ex) { App.Logger?.Warning(ex, "PlayNoteClip: playback failed"); }
                     finally
                     {
-                        DispatcherHelper.RunOnUI(() => _isPlayingUninterruptibleClip = false);
+                        RunOnAvatar(() => _isPlayingUninterruptibleClip = false);
                     }
                 });
                 return true;

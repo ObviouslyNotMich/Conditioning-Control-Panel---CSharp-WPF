@@ -102,6 +102,12 @@ public class BubbleService : IDisposable
     /// mouse-hook left-click swallow decision (off-thread; immutable snapshot rebuilt each tick).</summary>
     internal static (double X, double Y, double R, bool Hold)[] ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
     private bool _sharedHost;   // AppSettings.ChaosBubbleSharedHost, latched for the run
+    // Spawn-spike amortization: chaos cadence bursts enqueue their construction here; the anim tick
+    // materialises at most MaxSpawnsPerFrame per frame so a burst spreads across frames instead of
+    // blocking the UI thread in one synchronous BuildChaosLayers pass (the "frame skip on spawn").
+    // Enqueued + drained only on the UI thread (RunOnUI body / anim tick) → no lock needed.
+    private readonly Queue<Action> _spawnQueue = new();
+    private const int MaxSpawnsPerFrame = 1;
     // Electrified Rabbits (Spanker + E-Stim duo): spank victims discharge free arcs. Sampled per tick.
     internal static bool ChaosElectrifiedNow;
     // VibePopping active skill: while the buzz is on and the mouse button is HELD, the cursor pops
@@ -412,6 +418,14 @@ public class BubbleService : IDisposable
 
     private void AnimateAllBubbles(object? sender, EventArgs e)
     {
+        // Spawn-spike amortization: materialise at most one queued chaos bubble per frame. A cadence
+        // burst (several SpawnChaos* in one dispatcher pass) would otherwise construct N bubbles back-to-
+        // back and drop a frame across every window. Drain BEFORE the empty-field early-return below so a
+        // freshly-queued bubble still materialises (and gets AnimateFrame this same tick). Each thunk
+        // self-handles its own exceptions. (Throttle disabled by leaving the queue empty when not chaos.)
+        for (int s = 0; s < MaxSpawnsPerFrame && _chaosActive && _spawnQueue.Count > 0; s++)
+            _spawnQueue.Dequeue()();
+
         // NOTE: a freeze does NOT skip this loop — bubbles must keep rendering so the freeze aura
         // pulses, the shudder plays, and any in-flight pop finishes. Each bubble holds its own
         // motion/fuse while frozen (see Bubble.AnimateFrame).
@@ -820,16 +834,14 @@ public class BubbleService : IDisposable
         if (!_chaosActive) return;
         DispatcherHelper.RunOnUI(() =>
         {
-            try
+            if (!_chaosActive) return;
+            if (_bubbleImage == null) LoadBubbleImage();
+            EnsureAnimationTimer();   // must run NOW so the tick is live to drain the queue
+            _spawnQueue.Enqueue(() =>
             {
-                if (_bubbleImage == null) LoadBubbleImage();
-                EnsureAnimationTimer();
-                _bubbles.Add(CreateChaosBubble(spec, PickScreenFor(spec)));
-            }
-            catch (Exception ex)
-            {
-                App.Logger?.Error("SpawnChaosBubble failed: {Error}", ex.Message);
-            }
+                try { _bubbles.Add(CreateChaosBubble(spec, PickScreenFor(spec))); }
+                catch (Exception ex) { App.Logger?.Error("SpawnChaosBubble failed: {Error}", ex.Message); }
+            });
         });
     }
 
@@ -840,10 +852,15 @@ public class BubbleService : IDisposable
         if (!_chaosActive) return;
         DispatcherHelper.RunOnUI(() =>
         {
+            if (!_chaosActive) return;
+            if (_bubbleImage == null) LoadBubbleImage();
+            EnsureAnimationTimer();   // must run NOW so the tick is live to drain the queue
+            // The linked pair materialises as ONE thunk so the escort always lands on its orbit ring
+            // against an existing live (never one frame apart).
+            _spawnQueue.Enqueue(() =>
+            {
             try
             {
-                if (_bubbleImage == null) LoadBubbleImage();
-                EnsureAnimationTimer();
                 var screen = PickScreenFor(liveSpec);
                 var live = CreateChaosBubble(liveSpec, screen);
                 _bubbles.Add(live);
@@ -871,6 +888,7 @@ public class BubbleService : IDisposable
             {
                 App.Logger?.Error("SpawnChaosChaperone failed: {Error}", ex.Message);
             }
+            });
         });
     }
 
@@ -881,10 +899,14 @@ public class BubbleService : IDisposable
         if (!_chaosActive) return;
         DispatcherHelper.RunOnUI(() =>
         {
+            if (!_chaosActive) return;
+            if (_bubbleImage == null) LoadBubbleImage();
+            EnsureAnimationTimer();   // must run NOW so the tick is live to drain the queue
+            // Both halves materialise as ONE thunk so the tether is never left dangling a frame.
+            _spawnQueue.Enqueue(() =>
+            {
             try
             {
-                if (_bubbleImage == null) LoadBubbleImage();
-                EnsureAnimationTimer();
                 var screen = PickScreenFor(specA);
                 double dpi = Bubble.GetDpiForScreen(screen);
                 var wa = screen.WorkingArea;
@@ -908,6 +930,7 @@ public class BubbleService : IDisposable
             {
                 App.Logger?.Error("SpawnChaosBoundPair failed: {Error}", ex.Message);
             }
+            });
         });
     }
 
@@ -1320,6 +1343,7 @@ public class BubbleService : IDisposable
     public void EndChaosMode()
     {
         _chaosActive = false;
+        _spawnQueue.Clear();   // drop any bubbles queued but not yet materialised this run
         // Tear down the shared host (idempotent; its Canvas is cleared on close). Per-bubble Destroy
         // also removes each grid, but live bubbles may still be clearing — CloseActive covers both.
         if (_sharedHost) { ChaosBubbleHostOverlay.CloseActive(); _sharedHost = false; }
@@ -1768,6 +1792,40 @@ internal class Bubble
                 new GradientStop(Color.FromArgb(0, 255, 255, 255), 1.0),
             }
         };
+        b.Freeze();
+        return b;
+    }
+
+    // Freeze-aura halo — constant icy-blue radial, hidden (opacity 0) on every bubble until a field
+    // freeze pulses it. The colour/stops never vary, so share ONE frozen brush across all bubbles
+    // (only the per-bubble Ellipse size differs). Saves a RadialGradientBrush + 3 GradientStops per spawn.
+    private static readonly Brush _freezeAuraBrush = BuildFreezeAuraBrush();
+    private static Brush BuildFreezeAuraBrush()
+    {
+        var c = Color.FromRgb(150, 210, 255);
+        var b = new RadialGradientBrush { GradientOrigin = new Point(0.5, 0.5), Center = new Point(0.5, 0.5) };
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(0,   c.R, c.G, c.B), 0.30));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(190, c.R, c.G, c.B), 0.66));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(0,   c.R, c.G, c.B), 1.0));
+        b.Freeze();
+        return b;
+    }
+
+    // Label-glyph drop shadow — constant soft black shadow shared by every labelled bubble's ✖/emoji.
+    private static readonly DropShadowEffect _labelShadow = BuildLabelShadow();
+    private static DropShadowEffect BuildLabelShadow()
+    {
+        var e = new DropShadowEffect { Color = Colors.Black, BlurRadius = 6, ShadowDepth = 0, Opacity = 0.8 };
+        e.Freeze();
+        return e;
+    }
+
+    // The Tease's glossy diagonal shine — constant white→transparent linear gradient (the Ellipse size
+    // varies, the brush doesn't). Shared frozen; the per-frame shimmer animates the Ellipse Opacity, not the brush.
+    private static readonly Brush _teaseShineBrush = BuildTeaseShineBrush();
+    private static Brush BuildTeaseShineBrush()
+    {
+        var b = new LinearGradientBrush(Color.FromArgb(150, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 35);
         b.Freeze();
         return b;
     }
@@ -3516,16 +3574,11 @@ internal class Bubble
         // Freeze aura — a soft blue halo behind the bubble, hidden (opacity 0) until the field is
         // frozen, then pulsed in AnimateFrame. Every chaos bubble carries one so the whole field
         // glows icy-blue during a freeze. Sits just above the (invisible) hit area, under the art.
-        var auraColor = Color.FromRgb(150, 210, 255);
         double auraSize = _size + 6;
-        var auraBrush = new RadialGradientBrush { GradientOrigin = new Point(0.5, 0.5), Center = new Point(0.5, 0.5) };
-        auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0,   auraColor.R, auraColor.G, auraColor.B), 0.30));
-        auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(190, auraColor.R, auraColor.G, auraColor.B), 0.66));
-        auraBrush.GradientStops.Add(new GradientStop(Color.FromArgb(0,   auraColor.R, auraColor.G, auraColor.B), 1.0));
         _freezeAura = new System.Windows.Shapes.Ellipse
         {
             Width = auraSize, Height = auraSize,
-            Fill = auraBrush,
+            Fill = _freezeAuraBrush,   // shared frozen icy-blue halo (size varies, brush doesn't)
             IsHitTestVisible = false,
             Opacity = 0
         };
@@ -3567,7 +3620,7 @@ internal class Bubble
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 IsHitTestVisible = false,
-                Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 6, ShadowDepth = 0, Opacity = 0.8 }
+                Effect = _labelShadow   // shared frozen black shadow
             });
         }
 
@@ -3862,8 +3915,7 @@ internal class Bubble
             Width = inner, Height = inner,
             IsHitTestVisible = false,
             Opacity = 0.22,
-            Fill = new LinearGradientBrush(
-                Color.FromArgb(150, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 35),
+            Fill = _teaseShineBrush,   // shared frozen diagonal shine (per-frame shimmer animates Opacity)
         };
         face.Children.Add(_teaseShine);
         _grid.Children.Add(face);

@@ -362,7 +362,7 @@ namespace ConditioningControlPanel
             }
 
             // Show the audio filename text as a speech bubble (audio is already playing from FlashService)
-            DispatcherHelper.RunOnUI(() =>
+            RunOnAvatar(() =>
             {
                 // Double-check in case state changed
                 if (_isGiggling) return;

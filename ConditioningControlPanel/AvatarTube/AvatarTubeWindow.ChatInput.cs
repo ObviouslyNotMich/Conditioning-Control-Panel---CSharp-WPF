@@ -846,7 +846,7 @@ namespace ConditioningControlPanel
         {
             try
             {
-                DispatcherHelper.RunOnUI(() =>
+                RunOnAvatar(() =>
                 {
                     // Don't fight the AI bubble or interrupt a pending AI response.
                     if (_isWaitingForAi || _isShowingAiBubble) return;

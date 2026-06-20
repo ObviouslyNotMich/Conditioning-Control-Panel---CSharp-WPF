@@ -30,6 +30,40 @@ namespace ConditioningControlPanel
         private bool _isAttached = true;
         private readonly Random _random = new();
 
+        // --- Own-thread support (AppSettings.AvatarOwnThread) ------------------------------------
+        // When the flag is on this window lives on its own STA thread, so its Dispatcher != the main
+        // dispatcher. Marshal all avatar-UI work to THIS window's own dispatcher. When the flag is off
+        // (Dispatcher == Application.Current.Dispatcher) this is a no-op drop-in for DispatcherHelper.RunOnUI.
+        internal void RunOnAvatar(Action action, DispatcherPriority priority = DispatcherPriority.Normal)
+        {
+            var d = Dispatcher;
+            if (d == null || d.HasShutdownStarted) return;
+            if (d.CheckAccess()) action();
+            else d.BeginInvoke(action, priority);
+        }
+
+        // Immutable snapshot of the parent (main) window's geometry, written on the MAIN thread by the
+        // parent-position handler and read on the AVATAR thread by UpdatePosition. An atomic reference
+        // swap (volatile) — never read _parentWindow's dependency properties off its own thread.
+        private sealed record ParentGeom(double Left, double Top, double Width, double Height, bool Minimized);
+        private volatile ParentGeom? _parentGeom;
+        /// <summary>Refresh the cached parent geometry. Reads the parent's dependency properties on the
+        /// parent's OWN thread (sync if already there, else a non-blocking BeginInvoke), so it is safe to
+        /// call from the avatar thread.</summary>
+        internal void CaptureParentGeom()
+        {
+            var pd = _parentWindow?.Dispatcher;
+            if (pd == null || pd.HasShutdownStarted) return;
+            if (!pd.CheckAccess()) { pd.BeginInvoke(new Action(CaptureParentGeom)); return; }
+            try
+            {
+                _parentGeom = new ParentGeom(_parentWindow.Left, _parentWindow.Top,
+                    _parentWindow.ActualWidth, _parentWindow.ActualHeight,
+                    _parentWindow.WindowState == WindowState.Minimized);
+            }
+            catch { /* window may be closing */ }
+        }
+
         public AvatarTubeWindow(Window parentWindow)
         {
             InitializeComponent();

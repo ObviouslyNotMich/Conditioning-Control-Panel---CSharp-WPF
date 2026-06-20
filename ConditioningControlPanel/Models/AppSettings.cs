@@ -2161,6 +2161,18 @@ namespace ConditioningControlPanel.Models
             get => _chaosBubbleSharedHost;
             set { _chaosBubbleSharedHost = value; OnPropertyChanged(); }
         }
+        private bool _avatarOwnThread;
+        /// <summary>EXPERIMENTAL A/B (default OFF): run the AI companion (AvatarTubeWindow) on its OWN
+        /// dedicated UI thread + Dispatcher instead of sharing the main thread. Its float/breathing/
+        /// typewriter/pose timers then can't be queued behind chaos's UI work, so the companion keeps
+        /// animating + typing while a chaos run is busy (the "avatar stutters during chaos" symptom).
+        /// Caveat: WPF's render thread is still process-wide, so it's smoother, not perfectly immune.
+        /// Falls back to the proven same-thread path when off. Needs an attached-mode play-test.</summary>
+        public bool AvatarOwnThread
+        {
+            get => _avatarOwnThread;
+            set { _avatarOwnThread = value; OnPropertyChanged(); }
+        }
         private bool _chaosMemTelemetry = true;
         /// <summary>Diagnostic: write a [CHAOSMEM] working-set / native-memory sample to the app log
         /// every ~15s during a run (plus run-start/run-end). Pairs with the dirty-shutdown sentinel to
