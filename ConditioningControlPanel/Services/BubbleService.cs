@@ -98,6 +98,10 @@ public class BubbleService : IDisposable
     // snapshot of chaos bubble centres (physical px), rebuilt each anim tick on the UI thread.
     // Reference assignment is atomic; the hook must never touch the live bubble list.
     internal static Point[] ChaosBubbleCentersSnapshot = Array.Empty<Point>();
+    /// <summary>Shared-host mode: live clickable bubble hit discs (physical px, centre+radius) for the
+    /// mouse-hook left-click swallow decision (off-thread; immutable snapshot rebuilt each tick).</summary>
+    internal static (double X, double Y, double R, bool Hold)[] ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
+    private bool _sharedHost;   // AppSettings.ChaosBubbleSharedHost, latched for the run
     // Electrified Rabbits (Spanker + E-Stim duo): spank victims discharge free arcs. Sampled per tick.
     internal static bool ChaosElectrifiedNow;
     // VibePopping active skill: while the buzz is on and the mouse button is HELD, the cursor pops
@@ -455,8 +459,57 @@ public class BubbleService : IDisposable
             foreach (var b in _bubbles)
                 if (b.IsAlive && b.Spec != null) centers.Add(b.CenterPx);
             ChaosBubbleCentersSnapshot = centers.ToArray();
+
+            // Shared-host pop targets: hit discs (physical px) for the mouse-hook swallow decision.
+            if (_sharedHost)
+            {
+                var discs = new List<(double, double, double, bool)>(_bubbles.Count);
+                foreach (var b in _bubbles)
+                    if (b.HostHitClickable) { var d = b.HitDiscPx; discs.Add((d.X, d.Y, d.R, b.NeedsHoldDefuse)); }
+                ChaosClickDiscsSnapshot = discs.ToArray();
+            }
         }
-        else if (ChaosBubbleCentersSnapshot.Length > 0) ChaosBubbleCentersSnapshot = Array.Empty<Point>();
+        else
+        {
+            if (ChaosBubbleCentersSnapshot.Length > 0) ChaosBubbleCentersSnapshot = Array.Empty<Point>();
+            if (ChaosClickDiscsSnapshot.Length > 0) ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
+        }
+    }
+
+    /// <summary>HOOK THREAD: a left-click landed at this physical-px point. If it's inside a live
+    /// clickable bubble's hit disc, swallow it (so the click-through host doesn't also pass the click
+    /// to whatever sits behind it) and marshal the real pop to the UI thread. A miss passes through.
+    /// Touches only the immutable disc snapshot — never a WPF dependency property. Mirrors the Ripple's
+    /// OnRippleRightDown contract.</summary>
+    public bool OnSharedHostLeftDown(Point px)
+    {
+        if (!_chaosActive || !_sharedHost) return false;
+        var discs = ChaosClickDiscsSnapshot;
+        bool hit = false, needsHold = false;
+        foreach (var d in discs)
+        {
+            double dx = d.X - px.X, dy = d.Y - px.Y;
+            if (dx * dx + dy * dy <= d.R * d.R) { hit = true; needsHold = d.Hold; break; }
+        }
+        if (!hit) return false;
+        var disp = Application.Current?.Dispatcher;
+        if (disp == null || disp.HasShutdownStarted) return false;
+        disp.BeginInvoke(new Action(() => PopTopmostAt(px)));
+        // Live hold-to-defuse bubbles must NOT swallow: the channel reads the held button via
+        // GetAsyncKeyState, which never sees a swallowed low-level click (→ instant detonate). Let the
+        // click pass through for those; instant-pop bubbles swallow cleanly (one click, no desktop leak).
+        return !needsHold;
+    }
+
+    /// <summary>UI THREAD: pop the front-most live clickable bubble under a physical-px point (last
+    /// spawned = drawn on top = checked first). Routes through OnPlayerPress like a real click.</summary>
+    private void PopTopmostAt(Point px)
+    {
+        for (int i = _bubbles.Count - 1; i >= 0; i--)
+        {
+            var b = _bubbles[i];
+            if (b.HostHitClickable && b.ContainsPx(px)) { b.HostHookPop(); return; }
+        }
     }
 
     public void Stop()
@@ -750,6 +803,10 @@ public class BubbleService : IDisposable
         VibeHoverPops = false;
         VibeMouseHeld = false;
         _chaosActive = true;
+        // Latch the shared-host A/B for the whole run and stand the host window up before the first
+        // bubble spawns (it must exist for Bubble's spawn block to Add() the grid).
+        _sharedHost = App.Settings?.Current?.ChaosBubbleSharedHost == true;
+        if (_sharedHost) ChaosBubbleHostOverlay.EnsureCreated();
         DispatcherHelper.RunOnUI(() =>
         {
             if (_bubbleImage == null) LoadBubbleImage();
@@ -1263,6 +1320,10 @@ public class BubbleService : IDisposable
     public void EndChaosMode()
     {
         _chaosActive = false;
+        // Tear down the shared host (idempotent; its Canvas is cleared on close). Per-bubble Destroy
+        // also removes each grid, but live bubbles may still be clearing — CloseActive covers both.
+        if (_sharedHost) { ChaosBubbleHostOverlay.CloseActive(); _sharedHost = false; }
+        ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
         _chaosFrozen = false;
         _freezeVibrateRemainingMs = 0;
         _chaosTimeScale = 1.0;
@@ -1605,6 +1666,14 @@ internal class Bubble
     private const int WINDOW_POOL_MAX = 64;
     private static readonly System.Collections.Generic.Stack<Window> _windowPool = new();
 
+    // Shared frozen near-invisible hit brush — identical on every bubble, so one frozen instance the
+    // render thread realizes once beats a fresh SolidColorBrush per spawn (alloc + per-instance realize).
+    private static readonly SolidColorBrush s_hitBrush = NewFrozenBrush(Color.FromArgb(1, 0, 0, 0));
+    private static SolidColorBrush NewFrozenBrush(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
+    // Per-screen DPI cache — GetDpiForScreen was a Win32 round-trip (MonitorFromPoint + GetDpiForMonitor)
+    // on every spawn; the value never changes for a given monitor during a run.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, double> s_dpiCache = new();
+
     /// <summary>A hidden, reset transparent window shell — recycled or freshly built. UI thread only.</summary>
     private static Window RentWindow()
     {
@@ -1650,7 +1719,9 @@ internal class Bubble
         }
     }
 
-    private readonly Window _window;
+    private readonly Window? _window;   // null in shared-host mode (the grid lives on ChaosBubbleHostOverlay)
+    private readonly bool _useHost;     // AppSettings.ChaosBubbleSharedHost && chaos bubble — see the spawn block
+    private readonly FrameworkElement _fxTarget;   // where glow/opacity apply: _window (per-window) or _grid (host)
     private double _winDim;   // the (quantized) square window side this bubble uses; held so AnimateFrame can re-centre without resizing the window (see spawn — resizing churns the layered DIB)
     private System.Windows.Input.MouseButtonEventHandler? _winClickHandler;   // removed on death so the pooled window never roots a dead bubble
     private readonly Random _random;
@@ -1913,6 +1984,29 @@ internal class Bubble
         return dx * dx + dy * dy;
     }
 
+    // ---- Shared-host pop hit-testing (mouse-hook path; see BubbleService.OnSharedHostLeftDown) ----
+
+    /// <summary>This bubble is currently a valid left-click pop target.</summary>
+    internal bool HostHitClickable => _isClickable && _isAlive && !_isDestroyed && !_isPopping;
+
+    /// <summary>This bubble defuses by a HELD press (the channel), not a single click — so the
+    /// shared-host hook must NOT swallow its click: the channel reads the held button via
+    /// GetAsyncKeyState, which a swallowed low-level click never registers (it would instantly
+    /// detonate). Mirrors the live-threat branch of OnPlayerPress (live, non-darter/freeze/tease/brittle).</summary>
+    internal bool NeedsHoldDefuse =>
+        _spec?.IsLive == true && !_isDarter && !_isFreeze && !_isTease && !_isBrittle;
+
+    /// <summary>Hit disc in PHYSICAL px (centre + radius) for the immutable hook-thread snapshot.</summary>
+    internal (double X, double Y, double R) HitDiscPx =>
+        ((_posX + _size / 2.0) * _dpiScale, (_posY + _size / 2.0) * _dpiScale, _hitSize / 2.0 * _dpiScale);
+
+    /// <summary>True if a PHYSICAL-px point lands inside this bubble's hitbox.</summary>
+    internal bool ContainsPx(Point px) => DistDipSqToPx(px.X, px.Y) <= (_hitSize / 2.0) * (_hitSize / 2.0);
+
+    /// <summary>Pop this bubble from a shared-host hook click (UI thread) — routes exactly like a
+    /// real press (tease/brittle/channel/benign all handled by OnPlayerPress).</summary>
+    internal void HostHookPop() => OnPlayerPress();
+
     /// <summary>The box grown by <paramref name="expand"/> about its centre — the reach of its pop burst.</summary>
     public Rect ChainReach(double expand)
     {
@@ -2165,7 +2259,7 @@ internal class Bubble
         {
             Width = _hitSize,
             Height = _hitSize,
-            Fill = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)), // Nearly invisible but captures hits on transparent windows
+            Fill = s_hitBrush, // shared frozen near-invisible brush (captures hits; identical every bubble)
             IsHitTestVisible = _isClickable,
             Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow
         };
@@ -2233,46 +2327,60 @@ internal class Bubble
         // (recycled hidden shell) rather than newly created — see RentWindow / the pool above.
         // Every per-bubble property below is (re)set on each reuse so a recycled shell carries
         // no state from its previous bubble.
-        _window = RentWindow();
-        // Size the window to a QUANTIZED bucket, not snug to the bubble, and only assign Width/Height
-        // when the pooled shell isn't already that size. Resizing an AllowsTransparency window
-        // reallocates its native layered DIB back-buffer (a GDI object) every time; per-spawn resize
-        // of recycled windows was the chaos OOM — ~600 rooted GDI/DIB handles leaked per run, native
-        // working set climbing ~1GB/run while the managed heap stayed flat (a forced GC never freed
-        // them; confirmed via telemetry). Bucketing to 128px means consecutive bubbles on the same
-        // pooled shell reuse its existing surface (no realloc); the bubble centres inside.
+        // Shared-host A/B (chaos bubbles only): one Canvas host instead of a Window per bubble.
+        _useHost = spec != null && (App.Settings?.Current?.ChaosBubbleSharedHost ?? false);
+
+        // Quantized window side (per-window mode); also a harmless notional size in host mode.
         double winNeed = Math.Max(_size, _hitSize) + _winPad * 2;
         _winDim = Math.Ceiling(winNeed / 128.0) * 128.0;
-        if (_window.Width != _winDim) { _window.Width = _winDim; _window.Height = _winDim; }
-        // Null (not Transparent) background so the quantized margin around the centred _hitSize grid
-        // is NOT hit-testable — clicks there pass through; the click area stays exactly the grid.
-        _window.Background = null;
-        // Ambient pop-game bubbles always ride on top. Chaos bubbles (spec != null) follow the run's
-        // mode: Story stays topmost; a Free Desktop run keeps them OUT of the topmost band so the
-        // player can bring other windows forward. ReturnWindow resets this to true on recycle, so a
-        // Free-Desktop shell never leaks its non-topmost state to a later ambient bubble.
-        _window.Topmost = spec != null ? ChaosWindowZ.BornTopmost : true;
-        double winCx = _posX + _size / 2.0, winCy = _posY + _size / 2.0;
-        _window.Left = winCx - _winDim / 2.0;
-        _window.Top = winCy - _winDim / 2.0;
-        _window.Content = _grid;
-        _window.Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow;
-        _window.IsHitTestVisible = _isClickable;
-        // Blindfold dims per-frame in AnimateFrame — seed it here too, or the window's
-        // first frame flashes at full opacity before the first tick lands.
-        _window.Opacity = _baseOpacity;
-        _window.Effect = null;   // clear any glow left on a recycled shell (set again below if needed)
 
-        // Window click as final backup (only if clickable). Stored so Destroy() can detach it —
-        // a recycled pooled window must not keep a handler that roots this dead bubble.
-        if (_isClickable)
+        if (_useHost)
         {
-            _winClickHandler = (s, e) => OnPlayerPress();
-            _window.MouseLeftButtonDown += _winClickHandler;
+            // SHARED-HOST MODE: no per-bubble Window. The grid is a child of the one
+            // ChaosBubbleHostOverlay Canvas, repositioned each frame via Canvas.SetLeft/Top — no
+            // SetWindowPos storm, so click input never starves. The host is click-through; pops come
+            // from the global mouse hook (BubbleService.OnSharedHostLeftDown), so NO WPF click handlers.
+            _window = null;
+            _fxTarget = _grid;
+            _grid.Opacity = _baseOpacity;
+            _grid.Effect = null;
+            ChaosBubbleHostOverlay.Add(_grid);
+            ChaosBubbleHostOverlay.Place(_grid, _posX + _size / 2.0 - _hitSize / 2.0,
+                                                _posY + _size / 2.0 - _hitSize / 2.0);
+        }
+        else
+        {
+            // PER-WINDOW MODE (default): one pooled top-level layered Window per bubble. Quantize to a
+            // 128px bucket so a recycled shell reuses its DIB back-buffer (per-spawn resize of a layered
+            // window reallocs the native DIB — that was the chaos OOM; managed heap flat, GDI climbing).
+            _window = RentWindow();
+            if (_window.Width != _winDim) { _window.Width = _winDim; _window.Height = _winDim; }
+            // Null (not Transparent) background so the quantized margin around the centred grid is NOT
+            // hit-testable — clicks there pass through; the click area stays exactly the grid.
+            _window.Background = null;
+            // Ambient bubbles always topmost; chaos bubbles follow the run mode (Free Desktop keeps them
+            // out of the topmost band). ReturnWindow resets this to true so a shell never leaks state.
+            _window.Topmost = spec != null ? ChaosWindowZ.BornTopmost : true;
+            _window.Left = _posX + _size / 2.0 - _winDim / 2.0;
+            _window.Top = _posY + _size / 2.0 - _winDim / 2.0;
+            _window.Content = _grid;
+            _window.Cursor = _isClickable ? Cursors.Hand : Cursors.Arrow;
+            _window.IsHitTestVisible = _isClickable;
+            _window.Opacity = _baseOpacity;   // Blindfold dims per-frame; seed so frame 1 isn't full-bright
+            _window.Effect = null;
+            _fxTarget = _window;
+
+            // Window click as final backup (only if clickable). Stored so Destroy() can detach it —
+            // a recycled pooled window must not keep a handler that roots this dead bubble.
+            if (_isClickable)
+            {
+                _winClickHandler = (s, e) => OnPlayerPress();
+                _window.MouseLeftButtonDown += _winClickHandler;
+            }
         }
 
-        // Tunnel Vision capstone: spotlight rabbits glow gold (skipped on the Performance tier,
-        // radius capped otherwise — same gating as lucky-pop glow).
+        // Tunnel Vision capstone: spotlight rabbits glow gold. Window-level per-window, grid-level on the
+        // shared host — _fxTarget abstracts the two. Skipped on the Performance tier; radius capped.
         if (spec?.Spotlight == true)
         {
             var glowTier = PerformanceProfile.CurrentTier;
@@ -2280,7 +2388,7 @@ internal class Bubble
             {
                 try
                 {
-                    _window.Effect = new DropShadowEffect
+                    _fxTarget.Effect = new DropShadowEffect
                     {
                         Color = Color.FromRgb(0xFF, 0xD7, 0x00),
                         BlurRadius = Math.Min(40, PerformanceProfile.MaxGlowBlurRadius(glowTier)),
@@ -2292,9 +2400,8 @@ internal class Bubble
             }
         }
 
-        // GG make more GG: sweeper rabbits are born spanked — ally-AMBER glow (matches their
-        // amber sprite, distinct from the catchable pink rabbit), body mows bubbles from the
-        // first frame, and they can never be caught (clicks re-smack them).
+        // GG make more GG: sweeper rabbits are born spanked — ally-AMBER glow on the sprite itself
+        // (so it works identically in both modes), body mows bubbles, never catchable.
         if (spec?.IsSweeper == true)
         {
             _isSpanked = true;
@@ -2302,28 +2409,25 @@ internal class Bubble
             try { _bubbleImage.Effect = new DropShadowEffect { Color = Color.FromRgb(0xFF, 0x8A, 0x14), BlurRadius = 36, ShadowDepth = 0, Opacity = 1.0 }; } catch { }
         }
 
-        // Show window. A recycled pooled shell can still be parked on the monitor its PREVIOUS bubble
-        // lived on (the pool is shared with dual-monitor ambient bubbles). On Show, WPF can composite
-        // one frame at that stale spot before it re-evaluates Left/Top under the target monitor's DPI
-        // — the "chaos bubbles flash on my second screen first" report. For chaos bubbles (which must
-        // stay on the HUD/primary screen), reveal at zero opacity, pin the native window to the intended
-        // screen in PHYSICAL pixels, then restore opacity, so the first visible frame is already on the
-        // right monitor. Ambient bubbles keep their original show path untouched.
-        if (_spec != null)
+        // Show + alt-tab hide (per-window mode only — the host is already shown). A recycled shell can be
+        // parked on its previous monitor; reveal chaos bubbles at zero opacity, pin to the target screen
+        // in physical px, then restore opacity, so the first visible frame is on the right monitor.
+        if (!_useHost)
         {
-            double revealOpacity = _window.Opacity;
-            _window.Opacity = 0;
-            _window.Show();
-            PinWindowToTargetScreen();
-            _window.Opacity = revealOpacity;
+            if (_spec != null)
+            {
+                double revealOpacity = _window!.Opacity;
+                _window.Opacity = 0;
+                _window.Show();
+                PinWindowToTargetScreen();
+                _window.Opacity = revealOpacity;
+            }
+            else
+            {
+                _window!.Show();
+            }
+            HideFromAltTab();
         }
-        else
-        {
-            _window.Show();
-        }
-
-        // Hide from Alt+Tab
-        HideFromAltTab();
 
         // Note: Animation is now driven by shared timer in BubbleService.AnimateAllBubbles()
     }
@@ -2892,10 +2996,19 @@ internal class Bubble
                     opacity *= 0.85 + 0.13 * Math.Sin(_shimmerPhase);
                 }
             }
-            _window.Opacity = opacity;
-            // Keep the fixed-size window centred on the bubble (window side = _winDim, not _size+pad).
-            _window.Left = _posX + _size / 2.0 - _winDim / 2.0 + jx;
-            _window.Top = _posY + _size / 2.0 - _winDim / 2.0 + jy;
+            _fxTarget.Opacity = opacity;
+            if (_useHost)
+            {
+                // Cheap Canvas reposition — no SetWindowPos. Grid (_hitSize) centred on the bubble.
+                ChaosBubbleHostOverlay.Place(_grid, _posX + _size / 2.0 - _hitSize / 2.0 + jx,
+                                                    _posY + _size / 2.0 - _hitSize / 2.0 + jy);
+            }
+            else
+            {
+                // Keep the fixed-size window centred on the bubble (window side = _winDim, not _size+pad).
+                _window!.Left = _posX + _size / 2.0 - _winDim / 2.0 + jx;
+                _window.Top = _posY + _size / 2.0 - _winDim / 2.0 + jy;
+            }
         }
         catch (Exception ex)
         {
@@ -2915,7 +3028,7 @@ internal class Bubble
         {
             try
             {
-                _window.Effect = new DropShadowEffect
+                _fxTarget.Effect = new DropShadowEffect
                 {
                     Color = System.Windows.Media.Color.FromRgb(0xFF, 0xD7, 0x00),
                     BlurRadius = Math.Min(50, PerformanceProfile.MaxGlowBlurRadius(perfTier)),
@@ -3088,8 +3201,8 @@ internal class Bubble
         DefusedViaChannel = true;
         try
         {
-            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
-            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            BubbleService.ChaosLastPopXDip = _posX + _size / 2.0;
+            BubbleService.ChaosLastPopYDip = _posY + _size / 2.0;
             var popPx = CenterPx;
             BubbleService.ChaosLastPopXPx = popPx.X;
             BubbleService.ChaosLastPopYPx = popPx.Y;
@@ -3152,8 +3265,8 @@ internal class Bubble
             // on-screen centre in DIPs, read by ChaosModeService right after the callback.
             try
             {
-                BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
-                BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+                BubbleService.ChaosLastPopXDip = _posX + _size / 2.0;
+                BubbleService.ChaosLastPopYDip = _posY + _size / 2.0;
                 // Physical-px anchor too — droplet bursts / GG rabbits spawn AT the pop.
                 var popPx = CenterPx;
                 BubbleService.ChaosLastPopXPx = popPx.X;
@@ -3265,8 +3378,8 @@ internal class Bubble
         _isPopping = true;
         try
         {
-            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
-            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            BubbleService.ChaosLastPopXDip = _posX + _size / 2.0;
+            BubbleService.ChaosLastPopYDip = _posY + _size / 2.0;
             var px = CenterPx;
             BubbleService.ChaosLastPopXPx = px.X;
             BubbleService.ChaosLastPopYPx = px.Y;
@@ -3287,8 +3400,8 @@ internal class Bubble
         _isPopping = true;
         try
         {
-            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
-            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            BubbleService.ChaosLastPopXDip = _posX + _size / 2.0;
+            BubbleService.ChaosLastPopYDip = _posY + _size / 2.0;
             var px = CenterPx;
             BubbleService.ChaosLastPopXPx = px.X;
             BubbleService.ChaosLastPopYPx = px.Y;
@@ -3355,8 +3468,8 @@ internal class Bubble
         // Anchor statics like Pop() does — Echo children and split FX spawn AT the detonation.
         try
         {
-            BubbleService.ChaosLastPopXDip = _window.Left + _window.Width / 2;
-            BubbleService.ChaosLastPopYDip = _window.Top + _window.Height / 2;
+            BubbleService.ChaosLastPopXDip = _posX + _size / 2.0;
+            BubbleService.ChaosLastPopYDip = _posY + _size / 2.0;
             var detPx = CenterPx;
             BubbleService.ChaosLastPopXPx = detPx.X;
             BubbleService.ChaosLastPopYPx = detPx.Y;
@@ -3388,8 +3501,8 @@ internal class Bubble
         if (_spec == null || string.IsNullOrEmpty(word)) return;
         try
         {
-            double cx = _window.Left + _window.Width / 2;
-            double cy = _window.Top + _window.Height / 2;
+            double cx = _posX + _size / 2.0;
+            double cy = _posY + _size / 2.0;
             ChaosPopText.Show(cx, cy + yOffsetDip, word, color);
         }
         catch { }
@@ -3867,9 +3980,17 @@ internal class Bubble
         }
         catch { }
 
-        // Recycle the window shell instead of closing it (no per-bubble HWND churn → no
-        // finalizer-queue flood → bounded native memory). ReturnWindow hides + resets it.
-        ReturnWindow(_window);
+        if (_useHost)
+        {
+            // Host mode: pull the grid off the shared Canvas — there's no per-bubble window to recycle.
+            try { ChaosBubbleHostOverlay.Remove(_grid); } catch { }
+        }
+        else
+        {
+            // Recycle the window shell instead of closing it (no per-bubble HWND churn → no
+            // finalizer-queue flood → bounded native memory). ReturnWindow hides + resets it.
+            ReturnWindow(_window);
+        }
 
         // Notify service to remove from list (after animation completed)
         try { _onDestroy?.Invoke(this); } catch { }
@@ -3919,6 +4040,16 @@ internal class Bubble
 
     internal static double GetDpiForScreen(System.Windows.Forms.Screen screen)
     {
+        // Cached per monitor — the value is fixed for a run, and this ran a Win32 round-trip per spawn.
+        var key = screen.DeviceName ?? "primary";
+        if (s_dpiCache.TryGetValue(key, out var cached)) return cached;
+        double dpi = GetDpiForScreenUncached(screen);
+        s_dpiCache[key] = dpi;
+        return dpi;
+    }
+
+    private static double GetDpiForScreenUncached(System.Windows.Forms.Screen screen)
+    {
         try
         {
             uint dpiX = 96, dpiY = 96;
@@ -3959,6 +4090,8 @@ internal class Bubble
     /// live windows beneath it for the rest of the burst/deflate/dissolve animation.</summary>
     private void MakeCorpseClickThrough()
     {
+        if (_window == null) return;   // host mode: no per-bubble window; the hook snapshot already
+                                       // excludes dying bubbles, so a corpse never intercepts a pop.
         try
         {
             var hwnd = new System.Windows.Interop.WindowInteropHelper(_window).Handle;

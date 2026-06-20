@@ -2149,6 +2149,29 @@ namespace ConditioningControlPanel.Models
             get => _chaosSkiaFxEnabled;
             set { _chaosSkiaFxEnabled = value; OnPropertyChanged(); }
         }
+        private bool _chaosBubbleSharedHost;
+        /// <summary>EXPERIMENTAL A/B (default OFF): render all chaos bubbles as visuals on ONE shared
+        /// click-through host window (Canvas-positioned) instead of one top-level layered Window per
+        /// bubble. The per-bubble-window model repositions every bubble via SetWindowPos each frame,
+        /// which saturates the UI thread and makes clicks register late under a dense field. With the
+        /// host on, pops are detected via the global mouse hook (swallow on hit) instead of WPF events,
+        /// so they're immune to that starvation. Falls back to the proven per-window path when off.</summary>
+        public bool ChaosBubbleSharedHost
+        {
+            get => _chaosBubbleSharedHost;
+            set { _chaosBubbleSharedHost = value; OnPropertyChanged(); }
+        }
+        private bool _chaosMemTelemetry = true;
+        /// <summary>Diagnostic: write a [CHAOSMEM] working-set / native-memory sample to the app log
+        /// every ~15s during a run (plus run-start/run-end). Pairs with the dirty-shutdown sentinel to
+        /// catch the random mid-play native crash on tester machines — the log tail shows whether native
+        /// memory climbed run-over-run (OOM) or stayed flat (an access violation, e.g. the Skia layer).
+        /// Default on while we hunt the crash; cheap (one line / 15s). Turn off once it's diagnosed.</summary>
+        public bool ChaosMemTelemetry
+        {
+            get => _chaosMemTelemetry;
+            set { _chaosMemTelemetry = value; OnPropertyChanged(); }
+        }
         private bool _chaosPinOnTop = true;
         /// <summary>Pin the whole Rabbit Hole layer (HUD/sidebar, bubbles, overlays) topmost so it
         /// stays above other apps and never sinks when you click another window. Off restores the

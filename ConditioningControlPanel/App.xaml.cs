@@ -920,6 +920,11 @@ namespace ConditioningControlPanel
             Logger.Information("Application starting v{Version} | workingSet {WS}MB",
                 Services.UpdateService.AppVersion, Environment.WorkingSet / (1024 * 1024));
 
+            // If a Rabbit Hole run was live when the process last died, the native vanish left nothing
+            // in crash.log — but the chaos sentinel file is still on disk. Report+consume it so the
+            // crash self-documents (with last-known context) in this session's log.
+            Services.Chaos.ChaosCrashSentinel.ConsumeAndReport(Logger);
+
             // Hang forensics: the recurring freezes are render-thread deadlocks (Application
             // Hang 1002, nothing in crash.log). The watchdog writes one minidump per session
             // to the logs folder when the dispatcher stops responding for 10s.
@@ -2659,6 +2664,10 @@ Application State:
         protected override void OnExit(ExitEventArgs e)
         {
             Logger?.Information("Application shutting down...");
+
+            // A clean shutdown — even mid-run — is NOT a crash. Clear the chaos sentinel so the next
+            // launch doesn't false-report it as an abnormal exit.
+            try { Services.Chaos.ChaosCrashSentinel.Clear(); } catch { }
 
             // Save settings FIRST (before cloud sync) to persist the user's current local state.
             // This prevents cloud sync from overwriting local values with stale data before save.

@@ -1537,6 +1537,7 @@ public partial class ChaosHubWindow : Window
         ChkFlashes.IsChecked = s.ChaosColorFlashesEnabled;
         ChkSkiaFx.IsChecked = s.ChaosSkiaFxEnabled;
         ChkPinTop.IsChecked = s.ChaosPinOnTop;
+        ChkSharedHost.IsChecked = s.ChaosBubbleSharedHost;
         SldEffect.Value = s.ChaosEffectIntensity;
         ChkBoonDraft.IsChecked = s.ChaosBoonDraftEnabled;
         ChkCurses.IsChecked = s.ChaosAllowCurses;
@@ -1635,6 +1636,7 @@ public partial class ChaosHubWindow : Window
         s.ChaosColorFlashesEnabled = ChkFlashes.IsChecked == true;
         s.ChaosSkiaFxEnabled = ChkSkiaFx.IsChecked == true;
         s.ChaosPinOnTop = ChkPinTop.IsChecked == true;
+        s.ChaosBubbleSharedHost = ChkSharedHost.IsChecked == true;
         s.ChaosEffectIntensity = SldEffect.Value;
         s.ChaosBoonDraftEnabled = ChkBoonDraft.IsChecked == true;
         s.ChaosAllowCurses = ChkCurses.IsChecked == true;
