@@ -45,8 +45,8 @@ Last updated: 2026-06-19
 | ProfileTabView | 🚧 | ❌ | ✅ | ✅ | ⚠️ | Minimal identity/logout card only; no avatar, stats, banner, badges, or gallery. |
 | HapticsTabView | 🚧 | ✅ | ✅ | ✅ | ⚠️ | Hero card, connection card, algorithm cards, premium gate added. Still missing some WPF polish (tooltip guide, per-feature two-column layout). |
 | AppInfoTabView | 🚧 | ❌ | ✅ | ✅ | ⚠️ | Standalone account/language/backup tab; drops version header, update-check, bug-report buttons. |
-| BlinkTrainerTabView | 🚧 | ❌ | ✅ | ✅ | ⚠️ | Missing hero banner, animated eye, stage frame, asset-pack cards, duration/opacity/mix-mode UI, consent card, premium gate. |
-| PatreonTabView | 🚧 | 🚧 | ✅ | ✅ | ⚠️ | Moved keyword triggers out, dropped support-development card; localization complete. |
+| BlinkTrainerTabView | 🚧 | ✅ | ✅ | ✅ | ✅ | Hero banner, blinking eye animation, stage frame, asset packs, session/webcam cards, premium gate added. Engine remains stubbed. |
+| PatreonTabView | 🚧 | ✅ | ✅ | ✅ | ✅ | Brand-colored account cards, tier badge visuals, support-development card, cloud backup/privacy sections added. |
 | DeeperHubTabView | 🚧 | ❌ | 🚧 | ✅ | ✅ | Flat cards; no hero images; localization complete. |
 | DeeperSubmissionsTabView | ⚠️ | ❌ | 🚧 | ✅ | ✅ | No standalone WPF XAML; logic lived in code-behind; localization complete. |
 | CompanionHubTabView | 🚧 | ❌ | 🚧 | ✅ | ✅ | Only avatar/hero slice of full Companion view; localization complete. |
@@ -54,9 +54,9 @@ Last updated: 2026-06-19
 | PresetIOTabView | 🚧 | ❌ | 🚧 | ✅ | ✅ | Reduced import/export slice; localization complete. |
 | LeaderboardTabView | 🚧 | ❌ | 🚧 | ✅ | ✅ | Flat list; missing gradients, badges; localization complete. |
 | LockdownTabView | 🚧 | 🚧 | ✅ | ✅ | ✅ | Card + gate layout but missing lockdown icon, pulse border, emoji-to-image header; localization complete. |
-| RemoteControlTabView | 🚧 | ❌ | ✅ | ✅ | ✅ | Missing hero banner, tier cards, QR code, opt-in tags, emote editor, privacy toggles, premium gate; localization complete. |
+| RemoteControlTabView | 🚧 | ✅ | ✅ | ✅ | ✅ | Hero banner, tier cards, opt-in tags, pairing panel (QR placeholder), emote picker, privacy toggles, premium gate added. QR generation still pending. |
 | AvailableSubjectsTabView | 🚧 | 🚧 | ✅ | ✅ | ✅ | Horizontal card list okay; header emoji is text glyph; all text comes from ViewModel bindings (localization complete). |
-| LabTabView | 🚧 | 🚧 | ✅ | ✅ | ✅ | Much simpler stack; missing hero banner, how-to-play, MIND/EYES zones, webcam bar, AI panel, wallpaper card, smokescreen; localization complete. |
+| LabTabView | 🚧 | ✅ | ✅ | ✅ | ✅ | Hero banner, how-to-play expander, MIND/EYES zones/cards, webcam engine bar, wallpaper card, smokescreen overlay added. Engines remain stubbed. |
 | AwarenessTabView | 🚧 | 🚧 | ✅ | ✅ | ✅ | Settings cards present; missing hero banner, live pulse feed, preset cards, safety section, color swatches, advanced link, premium gate; localization complete. |
 | BambiTakeoverTabView | 🚧 | 🚧 | ✅ | ✅ | ✅ | Missing description image, guide sidebar, start/stop button, gated overlay; localization complete. |
 | MarqueeTabView | ⚠️ | ❌ | ✅ | ✅ | ✅ | No legacy tab XAML; only debug panel in Avalonia; localization complete. |
@@ -251,32 +251,31 @@ Last updated: 2026-06-19
 
 ## Critical Gaps (Ranked)
 
-1. **FeatureSettingsPopup** — stub; missing the entire feature-settings editor (feature icon/name, event type, minute slider, dynamic settings panel, Done).
-2. **Secondary tab views** — rich images, premium gates, hero banners, and animations missing; localization is now complete.
-3. **Onboarding/privacy dialogs** — `WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, `SessionEditDialog` are mostly hard-coded English.
-4. **Webcam windows** — all hard-coded English; calibration pipeline stubbed.
-5. **Feature control engine wiring** — video, flash, bubbles, subliminal, bouncing text, lock card, etc. are XAML-ready but not connected to live services.
-6. **AvatarTube depth** — shell works; speech/chat/reactions/emotes/windowing behavior is mostly placeholder.
-7. **MainWindow chrome** — custom window chrome and resize grips are unfinished.
-8. **Cross-platform drag-drop** — not verified for session/preset import.
+1. **Feature control engine wiring** — video, flash, bubbles, subliminal, bouncing text, lock card, etc. are XAML-ready but not connected to live services.
+2. **Onboarding/privacy dialogs** — `WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, `SessionEditDialog` are mostly hard-coded English.
+3. **Webcam windows** — all hard-coded English; calibration pipeline stubbed.
+4. **AvatarTube depth** — shell works; speech/chat/reactions/emotes/windowing behavior is mostly placeholder.
+5. **MainWindow chrome** — custom window chrome and resize grips are unfinished.
+6. **Cross-platform drag-drop** — not verified for session/preset import.
+7. **QR code generation** — `RemoteControlTabView` uses a placeholder; real QR generation pending `QRCoder` or Skia generator decision.
+8. **Remaining secondary tabs** — `AchievementsTabView`, `ProfileTabView`, `AppInfoTabView`, `AvailableSubjectsTabView`, `CompanionHubTabView`, `DeeperHubTabView`, `PresetIOTabView`, `LeaderboardTabView`, `LockdownTabView`, `MarqueeTabView`, `AnimationsTabView`, `CatalogueSubmissionsTabView` still have the flat baseline layout; images/cards/gates not yet added.
 
 ---
 
 ## Recommended Next Sprints
 
-### Sprint A — Localization Blitz (highest ROI)
-- Localize all secondary tab views.
-- Localize `FeatureSettingsPopup`, `WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, `RoadmapStepPopup`, `SessionEditDialog`.
+### Sprint A — Localization Blitz (in progress)
+- Localize remaining onboarding/privacy dialogs: `WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, `RoadmapStepPopup`, `SessionEditDialog`.
 - Localize all webcam windows and popups (`AchievementPopup`, `AnnouncementPopup`, `PinkRushPopup`, `PopQuizWindow`, `QuestCompletePopup`, `SplashScreen`, `TutorialOverlay`).
 
-### Sprint B — FeatureSettingsPopup
-- Rebuild the popup to match WPF: feature icon/name header, event type selector, minute slider, dynamic settings panel, Done/Cancel/Delete buttons.
+### Sprint B — Secondary Tab View Richness (Haptics, RemoteControl, Patreon, BlinkTrainer, Lab complete)
+- Enrich remaining secondary tabs: `Achievements`, `Profile`, `AppInfo`, `AvailableSubjects`, `CompanionHub`, `DeeperHub`, `PresetIO`, `Leaderboard`, `Lockdown`, `Marquee`, `Animations`, `CatalogueSubmissions`.
 
-### Sprint C — Secondary Tab View Richness
-- Add hero images, tier cards, premium gates, and lock overlays to secondary tabs using `FeatureCard`/`ContentPackCard` patterns.
-
-### Sprint D — Feature Control Engine Wiring
+### Sprint C — Feature Control Engine Wiring
 - Connect `VideoFeatureControl`, `FlashFeatureControl`, `BubbleCountFeatureControl`, `SubliminalFeatureControl`, `BouncingTextFeatureControl`, `PinkFilterFeatureControl`, `BubblePopFeatureControl`, `LockCardFeatureControl` to their Core engine services via ViewModels.
+
+### Sprint D — QR Code Generation
+- Replace the `RemoteControlTabView` QR placeholder with real QR generation (`QRCoder` or Skia-based).
 
 ### Sprint E — AvatarTube Behavior
 - Restore speech phrase system, AI chat replies, Circe emote playback/scheduling, reactions, and windowing behavior.

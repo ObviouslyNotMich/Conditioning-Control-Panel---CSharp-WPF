@@ -9,184 +9,697 @@
     <vm:LabTabViewModel />
   </Design.DataContext>
 
-  <ScrollViewer>
-    <StackPanel Spacing="12" Margin="16">
-      <TextBlock Text="{loc:Str tab_lab_lab_text}"
-                 FontSize="20"
-                 FontWeight="Bold"
-                 Foreground="White" />
+  <Grid>
+    <ScrollViewer IsVisible="{Binding !IsBetaLocked}">
+      <StackPanel Spacing="16" Margin="16" MaxWidth="1000" HorizontalAlignment="Center">
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
-              BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="{loc:Str tab_lab_lockdown_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
-          <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding IsLockdownActive}">
-            <TextBlock Grid.Column="0"
-                       Text="{Binding LockdownTimerText}"
-                       FontSize="24"
-                       FontWeight="Bold"
-                       Foreground="#FF69B4"
-                       VerticalAlignment="Center"
-                       Margin="0,0,16,0" />
-            <Button Grid.Column="1"
-                    Content="{loc:Str tab_lab_click_timer_content}"
-                    Command="{Binding LockdownTimerClickCommand}"
-                    VerticalAlignment="Center"
-                    HorizontalAlignment="Left" />
-          </Grid>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <ComboBox ItemsSource="{Binding LockdownDurations}"
-                      SelectedItem="{Binding SelectedLockdownDuration, Mode=TwoWay}"
-                      Width="100" />
-            <Button Content="{loc:Str tab_lab_activate_lockdown_content}"
-                    Command="{Binding ActivateLockdownCommand}" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBox x:Name="ExitPhraseTextBox"
-                     PlaceholderText="{loc:Str tab_lab_exit_phrase_placeholder}"
-                     Width="200" />
-            <Button Content="{loc:Str tab_lab_attempt_exit_content}"
-                    Command="{Binding AttemptLockdownExitCommand}"
-                    CommandParameter="{Binding #ExitPhraseTextBox.Text}" />
-          </StackPanel>
-        </StackPanel>
-      </Border>
-
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
-              BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="{loc:Str tab_lab_pop_quiz_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
+        <!-- Hero banner: Down the Rabbit Hole -->
+        <Border CornerRadius="12" Padding="24" ClipToBounds="True">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Offset="0" Color="#FF301A32" />
+              <GradientStop Offset="0.6" Color="#FF1A1030" />
+              <GradientStop Offset="1" Color="#FF0F0A1E" />
+            </LinearGradientBrush>
+          </Border.Background>
           <Grid ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-              <TextBlock Text="{loc:Str tab_lab_enable_pop_quizzes_text}"
+            <StackPanel Grid.Column="0" Spacing="12" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="{loc:Str lab_hero_title}"
+                           FontSize="26"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           VerticalAlignment="Center" />
+                <Border Background="{DynamicResource TransparentPinkBrush}"
+                        BorderBrush="{DynamicResource PinkBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="5,2"
+                        VerticalAlignment="Center">
+                  <TextBlock Text="{loc:Str lab_hero_new}"
+                             FontSize="10"
+                             FontWeight="Bold"
+                             Foreground="{DynamicResource PinkBrush}" />
+                </Border>
+              </StackPanel>
+              <TextBlock Text="{loc:Str lab_hero_blurb}"
                          FontSize="13"
-                         FontWeight="SemiBold"
-                         Foreground="White" />
+                         Foreground="#CCCCCC"
+                         TextWrapping="Wrap"
+                         MaxWidth="560" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <RadioButton Content="{loc:Str lab_play_mode_free}"
+                             GroupName="PlayMode"
+                             IsChecked="{Binding PlayModeFreeDesktop, Mode=TwoWay}" />
+                <RadioButton Content="{loc:Str lab_play_mode_story}"
+                             GroupName="PlayMode"
+                             IsChecked="{Binding PlayModeStory, Mode=TwoWay}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="{loc:Str lab_fall_in}"
+                        Command="{Binding StartChaosCommand}"
+                        Theme="{StaticResource PinkButton}" />
+                <Button Content="{loc:Str lab_quick_drop}"
+                        Command="{Binding QuickStartChaosCommand}"
+                        Theme="{StaticResource OutlineButton}" />
+              </StackPanel>
+              <CheckBox Content="{loc:Str lab_announcements}"
+                        IsChecked="{Binding AnnouncementsEnabled, Mode=TwoWay}" />
             </StackPanel>
-            <ToggleSwitch Grid.Column="1"
-                          VerticalAlignment="Center"
-                          IsChecked="{Binding PopQuizEnabled, Mode=TwoWay}" />
           </Grid>
-          <StackPanel Spacing="6">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Text="{loc:Str tab_lab_frequency_text}"
-                         Foreground="White"
-                         FontSize="13"
-                         FontWeight="SemiBold" />
-              <TextBlock Grid.Column="1"
-                         Text="{Binding PopQuizFrequencyText}"
-                         Foreground="#FF69B4"
-                         FontSize="13"
-                         FontWeight="SemiBold" />
+        </Border>
+
+        <!-- Lockdown card (preserved existing controls) -->
+        <Border Background="{DynamicResource SurfaceBgBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="16">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{loc:Str tab_lab_lockdown_text}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding IsLockdownActive}">
+              <TextBlock Grid.Column="0"
+                         Text="{Binding LockdownTimerText}"
+                         FontSize="24"
+                         FontWeight="Bold"
+                         Foreground="{DynamicResource PinkBrush}"
+                         VerticalAlignment="Center"
+                         Margin="0,0,16,0" />
+              <Button Grid.Column="1"
+                      Content="{loc:Str tab_lab_click_timer_content}"
+                      Command="{Binding LockdownTimerClickCommand}"
+                      VerticalAlignment="Center"
+                      HorizontalAlignment="Left" />
             </Grid>
-            <Slider Minimum="1"
-                    Maximum="10"
-                    Value="{Binding PopQuizFrequency, Mode=TwoWay}"
-                    TickFrequency="1"
-                    IsSnapToTickEnabled="True" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="{loc:Str tab_lab_start_quiz_content}"
-                    Command="{Binding StartQuizCommand}" />
-            <Button Content="{loc:Str tab_lab_test_pop_quiz_content}"
-                    Command="{Binding TestPopQuizCommand}" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <CheckBox Content="{loc:Str tab_lab_fullscreen_content}"
-                      IsChecked="{Binding QuizFullscreen, Mode=TwoWay}" />
-            <CheckBox Content="{loc:Str tab_lab_drone_mode_content}"
-                      IsChecked="{Binding QuizDrone, Mode=TwoWay}" />
-          </StackPanel>
-        </StackPanel>
-      </Border>
-
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
-              BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="{loc:Str tab_lab_wallpaper_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
-          <Grid ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-              <TextBlock Text="{loc:Str tab_lab_override_wallpaper_text}"
-                         FontSize="13"
-                         FontWeight="SemiBold"
-                         Foreground="White" />
-              <TextBlock Text="{Binding CurrentWallpaper}"
-                         Foreground="#AAAAAA"
-                         FontSize="11" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ComboBox ItemsSource="{Binding LockdownDurations}"
+                        SelectedItem="{Binding SelectedLockdownDuration, Mode=TwoWay}"
+                        Width="100" />
+              <Button Content="{loc:Str tab_lab_activate_lockdown_content}"
+                      Command="{Binding ActivateLockdownCommand}" />
             </StackPanel>
-            <ToggleSwitch Grid.Column="1"
-                          VerticalAlignment="Center"
-                          IsChecked="{Binding WallpaperEnabled, Mode=TwoWay}" />
-          </Grid>
-          <Button Content="{loc:Str tab_lab_shuffle_wallpaper_content}"
-                  Command="{Binding ShuffleWallpaperCommand}"
-                  HorizontalAlignment="Left" />
-        </StackPanel>
-      </Border>
-
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
-              BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
-          <TextBlock Text="{loc:Str tab_lab_chaos_mode_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="{loc:Str tab_lab_start_chaos_content}"
-                    Command="{Binding StartChaosCommand}" />
-            <Button Content="{loc:Str tab_lab_quick_start_content}"
-                    Command="{Binding QuickStartChaosCommand}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBox x:Name="ExitPhraseTextBox"
+                       PlaceholderText="{loc:Str tab_lab_exit_phrase_placeholder}"
+                       Width="200" />
+              <Button Content="{loc:Str tab_lab_attempt_exit_content}"
+                      Command="{Binding AttemptLockdownExitCommand}"
+                      CommandParameter="{Binding #ExitPhraseTextBox.Text}" />
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
-      </Border>
+        </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
-              BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
-          <TextBlock Text="{loc:Str tab_lab_past_quizzes_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
-          <ListBox ItemsSource="{Binding PastQuizzes}"
-                   Background="Transparent">
-            <ListBox.ItemTemplate>
-              <DataTemplate DataType="vm:PastQuizViewModel">
-                <Grid ColumnDefinitions="*,Auto,Auto">
-                  <TextBlock Grid.Column="0" Text="{Binding Label}" />
-                  <TextBlock Grid.Column="1" Text="{Binding Category}" Margin="8,0" />
-                  <TextBlock Grid.Column="2" Text="{Binding Percent, StringFormat='{}{0}%'}">
-                  </TextBlock>
+        <!-- How-to-play Expander -->
+        <Expander HorizontalAlignment="Stretch">
+          <Expander.Header>
+            <StackPanel Spacing="2">
+              <TextBlock Text="{loc:Str lab_how_to_play_title}"
+                         FontSize="15"
+                         FontWeight="Bold"
+                         Foreground="White" />
+              <TextBlock Text="{loc:Str lab_how_to_play_subtitle}"
+                         FontSize="12"
+                         Foreground="#AAAAAA" />
+            </StackPanel>
+          </Expander.Header>
+          <StackPanel Spacing="14" Margin="0,12,0,0">
+            <TextBlock Text="{loc:Str lab_what_you_do}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <Grid ColumnDefinitions="Auto,*"
+                  RowDefinitions="Auto,Auto,Auto,Auto"
+                  RowSpacing="8"
+                  ColumnSpacing="10">
+              <TextBlock Grid.Row="0" Grid.Column="0"
+                         Text="🖱️" FontSize="18" VerticalAlignment="Center" />
+              <StackPanel Grid.Row="0" Grid.Column="1" Spacing="1">
+                <TextBlock Text="{loc:Str lab_verb_left_click_title}"
+                           FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="{loc:Str lab_verb_left_click_body}"
+                           FontSize="12" Opacity="0.8" />
+              </StackPanel>
+
+              <TextBlock Grid.Row="1" Grid.Column="0"
+                         Text="🫳" FontSize="18" VerticalAlignment="Center" />
+              <StackPanel Grid.Row="1" Grid.Column="1" Spacing="1">
+                <TextBlock Text="{loc:Str lab_verb_hold_title}"
+                           FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="{loc:Str lab_verb_hold_body}"
+                           FontSize="12" Opacity="0.8" />
+              </StackPanel>
+
+              <TextBlock Grid.Row="2" Grid.Column="0"
+                         Text="🖱️" FontSize="18" VerticalAlignment="Center" />
+              <StackPanel Grid.Row="2" Grid.Column="1" Spacing="1">
+                <TextBlock Text="{loc:Str lab_verb_right_click_title}"
+                           FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="{loc:Str lab_verb_right_click_body}"
+                           FontSize="12" Opacity="0.8" />
+              </StackPanel>
+
+              <TextBlock Grid.Row="3" Grid.Column="0"
+                         Text="🐰" FontSize="18" VerticalAlignment="Center" />
+              <StackPanel Grid.Row="3" Grid.Column="1" Spacing="1">
+                <TextBlock Text="{loc:Str lab_verb_rabbits_title}"
+                           FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="{loc:Str lab_verb_rabbits_body}"
+                           FontSize="12" Opacity="0.8" />
+              </StackPanel>
+            </Grid>
+
+            <TextBlock Text="{loc:Str lab_the_two_bars}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <Grid ColumnDefinitions="*,*">
+              <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,8,0">
+                <TextBlock Text="{loc:Str lab_focus_bar}"
+                           FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="{loc:Str lab_focus_bar_body}"
+                           FontSize="12" Opacity="0.8" TextWrapping="Wrap" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="2" Margin="8,0,0,0">
+                <TextBlock Text="{loc:Str lab_heat_bar}"
+                           FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="{loc:Str lab_heat_bar_body}"
+                           FontSize="12" Opacity="0.8" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+
+            <TextBlock Text="{loc:Str lab_a_descent_title}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <TextBlock Text="{loc:Str lab_a_descent_body}"
+                       Foreground="#CCCCCC"
+                       TextWrapping="Wrap" />
+
+            <TextBlock Text="{loc:Str lab_what_you_keep}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <TextBlock Text="{loc:Str lab_what_you_keep_body}"
+                       Foreground="#CCCCCC"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Expander>
+
+        <!-- MIND zone divider -->
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <TextBlock Grid.Column="0"
+                     Text="{loc:Str lab_zone_mind}"
+                     FontSize="12"
+                     FontWeight="Bold"
+                     Foreground="{DynamicResource PinkBrush}"
+                     VerticalAlignment="Center"
+                     Margin="0,0,10,0" />
+          <Border Grid.Column="1" Height="1" VerticalAlignment="Center">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Offset="0" Color="#FFFF69B4" />
+                <GradientStop Offset="1" Color="Transparent" />
+              </LinearGradientBrush>
+            </Border.Background>
+          </Border>
+        </Grid>
+
+        <!-- MIND cards -->
+        <Grid ColumnDefinitions="* *" ColumnSpacing="16">
+
+          <!-- Quiz Training card -->
+          <Border Grid.Column="0"
+                  Background="{DynamicResource SurfaceBgBrush}"
+                  BorderBrush="{DynamicResource PinkBrush}"
+                  BorderThickness="1"
+                  CornerRadius="12"
+                  ClipToBounds="True">
+            <StackPanel Spacing="0">
+              <Image Source="avares://CCP.Avalonia/Assets/features/lab_quiz_hero.png"
+                     Stretch="UniformToFill"
+                     MaxHeight="140" />
+              <StackPanel Spacing="12" Margin="16">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{loc:Str label_quiz_training}"
+                             FontSize="16"
+                             FontWeight="Bold"
+                             Foreground="White"
+                             VerticalAlignment="Center" />
+                  <Border Background="{DynamicResource TransparentPinkBrush}"
+                          BorderBrush="{DynamicResource PinkBrush}"
+                          BorderThickness="1"
+                          CornerRadius="4"
+                          Padding="5,2"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Str deeper_beta_badge}"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource PinkBrush}" />
+                  </Border>
+                </StackPanel>
+
+                <TextBlock Text="{loc:Str lab_quiz_training_description}"
+                           FontSize="12"
+                           Foreground="#CCCCCC"
+                           TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <CheckBox Content="{loc:Str tab_lab_fullscreen_content}"
+                            IsChecked="{Binding QuizFullscreen, Mode=TwoWay}" />
+                  <CheckBox Content="{loc:Str tab_lab_drone_mode_content}"
+                            IsChecked="{Binding QuizDrone, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="{loc:Str tab_lab_start_quiz_content}"
+                          Command="{Binding StartQuizCommand}"
+                          Theme="{StaticResource PinkButton}" />
+                  <Button Content="{loc:Str tab_lab_test_pop_quiz_content}"
+                          Command="{Binding TestPopQuizCommand}" />
+                </StackPanel>
+
+                <!-- Pop Quiz subsection -->
+                <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                        CornerRadius="8"
+                        Padding="12">
+                  <StackPanel Spacing="10">
+                    <TextBlock Text="{loc:Str lab_pop_quiz_subsection}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PinkBrush}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0"
+                                 Text="{loc:Str tab_lab_enable_pop_quizzes_text}"
+                                 VerticalAlignment="Center" />
+                      <ToggleSwitch Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    IsChecked="{Binding PopQuizEnabled, Mode=TwoWay}" />
+                    </Grid>
+                    <StackPanel Spacing="4">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{loc:Str tab_lab_frequency_text}"
+                                   Foreground="White"
+                                   FontSize="13"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding PopQuizFrequencyText}"
+                                   Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold" />
+                      </Grid>
+                      <Slider Minimum="1"
+                              Maximum="10"
+                              Value="{Binding PopQuizFrequency, Mode=TwoWay}"
+                              TickFrequency="1"
+                              IsSnapToTickEnabled="True" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <TextBlock Text="{loc:Str tab_lab_past_quizzes_text}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PinkBrush}" />
+                <ListBox ItemsSource="{Binding PastQuizzes}"
+                         Background="Transparent"
+                         MaxHeight="140">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate DataType="vm:PastQuizViewModel">
+                      <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding Label}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Category}" Margin="8,0" />
+                        <TextBlock Grid.Column="2" Text="{Binding Percent, StringFormat='{}{0}%'}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- AI Effects & Memory card -->
+          <Border Grid.Column="1"
+                  Background="{DynamicResource SurfaceBgBrush}"
+                  BorderBrush="{DynamicResource PinkBrush}"
+                  BorderThickness="1"
+                  CornerRadius="12"
+                  ClipToBounds="True">
+            <StackPanel Spacing="0">
+              <Image Source="avares://CCP.Avalonia/Assets/features/lab_aimemory_hero.png"
+                     Stretch="UniformToFill"
+                     MaxHeight="140" />
+              <StackPanel Spacing="12" Margin="16">
+                <TextBlock Text="{loc:Str lab_ai_effects_memory_title}"
+                           FontSize="16"
+                           FontWeight="Bold"
+                           Foreground="White" />
+
+                <Border Theme="{StaticResource PlatformInfoBadge}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{loc:Str lab_ai_effects_needs_local_title}"
+                               FontWeight="SemiBold"
+                               Foreground="White" />
+                    <TextBlock Text="{loc:Str lab_ai_effects_needs_local_body}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Opacity="0.9" />
+                  </StackPanel>
+                </Border>
+
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0"
+                             Text="{loc:Str lab_master_effect_toggle}"
+                             FontWeight="SemiBold"
+                             Foreground="White"
+                             VerticalAlignment="Center" />
+                  <ToggleSwitch Grid.Column="1"
+                                VerticalAlignment="Center"
+                                IsChecked="{Binding AiEffectsEnabled, Mode=TwoWay}" />
                 </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </StackPanel>
-      </Border>
-    </StackPanel>
-  </ScrollViewer>
 
+                <TextBlock Text="{loc:Str lab_effect_permissions}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PinkBrush}" />
+                <ItemsControl ItemsSource="{Binding EffectPermissions}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:LabEffectPermissionItem">
+                      <CheckBox Content="{Binding Label}"
+                                IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                Margin="0,4,12,4" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                        CornerRadius="8"
+                        Padding="12">
+                  <StackPanel Spacing="10">
+                    <TextBlock Text="{loc:Str lab_chat_memory}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PinkBrush}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0"
+                                 Text="{loc:Str lab_chat_memory_toggle}"
+                                 VerticalAlignment="Center" />
+                      <ToggleSwitch Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    IsChecked="{Binding AiMemoryEnabled, Mode=TwoWay}" />
+                    </Grid>
+                    <Button Content="{loc:Str btn_forget_everything}"
+                            Command="{Binding ForgetEverythingCommand}"
+                            Theme="{StaticResource OutlineButton}" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- EYES zone divider -->
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <TextBlock Grid.Column="0"
+                     Text="{loc:Str lab_zone_eyes}"
+                     FontSize="12"
+                     FontWeight="Bold"
+                     Foreground="{DynamicResource PinkBrush}"
+                     VerticalAlignment="Center"
+                     Margin="0,0,10,0" />
+          <Border Grid.Column="1" Height="1" VerticalAlignment="Center">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Offset="0" Color="#FFFF69B4" />
+                <GradientStop Offset="1" Color="Transparent" />
+              </LinearGradientBrush>
+            </Border.Background>
+          </Border>
+          <Button Grid.Column="2"
+                  Content="{loc:Str lab_go_to_blink_trainer}"
+                  Command="{Binding GoToBlinkTrainerCommand}"
+                  Theme="{StaticResource OutlineButton}"
+                  Padding="8,4"
+                  FontSize="11" />
+        </Grid>
+
+        <!-- Webcam engine bar -->
+        <Border Background="{DynamicResource SurfaceBgBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="14">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{loc:Str lab_webcam_engine_title}"
+                       FontSize="15"
+                       FontWeight="Bold"
+                       Foreground="White" />
+            <Grid ColumnDefinitions="*,*,Auto,Auto,Auto,Auto"
+                  ColumnSpacing="10">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{loc:Str lab_camera_device}"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White" />
+                <ComboBox ItemsSource="{Binding WebcamDevices}"
+                          SelectedItem="{Binding SelectedWebcamDevice, Mode=TwoWay}"
+                          DisplayMemberBinding="{Binding Name}"
+                          HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Text="{loc:Str webcam_monitor_label}"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White" />
+                <ComboBox ItemsSource="{Binding Monitors}"
+                          SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}"
+                          DisplayMemberBinding="{Binding Label}"
+                          HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <Button Grid.Column="2"
+                      Content="{loc:Str lab_refresh}"
+                      Command="{Binding RefreshDevicesCommand}"
+                      VerticalAlignment="Bottom" />
+              <Border Grid.Column="3"
+                      Background="{DynamicResource ElevatedSurfaceBrush}"
+                      CornerRadius="12"
+                      Padding="8,4"
+                      VerticalAlignment="Bottom">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Ellipse Width="8"
+                           Height="8"
+                           Fill="{Binding TrackerStatusColor}"
+                           VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding TrackerStatusText}"
+                             FontSize="12"
+                             VerticalAlignment="Center" />
+                </StackPanel>
+              </Border>
+              <Button Grid.Column="4"
+                      Content="{loc:Str lab_calibrate}"
+                      Command="{Binding CalibrateCommand}"
+                      VerticalAlignment="Bottom" />
+              <Button Grid.Column="5"
+                      Content="{Binding TrackerButtonText}"
+                      Command="{Binding StartTrackingCommand}"
+                      Theme="{StaticResource PinkButton}"
+                      VerticalAlignment="Bottom" />
+            </Grid>
+
+            <Expander HorizontalAlignment="Stretch">
+              <Expander.Header>
+                <TextBlock Text="{loc:Str lab_webcam_advanced}"
+                           FontWeight="SemiBold"
+                           Foreground="White" />
+              </Expander.Header>
+              <StackPanel Spacing="10" Margin="0,10,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="{loc:Str lab_tracker_test}"
+                          Command="{Binding TrackerTestCommand}" />
+                  <Button Content="{loc:Str lab_revoke_consent}"
+                          Command="{Binding RevokeConsentCommand}" />
+                  <ToggleButton Content="{loc:Str lab_debug_cursor}"
+                                IsChecked="{Binding DebugCursorEnabled, Mode=TwoWay}" />
+                </StackPanel>
+
+                <TextBlock Text="{loc:Str lab_counters}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PinkBrush}" />
+                <TextBlock Text="{Binding CountersText}"
+                           FontSize="12"
+                           Opacity="0.8" />
+
+                <TextBlock Text="{loc:Str lab_log}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PinkBrush}" />
+                <ListBox ItemsSource="{Binding DebugLog}"
+                         Background="Transparent"
+                         MaxHeight="120" />
+              </StackPanel>
+            </Expander>
+          </StackPanel>
+        </Border>
+
+        <!-- EYES cards -->
+        <Grid ColumnDefinitions="* *" ColumnSpacing="16">
+          <!-- Gaze Minigame -->
+          <Border Grid.Column="0"
+                  Background="{DynamicResource SurfaceBgBrush}"
+                  BorderBrush="{DynamicResource PinkBrush}"
+                  BorderThickness="1"
+                  CornerRadius="12"
+                  ClipToBounds="True">
+            <StackPanel Spacing="0">
+              <Image Source="avares://CCP.Avalonia/Assets/features/lab_gaze_hero.png"
+                     Stretch="UniformToFill"
+                     MaxHeight="140" />
+              <StackPanel Spacing="12" Margin="16">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="🎮" FontSize="22" VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Str lab_gaze_minigame_title}"
+                             FontSize="16"
+                             FontWeight="Bold"
+                             Foreground="White"
+                             VerticalAlignment="Center" />
+                  <Border Background="{DynamicResource TransparentPinkBrush}"
+                          BorderBrush="{DynamicResource PinkBrush}"
+                          BorderThickness="1"
+                          CornerRadius="4"
+                          Padding="5,2"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Str deeper_beta_badge}"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource PinkBrush}" />
+                  </Border>
+                </StackPanel>
+                <TextBlock Text="{loc:Str lab_gaze_minigame_description}"
+                           FontSize="12"
+                           Foreground="#CCCCCC"
+                           TextWrapping="Wrap" />
+                <Button Content="{loc:Str lab_open_minigame}"
+                        Command="{Binding OpenGazeMinigameCommand}"
+                        Theme="{StaticResource PinkButton}" />
+                <TextBlock Text="{loc:Str lab_gaze_minigame_hint}"
+                           FontSize="11"
+                           Foreground="#888888" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Focus Gaze -->
+          <Border Grid.Column="1"
+                  Background="{DynamicResource SurfaceBgBrush}"
+                  BorderBrush="{DynamicResource PinkBrush}"
+                  BorderThickness="1"
+                  CornerRadius="12"
+                  ClipToBounds="True">
+            <StackPanel Spacing="0">
+              <Image Source="avares://CCP.Avalonia/Assets/features/lab_focusgaze_hero.png"
+                     Stretch="UniformToFill"
+                     MaxHeight="140" />
+              <StackPanel Spacing="12" Margin="16">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="🎯" FontSize="22" VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Str lab_focus_gaze_title}"
+                             FontSize="16"
+                             FontWeight="Bold"
+                             Foreground="White"
+                             VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Text="{loc:Str lab_focus_gaze_description}"
+                           FontSize="12"
+                           Foreground="#CCCCCC"
+                           TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0"
+                             Text="{loc:Str btn_enable}"
+                             VerticalAlignment="Center" />
+                  <ToggleSwitch Grid.Column="1"
+                                VerticalAlignment="Center"
+                                IsChecked="{Binding FocusGazeEnabled, Mode=TwoWay}" />
+                </Grid>
+                <TextBlock Text="{Binding FocusGazeStatusText}"
+                           Foreground="{Binding FocusGazeStatusColor}"
+                           FontSize="13"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{loc:Str lab_focus_gaze_hint}"
+                           FontSize="11"
+                           Foreground="#888888" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- Wallpaper Override card -->
+        <Border CornerRadius="12" Padding="3" ClipToBounds="True">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Offset="0" Color="#FFFF69B4" />
+              <GradientStop Offset="1" Color="#FF9370DB" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Border Background="{DynamicResource SurfaceBgBrush}"
+                  CornerRadius="10"
+                  Padding="16">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="4">
+                  <TextBlock Text="{loc:Str tab_lab_wallpaper_text}"
+                             FontSize="15"
+                             FontWeight="Bold"
+                             Foreground="White" />
+                  <TextBlock Text="{Binding CurrentWallpaper}"
+                             FontSize="12"
+                             Opacity="0.8" />
+                </StackPanel>
+                <ToggleSwitch Grid.Column="1"
+                              VerticalAlignment="Center"
+                              IsChecked="{Binding WallpaperEnabled, Mode=TwoWay}" />
+              </Grid>
+              <Button Content="{loc:Str tab_lab_shuffle_wallpaper_content}"
+                      Command="{Binding ShuffleWallpaperCommand}"
+                      Theme="{StaticResource OutlineButton}"
+                      HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Smokescreen overlay -->
+    <Border IsVisible="{Binding IsBetaLocked}"
+            Background="#CC000000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+      <StackPanel Spacing="12"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
+        <TextBlock Text="🔒"
+                   FontSize="56"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="{loc:Str label_beta_testing}"
+                   FontSize="22"
+                   FontWeight="Bold"
+                   Foreground="White"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="{loc:Str label_these_experimental_features_are_currently_bei}"
+                   FontSize="13"
+                   Foreground="#CCCCCC"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   MaxWidth="420" />
+      </StackPanel>
+    </Border>
+  </Grid>
 </UserControl>

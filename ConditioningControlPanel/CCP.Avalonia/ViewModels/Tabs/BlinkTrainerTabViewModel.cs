@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
@@ -13,6 +14,10 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 /// gaze focus toggle, device/monitor selection, and the blink-to-recalibrate
 /// shortcut. Live Webcam/GazeFocus services are not abstracted in Core yet,
 /// so most commands are stubbed with logging and dialogs.
+///
+/// This VM also supports the richer secondary-tab shell: hero banner, stage,
+/// asset-packs list, session/webcam cards, and premium gating. No actual
+/// eye-tracking or session engine logic is implemented here.
 /// </summary>
 public partial class BlinkTrainerTabViewModel : TabItemViewModel
 {
@@ -25,6 +30,8 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         WebcamDevices = new ObservableCollection<WebcamDeviceOption>();
         Monitors = new ObservableCollection<MonitorOption>();
         DebugLog = new ObservableCollection<string>();
+        AssetFolders = new ObservableCollection<AssetFolderItem>();
+        InitializeDefaults();
     }
 
     public BlinkTrainerTabViewModel(
@@ -38,17 +45,38 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         WebcamDevices = new ObservableCollection<WebcamDeviceOption>();
         Monitors = new ObservableCollection<MonitorOption>();
         DebugLog = new ObservableCollection<string>();
+        AssetFolders = new ObservableCollection<AssetFolderItem>();
+        InitializeDefaults();
         LoadFromSettings();
+    }
+
+    private void InitializeDefaults()
+    {
+        IsPremiumLocked = false;
+        IsSessionRunning = false;
+        SessionButtonText = Loc.Get("blink_trainer_start_session");
+        StatusText = Loc.Get("blink_trainer_status_ready");
+        StatusColor = new SolidColorBrush(Color.Parse("#FFFF69B4"));
+        PreviewLabel = Loc.Get("blink_trainer_preview_demo_label");
+        ConsentGranted = false;
+        ConsentStatusText = Loc.Get("blink_trainer_consent_required");
+        CalibrationStatusText = Loc.Get("blink_trainer_calibration_none");
+
+        // Placeholder folder so the asset-packs card is not empty at design time.
+        AssetFolders.Add(new AssetFolderItem("Default", Loc.Get("blink_trainer_folder_empty_or_invalid")));
     }
 
     [ObservableProperty]
     private bool _isTracking;
 
     [ObservableProperty]
-    private string _trackerButtonText = Loc.Get("blink_trainer_start_tracking");
+    private string _trackerButtonText = Loc.Get("blink_trainer_tracker_start");
 
     [ObservableProperty]
     private string _statusText = Loc.Get("blink_trainer_status_stopped");
+
+    [ObservableProperty]
+    private IBrush _statusColor = new SolidColorBrush(Color.Parse("#FFFF69B4"));
 
     [ObservableProperty]
     private string _counterText = Loc.Get("blink_trainer_counter_format");
@@ -82,6 +110,41 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
 
     [ObservableProperty]
     private ObservableCollection<string> _debugLog;
+
+    // Rich-shell properties
+
+    [ObservableProperty]
+    private bool _isPremiumLocked;
+
+    [ObservableProperty]
+    private bool _isSessionRunning;
+
+    [ObservableProperty]
+    private string _sessionButtonText = Loc.Get("blink_trainer_start_session");
+
+    [ObservableProperty]
+    private double _sessionDuration = 10;
+
+    [ObservableProperty]
+    private double _overlayOpacity = 0.7;
+
+    [ObservableProperty]
+    private bool _isMixMode;
+
+    [ObservableProperty]
+    private string _previewLabel = "";
+
+    [ObservableProperty]
+    private bool _consentGranted;
+
+    [ObservableProperty]
+    private string _consentStatusText = "";
+
+    [ObservableProperty]
+    private string _calibrationStatusText = "";
+
+    [ObservableProperty]
+    private ObservableCollection<AssetFolderItem> _assetFolders;
 
     partial void OnFocusGazeActiveChanged(bool value)
     {
@@ -125,14 +188,35 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         AppendLog(Loc.GetF("blink_trainer_log_monitor_set_fmt", value.Label));
     }
 
+    partial void OnIsSessionRunningChanged(bool value)
+    {
+        SessionButtonText = value ? Loc.Get("blink_trainer_stop_session") : Loc.Get("blink_trainer_start_session");
+        StatusText = value
+            ? Loc.GetF("blink_trainer_status_running", $"{SessionDuration:0} min")
+            : Loc.Get("blink_trainer_status_ready");
+        UpdateStatusColor();
+    }
+
+    partial void OnSessionDurationChanged(double value)
+    {
+        if (IsSessionRunning)
+            StatusText = Loc.GetF("blink_trainer_status_running", $"{value:0} min");
+    }
+
+    partial void OnConsentGrantedChanged(bool value)
+    {
+        ConsentStatusText = value ? Loc.Get("blink_trainer_consent_granted") : Loc.Get("blink_trainer_consent_required");
+    }
+
     [RelayCommand]
     private async Task ToggleTrackingAsync()
     {
         if (IsTracking)
         {
             IsTracking = false;
-            TrackerButtonText = Loc.Get("blink_trainer_start_tracking");
-            StatusText = Loc.Get("blink_trainer_status_stopped");
+            TrackerButtonText = Loc.Get("blink_trainer_tracker_start");
+            StatusText = Loc.Get("blink_trainer_status_ready");
+            UpdateStatusColor();
             AppendLog(Loc.Get("blink_trainer_log_stop_requested"));
         }
         else
@@ -143,10 +227,39 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
             if (!consent) return;
 
             IsTracking = true;
-            TrackerButtonText = Loc.Get("blink_trainer_stop_tracking");
+            TrackerButtonText = Loc.Get("blink_trainer_tracker_stop");
             StatusText = Loc.Get("blink_trainer_status_starting");
+            UpdateStatusColor();
             AppendLog(Loc.Get("blink_trainer_log_start_result"));
         }
+    }
+
+    [RelayCommand]
+    private void ToggleSession()
+    {
+        IsSessionRunning = !IsSessionRunning;
+        AppendLog(IsSessionRunning ? "Session started (visual shell only)." : "Session stopped.");
+    }
+
+    [RelayCommand]
+    private void AddFolder()
+    {
+        AppendLog("Add folder requested (visual shell only).");
+    }
+
+    [RelayCommand]
+    private void GrantConsent()
+    {
+        ConsentGranted = true;
+        AppendLog("Consent granted (visual shell only).");
+    }
+
+    [RelayCommand]
+    private async Task ShowHelpAsync()
+    {
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("blink_trainer_help_title"),
+            Loc.Get("blink_trainer_help_body")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
@@ -197,9 +310,11 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         if (!confirmed) return;
 
         IsTracking = false;
-        TrackerButtonText = Loc.Get("blink_trainer_start_tracking");
-        StatusText = Loc.Get("blink_trainer_status_stopped");
+        TrackerButtonText = Loc.Get("blink_trainer_tracker_start");
+        StatusText = Loc.Get("blink_trainer_status_ready");
+        ConsentGranted = false;
         DebugCursorEnabled = false;
+        UpdateStatusColor();
         AppendLog(Loc.Get("blink_trainer_log_consent_revoked"));
     }
 
@@ -242,6 +357,8 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         Monitors.Clear();
         Monitors.Add(new MonitorOption(s.WebcamCalibrationScreen, s.WebcamCalibrationScreen));
         SelectedMonitor = Monitors[0];
+
+        IsPremiumLocked = !(s.HasLinkedPatreon || s.HasLinkedDiscord);
     }
 
     private void Save()
@@ -256,7 +373,14 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         DebugLog.Add($"[{stamp}] {line}");
         while (DebugLog.Count > 12) DebugLog.RemoveAt(0);
     }
+
+    private void UpdateStatusColor()
+    {
+        var color = IsTracking || IsSessionRunning ? "#FF00C853" : "#FFFF69B4";
+        StatusColor = new SolidColorBrush(Color.Parse(color));
+    }
 }
 
 public sealed record WebcamDeviceOption(int Index, string Name);
 public sealed record MonitorOption(string DeviceName, string Label);
+public sealed record AssetFolderItem(string Name, string Status);

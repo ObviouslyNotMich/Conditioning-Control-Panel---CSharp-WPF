@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
              x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.RemoteControlTabView"
+             x:Name="Root"
              x:DataType="vm:RemoteControlTabViewModel"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              xmlns:features="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia">
@@ -12,7 +13,8 @@
 
   <Grid>
     <ScrollViewer IsVisible="{Binding !IsPremiumLocked}">
-      <StackPanel Spacing="14" Margin="16" MaxWidth="900" HorizontalAlignment="Stretch">
+      <Grid HorizontalAlignment="Stretch">
+        <StackPanel Spacing="14" Margin="16" MaxWidth="900" HorizontalAlignment="Center">
 
         <!-- Hero banner -->
         <Border CornerRadius="12"
@@ -301,8 +303,8 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate DataType="vm:RemoteControlTabViewModel+OptInTagItem">
                     <ToggleButton Content="{Binding Label}"
-                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                  Command="{Binding DataContext.ToggleTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                  IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                  Command="{Binding #Root.DataContext.ToggleTagCommand}"
                                   CommandParameter="{Binding}"
                                   Margin="0,0,8,8"
                                   Padding="10,5"
@@ -376,21 +378,13 @@
                          FontWeight="Bold" />
               <ListBox ItemsSource="{Binding CommandLog}"
                        Background="Transparent"
-                       MaxHeight="200">
-                <ListBox.Styles>
-                  <Style Selector="ListBox:empty">
-                    <Setter Property="Template">
-                      <ControlTemplate>
-                        <TextBlock Text="{loc:Str label_remote_no_commands}"
-                                   Foreground="{DynamicResource TextMutedBrush}"
-                                   FontSize="12"
-                                   FontStyle="Italic"
-                                   Margin="4" />
-                      </ControlTemplate>
-                    </Setter>
-                  </Style>
-                </ListBox.Styles>
-              </ListBox>
+                       MaxHeight="200"
+                       IsVisible="{Binding HasCommands}" />
+              <TextBlock Text="{loc:Str label_remote_no_commands}"
+                         Foreground="{DynamicResource TextMutedBrush}"
+                         FontSize="12"
+                         FontStyle="Italic"
+                         IsVisible="{Binding !HasCommands}" />
             </StackPanel>
           </StackPanel>
         </Border>
@@ -513,6 +507,7 @@
           </StackPanel>
         </Border>
       </StackPanel>
+      </Grid>
     </ScrollViewer>
 
     <!-- Premium gate overlay -->

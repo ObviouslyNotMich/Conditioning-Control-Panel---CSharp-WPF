@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using Avalonia;
@@ -71,6 +72,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
         SelectedTier = "light";
         SelectedTierIndex = 0;
         UpdateTierSelectionFlags();
+        CommandLog = new ObservableCollection<string>();
 
         OptInTags = new ObservableCollection<OptInTagItem>
         {
@@ -154,9 +156,11 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
 
     public string OptInStatusCharacterCount => $"{OptInStatusText?.Length ?? 0}/80";
 
+    public bool HasCommands => CommandLog.Count > 0;
+
     partial void OnSelectedTierChanged(string value)
     {
-        SelectedTierIndex = Tiers.IndexOf(value);
+        SelectedTierIndex = Array.IndexOf(Tiers.ToArray(), value);
         UpdateTierSelectionFlags();
 
         if (IsRemoteEnabled)
@@ -182,6 +186,14 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
         }
 
         OnPropertyChanged(nameof(OptInStatusCharacterCount));
+    }
+
+    partial void OnCommandLogChanged(ObservableCollection<string> value)
+    {
+        if (value != null)
+        {
+            value.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasCommands));
+        }
     }
 
     partial void OnIsRemoteEnabledChanged(bool value)

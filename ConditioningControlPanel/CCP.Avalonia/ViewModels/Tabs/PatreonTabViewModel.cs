@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -7,6 +8,7 @@ using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
+using Newtonsoft.Json;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -17,6 +19,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 public partial class PatreonTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
+    private readonly ISettingsBackupProvider? _backupProvider;
     private readonly IDialogService? _dialogService;
     private readonly IAppLogger? _logger;
     private readonly IEnumerable<IAuthProvider>? _authProviders;
@@ -29,13 +32,16 @@ public partial class PatreonTabViewModel : TabItemViewModel
         ISettingsService settingsService,
         IDialogService dialogService,
         IAppLogger logger,
-        IEnumerable<IAuthProvider> authProviders) : base("patreon", "Patreon", "⭐")
+        IEnumerable<IAuthProvider> authProviders,
+        ISettingsBackupProvider? backupProvider = null) : base("patreon", "Patreon", "⭐")
     {
         _settingsService = settingsService;
+        _backupProvider = backupProvider;
         _dialogService = dialogService;
         _logger = logger;
         _authProviders = authProviders;
         RefreshUi();
+        _ = RefreshBackupStatusAsync();
     }
 
     private IAuthProvider? GetProvider(string providerName)
@@ -222,6 +228,162 @@ public partial class PatreonTabViewModel : TabItemViewModel
 
     #endregion
 
+    #region Cloud Backup
+
+    [ObservableProperty]
+    private string _backupStatusText = Loc.Get("label_checking_backup_status");
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    [RelayCommand]
+    private async Task BackupNowAsync()
+    {
+        if (_backupProvider == null) return;
+
+        IsBusy = true;
+        try
+        {
+            await _backupProvider.BackupSettingsAsync();
+            await RefreshBackupStatusAsync();
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_backup_complete"),
+                Loc.Get("msg_settings_backed_up_to_cloud_successfully")) ?? Task.CompletedTask);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Manual settings backup failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_backup_failed"),
+                Loc.Get("msg_failed_to_backup_settings"),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RestoreFromCloudAsync()
+    {
+        if (_backupProvider == null) return;
+
+        var confirm = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_restore_settings_from_cloud"),
+            Loc.Get("msg_restore_settings_confirm")) ?? Task.FromResult(false));
+        if (!confirm) return;
+
+        IsBusy = true;
+        try
+        {
+            // The no-op provider has no data to restore; real providers would expose a restore method.
+            await _backupProvider.BackupSettingsAsync();
+            await RefreshBackupStatusAsync();
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_restore_failed"),
+                Loc.Get("msg_no_cloud_backup_found_or_restore_failed"),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Manual settings restore failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_restore_error"),
+                Loc.GetF("msg_restore_failed_0", ex.Message),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task RefreshBackupStatusAsync()
+    {
+        try
+        {
+            if (_backupProvider?.HasCloudIdentity != true)
+            {
+                BackupStatusText = Loc.Get("label_no_cloud_backup_found_back_up_your_settings_t");
+                return;
+            }
+
+            BackupStatusText = Loc.Get("label_cloud_backup_available");
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Failed to update backup status");
+            BackupStatusText = Loc.Get("label_could_not_check_backup_status");
+        }
+
+        await Task.CompletedTask;
+    }
+
+    #endregion
+
+    #region Data & Privacy
+
+    [RelayCommand]
+    private async Task ExportDataAsync()
+    {
+        if (_settingsService?.Current == null) return;
+
+        IsBusy = true;
+        try
+        {
+            var path = await (_dialogService?.ShowSaveFileDialogAsync(
+                Loc.Get("title_save_data_export"),
+                new[] { new FileFilter("JSON files", new[] { "json" }) },
+                $"my-data-export-{DateTime.Now:yyyy-MM-dd}.json") ?? Task.FromResult<string?>(null));
+
+            if (string.IsNullOrEmpty(path)) return;
+
+            var json = JsonConvert.SerializeObject(_settingsService.Current, Formatting.Indented);
+            await File.WriteAllTextAsync(path, json);
+
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_export_complete"),
+                Loc.GetF("msg_data_exported_to_0", path)) ?? Task.CompletedTask);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Data export failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_export_error"),
+                Loc.GetF("msg_export_failed_0", ex.Message),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenPrivacyPolicyAsync()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://cclabs.app/privacy-policy.html",
+                UseShellExecute = true
+            });
+            _logger?.Information("Opened privacy policy");
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Failed to open privacy policy");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                ex.Message,
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
+    }
+
+    #endregion
+
     #region Settings Toggles
 
     public bool DiscordShareAchievements
@@ -351,6 +513,18 @@ public partial class PatreonTabViewModel : TabItemViewModel
         _settingsService.Save();
         _logger?.Information("Online status visibility changed: {Value}", value);
         await Task.CompletedTask;
+    }
+
+    #endregion
+
+    #region Help
+
+    [RelayCommand]
+    private async Task ShowHelpAsync()
+    {
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("title_help"),
+            Loc.Get("patreon_help_body")) ?? Task.CompletedTask);
     }
 
     #endregion

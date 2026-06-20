@@ -27,6 +27,9 @@
     <AvaloniaResource Include="..\Resources\tube.png">
       <Link>Assets\tube.png</Link>
     </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\Patreon tier*.png">
+      <Link>Assets\patreon\%(Filename)%(Extension)</Link>
+    </AvaloniaResource>
   </ItemGroup>
 
   <ItemGroup>
