@@ -889,12 +889,18 @@ namespace ConditioningControlPanel
 
         private void MenuItemAttach_Click(object sender, RoutedEventArgs e)
         {
-            // Show and activate the parent window first
+            // Show and activate the parent window first. These touch the MAIN window's UI, so run
+            // them on the parent's own dispatcher (own-thread mode: the avatar lives on another thread).
             if (_parentWindow != null)
             {
-                _parentWindow.Show();
-                _parentWindow.WindowState = WindowState.Normal;
-                _parentWindow.Activate();
+                void ShowParent()
+                {
+                    _parentWindow.Show();
+                    _parentWindow.WindowState = WindowState.Normal;
+                    _parentWindow.Activate();
+                }
+                if (_parentWindow.Dispatcher.CheckAccess()) ShowParent();
+                else _parentWindow.Dispatcher.BeginInvoke(new Action(ShowParent));
             }
 
             Attach();
@@ -1262,6 +1268,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void UpdateQuickMenuState()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(UpdateQuickMenuState)); return; }
             // Talk to companion - mode-aware label
             var talkToLabel = App.Mods?.GetTalkToLabel() ?? Loc.Get("menu_talk_to_companion");
             var chatAvailable = App.Ai?.IsAvailable == true;
@@ -1362,6 +1369,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void SetMuteAvatar(bool isMuted)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => SetMuteAvatar(isMuted))); return; }
             _isMuted = isMuted;
             if (_isMuted)
             {

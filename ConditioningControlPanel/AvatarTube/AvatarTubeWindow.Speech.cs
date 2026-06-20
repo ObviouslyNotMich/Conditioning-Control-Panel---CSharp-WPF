@@ -1075,6 +1075,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void RestartIdleTimer()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(RestartIdleTimer)); return; }
             _idleTimer?.Stop();
             StartIdleTimer();
         }
@@ -1127,7 +1128,7 @@ namespace ConditioningControlPanel
                 System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
                 {
                     if (Application.Current?.Dispatcher?.HasShutdownStarted == true) return;
-                    Dispatcher.Invoke(() => OnTriggerTick(null, EventArgs.Empty));
+                    Dispatcher.BeginInvoke(new Action(() => OnTriggerTick(null, EventArgs.Empty)));   // async: avoid shutdown deadlock
                 });
             }));
         }
@@ -1144,6 +1145,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void RestartTriggerTimer()
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(RestartTriggerTimer)); return; }
             StopTriggerTimer();
             StartTriggerTimer();
         }
@@ -1220,7 +1222,7 @@ namespace ConditioningControlPanel
             Task.Delay(1000).ContinueWith(_ =>
             {
                 if (Application.Current?.Dispatcher?.HasShutdownStarted == true) return;
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(new Action(() =>   // async: avoid shutdown deadlock
                 {
                     try
                     {
@@ -1237,7 +1239,7 @@ namespace ConditioningControlPanel
                     {
                         App.Logger?.Warning("RandomBubble: Failed to spawn - {Error}", ex.Message);
                     }
-                });
+                }));
             });
         }
 
@@ -1361,7 +1363,11 @@ namespace ConditioningControlPanel
         }
 
         /// <summary>Stops any currently playing spoken line (kept for external callers).</summary>
-        public void StopVoiceLineAudio() => StopSpokenAudio();
+        public void StopVoiceLineAudio()
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(StopVoiceLineAudio)); return; }
+            StopSpokenAudio();
+        }
 
         /// <summary>
         /// The single companion-voice channel. Cuts off whatever is currently speaking, then plays

@@ -150,6 +150,7 @@ namespace ConditioningControlPanel
         /// </summary>
         public void UpdateAvatarForLevel(int newLevel)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => UpdateAvatarForLevel(newLevel))); return; }
             int newMaxSet = GetAvatarSetForLevel(newLevel);
 
             // Update max unlocked (user may have unlocked a new avatar)
@@ -504,7 +505,7 @@ namespace ConditioningControlPanel
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(RefreshCompanionDisplay);
+                Dispatcher.BeginInvoke(new Action(RefreshCompanionDisplay));   // async: a sync cross-thread Invoke can deadlock at shutdown
                 return;
             }
 
@@ -663,7 +664,7 @@ namespace ConditioningControlPanel
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(() => SwitchToCompanionAvatar(companionId));
+                Dispatcher.BeginInvoke(new Action(() => SwitchToCompanionAvatar(companionId)));   // async: avoid shutdown deadlock
                 return;
             }
 

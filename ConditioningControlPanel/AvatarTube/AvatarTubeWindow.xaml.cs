@@ -42,10 +42,23 @@ namespace ConditioningControlPanel
             else d.BeginInvoke(action, priority);
         }
 
+        // WPF Window.Show()/Close() are thread-affine and can't carry a self-marshal guard, so external
+        // (main-thread) callers go through these. No-op marshal when the avatar shares the main thread.
+        public void ShowSafe()
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(ShowSafe)); return; }
+            try { Show(); } catch (Exception ex) { App.Logger?.Debug("AvatarTube ShowSafe failed: {Error}", ex.Message); }
+        }
+        public void CloseSafe()
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(CloseSafe)); return; }
+            try { Close(); } catch (Exception ex) { App.Logger?.Debug("AvatarTube CloseSafe failed: {Error}", ex.Message); }
+        }
+
         // Immutable snapshot of the parent (main) window's geometry, written on the MAIN thread by the
         // parent-position handler and read on the AVATAR thread by UpdatePosition. An atomic reference
         // swap (volatile) — never read _parentWindow's dependency properties off its own thread.
-        private sealed record ParentGeom(double Left, double Top, double Width, double Height, bool Minimized);
+        private sealed record ParentGeom(double Left, double Top, double Width, double Height, bool Minimized, bool Visible);
         private volatile ParentGeom? _parentGeom;
         /// <summary>Refresh the cached parent geometry. Reads the parent's dependency properties on the
         /// parent's OWN thread (sync if already there, else a non-blocking BeginInvoke), so it is safe to
@@ -59,9 +72,37 @@ namespace ConditioningControlPanel
             {
                 _parentGeom = new ParentGeom(_parentWindow.Left, _parentWindow.Top,
                     _parentWindow.ActualWidth, _parentWindow.ActualHeight,
-                    _parentWindow.WindowState == WindowState.Minimized);
+                    _parentWindow.WindowState == WindowState.Minimized,
+                    _parentWindow.IsVisible);
+                // Seed the parent HWND here (on the parent's own thread) so BringAttachedPairToFront
+                // never has to touch WindowInteropHelper from the avatar thread.
+                if (_parentHandle == IntPtr.Zero)
+                {
+                    var h = new System.Windows.Interop.WindowInteropHelper(_parentWindow).Handle;
+                    if (h != IntPtr.Zero) _parentHandle = h;
+                }
             }
             catch { /* window may be closing */ }
+        }
+
+        /// <summary>Cache-based "parent is visible and not minimised" — safe to read on the avatar thread.
+        /// Seeds the cache on first use. Defaults to false until the first capture lands.</summary>
+        private bool ParentVisibleNotMinimized
+        {
+            get
+            {
+                var g = _parentGeom;
+                if (g == null)
+                {
+                    // Seed it. When the avatar shares the parent thread (flag off) this runs synchronously,
+                    // so re-read and return the real value — no one-call glitch vs. the old direct read.
+                    // On the avatar thread (flag on) the capture is async, so default to false this once.
+                    CaptureParentGeom();
+                    g = _parentGeom;
+                    if (g == null) return false;
+                }
+                return g.Visible && !g.Minimized;
+            }
         }
 
         public AvatarTubeWindow(Window parentWindow)
@@ -182,7 +223,7 @@ namespace ConditioningControlPanel
             {
                 App.Mods.ModChanged += (s, mod) =>
                 {
-                    if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => OnModChanged()); return; }
+                    if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnModChanged())); return; }
                     OnModChanged();
                 };
             }
@@ -323,17 +364,17 @@ namespace ConditioningControlPanel
 
             counter.WarningTriggered += state =>
             {
-                if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => OnWarningTriggered(state)); return; }
+                if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnWarningTriggered(state))); return; }
                 OnWarningTriggered(state);
             };
             counter.CooldownStarted += endsAt =>
             {
-                if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => OnCooldownStarted(endsAt)); return; }
+                if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnCooldownStarted(endsAt))); return; }
                 OnCooldownStarted(endsAt);
             };
             counter.CooldownEnded += () =>
             {
-                if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => OnCooldownEnded()); return; }
+                if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => OnCooldownEnded())); return; }
                 OnCooldownEnded();
             };
         }
@@ -483,7 +524,8 @@ namespace ConditioningControlPanel
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             _tubeHandle = new WindowInteropHelper(this).Handle;
-            _parentHandle = new WindowInteropHelper(_parentWindow).Handle;
+            // NOTE: _parentHandle is read on the PARENT thread inside HookParent() below — reading the
+            // parent window's handle here would VerifyAccess-throw when this Loaded runs on the avatar thread.
 
             // Once auto-sizing is turned off after first paint (OnFirstContentRendered), the window
             // no longer follows its content, so keep its size pinned to the explicitly-sized Viewbox.
@@ -507,10 +549,29 @@ namespace ConditioningControlPanel
             // behind main for noticeably longer than the 300ms tick. Reacting to the
             // parent's own WM_WINDOWPOSCHANGED lifts the tube back the instant main
             // moves up in z-order, with no polling gap.
-            if (_parentHandle != IntPtr.Zero)
+            // Read the parent handle + install the parent-message hook ON the parent's dispatcher:
+            // HwndSource is thread-affine, and reading the parent handle off its own thread VerifyAccess-
+            // throws. Use BeginInvoke (ASYNC) in own-thread mode so this Loaded callback never blocks on the
+            // main thread — during the own-thread bootstrap the main thread is blocked on the ready handshake
+            // waiting for us to finish showing, so a synchronous Invoke here would deadlock. Inline (sync)
+            // when the avatar shares the parent's thread (flag off) — identical to the original behaviour.
+            if (_parentWindow != null)
             {
-                _parentHwndSource = HwndSource.FromHwnd(_parentHandle);
-                _parentHwndSource?.AddHook(ParentWndProc);
+                void HookParent()
+                {
+                    try
+                    {
+                        _parentHandle = new WindowInteropHelper(_parentWindow).Handle;
+                        if (_parentHandle != IntPtr.Zero)
+                        {
+                            _parentHwndSource = HwndSource.FromHwnd(_parentHandle);
+                            _parentHwndSource?.AddHook(ParentWndProc);
+                        }
+                    }
+                    catch (Exception ex) { App.Logger?.Debug("AvatarTube parent hook install failed: {Error}", ex.Message); }
+                }
+                if (_parentWindow.Dispatcher.CheckAccess()) HookParent();
+                else _parentWindow.Dispatcher.BeginInvoke(new Action(HookParent));
             }
 
             // Hide from Alt+Tab by adding WS_EX_TOOLWINDOW style.
@@ -533,7 +594,7 @@ namespace ConditioningControlPanel
             // Defer position update to ensure layout is complete
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (_parentWindow.IsVisible && _parentWindow.WindowState != WindowState.Minimized)
+                if (ParentVisibleNotMinimized)
                 {
                     UpdatePosition();
                     StartFloatingAnimation();
@@ -557,11 +618,20 @@ namespace ConditioningControlPanel
             StartFullscreenDetection();
         }
 
-        public void StartPoseAnimation() => _poseTimer.Start();
-        public void StopPoseAnimation() => _poseTimer.Stop();
+        public void StartPoseAnimation()
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(StartPoseAnimation)); return; }
+            _poseTimer.Start();
+        }
+        public void StopPoseAnimation()
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(StopPoseAnimation)); return; }
+            _poseTimer.Stop();
+        }
 
         public void SetPose(int poseNumber)
         {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => SetPose(poseNumber))); return; }
             if (poseNumber < 1 || poseNumber > 4) return;
             if (_avatarPoses.Length == 0) return;
             _currentPoseIndex = poseNumber - 1;
