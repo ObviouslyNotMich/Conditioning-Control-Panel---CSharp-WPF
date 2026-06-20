@@ -10,7 +10,7 @@ This guide explains how to build and run the Avalonia cross-port of Conditioning
 
 **Not yet supported on Linux:**
 - Windows-only features: global low-level keyboard hooks, system-key suppression, desktop wallpaper override, GDI screen capture, WebView2 browser, NAudio/WASAPI ducking.
-- iOS/Android heads (require .NET mobile workloads).
+- Android head (requires the .NET Android workload).
 
 ## Prerequisites on the Linux VM
 

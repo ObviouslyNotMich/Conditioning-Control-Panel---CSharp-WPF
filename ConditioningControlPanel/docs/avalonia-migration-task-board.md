@@ -2,22 +2,62 @@
 
 Master task list derived from `docs/crossplatform-rebuild-plan.md` and the detailed breakdowns produced by planning sub-agents.
 
+> **Swarm execution:** this board is the live work queue for a multi-agent swarm. **Read
+> `docs/crossplatform-rebuild-plan.md` §20 (Multi-Agent Swarm Execution & Context Discipline) before
+> claiming or assigning anything.** Claim work via the **Active Claims Ledger** below — do **not** hand-edit
+> the same file as another agent, and never touch a §20.1 chokepoint from a porter lane (route those changes
+> through the Hand-off Queue to the orchestrator).
+
 ## Legend
 
-- `P0` — Blocker for other work
-- `P1` — High value / on the critical path
-- `P2` — Important but can be parallelized
-- `P3` — Polish / final parity
-- `🚧` — Partially done
-- `✅` — Done
+- **Priority:** `P0` blocker · `P1` critical path · `P2` parallelizable · `P3` polish/final parity.
+- **Status markers** (used in the ledger and, optionally, inline on a phase item):
+  - `⬜ todo` — unclaimed, available to pick up.
+  - `🚧 wip @agentN` — claimed / in progress by `agentN`.
+  - `🔵 review` — complete in a worktree, awaiting orchestrator integration.
+  - `✅ done` — merged and the integration build is green.
+  - `🚫 blocked` — see the ledger Notes column.
+
+---
+
+## Swarm Coordination
+
+> Single source of truth for *who is doing what right now*. Mirrors plan §20.4. Prefer **appending rows**
+> over editing scattered list items — appends rarely conflict; in-place edits across the board do.
+
+### Active Claims Ledger
+
+Append a row to **claim**; the orchestrator marks `✅ done` and removes the row after a clean integration build.
+
+| Lane (owned subtree) | Item | Owner | Status | Branch / worktree | Updated |
+|---|---|---|---|---|---|
+| _example: `CCP.Avalonia/Views/Tabs/AssetsTabView*` + VM_ | Port Assets tab | `@agent3` | `🚧 wip` | `wt/assets-tab` | 2026-06-21 |
+| _(add your row here)_ | | | `⬜ todo` | | |
+
+### Hand-off Queue (porter → orchestrator)
+
+When a lane reaches `🔵 review`, append an entry here. The orchestrator applies the chokepoint changes
+(DI, csproj assets, loc merge), merges, builds, then deletes the entry.
+
+- **`<item>`** — _files:_ `…`; _DI line to add:_ `services.AddTransient<XxxTabViewModel>();`; _new loc keys:_
+  added to `tools/new-localization-keys.json` (area `Xxx`); _parity notes:_ `…`
+
+### Claim protocol (mirror of plan §20.4)
+
+1. **Claim:** add your ledger row with `🚧 wip @agentN` and **commit that row first** (cheap "claim commit")
+   so concurrent agents see it. Don't start an item that already has a `🚧`/`🔵` row.
+2. **Work:** stay inside your lane's subtree (plan §20.1). If you need a chokepoint change, **do not edit it** —
+   write it into the Hand-off Queue.
+3. **Review → integrate:** set the row to `🔵 review`, fill the Hand-off Queue, hand the worktree to the
+   orchestrator. The orchestrator integrates, sets `✅ done`, and clears the row.
 
 ---
 
 ## Phase 0 — Cleanup (P0)
 
-1. Remove dead packages (`SharpDX.*`, `OpenAI-DotNet`, `OllamaSharp`) from WPF head.
+1. ✅ Remove dead packages (`SharpDX.*`, `OpenAI-DotNet`, `OllamaSharp`) — done; removed from all projects (0 references).
 2. Verify and remove unused `MahApps.Metro` / `IconPacks` references.
-3. Remove `Microsoft.WindowsAppSDK` exclusion hack from shared projects.
+3. ⚠️ **Corrected — do NOT remove `Microsoft.WindowsAppSDK`.** It is a required transitive of LibVLCSharp; pin it with `ExcludeAssets="all" PrivateAssets="all"` to avoid a WebView2 `NU1605` downgrade (see plan §5.1).
 4. Delete `CopyLibVLCAfterPublish` and `IncludeWebView2LoaderInPublish` from shared project; move to Windows head later.
 5. Add platform analyzers and remove `CA1416` `NoWarn` once cross-platform seams are in place.
 6. Document feature matrix (portable vs. Windows-only) in `docs/platform-feature-matrix.md`.

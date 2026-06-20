@@ -2,8 +2,6 @@
 
 **Goal:** Rebuild Conditioning Control Panel (CCP) for deployment on Windows, Linux, macOS, and Android using **Avalonia UI v12** and **LibVLCSharp**.
 
-> **iOS is out of scope.** Due to the app's 18+ adult content, distribution on the Apple App Store is not viable. The iOS head will not be built, published, or maintained.
-
 **Current state:** .NET 8 WPF/WinForms desktop app, Windows-only (`net8.0-windows10.0.19041.0`), single-file publish for `win-x64`.
 
 **Target state:** Multi-head Avalonia v12 solution with a shared .NET 8/10 Core, per-platform desktop and Android heads, and LibVLCSharp for cross-platform media.
@@ -25,6 +23,52 @@ The recommended strategy is **engine-first extraction**:
 **Biggest risks:** WPF/Win32 windowing (HWND, layered overlays, z-order), NAudio/WASAPI audio, WebView2 browser, global input hooks, DPAPI-encrypted secrets, GDI/desktop capture, and desktop wallpaper override.
 
 **Easiest wins:** LibVLCSharp core is already cross-platform; only the WPF `VideoView` binding must be replaced.
+
+---
+
+## 1A. Implementation Status Snapshot (2026-06-21)
+
+> This section is the **ground truth** for anyone (or any agent) picking up the work. The phase
+> roadmap in §8 was written before implementation started; the project is now much further along
+> than a linear reading of §8 implies. Update this snapshot whenever a phase materially changes.
+
+**Headline:** the architecture is fully stood up and the entire desktop solution builds with **0 errors**
+(`dotnet build CCP.Desktop.slnf` → 0 errors, ~291 warnings, mostly `CA1416` on the kept-alive WPF head).
+The dominant remaining cost is **UI parity** (Phase 4) plus media/mobile polish — not scaffolding.
+
+> **Execution model:** the remaining work is highly parallel and is meant to be run as a **multi-agent
+> swarm**. Before assigning or starting work, read **§20 — Multi-Agent Swarm Execution & Context Discipline**
+> for lane partitioning, the claim→work→integrate protocol, conflict-avoidance rules, and **when to compact
+> context**. The live work queue is `docs/avalonia-migration-task-board.md`; the current cross-merge backlog
+> is §19.3.
+
+| Phase | Status | Evidence / Notes |
+|---|---|---|
+| 0 — Cleanup | ✅ done | The 3 dead deps (`SharpDX`, `OpenAI-DotNet`, `OllamaSharp`) are removed from **all** projects (verified: 0 references); `NAudio`/`OpenCvSharp`/WebView2 are confined to the Windows head. The WPF head still carries the packages it genuinely needs to keep running (MahApps, XamlAnimatedGif, etc.) **by design**. |
+| 1 — Carve out `CCP.Core` | ✅ substantially done | 156 `.cs` files: 53 models, the full platform-seam interface set (26 interface files in `CCP.Core/Platform/`), plus services for Sessions, Moderation, Deeper, Bark, Chaos, AIService, Progression, Quests, Settings, Content, Commands. Core builds clean on `net8.0`. |
+| 2 — Prove Core off-Windows | 🚧 partial | CI (`.github/workflows/build.yml`) builds Core + heads on `ubuntu-latest`/`macos-latest` and runs `CCP.Core.Tests`. Needs ongoing "no Windows leaks" auditing as Core grows. |
+| 3 — Avalonia solution | ✅ done | All heads exist and build (see §3.1, **updated**). |
+| 4 — XAML/UI migration | 🚧 largest remaining effort | 149 `.axaml` + 279 `.cs` in `CCP.Avalonia`: Dialogs (67), Windows (59), Views/Tabs (58) + 33 tab ViewModels, Features (52), Chaos (46), AvatarTube (10), Converters/Controls. Remaining: full `MainWindow` parity smoke-test, leftover WPF-only dialogs/utility windows, accessibility labels, run the parity matrix. Tracked in `docs/avalonia-migration-task-board.md` and `docs/avalonia-ui-parity-matrix.md`. |
+| 5 — Media & audio | 🚧 partial | `AvaloniaVideoSurface`, `AvaloniaAudioPlayer`, `AvaloniaDualMonitorVideoService`, and `LibVLCNativeDiscovery` exist. Remaining: mobile `IVideoSurface`, ducking parity, GIF/SVG finalize. |
+| 6 — OS-shell features | ✅ structurally done | Per-head implementations exist for tray, hotkeys, input hook, wallpaper, browser host (WebView2 / WebKitGTK / WebKit), window chrome, frame source, audio device + ducker. Wired via `App.ConfigurePlatformServices` overrides per head. |
+| 7 — Build & publish | 🚧 desktop done | RIDs defined per head; CI publishes single-file desktop artifacts for win/linux/macOS. The Android job currently only `dotnet build`s the head — **AAB packaging is not yet wired**. Remaining: Android AAB publish, code signing/notarization, Android keystore. |
+| 8 — Mobile gating | 🚧 structural only | Android head builds; capability gating is in place via `IPlatformCapabilities` + `OperatingSystem.IsAndroid()` branch in DI. Remaining: mobile-first shell, touch UX, native camera. |
+
+**Replaced static service locator (was §15.1):** ✅ already implemented. `App.xaml.cs`'s **88** static
+service properties (in a 2,810-LOC file) are gone in the Avalonia heads — everything is `Microsoft.Extensions.DependencyInjection`
+in `CCP.Avalonia/ServiceCollectionExtensions.cs` with per-head overrides in
+`*/DesktopServiceCollectionExtensions.cs` and each head's `Program.cs` (`App.ConfigurePlatformServices`).
+
+**Deviations from the original plan — the plan body below has been corrected to match these:**
+
+1. **Desktop is four projects, not one** (see §3.1). A shared `CCP.Avalonia.Desktop` carries
+   cross-desktop logic and native LibVLC discovery; thin `.Windows`/`.Linux`/`.macOS` executable heads
+   own the `Program.cs` entry point and platform package references.
+2. **`Microsoft.WindowsAppSDK` is pinned, not removed** — it is dragged in transitively by
+   LibVLCSharp and must be pinned with `ExcludeAssets="all" PrivateAssets="all"` to avoid a WebView2
+   version-downgrade (`NU1605`) error. See §5.1 / §6 / Phase 0 (corrected).
+3. **Models are *copied* into Core, not referenced from a single source.** This is the biggest
+   ongoing maintenance hazard — see the new §19 *Mainline Sync & Dual-Maintenance*.
 
 ---
 
@@ -94,24 +138,42 @@ Every one of these must move behind a platform interface with Windows, Linux, ma
 ```
 ConditioningControlPanel/
 ├── CCP.Core/                       # net8.0 — engine, models, portable services
-├── CCP.Avalonia/                   # net8.0 — shared Avalonia UI, Views, ViewModels
-├── CCP.Avalonia.Desktop/           # net8.0 — desktop head (Win/Linux/Mac)
+├── CCP.Avalonia/                   # net8.0 — shared Avalonia UI, Views, ViewModels, platform seams
+├── CCP.Avalonia.Desktop/           # net8.0 — SHARED desktop logic (LibVLC discovery, DI, secret store)
+├── CCP.Avalonia.Desktop.Windows/   # net8.0-windows10.0.19041.0 — Windows head (WebView2, NAudio, Win32)
+├── CCP.Avalonia.Desktop.Linux/     # net8.0 — Linux head (system libvlc, WebKitGTK)
+├── CCP.Avalonia.Desktop.macOS/     # net8.0 — macOS head (VideoLAN.LibVLC.Mac, WKWebView)
 ├── CCP.Avalonia.Android/           # net10.0-android — Android head
-├── CCP.WindowsOnly/                # net8.0-windows — optional Windows-specific helpers
-└── ConditioningControlPanel.sln
+├── CCP.WindowsOnly/                # net8.0-windows — Windows-specific managed helpers (WPF/WinForms)
+├── tests/CCP.Core.Tests/           # net8.0 — headless Core unit tests
+├── ConditioningControlPanel.csproj # the original WPF app — kept runnable during migration
+├── ConditioningControlPanel.slnx   # full solution (all heads + WPF + tests)
+└── CCP.Desktop.slnf                # solution filter: desktop heads + Core + tests, excludes Android
 ```
 
-> **Note:** The Avalonia v12 Android head targets `net10.0-android`. Desktop heads can target `net8.0` or `net10.0`. iOS is excluded from this plan.
+> **Note (updated):** The single "`CCP.Avalonia.Desktop` (Win/Linux/Mac)" head from the original draft
+> was split into a **shared** `CCP.Avalonia.Desktop` library plus three thin executable heads
+> (`.Windows`, `.Linux`, `.macOS`). Rationale: only the Windows head can carry the
+> `net8.0-windows*` TFM and Win32/WebView2/NAudio references; keeping that out of the Linux/macOS heads
+> avoids polluting them with Windows-only assets. Each head's `Program.cs` sets
+> `App.ConfigurePlatformServices` to override the shared DI registrations with its native implementations.
+> The Avalonia v12 Android head targets `net10.0-android`; desktop heads target `net8.0` (Windows head
+> uses `net8.0-windows10.0.19041.0`).
+> Use `CCP.Desktop.slnf` for fast desktop-only builds (it excludes the Android head, which needs the
+> Android workload).
 
 ### 3.2 Project Responsibilities
 
 | Project | Responsibility |
 |---|---|
 | `CCP.Core` | Models, settings, session/gamification logic, AI/LLM orchestration, networking, mod/catalogue logic, JSON contracts, localization runtime. No UI framework references. |
-| `CCP.Avalonia` | `App.axaml`, `MainWindow.axaml`, Views, UserControls, ViewModels, converters, platform-agnostic styles. References `CCP.Core` and Avalonia packages. |
-| `CCP.Avalonia.Desktop` | Desktop `Program.cs`, tray icon wiring, desktop-specific service registration. |
-| `CCP.Avalonia.Android` | `MainActivity.cs`, Android lifecycle, native service implementations. |
-| `CCP.WindowsOnly` | Win32 P/Invoke helpers, WebView2 host, NAudio implementation, DWM chrome. Optional; only referenced by desktop Windows builds. |
+| `CCP.Avalonia` | `App.axaml`, Views, UserControls, ViewModels, converters, platform-agnostic styles, **and the Avalonia implementations of the platform seams** (`Platform/Avalonia*.cs`) plus shared DI (`ServiceCollectionExtensions.ConfigureCoreServices`). References `CCP.Core` and Avalonia packages. Exposes `App.ConfigurePlatformServices` so heads can override seam registrations. |
+| `CCP.Avalonia.Desktop` | **Shared** desktop library: `LibVLCNativeDiscovery`, `DesktopServiceCollectionExtensions` (secret store, single-instance, wallpaper, LibVLC), shared `BuildAvaloniaApp`. Not an entry point. |
+| `CCP.Avalonia.Desktop.Windows` | Windows executable head: `Program.cs` entry point, `net8.0-windows*` TFM, WebView2/NAudio/Win32 seam implementations registered via `App.ConfigurePlatformServices`. |
+| `CCP.Avalonia.Desktop.Linux` | Linux executable head: `Program.cs`, WebKitGTK browser host, relies on system `libvlc`. |
+| `CCP.Avalonia.Desktop.macOS` | macOS executable head: `Program.cs`, WKWebView host, `VideoLAN.LibVLC.Mac` (x64) / extracted dylib (ARM64). |
+| `CCP.Avalonia.Android` | `MainActivity.cs`, Android lifecycle, mobile seam implementations (`Mobile*.cs`), reduced feature set. |
+| `CCP.WindowsOnly` | Win32 P/Invoke helpers, WebView2 host, NAudio implementation, DWM chrome (WPF/WinForms). Referenced for Windows parity; some implementations now live directly in the Windows desktop head instead. |
 
 ### 3.3 Platform Seams (Interfaces)
 
@@ -134,6 +196,21 @@ Introduce these interfaces in `CCP.Core` and implement per platform:
 | `IThumbnailProvider` | `IShellItemImageFactory` |
 | `IFrameSource` / `ICaptureService` | GDI desktop capture |
 | `IImageDecoder` / `IImageSourceFactory` | `BitmapImage`, `pack://` URIs |
+
+> **Status (implemented — read before adding a seam).** This table is the *original design intent*. The seam
+> set now lives in `CCP.Core/Platform/` as **26 interface files** and is the authoritative list. A few entries above
+> were **consolidated or deferred**, so do **not** create them:
+> - `ICaptureService` → folded into **`IFrameSource`**.
+> - `IImageDecoder` / `IImageSourceFactory` → folded into **`IAssetLoader`**.
+> - `IUiTimer` → folded into **`IScheduler`**.
+> - `IThumbnailProvider` → **deferred / not created** (Phase 6 item 9 still references it; treat as a future seam,
+>   not an existing one).
+> - `IScreenProvider` **does** exist — it is declared in `IScreenInfo.cs`.
+>
+> Interfaces added during implementation that aren't in this table: `IAppEnvironment`, `IDialogService`,
+> `IFilePickerService`, `IHapticsService`, `ILockdownService`, `IPlatformCapabilities`, `IRemoteControlService`.
+> When you genuinely need a new seam, add the interface + a safe shared fallback in `ConfigureCoreServices`
+> first (see §21), then implement it per head.
 
 ---
 
@@ -171,8 +248,6 @@ Mobile heads:
 <PackageReference Include="Avalonia.Android" Version="12.0.4" />
 ```
 
-> iOS is intentionally excluded from this plan due to App Store adult-content restrictions.
-
 ### 4.2 Major v12 Changes Affecting the Migration
 
 | Feature | Change | Impact |
@@ -202,8 +277,8 @@ Mobile heads:
 
 | WPF Pattern | Avalonia Equivalent |
 |---|---|
-| `WindowChrome` custom chrome | `ExtendClientAreaToDecorationsHint`, `WindowDecorations`, `SystemDecorations` |
-| `WindowStyle="None" AllowsTransparency="True"` | `WindowDecorations="None"`, `TransparencyLevelHint="Transparent"`, `Background="Transparent"` |
+| `WindowChrome` custom chrome | `ExtendClientAreaToDecorationsHint` + `ExtendClientAreaChromeHints` + `WindowDecorations` (the v12 name; `SystemDecorations` no longer exists) |
+| `WindowStyle="None" AllowsTransparency="True"` | `WindowDecorations="None"`, `TransparencyLevelHint="Transparent"`, `Background="Transparent"`. In code, `TransparencyLevelHint` is an `IReadOnlyList<WindowTransparencyLevel>` → set `new[] { WindowTransparencyLevel.Transparent }`. |
 | `Topmost`, `ShowInTaskbar`, `ResizeMode`, `WindowState` | Similar properties; behavior varies on Linux/macOS WMs |
 | `Viewbox Stretch="Fill"` | Avalonia `Viewbox` supports `Stretch`; test HiDPI |
 | WPF `Style`, `Trigger`, `DataTrigger`, `EventSetter`, `Storyboard` | Avalonia style selectors (`:pointerover`, `:checked`) + `Avalonia.Animation` |
@@ -213,6 +288,21 @@ Mobile heads:
 | `System.Windows.Shapes` | `Avalonia.Controls.Shapes` |
 | `System.Windows.Media.Effects.DropShadowEffect` | `BoxShadow` |
 | `System.Windows.Media.Imaging.BitmapImage` / `WriteableBitmap` | `Avalonia.Media.Imaging.Bitmap` / `WriteableBitmap` |
+| `Visibility` (`Visible`/`Collapsed`/`Hidden`) | **`IsVisible`** (bool) covers Visible/Collapsed; for WPF `Hidden` (invisible but still occupies layout) use `Opacity="0"` |
+| `ListView` + `GridView` | `ListBox` + `ItemTemplate` (or `DataGrid` for columns) |
+| `HierarchicalDataTemplate` | `TreeDataTemplate` |
+| `LayoutTransform` | wrap the child in `LayoutTransformControl` |
+| `DataTemplateSelector` | a `DataTemplate` with `DataType` matching (interface/derived-type aware) — no selector class needed |
+
+> Mappings above are confirmed against the official **WPF → Avalonia cheat sheet** (see §23). When a WPF
+> construct isn't listed here, check that page before improvising.
+
+**Layout quick-wins (migration guide's layout page, §23):** `StackPanel` has a `Spacing` property (drop the
+per-child margins); use inline `ColumnDefinitions="Auto,*,200"` / `RowDefinitions="…"` instead of verbose
+`<Grid.ColumnDefinitions>` blocks (the WPF app has ~83 of those); and prefer a bare `Panel` over a defs-less
+`Grid` for pure layering — it's lighter and sidesteps the WPF layering/airspace hacks called out in §14.1.
+`UseLayoutRounding` behaves the same; `ScrollViewer` visibility modes match, but default scroll feel can differ
+slightly per platform.
 
 ### 4.5 Dispatcher & Threading
 
@@ -237,6 +327,62 @@ public override object ProvideValue(IServiceProvider serviceProvider)
 
 Avalonia rewrite: create an Avalonia `MarkupExtension` returning a `Binding`, or replace usages with `{Binding [Key], Source={x:Static loc:LocalizationManager.Instance}}`.
 
+> **✅ Implemented.** This is done as `StrExtension` in `CCP.Avalonia/Localization/LocExtension.cs`, used in XAML
+> as `{loc:Str btn_cancel}`. Its `ProvideValue` returns a `OneWay` `Binding` to
+> `LocalizationManager.Instance[Key]`, so strings update live on a language change. Register the namespace with
+> `xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"`. New views must
+> use `{loc:Str …}` rather than hard-coded text (§17.2).
+
+### 4.7 Binding Syntax & Custom Properties
+
+Two WPF idioms that appear throughout the original XAML/controls and have **no mechanical 1:1** — port them
+deliberately (mappings per the official cheat sheet, §23). The original project uses `ElementName` in ~6 XAML
+files, `RelativeSource` in ~7, and `DependencyProperty.Register` in ~3 code files (e.g. `Controls/HelpPopover.cs`);
+the Avalonia tree already uses `StyledProperty` in ~9 files, so the patterns are established — just apply them
+consistently.
+
+**Binding syntax:**
+
+| WPF | Avalonia |
+|---|---|
+| `{Binding Prop, ElementName=foo}` | `{Binding #foo.Prop}` |
+| `{Binding Prop, RelativeSource={RelativeSource AncestorType=Grid}}` | `{Binding $parent[Grid].Prop}` |
+| `{Binding Prop, RelativeSource={RelativeSource Self}}` | `{Binding $self.Prop}` |
+| `{Binding Prop, RelativeSource={RelativeSource TemplatedParent}}` | `{TemplateBinding Prop}` (or `$parent[ControlType]`) |
+| `{Binding}` against an untyped `DataContext` | add `x:DataType` to the scope, or use `{ReflectionBinding}` for dynamic paths (compiled bindings are on by default — §4.2) |
+
+**Custom dependency properties** (in custom controls under `Controls/`, `Windows/`, etc.):
+
+| WPF | Avalonia |
+|---|---|
+| `DependencyProperty.Register(...)` (stylable/animatable) | `StyledProperty<T>` via `AvaloniaProperty.Register<TOwner, T>(...)` |
+| `DependencyProperty.Register(...)` (fast, CLR-backed, no styling) | `DirectProperty<TOwner, T>` via `AvaloniaProperty.RegisterDirect<TOwner, T>(...)` |
+| `RegisterAttached(...)` | `AvaloniaProperty.RegisterAttached<TOwner, THost, T>(...)` |
+| `PropertyChangedCallback` | override `OnPropertyChanged(AvaloniaPropertyChangedEventArgs)` or subscribe via `.Changed` |
+
+### 4.8 Events & Input
+
+The original app is **extremely event-heavy in code-behind** — `MouseLeftButtonDown` appears in ~138 files,
+`MouseEnter` in ~32, `MouseMove` in ~14, `PreviewKeyDown` in ~9. This is one of the largest mechanical surfaces
+of the UI port. WPF mouse events become **pointer** events (Avalonia also supports touch/pen, which matters for
+the Android head), and there are **no `Preview*` events** — you opt into the tunnel phase explicitly. Mappings
+per the migration guide's events page (§23):
+
+| WPF | Avalonia |
+|---|---|
+| `MouseLeftButtonDown` / `…ButtonUp` | `PointerPressed` / `PointerReleased` — read the button from `e.GetCurrentPoint(ctl).Properties` (`PointerUpdateKind` / `IsLeftButtonPressed`) |
+| `MouseMove` | `PointerMoved` |
+| `MouseWheel` | `PointerWheelChanged` |
+| `MouseEnter` / `MouseLeave` | `PointerEntered` / `PointerExited` |
+| `Preview*` tunneling events | no `Preview*`; `AddHandler(InputElement.KeyDownEvent, h, RoutingStrategies.Tunnel)` (combine `Tunnel \| Bubble` for both phases) |
+| `EventManager.RegisterRoutedEvent(...)` | `RoutedEvent.Register<TOwner, TArgs>("Name", RoutingStrategies.Bubble)` |
+| `AddHandler(evt, h, handledEventsToo: true)` | `AddHandler(evt, h, RoutingStrategies.Bubble, handledEventsToo: true)` |
+
+> **Watch out:** the "which button" check moves *into* the `PointerPressed` args, so a blind
+> `MouseLeftButtonDown` → `PointerPressed` rename silently drops the left-button filter. Audit every handler and
+> add the `PointerUpdateKind`/`IsLeftButtonPressed` check — especially in the drag/click-heavy code (AvatarTube,
+> Chaos overlays, BlinkTrainer, bubble minigames).
+
 ---
 
 ## 5. LibVLCSharp Cross-Platform Media Migration
@@ -247,8 +393,17 @@ Remove:
 
 ```xml
 <PackageReference Include="LibVLCSharp.WPF" Version="3.8.5" />
-<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.1.1" ExcludeAssets="all" PrivateAssets="all" />
 ```
+
+> **Correction (do NOT remove `Microsoft.WindowsAppSDK`).** The original draft listed it for removal.
+> In practice LibVLCSharp pulls `Microsoft.WindowsAppSDK` in transitively, and leaving it unpinned causes
+> a WebView2 **`NU1605` version-downgrade** build error. It must be **pinned and neutralized** in
+> `CCP.Avalonia` and the Linux/macOS heads:
+> ```xml
+> <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.251106002" ExcludeAssets="all" PrivateAssets="all" />
+> ```
+> On the Windows head, also set `<WebView2EnableCsWinRTProjection>false</WebView2EnableCsWinRTProjection>`
+> so the managed WinForms WebView2 control (not the WinRT projection) is used.
 
 Add managed packages:
 
@@ -268,7 +423,7 @@ Add native engine packages per head:
 | Linux | **No official NuGet** | Install `libvlc`/`libvlccore` via package manager or ship custom `.so` |
 | Android | `VideoLAN.LibVLC.Android` 3.6.5 / 3.7.0-beta | Add `LibVLCSharp.Android.AWindowModern` |
 
-> **Important:** `LibVLCSharp.Avalonia` officially supports Windows, macOS, and Linux. For Android, use the platform-specific video surface. iOS is not supported.
+> **Important:** `LibVLCSharp.Avalonia` officially supports Windows, macOS, and Linux. For Android, use the platform-specific video surface.
 
 ### 5.2 VideoView Migration
 
@@ -279,11 +434,12 @@ xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
 <vlc:VideoView x:Name="VideoView" />
 ```
 
-Avalonia XAML:
+Avalonia XAML (the codebase uses the idiomatic `using:` namespace form, e.g. in
+`Views/VideoSpikeWindow.axaml` and `Views/Deeper/EnhancementPlayerWindow.axaml`):
 
 ```xml
-xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
-<vlc:VideoView MediaPlayer="{Binding Player}" />
+xmlns:vlc="using:LibVLCSharp.Avalonia"
+<vlc:VideoView x:Name="VideoView" />   <!-- MediaPlayer can be bound or set in code-behind -->
 ```
 
 Code-behind remains conceptually identical:
@@ -308,7 +464,10 @@ unsafe
 }
 ```
 
-Use `Avalonia.Media.Imaging.WriteableBitmap` and `CompositionTarget.Rendering` for per-frame invalidation.
+Use `Avalonia.Media.Imaging.WriteableBitmap`, and drive per-frame invalidation from a ~16 ms `DispatcherTimer`
+(which is exactly what the implemented `CCP.Avalonia/Services/Video/AvaloniaDualMonitorVideoService.cs` does) or
+from `TopLevel.RequestAnimationFrame`. **Do not use WPF's `CompositionTarget.Rendering`** — it does not exist in
+Avalonia.
 
 ### 5.4 Native Library Packaging
 
@@ -349,19 +508,19 @@ NAudio is Windows-only. Strategy:
 | `MahApps.Metro.IconPacks` | 5.0.0 | Remove | `Material.Icons.Avalonia` or custom icons. |
 | `Microsoft.ML.OnnxRuntime` | 1.20.1 | Keep + add runtimes | Add Linux/mac/mobile runtime packages. |
 | `Microsoft.Web.WebView2` | 1.0.2535.41 | Remove from shared | Keep only in Windows-only head; abstract `IBrowserHost`. |
-| `Microsoft.WindowsAppSDK` | 1.1.1 (excluded) | Remove | Not needed. |
+| `Microsoft.WindowsAppSDK` | 1.8.x (excluded) | **Pin, don't remove** | Transitive via LibVLCSharp; must be pinned with `ExcludeAssets="all" PrivateAssets="all"` to avoid a WebView2 `NU1605` downgrade. Present in `CCP.Avalonia` + Linux/macOS heads. |
 | `NAudio` / `NAudio.Wasapi` | 2.2.1 | Abstract | Replace with `IAudioPlayer`; use LibVLC/ManagedBass/OpenAL. |
 | `Newtonsoft.Json` | 13.0.3 | Keep | Portable. |
-| `OllamaSharp` | 5.4.16 | Remove | Vestigial import only. |
-| `OpenAI-DotNet` | 8.6.2 | Remove | Dead dependency. |
+| `OllamaSharp` | (removed) | ✅ Done | Already removed from all projects. |
+| `OpenAI-DotNet` | (removed) | ✅ Done | Already removed from all projects. |
 | `OpenCvSharp4` | 4.9.0.20240103 | Keep + add runtimes | Add Linux/mac/mobile native runtimes. |
 | `OpenCvSharp4.runtime.win` | 4.9.0.20240103 | Move to Windows head | |
 | `QRCoder` | 1.6.0 | Keep | Portable. |
 | `Serilog` + sinks | 3.1.1 / 5.0.0 | Keep | Portable. |
-| `SharpDX` / `.DXGI` / `.Direct3D11` | 4.2.0 | Remove | Zero references. |
+| `SharpDX` / `.DXGI` / `.Direct3D11` | (removed) | ✅ Done | Already removed from all projects (zero references). |
 | `SharpVectors` | 1.8.4.2 | Remove | `Svg.Skia` / `Avalonia.Svg.Skia`. |
 | `System.Security.Cryptography.ProtectedData` | 8.0.0 | Abstract | `ISecretStore` with DPAPI/Keychain/libsecret. |
-| `VideoLAN.LibVLC.Windows` | 3.0.21 | Keep + add runtimes | Add Mac/Android packages; Linux via system or custom. iOS excluded. |
+| `VideoLAN.LibVLC.Windows` | 3.0.21 | Keep + add runtimes | Add Mac/Android packages; Linux via system or custom. |
 | `XamlAnimatedGif` | 2.3.0 | Remove | `AvaloniaGif` or custom frame animation. |
 
 ---
@@ -377,7 +536,7 @@ Target:
 - Platform lifecycle for Android.
 - Cross-platform single-instance via file lock or platform-specific service.
 - Replace `Environment.SpecialFolder.LocalApplicationData` assumptions with proper paths (`XDG_DATA_HOME` on Linux, `~/Library/Application Support` on macOS).
-- Replace `MessageBox.Show` with `IDialogService` (`MsBox.Avalonia` or custom dialogs).
+- Replace `MessageBox.Show` with `IDialogService`. **Implemented** as `AvaloniaDialogService` (`CCP.Avalonia/Platform/AvaloniaDialogService.cs`) on the **`MessageBox.Avalonia`** NuGet package (note: the package id is `MessageBox.Avalonia`; the API namespace is `MsBox.Avalonia`, e.g. `MessageBoxManager`).
 
 ### 7.2 System Tray
 
@@ -410,7 +569,7 @@ Lockdown mode system-key suppression (`Alt+Tab`, `Win`, `Esc`, `Ctrl+Shift+Esc`)
 Current: `WindowChrome`, `dwmapi.dll` for dark title bars, `SetWindowLong`/`SetWindowPos` for tool windows and z-order, `AllowsTransparency` for layered overlays.
 
 Target:
-- Avalonia `WindowDecorations="None"`, `TransparencyLevelHint="Transparent"`, `Topmost="True"`, `SystemDecorations`.
+- Avalonia `WindowDecorations="None"`, `TransparencyLevelHint="Transparent"`, `Topmost="True"` (note: `SystemDecorations` was renamed to `WindowDecorations` in v12 — see §4.2).
 - Click-through/input passthrough requires platform-specific code on Linux/macOS.
 - DWM tinting is Windows-only; use Avalonia client-side decorations for cross-platform chrome.
 
@@ -433,7 +592,7 @@ Target: abstract `IWallpaperProvider`. Windows only. macOS can use AppleScript/N
 Current: `Microsoft.Web.WebView2` in `Services/Browser/BrowserService.cs`.
 
 Target options:
-1. **Avalonia.Controls.WebView** — official cross-platform WebView (WebView2 on Windows, WPE WebKit on Linux, Android WebView). macOS uses WKWebView; iOS is not supported.
+1. **Avalonia.Controls.WebView** — official cross-platform WebView (WebView2 on Windows, WPE WebKit on Linux, Android WebView). macOS uses WKWebView.
 2. **CEF wrapper** (`CefGlue.Avalonia`, `CefNet.Avalonia`) for desktop Linux/macOS.
 3. **System browser** launch via `xdg-open`/`open` where an embedded browser is unnecessary.
 4. Keep WebView2 only in `CCP.WindowsOnly` for Windows parity.
@@ -482,11 +641,18 @@ Target: `IUpdateInstaller` abstraction.
 
 ## 8. Phase-by-Phase Migration Roadmap
 
+> **Historical sequencing — see §1A for current status.** This roadmap captures the *original* plan-of-record
+> and its effort estimates. Most of Phases 0–3 and large parts of 4–8 are already done, and a few specifics
+> here never happened as written (e.g. the "temporary `CCP.WpfShim`" in Phase 1 was replaced by
+> `CCP.WindowsOnly` + the live WPF head; Phase 3's single `CCP.Avalonia.Desktop` became four heads per §3.1).
+> Use §1A + `docs/avalonia-migration-task-board.md` as the live to-do list; read this section for rationale and
+> remaining-phase shape, not as an unstarted checklist.
+
 ### Phase 0 — Cleanup (Days)
 
 1. Remove dead packages: `SharpDX.*`, `OpenAI-DotNet`, `OllamaSharp`.
 2. Verify `MahApps.Metro` / `IconPacks` usage; remove if unused.
-3. Remove `Microsoft.WindowsAppSDK` exclusion hack.
+3. ~~Remove `Microsoft.WindowsAppSDK` exclusion hack.~~ **Corrected:** keep and pin it (`ExcludeAssets="all" PrivateAssets="all"`) — it is a required transitive of LibVLCSharp and prevents a WebView2 `NU1605` downgrade. See §5.1.
 4. Delete `CopyLibVLCAfterPublish` and `IncludeWebView2LoaderInPublish` from shared project; move to Windows head later.
 5. Add platform analyzers; remove `NoWarn$(NoWarn);CA1416`.
 6. Document feature matrix: mark features as portable vs. Windows-only.
@@ -521,7 +687,6 @@ Target: `IUpdateInstaller` abstraction.
    - `CCP.Avalonia` (shared UI, `net8.0` or `net10.0`)
    - `CCP.Avalonia.Desktop`
    - `CCP.Avalonia.Android`
-   - (iOS is intentionally excluded.)
 2. Add Avalonia v12 + LibVLCSharp packages per head.
 3. Implement `App.axaml`, `MainWindow.axaml`, platform `Program.cs` / `MainActivity.cs`.
 4. Set up solution build for all heads.
@@ -584,7 +749,7 @@ Target: `IUpdateInstaller` abstraction.
    - Touch-optimized controls.
    - Native camera + LibVLC for Lab/webcam features.
 3. Adapt background audio/execution restrictions on Android.
-4. Address Google Play content policies early; iOS is not supported.
+4. Address Google Play content policies early.
 
 ---
 
@@ -626,13 +791,13 @@ Target: `IUpdateInstaller` abstraction.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| `LibVLCSharp.Avalonia` not yet compatible with Avalonia v12 | Medium | High | Build a spike immediately; if needed, compile from source or wait for updated package. |
+| ~~`LibVLCSharp.Avalonia` not yet compatible with Avalonia v12~~ **RESOLVED** | — | — | `LibVLCSharp.Avalonia` 3.9.7.1 builds and runs against Avalonia 12.0.4; the desktop solution builds clean. No longer a risk. |
 | 133k LOC UI rewrite is larger than estimated | High | High | Extract Core first; port screen-by-screen; keep WPF app alive during migration. |
 | NAudio audio ducking has no cross-platform equivalent | High | Medium | Abstract `IAudioDucker`; disable or implement per-platform. |
 | WebView2 browser features break on Linux/macOS | High | High | Abstract `IBrowserHost`; use Avalonia WebView or system browser; feature-gate if needed. |
 | Global hooks / lockdown suppression impossible on macOS/Linux/mobile | High | High | Document limitations; gate lockdown as Windows-only. |
 | DPAPI-encrypted tokens fail on other OSs | High | Medium | Force re-authentication or migrate to OS keychain abstraction. |
-| Native library discovery fails on Linux/macOS | Medium | High | Use explicit `Core.Initialize(path)`; test on clean VMs. |
+| Native library discovery fails on Linux/macOS | Low (mitigated) | High | **Implemented:** `LibVLCNativeDiscovery.Initialize()` (in `CCP.Avalonia.Desktop`) runs before `new LibVLC()` and searches system paths; CI installs `libvlc-dev vlc` on Linux. Still test on clean VMs and verify macOS ARM64 dylib bundling. |
 | macOS ARM64 lacks official LibVLC NuGet | Medium | High | Ship custom ARM64 native build extracted from VLC.app. |
 | Single-file + native libs incompatible with mobile | Medium | Medium | Use normal publish for mobile; exclude native libs from single-file on desktop. |
 | Mobile app-store content policies | Medium | High | Review policies early; prepare feature gating and age-gating. |
@@ -642,6 +807,10 @@ Target: `IUpdateInstaller` abstraction.
 ---
 
 ## 11. Quick Win Checklist
+
+> **Historical — most of these are done (see §1A).** Dead-package removal, `CCP.Core`, `IUiDispatcher`,
+> `ISecretStore`, the `LibVLCSharp.Avalonia` swap, and `App.axaml` are all complete. Retained for the original
+> effort/value rationale; the live to-do is `docs/avalonia-migration-task-board.md`.
 
 | Task | Effort | Value |
 |---|---|---|
@@ -656,6 +825,10 @@ Target: `IUpdateInstaller` abstraction.
 ---
 
 ## 12. Recommended First Steps
+
+> **Historical.** Steps 2–6 below are **already done** — see §1A. They are retained to show the original
+> bootstrapping order. If you are picking the project up *today*, start instead from the §19.3 sync backlog
+> and the Phase-4 parity work in `docs/avalonia-migration-task-board.md`.
 
 1. **Read existing portability specs:** `openspec/PORTABILITY_REPORT.md` and `openspec/PORTABILITY_RUBRIC.md` already identify exact seams.
 2. **Remove dead dependencies:** `SharpDX.*`, `OpenAI-DotNet`, `OllamaSharp`.
@@ -687,11 +860,11 @@ Every phase must end with a **build checkpoint** and a **test checkpoint**. The 
 | Phase 0 | WPF app builds with dead packages removed. | No build warnings from removed packages; all existing tests pass. |
 | Phase 1 | `CCP.Core` + WPF shim build; legacy WPF app still runs. | `CCP.Core` compiles on Windows, Linux, and macOS; WPF app launches and plays a video. |
 | Phase 2 | `CCP.Core` builds on Linux/macOS CI with no Windows-only references. | `dotnet build` passes on `ubuntu-latest`, `macos-latest`, and `windows-latest`. |
-| Phase 3 | Avalonia solution builds for all heads. | `CCP.Avalonia`, `CCP.Avalonia.Desktop`, `CCP.Avalonia.Android` all compile. iOS is excluded. |
+| Phase 3 | Avalonia solution builds for all heads. | `CCP.Avalonia`, `CCP.Avalonia.Desktop`, `CCP.Avalonia.Android` all compile. |
 | Phase 4 | Avalonia desktop app builds and launches. | Main window renders; navigation/tabs work; no runtime XAML exceptions. |
 | Phase 5 | Media/audio pipeline builds on all desktop RIDs. | LibVLC initializes; video plays; audio SFX plays on Windows/Linux/macOS. |
 | Phase 6 | OS-shell feature stubs build on all platforms. | Tray icon on desktop; hooks on Windows; no crashes on Linux/macOS without hooks. |
-| Phase 7 | CI produces signed/publishable artifacts for all desktop RIDs and Android. | `dotnet publish` succeeds for `win-x64`, `linux-x64`, `osx-arm64`; Android AAB produced. |
+| Phase 7 | CI produces signed/publishable artifacts for all desktop RIDs and Android. | `dotnet publish` succeeds for `win-x64`, `linux-x64`, `osx-arm64` (done). Android: CI `dotnet build`s the head today; **AAB packaging still to wire** (`dotnet publish -f net10.0-android`). |
 | Phase 8 | Android head builds and deploys to simulators/devices. | Android app launches; reduced feature set loads; camera + LibVLC work. |
 
 ### 13.3 Test Checkpoints by Phase
@@ -730,7 +903,7 @@ The rebuild is not just a port. It must leave the codebase faster, more stable, 
 | GDI/desktop heap quota exhaustion | Too many full-screen layered windows | Pool and reuse overlay surfaces; limit concurrent surfaces; gate heavy effects. |
 | Dispatcher hang crashes | UI thread blocked by synchronous service init | Move all service initialization off the UI thread; use async startup with progress reporting. |
 | Cascading crash dialogs | `MessageBox.Show` on failing dispatcher | Replace with async `IDialogService`; no nested dispatcher pumps during error handling. |
-| Memory leaks from static services | ~50 static service references in `App.xaml.cs` | Replace static locator with scoped DI container; implement `IAsyncDisposable` for services. |
+| Memory leaks from static services | 88 static service references in `App.xaml.cs` (2,810 LOC) | Replace static locator with scoped DI container; implement `IAsyncDisposable` for services. |
 | WPF airspace issues | Native video HWND behind WPF controls | Avalonia `VideoView` integrates into the scene graph; no HWND airspace. |
 
 ### 14.2 Performance Improvements
@@ -760,9 +933,14 @@ The rebuild is not just a port. It must leave the codebase faster, more stable, 
 
 The following concerns were not covered in the subsystem list but must be addressed during the rebuild.
 
-### 15.1 Static Service Locator in `App.xaml.cs`
+### 15.1 Static Service Locator in `App.xaml.cs` — ✅ DONE (Avalonia heads)
 
-Current: roughly 50 `public static` service properties on the `App` class (e.g., `App.Video`, `App.Audio`, `App.Chaos`).
+> Resolved in the Avalonia tree (see §1A). The 88 statics are replaced by
+> `Microsoft.Extensions.DependencyInjection` in `CCP.Avalonia/ServiceCollectionExtensions.cs` with per-head
+> overrides via `App.ConfigurePlatformServices`. The notes below remain the design target; the only open item
+> is `IHostedService` for long-running background services.
+
+Current: **88** `public static` service properties on the `App` class (e.g., `App.Video`, `App.Audio`, `App.Chaos`), in a 2,810-LOC `App.xaml.cs`.
 
 Target:
 - Register all services in `Microsoft.Extensions.DependencyInjection`.
@@ -867,9 +1045,16 @@ Target:
 
 ## 16. Feature Flags & Gradual Rollout
 
-Use feature flags to ship the Avalonia app alongside the WPF app without breaking existing users.
+> **Reality check — the implemented approach diverged from this section.** Cross-platform UI ships as
+> **separate executable heads** (`CCP.Avalonia.Desktop.Windows/.Linux/.macOS`, `CCP.Avalonia.Android`), not as a
+> runtime toggle inside the WPF app, so **`UseAvaloniaUI` is moot** and none of the flags below exist in code
+> (verified: zero references). Platform branching is done with `IPlatformCapabilities` + `OperatingSystem.IsX()`
+> in DI, and per-head DI overrides. Treat the table below as *optional* future flags for the few cases that need
+> a runtime toggle (e.g. validating `IAudioPlayer` or an Avalonia WebView on Windows); wire any you actually want
+> through `AppSettings` + `IPlatformCapabilities`. The rollout *phases* (alpha → desktop beta → mobile beta → GA)
+> still hold; just driven by which head you ship, not by `UseAvaloniaUI`.
 
-| Flag | Purpose | Default |
+| Flag (proposed, not yet implemented) | Purpose | Default |
 |---|---|---|
 | `UseAvaloniaUI` | Launch Avalonia desktop shell instead of WPF | `false` until parity |
 | `EnableLinuxSupport` | Enable Linux-specific native service implementations | `false` during alpha |
@@ -929,7 +1114,258 @@ Additional distribution notes:
 
 ---
 
-## 19. Conclusion
+## 19. Mainline Sync & Dual-Maintenance
+
+The WPF app on `main` is **kept runnable and keeps shipping features** during the migration. Because
+`CCP.Core` holds *copies* of models and `CCP.Avalonia` holds *reimplementations* of services, every
+merge from `main` into `feat/crossplatform` introduces drift that must be triaged by hand. This section
+makes that process explicit — it is the practical answer to "where do the changes I just pulled go?".
+
+### 19.1 Auto-synced vs. manual-sync map
+
+| Surface | Sync behaviour |
+|---|---|
+| `Localization/Languages/*.json` | **Auto-synced.** `CCP.Core.csproj` links them (`<Content Include="..\Localization\Languages\*.json">`) and the desktop heads copy them. New loc keys from `main` appear with no porting. *Caveat:* a new Avalonia view must still reference the new key via `{loc:Str NewKey}`. |
+| `Models/*.cs`, JSON DTOs | **Manual.** Copied into `CCP.Core/Models/`. Highest-frequency drift surface. |
+| Portable service logic | **Manual.** Reimplemented under `CCP.Core/Services/*`. |
+| WPF UI (`*.xaml(.cs)`, Chaos, AvatarTube, windows) | **Manual,** and only when that screen is already ported; otherwise it joins the Phase-4 parity backlog. |
+| WPF-head-only infra (`installer.iss`, `build-installer.bat`, `App.xaml.cs` plumbing) | **No action** in the cross-platform tree. |
+
+### 19.2 Per-merge triage workflow
+
+1. `git diff --stat <prev-main>..<new-main> -- ConditioningControlPanel/` to list changed files.
+2. Bucket each file using the map above (Model → Core; portable service → Core; UI → Avalonia-if-ported-else-backlog; infra/loc → no action).
+3. Port, then `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly` and run `CCP.Core.Tests`.
+4. Record anything deferred in `docs/avalonia-migration-task-board.md` so it isn't lost.
+
+### 19.3 Current sync backlog — merge of `main` (commit `22caaab4`, 2026-06-21)
+
+These `main` changes landed in the WPF head but are **not yet** reflected in Core/Avalonia:
+
+| Item | Landed in (WPF) | Port to | Notes |
+|---|---|---|---|
+| `AppSettings` new fields (+66 LOC) | `Models/AppSettings.cs` | `CCP.Core/Models/AppSettings.cs` (copy ~55 LOC behind) | Pure data; port field-by-field, then check any Avalonia VM/setting bindings. |
+| `ChaosSkiaFxOverlay` (pop bursts, ripples, rim-shine, multiplier HUD) | `Chaos/ChaosSkiaFxOverlay.cs` (644 LOC) | `CCP.Avalonia/Chaos` | No Avalonia equivalent. Skia FX → maps to Avalonia `CustomDrawOp`/Skia. |
+| `ChaosBoonColors`, `ChaosBubbleHostOverlay`, `ChaosDvdHostOverlay` | `Chaos/*.cs` | `CCP.Avalonia/Chaos` | Shared-host perf overlays (default-on bubble + DVD host). |
+| `ChaosCrashSentinel` | `Services/Chaos/ChaosCrashSentinel.cs` | Core or Avalonia service | Crash instrumentation around Chaos. |
+| `BubbleService` overhaul (popping minigame, +464 LOC) | `Services/BubbleService.cs` | `CCP.Avalonia` | Bubble-*popping* not yet ported (only `BubbleCount` exists). |
+| `UpdateService` rework (~120 LOC) | `Services/Update/UpdateService.cs` | Core update logic + `IUpdateInstaller` heads | Reconcile GitHub/Inno flow against the seam. |
+| `ModService` / `FlashService` / `GlobalMouseHook` deltas | `Services/*.cs` | matching Core/Avalonia services | Small; verify each. |
+| `Fredoka.ttf` | `Fonts/Fredoka.ttf` | `CCP.Avalonia` `AvaloniaResource` + `FontFamily` | Register as `avares://` font and wire where the WPF UI uses it. |
+
+### 19.4 Strategic fix — collapse the duplication (highest-leverage move)
+
+**The original project, measured.** The WPF head (`ConditioningControlPanel.csproj`) deliberately *excludes*
+the cross-platform tree (`<DefaultItemExcludes>…;CCP.Core\**;CCP.Avalonia\**;…</DefaultItemExcludes>`) and
+compiles **its own copy of every model**. Concretely: all **70** `Models/*.cs` files have an identical-named
+copy in `CCP.Core/Models/` (0 WPF-only), and the copies have already silently drifted — `AppSettings.cs` *and*
+`Session.cs` both differ between the two trees today. This is two hand-synced codebases, and it is the single
+biggest recurring tax in the whole migration.
+
+**The only real blocker is the namespace.** WPF models are `namespace ConditioningControlPanel.Models`; the Core
+copies are `namespace ConditioningControlPanel.Core.Models`. That mismatch is why the WPF head can't just
+`ProjectReference` Core and delete its copies — every `using ConditioningControlPanel.Models` in the WPF code
+would miss the Core types.
+
+**Recommended bounded fix (do this *before* porting more UI — it shrinks every later step):**
+
+1. Standardize the Core model namespace to **`ConditioningControlPanel.Models`** (drop the `.Core` segment for
+   `CCP.Core/Models/` only; keep `…Core.Services` etc. as-is). Pure POCOs, low risk.
+2. Mechanical sweep the Avalonia tree: replace `ConditioningControlPanel.Core.Models` → `ConditioningControlPanel.Models`
+   in `using`s (one find/replace; the build catches stragglers).
+3. Add `<ProjectReference Include="CCP.Core\CCP.Core.csproj" />` to the WPF head and **delete `Models/*.cs`** from
+   it (remove the `CCP.Core\**` exclude). Now `main` and the cross-platform tree share one model definition and
+   drift on models is *impossible*.
+4. Repeat the same pattern opportunistically for genuinely portable, copy-not-reimplemented services.
+
+Do models first — it removes ~70 files of drift surface for a contained, mostly-mechanical change. Until it
+lands, treat `Models/` as a known liability and `diff` it on every merge (§19.2). The `CCP.Core` `<Version>` is
+pinned at `6.1.4` while `main` shipped `6.1.6` — a quick "is Core behind?" tripwire; bump it as part of each sync.
+
+---
+
+## 20. Multi-Agent Swarm Execution & Context Discipline
+
+This migration is too large for one agent or one context window (133k LOC of UI, 156 Core files, 279
+Avalonia files, several 4000-line source files). The remaining work — especially Phase 4 UI parity — is
+**embarrassingly parallel**: most screens are self-contained (`XxxView.axaml` + `.axaml.cs` + `XxxViewModel`).
+This section defines how to run a **swarm of agents in parallel** without them colliding, and how each agent
+keeps its context small. Read this before fanning out work.
+
+### 20.1 Parallelization model — lanes vs. chokepoints
+
+The unit of parallel work is a **lane**: a directory subtree one agent owns end-to-end. Lanes have near-zero
+cross-coupling, so many run at once. A small set of **shared/serial files** are touched by almost everything —
+those are *chokepoints* and must be owned by a single integrator, never edited by porters directly.
+
+**Parallel-safe lanes (assign one agent each; high fan-out):**
+
+| Lane | Owned subtree (example) | Conflict risk |
+|---|---|---|
+| One tab (view + VM) | `CCP.Avalonia/Views/Tabs/XxxTabView.*` + `ViewModels/Tabs/XxxTabViewModel.cs` | Low |
+| Dialog cluster | `CCP.Avalonia/Dialogs/Xxx*.axaml(.cs)` | Low |
+| Feature control cluster | `CCP.Avalonia/Features/Xxx*` | Low |
+| Chaos overlays | `CCP.Avalonia/Chaos/*` (incl. §19.3 `ChaosSkiaFx*`/host overlays) | Low–Med (shared Chaos host) |
+| AvatarTube | `CCP.Avalonia/AvatarTube/*` | Low |
+| Per-head platform seams | `CCP.Avalonia.Desktop.Windows/` · `.Linux/` · `.macOS/` (separate projects) | Near-zero |
+| Core service port | one `CCP.Core/Services/<Area>/*` | Low |
+
+**Serial chokepoints (integrator-only; do NOT edit from a porter lane):**
+
+- `CCP.Avalonia/ServiceCollectionExtensions.cs` — every new VM/service registers here; highest contention.
+- `CCP.Core/Models/AppSettings.cs` and other 4000-line single files — serialize edits.
+- `App.axaml` / `App.axaml.cs` (shared styles/resources).
+- Any `*.csproj` (asset `Include`s, package refs) and `*.slnx` / `*.slnf`.
+- The `MainWindow` shell.
+- `Localization/Languages/*.json` (JSON merges conflict badly — see §20.5).
+- `main` → `feat/crossplatform` syncs (§19): one owner per merge.
+- The tracker docs are append-mostly; the orchestrator reconciles them between waves.
+
+### 20.2 Roles
+
+- **Orchestrator (1):** partitions work into lanes, assigns them, owns every chokepoint file (DI, csproj,
+  `App.axaml`, `MainWindow`, loc merge), runs the integration build/test between waves, and performs §19
+  syncs. Holds no porting lane itself.
+- **Porters (N, parallel):** each takes one lane, ports it end-to-end, and reports back: files changed, the
+  **one-line DI registration** to add, new loc keys, and parity notes. Porters never touch chokepoints.
+- **Verifier (1+):** runs the parity matrix and the §13 build/test matrix per platform; files defects as new
+  tracker items rather than fixing in place.
+
+### 20.3 Isolation — one worktree per agent
+
+Give every porter its **own git worktree** (or branch) so working trees never collide; integration happens at
+merge time, not edit time. Each worktree builds independently with `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly`.
+The orchestrator merges completed lanes in small batches and runs the integration build after each batch. Keep
+**wave size bounded** to what the orchestrator can merge + build in one cycle (a good default is 3–6 porters per
+wave), then integrate, then launch the next wave.
+
+### 20.4 Coordination protocol (claim → work → integrate)
+
+The tracker docs are the shared blackboard. Each item carries a status and an owner.
+
+1. **Claim:** before starting, append a row to the **Active Claims Ledger** in
+   `docs/avalonia-migration-task-board.md` (`🚧 wip @agentN`, your lane, your worktree/branch) and commit it
+   *first* (a cheap "claim commit") so concurrent agents see it. Appending a row conflicts far less than editing
+   scattered list items. Never start an item that already shows a `🚧`/`🔵` row.
+2. **Work:** stay inside the owned subtree. If you discover you must change a chokepoint, **do not edit it** —
+   record the needed change (e.g. the exact DI line) in your hand-off notes for the orchestrator.
+3. **Integrate:** mark the item `✅`, list changed files + required DI line + new loc keys + parity notes, and
+   hand the worktree/branch to the orchestrator. The orchestrator applies the DI line, merges, and builds.
+
+### 20.5 Conflict-avoidance rules (concrete)
+
+- **One file, one agent — always.** Two agents never edit the same file in the same wave.
+- **DI registrations are requested, not applied.** Porters hand the orchestrator the line to add to
+  `ServiceCollectionExtensions.cs`; only the orchestrator edits that file. (Batching also keeps the diff readable.)
+- **Localization is merged, never hand-edited in parallel.** Each agent appends its new keys (nested by area)
+  to `tools/new-localization-keys.json`, then the orchestrator runs `python tools/merge-localization-keys.py`
+  once per wave to fold them into `Localization/Languages/*.json` conflict-free. (Loc JSON auto-syncs into Core
+  per §19.1.)
+- **csproj asset includes are batched.** Porters list assets they added (fonts, images); the orchestrator adds
+  the `AvaloniaResource`/`Content` entries.
+- **Respect the seam contract.** New behaviour goes behind an existing `CCP.Core/Platform` interface; if a new
+  seam is genuinely needed, the orchestrator adds the interface + shared fallback first, then porters implement
+  per head (§21 per-head DI pattern).
+
+### 20.6 When to compact context (every agent, every role)
+
+This migration will exhaust any single context if you let it. Compact aggressively at these boundaries:
+
+- **After every claimed item.** Finish a lane → build green → update tracker → commit → **compact**, keeping
+  only the trackers and the outcome. Do not carry item N's source into item N+1.
+- **After each green build/test checkpoint.** Once `CCP.Desktop.slnf` + Core tests pass, the file contents that
+  got you there are dead weight.
+- **After any large one-shot dump.** A full read of a 4000-line file (`AppSettings`, `BubbleService`,
+  `MainWindow`) should be distilled to the members you touched, then dropped.
+- **At ~50–60% of the window,** or the moment you notice you're re-reading something — compact instead of
+  pushing on.
+- **Orchestrator-specific:** compact after each integration *wave*, preserving only tracker state, outstanding
+  claims, and the last known-good build hash.
+
+### 20.7 Durable working set to preserve across compaction
+
+- This plan + `docs/avalonia-migration-task-board.md` + `docs/avalonia-ui-parity-matrix.md` — the persistent
+  trackers. **Write progress into these, not the transcript**, so a fresh agent resumes from the docs alone.
+- Your single active item, its owned subtree, and the last known-good build/test state.
+- Decisions already made live in this plan (§19/§21) — keep a pointer, don't re-derive them.
+
+### 20.8 Habits that keep context small
+
+- Prefer `Grep`/`Glob` + targeted line-range reads over whole-file reads.
+- Build with `-clp:ErrorsOnly` (or pipe through `grep -E 'error|warning'`) so MSBuild doesn't dump thousands of
+  lines into context.
+- Don't re-establish the project layout each session — it's in §1A and §3.1.
+- Treat the tracker docs as external memory; update them at the end of every item.
+
+### 20.9 The per-agent task loop
+
+`read tracker → claim next lane (claim commit) → targeted reads of just that subtree → port → build
+(ErrorsOnly) + Core tests → update tracker (✅ + hand-off notes: files, DI line, loc keys) → commit/hand off →
+compact (keep only trackers + outcome) → repeat.`
+
+Orchestrator loop: `assign wave → wait for hand-offs → apply DI lines + loc merge + csproj assets → merge batch
+→ integration build/test → reconcile trackers → compact → next wave.`
+
+### 20.10 Concrete lane map — derived from the original project
+
+The remaining UI work decomposes **exactly along the original project's own structure**, so the orchestrator can
+seed the ledger mechanically rather than inventing lanes. The legacy `MainWindow` is ~33k LOC split across ~38
+**feature-named partial classes** (`MainWindow/MainWindow.<Feature>.cs`) — each is already a self-contained
+feature boundary, which is the natural unit of one porter lane. Seed lanes with
+`find MainWindow -name "MainWindow.*.cs"` and bucket them:
+
+| Bucket | Original source | Target (Avalonia) | Parallel? | Owner |
+|---|---|---|---|---|
+| **Feature tabs** — Achievements, Animations, Assets, Autonomy, Awareness, BlinkTrainer, CatalogueSubmissions, CloudBackup, Companion, DeeperHub, DeeperSubmissions, DeeperTab, Enhancements, Haptics, KeywordTriggers, Lab, Leaderboard, LevelFeatures, Marquee, Patreon, Presets, Quests, RemoteControl, Roadmap, SessionIO, Settings, SubscribeStar | `MainWindow.<Feature>.cs` (+ matching `Services/<Area>` for logic) | one `Views/Tabs/<Feature>TabView.*` + `ViewModels/Tabs/<Feature>TabViewModel.cs` | ✅ one lane each (high fan-out) | Porter |
+| **Shell / infra backbone** — the `MainWindow.xaml` shell, `UiUpdates`, `TabNavigation`, `WindowChrome`, `Browser`, `StartStop`, `AccountShell`, `Login` | `MainWindow.<Infra>.cs` | `MainWindow.axaml(.cs)` + shell services | ⛔ serial — these are the spine every tab hangs off | **Orchestrator only** |
+| **Portable engine** — `Services/AIService`, `Commands`, `Moderation`, `Progression`, `Session`, `Content`, `Bark`, `Deeper` (logic), `Quiz`, `Account`, `Auth`, `Settings` | `Services/<Area>/*` (207 files total) | `CCP.Core/Services/<Area>/*` | ✅ one lane per area | Porter (Core) |
+| **Platform/UI services** — `Chaos` (26 files), `Video`, `Audio`, `Haptics`, `Webcam`, `Tracking`, `Input`, `Notifications`, `Update`, `Flash`, `Subliminal`, `UI`, `LockCard` | `Services/<Area>/*` | `CCP.Avalonia` + a `CCP.Core/Platform` seam | ✅ one lane per area (Chaos is big — sub-split) | Porter |
+
+Rules that follow from this map:
+
+- **Do the shell backbone first / keep it single-owner.** Tabs can't be smoke-tested until `MainWindow.axaml` +
+  `TabNavigation` + `WindowChrome` exist; and these are the files most likely to collide, so the orchestrator owns
+  them. Everything else fans out behind them.
+- **A tab lane owns both ends:** the WPF source is `MainWindow.<Feature>.cs` *and* the `Services/<Area>` it drives;
+  port the portable logic into Core and the view into Avalonia in the same lane to keep the seam contract honest.
+- **`Chaos` is the one oversized lane** (26 service files + the §19.3 Skia overlays) — sub-split it (overlays vs.
+  economy/mode service vs. host pooling) rather than handing it to one agent.
+- **Cross-check against the parity matrix.** `docs/avalonia-ui-parity-matrix.md` already tracks per-screen parity;
+  reconcile the lane map against it so a "done" tab isn't re-claimed.
+
+---
+
+## 21. Implementation Lessons & Avalonia v12 Gotchas
+
+Concrete things hit during implementation that the original draft did not anticipate:
+
+- **`Microsoft.WindowsAppSDK` must be pinned, not removed** (transitive via LibVLCSharp; prevents a
+  WebView2 `NU1605` downgrade). See §5.1. On the Windows head also set
+  `WebView2EnableCsWinRTProjection=false` to get the managed WinForms control instead of the WinRT
+  projection.
+- **`WindowDecorations`, not `SystemDecorations`** (v12 rename). In code `TransparencyLevelHint` is an
+  `IReadOnlyList<WindowTransparencyLevel>` → `new[] { WindowTransparencyLevel.Transparent }`. See §4.4.
+- **Compiled bindings are on** (`AvaloniaUseCompiledBindingsByDefault=true`): every `.axaml` needs
+  `x:DataType`; dynamic paths need `{ReflectionBinding}` (or `{CompiledBinding}` will fail to resolve).
+- **Native LibVLC discovery is explicit.** `LibVLCSharp.Shared.Core.Initialize()` is called path-less in
+  shared DI, then overridden per desktop head via `LibVLCNativeDiscovery.Initialize()` (`AddDesktopLibVLC`).
+  Linux has no official NuGet (system `libvlc`); macOS ARM64 needs a dylib extracted from VLC.app. The CI
+  installs `libvlc-dev vlc` on the Linux runner. This is the concrete realization of §5.4.
+- **`IVideoSurface` is intentionally NOT DI-registered** — it needs a `VideoView` at construction, so
+  consumers `new AvaloniaVideoSurface(videoView)` directly. Don't "fix" this by registering it globally.
+- **Per-head DI override pattern:** register every seam in the shared `ConfigureCoreServices` with a safe
+  fallback, then specialize via `App.ConfigurePlatformServices` in each head's `Program.cs` (last
+  registration wins). Mobile vs. desktop branches on `OperatingSystem.IsAndroid()`.
+- **`Avalonia.Controls.DataGrid` is at `12.0.0` while the rest of Avalonia is `12.0.4`** — align these
+  (verify the matching DataGrid tag exists before bumping) to avoid subtle behaviour mismatches.
+- **`Avalonia.Diagnostics` is recommended (§4.1) but not yet referenced** by any head. Add it as a
+  `Debug`-conditional package and call `AttachDeveloperTools()` (F12 DevTools) — it materially speeds up the
+  Phase-4 binding/parity work. Low effort, high leverage for the swarm.
+- **Models are duplicated into Core** — the single largest drift hazard; see §19.4.
+
+---
+
+## 22. Conclusion
 
 Avalonia UI v12 + LibVLCSharp is a capable cross-platform target for Conditioning Control Panel. The dominant cost is the WPF UI rewrite, not the engine. The safest path is:
 
@@ -938,3 +1374,37 @@ Avalonia UI v12 + LibVLCSharp is a capable cross-platform target for Conditionin
 3. **Mobile heads** with a reduced, feature-gated companion experience.
 
 This plan intentionally gates or redesigns Windows-only features (global hooks, system-key suppression, desktop wallpaper, WebView2 on non-Windows, NAudio/WASAPI ducking, GDI capture) rather than pretending they can be mechanically ported. With the added build/test checkpoints, quality goals, and architectural concerns, the rebuild should produce a codebase that is not only cross-platform but also faster, more stable, more testable, and more maintainable than the original WPF application.
+
+---
+
+## 23. References — Official Avalonia Docs (v12)
+
+The plan's technical claims are validated against the **Avalonia v12** documentation. Use these as the canonical
+source while porting; if this plan and the docs ever disagree, the docs win — fix the plan.
+
+> **Version note:** `docs.avaloniaui.net` documents **Avalonia 12** (what this project uses). The previous line is
+> archived at `v11.docs.avaloniaui.net` — don't follow v11 links for v12-specific API (e.g. `WindowDecorations`).
+
+| Topic | Backs plan § | URL |
+|---|---|---|
+| Docs home / platform support (this project targets Win, Linux X11+Wayland, macOS, Android) | §1, §3 | https://docs.avaloniaui.net/docs/welcome |
+| **WPF → Avalonia migration guide** (hub) | §4 | https://docs.avaloniaui.net/docs/migration/wpf |
+| **WPF → Avalonia cheat sheet** (XAML, bindings, styles, controls, events, properties, threading) | §4.3–§4.8 | https://docs.avaloniaui.net/docs/migration/wpf/cheat-sheet |
+
+The migration guide is a hub with six topic sub-pages — go to the one that matches the file you're porting:
+
+| Sub-page | Backs plan § | URL |
+|---|---|---|
+| Styling (selectors/pseudo-classes) | §4.4 | https://docs.avaloniaui.net/docs/migration/wpf/styling |
+| Controls (renames, packages) | §4.4 | https://docs.avaloniaui.net/docs/migration/wpf/controls |
+| Data templates (DataType matching) | §4.4, §14.3 | https://docs.avaloniaui.net/docs/migration/wpf/data-templates |
+| Properties (`StyledProperty`/`DirectProperty`) | §4.7 | https://docs.avaloniaui.net/docs/migration/wpf/properties |
+| Events (pointer/tunnel/routed) | §4.8 | https://docs.avaloniaui.net/docs/migration/wpf/events |
+| Layout (Spacing, Grid shorthand, Panel) | §4.4 | https://docs.avaloniaui.net/docs/migration/wpf/layout |
+| Data binding & compiled bindings (`x:DataType`, `x:CompileBindings`) | §4.2, §4.7 | https://docs.avaloniaui.net/docs/basics/data/data-binding |
+| MVVM pattern (Views/ViewModels, DataTemplates) | §14.3, §20.10 | https://docs.avaloniaui.net/docs/concepts/the-mvvm-pattern |
+| Styling — selectors, classes, pseudo-classes (replaces triggers) | §4.4 | https://docs.avaloniaui.net/docs/styling/styles |
+| Deployment — macOS bundle/notarize (other platforms in the same section's nav) | §7, §18 | https://docs.avaloniaui.net/docs/deployment/macos |
+
+> **Scope note:** Avalonia ships more targets than this project pursues (e.g. Browser/WebAssembly, embedded
+> Linux). This plan targets **Windows, Linux, macOS, and Android** only — see §1/§3.
