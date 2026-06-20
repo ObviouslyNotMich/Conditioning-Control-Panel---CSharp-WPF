@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             x:Class="ConditioningControlPanel.Avalonia.Features.WebcamFeatureControl"
+             x:Name="Root"
+             x:DataType="{x:Type local:WebcamFeatureControl}"
+             Design.DataContext="{x:Null}">
+
+  <StackPanel>
+    <TextBlock Text="{loc:Str feature_webcam}"
+               Foreground="#FF69B4"
+               FontSize="16"
+               FontWeight="Bold"
+               Margin="0,0,0,10" />
+
+    <!-- Degraded badge -->
+    <Border Theme="{StaticResource PlatformInfoBadge}"
+            IsVisible="{Binding Capabilities.SupportsScreenCapture, ElementName=Root, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
+      <TextBlock Text="{loc:Str msg_webcam_unavailable_platform}"
+                 Foreground="White"
+                 FontSize="11"
+                 TextWrapping="Wrap" />
+    </Border>
+
+    <StackPanel x:Name="SettingsHost"
+                IsVisible="{Binding Capabilities.SupportsScreenCapture, ElementName=Root, Converter={StaticResource BoolToVisibilityConverter}}" />
+  </StackPanel>
+
+</UserControl>

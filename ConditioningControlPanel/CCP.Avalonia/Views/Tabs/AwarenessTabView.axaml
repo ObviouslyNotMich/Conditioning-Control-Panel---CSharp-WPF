@@ -1,0 +1,341 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.AwarenessTabView"
+             x:DataType="vm:AwarenessTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:AwarenessTabViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{loc:Str tab_awareness_awareness_text}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White" />
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{loc:Str tab_awareness_keyword_triggers_text}"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         Foreground="White" />
+              <TextBlock Text="{loc:Str tab_awareness_react_typed_visible_keywords_text}"
+                         Foreground="#AAAAAA"
+                         FontSize="11" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding KeywordTriggersEnabled, Mode=TwoWay}" />
+          </Grid>
+
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{loc:Str tab_awareness_screen_ocr_text}"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         Foreground="White" />
+              <TextBlock Text="{loc:Str tab_awareness_scan_screen_trigger_words_text}"
+                         Foreground="#AAAAAA"
+                         FontSize="11" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding ScreenOcrEnabled, Mode=TwoWay}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="14">
+          <TextBlock Text="{loc:Str tab_awareness_timing_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_awareness_buffer_timeout_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding BufferTimeoutText}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="500"
+                    Maximum="5000"
+                    Value="{Binding BufferTimeoutMs, Mode=TwoWay}"
+                    TickFrequency="100"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_awareness_global_cooldown_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding GlobalCooldownText}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="1"
+                    Maximum="120"
+                    Value="{Binding GlobalCooldownSeconds, Mode=TwoWay}"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_awareness_same_word_cooldown_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding SameWordCooldownText}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="1"
+                    Maximum="120"
+                    Value="{Binding SameWordCooldownSeconds, Mode=TwoWay}"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_awareness_session_multiplier_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding SessionMultiplierText}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="0.5"
+                    Maximum="3.0"
+                    Value="{Binding SessionMultiplier, Mode=TwoWay}"
+                    TickFrequency="0.1"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="14">
+          <TextBlock Text="{loc:Str tab_awareness_ocr_settings_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_awareness_scan_interval_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding ScreenOcrIntervalText}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="1"
+                    Maximum="30"
+                    Value="{Binding ScreenOcrIntervalSeconds, Mode=TwoWay}"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{loc:Str tab_awareness_keyword_highlight_text}"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         Foreground="White" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding KeywordHighlightEnabled, Mode=TwoWay}" />
+          </Grid>
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_awareness_highlight_duration_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding KeywordHighlightDurationText}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="0.5"
+                    Maximum="5.0"
+                    Value="{Binding KeywordHighlightDurationSeconds, Mode=TwoWay}"
+                    TickFrequency="0.1"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,*">
+            <StackPanel Spacing="6" Margin="0,0,6,0">
+              <TextBlock Text="{loc:Str tab_awareness_highlight_mode_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <ComboBox ItemsSource="{Binding OcrHighlightModeOptions}"
+                        SelectedIndex="{Binding SelectedOcrHighlightModeIndex, Mode=TwoWay}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <StackPanel Spacing="6" Margin="6,0,0,0">
+              <TextBlock Text="{loc:Str tab_awareness_confirmation_scans_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <ComboBox ItemsSource="{Binding OcrConfirmationOptions}"
+                        SelectedIndex="{Binding SelectedOcrConfirmationIndex, Mode=TwoWay}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+          </Grid>
+
+          <CheckBox Content="{loc:Str tab_awareness_highlight_visible_capture_content}"
+                    IsChecked="{Binding HighlightVisibleInCapture, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_awareness_triggers_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_awareness_add_trigger_content}"
+                    Command="{Binding AddTriggerCommand}" />
+            <Button Content="{loc:Str tab_awareness_import_from_custom_triggers_content}"
+                    Command="{Binding ImportFromCustomTriggersCommand}" />
+          </StackPanel>
+          <ListBox ItemsSource="{Binding Triggers}"
+                   Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:KeywordTriggerViewModel">
+                <Border Background="#252540"
+                        BorderBrush="#FF69B4"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12"
+                        Margin="0,4">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                      <TextBox Grid.Column="0"
+                               Text="{Binding Keyword, Mode=TwoWay}"
+                               PlaceholderText="{loc:Str tab_awareness_keyword_placeholder}"
+                               VerticalAlignment="Center" />
+                      <CheckBox Grid.Column="1"
+                                Content="{loc:Str tab_awareness_enabled_content}"
+                                IsChecked="{Binding Enabled, Mode=TwoWay}"
+                                VerticalAlignment="Center"
+                                Margin="8,0" />
+                      <Button Grid.Column="2"
+                              Content="{loc:Str tab_awareness_delete_content}"
+                              Command="{Binding $parent[ListBox].((vm:AwarenessTabViewModel)DataContext).DeleteTriggerCommand}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*">
+                      <StackPanel Spacing="6" Margin="0,0,6,0">
+                        <TextBlock Text="{loc:Str tab_awareness_visual_effect_text}"
+                                   Foreground="White"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding $parent[ListBox].((vm:AwarenessTabViewModel)DataContext).VisualEffectOptions}"
+                                  SelectedIndex="{Binding VisualEffectIndex, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch" />
+                      </StackPanel>
+                      <StackPanel Spacing="6" Margin="6,0,0,0">
+                        <TextBlock Text="{loc:Str tab_awareness_cooldown_s_text}"
+                                   Foreground="White"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                        <Slider Minimum="1"
+                                Maximum="3600"
+                                Value="{Binding CooldownSeconds, Mode=TwoWay}"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True" />
+                      </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*">
+                      <StackPanel Spacing="6" Margin="0,0,6,0">
+                        <TextBlock Text="{loc:Str tab_awareness_audio_volume_text}"
+                                   Foreground="White"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                        <Slider Minimum="0"
+                                Maximum="100"
+                                Value="{Binding AudioVolume, Mode=TwoWay}"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True" />
+                      </StackPanel>
+                      <StackPanel Spacing="6" Margin="6,0,0,0">
+                        <TextBlock Text="{loc:Str tab_awareness_audio_file_text}"
+                                   Foreground="White"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding AudioFileName}"
+                                   Opacity="0.8" />
+                        <Button Content="{loc:Str tab_awareness_browse_audio_content}"
+                                Command="{Binding $parent[ListBox].((vm:AwarenessTabViewModel)DataContext).BrowseAudioCommand}"
+                                CommandParameter="{Binding}" />
+                      </StackPanel>
+                    </Grid>
+
+                    <WrapPanel Orientation="Horizontal">
+                      <CheckBox Content="{loc:Str tab_awareness_haptic_content}"
+                                IsChecked="{Binding HapticEnabled, Mode=TwoWay}"
+                                Margin="0,0,16,0" />
+                      <CheckBox Content="{loc:Str tab_awareness_duck_audio_content}"
+                                IsChecked="{Binding DuckAudio, Mode=TwoWay}" />
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

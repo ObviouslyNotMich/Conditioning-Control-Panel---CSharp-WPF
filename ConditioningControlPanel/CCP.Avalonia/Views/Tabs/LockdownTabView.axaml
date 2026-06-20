@@ -1,0 +1,158 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.LockdownTabView"
+             x:DataType="vm:LockdownTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:LockdownTabViewModel />
+  </Design.DataContext>
+
+  <Grid>
+    <ScrollViewer IsVisible="{Binding !IsPremiumLocked}">
+      <StackPanel Spacing="16" Margin="16" MaxWidth="720" HorizontalAlignment="Center">
+        <!-- Header -->
+        <StackPanel Spacing="6" HorizontalAlignment="Center">
+          <TextBlock Text="🔒"
+                     FontSize="44"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="{loc:Str tab_lockdown_lockdown_text}"
+                     FontSize="22"
+                     FontWeight="Bold"
+                     Foreground="White"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="{loc:Str tab_lockdown_a_timed_strictlock_session_enter_secret_text}"
+                     Foreground="#AAAAAA"
+                     FontSize="12"
+                     TextWrapping="Wrap"
+                     TextAlignment="Center" />
+        </StackPanel>
+
+        <!-- Main card -->
+        <Border BorderThickness="2"
+                CornerRadius="16"
+                Padding="20">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Offset="0" Color="#1A1A32" />
+              <GradientStop Offset="1" Color="#201A38" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Border.BorderBrush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+              <GradientStop Offset="0" Color="#FF69B4" />
+              <GradientStop Offset="1" Color="#9370DB" />
+            </LinearGradientBrush>
+          </Border.BorderBrush>
+
+          <StackPanel Spacing="16">
+            <!-- Setup panel -->
+            <StackPanel Spacing="12" IsVisible="{Binding SetupVisible}">
+              <TextBlock Text="{loc:Str tab_lockdown_session_duration_text}"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         Foreground="White" />
+
+              <ComboBox ItemsSource="{Binding DurationOptions}"
+                        DisplayMemberBinding="{Binding Label}"
+                        SelectedIndex="{Binding SelectedDurationIndex, Mode=TwoWay}"
+                        HorizontalAlignment="Stretch" />
+
+              <Button Content="{loc:Str tab_lockdown_activate_lockdown_content}"
+                      Command="{Binding ActivateCommand}"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Center">
+                <Button.Background>
+                  <SolidColorBrush Color="#FF69B4" />
+                </Button.Background>
+                <Button.Foreground>
+                  <SolidColorBrush Color="White" />
+                </Button.Foreground>
+              </Button>
+            </StackPanel>
+
+            <!-- Active panel -->
+            <StackPanel Spacing="16" IsVisible="{Binding ActiveVisible}">
+              <TextBlock Text="{loc:Str tab_lockdown_lockdown_active_text}"
+                         FontSize="18"
+                         FontWeight="Bold"
+                         Foreground="#DC143C"
+                         HorizontalAlignment="Center" />
+
+              <TextBlock Text="{Binding TimerText}"
+                         FontSize="36"
+                         FontWeight="Bold"
+                         Foreground="#DC143C"
+                         HorizontalAlignment="Center"
+                         FontFamily="Consolas, Monospace" />
+
+              <Button Content="{loc:Str tab_lockdown_request_exit_content}"
+                      Command="{Binding ToggleExitInputCommand}"
+                      HorizontalAlignment="Center" />
+
+              <StackPanel Spacing="8" IsVisible="{Binding ExitInputVisible}">
+                <TextBlock Text="{loc:Str tab_lockdown_enter_secret_exit_phrase_text}"
+                           Foreground="#AAAAAA"
+                           FontSize="12" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Grid.Column="0"
+                           Text="{Binding ExitInputText, Mode=TwoWay}"
+                           Watermark="{loc:Str tab_lockdown_secret_phrase_watermark}"
+                           VerticalAlignment="Center" />
+                  <Button Grid.Column="1"
+                          Content="{loc:Str tab_lockdown_submit_content}"
+                          Command="{Binding SubmitExitPhraseCommand}"
+                          Margin="8,0,0,0" />
+                </Grid>
+              </StackPanel>
+
+              <Button Content="{loc:Str tab_lockdown_abort_lockdown_content}"
+                      Command="{Binding AbortCommand}"
+                      HorizontalAlignment="Center"
+                      Background="#DC143C"
+                      Foreground="White" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <TextBlock Text="{Binding WarningText}"
+                   Foreground="#FF69B4"
+                   FontSize="13"
+                   TextWrapping="Wrap"
+                   HorizontalAlignment="Center" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Premium gate overlay -->
+    <Border IsVisible="{Binding IsPremiumLocked}"
+            Background="#CC000000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+      <StackPanel Spacing="12"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
+        <TextBlock Text="🔒"
+                   FontSize="56"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="{loc:Str tab_lockdown_premium_locked_text}"
+                   FontSize="22"
+                   FontWeight="Bold"
+                   Foreground="White"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="{loc:Str tab_lockdown_lockdown_a_premium_feature_link_patreon_text}"
+                   Foreground="#AAAAAA"
+                   FontSize="13"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   MaxWidth="320" />
+        <Button Content="{loc:Str tab_lockdown_unlock_content}"
+                Command="{Binding UnlockCommand}"
+                HorizontalAlignment="Center"
+                Background="#FF69B4"
+                Foreground="White" />
+      </StackPanel>
+    </Border>
+  </Grid>
+
+</UserControl>

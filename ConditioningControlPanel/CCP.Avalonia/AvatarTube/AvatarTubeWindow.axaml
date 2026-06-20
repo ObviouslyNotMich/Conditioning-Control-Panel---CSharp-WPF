@@ -1,0 +1,404 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:ConditioningControlPanel.Core.Localization"
+        xmlns:local="using:ConditioningControlPanel.Avalonia.AvatarTube"
+        x:Class="ConditioningControlPanel.Avalonia.AvatarTube.AvatarTubeWindow"
+        x:CompileBindings="False"
+        Title="{Binding [dialog_avatar_tube], Source={x:Static loc:LocalizationManager.Instance}}"
+        WindowDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        CanResize="False"
+        SizeToContent="WidthAndHeight"
+        UseLayoutRounding="True"
+        FontFamily="Inter, Segoe UI"
+        Loaded="OnLoaded"
+        Opened="OnFirstContentRendered">
+
+  <Window.Resources>
+    <!-- Theme tokens scoped to this window -->
+    <Color x:Key="PinkColor">#FFFF69B4</Color>
+    <Color x:Key="PatreonPurple">#FF9B59B6</Color>
+    <Color x:Key="PatreonDarkPurple">#FF8E44AD</Color>
+    <SolidColorBrush x:Key="PinkBrush" Color="{DynamicResource PinkColor}" />
+    <SolidColorBrush x:Key="DarkerBg" Color="#FF121220" />
+    <SolidColorBrush x:Key="DarkerBgBrush" Color="#FF121220" />
+    <SolidColorBrush x:Key="PanelBgBrush" Color="#FF1C1C35" />
+    <SolidColorBrush x:Key="SecondaryBrush" Color="{DynamicResource PatreonPurple}" />
+
+    <local:BoolToBrushConverter x:Key="UserBubbleBgConverter"
+                                TrueBrush="#FF69B4"
+                                FalseBrush="#3D2A55" />
+    <local:BoolToHorizontalAlignmentConverter x:Key="UserBubbleAlignConverter"
+                                              TrueValue="Right"
+                                              FalseValue="Left" />
+
+    <LinearGradientBrush x:Key="BubbleGradient" StartPoint="0,0" EndPoint="1,1">
+      <GradientStop Color="{DynamicResource PatreonDarkPurple}" Offset="0"/>
+      <GradientStop Color="#FF121220" Offset="1"/>
+    </LinearGradientBrush>
+  </Window.Resources>
+
+  <Grid>
+    <Viewbox x:Name="ContentViewbox" Stretch="Uniform" ClipToBounds="False" SizeChanged="ContentViewbox_SizeChanged">
+      <Grid Width="780" Height="1080" ClipToBounds="False" UseLayoutRounding="True">
+
+        <!-- Tube frame -->
+        <Image x:Name="ImgTubeFrame"
+               Source="/Resources/tube.png"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               IsHitTestVisible="False"/>
+
+        <!-- Speech bubble -->
+        <Border x:Name="SpeechBubble"
+                ZIndex="10"
+                IsVisible="False"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Opacity="0.92"
+                Margin="0,0,125,550"
+                PointerEntered="SpeechBubble_MouseEnter"
+                PointerExited="SpeechBubble_MouseLeave"
+                MinWidth="120" MaxWidth="380"
+                Background="{StaticResource BubbleGradient}"
+                CornerRadius="20"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="3"
+                Padding="15,12">
+
+          <Grid>
+            <ScrollViewer x:Name="SpeechScroller"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="280">
+              <TextBlock x:Name="TxtSpeech"
+                         Text=""
+                         Foreground="{DynamicResource PinkBrush}"
+                         FontSize="20"
+                         FontWeight="Bold"
+                         TextWrapping="Wrap"
+                         TextAlignment="Left"
+                         Padding="0,0,8,0"/>
+            </ScrollViewer>
+
+            <Border x:Name="AiBadge"
+                    IsVisible="False"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="-6,-6,0,0"
+                    Width="22" Height="14"
+                    CornerRadius="4"
+                    Background="{DynamicResource PinkBrush}"
+                    ZIndex="20"
+                    IsHitTestVisible="False">
+              <TextBlock Text="{Binding [label_ai_badge], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="White"
+                         FontSize="9"
+                         FontWeight="Bold"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"/>
+            </Border>
+
+            <Border x:Name="PolicyBadge"
+                    IsVisible="False"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="-6,-6,0,0"
+                    Width="44" Height="14"
+                    CornerRadius="4"
+                    Background="#FFC107"
+                    ZIndex="20"
+                    IsHitTestVisible="False">
+              <TextBlock Text="{Binding [label_policy_badge], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="Black"
+                         FontSize="9"
+                         FontWeight="Bold"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"/>
+            </Border>
+
+            <!-- Chat history view -->
+            <Grid x:Name="ChatHistoryView" IsVisible="False">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+
+              <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="True">
+                <Button x:Name="BtnCloseChatHistory"
+                        DockPanel.Dock="Right"
+                        Content="✕"
+                        Width="24" Height="24"
+                        FontSize="14"
+                        FontWeight="Bold"
+                        Background="Transparent"
+                        Foreground="{DynamicResource PinkBrush}"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="BtnCloseChatHistory_Click"
+                        ToolTip.Tip="{Binding [tooltip_close_chat_history], Source={x:Static loc:LocalizationManager.Instance}}"/>
+                <TextBlock Text="{Binding [label_chat_history_title], Source={x:Static loc:LocalizationManager.Instance}}"
+                           Foreground="{DynamicResource PinkBrush}"
+                           FontSize="16"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+              </DockPanel>
+
+              <ScrollViewer x:Name="ChatHistoryScroller"
+                            Grid.Row="1"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled"
+                            MaxHeight="420">
+                <Grid>
+                  <TextBlock x:Name="TxtChatHistoryEmpty"
+                             Text="{Binding [label_chat_history_empty], Source={x:Static loc:LocalizationManager.Instance}}"
+                             Foreground="#AAAAAA"
+                             FontSize="14"
+                             FontStyle="Italic"
+                             HorizontalAlignment="Center"
+                             Margin="0,20,0,20"
+                             IsVisible="False"/>
+
+                  <ItemsControl x:Name="ChatHistoryList">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border CornerRadius="10" Padding="9,6" Margin="2,3" MaxWidth="380"
+                                HorizontalAlignment="{Binding IsUser, Converter={StaticResource UserBubbleAlignConverter}}"
+                                Background="{Binding IsUser, Converter={StaticResource UserBubbleBgConverter}}">
+                          <StackPanel>
+                            <TextBlock Tag="{Binding Text}"
+                                       Loaded="ChatHistoryText_Loaded"
+                                       Foreground="White"
+                                       FontSize="14"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding TimeLabel}"
+                                       Foreground="#DDDDDD"
+                                       FontSize="10"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,2,0,0"/>
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Grid>
+              </ScrollViewer>
+            </Grid>
+          </Grid>
+        </Border>
+
+        <!-- Input panel -->
+        <Border x:Name="InputPanel"
+                ZIndex="3"
+                IsVisible="False"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,126,520"
+                Background="{DynamicResource PanelBgBrush}"
+                CornerRadius="10"
+                Padding="10"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="2">
+          <StackPanel Orientation="Horizontal">
+            <TextBox x:Name="TxtUserInput"
+                     Width="180"
+                     Height="30"
+                     FontSize="14"
+                     Background="{DynamicResource DarkerBgBrush}"
+                     Foreground="White"
+                     BorderBrush="{DynamicResource PinkBrush}"
+                     BorderThickness="1"
+                     Padding="5,3"
+                     VerticalContentAlignment="Center"
+                     KeyDown="TxtUserInput_KeyDown"/>
+            <Button x:Name="BtnSendChat"
+                    Content="{Binding [btn_send], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Width="50"
+                    Height="30"
+                    Margin="5,0,0,0"
+                    Background="{DynamicResource PinkBrush}"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    Click="BtnSendChat_Click"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Avatar host -->
+        <Border x:Name="AvatarBorder"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="5,100,126,210"
+                Cursor="Hand"
+                PointerPressed="ImgAvatar_PointerPressed"
+                ClipToBounds="False">
+
+          <Border.ContextFlyout>
+            <MenuFlyout Opening="AvatarContextMenu_Opened">
+              <MenuItem x:Name="MenuItemTalkToBambi"
+                        Header="{Binding [section_talk_to_companion], Source={x:Static loc:LocalizationManager.Instance}}"
+                        Click="MenuItemTalkToBambi_Click"
+                        Foreground="{DynamicResource PinkBrush}"
+                        FontWeight="Bold"/>
+              <Separator/>
+              <MenuItem x:Name="MenuItemDetach" Header="{Binding [section_detach], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemDetach_Click"/>
+              <MenuItem x:Name="MenuItemAttach" Header="{Binding [section_attach_to_main_window], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemAttach_Click" IsVisible="False"/>
+              <MenuItem x:Name="MenuItemShrink" Header="{Binding [section_shrink], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemShrink_Click" IsVisible="False"/>
+              <MenuItem x:Name="MenuItemGrow" Header="{Binding [section_grow], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemGrow_Click" IsVisible="False"/>
+              <MenuItem x:Name="MenuItemDismiss" Header="{Binding [section_dismiss], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemDismiss_Click" IsVisible="False"/>
+              <Separator/>
+              <MenuItem x:Name="MenuItemEngine" Header="{Binding [section_start_engine], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemEngine_Click" Foreground="#90EE90"/>
+              <MenuItem x:Name="MenuItemTriggerMode" Header="{Binding [section_trigger_mode], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemTriggerMode_Click"/>
+              <MenuItem x:Name="MenuItemBambiTakeover" Header="{Binding [section_takeover], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemBambiTakeover_Click"/>
+              <MenuItem x:Name="MenuItemPersonality" Header="{Binding [section_personality], Source={x:Static loc:LocalizationManager.Instance}}" Foreground="{DynamicResource PinkBrush}"/>
+              <MenuItem x:Name="MenuItemMute" Header="{Binding [section_mute_avatar], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemMute_Click"/>
+              <MenuItem x:Name="MenuItemEmote1" Header="" IsVisible="False" Click="MenuItemEmote_Click"/>
+              <MenuItem x:Name="MenuItemEmote2" Header="" IsVisible="False" Click="MenuItemEmote_Click"/>
+              <MenuItem x:Name="MenuItemEmote3" Header="" IsVisible="False" Click="MenuItemEmote_Click"/>
+              <MenuItem x:Name="MenuItemEmote4" Header="" IsVisible="False" Click="MenuItemEmote_Click"/>
+              <MenuItem x:Name="MenuItemEmote5" Header="" IsVisible="False" Click="MenuItemEmote_Click"/>
+              <Separator/>
+              <MenuItem x:Name="MenuItemShowChatHistory" Header="{Binding [section_show_chat_history], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemShowChatHistory_Click"/>
+              <MenuItem x:Name="MenuItemMuteWhispers" Header="{Binding [section_mute_whispers], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemMuteWhispers_Click"/>
+              <MenuItem x:Name="MenuItemPauseBrowser" Header="{Binding [section_pause_browser], Source={x:Static loc:LocalizationManager.Instance}}" Click="MenuItemPauseBrowser_Click"/>
+            </MenuFlyout>
+          </Border.ContextFlyout>
+
+          <Grid x:Name="AvatarBounceHost" RenderTransformOrigin="0.5,1.0">
+            <Grid.RenderTransform>
+              <ScaleTransform/>
+            </Grid.RenderTransform>
+
+            <Image x:Name="ImgAvatar"
+                   Stretch="Uniform"
+                   MaxHeight="306"
+                   MaxWidth="198"
+                   RenderTransformOrigin="0.5,0.5">
+              <Image.RenderTransform>
+                <TransformGroup>
+                  <ScaleTransform/>
+                  <RotateTransform/>
+                  <TranslateTransform Y="0"/>
+                </TransformGroup>
+              </Image.RenderTransform>
+            </Image>
+
+            <Image x:Name="ImgAvatarB"
+                   Stretch="Uniform"
+                   MaxHeight="306"
+                   MaxWidth="198"
+                   Opacity="0"
+                   IsVisible="False"
+                   RenderTransformOrigin="0.5,0.5">
+              <Image.RenderTransform>
+                <TransformGroup>
+                  <ScaleTransform/>
+                  <RotateTransform/>
+                  <TranslateTransform Y="0"/>
+                </TransformGroup>
+              </Image.RenderTransform>
+            </Image>
+
+            <Ellipse x:Name="MistOverlay"
+                     IsHitTestVisible="False"
+                     IsVisible="False"
+                     Opacity="0.12"
+                     RenderTransformOrigin="0.5,0.5">
+              <Ellipse.RenderTransform>
+                <ScaleTransform/>
+              </Ellipse.RenderTransform>
+              <Ellipse.Fill>
+                <RadialGradientBrush GradientOrigin="0.5,0.45" Center="0.5,0.45" RadiusX="0.6" RadiusY="0.72">
+                  <GradientStop Color="#FFFF8FCF" Offset="0.0"/>
+                  <GradientStop Color="#66FF69B4" Offset="0.45"/>
+                  <GradientStop Color="#00FF69B4" Offset="1.0"/>
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+            </Ellipse>
+
+            <Image x:Name="ImgAvatarAnimated"
+                   Stretch="Uniform"
+                   MaxHeight="306"
+                   MaxWidth="198"
+                   IsVisible="False"
+                   RenderTransformOrigin="0.5,0.5">
+              <Image.RenderTransform>
+                <TranslateTransform Y="0"/>
+              </Image.RenderTransform>
+            </Image>
+
+            <Image x:Name="ImgAvatarAnimatedB"
+                   Stretch="Uniform"
+                   MaxHeight="306"
+                   MaxWidth="198"
+                   Opacity="0"
+                   IsVisible="False"
+                   RenderTransformOrigin="0.5,0.5">
+              <Image.RenderTransform>
+                <TranslateTransform Y="0"/>
+              </Image.RenderTransform>
+            </Image>
+          </Grid>
+        </Border>
+
+        <!-- Title / level box -->
+        <Border x:Name="TitleBox"
+                ZIndex="4"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,121,180"
+                Background="#CC1A1A2E"
+                CornerRadius="12"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="2"
+                Padding="8,6">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="BtnPrevAvatar" Grid.Column="0"
+                    Background="Transparent" Cursor="Hand"
+                    PointerPressed="BtnPrevAvatar_Click"
+                    IsVisible="False"
+                    VerticalAlignment="Center" Margin="0,0,10,0">
+              <TextBlock Text="◀" FontSize="27" Foreground="{DynamicResource SecondaryBrush}" FontWeight="Bold"/>
+            </Border>
+
+            <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock x:Name="TxtAvatarTitle"
+                         Text="{Binding [label_basic_subject_2], Source={x:Static loc:LocalizationManager.Instance}}"
+                         FontSize="16"
+                         FontWeight="Bold"
+                         Foreground="{DynamicResource PinkBrush}"
+                         TextAlignment="Center"
+                         HorizontalAlignment="Center"/>
+              <TextBlock x:Name="TxtAvatarLevel"
+                         Text="{Binding [label_lv_1_2], Source={x:Static loc:LocalizationManager.Instance}}"
+                         FontSize="13"
+                         Foreground="#B0B0B0"
+                         TextAlignment="Center"
+                         HorizontalAlignment="Center"
+                         Margin="0,-2,0,0"/>
+            </StackPanel>
+
+            <Border x:Name="BtnNextAvatar" Grid.Column="2"
+                    Background="Transparent" Cursor="Hand"
+                    PointerPressed="BtnNextAvatar_Click"
+                    IsVisible="False"
+                    VerticalAlignment="Center" Margin="10,0,0,0">
+              <TextBlock Text="▶" FontSize="27" Foreground="{DynamicResource SecondaryBrush}" FontWeight="Bold"/>
+            </Border>
+          </Grid>
+        </Border>
+
+      </Grid>
+    </Viewbox>
+  </Grid>
+</Window>

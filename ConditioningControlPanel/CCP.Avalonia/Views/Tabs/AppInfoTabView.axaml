@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.AppInfoTabView"
+             x:DataType="vm:AppInfoTabViewModel">
+
+  <Design.DataContext>
+    <vm:AppInfoTabViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{loc:Str app_info_title}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White" />
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str section_account}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{Binding PatreonButtonText}"
+                    Command="{Binding QuickPatreonLoginCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+            <Button Content="{Binding DiscordButtonText}"
+                    Command="{Binding QuickDiscordLoginCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str btn_discord_server}"
+                    Command="{Binding OpenDiscordInviteCommand}" />
+            <ToggleButton Content="{loc:Str label_rich_presence}"
+                          IsChecked="{Binding IsRichPresenceEnabled}"
+                          Command="{Binding ToggleRichPresenceCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str label_language}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <ComboBox ItemsSource="{Binding LanguageOptions}"
+                    SelectedItem="{Binding SelectedLanguage}"
+                    Width="220">
+            <ComboBox.ItemTemplate>
+              <DataTemplate DataType="vm:LanguageOption">
+                <TextBlock Text="{Binding DisplayName}"
+                           ToolTip.Tip="{Binding ToolTip}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str section_cloud_backup}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{Binding BackupStatusText}"
+                     TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str btn_back_up_now}"
+                    Command="{Binding BackupSettingsCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+            <Button Content="{loc:Str btn_restore_from_cloud_appinfo}"
+                    Command="{Binding RestoreSettingsCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+            <Button Content="{loc:Str btn_export_my_data_appinfo}"
+                    Command="{Binding ExportDataCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str section_legal_and_support}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <Button Content="{loc:Str btn_privacy_policy}"
+                  Command="{Binding OpenPrivacyPolicyCommand}" />
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str section_smoke_tests}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str btn_test_audio}"
+                    Command="{Binding SmokeTestAudioCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+            <Button Content="{loc:Str btn_test_video}"
+                    Command="{Binding SmokeTestVideoCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

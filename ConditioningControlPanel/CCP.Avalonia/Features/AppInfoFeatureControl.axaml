@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             x:Class="ConditioningControlPanel.Avalonia.Features.AppInfoFeatureControl"
+             Design.DataContext="{x:Null}">
+
+  <StackPanel>
+    <Border Background="#1A1A2E"
+            BorderBrush="#FF69B4"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="20"
+            Margin="0,0,0,12">
+      <StackPanel HorizontalAlignment="Center">
+        <TextBlock Text="{loc:Str section_app_info}"
+                   Foreground="#FF69B4"
+                   FontSize="20"
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,6" />
+        <TextBlock x:Name="TxtVersion"
+                   Text=""
+                   Foreground="White"
+                   FontSize="14"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,6" />
+        <TextBlock x:Name="TxtProduct"
+                   Text=""
+                   Foreground="#AAAAAA"
+                   FontSize="11"
+                   HorizontalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <StackPanel x:Name="ExternalSectionsHost" Margin="0,0,0,8" />
+
+    <Button x:Name="BtnCheckUpdates"
+            Content="{loc:Str btn_check_updates}"
+            Padding="14,12"
+            FontSize="14"
+            Click="BtnCheckUpdates_Click"
+            Margin="0,0,0,8" />
+
+    <Button x:Name="BtnReportBug"
+            Content="{loc:Str btn_report_bug}"
+            Padding="14,12"
+            FontSize="14"
+            Click="BtnReportBug_Click" />
+  </StackPanel>
+
+</UserControl>

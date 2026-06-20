@@ -1,0 +1,304 @@
+﻿using System;
+using System.Collections.Generic;
+using global::Avalonia;
+using global::Avalonia.Controls;
+using global::Avalonia.Controls.Shapes;
+using global::Avalonia.Layout;
+using global::Avalonia.Media;
+using global::Avalonia.Threading;
+
+using Microsoft.Extensions.DependencyInjection;
+namespace ConditioningControlPanel.Avalonia.Chaos;
+
+/// <summary>
+/// Avalonia port of ChaosFieldFxOverlay: full-virtual-screen click-through canvas for
+/// Size Queen ripples, Aftermath residue, Tail-Plug sparkle trail, and The Bound tether.
+/// </summary>
+public partial class ChaosFieldFxOverlay : Window
+{
+    private const int TRAIL_DOT_POOL = 90;
+    private const double TRAIL_DOT_SIZE = 16;
+
+    private static readonly Color RingColor = Color.FromRgb(0x7A, 0xE0, 0xFF);
+    private static readonly Color ResidueColor = Color.FromRgb(0x9C, 0x5C, 0xFF);
+    private static readonly Color TrailColor = Color.FromRgb(0xFF, 0x4D, 0xC4);
+    private static readonly Color WarmTrailColor = Color.FromRgb(0xFF, 0x8A, 0x14);
+
+    private static ChaosFieldFxOverlay? _active;
+
+    private readonly Canvas _canvas;
+    private readonly Ellipse[] _trailDots = new Ellipse[TRAIL_DOT_POOL];
+    private readonly ScaleTransform[] _trailScales = new ScaleTransform[TRAIL_DOT_POOL];
+    private int _trailIndex;
+    private int _transientCount;
+    private readonly IBrush _trailBrushCool;
+    private readonly IBrush _trailBrushWarm;
+    private readonly Dictionary<int, Line> _tethers = new();
+    private static readonly IBrush TetherBrush = Frozen(Color.FromArgb(150, 0xFF, 0x69, 0xB4));
+
+    public ChaosFieldFxOverlay()
+    {
+        InitializeComponent();
+
+WindowDecorations = WindowDecorations.None;
+        TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
+        Background = Brushes.Transparent;
+        Topmost = AvaloniaChaosWindowZ.BornTopmost;
+        ShowInTaskbar = false;
+        ShowActivated = false;
+        Focusable = false;
+        IsHitTestVisible = false;
+        CanResize = false;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+
+        var (sl, st, sw, sh) = AvaloniaChaosWindowZ.StageBounds();
+        Position = new PixelPoint((int)sl, (int)st);
+        Width = sw;
+        Height = sh;
+
+        _canvas = new Canvas { IsHitTestVisible = false };
+        Content = _canvas;
+
+        _trailBrushCool = BuildTrailBrush(TrailColor);
+        _trailBrushWarm = BuildTrailBrush(WarmTrailColor);
+        for (int i = 0; i < TRAIL_DOT_POOL; i++)
+        {
+            var sc = new ScaleTransform(1, 1);
+            var dot = new Ellipse
+            {
+                Width = TRAIL_DOT_SIZE, Height = TRAIL_DOT_SIZE,
+                Fill = _trailBrushCool,
+                IsHitTestVisible = false,
+                Opacity = 0,
+                RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
+                RenderTransform = sc,
+            };
+            _trailDots[i] = dot;
+            _trailScales[i] = sc;
+            _canvas.Children.Add(dot);
+        }
+
+        Opened += (_, _) => ApplyExStyles();
+    }
+
+    public static void EnsureCreated()
+    {
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    if (_active == null)
+                    {
+                        _active = new ChaosFieldFxOverlay();
+                        ((global::Avalonia.Controls.Window)_active).Show();
+                        _active.Hide();
+                    }
+                }
+                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosFieldFx.EnsureCreated: {E}", ex.Message); }
+            });
+        }
+        catch { }
+    }
+
+    public static void Ripple(Point centerPx, double radiusPx, double lifeMs) =>
+        OnUi(w => w.DrawRipple(centerPx, radiusPx, lifeMs));
+    public static void SnapRipple(Point centerPx, double radiusPx, double lifeMs) =>
+        OnUi(w => w.DrawSnapRipple(centerPx, radiusPx, lifeMs));
+    public static void Residue(Point centerPx, double radiusPx, double lifeMs) =>
+        OnUi(w => w.DrawResidue(centerPx, radiusPx, lifeMs));
+    public static void TrailDot(Point centerPx, double lifeSec, bool warm = false) =>
+        OnUi(w => w.DrawTrailDot(centerPx, lifeSec, warm));
+    public static void SetTether(int key, Point aPx, Point bPx) =>
+        OnUi(w => w.UpdateTether(key, aPx, bPx));
+    public static void ClearTether(int key) =>
+        OnUi(w => w.RemoveTether(key));
+
+    public static void RaiseActive() => AvaloniaChaosWindowZ.RaiseTopmost(_active);
+
+    public static void CloseActive()
+    {
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var w = _active;
+                    _active = null;
+                    w?.Close();
+                }
+                catch { }
+            });
+        }
+        catch { }
+    }
+
+    private static void OnUi(Action<ChaosFieldFxOverlay> act)
+    {
+        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    if (_active == null)
+                    {
+                        _active = new ChaosFieldFxOverlay();
+                        ((global::Avalonia.Controls.Window)_active).Show();
+                        AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
+                    }
+                    else if (!_active.IsVisible)
+                    {
+                        ((global::Avalonia.Controls.Window)_active).Show();
+                        AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
+                    }
+                    act(_active);
+                }
+                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosFieldFx: {E}", ex.Message); }
+            });
+        }
+        catch { }
+    }
+
+    private static IBrush BuildTrailBrush(Color edge)
+    {
+        var b = new RadialGradientBrush { GradientOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative), Center = new RelativePoint(0.5, 0.5, RelativeUnit.Relative) };
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(200, 0xFF, 0xE9, 0xA0), 0.0));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(120, edge.R, edge.G, edge.B), 0.55));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(0, edge.R, edge.G, edge.B), 1.0));
+        return b;
+    }
+
+    private Point? Local(Point px) => new Point(px.X - Position.X, px.Y - Position.Y);
+
+    private void DrawRipple(Point centerPx, double radiusPx, double lifeMs)
+    {
+        if (Local(centerPx) is not Point c) return;
+        double r = radiusPx;
+        var ring = NewRing(c, r, RingColor, 6);
+        _canvas.Children.Add(ring);
+        _transientCount++;
+        _ = new OpacityFade(ring, 0.95, 0, lifeMs, () => RemoveTransient(ring));
+    }
+
+    private void DrawSnapRipple(Point centerPx, double radiusPx, double lifeMs)
+    {
+        if (Local(centerPx) is not Point c) return;
+        double r = radiusPx;
+        var front = NewRing(c, r, Color.FromRgb(0x7A, 0xE0, 0xFF), 6);
+        _canvas.Children.Add(front);
+        _transientCount++;
+        _ = new OpacityFade(front, 0.95, 0, lifeMs, () => RemoveTransient(front));
+        var echo = NewRing(c, r * 0.82, Color.FromRgb(0xFF, 0x69, 0xB4), 3.5);
+        _canvas.Children.Add(echo);
+        _transientCount++;
+        _ = new OpacityFade(echo, 0.65, 0, lifeMs, () => RemoveTransient(echo));
+        // TODO: radial shards.
+    }
+
+    private Ellipse NewRing(Point c, double r, Color color, double thickness)
+    {
+        return new Ellipse
+        {
+            Width = r * 2, Height = r * 2,
+            Stroke = new SolidColorBrush(Color.FromArgb(190, color.R, color.G, color.B)),
+            StrokeThickness = thickness,
+            IsHitTestVisible = false,
+        };
+    }
+
+    private void DrawResidue(Point centerPx, double radiusPx, double lifeMs)
+    {
+        if (Local(centerPx) is not Point c) return;
+        double r = radiusPx;
+        var brush = new RadialGradientBrush { GradientOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative), Center = new RelativePoint(0.5, 0.5, RelativeUnit.Relative) };
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(70, 0xBF, 0xEC, 0xFF), 0.0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(90, ResidueColor.R, ResidueColor.G, ResidueColor.B), 0.55));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, ResidueColor.R, ResidueColor.G, ResidueColor.B), 1.0));
+        var zone = new Ellipse
+        {
+            Width = r * 2, Height = r * 2,
+            Fill = brush,
+            IsHitTestVisible = false,
+        };
+        Canvas.SetLeft(zone, c.X - r);
+        Canvas.SetTop(zone, c.Y - r);
+        _canvas.Children.Add(zone);
+        _transientCount++;
+        _ = new OpacityFade(zone, 0.55, 0, lifeMs, () => RemoveTransient(zone));
+    }
+
+    private void UpdateTether(int key, Point aPx, Point bPx)
+    {
+        if (Local(aPx) is not Point a || Local(bPx) is not Point b) return;
+        if (!_tethers.TryGetValue(key, out var line))
+        {
+            line = new Line
+            {
+                Stroke = TetherBrush,
+                StrokeThickness = 3.5,
+                IsHitTestVisible = false,
+                Opacity = 0.55,
+            };
+            _tethers[key] = line;
+            _canvas.Children.Add(line);
+        }
+        line.StartPoint = a;
+        line.EndPoint = b;
+        double dx = b.X - a.X, dy = b.Y - a.Y;
+        double dist = Math.Sqrt(dx * dx + dy * dy);
+        line.StrokeThickness = Math.Clamp(5.0 - dist / 250.0, 1.5, 5.0);
+    }
+
+    private void RemoveTether(int key)
+    {
+        if (_tethers.TryGetValue(key, out var line))
+        {
+            try { _canvas.Children.Remove(line); } catch { }
+            _tethers.Remove(key);
+        }
+        MaybeHide();
+    }
+
+    private void DrawTrailDot(Point centerPx, double lifeSec, bool warm = false)
+    {
+        if (Local(centerPx) is not Point c) return;
+        var dot = _trailDots[_trailIndex];
+        var sc =
+_trailScales[_trailIndex];
+        _trailIndex = (_trailIndex + 1) % TRAIL_DOT_POOL;
+        dot.Fill = warm ? _trailBrushWarm : _trailBrushCool;
+        Canvas.SetLeft(dot, c.X - TRAIL_DOT_SIZE / 2);
+        Canvas.SetTop(dot, c.Y - TRAIL_DOT_SIZE / 2);
+        dot.Opacity = 0.65;
+        _ = new OpacityFade(dot, 0.65, 0, lifeSec * 1000, () =>
+        {
+            if (_transientCount == 0 && _tethers.Count == 0 && AvaloniaChaosEnv.Bubbles?.ChaosRabbitTrailSecNow <= 0)
+                try { Hide(); } catch { }
+        });
+        // TODO: scale shrink animation.
+    }
+
+    private void RemoveTransient(Control el)
+    {
+        try { _canvas.Children.Remove(el); } catch { }
+        _transientCount = Math.Max(0, _transientCount - 1);
+        MaybeHide();
+    }
+
+    private void MaybeHide()
+    {
+        if (_transientCount == 0 && _tethers.Count == 0 && AvaloniaChaosEnv.Bubbles?.ChaosRabbitTrailSecNow <= 0)
+            try { Hide(); } catch { }
+    }
+
+    private void ApplyExStyles()
+    {
+        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
+    }
+
+    private static IBrush Frozen(Color c) => new SolidColorBrush(c);
+}

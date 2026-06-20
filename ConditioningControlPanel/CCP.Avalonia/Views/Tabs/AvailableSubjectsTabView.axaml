@@ -1,0 +1,203 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:models="using:ConditioningControlPanel.Core.Models"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.AvailableSubjectsTabView"
+             x:Name="Root"
+             x:DataType="vm:AvailableSubjectsTabViewModel">
+
+  <Design.DataContext>
+    <vm:AvailableSubjectsTabViewModel />
+  </Design.DataContext>
+
+  <Grid Margin="36,28,36,28"
+        RowDefinitions="Auto,Auto,Auto,*">
+
+    <!-- Header -->
+    <Grid Grid.Row="0" Margin="0,0,0,18" ColumnDefinitions="Auto,*,Auto">
+      <TextBlock Grid.Column="0"
+                 Text="🛰️"
+                 FontSize="32"
+                 VerticalAlignment="Center"
+                 Margin="0,0,16,0" />
+      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+        <TextBlock Text="{Binding HeaderTitle}"
+                   Foreground="{DynamicResource PinkBrush}"
+                   FontSize="26"
+                   FontWeight="Bold" />
+        <TextBlock Text="{Binding HeaderDescription}"
+                   Foreground="{DynamicResource TextMutedBrush}"
+                   FontSize="13"
+                   Margin="0,4,0,0"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="2"
+                  VerticalAlignment="Center"
+                  HorizontalAlignment="Right"
+                  MaxWidth="260"
+                  Margin="16,0,0,0">
+        <Button Content="{Binding BecomeSubjectText}"
+                ToolTip.Tip="{Binding BecomeSubjectTooltip}"
+                Click="BtnBecomeASubject_Click"
+                FontSize="13"
+                FontWeight="Bold"
+                Padding="16,9"
+                BorderThickness="0"
+                HorizontalAlignment="Right"
+                Background="{DynamicResource PinkBrush}"
+                Foreground="White"
+                CornerRadius="8" />
+        <TextBlock Text="{Binding BecomeSubjectLockedText}"
+                   Foreground="{DynamicResource TextMutedBrush}"
+                   FontSize="11"
+                   FontStyle="Italic"
+                   Margin="0,6,0,0"
+                   TextWrapping="Wrap"
+                   TextAlignment="Right"
+                   IsVisible="{Binding ShowPremiumUpsell}" />
+      </StackPanel>
+    </Grid>
+
+    <!-- Empty state -->
+    <Border Grid.Row="1"
+            Background="{DynamicResource SurfaceBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="24,18"
+            Margin="0,0,0,12"
+            IsVisible="{Binding ShowEmptyPanel}">
+      <TextBlock Text="{Binding EmptyMessage}"
+                 Foreground="{DynamicResource TextMutedBrush}"
+                 FontSize="13"
+                 TextWrapping="Wrap"
+                 LineHeight="20" />
+    </Border>
+
+    <!-- Error state -->
+    <Border Grid.Row="1"
+            Background="{DynamicResource SurfaceBgBrush}"
+            BorderBrush="#E84A6B"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="24,18"
+            Margin="0,0,0,12"
+            IsVisible="{Binding ShowErrorPanel}">
+      <TextBlock Text="{Binding ErrorMessage}"
+                 Foreground="{DynamicResource TextMutedBrush}"
+                 FontSize="13"
+                 TextWrapping="Wrap"
+                 LineHeight="20" />
+    </Border>
+
+    <!-- Loading indicator -->
+    <ProgressBar Grid.Row="2"
+                 IsIndeterminate="True"
+                 IsVisible="{Binding IsLoading}"
+                 Margin="0,0,0,12"
+                 Foreground="{DynamicResource PinkBrush}"
+                 Background="Transparent" />
+
+    <!-- Card list -->
+    <ScrollViewer Grid.Row="3"
+                  x:Name="AvailableSubjectsScroller"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Disabled"
+                  PointerWheelChanged="AvailableSubjectsScroller_PointerWheelChanged">
+      <ItemsControl ItemsSource="{Binding Entries}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="12" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="models:AvailableSubject">
+            <Border Width="260"
+                    Margin="0,0,0,4"
+                    Opacity="{Binding CardOpacity}"
+                    Background="{DynamicResource SurfaceBgBrush}"
+                    BorderBrush="{DynamicResource PinkBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="18,14">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="{Binding DisplayName}"
+                               Foreground="White"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding LevelText}"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               FontSize="11" />
+                  </StackPanel>
+                  <Border Grid.Column="1"
+                          Background="{DynamicResource TransparentPinkBrush}"
+                          CornerRadius="9999"
+                          Padding="8,3"
+                          VerticalAlignment="Top">
+                    <TextBlock Text="{Binding TierLabel}"
+                               Foreground="{DynamicResource PinkBrush}"
+                               FontSize="10"
+                               FontWeight="Bold" />
+                  </Border>
+                </Grid>
+
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasStatusText}" />
+
+                <ItemsControl ItemsSource="{Binding Tags}"
+                              IsVisible="{Binding HasTags}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{DynamicResource TransparentPinkBrush}"
+                              CornerRadius="9999"
+                              Padding="7,2"
+                              Margin="0,0,5,5">
+                        <TextBlock Text="{Binding}"
+                                   Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Button Content="{Binding ConnectButtonText}"
+                        Command="{Binding DataContext.ConnectCommand, ElementName=Root}"
+                        CommandParameter="{Binding}"
+                        IsEnabled="{Binding IsConnectEnabled}"
+                        FontSize="13"
+                        FontWeight="Bold"
+                        Padding="0,8"
+                        BorderThickness="0"
+                        HorizontalAlignment="Stretch"
+                        Background="{DynamicResource PinkBrush}"
+                        Foreground="White"
+                        CornerRadius="8">
+                  <Button.Styles>
+                    <Style Selector="Button:disabled /template/ ContentPresenter">
+                      <Setter Property="Background" Value="#3A2E5A" />
+                      <Setter Property="Foreground" Value="White" />
+                    </Style>
+                  </Button.Styles>
+                </Button>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+
+</UserControl>

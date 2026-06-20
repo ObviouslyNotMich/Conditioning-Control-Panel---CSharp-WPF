@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:models="using:ConditioningControlPanel.Core.Models"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.PresetIOTabView"
+             x:DataType="vm:PresetIOTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:PresetIOTabViewModel />
+  </Design.DataContext>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="12">
+    <TextBlock Grid.Row="0"
+               Text="{loc:Str tab_preset_i_o_preset_io_text}"
+               FontSize="20"
+               FontWeight="Bold"
+               Foreground="White"
+               Margin="0,0,0,12" />
+
+    <Border Grid.Row="1"
+            Background="#1A1A2E"
+            BorderBrush="#FF69B4"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="12">
+      <Grid RowDefinitions="Auto,*">
+        <TextBlock Grid.Row="0"
+                   Text="{loc:Str tab_preset_i_o_presets_text}"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   Foreground="#FF69B4"
+                   Margin="0,0,0,8" />
+        <ListBox Grid.Row="1"
+                 x:Name="PresetsListBox"
+                 ItemsSource="{Binding Presets}"
+                 SelectedItem="{Binding SelectedPreset}"
+                 Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="{x:Type models:Preset}">
+              <StackPanel>
+                <TextBlock Text="{Binding Name}"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Description}"
+                           Opacity="0.7"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <StackPanel Grid.Row="2"
+                Spacing="8"
+                Margin="0,12,0,0">
+      <Border x:Name="DropZone"
+              Background="#252540"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16"
+              IsVisible="{Binding IsDropZoneActive}">
+        <TextBlock Text="{Binding DropZoneStatus}"
+                   Foreground="#FF69B4"
+                   HorizontalAlignment="Center"
+                   TextWrapping="Wrap" />
+      </Border>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="{loc:Str tab_preset_i_o_export_content}"
+                Command="{Binding ExportPresetCommand}"
+                CommandParameter="{Binding SelectedPreset}" />
+        <Button Content="{loc:Str tab_preset_i_o_import_content}"
+                Command="{Binding ImportPresetCommand}" />
+        <Button Content="{loc:Str tab_preset_i_o_share_content}"
+                Command="{Binding SharePresetCommand}"
+                CommandParameter="{Binding SelectedPreset}" />
+      </StackPanel>
+
+      <TextBlock Text="{loc:Str tab_preset_i_o_drag_drop_a_presetjson_file_here_text}"
+                 Opacity="0.6" />
+    </StackPanel>
+  </Grid>
+
+</UserControl>

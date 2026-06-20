@@ -1,0 +1,92 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+        x:Class="ConditioningControlPanel.Avalonia.Features.FeaturePopupWindow"
+        Title="{loc:Str title_feature_popup}"
+        Width="520"
+        Height="640"
+        MinWidth="420"
+        MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        WindowDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="#0F0F1A">
+
+  <Border BorderBrush="#FF69B4" BorderThickness="1">
+    <Grid RowDefinitions="Auto,*">
+
+      <!-- Title bar -->
+      <Border Grid.Row="0"
+              Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="0,0,0,1"
+              PointerPressed="TitleBar_PointerPressed">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+
+          <!-- Icon / glyph -->
+          <Border Grid.Column="0"
+                  Width="28"
+                  Height="28"
+                  Margin="14,10,10,10"
+                  CornerRadius="6"
+                  BorderBrush="#FF69B4"
+                  BorderThickness="1"
+                  Background="Transparent">
+            <Grid>
+              <Image x:Name="ImgIcon"
+                     Width="20"
+                     Height="20"
+                     Stretch="Uniform" />
+              <TextBlock x:Name="TxtGlyph"
+                         FontSize="16"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Foreground="#FF69B4"
+                         IsVisible="False" />
+            </Grid>
+          </Border>
+
+          <!-- Title -->
+          <TextBlock Grid.Column="1"
+                     x:Name="TxtTitle"
+                     Text="{loc:Str title_feature_popup}"
+                     VerticalAlignment="Center"
+                     Foreground="#FF69B4"
+                     FontSize="15"
+                     FontWeight="SemiBold" />
+
+          <!-- Close button -->
+          <Button Grid.Column="2"
+                  x:Name="BtnClose"
+                  Click="BtnClose_Click"
+                  Width="38"
+                  Height="38"
+                  BorderThickness="0"
+                  Content="✕">
+            <Button.Styles>
+              <Style Selector="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="#888888" />
+              </Style>
+              <Style Selector="Button:pointerover">
+                <Setter Property="Background" Value="#E84A6B" />
+                <Setter Property="Foreground" Value="White" />
+              </Style>
+            </Button.Styles>
+          </Button>
+
+        </Grid>
+      </Border>
+
+      <!-- Content host -->
+      <ScrollViewer Grid.Row="1"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled"
+                    Padding="16">
+        <ContentControl x:Name="ContentHost" />
+      </ScrollViewer>
+
+    </Grid>
+  </Border>
+</Window>

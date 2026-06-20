@@ -1,0 +1,719 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:models="using:ConditioningControlPanel.Core.Models"
+             xmlns:features="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
+             xmlns:converters="clr-namespace:ConditioningControlPanel.Avalonia.Converters;assembly=CCP.Avalonia"
+             xmlns:loc="using:ConditioningControlPanel.Core.Localization"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.PresetsTabView"
+             x:DataType="vm:PresetsTabViewModel"
+             x:Name="Root">
+
+  <Design.DataContext>
+    <vm:PresetsTabViewModel />
+  </Design.DataContext>
+
+  <UserControl.Resources>
+    <converters:PresetToFeatureStatsConverter x:Key="PresetToFeatureStatsConverter" />
+    <converters:EnumEqualsConverter x:Key="EnumEqualsConverter" />
+
+    <!-- Compact row action buttons for sessions -->
+    <ControlTheme x:Key="SessionActionButtonTheme" TargetType="Button">
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Margin" Value="4,0,0,0" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- ListBoxItem that draws a pink border around the selected session row -->
+    <ControlTheme x:Key="SessionListBoxItemTheme" TargetType="ListBoxItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter x:Name="PART_ContentPresenter"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:selected">
+        <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+        <Setter Property="BorderThickness" Value="2.5" />
+        <Setter Property="CornerRadius" Value="8" />
+      </Style>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="#15FFFFFF" />
+      </Style>
+    </ControlTheme>
+  </UserControl.Resources>
+
+  <Grid ColumnDefinitions="*,5,430">
+
+    <!-- Left column -->
+    <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto" Margin="5">
+
+      <!-- Presets strip -->
+      <Border Grid.Row="0"
+              Background="{DynamicResource PanelBgBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="10"
+              Margin="0,0,0,5">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding [section_presets], Source={x:Static loc:LocalizationManager.Instance}}"
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="{DynamicResource PinkBrush}" />
+
+          <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Disabled">
+            <StackPanel Orientation="Horizontal">
+              <ItemsControl ItemsSource="{Binding Presets}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="models:Preset">
+                    <features:PresetCard Title="{Binding Name}"
+                                         IsDefault="{Binding IsDefault}"
+                                         IsCustom="{Binding IsCustom}"
+                                         IsSelected="{Binding IsSelected}"
+                                         FeatureStats="{Binding Converter={StaticResource PresetToFeatureStatsConverter}}"
+                                         ClickCommand="{Binding DataContext.SelectPresetCommand, ElementName=Root}"
+                                         CommandParameter="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- New Preset card -->
+              <Border Background="#2A2A4A"
+                      CornerRadius="8"
+                      Width="110"
+                      Height="80"
+                      Margin="4"
+                      Cursor="Hand"
+                      ToolTip.Tip="{Binding [tooltip_create_a_new_preset_from_current_settings], Source={x:Static loc:LocalizationManager.Instance}}">
+                <Button Command="{Binding SaveNewPresetCommand}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0">
+                  <StackPanel VerticalAlignment="Center"
+                              HorizontalAlignment="Center">
+                    <TextBlock Text="➕"
+                               FontSize="20"
+                               Foreground="{DynamicResource PinkBrush}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding [label_new], Source={x:Static loc:LocalizationManager.Instance}}"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource PinkBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,2,0,0" />
+                  </StackPanel>
+                </Button>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </StackPanel>
+      </Border>
+
+      <!-- Sessions list -->
+      <Border Grid.Row="1"
+              Background="{DynamicResource PanelBgBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="10"
+              Margin="0,5,0,5">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Grid.Row="0"
+                     Text="{Binding [section_sessions], Source={x:Static loc:LocalizationManager.Instance}}"
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="{DynamicResource PinkBrush}"
+                     Margin="0,0,0,10" />
+
+          <ListBox Grid.Row="1"
+                   ItemsSource="{Binding Sessions}"
+                   SelectedItem="{Binding SelectedSession}"
+                   Background="Transparent"
+                   ItemContainerTheme="{StaticResource SessionListBoxItemTheme}"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="models:Session">
+                <Border Background="#2A2A4A"
+                        CornerRadius="6"
+                        Padding="12,10"
+                        Margin="0,0,0,8"
+                        PointerPressed="SessionRow_PointerPressed">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                      <TextBlock Text="{Binding LocalizedName}"
+                                 Foreground="White"
+                                 FontWeight="SemiBold"
+                                 FontSize="14" />
+
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Background="{DynamicResource PinkBrush}"
+                                CornerRadius="3"
+                                Padding="6,2">
+                          <TextBlock Text="{Binding DurationText}"
+                                     Foreground="White"
+                                     FontSize="9"
+                                     FontWeight="Bold" />
+                        </Border>
+                        <Border Background="#2A3A2A"
+                                CornerRadius="3"
+                                Padding="6,2">
+                          <TextBlock Text="{Binding DifficultyText}"
+                                     Foreground="#90EE90"
+                                     FontSize="9"
+                                     FontWeight="Bold" />
+                        </Border>
+                        <Border Background="#2A4A2A"
+                                CornerRadius="3"
+                                Padding="6,2">
+                          <TextBlock Text="{Binding RewardText}"
+                                     Foreground="#90EE90"
+                                     FontSize="9"
+                                     FontWeight="Bold" />
+                        </Border>
+                      </StackPanel>
+
+                      <TextBlock Text="{Binding LocalizedDescription}"
+                                 Foreground="#A0A0A0"
+                                 FontSize="12"
+                                 TextWrapping="Wrap"
+                                 MaxHeight="36"
+                                 TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Spacing="4">
+                      <Button Content="✏"
+                              ToolTip.Tip="{Binding [tooltip_edit_session], Source={x:Static loc:LocalizationManager.Instance}}"
+                              Theme="{StaticResource SessionActionButtonTheme}"
+                              Command="{Binding DataContext.EditSessionCommand, ElementName=Root}"
+                              CommandParameter="{Binding}" />
+                      <Button Content="📤"
+                              ToolTip.Tip="{Binding [tooltip_export_session], Source={x:Static loc:LocalizationManager.Instance}}"
+                              Theme="{StaticResource SessionActionButtonTheme}"
+                              Command="{Binding DataContext.ExportSessionCommand, ElementName=Root}"
+                              CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <!-- Drop zone + editor -->
+      <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,5,0,0">
+        <Border Grid.Column="0"
+                x:Name="SessionDropZone"
+                Background="{DynamicResource SurfaceBgBrush}"
+                BorderBrush="{DynamicResource PanelAccentBrush}"
+                BorderThickness="2"
+                CornerRadius="8"
+                Margin="0,0,4,0"
+                Padding="10"
+                >
+          <StackPanel VerticalAlignment="Center"
+                      HorizontalAlignment="Center"
+                      Spacing="4">
+            <TextBlock Text="📂"
+                       FontSize="28"
+                       Foreground="#707090"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding [label_drop_to_import_session], Source={x:Static loc:LocalizationManager.Instance}}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#909090"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text=".session.json"
+                       FontSize="11"
+                       Foreground="#606070"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding DropZoneStatus}"
+                       IsVisible="{Binding IsDropZoneActive}"
+                       Foreground="{DynamicResource PinkBrush}"
+                       FontSize="10"
+                       HorizontalAlignment="Center" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+                Background="{DynamicResource SurfaceBgBrush}"
+                BorderBrush="{DynamicResource PanelAccentBrush}"
+                BorderThickness="2"
+                CornerRadius="8"
+                Margin="4,0,0,0"
+                Padding="10">
+          <StackPanel VerticalAlignment="Center"
+                      HorizontalAlignment="Center"
+                      Spacing="6">
+            <TextBlock Text="{Binding [label_session_editor], Source={x:Static loc:LocalizationManager.Instance}}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding [label_create_custom_sessions], Source={x:Static loc:LocalizationManager.Instance}}"
+                       FontSize="11"
+                       Foreground="#707090"
+                       HorizontalAlignment="Center" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8"
+                        HorizontalAlignment="Center">
+              <Button Content="{Binding [btn_create_new], Source={x:Static loc:LocalizationManager.Instance}}"
+                      Command="{Binding CreateSessionCommand}"
+                      Theme="{DynamicResource PinkButton}"
+                      Padding="12,6"
+                      FontSize="11" />
+              <Button Content="{Binding [btn_export], Source={x:Static loc:LocalizationManager.Instance}}"
+                      Command="{Binding ExportSessionCommand}"
+                      Theme="{DynamicResource OutlineButton}"
+                      Padding="12,6"
+                      FontSize="11" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <!-- Splitter -->
+    <GridSplitter Grid.Column="1"
+                  Width="5"
+                  HorizontalAlignment="Stretch"
+                  Background="{DynamicResource PanelAccentBrush}" />
+
+    <!-- Right details panel -->
+    <Border Grid.Column="2"
+            Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="12"
+            Margin="5">
+      <Grid RowDefinitions="Auto,*,Auto">
+
+        <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,12">
+          <TextBlock Text="{Binding DetailTitle}"
+                     Foreground="{DynamicResource PinkBrush}"
+                     FontSize="18"
+                     FontWeight="Bold"
+                     TextWrapping="Wrap" />
+          <TextBlock Text="{Binding DetailSubtitle}"
+                     Foreground="#909090"
+                     FontSize="12"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- Preset detail view -->
+        <ScrollViewer Grid.Row="1"
+                      IsVisible="{Binding IsPresetDetailVisible}">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{Binding [section_flash_images], Source={x:Static loc:LocalizationManager.Instance}}"
+                       Foreground="White"
+                       FontWeight="SemiBold"
+                       FontSize="13" />
+            <TextBlock Text="{Binding PresetDetailFlash}"
+                       Foreground="#909090"
+                       FontSize="11" />
+
+            <TextBlock Text="{Binding [label_mandatory_videos], Source={x:Static loc:LocalizationManager.Instance}}"
+                       Foreground="White"
+                       FontWeight="SemiBold"
+                       FontSize="13" />
+            <TextBlock Text="{Binding PresetDetailVideo}"
+                       Foreground="#909090"
+                       FontSize="11" />
+
+            <TextBlock Text="{Binding [section_subliminals_2], Source={x:Static loc:LocalizationManager.Instance}}"
+                       Foreground="White"
+                       FontWeight="SemiBold"
+                       FontSize="13" />
+            <TextBlock Text="{Binding PresetDetailSubliminal}"
+                       Foreground="#909090"
+                       FontSize="11" />
+
+            <TextBlock Text="{Binding [section_audio], Source={x:Static loc:LocalizationManager.Instance}}"
+                       Foreground="White"
+                       FontWeight="SemiBold"
+                       FontSize="13" />
+            <TextBlock Text="{Binding PresetDetailAudio}"
+                       Foreground="#909090"
+                       FontSize="11" />
+
+            <TextBlock Text="{Binding [label_overlays], Source={x:Static loc:LocalizationManager.Instance}}"
+                       Foreground="White"
+                       FontWeight="SemiBold"
+                       FontSize="13" />
+            <TextBlock Text="{Binding PresetDetailOverlays}"
+                       Foreground="#909090"
+                       FontSize="11" />
+
+            <TextBlock Text="{Binding [label_advanced], Source={x:Static loc:LocalizationManager.Instance}}"
+                       Foreground="White"
+                       FontWeight="SemiBold"
+                       FontSize="13" />
+            <TextBlock Text="{Binding PresetDetailAdvanced}"
+                       Foreground="#909090"
+                       FontSize="11" />
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Session detail view -->
+        <ScrollViewer Grid.Row="1"
+                      IsVisible="{Binding IsSessionDetailVisible}">
+          <StackPanel Spacing="10">
+
+            <Border Background="{DynamicResource SurfaceBgBrush}"
+                    CornerRadius="8"
+                    Padding="12">
+              <Grid ColumnDefinitions="*,*">
+                <StackPanel HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding [label_duration], Source={x:Static loc:LocalizationManager.Instance}}"
+                             Foreground="{DynamicResource TextMutedBrush}"
+                             FontSize="10"
+                             HorizontalAlignment="Center" />
+                  <TextBlock Text="{Binding SessionDurationText}"
+                             Foreground="White"
+                             FontSize="14"
+                             FontWeight="Bold"
+                             HorizontalAlignment="Center"
+                             Margin="0,2,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding [label_reward], Source={x:Static loc:LocalizationManager.Instance}}"
+                             Foreground="{DynamicResource TextMutedBrush}"
+                             FontSize="10"
+                             HorizontalAlignment="Center" />
+                  <TextBlock Text="{Binding SessionRewardText}"
+                             Foreground="#90EE90"
+                             FontSize="14"
+                             FontWeight="Bold"
+                             HorizontalAlignment="Center"
+                             Margin="0,2,0,0" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <Border Background="#2A2A4A"
+                    CornerRadius="6"
+                    Padding="8,4"
+                    HorizontalAlignment="Center">
+              <TextBlock Text="{Binding SessionDifficultyText}"
+                         Foreground="#FFD700"
+                         FontSize="12"
+                         FontWeight="Bold" />
+            </Border>
+
+            <TextBlock Text="{Binding SessionDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="#C0C0C0"
+                       FontSize="12"
+                       LineHeight="20" />
+
+            <!-- Corner GIF options -->
+            <Border Background="#252540"
+                    CornerRadius="6"
+                    Padding="10"
+                    IsVisible="{Binding SessionHasCornerGif}">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding [label_corner_gif], Source={x:Static loc:LocalizationManager.Instance}}"
+                             Foreground="{DynamicResource PinkBrush}"
+                             FontWeight="Bold"
+                             FontSize="11" />
+                  <ToggleSwitch Grid.Column="1"
+                                IsChecked="{Binding CornerGifEnabled, Mode=TwoWay}" />
+                </Grid>
+
+                <TextBlock Text="{Binding CornerGifDescription}"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           FontSize="10"
+                           TextWrapping="Wrap" />
+
+                <StackPanel IsVisible="{Binding IsCornerGifSettingsVisible}" Spacing="8">
+                  <Button Content="{Binding [btn_select_gif], Source={x:Static loc:LocalizationManager.Instance}}"
+                          Command="{Binding SelectCornerGifCommand}"
+                          Theme="{DynamicResource OutlineButton}"
+                          Padding="8,6"
+                          FontSize="10" />
+
+                  <TextBlock Text="{Binding [label_position], Source={x:Static loc:LocalizationManager.Instance}}"
+                             Foreground="#909090"
+                             FontSize="10" />
+                  <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                    <RadioButton Content="{Binding [btn_top_left], Source={x:Static loc:LocalizationManager.Instance}}"
+                                 Foreground="White"
+                                 GroupName="CornerPos"
+                                 FontSize="10"
+                                 IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=TopLeft, Mode=TwoWay}" />
+                    <RadioButton Grid.Column="1"
+                                 Content="{Binding [btn_top_right], Source={x:Static loc:LocalizationManager.Instance}}"
+                                 Foreground="White"
+                                 GroupName="CornerPos"
+                                 FontSize="10"
+                                 IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=TopRight, Mode=TwoWay}" />
+                    <RadioButton Grid.Row="1"
+                                 Content="{Binding [btn_bottom_left], Source={x:Static loc:LocalizationManager.Instance}}"
+                                 Foreground="White"
+                                 GroupName="CornerPos"
+                                 FontSize="10"
+                                 IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=BottomLeft, Mode=TwoWay}" />
+                    <RadioButton Grid.Row="1"
+                                 Grid.Column="1"
+                                 Content="{Binding [btn_bottom_right], Source={x:Static loc:LocalizationManager.Instance}}"
+                                 Foreground="White"
+                                 GroupName="CornerPos"
+                                 FontSize="10"
+                                 IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=BottomRight, Mode=TwoWay}" />
+                  </Grid>
+
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding [label_size], Source={x:Static loc:LocalizationManager.Instance}}"
+                               Foreground="#909090"
+                               FontSize="10"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CornerGifSizeText}"
+                               Foreground="#C0C0C0"
+                               FontSize="10"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Right" />
+                  </Grid>
+                  <Slider Minimum="100"
+                          Maximum="600"
+                          Value="{Binding CornerGifSize, Mode=TwoWay}"
+                          VerticalAlignment="Center" />
+
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding [label_opacity], Source={x:Static loc:LocalizationManager.Instance}}"
+                               Foreground="#909090"
+                               FontSize="10"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CornerGifOpacityText}"
+                               Foreground="#C0C0C0"
+                               FontSize="10"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Right" />
+                  </Grid>
+                  <Slider Minimum="5"
+                          Maximum="100"
+                          Value="{Binding CornerGifOpacity, Mode=TwoWay}"
+                          VerticalAlignment="Center" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- Spoiler warning -->
+            <Border Background="#2A2040"
+                    CornerRadius="8"
+                    Padding="12">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding [label_mystery_experience], Source={x:Static loc:LocalizationManager.Instance}}"
+                           Foreground="{DynamicResource PinkBrush}"
+                           FontWeight="Bold"
+                           FontSize="13"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding [label_the_magic_works_best_when_you_don_t_know_what], Source={x:Static loc:LocalizationManager.Instance}}"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           FontSize="11"
+                           TextAlignment="Center"
+                           FontStyle="Italic" />
+              </StackPanel>
+            </Border>
+
+            <Button Content="{Binding [btn_reveal_details], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Command="{Binding ToggleRevealSpoilersCommand}"
+                    Theme="{DynamicResource OutlineButton}"
+                    Padding="12,8"
+                    FontSize="12"
+                    ToolTip.Tip="{Binding [tooltip_this_will_show_all_session_settings_spoils_th], Source={x:Static loc:LocalizationManager.Instance}}" />
+
+            <StackPanel IsVisible="{Binding RevealSpoilers}">
+              <Border Background="#301520"
+                      CornerRadius="6"
+                      Padding="10"
+                      Margin="0,0,0,12">
+                <TextBlock Text="{Binding [label_spoilers_below], Source={x:Static loc:LocalizationManager.Instance}}"
+                           Foreground="#FF6B6B"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+              </Border>
+
+              <TextBlock Text="{Binding [section_flash_images], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="White"
+                         FontWeight="SemiBold"
+                         FontSize="12"
+                         Margin="0,0,0,3" />
+              <TextBlock Text="{Binding SessionSpoilerFlash}"
+                         Foreground="#909090"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,0,0,10" />
+
+              <TextBlock Text="{Binding [section_subliminals_2], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="White"
+                         FontWeight="SemiBold"
+                         FontSize="12"
+                         Margin="0,0,0,3" />
+              <TextBlock Text="{Binding SessionSpoilerSubliminal}"
+                         Foreground="#909090"
+                         FontSize="11"
+                         Margin="0,0,0,10" />
+
+              <TextBlock Text="{Binding [section_audio], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="White"
+                         FontWeight="SemiBold"
+                         FontSize="12"
+                         Margin="0,0,0,3" />
+              <TextBlock Text="{Binding SessionSpoilerAudio}"
+                         Foreground="#909090"
+                         FontSize="11"
+                         Margin="0,0,0,10" />
+
+              <TextBlock Text="{Binding [label_overlays], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="White"
+                         FontWeight="SemiBold"
+                         FontSize="12"
+                         Margin="0,0,0,3" />
+              <TextBlock Text="{Binding SessionSpoilerOverlays}"
+                         Foreground="#909090"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,0,0,10" />
+
+              <TextBlock Text="{Binding [label_extras], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="White"
+                         FontWeight="SemiBold"
+                         FontSize="12"
+                         Margin="0,0,0,3" />
+              <TextBlock Text="{Binding SessionSpoilerExtras}"
+                         Foreground="#909090"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,0,0,10" />
+
+              <TextBlock Text="{Binding [label_timeline], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="White"
+                         FontWeight="SemiBold"
+                         FontSize="12"
+                         Margin="0,0,0,3" />
+              <TextBlock Text="{Binding SessionSpoilerTimeline}"
+                         Foreground="#909090"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,0,0,10" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Preset action buttons -->
+        <StackPanel Grid.Row="2"
+                    Spacing="6"
+                    Margin="0,10,0,0"
+                    IsVisible="{Binding IsPresetDetailVisible}">
+          <Button Content="{Binding [btn_load_preset], Source={x:Static loc:LocalizationManager.Instance}}"
+                  Command="{Binding LoadPresetCommand}"
+                  IsEnabled="{Binding CanLoadPreset}"
+                  Theme="{DynamicResource PinkButton}"
+                  Padding="12,10"
+                  FontSize="13" />
+          <Grid ColumnDefinitions="*,*">
+            <Button Content="{Binding [btn_save_2], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Command="{Binding SaveOverPresetCommand}"
+                    IsEnabled="{Binding CanSaveOverPreset}"
+                    Theme="{DynamicResource OutlineButton}"
+                    Margin="0,0,3,0"
+                    Padding="10,8"
+                    FontSize="12" />
+            <Button Content="{Binding [btn_delete_2], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Command="{Binding DeletePresetCommand}"
+                    IsEnabled="{Binding CanDeletePreset}"
+                    Theme="{DynamicResource OutlineButton}"
+                    Grid.Column="1"
+                    Margin="3,0,0,0"
+                    Padding="10,8"
+                    FontSize="12" />
+          </Grid>
+          <Grid ColumnDefinitions="*,*">
+            <Button Content="{Binding [btn_export_preset], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Command="{Binding ExportPresetCommand}"
+                    IsEnabled="{Binding CanExportPreset}"
+                    Theme="{DynamicResource OutlineButton}"
+                    Margin="0,0,3,0"
+                    Padding="10,8"
+                    FontSize="12" />
+            <Button Content="{Binding [btn_share_to_catalogue], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Command="{Binding SharePresetCommand}"
+                    IsEnabled="{Binding CanSharePreset}"
+                    Theme="{DynamicResource OutlineButton}"
+                    Grid.Column="1"
+                    Margin="3,0,0,0"
+                    Padding="10,8"
+                    FontSize="12" />
+          </Grid>
+        </StackPanel>
+
+        <!-- Session action buttons -->
+        <StackPanel Grid.Row="2"
+                    Spacing="6"
+                    Margin="0,10,0,0"
+                    IsVisible="{Binding IsSessionDetailVisible}">
+          <Button Content="{Binding [btn_start_session], Source={x:Static loc:LocalizationManager.Instance}}"
+                  Command="{Binding StartSessionCommand}"
+                  CommandParameter="{Binding SelectedSession}"
+                  Theme="{DynamicResource PinkButton}"
+                  Padding="12,12"
+                  FontSize="14" />
+        </StackPanel>
+
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

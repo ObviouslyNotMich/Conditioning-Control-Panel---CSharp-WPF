@@ -1,0 +1,723 @@
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Settings;
+
+namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
+
+/// <summary>
+/// Avalonia port of the WPF MainWindow.Enhancements partial.
+/// Skill tree state, tier-grouped layout, purchase flow, and active bonuses.
+/// Wired to the cross-platform <see cref="ISkillTreeService"/>.
+/// </summary>
+public partial class EnhancementsTabViewModel : TabItemViewModel
+{
+    private readonly ISettingsService? _settingsService;
+    private readonly IDialogService? _dialogService;
+    private readonly IAppLogger? _logger;
+    private readonly IModService? _modService;
+    private readonly ISkillTreeService? _skillTreeService;
+
+    public EnhancementsTabViewModel() : base("enhancements", "Enhancements", "✨")
+    {
+        _skillTiers = new ObservableCollection<SkillTierGroupViewModel>();
+        _skills = new ObservableCollection<SkillNodeViewModel>();
+        _connections = new ObservableCollection<SkillConnectionViewModel>();
+        _activeBonuses = new ObservableCollection<ActiveBonusViewModel>();
+        _stats = new ObservableCollection<StatRowViewModel>();
+        _ditzyStats = new ObservableCollection<StatRowViewModel>();
+        InitializeDesignData();
+    }
+
+    public EnhancementsTabViewModel(
+        ISettingsService settingsService,
+        IDialogService dialogService,
+        IAppLogger logger,
+        IModService modService,
+        ISkillTreeService skillTreeService) : base("enhancements", "Enhancements", "✨")
+    {
+        _settingsService = settingsService;
+        _dialogService = dialogService;
+        _logger = logger;
+        _modService = modService;
+        _skillTreeService = skillTreeService;
+        _skillTiers = new ObservableCollection<SkillTierGroupViewModel>();
+        _skills = new ObservableCollection<SkillNodeViewModel>();
+        _connections = new ObservableCollection<SkillConnectionViewModel>();
+        _activeBonuses = new ObservableCollection<ActiveBonusViewModel>();
+        _stats = new ObservableCollection<StatRowViewModel>();
+        _ditzyStats = new ObservableCollection<StatRowViewModel>();
+        RefreshUi();
+    }
+
+    [ObservableProperty]
+    private int _skillPoints;
+
+    [ObservableProperty]
+    private int _totalPointsSpent;
+
+    [ObservableProperty]
+    private string _xpMultiplierText = "1.00x";
+
+    [ObservableProperty]
+    private string _conditioningTimeText = "0h 0m";
+
+    [ObservableProperty]
+    private bool _pinkRushActive;
+
+    [ObservableProperty]
+    private bool _statsExpanded;
+
+    [ObservableProperty]
+    private bool _isLoggedIn;
+
+    [ObservableProperty]
+    private bool _isLoginOverlayVisible;
+
+    [ObservableProperty]
+    private string _sparklePointsText = "0";
+
+    [ObservableProperty]
+    private string _statsToggleText = "";
+
+    [ObservableProperty]
+    private ObservableCollection<SkillTierGroupViewModel> _skillTiers;
+
+    [ObservableProperty]
+    private ObservableCollection<SkillNodeViewModel> _skills;
+
+    [ObservableProperty]
+    private ObservableCollection<SkillConnectionViewModel> _connections;
+
+    [ObservableProperty]
+    private ObservableCollection<ActiveBonusViewModel> _activeBonuses;
+
+    [ObservableProperty]
+    private ObservableCollection<StatRowViewModel> _stats;
+
+    [ObservableProperty]
+    private ObservableCollection<StatRowViewModel> _ditzyStats;
+
+    public string HeaderTitle => Loc.Get("label_enhancement_tree_title");
+    public string HeaderSubtitle => Loc.Get("label_enhancement_tree_subtitle");
+    public string HeaderWarning => Loc.Get("label_enhancement_tree_warning");
+
+    [RelayCommand]
+    private void ToggleStatsExpanded() => StatsExpanded = !StatsExpanded;
+
+    partial void OnStatsExpandedChanged(bool value)
+    {
+        StatsToggleText = value
+            ? Loc.Get("label_stats_collapse")
+            : Loc.Get("label_stats_expand");
+    }
+
+    [RelayCommand]
+    private async Task RefreshAsync()
+    {
+        _logger?.Information("Refreshing Enhancements UI");
+        RefreshUi();
+        await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task PurchaseSkillAsync(SkillNodeViewModel? node)
+    {
+        if (node == null) return;
+
+        if (_dialogService == null)
+        {
+            return;
+        }
+
+        if (_skillTreeService == null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_not_implemented"),
+                Loc.Get("msg_feature_not_implemented"));
+            return;
+        }
+
+        if (!node.CanPurchase)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("dialog_purchase_failed"),
+                Loc.Get("msg_skill_not_available"),
+                DialogSeverity.Warning);
+            return;
+        }
+
+        var confirm = await _dialogService.ShowConfirmationAsync(
+            Loc.Get("dialog_purchase_enhancement"),
+            Loc.GetF("msg_purchase_skill", node.Name, node.Cost, Loc.Get("label_sparkle_points").ToLower(), node.FlavorText, node.Description));
+        if (!confirm) return;
+
+        try
+        {
+            _logger?.Information("Purchase skill requested: {SkillId}", node.SkillId);
+            var (success, error) = await _skillTreeService.PurchaseSkillAsync(node.SkillId);
+            if (success)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_success"),
+                    Loc.GetF("msg_skill_purchased_fmt", node.Name));
+            }
+            else
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("dialog_purchase_failed"),
+                    error ?? Loc.Get("msg_purchase_failed"),
+                    DialogSeverity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Purchase skill failed");
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("dialog_purchase_failed"),
+                ex.Message,
+                DialogSeverity.Warning);
+        }
+        finally
+        {
+            RefreshUi();
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenSkillDetailsAsync(SkillNodeViewModel? node)
+    {
+        if (node == null) return;
+
+        if (_dialogService == null)
+        {
+            return;
+        }
+
+        if (_skillTreeService == null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_not_implemented"),
+                Loc.Get("msg_feature_not_implemented"));
+            return;
+        }
+
+        await _dialogService.ShowMessageAsync(
+            node.Name,
+            $"{node.FlavorText}\n\n{node.Description}");
+    }
+
+    private void RefreshUi()
+    {
+        try
+        {
+            var settings = _settingsService?.Current;
+            if (settings == null || _skillTreeService == null)
+            {
+                InitializeDesignData();
+                return;
+            }
+
+            IsLoggedIn = !string.IsNullOrEmpty(settings.UnifiedId);
+            IsLoginOverlayVisible = !IsLoggedIn;
+
+            SkillPoints = settings.SkillPoints;
+            SparklePointsText = Loc.GetF("label_sparkle_points_fmt", SkillPoints);
+            PinkRushActive = settings.PinkRushActive;
+            TotalPointsSpent = _skillTreeService.TotalPointsSpent;
+
+            XpMultiplierText = $"{_skillTreeService.GetTotalXpMultiplier():F2}x";
+            ConditioningTimeText = FormatConditioningTime(settings.TotalConditioningMinutes);
+
+            RefreshSkills();
+            RefreshActiveBonuses();
+            RefreshStats();
+            RefreshDitzyStats(settings);
+
+            StatsToggleText = StatsExpanded
+                ? Loc.Get("label_stats_collapse")
+                : Loc.Get("label_stats_expand");
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "RefreshEnhancementsUI failed");
+        }
+    }
+
+    private void RefreshSkills()
+    {
+        SkillTiers.Clear();
+        Skills.Clear();
+        Connections.Clear();
+        var settings = _settingsService?.Current;
+
+        var nodesById = new Dictionary<string, SkillNodeViewModel>();
+
+        foreach (var skill in SkillDefinition.All)
+        {
+            // Non-secret skills render in their own tier; secrets are collected into tier 5.
+            if (skill.IsSecret && skill.Tier != 5)
+                continue;
+
+            var tierGroup = SkillTiers.FirstOrDefault(g => g.Tier == skill.Tier);
+            if (tierGroup == null)
+            {
+                tierGroup = new SkillTierGroupViewModel
+                {
+                    Tier = skill.Tier,
+                    TierName = GetTierName(skill.Tier)
+                };
+                SkillTiers.Add(tierGroup);
+            }
+
+            var isUnlocked = _skillTreeService?.HasSkill(skill.Id) == true;
+            var canPurchase = CanPurchaseSkill(skill);
+
+            var node = new SkillNodeViewModel
+            {
+                SkillId = skill.Id,
+                Name = _modService?.MakeModAware(skill.Name) ?? skill.LocalizedName,
+                Cost = skill.Cost,
+                Tier = skill.Tier,
+                PrerequisiteId = skill.PrerequisiteId,
+                PrerequisiteName = string.IsNullOrEmpty(skill.PrerequisiteId)
+                    ? null
+                    : SkillDefinition.All.FirstOrDefault(s => s.Id == skill.PrerequisiteId)?.LocalizedName,
+                IsUnlocked = isUnlocked,
+                CanPurchase = canPurchase,
+                IsLocked = !isUnlocked && !canPurchase,
+                Description = skill.LocalizedDescription,
+                FlavorText = skill.LocalizedFlavorText,
+                IconUri = $"pack://application:,,,/Resources/skills/{skill.Id}.png"
+            };
+
+            tierGroup.Skills.Add(node);
+            nodesById[skill.Id] = node;
+        }
+
+        // Keep tiers in ascending order.
+        var sortedTiers = SkillTiers.OrderBy(g => g.Tier).ToList();
+        SkillTiers.Clear();
+        foreach (var group in sortedTiers)
+            SkillTiers.Add(group);
+
+        // Assign canvas positions based on tier row layout.
+        AssignSkillPositions();
+
+        // Flatten skills for the canvas ItemsControl.
+        foreach (var group in sortedTiers)
+        {
+            foreach (var skill in group.Skills)
+                Skills.Add(skill);
+        }
+
+        // Build connection lines from each skill to its prerequisite.
+        foreach (var node in Skills)
+        {
+            if (!string.IsNullOrEmpty(node.PrerequisiteId) && nodesById.TryGetValue(node.PrerequisiteId, out var source))
+            {
+                Connections.Add(new SkillConnectionViewModel
+                {
+                    X1 = source.PositionX + 80,
+                    Y1 = source.PositionY + 200,
+                    X2 = node.PositionX + 80,
+                    Y2 = node.PositionY,
+                    IsUnlocked = source.IsUnlocked,
+                    IsAvailable = node.CanPurchase || node.IsUnlocked
+                });
+            }
+        }
+    }
+
+    private void AssignSkillPositions()
+    {
+        const double startX = 40;
+        const double startY = 40;
+        const double tierSpacingX = 280;
+        const double nodeSpacingY = 220;
+
+        var tierList = SkillTiers.OrderBy(g => g.Tier).ToList();
+        for (int tierIndex = 0; tierIndex < tierList.Count; tierIndex++)
+        {
+            var tier = tierList[tierIndex];
+            int count = tier.Skills.Count;
+            double totalHeight = count * nodeSpacingY;
+            double baseY = startY + (460 - totalHeight) / 2;
+
+            for (int i = 0; i < count; i++)
+            {
+                var skill = tier.Skills[i];
+                skill.PositionX = startX + tierIndex * tierSpacingX;
+                skill.PositionY = baseY + i * nodeSpacingY;
+            }
+        }
+    }
+
+    private bool CanPurchaseSkill(SkillDefinition skill)
+    {
+        var settings = _settingsService?.Current;
+        if (settings == null || _skillTreeService == null)
+            return false;
+
+        if (_skillTreeService.HasSkill(skill.Id))
+            return false;
+
+        if (!string.IsNullOrEmpty(skill.PrerequisiteId) && !_skillTreeService.HasSkill(skill.PrerequisiteId))
+            return false;
+
+        if (settings.SkillPoints < skill.Cost)
+            return false;
+
+        if (skill.IsSecret && !IsSecretRequirementMet(skill.Id, settings))
+            return false;
+
+        return true;
+    }
+
+    private static bool IsSecretRequirementMet(string skillId, AppSettings settings)
+    {
+        return skillId switch
+        {
+            "night_shift" => settings.NightTimeUsageCount >= 10,
+            "early_bird_bimbo" => settings.EarlyMorningUsageCount >= 10,
+            "eternal_doll" => settings.HighestLevelEver >= 50,
+            _ => false,
+        };
+    }
+
+    private static string GetTierName(int tier) => tier switch
+    {
+        1 => "Foundation",
+        2 => "Core Branches",
+        3 => "Specialization",
+        4 => "Mastery",
+        5 => "Secret",
+        _ => $"Tier {tier}"
+    };
+
+    private void RefreshActiveBonuses()
+    {
+        ActiveBonuses.Clear();
+        var multiplier = _skillTreeService?.GetTotalXpMultiplier() ?? 1.0;
+        var breakdown = ComputeMultiplierBreakdown();
+        foreach (var (source, value) in breakdown)
+        {
+            if (source == "Base") continue;
+            ActiveBonuses.Add(new ActiveBonusViewModel { Source = source, Value = value });
+        }
+
+        if (ActiveBonuses.Count == 0 && multiplier > 1.0)
+        {
+            ActiveBonuses.Add(new ActiveBonusViewModel { Source = "Skills", Value = multiplier - 1.0 });
+        }
+    }
+
+    private void RefreshStats()
+    {
+        Stats.Clear();
+        // TODO: wire to IAchievementService.Progress once it is extracted to CCP.Core.
+        // Until then, the stats panel is a placeholder.
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_started"), Value = "0" });
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_completed"), Value = "0" });
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_abandoned"), Value = "0" });
+    }
+
+    private void RefreshDitzyStats(AppSettings settings)
+    {
+        DitzyStats.Clear();
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_total_xp_earned_stat"), Value = ((int)settings.PlayerXP).ToString() });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_skill_points_earned"), Value = settings.SkillPoints.ToString() });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_longest_session"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_attention_passes"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_att_passed"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_att_failed"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bubble_count_games"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bc_correct"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bc_best_streak"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_total_flashes_stat"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bubbles_popped_stat"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_lock_cards_done"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_time"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_pink_filter_time"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_spiral_time"), Value = "0" });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_consecutive_days"), Value = "0" });
+    }
+
+    private List<(string Source, double Value)> ComputeMultiplierBreakdown()
+    {
+        var list = new List<(string, double)> { ("Base", 1.0) };
+        foreach (var skill in SkillDefinition.All)
+        {
+            if (_skillTreeService?.HasSkill(skill.Id) != true) continue;
+            if (skill.EffectType == SkillEffectType.XpMultiplier && skill.EffectValue > 0)
+            {
+                list.Add((skill.Name, skill.EffectValue));
+            }
+        }
+        return list;
+    }
+
+    private static string FormatConditioningTime(double totalMinutes)
+    {
+        var hours = (int)(totalMinutes / 60);
+        var minutes = (int)(totalMinutes % 60);
+        return $"{hours}h {minutes}m";
+    }
+
+    private void InitializeDesignData()
+    {
+        IsLoggedIn = true;
+        IsLoginOverlayVisible = false;
+        SkillPoints = 24;
+        SparklePointsText = Loc.GetF("label_sparkle_points_fmt", SkillPoints);
+        TotalPointsSpent = 0;
+        XpMultiplierText = "1.00x";
+        ConditioningTimeText = "0h 0m";
+        PinkRushActive = false;
+        StatsToggleText = Loc.Get("label_stats_expand");
+        StatsExpanded = false;
+        SkillTiers.Clear();
+        Skills.Clear();
+        Connections.Clear();
+        ActiveBonuses.Clear();
+        Stats.Clear();
+        DitzyStats.Clear();
+
+        var sampleSkills = new[]
+        {
+            new SkillNodeViewModel
+            {
+                SkillId = "pink_hours",
+                Name = "Pink Hours",
+                Cost = 2,
+                Tier = 1,
+                IsUnlocked = true,
+                IconUri = "pack://application:,,,/Resources/skills/pink_hours.png",
+                Description = "Shows total conditioning time across all sessions",
+                FlavorText = "Like, how long have you been getting all pink and pretty?",
+                PositionX = 40,
+                PositionY = 130
+            },
+            new SkillNodeViewModel
+            {
+                SkillId = "ditzy_data",
+                Name = "Ditzy Data",
+                Cost = 5,
+                Tier = 2,
+                PrerequisiteId = "pink_hours",
+                PrerequisiteName = "Pink Hours",
+                CanPurchase = true,
+                IconUri = "pack://application:,,,/Resources/skills/ditzy_data.png",
+                Description = "Unlocks statistics panel with session data",
+                FlavorText = "Numbers are like, SO hard... but these ones are pretty!",
+                PositionX = 320,
+                PositionY = 60
+            },
+            new SkillNodeViewModel
+            {
+                SkillId = "sparkle_boost_1",
+                Name = "Sparkle Boost",
+                Cost = 8,
+                Tier = 2,
+                PrerequisiteId = "pink_hours",
+                PrerequisiteName = "Pink Hours",
+                CanPurchase = true,
+                IconUri = "pack://application:,,,/Resources/skills/sparkle_boost_1.png",
+                Description = "+10% XP from all sources",
+                FlavorText = "Good girls deserve extra sparkles!",
+                PositionX = 320,
+                PositionY = 280
+            },
+            new SkillNodeViewModel
+            {
+                SkillId = "hive_mind",
+                Name = "Hive Mind",
+                Cost = 10,
+                Tier = 3,
+                PrerequisiteId = "ditzy_data",
+                PrerequisiteName = "Ditzy Data",
+                IsLocked = true,
+                IconUri = "pack://application:,,,/Resources/skills/hive_mind.png",
+                Description = "Shows live online user count",
+                FlavorText = "See how many other bimbos are conditioning RIGHT NOW!",
+                PositionX = 600,
+                PositionY = 60
+            }
+        };
+
+        var designTiers = sampleSkills.GroupBy(s => s.Tier).Select(g => new SkillTierGroupViewModel
+        {
+            Tier = g.Key,
+            TierName = GetTierName(g.Key),
+            Skills = new ObservableCollection<SkillNodeViewModel>(g)
+        });
+
+        foreach (var tier in designTiers.OrderBy(t => t.Tier))
+            SkillTiers.Add(tier);
+
+        foreach (var skill in sampleSkills)
+            Skills.Add(skill);
+
+        Connections.Add(new SkillConnectionViewModel
+        {
+            X1 = 120,
+            Y1 = 330,
+            X2 = 400,
+            Y2 = 60,
+            IsUnlocked = true,
+            IsAvailable = true
+        });
+        Connections.Add(new SkillConnectionViewModel
+        {
+            X1 = 120,
+            Y1 = 330,
+            X2 = 400,
+            Y2 = 280,
+            IsUnlocked = true,
+            IsAvailable = true
+        });
+        Connections.Add(new SkillConnectionViewModel
+        {
+            X1 = 400,
+            Y1 = 260,
+            X2 = 680,
+            Y2 = 60,
+            IsUnlocked = false,
+            IsAvailable = false
+        });
+
+        ActiveBonuses.Add(new ActiveBonusViewModel { Source = "Pink Hours", Value = 0 });
+        ActiveBonuses.Add(new ActiveBonusViewModel { Source = "Base", Value = 1.0 });
+
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_started"), Value = "12" });
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_completed"), Value = "10" });
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_abandoned"), Value = "2" });
+
+        RefreshDitzyStats(new AppSettings());
+    }
+}
+
+public partial class SkillTierGroupViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private int _tier;
+
+    [ObservableProperty]
+    private string _tierName = "";
+
+    [ObservableProperty]
+    private ObservableCollection<SkillNodeViewModel> _skills = new();
+}
+
+public partial class SkillNodeViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private string _skillId = "";
+
+    [ObservableProperty]
+    private string _name = "";
+
+    [ObservableProperty]
+    private int _cost;
+
+    [ObservableProperty]
+    private int _tier;
+
+    [ObservableProperty]
+    private string? _prerequisiteId;
+
+    [ObservableProperty]
+    private string? _prerequisiteName;
+
+    [ObservableProperty]
+    private bool _isUnlocked;
+
+    [ObservableProperty]
+    private bool _canPurchase;
+
+    [ObservableProperty]
+    private bool _isLocked;
+
+    [ObservableProperty]
+    private double _positionX;
+
+    [ObservableProperty]
+    private double _positionY;
+
+    [ObservableProperty]
+    private string _description = "";
+
+    [ObservableProperty]
+    private string _flavorText = "";
+
+    [ObservableProperty]
+    private string _statusText = "";
+
+    [ObservableProperty]
+    private string? _iconUri;
+
+    partial void OnIsUnlockedChanged(bool value) => UpdateStatusText();
+    partial void OnCanPurchaseChanged(bool value) => UpdateStatusText();
+    partial void OnCostChanged(int value) => UpdateStatusText();
+
+    private void UpdateStatusText()
+    {
+        StatusText = IsUnlocked
+            ? $"💎{Cost} {Loc.Get("label_skill_owned")}"
+            : CanPurchase
+                ? $"💎 {Cost}"
+                : $"🔒 {Cost}";
+    }
+}
+
+public partial class SkillConnectionViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private double _x1;
+
+    [ObservableProperty]
+    private double _y1;
+
+    [ObservableProperty]
+    private double _x2;
+
+    [ObservableProperty]
+    private double _y2;
+
+    [ObservableProperty]
+    private bool _isUnlocked;
+
+    [ObservableProperty]
+    private bool _isAvailable;
+
+    public string Stroke => IsUnlocked ? "#90EE90" : IsAvailable ? "#FF69B4" : "#555566";
+
+    public global::Avalonia.Point StartPoint => new(X1, Y1);
+
+    public global::Avalonia.Point EndPoint => new(X2, Y2);
+}
+
+public partial class ActiveBonusViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private string _source = "";
+
+    [ObservableProperty]
+    private double _value;
+
+    public string DisplayText => Value == 0
+        ? Source
+        : $"{Source}: +{Value:P0}";
+}
+
+public partial class StatRowViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private string _label = "";
+
+    [ObservableProperty]
+    private string _value = "";
+}

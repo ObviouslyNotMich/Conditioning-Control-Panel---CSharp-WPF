@@ -1,0 +1,192 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.LabTabView"
+             x:DataType="vm:LabTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:LabTabViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{loc:Str tab_lab_lab_text}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White" />
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="{loc:Str tab_lab_lockdown_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding IsLockdownActive}">
+            <TextBlock Grid.Column="0"
+                       Text="{Binding LockdownTimerText}"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Foreground="#FF69B4"
+                       VerticalAlignment="Center"
+                       Margin="0,0,16,0" />
+            <Button Grid.Column="1"
+                    Content="{loc:Str tab_lab_click_timer_content}"
+                    Command="{Binding LockdownTimerClickCommand}"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Left" />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ComboBox ItemsSource="{Binding LockdownDurations}"
+                      SelectedItem="{Binding SelectedLockdownDuration, Mode=TwoWay}"
+                      Width="100" />
+            <Button Content="{loc:Str tab_lab_activate_lockdown_content}"
+                    Command="{Binding ActivateLockdownCommand}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox x:Name="ExitPhraseTextBox"
+                     PlaceholderText="{loc:Str tab_lab_exit_phrase_placeholder}"
+                     Width="200" />
+            <Button Content="{loc:Str tab_lab_attempt_exit_content}"
+                    Command="{Binding AttemptLockdownExitCommand}"
+                    CommandParameter="{Binding #ExitPhraseTextBox.Text}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="{loc:Str tab_lab_pop_quiz_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{loc:Str tab_lab_enable_pop_quizzes_text}"
+                         FontSize="13"
+                         FontWeight="SemiBold"
+                         Foreground="White" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding PopQuizEnabled, Mode=TwoWay}" />
+          </Grid>
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_lab_frequency_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding PopQuizFrequencyText}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="1"
+                    Maximum="10"
+                    Value="{Binding PopQuizFrequency, Mode=TwoWay}"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_lab_start_quiz_content}"
+                    Command="{Binding StartQuizCommand}" />
+            <Button Content="{loc:Str tab_lab_test_pop_quiz_content}"
+                    Command="{Binding TestPopQuizCommand}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <CheckBox Content="{loc:Str tab_lab_fullscreen_content}"
+                      IsChecked="{Binding QuizFullscreen, Mode=TwoWay}" />
+            <CheckBox Content="{loc:Str tab_lab_drone_mode_content}"
+                      IsChecked="{Binding QuizDrone, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="{loc:Str tab_lab_wallpaper_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{loc:Str tab_lab_override_wallpaper_text}"
+                         FontSize="13"
+                         FontWeight="SemiBold"
+                         Foreground="White" />
+              <TextBlock Text="{Binding CurrentWallpaper}"
+                         Foreground="#AAAAAA"
+                         FontSize="11" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding WallpaperEnabled, Mode=TwoWay}" />
+          </Grid>
+          <Button Content="{loc:Str tab_lab_shuffle_wallpaper_content}"
+                  Command="{Binding ShuffleWallpaperCommand}"
+                  HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_lab_chaos_mode_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_lab_start_chaos_content}"
+                    Command="{Binding StartChaosCommand}" />
+            <Button Content="{loc:Str tab_lab_quick_start_content}"
+                    Command="{Binding QuickStartChaosCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_lab_past_quizzes_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <ListBox ItemsSource="{Binding PastQuizzes}"
+                   Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:PastQuizViewModel">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="{Binding Label}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Category}" Margin="8,0" />
+                  <TextBlock Grid.Column="2" Text="{Binding Percent, StringFormat='{}{0}%'}">
+                  </TextBlock>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

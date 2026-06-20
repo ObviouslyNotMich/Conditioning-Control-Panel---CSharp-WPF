@@ -1,0 +1,195 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.BambiTakeoverTabView"
+             x:DataType="vm:BambiTakeoverTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:BambiTakeoverTabViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{loc:Str tab_bambi_takeover_takeover_text}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White" />
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{loc:Str tab_bambi_takeover_autonomy_mode_text}"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         Foreground="White" />
+              <TextBlock Text="{loc:Str tab_bambi_takeover_let_companion_trigger_effects_on_own_text}"
+                         Foreground="#AAAAAA"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch Grid.Column="1"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding AutonomyEnabled, Mode=TwoWay}" />
+          </Grid>
+
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_bambi_takeover_toggle_autonomy_content}"
+                    Command="{Binding ToggleAutonomyCommand}" />
+            <Button Content="{loc:Str tab_bambi_takeover_test_content}"
+                    Command="{Binding TestAutonomyCommand}" />
+            <Button Content="{loc:Str tab_bambi_takeover_force_start_content}"
+                    Command="{Binding ForceStartAutonomyCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="14">
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_bambi_takeover_intensity_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding AutonomyIntensity, StringFormat='{}{0}%'}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="0"
+                    Maximum="100"
+                    Value="{Binding AutonomyIntensity, Mode=TwoWay}"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_bambi_takeover_cooldown_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding AutonomyCooldown, StringFormat='{}{0}s'}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="10"
+                    Maximum="300"
+                    Value="{Binding AutonomyCooldown, Mode=TwoWay}"
+                    TickFrequency="5"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{loc:Str tab_bambi_takeover_random_interval_text}"
+                         Foreground="White"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding AutonomyInterval, StringFormat='{}{0}s'}"
+                         Foreground="#FF69B4"
+                         FontSize="13"
+                         FontWeight="SemiBold" />
+            </Grid>
+            <Slider Minimum="60"
+                    Maximum="600"
+                    Value="{Binding AutonomyInterval, Mode=TwoWay}"
+                    TickFrequency="10"
+                    IsSnapToTickEnabled="True" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_bambi_takeover_trigger_conditions_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <WrapPanel Orientation="Horizontal">
+            <CheckBox Content="{loc:Str tab_bambi_takeover_idle_trigger_content}"
+                      IsChecked="{Binding AutonomyIdleTrigger, Mode=TwoWay}"
+                      Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_random_trigger_content}"
+                      IsChecked="{Binding AutonomyRandomTrigger, Mode=TwoWay}"
+                      Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_time_aware_content}"
+                      IsChecked="{Binding AutonomyTimeAware, Mode=TwoWay}"
+                      Margin="0,0,16,8" />
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_bambi_takeover_allowed_behaviours_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <WrapPanel Orientation="Horizontal">
+            <CheckBox Content="{loc:Str tab_bambi_takeover_flash_content}" IsChecked="{Binding CanTriggerFlash, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_video_content}" IsChecked="{Binding CanTriggerVideo, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_web_video_content}" IsChecked="{Binding CanTriggerWebVideo, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_subliminal_content}" IsChecked="{Binding CanTriggerSubliminal, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_bubbles_content}" IsChecked="{Binding CanTriggerBubbles, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_comments_content}" IsChecked="{Binding CanComment, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_mind_wipe_content}" IsChecked="{Binding CanTriggerMindWipe, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_lock_card_content}" IsChecked="{Binding CanTriggerLockCard, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_spiral_content}" IsChecked="{Binding CanTriggerSpiral, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_pink_filter_content}" IsChecked="{Binding CanTriggerPinkFilter, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_bouncing_text_content}" IsChecked="{Binding CanTriggerBouncingText, Mode=TwoWay}" Margin="0,0,16,8" />
+            <CheckBox Content="{loc:Str tab_bambi_takeover_bubble_count_content}" IsChecked="{Binding CanTriggerBubbleCount, Mode=TwoWay}" Margin="0,0,16,8" />
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{loc:Str tab_bambi_takeover_announcement_chance_text}"
+                       Foreground="White"
+                       FontSize="13"
+                       FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding AnnouncementChance, StringFormat='{}{0}%'}"
+                       Foreground="#FF69B4"
+                       FontSize="13"
+                       FontWeight="SemiBold" />
+          </Grid>
+          <Slider Minimum="0"
+                  Maximum="100"
+                  Value="{Binding AnnouncementChance, Mode=TwoWay}"
+                  TickFrequency="1"
+                  IsSnapToTickEnabled="True" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

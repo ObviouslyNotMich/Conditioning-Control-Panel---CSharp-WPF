@@ -1,0 +1,214 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.ViewModels;
+using ConditioningControlPanel.Avalonia.Views;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel;
+using ConditioningControlPanel.Core.Services.Progression;
+using ConditioningControlPanel.Core.Services.Roadmap;
+using ConditioningControlPanel.Core.Services.Settings;
+using Microsoft.Extensions.DependencyInjection;
+using Serilog;
+using CoreApp = ConditioningControlPanel.App;
+
+namespace ConditioningControlPanel.Avalonia;
+
+public partial class App : Application
+{
+    /// <summary>
+    /// Global service provider for the Avalonia head. Populated during
+    /// <see cref="OnFrameworkInitializationCompleted"/> before any window is created.
+    /// </summary>
+    public static IServiceProvider Services { get; private set; } = null!;
+
+    /// <summary>
+    /// Optional head-specific DI tweak. Set before starting the app.
+    /// </summary>
+    public static Action<IServiceCollection>? ConfigurePlatformServices { get; set; }
+
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+    }
+
+    public override void OnFrameworkInitializationCompleted()
+    {
+        ConfigureLogging();
+
+        // Global exception handling before any window is created.
+        Dispatcher.UIThread.UnhandledException += (s, e) =>
+        {
+            e.Handled = true;
+            Log.Logger?.Error(e.Exception, "Unhandled UI thread exception");
+            try
+            {
+                var dialog = Services?.GetService<IDialogService>();
+                _ = dialog?.ShowMessageAsync("Error", $"An unexpected error occurred:\n{e.Exception?.Message}");
+            }
+            catch { }
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
+            Log.Logger?.Error(e.ExceptionObject as Exception, "Unhandled app domain exception");
+        };
+
+        TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
+            Log.Logger?.Error(e.Exception, "Unobserved task exception");
+            e.SetObserved();
+        };
+
+        try
+        {
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.ConfigureCoreServices();
+            ConfigurePlatformServices?.Invoke(serviceCollection);
+            Services = serviceCollection.BuildServiceProvider();
+
+            // Wire the static Core App stub so copied model code can reach settings.
+            CoreApp.Settings = Services.GetRequiredService<ISettingsService>();
+            CoreApp.Roadmap = Services.GetRequiredService<IRoadmapService>();
+            CoreApp.Logger = Services.GetRequiredService<IAppLogger>();
+
+            // Initialize the mod service (loads built-ins + user mods, restores active mod)
+            // off the UI thread so startup stays responsive.
+            var modService = Services.GetRequiredService<IModService>();
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    modService.Initialize(CoreApp.Settings.Current.ActiveModId);
+                }
+                catch (Exception ex)
+                {
+                    Log.Logger?.Error(ex, "Failed to initialize mod service");
+                }
+            });
+
+            // Subscribe to achievement unlocks so the Avalonia head can show popup toasts.
+            var achievements = Services.GetRequiredService<IAchievementService>();
+            achievements.AchievementUnlocked += OnAchievementUnlocked;
+
+            // If another instance is launched, bring this one to the foreground.
+            var singleInstance = Services.GetRequiredService<ISingleInstanceService>();
+            singleInstance.ArgumentsReceived += (_, _) =>
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                    {
+                        RestoreMainWindow(desktop.MainWindow);
+                    }
+                });
+            };
+
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.MainWindow = desktop.Args switch
+                {
+                    var a when a != null && a.Contains("--audio-spike") => new AudioSpikeWindow(),
+                    var a when a != null && a.Contains("--inline-loop-spike") => new InlineLoopSpikeWindow(),
+                    var a when a != null && a.Contains("--video-spike") => new VideoSpikeWindow(),
+                    _ => new MainWindow
+                    {
+                        DataContext = Services.GetRequiredService<MainWindowViewModel>()
+                    }
+                };
+
+                // Wire desktop tray icon.
+                var tray = Services.GetRequiredService<ITrayIcon>();
+                tray.SetTooltip("Conditioning Control Panel");
+                tray.Menu.AddItem("Show Dashboard", () => RestoreMainWindow(desktop.MainWindow));
+                tray.Menu.AddItem("separator", () => { }, isSeparator: true);
+                tray.Menu.AddItem("Exit", () => desktop.Shutdown());
+
+                if (tray is Avalonia.Platform.AvaloniaTrayIcon avaloniaTray)
+                {
+                    avaloniaTray.Clicked += () => RestoreMainWindow(desktop.MainWindow);
+                }
+
+                tray.Show();
+            }
+            else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
+            {
+                singleViewPlatform.MainView = new MainView
+                {
+                    DataContext = Services.GetRequiredService<MainWindowViewModel>()
+                };
+            }
+
+            base.OnFrameworkInitializationCompleted();
+        }
+        catch (Exception ex)
+        {
+            Log.Logger?.Error(ex, "Startup failed");
+            try
+            {
+                var dialog = Services?.GetService<IDialogService>();
+                _ = dialog?.ShowMessageAsync("Error", $"Startup failed:\n{ex.Message}");
+            }
+            catch { }
+        }
+    }
+
+    private static void RestoreMainWindow(Window? window)
+    {
+        if (window is null) return;
+        window.Show();
+        if (window.WindowState == WindowState.Minimized)
+            window.WindowState = WindowState.Normal;
+        window.Activate();
+    }
+
+    private static void ConfigureLogging()
+    {
+        var logPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ConditioningControlPanel",
+            "logs");
+
+        try
+        {
+            Directory.CreateDirectory(logPath);
+        }
+        catch
+        {
+            logPath = Path.Combine(Path.GetTempPath(), "ConditioningControlPanel", "logs");
+            try { Directory.CreateDirectory(logPath); } catch { }
+        }
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.File(Path.Combine(logPath, "app-.log"),
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 7)
+            .WriteTo.Console()
+            .CreateLogger();
+    }
+
+    private static void OnAchievementUnlocked(object? sender, Core.Models.Achievement achievement)
+    {
+        try
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime)
+            {
+                // Achievement pop-ups are window-based; skip on mobile lifetimes.
+                return;
+            }
+
+            var popup = new Windows.AchievementPopup(achievement);
+            popup.Show();
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Error(ex, "Failed to show achievement popup");
+        }
+    }
+}

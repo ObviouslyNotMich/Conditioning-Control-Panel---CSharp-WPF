@@ -1,0 +1,218 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.PatreonTabView"
+             x:DataType="vm:PatreonTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:PatreonTabViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{loc:Str tab_patreon_patreon_accounts_text}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White" />
+
+      <!-- Premium Status -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="4">
+          <TextBlock Text="{loc:Str tab_patreon_account_status_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{loc:Str tab_patreon_premium_active_text}"
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="#00C853"
+                     IsVisible="{Binding IsPremium}" />
+          <TextBlock Text="{loc:Str tab_patreon_free_user_text}"
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="#888888"
+                     IsVisible="{Binding !IsPremium}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Patreon -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_patreon_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{Binding PatreonStatusText}" />
+          <TextBlock Text="{Binding PatreonTierText}"
+                     Opacity="0.7" />
+          <TextBlock Text="{Binding PatreonExpiryText}"
+                     Opacity="0.7"
+                     IsVisible="{Binding PatreonExpiryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{Binding PatreonButtonText}"
+                    Command="{Binding PatreonLoginCommand}" />
+            <Button Content="{loc:Str tab_patreon_visit_patreon_content}"
+                    Command="{Binding VisitPatreonCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Discord -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_discord_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{Binding DiscordStatusText}" />
+          <TextBlock Text="{Binding DiscordInfoText}"
+                     Opacity="0.7" />
+          <Button Content="{Binding DiscordButtonText}"
+                  Command="{Binding DiscordLoginCommand}" />
+        </StackPanel>
+      </Border>
+
+      <!-- SubscribeStar -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_subscribestar_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{Binding SubscribeStarStatusText}" />
+          <TextBlock Text="{Binding SubscribeStarTierText}"
+                     Opacity="0.7" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{Binding SubscribeStarButtonText}"
+                    Command="{Binding SubscribeStarLoginCommand}" />
+            <Button Content="{loc:Str tab_patreon_visit_subscribestar_content}"
+                    Command="{Binding VisitSubscribeStarCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Premium Benefits -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_premium_benefits_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{loc:Str tab_patreon_exclusive_achievements_rewards_text}"
+                     Opacity="0.9" />
+          <TextBlock Text="{loc:Str tab_patreon_cloud_backup_settings_progress_text}"
+                     Opacity="0.9" />
+          <TextBlock Text="{loc:Str tab_patreon_early_access_new_features_experiments_text}"
+                     Opacity="0.9" />
+          <TextBlock Text="{loc:Str tab_patreon_advanced_discord_integration_rich_presence_text}"
+                     Opacity="0.9" />
+        </StackPanel>
+      </Border>
+
+      <!-- Account Linking -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16"
+              IsVisible="{Binding ShowLinkingSection}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_account_linking_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_patreon_link_patreon_content}"
+                    Command="{Binding LinkPatreonCommand}"
+                    IsVisible="{Binding ShowLinkPatreonButton}" />
+            <Button Content="{loc:Str tab_patreon_link_discord_content}"
+                    Command="{Binding LinkDiscordCommand}"
+                    IsVisible="{Binding ShowLinkDiscordButton}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Discord Settings -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_discord_settings_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <ToggleSwitch Content="{loc:Str tab_patreon_share_achievements_content}"
+                        IsChecked="{Binding DiscordShareAchievements, Mode=TwoWay}" />
+          <ToggleSwitch Content="{loc:Str tab_patreon_share_level_ups_content}"
+                        IsChecked="{Binding DiscordShareLevelUps, Mode=TwoWay}" />
+          <ToggleSwitch Content="{loc:Str tab_patreon_show_level_presence_content}"
+                        IsChecked="{Binding DiscordShowLevelInPresence, Mode=TwoWay}" />
+          <ToggleSwitch Content="{loc:Str tab_patreon_allow_discord_dms_content}"
+                        IsChecked="{Binding AllowDiscordDm, Mode=TwoWay}" />
+          <ToggleSwitch Content="{loc:Str tab_patreon_share_profile_picture_content}"
+                        IsChecked="{Binding ShareProfilePicture, Mode=TwoWay}" />
+          <ToggleSwitch Content="{loc:Str tab_patreon_show_online_status_content}"
+                        IsChecked="{Binding ShowOnlineStatus, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Cloud Backup -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16"
+              IsVisible="{Binding ShowCloudBackupSection}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_cloud_backup_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{loc:Str tab_patreon_cloud_backup_settings_will_appear_here_text}"
+                     Opacity="0.7" />
+        </StackPanel>
+      </Border>
+
+      <!-- Data Privacy -->
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16"
+              IsVisible="{Binding ShowDataPrivacySection}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_patreon_data_privacy_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <TextBlock Text="{loc:Str tab_patreon_data_privacy_settings_will_appear_here_text}"
+                     Opacity="0.7" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

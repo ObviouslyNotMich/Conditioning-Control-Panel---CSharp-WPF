@@ -1,10 +1,12 @@
 # Cross-Platform Rebuild Plan — Conditioning Control Panel
 
-**Goal:** Rebuild Conditioning Control Panel (CCP) for deployment on Windows, Linux, macOS, iOS, and Android using **Avalonia UI v12** and **LibVLCSharp**.
+**Goal:** Rebuild Conditioning Control Panel (CCP) for deployment on Windows, Linux, macOS, and Android using **Avalonia UI v12** and **LibVLCSharp**.
+
+> **iOS is out of scope.** Due to the app's 18+ adult content, distribution on the Apple App Store is not viable. The iOS head will not be built, published, or maintained.
 
 **Current state:** .NET 8 WPF/WinForms desktop app, Windows-only (`net8.0-windows10.0.19041.0`), single-file publish for `win-x64`.
 
-**Target state:** Multi-head Avalonia v12 solution with a shared .NET 8/10 Core, per-platform desktop and mobile heads, and LibVLCSharp for cross-platform media.
+**Target state:** Multi-head Avalonia v12 solution with a shared .NET 8/10 Core, per-platform desktop and Android heads, and LibVLCSharp for cross-platform media.
 
 ---
 
@@ -80,7 +82,7 @@ Every one of these must move behind a platform interface with Windows, Linux, ma
 | `XamlAnimatedGif` | Animated GIFs | `AvaloniaGif` or custom SkiaSharp/ImageSharp frame animation |
 | `SharpVectors` | SVG → WPF | `Svg.Skia` / `Avalonia.Svg.Skia` |
 | `OpenCvSharp4.runtime.win` | OpenCV native | Add Linux/macOS runtimes; mobile uses native camera APIs |
-| `System.Security.Cryptography.ProtectedData` | DPAPI secrets | Abstract `ISecretStore` (Keychain on macOS/iOS, libsecret on Linux, DPAPI on Windows) |
+| `System.Security.Cryptography.ProtectedData` | DPAPI secrets | Abstract `ISecretStore` (Keychain on macOS, libsecret on Linux, DPAPI on Windows) |
 | `SharpDX.*` | Direct3D/DXGI | Dead dependency — remove |
 
 ---
@@ -94,13 +96,12 @@ ConditioningControlPanel/
 ├── CCP.Core/                       # net8.0 — engine, models, portable services
 ├── CCP.Avalonia/                   # net8.0 — shared Avalonia UI, Views, ViewModels
 ├── CCP.Avalonia.Desktop/           # net8.0 — desktop head (Win/Linux/Mac)
-├── CCP.Avalonia.iOS/               # net10.0-ios — iOS head
 ├── CCP.Avalonia.Android/           # net10.0-android — Android head
 ├── CCP.WindowsOnly/                # net8.0-windows — optional Windows-specific helpers
 └── ConditioningControlPanel.sln
 ```
 
-> **Note:** Avalonia v12 mobile heads require .NET 10 (`net10.0-ios` / `net10.0-android`). Desktop heads can target `net8.0` or `net10.0`.
+> **Note:** The Avalonia v12 Android head targets `net10.0-android`. Desktop heads can target `net8.0` or `net10.0`. iOS is excluded from this plan.
 
 ### 3.2 Project Responsibilities
 
@@ -109,7 +110,6 @@ ConditioningControlPanel/
 | `CCP.Core` | Models, settings, session/gamification logic, AI/LLM orchestration, networking, mod/catalogue logic, JSON contracts, localization runtime. No UI framework references. |
 | `CCP.Avalonia` | `App.axaml`, `MainWindow.axaml`, Views, UserControls, ViewModels, converters, platform-agnostic styles. References `CCP.Core` and Avalonia packages. |
 | `CCP.Avalonia.Desktop` | Desktop `Program.cs`, tray icon wiring, desktop-specific service registration. |
-| `CCP.Avalonia.iOS` | `AppDelegate.cs`, `Main.cs`, iOS lifecycle, native service implementations. |
 | `CCP.Avalonia.Android` | `MainActivity.cs`, Android lifecycle, native service implementations. |
 | `CCP.WindowsOnly` | Win32 P/Invoke helpers, WebView2 host, NAudio implementation, DWM chrome. Optional; only referenced by desktop Windows builds. |
 
@@ -167,12 +167,11 @@ Core Avalonia packages to add:
 Mobile heads:
 
 ```xml
-<!-- iOS -->
-<PackageReference Include="Avalonia.iOS" Version="12.0.4" />
-
 <!-- Android -->
 <PackageReference Include="Avalonia.Android" Version="12.0.4" />
 ```
+
+> iOS is intentionally excluded from this plan due to App Store adult-content restrictions.
 
 ### 4.2 Major v12 Changes Affecting the Migration
 
@@ -268,9 +267,8 @@ Add native engine packages per head:
 | macOS ARM64 | **Manual** | Extract `libvlc.dylib` + plugins from modern VLC.app |
 | Linux | **No official NuGet** | Install `libvlc`/`libvlccore` via package manager or ship custom `.so` |
 | Android | `VideoLAN.LibVLC.Android` 3.6.5 / 3.7.0-beta | Add `LibVLCSharp.Android.AWindowModern` |
-| iOS | `VideoLAN.LibVLC.iOS` 3.6.1 | Works with .NET iOS workload |
 
-> **Important:** `LibVLCSharp.Avalonia` officially supports Windows, macOS, and Linux. For Android/iOS, use platform-specific video surfaces.
+> **Important:** `LibVLCSharp.Avalonia` officially supports Windows, macOS, and Linux. For Android, use the platform-specific video surface. iOS is not supported.
 
 ### 5.2 VideoView Migration
 
@@ -329,7 +327,7 @@ NAudio is Windows-only. Strategy:
    - LibVLC for simple file playback.
    - `ManagedBass` / `Bass.Net` for lower-level mixing.
    - `OpenAL` / `Silk.NET.OpenAL` for playback/capture.
-   - Platform APIs for ducking (PulseAudio/PipeWire on Linux, CoreAudio on macOS/iOS, AudioManager on Android).
+   - Platform APIs for ducking (PulseAudio/PipeWire on Linux, CoreAudio on macOS, AudioManager on Android).
 
 ### 5.6 WebView2 Video in Deeper
 
@@ -363,7 +361,7 @@ NAudio is Windows-only. Strategy:
 | `SharpDX` / `.DXGI` / `.Direct3D11` | 4.2.0 | Remove | Zero references. |
 | `SharpVectors` | 1.8.4.2 | Remove | `Svg.Skia` / `Avalonia.Svg.Skia`. |
 | `System.Security.Cryptography.ProtectedData` | 8.0.0 | Abstract | `ISecretStore` with DPAPI/Keychain/libsecret. |
-| `VideoLAN.LibVLC.Windows` | 3.0.21 | Keep + add runtimes | Add Mac/Android/iOS packages; Linux via system or custom. |
+| `VideoLAN.LibVLC.Windows` | 3.0.21 | Keep + add runtimes | Add Mac/Android packages; Linux via system or custom. iOS excluded. |
 | `XamlAnimatedGif` | 2.3.0 | Remove | `AvaloniaGif` or custom frame animation. |
 
 ---
@@ -376,7 +374,7 @@ Current: custom `[STAThread] Main`, `Mutex`, `EventWaitHandle`, WPF `Dispatcher`
 
 Target:
 - Avalonia `BuildAvaloniaApp().StartWithClassicDesktopLifetime(args)` on desktop.
-- Platform lifecycles for iOS/Android.
+- Platform lifecycle for Android.
 - Cross-platform single-instance via file lock or platform-specific service.
 - Replace `Environment.SpecialFolder.LocalApplicationData` assumptions with proper paths (`XDG_DATA_HOME` on Linux, `~/Library/Application Support` on macOS).
 - Replace `MessageBox.Show` with `IDialogService` (`MsBox.Avalonia` or custom dialogs).
@@ -405,7 +403,7 @@ Current: `SetWindowsHookEx` low-level keyboard/mouse hooks, `RegisterHotKey`, `G
 
 Target: abstract `IHotkeyProvider` / `IInputHook`. Windows keeps Win32 implementation. Linux uses X11/wayland evdev. macOS uses `CGEventTap` + accessibility permission. Mobile: impossible; disable.
 
-Lockdown mode system-key suppression (`Alt+Tab`, `Win`, `Esc`, `Ctrl+Shift+Esc`) is **impossible on macOS/iOS/Android** and requires root/udev on Linux.
+Lockdown mode system-key suppression (`Alt+Tab`, `Win`, `Esc`, `Ctrl+Shift+Esc`) is **impossible on macOS/Android** and requires root/udev on Linux.
 
 ### 7.4 Window Chrome / Overlays
 
@@ -435,7 +433,7 @@ Target: abstract `IWallpaperProvider`. Windows only. macOS can use AppleScript/N
 Current: `Microsoft.Web.WebView2` in `Services/Browser/BrowserService.cs`.
 
 Target options:
-1. **Avalonia.Controls.WebView** — official cross-platform WebView (WebView2 on Windows, WKWebView on macOS/iOS, WPE WebKit on Linux, Android WebView).
+1. **Avalonia.Controls.WebView** — official cross-platform WebView (WebView2 on Windows, WPE WebKit on Linux, Android WebView). macOS uses WKWebView; iOS is not supported.
 2. **CEF wrapper** (`CefGlue.Avalonia`, `CefNet.Avalonia`) for desktop Linux/macOS.
 3. **System browser** launch via `xdg-open`/`open` where an embedded browser is unnecessary.
 4. Keep WebView2 only in `CCP.WindowsOnly` for Windows parity.
@@ -448,8 +446,8 @@ Current: OpenCvSharp4 + `runtime.win`, DirectShow/WinRT enumerators, ONNX Runtim
 
 Target:
 - Add platform runtimes: `OpenCvSharp4.runtime.ubuntu.*`, `OpenCvSharp4.runtime.osx.*`.
-- On mobile, OpenCvSharp does not ship runtimes; use platform APIs (Android Camera2 / iOS AVFoundation).
-- Replace DirectShow/WinRT enumerators with V4L2 on Linux, AVFoundation on macOS/iOS.
+- On mobile, OpenCvSharp does not ship runtimes; use Android Camera2 APIs.
+- Replace DirectShow/WinRT enumerators with V4L2 on Linux; macOS uses AVFoundation.
 - Add ONNX Runtime mobile runtimes.
 - Replace `System.Drawing` with SkiaSharp / ImageSharp.
 
@@ -459,7 +457,7 @@ Current: `ProtectedData.Protect/Unprotect` with `DataProtectionScope.CurrentUser
 
 Target: `ISecretStore` abstraction.
 - Windows: DPAPI (keep existing).
-- macOS/iOS: Keychain (`Security` framework).
+- macOS: Keychain (`Security` framework).
 - Linux: libsecret/secret-tool or encrypted file with user-only permissions.
 
 Existing encrypted tokens will not decrypt on other OSs; plan re-authentication or migration path.
@@ -478,7 +476,7 @@ Target: `IUpdateInstaller` abstraction.
 - Windows: keep installer path discovery (without `wmic`).
 - macOS: Sparkle or manual DMG.
 - Linux: AppImage/snap/flatpak.
-- iOS/Android: app stores.
+
 
 ---
 
@@ -522,10 +520,10 @@ Target: `IUpdateInstaller` abstraction.
 1. Create projects:
    - `CCP.Avalonia` (shared UI, `net8.0` or `net10.0`)
    - `CCP.Avalonia.Desktop`
-   - `CCP.Avalonia.iOS`
    - `CCP.Avalonia.Android`
+   - (iOS is intentionally excluded.)
 2. Add Avalonia v12 + LibVLCSharp packages per head.
-3. Implement `App.axaml`, `MainWindow.axaml`, platform `Program.cs` / `MainActivity.cs` / `AppDelegate.cs`.
+3. Implement `App.axaml`, `MainWindow.axaml`, platform `Program.cs` / `MainActivity.cs`.
 4. Set up solution build for all heads.
 
 ### Phase 4 — Migrate XAML & UI (4–8 Weeks)
@@ -566,14 +564,14 @@ Target: `IUpdateInstaller` abstraction.
    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
    ```
 2. Desktop: keep `PublishSingleFile` + `SelfContained` optional.
-3. Mobile: standard `net10.0-ios` / `net10.0-android` builds; no single-file; enable trimming with Avalonia trimming roots.
+3. Android: standard `net10.0-android` build; no single-file; enable trimming with Avalonia trimming roots.
 4. Add CI matrix builds for each RID and mobile simulator tests.
-5. Set up code signing and notarization for macOS/iOS.
+5. Set up code signing and notarization for macOS.
 6. Set up Android keystore and app bundle publishing.
 
 ### Phase 8 — Mobile Feature Gating & Adaptation (2–4 Weeks)
 
-1. Disable on iOS/Android:
+1. Disable on Android:
    - Overlays (full-screen effects, bubbles, subliminals).
    - Global hooks and system-key suppression.
    - System tray.
@@ -585,8 +583,8 @@ Target: `IUpdateInstaller` abstraction.
    - Tabs or single-window navigation.
    - Touch-optimized controls.
    - Native camera + LibVLC for Lab/webcam features.
-3. Adapt background audio/execution restrictions.
-4. Address app-store content policies early.
+3. Adapt background audio/execution restrictions on Android.
+4. Address Google Play content policies early; iOS is not supported.
 
 ---
 
@@ -614,14 +612,6 @@ Target: `IUpdateInstaller` abstraction.
 - Title-bar theming and transparent overlays require native NSWindow interop.
 - Global hotkeys possible via `NSEvent.AddGlobalMonitorForEventsMatchingMask`; system-key suppression is not.
 - Secrets: Keychain.
-
-### iOS
-
-- Avalonia iOS head requires `Avalonia.iOS` and platform lifecycle code.
-- No multi-window overlays, no global hooks, no tray.
-- Background audio/execution heavily restricted.
-- Use `VideoLAN.LibVLC.iOS` and `Microsoft.ML.OnnxRuntime` iOS runtime.
-- App Store policies around adult content may block distribution; plan accordingly.
 
 ### Android
 
@@ -697,12 +687,12 @@ Every phase must end with a **build checkpoint** and a **test checkpoint**. The 
 | Phase 0 | WPF app builds with dead packages removed. | No build warnings from removed packages; all existing tests pass. |
 | Phase 1 | `CCP.Core` + WPF shim build; legacy WPF app still runs. | `CCP.Core` compiles on Windows, Linux, and macOS; WPF app launches and plays a video. |
 | Phase 2 | `CCP.Core` builds on Linux/macOS CI with no Windows-only references. | `dotnet build` passes on `ubuntu-latest`, `macos-latest`, and `windows-latest`. |
-| Phase 3 | Avalonia solution builds for all heads. | `CCP.Avalonia`, `CCP.Avalonia.Desktop`, `CCP.Avalonia.iOS`, `CCP.Avalonia.Android` all compile. |
+| Phase 3 | Avalonia solution builds for all heads. | `CCP.Avalonia`, `CCP.Avalonia.Desktop`, `CCP.Avalonia.Android` all compile. iOS is excluded. |
 | Phase 4 | Avalonia desktop app builds and launches. | Main window renders; navigation/tabs work; no runtime XAML exceptions. |
 | Phase 5 | Media/audio pipeline builds on all desktop RIDs. | LibVLC initializes; video plays; audio SFX plays on Windows/Linux/macOS. |
 | Phase 6 | OS-shell feature stubs build on all platforms. | Tray icon on desktop; hooks on Windows; no crashes on Linux/macOS without hooks. |
-| Phase 7 | CI produces signed/publishable artifacts for all RIDs. | `dotnet publish` succeeds for `win-x64`, `linux-x64`, `osx-arm64`; mobile AAB/IPA produced. |
-| Phase 8 | Mobile heads build and deploy to simulators/devices. | iOS/Android apps launch; reduced feature set loads; camera + LibVLC work. |
+| Phase 7 | CI produces signed/publishable artifacts for all desktop RIDs and Android. | `dotnet publish` succeeds for `win-x64`, `linux-x64`, `osx-arm64`; Android AAB produced. |
+| Phase 8 | Android head builds and deploys to simulators/devices. | Android app launches; reduced feature set loads; camera + LibVLC work. |
 
 ### 13.3 Test Checkpoints by Phase
 
@@ -810,7 +800,7 @@ Current:
 - Crash dialogs log details locally.
 
 Target:
-- Keep file logging; add OS-native crash reporting where appropriate (e.g., App Center, Sentry, or plist crash logs on macOS/iOS).
+- Keep file logging; add OS-native crash reporting where appropriate (e.g., App Center, Sentry, or plist crash logs on macOS).
 - Replace `dbghelp.dll` with cross-platform crash handler or platform-specific minidump APIs.
 - Ensure no PII in logs; continue security practice of logging at `Information` level.
 - Add telemetry for startup time, feature usage, and crash-free sessions (opt-in).
@@ -884,7 +874,7 @@ Use feature flags to ship the Avalonia app alongside the WPF app without breakin
 | `UseAvaloniaUI` | Launch Avalonia desktop shell instead of WPF | `false` until parity |
 | `EnableLinuxSupport` | Enable Linux-specific native service implementations | `false` during alpha |
 | `EnableMacSupport` | Enable macOS-specific native service implementations | `false` during alpha |
-| `EnableMobileSupport` | Enable iOS/Android heads | `false` until beta |
+| `EnableMobileSupport` | Enable Android head | `false` until beta |
 | `EnableCrossPlatformAudio` | Use new `IAudioPlayer` abstraction | `false` on Windows until validated |
 | `EnableAvaloniaWebView` | Use Avalonia WebView instead of WebView2 | `false` on Windows until validated |
 | `EnableLockdownOnNonWindows` | Allow lockdown mode on Linux/macOS (degraded) | `false` |
@@ -894,7 +884,7 @@ Rollout plan:
 1. **Internal alpha:** WPF app with `CCP.Core` + `UseAvaloniaUI=false`.
 2. **Avalonia alpha:** `UseAvaloniaUI=true` for testers on Windows.
 3. **Desktop beta:** Avalonia on Windows/Linux/macOS.
-4. **Mobile beta:** reduced feature set on iOS/Android.
+4. **Mobile beta:** reduced feature set on Android.
 5. **General availability:** deprecate WPF head.
 
 ---
@@ -908,7 +898,7 @@ Current WPF app has limited automation properties and custom chrome that confuse
 Target:
 - Set `AutomationProperties.Name` and `AutomationProperties.HelpText` on every interactive control.
 - Ensure keyboard navigation (Tab order, access keys) for every view.
-- Test with NVDA (Windows), Orca (Linux), and VoiceOver (macOS/iOS).
+- Test with NVDA (Windows), Orca (Linux), and VoiceOver (macOS).
 - Respect system high-contrast and reduce-motion settings.
 
 ### 17.2 Localization
@@ -930,7 +920,6 @@ Target:
 | Windows | `win-x64` single-file EXE + MSI/INNO | Code signing certificate (EV recommended); sign installer and executable. |
 | Linux | `linux-x64` self-contained folder or AppImage | GPG sign AppImage or package; no OS-level code signing. |
 | macOS | `osx-x64` / `osx-arm64` app bundle + DMG | Apple Developer ID; notarize with `notarytool`; staple ticket. |
-| iOS | IPA | Apple Distribution certificate; App Store Connect upload; TestFlight. |
 | Android | AAB/APK | Upload key + signing key; Google Play App Signing; Play Console. |
 
 Additional distribution notes:

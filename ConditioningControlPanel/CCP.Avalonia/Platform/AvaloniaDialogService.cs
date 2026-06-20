@@ -1,0 +1,123 @@
+using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+using ConditioningControlPanel.Core.Platform;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
+
+namespace ConditioningControlPanel.Avalonia.Platform;
+
+/// <summary>
+/// Avalonia dialog service using <see cref="IStorageProvider"/> for file/folder pickers
+/// and MessageBox.Avalonia for message and confirmation boxes.
+/// </summary>
+public sealed class AvaloniaDialogService : IDialogService
+{
+    private readonly Func<TopLevel?> _getTopLevel;
+
+    public AvaloniaDialogService(Func<TopLevel?> getTopLevel)
+    {
+        _getTopLevel = getTopLevel;
+    }
+
+    public async Task ShowMessageAsync(string title, string message, DialogSeverity severity = DialogSeverity.Info)
+    {
+        var top = _getTopLevel();
+        var box = MessageBoxManager.GetMessageBoxStandard(title, message, ButtonEnum.Ok, MapIcon(severity));
+
+        switch (top)
+        {
+            case Window window:
+                await box.ShowWindowDialogAsync(window);
+                break;
+            case ContentControl control:
+                await box.ShowAsPopupAsync(control);
+                break;
+            default:
+                await box.ShowAsync();
+                break;
+        }
+    }
+
+    public async Task<bool> ShowConfirmationAsync(string title, string message)
+    {
+        var top = _getTopLevel();
+        var box = MessageBoxManager.GetMessageBoxStandard(title, message, ButtonEnum.YesNo, Icon.Question);
+
+        var result = top switch
+        {
+            Window window => await box.ShowWindowDialogAsync(window),
+            ContentControl control => await box.ShowAsPopupAsync(control),
+            _ => await box.ShowAsync()
+        };
+
+        return result == ButtonResult.Yes;
+    }
+
+    public async Task<IReadOnlyList<string>> ShowOpenFileDialogAsync(
+        string title,
+        IReadOnlyList<FileFilter> filters,
+        bool allowMultiple = false)
+    {
+        var top = _getTopLevel();
+        if (top is null) return Array.Empty<string>();
+
+        var options = new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = allowMultiple,
+            FileTypeFilter = MapFilters(filters)
+        };
+
+        var result = await top.StorageProvider.OpenFilePickerAsync(options);
+        return result.Select(r => r.Path.LocalPath).ToList();
+    }
+
+    public async Task<string?> ShowSaveFileDialogAsync(
+        string title,
+        IReadOnlyList<FileFilter> filters,
+        string? defaultFileName = null)
+    {
+        var top = _getTopLevel();
+        if (top is null) return null;
+
+        var options = new FilePickerSaveOptions
+        {
+            Title = title,
+            SuggestedFileName = defaultFileName,
+            FileTypeChoices = MapFilters(filters)
+        };
+
+        var result = await top.StorageProvider.SaveFilePickerAsync(options);
+        return result?.Path.LocalPath;
+    }
+
+    public async Task<string?> ShowOpenFolderDialogAsync(string title)
+    {
+        var top = _getTopLevel();
+        if (top is null) return null;
+
+        var options = new FolderPickerOpenOptions { Title = title };
+        var result = await top.StorageProvider.OpenFolderPickerAsync(options);
+        return result.FirstOrDefault()?.Path.LocalPath;
+    }
+
+    private static IReadOnlyList<FilePickerFileType> MapFilters(IReadOnlyList<FileFilter> filters)
+    {
+        return filters
+            .Select(f => new FilePickerFileType(f.Name)
+            {
+                Patterns = f.Extensions.Select(e => $"*.{e}").ToList()
+            })
+            .ToList();
+    }
+
+    private static Icon MapIcon(DialogSeverity severity)
+    {
+        return severity switch
+        {
+            DialogSeverity.Warning => Icon.Warning,
+            DialogSeverity.Error => Icon.Error,
+            _ => Icon.Info
+        };
+    }
+}

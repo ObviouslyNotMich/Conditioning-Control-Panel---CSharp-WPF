@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             x:Class="ConditioningControlPanel.Avalonia.Features.PinkFilterFeatureControl"
+             Design.DataContext="{x:Null}">
+
+  <StackPanel>
+    <!-- Master enable -->
+    <Border Background="#1A1A2E"
+            BorderBrush="#FF69B4"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="16,12"
+            Margin="0,0,0,10">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0"
+                    VerticalAlignment="Center">
+          <TextBlock Text="{loc:Str label_pink_filter_title}"
+                     Foreground="White"
+                     FontSize="14"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{loc:Str desc_pink_filter}"
+                     Foreground="#AAAAAA"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Margin="0,2,0,0" />
+        </StackPanel>
+        <ToggleSwitch x:Name="ChkEnable"
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      IsCheckedChanged="ChkEnable_Changed" />
+      </Grid>
+    </Border>
+
+    <!-- Opacity -->
+    <Border Background="#1A1A2E"
+            BorderBrush="#FF69B4"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="16,14">
+      <StackPanel>
+        <Grid Margin="0,0,0,6">
+          <TextBlock Text="{loc:Str setting_opacity}"
+                     Foreground="White"
+                     FontSize="13"
+                     FontWeight="SemiBold" />
+          <TextBlock x:Name="TxtOpacity"
+                     Text="10%"
+                     HorizontalAlignment="Right"
+                     Foreground="#FF69B4"
+                     FontSize="13"
+                     FontWeight="SemiBold" />
+        </Grid>
+        <Slider x:Name="SliderOpacity"
+                Minimum="5"
+                Maximum="50"
+                Value="10"
+                ValueChanged="SliderOpacity_Changed" />
+        <TextBlock Text="{loc:Str desc_pink_filter_opacity}"
+                   Foreground="#AAAAAA"
+                   FontSize="10"
+                   TextWrapping="Wrap"
+                   Margin="0,4,0,0" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+
+</UserControl>

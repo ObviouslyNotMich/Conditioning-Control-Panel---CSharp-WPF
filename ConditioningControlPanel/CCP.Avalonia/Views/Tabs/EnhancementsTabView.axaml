@@ -1,0 +1,252 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:features="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Core.Localization;assembly=CCP.Core"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.EnhancementsTabView"
+             x:DataType="vm:EnhancementsTabViewModel">
+
+  <Design.DataContext>
+    <vm:EnhancementsTabViewModel />
+  </Design.DataContext>
+
+  <Grid>
+    <ScrollViewer>
+      <StackPanel Spacing="12" Margin="16">
+        <!-- Header -->
+        <Border Background="#1A1A2E"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="16">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="6">
+              <TextBlock Text="{Binding HeaderTitle}"
+                         FontSize="20"
+                         FontWeight="Bold"
+                         Foreground="White" />
+              <TextBlock Text="{Binding HeaderSubtitle}"
+                         FontSize="12"
+                         Opacity="0.8"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding HeaderWarning}"
+                         FontSize="11"
+                         Foreground="{DynamicResource PinkBrush}"
+                         TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                        BorderBrush="{DynamicResource PinkBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="8,4">
+                  <TextBlock Text="{Binding SparklePointsText}"
+                             Foreground="White"
+                             FontWeight="SemiBold" />
+                </Border>
+                <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                        BorderBrush="{DynamicResource PinkBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="8,4">
+                  <TextBlock Text="{Binding XpMultiplierText, StringFormat='{}{0} XP'}"
+                             Foreground="{DynamicResource PinkBrush}"
+                             FontWeight="SemiBold" />
+                </Border>
+                <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                        BorderBrush="{DynamicResource PinkBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="8,4">
+                  <TextBlock Text="{Binding ConditioningTimeText}"
+                             Foreground="White"
+                             FontWeight="SemiBold" />
+                </Border>
+                <Border Background="{DynamicResource TransparentPinkBrush}"
+                        BorderBrush="{DynamicResource PinkBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="8,4"
+                        IsVisible="{Binding PinkRushActive}">
+                  <TextBlock Text="{Binding [label_xp_rush], Source={x:Static loc:LocalizationManager.Instance}}"
+                             Foreground="White"
+                             FontWeight="Bold" />
+                </Border>
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Top">
+              <Button Content="{Binding [label_refresh], Source={x:Static loc:LocalizationManager.Instance}}"
+                      Command="{Binding RefreshCommand}"
+                      HorizontalAlignment="Right" />
+              <ToggleButton Content="{Binding StatsToggleText}"
+                            IsChecked="{Binding StatsExpanded, Mode=TwoWay}"
+                            HorizontalAlignment="Right" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Active Bonuses -->
+        <Border Background="#1A1A2E"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{Binding [label_active_bonuses], Source={x:Static loc:LocalizationManager.Instance}}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <ItemsControl ItemsSource="{Binding ActiveBonuses}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:ActiveBonusViewModel">
+                  <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                          BorderBrush="{DynamicResource PinkBrush}"
+                          BorderThickness="1"
+                          CornerRadius="6"
+                          Padding="8,4"
+                          Margin="0,0,8,8">
+                    <TextBlock Text="{Binding DisplayText}"
+                               Foreground="White"
+                               FontSize="11" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- Ditzy Data Stats -->
+        <Border Background="#1A1A2E"
+                BorderBrush="{DynamicResource PinkBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="16"
+                IsVisible="{Binding StatsExpanded}">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{Binding [label_ditzy_data_stats], Source={x:Static loc:LocalizationManager.Instance}}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <ItemsControl ItemsSource="{Binding DitzyStats}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:StatRowViewModel">
+                  <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                          CornerRadius="6"
+                          Padding="8,4"
+                          Margin="0,0,8,8"
+                          MinWidth="120">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding Label}"
+                                 FontSize="10"
+                                 Opacity="0.7"
+                                 TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Value}"
+                                 Foreground="{DynamicResource PinkBrush}"
+                                 FontWeight="SemiBold" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- Skill Tree -->
+        <Border Background="#151528"
+                CornerRadius="12"
+                Padding="5"
+                Height="520">
+          <ScrollViewer x:Name="SkillTreeScroller"
+                        HorizontalScrollBarVisibility="Visible"
+                        VerticalScrollBarVisibility="Disabled">
+            <Canvas Width="2400" Height="460" HorizontalAlignment="Left">
+              <!-- Connection lines behind nodes -->
+              <ItemsControl ItemsSource="{Binding Connections}"
+                            Width="2400"
+                            Height="460">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:SkillConnectionViewModel">
+                    <Line StartPoint="{Binding StartPoint}"
+                          EndPoint="{Binding EndPoint}"
+                          Stroke="{Binding Stroke}"
+                          StrokeThickness="2"
+                          StrokeDashArray="4,2" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Skill nodes -->
+              <ItemsControl ItemsSource="{Binding Skills}"
+                            Width="2400"
+                            Height="460">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:SkillNodeViewModel">
+                    <features:SkillNodeCard Canvas.Left="{Binding PositionX}"
+                                            Canvas.Top="{Binding PositionY}"
+                                            Title="{Binding Name}"
+                                            IconUri="{Binding IconUri}"
+                                            IsUnlocked="{Binding IsUnlocked}"
+                                            CanPurchase="{Binding CanPurchase}"
+                                            IsLocked="{Binding IsLocked}"
+                                            StatusText="{Binding StatusText}"
+                                            Cost="{Binding Cost}"
+                                            PrerequisiteName="{Binding PrerequisiteName}"
+                                            PurchaseCommand="{Binding $parent[ItemsControl].((vm:EnhancementsTabViewModel)DataContext).PurchaseSkillCommand}"
+                                            DetailsCommand="{Binding $parent[ItemsControl].((vm:EnhancementsTabViewModel)DataContext).OpenSkillDetailsCommand}"
+                                            CommandParameter="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Canvas>
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Login Required Overlay -->
+    <Border Background="#E6151528"
+            CornerRadius="12"
+            IsVisible="{Binding IsLoginOverlayVisible}"
+            Padding="24"
+            Margin="16">
+      <StackPanel HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  MaxWidth="350"
+                  Spacing="10">
+        <TextBlock Text="🔒"
+                   FontSize="40"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="{Binding [label_login_required], Source={x:Static loc:LocalizationManager.Instance}}"
+                   Foreground="{DynamicResource PinkBrush}"
+                   FontSize="22"
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="{Binding [label_log_in_with_discord_or_patreon_to_access_enha], Source={x:Static loc:LocalizationManager.Instance}}"
+                   Foreground="#AA99AA"
+                   FontSize="14"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

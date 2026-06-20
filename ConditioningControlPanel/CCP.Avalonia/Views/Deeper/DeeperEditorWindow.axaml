@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ConditioningControlPanel.Avalonia.Views.Deeper.DeeperEditorWindow"
+        Title="Deeper"
+        Height="864"
+        Width="1180"
+        MinHeight="672"
+        MinWidth="980"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource DarkerBgBrush}"
+        DragDrop.AllowDrop="True">
+
+  <Grid>
+    <TextBlock Text="Deeper Editor is not yet fully ported to Avalonia.&#x0a;The full timeline editor will be restored in a follow-up pass."
+               Foreground="{DynamicResource TextMutedBrush}"
+               FontSize="16"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               TextAlignment="Center"
+               TextWrapping="Wrap"
+               MaxWidth="600" />
+  </Grid>
+</Window>

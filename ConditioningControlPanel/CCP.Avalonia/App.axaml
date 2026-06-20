@@ -1,0 +1,476 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:ConditioningControlPanel.Avalonia.Converters;assembly=CCP.Avalonia"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             x:Class="ConditioningControlPanel.Avalonia.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <!-- Converters for platform gating -->
+    <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <converters:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
+    <converters:DateTimeToStringConverter x:Key="DateTimeToStringConverter" />
+    <converters:BoolToBrowserSiteConverter x:Key="BoolToBrowserSiteConverter" />
+    <converters:PackUriToBitmapConverter x:Key="PackUriToBitmapConverter" />
+    <converters:BoolToBrushConverter x:Key="BoolToBrushConverter"
+                                     TrueBrush="#FFFFD700"
+                                     FalseBrush="#FF3D3D60" />
+
+    <!-- Core theme colors -->
+    <Color x:Key="PinkColor">#FFFF69B4</Color>
+    <Color x:Key="DarkPinkColor">#FFFF1493</Color>
+    <Color x:Key="DarkerBg">#FF08080C</Color>
+    <Color x:Key="PanelBg">#FF1A1A2E</Color>
+    <Color x:Key="SurfaceBg">#FF181830</Color>
+    <Color x:Key="ElevatedSurface">#FF252540</Color>
+    <Color x:Key="PanelAccent">#FF3D3D60</Color>
+    <Color x:Key="PanelAccentHover">#FF4A4A70</Color>
+    <Color x:Key="GlassBorder">#20FFFFFF</Color>
+    <Color x:Key="TextMuted">#FF6E6E88</Color>
+    <Color x:Key="TransparentPink">#30FF69B4</Color>
+    <Color x:Key="TransparentPink20">#20FF69B4</Color>
+    <Color x:Key="TransparentWhite">#40FFFFFF</Color>
+    <Color x:Key="PatreonLightPurple">#FFFF424D</Color>
+    <Color x:Key="PatreonDarkPurple">#FFE8363F</Color>
+    <Color x:Key="NeonPurple">#FFB47BFF</Color>
+    <Color x:Key="NeonPurpleSoft">#FFD4BCFF</Color>
+    <Color x:Key="NeonPurpleTransparent20">#33B47BFF</Color>
+    <Color x:Key="DeeperAccent">#FF7B5CFF</Color>
+    <Color x:Key="DeeperAccentSoft">#FFB7A5FF</Color>
+    <Color x:Key="DeeperAccentTransparent20">#207B5CFF</Color>
+    <Color x:Key="DiscordBlue">#FF5865F2</Color>
+    <Color x:Key="DiscordBlueDark">#FF4752C4</Color>
+    <Color x:Key="Danger">#FFE53935</Color>
+
+    <!-- Core theme brushes -->
+    <SolidColorBrush x:Key="PinkBrush" Color="{DynamicResource PinkColor}" />
+    <SolidColorBrush x:Key="DarkPinkBrush" Color="{DynamicResource DarkPinkColor}" />
+    <SolidColorBrush x:Key="DarkerBgBrush" Color="{DynamicResource DarkerBg}" />
+    <SolidColorBrush x:Key="PanelBgBrush" Color="{DynamicResource PanelBg}" />
+    <SolidColorBrush x:Key="SurfaceBgBrush" Color="{DynamicResource SurfaceBg}" />
+    <SolidColorBrush x:Key="ElevatedSurfaceBrush" Color="{DynamicResource ElevatedSurface}" />
+    <SolidColorBrush x:Key="PanelAccentBrush" Color="{DynamicResource PanelAccent}" />
+    <SolidColorBrush x:Key="PanelAccentHoverBrush" Color="{DynamicResource PanelAccentHover}" />
+    <SolidColorBrush x:Key="GlassBorderBrush" Color="{DynamicResource GlassBorder}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{DynamicResource TextMuted}" />
+    <SolidColorBrush x:Key="TransparentPinkBrush" Color="{DynamicResource TransparentPink}" />
+    <SolidColorBrush x:Key="TransparentPink20Brush" Color="{DynamicResource TransparentPink20}" />
+    <SolidColorBrush x:Key="TransparentWhiteBrush" Color="{DynamicResource TransparentWhite}" />
+    <SolidColorBrush x:Key="PatreonLightPurpleBrush" Color="{DynamicResource PatreonLightPurple}" />
+    <SolidColorBrush x:Key="PatreonDarkPurpleBrush" Color="{DynamicResource PatreonDarkPurple}" />
+    <SolidColorBrush x:Key="NeonPurpleBrush" Color="{DynamicResource NeonPurple}" />
+    <SolidColorBrush x:Key="NeonPurpleSoftBrush" Color="{DynamicResource NeonPurpleSoft}" />
+    <SolidColorBrush x:Key="NeonPurpleTransparent20Brush" Color="{DynamicResource NeonPurpleTransparent20}" />
+    <SolidColorBrush x:Key="DeeperAccentBrush" Color="{DynamicResource DeeperAccent}" />
+    <SolidColorBrush x:Key="DeeperAccentSoftBrush" Color="{DynamicResource DeeperAccentSoft}" />
+    <SolidColorBrush x:Key="DeeperAccentTransparent20Brush" Color="{DynamicResource DeeperAccentTransparent20}" />
+    <SolidColorBrush x:Key="DeeperAccentTransparent40Brush" Color="#667B5CFF" />
+    <SolidColorBrush x:Key="TextLightBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="TextDimBrush" Color="#FFAAAAAA" />
+    <SolidColorBrush x:Key="DiscordBlueBrush" Color="{DynamicResource DiscordBlue}" />
+    <SolidColorBrush x:Key="DiscordBlueDarkBrush" Color="{DynamicResource DiscordBlueDark}" />
+    <SolidColorBrush x:Key="DangerBrush" Color="{DynamicResource Danger}" />
+
+    <!-- Accent gradient for primary CTAs -->
+    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+      <GradientStop Color="#FFFF69B4" Offset="0" />
+      <GradientStop Color="#FF8B5CF6" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Season Recap card palette -->
+    <Color x:Key="RecapFoilCyan">#FF34E0E8</Color>
+    <Color x:Key="RecapMagenta">#FFFF69B4</Color>
+    <Color x:Key="RecapVioletLite">#FFB18CFF</Color>
+    <Color x:Key="RecapAvatarInner">#FF2B1448</Color>
+    <Color x:Key="RecapHeroTint">#FF5A1A3C</Color>
+    <Color x:Key="RecapVerdictTintTop">#FF401048</Color>
+    <Color x:Key="RecapVerdictTintBottom">#FF180820</Color>
+    <Color x:Key="RecapEdgeTint">#FF9A4CFF</Color>
+    <Color x:Key="RecapOgPillBg">#33FF69B4</Color>
+    <Color x:Key="RecapOgPillBorder">#99FF69B4</Color>
+    <Color x:Key="RecapGold">#FFFFD166</Color>
+
+    <SolidColorBrush x:Key="RecapInnerBgBrush" Color="#FF12081C" />
+    <SolidColorBrush x:Key="RecapInkBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="RecapInkDimBrush" Color="#FFAAAAAA" />
+    <SolidColorBrush x:Key="RecapVioletLiteBrush" Color="{DynamicResource RecapVioletLite}" />
+    <SolidColorBrush x:Key="RecapMagentaBrush" Color="{DynamicResource RecapMagenta}" />
+    <SolidColorBrush x:Key="RecapHeroTextBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="RecapGoldBrush" Color="{DynamicResource RecapGold}" />
+    <SolidColorBrush x:Key="RecapStatusPillBrush" Color="{DynamicResource RecapVioletLite}" />
+    <SolidColorBrush x:Key="RecapLineBrush" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="RecapStatFillBrush" Color="#1AFFFFFF" />
+    <SolidColorBrush x:Key="RecapNameBrush" Color="{DynamicResource RecapVioletLite}" />
+    <SolidColorBrush x:Key="RecapVoidBrush" Color="#FF07030F" />
+
+    <!-- Outline button theme used by feature controls -->
+    <ControlTheme x:Key="OutlineButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Padding" Value="15,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Platform capability badge used by feature controls to explain degraded options -->
+    <ControlTheme x:Key="PlatformInfoBadge" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </ControlTheme>
+
+    <!-- Header tab buttons: dark when unselected, pink filled when checked -->
+    <ControlTheme x:Key="TabButton" TargetType="ToggleButton">
+      <Setter Property="Background" Value="#FF3D1A3D" />
+      <Setter Property="Foreground" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinWidth" Value="65" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Background" Value="{DynamicResource PinkBrush}" />
+        <Setter Property="Foreground" Value="White" />
+      </Style>
+      <Style Selector="^:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DarkPinkBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Primary nav active state (uses accent gradient) -->
+    <ControlTheme x:Key="TabButtonActivePrimary" TargetType="ToggleButton" BasedOn="{StaticResource TabButton}">
+      <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource PinkBrush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+        <Setter Property="Foreground" Value="White" />
+      </Style>
+      <Style Selector="^:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource PinkBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Deeper tab accent variant -->
+    <ControlTheme x:Key="TabButtonDeeper" TargetType="ToggleButton" BasedOn="{StaticResource TabButton}">
+      <Setter Property="Foreground" Value="{DynamicResource DeeperAccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}" />
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DeeperAccentTransparent20Brush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Background" Value="{DynamicResource DeeperAccentBrush}" />
+        <Setter Property="Foreground" Value="White" />
+      </Style>
+      <Style Selector="^:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DeeperAccentSoftBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Neon purple variant for Available Subjects -->
+    <ControlTheme x:Key="TabButtonNeon" TargetType="ToggleButton" BasedOn="{StaticResource TabButton}">
+      <Setter Property="Foreground" Value="{DynamicResource NeonPurpleBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource NeonPurpleBrush}" />
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource NeonPurpleTransparent20Brush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Background" Value="{DynamicResource NeonPurpleBrush}" />
+        <Setter Property="Foreground" Value="White" />
+      </Style>
+      <Style Selector="^:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource NeonPurpleSoftBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Discord-blue profile tab -->
+    <ControlTheme x:Key="TabButtonDiscord" TargetType="ToggleButton">
+      <Setter Property="Background" Value="{DynamicResource DiscordBlueBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DiscordBlueDarkBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="8,5" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DiscordBlueDarkBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DiscordBlueBrush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Background" Value="{DynamicResource PinkBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+      </Style>
+      <Style Selector="^:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DarkPinkBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Patreon exclusives launcher -->
+    <ControlTheme x:Key="PatreonButton" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource PatreonLightPurpleBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PatreonDarkPurpleBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="8,5" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource PatreonDarkPurpleBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PatreonLightPurpleBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Deeper hub filter pill -->
+    <ControlTheme x:Key="DeeperPillStyle" TargetType="ToggleButton">
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource DeeperAccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentTransparent40Brush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="bd"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Background" Value="{DynamicResource DeeperAccentTransparent20Brush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Deeper library row icon buttons -->
+    <ControlTheme x:Key="DeeperRowActionBtnStyle" TargetType="Button">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource DeeperAccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DeeperAccentTransparent40Brush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Margin" Value="4,0,0,0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DeeperAccentTransparent20Brush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Primary CTA (Start / Save) -->
+    <ControlTheme x:Key="PinkButton" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource PinkBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="20,10" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DarkPinkBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Destructive CTA (Exit / End Session) -->
+    <ControlTheme x:Key="DangerButton" TargetType="Button">
+      <Setter Property="Background" Value="#FFFF6B6B" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="20,10" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="#FFFF4444" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Title-bar chrome buttons -->
+    <ControlTheme x:Key="WindowControlButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource TransparentWhiteBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="WindowCloseButton" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Exclusives submenu items -->
+    <ControlTheme x:Key="ExclusivesSubmenuButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}" />
+      </Style>
+    </ControlTheme>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#FF69B4" />
+        <ColorPaletteResources x:Key="Dark" Accent="#FF69B4" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+  </Application.Styles>
+
+</Application>

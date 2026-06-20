@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.LeaderboardTabView"
+             x:DataType="vm:LeaderboardTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:LeaderboardTabViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{loc:Str tab_leaderboard_leaderboard_text}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="{loc:Str tab_leaderboard_refresh_content}"
+                Command="{Binding RefreshCommand}"
+                IsEnabled="{Binding !IsBusy}" />
+        <ItemsControl ItemsSource="{Binding Modes}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:LeaderboardModeViewModel">
+              <Button Content="{Binding Label}"
+                      Command="{Binding $parent[ItemsControl].((vm:LeaderboardTabViewModel)DataContext).SetModeCommand}"
+                      CommandParameter="{Binding Key}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding StatusText}"
+                   Foreground="#FF69B4" />
+        <TextBlock Text="{Binding SeasonText}"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   Foreground="White" />
+        <TextBlock Text="{Binding SubtitleText}"
+                   Opacity="0.7" />
+      </StackPanel>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_leaderboard_sort_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_leaderboard_name_content}"
+                    Command="{Binding SortCommand}"
+                    CommandParameter="name"
+                    IsEnabled="{Binding !IsBusy}" />
+            <Button Content="{loc:Str tab_leaderboard_online_content}"
+                    Command="{Binding SortCommand}"
+                    CommandParameter="online"
+                    IsEnabled="{Binding !IsBusy}" />
+            <Button Content="{loc:Str tab_leaderboard_achievements_content}"
+                    Command="{Binding SortCommand}"
+                    CommandParameter="achievements"
+                    IsEnabled="{Binding !IsBusy}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Button Content="{loc:Str tab_leaderboard_view_selected_profile_content}"
+              Command="{Binding ViewSelectedProfileCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="12">
+        <ListBox ItemsSource="{Binding Entries}"
+                 SelectedItem="{Binding SelectedEntry}"
+                 Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="vm:LeaderboardEntryViewModel">
+              <Border Background="#252540"
+                      CornerRadius="8"
+                      Padding="12"
+                      Margin="0,4">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <StackPanel Grid.Column="0"
+                              Orientation="Horizontal"
+                              Spacing="8"
+                              VerticalAlignment="Center"
+                              MinWidth="80">
+                    <TextBlock Text="{Binding Rank, StringFormat='#{0}'}"
+                               FontWeight="Bold"
+                               Foreground="#FF69B4" />
+                    <TextBlock Text="{Binding DisplayName}"
+                               FontWeight="SemiBold"
+                               Foreground="White" />
+                    <TextBlock Text="🌟"
+                               IsVisible="{Binding IsSeason0Og}" />
+                    <TextBlock Text="🟢"
+                               IsVisible="{Binding IsOnline}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="12"
+                              VerticalAlignment="Center"
+                              Margin="12,0">
+                    <TextBlock Text="{Binding Level, StringFormat='Lv {0}'}" />
+                    <TextBlock Text="{Binding Xp, StringFormat='XP {0:F0}'}" />
+                    <TextBlock Text="{Binding AchievementsCount, StringFormat='🏆 {0}'}" />
+                  </StackPanel>
+                  <Button Grid.Column="2"
+                          Content="{loc:Str tab_leaderboard_discord_content}"
+                          Command="{Binding $parent[ListBox].((vm:LeaderboardTabViewModel)DataContext).OpenDiscordProfileCommand}"
+                          CommandParameter="{Binding DiscordId}" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

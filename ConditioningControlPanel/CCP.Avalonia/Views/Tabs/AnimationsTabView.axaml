@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:system="using:System"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.AnimationsTabView"
+             x:DataType="vm:AnimationsTabViewModel"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+
+  <Design.DataContext>
+    <vm:AnimationsTabViewModel />
+  </Design.DataContext>
+
+  <UserControl.Resources>
+    <system:Boolean x:Key="TrueBool">True</system:Boolean>
+    <system:Boolean x:Key="FalseBool">False</system:Boolean>
+  </UserControl.Resources>
+
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="{loc:Str tab_animations_animations_text}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White" />
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_animations_season_title_shimmer_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_animations_start_content}"
+                    Command="{Binding StartSeasonTitleShimmerCommand}" />
+            <Button Content="{loc:Str tab_animations_stop_content}"
+                    Command="{Binding StopSeasonTitleShimmerCommand}" />
+          </StackPanel>
+          <TextBlock Text="{loc:Str tab_animations_active_text}"
+                     IsVisible="{Binding IsSeasonTitleShimmerActive}"
+                     Foreground="#FF69B4" />
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_animations_lockdown_pulse_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_animations_start_content}"
+                    Command="{Binding StartLockdownPulseCommand}" />
+            <Button Content="{loc:Str tab_animations_stop_content}"
+                    Command="{Binding StopLockdownPulseCommand}" />
+          </StackPanel>
+          <TextBlock Text="{loc:Str tab_animations_active_text}"
+                     IsVisible="{Binding IsLockdownPulseActive}"
+                     Foreground="#FF69B4" />
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_animations_skill_tree_animations_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_animations_start_content}"
+                    Command="{Binding StartSkillTreeAnimationsCommand}" />
+            <Button Content="{loc:Str tab_animations_stop_content}"
+                    Command="{Binding StopSkillTreeAnimationsCommand}" />
+          </StackPanel>
+          <TextBlock Text="{loc:Str tab_animations_active_text}"
+                     IsVisible="{Binding AreSkillTreeAnimationsActive}"
+                     Foreground="#FF69B4" />
+        </StackPanel>
+      </Border>
+
+      <Border Background="#1A1A2E"
+              BorderBrush="#FF69B4"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="16">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{loc:Str tab_animations_expandable_icon_labels_text}"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#FF69B4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{loc:Str tab_animations_show_labels_content}"
+                    Command="{Binding ShowExpandableIconLabelCommand}"
+                    CommandParameter="{StaticResource TrueBool}" />
+            <Button Content="{loc:Str tab_animations_hide_labels_content}"
+                    Command="{Binding ShowExpandableIconLabelCommand}"
+                    CommandParameter="{StaticResource FalseBool}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Button Content="{loc:Str tab_animations_show_og_welcome_popup_content}"
+              Command="{Binding ShowOgWelcomePopupCommand}"
+              HorizontalAlignment="Left" />
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

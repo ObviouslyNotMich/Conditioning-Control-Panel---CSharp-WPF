@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.ProfileTabView"
+             x:DataType="vm:ProfileTabViewModel">
+
+  <Design.DataContext>
+    <vm:ProfileTabViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="24">
+      <TextBlock Text="{Binding HeaderTitle}"
+                 FontSize="26"
+                 FontWeight="Bold"
+                 Foreground="{DynamicResource PinkBrush}" />
+
+      <!-- Identity card -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="#5865F2"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="18">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Text="👤"
+                       FontSize="48"
+                       VerticalAlignment="Center"
+                       Margin="0,0,16,0" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+              <TextBlock Text="{Binding LoginStatusText}"
+                         Foreground="White"
+                         FontSize="16"
+                         FontWeight="Bold" />
+              <TextBlock Text="{Binding DisplayName}"
+                         Foreground="{DynamicResource PinkBrush}"
+                         FontSize="20"
+                         FontWeight="Bold"
+                         IsVisible="{Binding IsLoggedIn}" />
+              <TextBlock Text="{Binding UnifiedId}"
+                         Foreground="{DynamicResource TextMutedBrush}"
+                         FontSize="12"
+                         IsVisible="{Binding IsLoggedIn}" />
+              <TextBlock Text="{Binding LoginPrompt}"
+                         Foreground="{DynamicResource TextMutedBrush}"
+                         FontSize="13"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding !IsLoggedIn}" />
+            </StackPanel>
+          </Grid>
+
+          <Button Content="{Binding LogoutText}"
+                  Command="{Binding LogoutCommand}"
+                  IsVisible="{Binding IsLoggedIn}"
+                  HorizontalAlignment="Left"
+                  Background="#E84A6B"
+                  Foreground="White"
+                  Padding="16,8"
+                  CornerRadius="8" />
+        </StackPanel>
+      </Border>
+
+      <!-- Linked providers -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="#5865F2"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="18">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding LinkedAccountsTitle}"
+                     Foreground="White"
+                     FontSize="16"
+                     FontWeight="Bold" />
+
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Border Background="{DynamicResource TransparentPinkBrush}"
+                    CornerRadius="6"
+                    Padding="10,6"
+                    IsVisible="{Binding HasLinkedPatreon}">
+              <TextBlock Text="{loc:Str label_linked_patreon}"
+                         Foreground="{DynamicResource PinkBrush}"
+                         FontWeight="SemiBold" />
+            </Border>
+            <Border Background="{DynamicResource TransparentPinkBrush}"
+                    CornerRadius="6"
+                    Padding="10,6"
+                    IsVisible="{Binding HasLinkedDiscord}">
+              <TextBlock Text="{loc:Str label_linked_discord}"
+                         Foreground="{DynamicResource PinkBrush}"
+                         FontWeight="SemiBold" />
+            </Border>
+          </StackPanel>
+
+          <TextBlock Text="{Binding CommunitySettingsTitle}"
+                     Foreground="{DynamicResource TextMutedBrush}"
+                     FontSize="13"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>
