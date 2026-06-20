@@ -2149,8 +2149,8 @@ namespace ConditioningControlPanel.Models
             get => _chaosSkiaFxEnabled;
             set { _chaosSkiaFxEnabled = value; OnPropertyChanged(); }
         }
-        private bool _chaosBubbleSharedHost;
-        /// <summary>EXPERIMENTAL A/B (default OFF): render all chaos bubbles as visuals on ONE shared
+        private bool _chaosBubbleSharedHost = true;
+        /// <summary>Default ON (proven win): render all chaos bubbles as visuals on ONE shared
         /// click-through host window (Canvas-positioned) instead of one top-level layered Window per
         /// bubble. The per-bubble-window model repositions every bubble via SetWindowPos each frame,
         /// which saturates the UI thread and makes clicks register late under a dense field. With the
@@ -2161,8 +2161,8 @@ namespace ConditioningControlPanel.Models
             get => _chaosBubbleSharedHost;
             set { _chaosBubbleSharedHost = value; OnPropertyChanged(); }
         }
-        private bool _chaosDvdSharedHost;
-        /// <summary>EXPERIMENTAL A/B (default OFF): render the DVD bouncing-text logos (Porn DVD /
+        private bool _chaosDvdSharedHost = true;
+        /// <summary>Default ON (proven win): render the DVD bouncing-text logos (Porn DVD /
         /// Intrusive Thoughts / Casting Couch) as cheap Canvas children of ONE shared click-through host
         /// window instead of one top-level layered Window per logo. The per-logo-window model repositions
         /// every logo via SetWindowPos each frame; on a split (up to ~16 logos at once) that storm
