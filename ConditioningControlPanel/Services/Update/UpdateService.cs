@@ -20,13 +20,13 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.1.5";
+        public const string AppVersion = "6.1.6";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.1.5 - Down the Rabbit Hole
+        public const string CurrentPatchNotes = @"v6.1.6 - Down the Rabbit Hole
 
 ✨ THE RABBIT HOLE - PRETTIER THAN EVER
 - Pops burst into light, throwing off rings and shards in each bubble's colour.
@@ -42,6 +42,19 @@ namespace ConditioningControlPanel.Services
 - New ""Enhanced FX"" and ""Keep on top"" toggles, and the whole layer now stays
   pinned above other windows so it won't sink when you click away.
 
+⚡ THE RABBIT HOLE - SMOOTHER THAN EVER
+- A big performance pass: spawning bubbles, bouncing text and DVD logos no longer
+  hitches the whole game. Dense waves stay smooth.
+- The companion no longer freezes or stutters while the game is busy.
+- When you start a run she now tucks into the bottom-left instead of vanishing.
+
+🎭 COMPANION
+- Fixed the big one: she no longer disappears or freezes for a few seconds between
+  animations (the bug that ""fixed itself when she spoke""). She recovers in about
+  a second now instead of sitting blank.
+- She also no longer blinks out for a beat mid-sentence while a clip is still
+  loading - she holds her last frame instead of going blank.
+
 🤖 BRING YOUR OWN AI
 - New OpenAI-compatible provider: point your companion at any OpenAI-style
   endpoint (local models, other backends) - with endpoint diagnostics, a
@@ -52,12 +65,9 @@ namespace ConditioningControlPanel.Services
 - You can now log in with SubscribeStar alongside the existing options.
 
 🗂️ CATALOGUE
-- Share your Presets & Sessions straight to the catalogue.
-- Drag-and-drop to import Presets & Sessions others have shared.
-
-🎭 COMPANION
-- Your companion no longer blinks out for a beat while she's talking (she holds
-  the last frame instead of going blank on a slow-loading animation).
+- A new ""Community Catalogue"" card in the Presets tab - one click to browse and
+  import community presets & sessions.
+- Share your own Presets & Sessions straight to the catalogue.
 
 🔧 FIXES & STABILITY
 - The window's X button now fully closes the app instead of leaving it running
@@ -72,6 +82,7 @@ namespace ConditioningControlPanel.Services
   window handles during very long sessions.
 - Assets tree no longer crashes if a folder disappears mid-build.
 - Fixed a double voiceline when unlocking a skill-tree enhancement.
+- Webcam calibration is easier to pass (lower sample floor on the first point).
 - Hardened some async handlers and hit-testing paths against rare crashes.
 
 Season: Juicy June";
