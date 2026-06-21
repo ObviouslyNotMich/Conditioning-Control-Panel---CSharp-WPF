@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using ConditioningControlPanel.Core.Localization;
 
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// Represents an achievement that can be unlocked

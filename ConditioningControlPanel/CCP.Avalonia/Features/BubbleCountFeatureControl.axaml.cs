@@ -3,20 +3,25 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Sessions;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
 
 public partial class BubbleCountFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IBubbleCountService _bubbleCount;
+    private readonly ISessionService _sessionService;
     private bool _isLoading = true;
 
     public BubbleCountFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
+        _sessionService = App.Services.GetRequiredService<ISessionService>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -80,10 +85,13 @@ public partial class BubbleCountFeatureControl : UserControl
         s.BubbleCountEnabled = on;
         _settings.Save();
 
-        // TODO: Live-apply: start/stop bubble count service if engine is running.
-        // WPF used App.IsEngineRunning and App.BubbleCount; Avalonia head has no
-        // direct equivalent yet. Re-wire once the bubble-count service is registered
-        // in the Avalonia service provider.
+        if (_sessionService.State == SessionState.Running)
+        {
+            if (on)
+                _bubbleCount.Start();
+            else
+                _bubbleCount.Stop();
+        }
     }
 
     private void SliderFreq_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -94,10 +102,8 @@ public partial class BubbleCountFeatureControl : UserControl
         TxtFreq.Text = v.ToString();
         s.BubbleCountFrequency = v;
 
-        // TODO: Refresh bubble count schedule once the service is available.
-        // WPF used App.BubbleCount?.RefreshSchedule().
-
         _settings.Save();
+        _bubbleCount.RefreshSchedule();
     }
 
     private void CmbDifficulty_Changed(object? sender, SelectionChangedEventArgs e)
@@ -148,7 +154,6 @@ public partial class BubbleCountFeatureControl : UserControl
 
     private void BtnTest_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: Trigger a test bubble-count game once the service is available.
-        // WPF used App.BubbleCount?.TriggerGame(forceTest: true).
+        _bubbleCount.TriggerGame(forceTest: true);
     }
 }

@@ -1,22 +1,54 @@
-﻿using System;
+using System;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Core.Services.AIService;
+using ConditioningControlPanel.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.AvatarTube
 {
+    public class FlashAudioPlayingEventArgs : EventArgs
+    {
+        public string FilePath { get; }
+        public FlashAudioPlayingEventArgs(string filePath) => FilePath = filePath;
+    }
+
+    public class ActivityChangedEventArgs : EventArgs
+    {
+        public object Category { get; }
+        public object PreviousCategory { get; }
+        public string DetectedName { get; }
+        public string ServiceName { get; }
+        public string PageTitle { get; }
+
+        public ActivityChangedEventArgs(object category, object previousCategory, string detectedName,
+            string serviceName = "", string pageTitle = "")
+        {
+            Category = category;
+            PreviousCategory = previousCategory;
+            DetectedName = detectedName;
+            ServiceName = serviceName;
+            PageTitle = pageTitle;
+        }
+    }
+
     public partial class AvatarTubeWindow
     {
         private readonly DateTime _startupTime = DateTime.Now;
 
         private void OnActivityChanged(object? sender, EventArgs e)
         {
-            // TODO: window-awareness reaction hook.
+            if (e is not ActivityChangedEventArgs args) return;
+            if (!IsSpeechReady()) return;
+            Giggle(GetPhraseForCategory(args.Category, args.DetectedName));
         }
 
         private void OnStillOnActivity(object? sender, EventArgs e)
         {
-            // TODO: still-on-activity reaction hook.
+            if (e is not ActivityChangedEventArgs args) return;
+            if (!IsSpeechReady()) return;
+            Giggle(GetPhraseForCategory(args.PreviousCategory, args.DetectedName));
         }
 
         private void OnVideoAboutToStart(object? sender, EventArgs e)
@@ -76,7 +108,9 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
         private void OnFlashAudioPlaying(object? sender, EventArgs e)
         {
-            // TODO: show flash audio filename in the bubble.
+            if (e is not FlashAudioPlayingEventArgs args) return;
+            var fileName = Path.GetFileNameWithoutExtension(args.FilePath) ?? "?";
+            GigglePriority($"♫ {fileName}", aiGenerated: false);
         }
 
         private void OnSubliminalDisplayed(object? sender, EventArgs e)
@@ -144,8 +178,39 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
         public async Task<bool> PlayLockCardAiReactionAsync(object e)
         {
-            await Task.Yield();
+            if (e is not LockCardResultEventArgs args) return false;
+            if (_settings?.Current?.AiChatEnabled != true) return false;
+
+            var ai = App.Services.GetService<IAiService>();
+            if (ai == null || !ai.IsAvailable) return false;
+
+            try
+            {
+                var reaction = await ai.GetLockScreenReaction(args.Sentence, args.Mistakes, args.Amount);
+                if (!string.IsNullOrWhiteSpace(reaction))
+                {
+                    GigglePriority(reaction, aiGenerated: true);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning(ex, "Lock card AI reaction failed");
+            }
             return false;
+        }
+    }
+
+    public class LockCardResultEventArgs : EventArgs
+    {
+        public string Sentence { get; }
+        public int Mistakes { get; }
+        public int Amount { get; }
+        public LockCardResultEventArgs(string sentence, int mistakes, int amount)
+        {
+            Sentence = sentence;
+            Mistakes = mistakes;
+            Amount = amount;
         }
     }
 }

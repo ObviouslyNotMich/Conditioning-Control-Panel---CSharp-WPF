@@ -12,8 +12,9 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -21,6 +22,8 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class SpiralFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IOverlayService? _overlay;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     private static readonly string[] SpiralImageExts =
@@ -41,6 +44,8 @@ public partial class SpiralFeatureControl : UserControl
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _overlay = App.Services.GetService<IOverlayService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -93,9 +98,8 @@ public partial class SpiralFeatureControl : UserControl
         s.SpiralEnabled = ChkEnable.IsChecked ?? false;
         _settings.Save();
 
-        // TODO: App.Overlay?.RefreshOverlays()
-        // try { App.Overlay?.RefreshOverlays(); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "Spiral toggle: RefreshOverlays failed"); }
+        try { _overlay?.RefreshOverlays(); }
+        catch (Exception ex) { _logger?.Warning(ex, "Spiral toggle: RefreshOverlays failed"); }
     }
 
     private void SliderOpacity_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -107,9 +111,8 @@ public partial class SpiralFeatureControl : UserControl
         s.SpiralOpacity = value;
         _settings.Save();
 
-        // TODO: App.Overlay?.RefreshOverlays()
-        // try { App.Overlay?.RefreshOverlays(); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "Spiral opacity: RefreshOverlays failed"); }
+        try { _overlay?.RefreshOverlays(); }
+        catch (Exception ex) { _logger?.Warning(ex, "Spiral opacity: RefreshOverlays failed"); }
     }
 
     // ── Spiral library ───────────────────────────────────────────────────
@@ -160,9 +163,9 @@ public partial class SpiralFeatureControl : UserControl
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // TODO: App.Logger?.Warning("Spiral library: enumeration failed");
+            _logger?.Warning(ex, "Spiral library: enumeration failed");
         }
 
         if (SpiralEmptyState != null)
@@ -262,9 +265,8 @@ public partial class SpiralFeatureControl : UserControl
 
         UpdateSelectionHighlight();
 
-        // TODO: App.Overlay?.RefreshOverlays()
-        // try { App.Overlay?.RefreshOverlays(); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "Spiral select: RefreshOverlays failed"); }
+        try { _overlay?.RefreshOverlays(); }
+        catch (Exception ex) { _logger?.Warning(ex, "Spiral select: RefreshOverlays failed"); }
     }
 
     private void UpdateSelectionHighlight()
@@ -300,8 +302,7 @@ public partial class SpiralFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            // TODO: App.Logger?.Warning(ex, "Spiral library: open folder failed");
-            Console.WriteLine($"[SpiralFeatureControl] Open folder failed: {ex.Message}");
+            _logger?.Warning(ex, "Spiral library: open folder failed");
         }
     }
 
@@ -329,14 +330,12 @@ public partial class SpiralFeatureControl : UserControl
             _settings.Save();
             RefreshLibrary();
 
-            // TODO: App.Overlay?.RefreshOverlays()
-            // try { App.Overlay?.RefreshOverlays(); }
-            // catch (Exception ex) { App.Logger?.Warning(ex, "Spiral select: RefreshOverlays failed"); }
+            try { _overlay?.RefreshOverlays(); }
+            catch (Exception ex2) { _logger?.Warning(ex2, "Spiral select: RefreshOverlays failed"); }
         }
         catch (Exception ex)
         {
-            // TODO: App.Logger?.Warning(ex, "Spiral select failed");
-            Console.WriteLine($"[SpiralFeatureControl] Select failed: {ex.Message}");
+            _logger?.Warning(ex, "Spiral select failed");
         }
     }
 }

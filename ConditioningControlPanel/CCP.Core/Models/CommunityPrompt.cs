@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Represents a community-created AI personality prompt that can be shared and downloaded.

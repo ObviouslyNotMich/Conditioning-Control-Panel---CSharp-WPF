@@ -94,10 +94,10 @@ Closed += (_, _) =>
 
     private static string SanitizeError(string? error)
     {
-        if (string.IsNullOrEmpty(error)) return "An error occurred";
+        if (string.IsNullOrEmpty(error)) return Loc.Get("dialog_login_error_occurred");
         if (error.Contains("ECONNREFUSED") || error.Contains("Redis") || error.Contains("redis")
             || error.Contains("stack") || error.Contains("\\") || error.Contains("/api/"))
-            return "Server error. Please try again later.";
+            return Loc.Get("dialog_login_server_error_try_later");
         return error;
     }
 
@@ -152,7 +152,7 @@ Closed += (_, _) =>
             dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
             if (v2Auth == null)
             {
-                ShowError("Authentication service is not available in this build.");
+                ShowError(Loc.Get("dialog_login_auth_service_not_available"));
                 return;
             }
 
@@ -341,7 +341,7 @@ Closed += (_, _) =>
             dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
             if (v2Auth == null)
             {
-                ShowError("Authentication service is not available in this build.");
+                ShowError(Loc.Get("dialog_login_auth_service_not_available"));
                 return;
             }
 
@@ -536,7 +536,7 @@ Closed += (_, _) =>
             dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
             if (v2Auth == null)
             {
-                ShowError("Authentication service is not available in this build.");
+                ShowError(Loc.Get("dialog_login_auth_service_not_available"));
                 return;
             }
 
@@ -665,14 +665,14 @@ Closed += (_, _) =>
 
     private async void BtnLoginDeviceCode_Click(object? sender, RoutedEventArgs e)
     {
-        ShowLoading("Generating sign-in code...");
+        ShowLoading(Loc.Get("dialog_login_generating_sign_in_code"));
 
         try
         {
             dynamic? svc = CreateLegacyService("ConditioningControlPanel.Services.V2DeviceCodeService");
             if (svc == null)
             {
-                ShowError("Device-code sign-in is not available in this build.");
+                ShowError(Loc.Get("dialog_login_device_code_not_available"));
                 return;
             }
 
@@ -714,7 +714,7 @@ Closed += (_, _) =>
             ? $"{code.Substring(0, 3)}-{code.Substring(3, 3)}"
             : code;
         TxtVerificationUrl.Text = GetVerificationUrl();
-        TxtDeviceStatus.Text = "Waiting for browser confirmation...";
+        TxtDeviceStatus.Text = Loc.Get("dialog_login_waiting_browser_confirmation");
     }
 
     private static string GetVerificationUrl()
@@ -779,32 +779,32 @@ Closed += (_, _) =>
                     case 1: // Pending
                         intervalMs = 3000;
                         consecutiveUnknown = 0;
-                        TxtDeviceStatus.Text = "Waiting for browser confirmation...";
+                        TxtDeviceStatus.Text = Loc.Get("dialog_login_waiting_browser_confirmation");
                         break;
                     case 2: // Expired
                         HandleDeviceCodeExpired();
                         return;
                     case 3: // NotFound
-                        HandleDeviceCodeError("Sign-in code wasn't recognized. Please try again.");
+                        HandleDeviceCodeError(Loc.Get("dialog_login_code_not_recognized"));
                         return;
                     case 4: // RateLimited
                     case 5: // ServiceUnavailable
                         intervalMs = Math.Min(intervalMs * 2, 30000);
-                        TxtDeviceStatus.Text = "Connection busy, retrying...";
+                        TxtDeviceStatus.Text = Loc.Get("dialog_login_connection_busy_retrying");
                         break;
                     case 6: // BadRequest
                     case 7: // Unauthorized
-                        HandleDeviceCodeError("Sign-in failed. Please try again.");
+                        HandleDeviceCodeError(Loc.Get("dialog_login_sign_in_failed"));
                         return;
                     default: // Unknown
                         consecutiveUnknown++;
                         if (consecutiveUnknown >= 5)
                         {
-                            HandleDeviceCodeError("Lost connection to server. Please try again.");
+                            HandleDeviceCodeError(Loc.Get("dialog_login_lost_connection"));
                             return;
                         }
                         intervalMs = Math.Min(intervalMs * 2, 30000);
-                        TxtDeviceStatus.Text = "Connection issue, retrying...";
+                        TxtDeviceStatus.Text = Loc.Get("dialog_login_connection_issue_retrying");
                         break;
                 }
 
@@ -815,7 +815,7 @@ Closed += (_, _) =>
         catch (Exception ex)
         {
             _logger?.Error(ex, "[DeviceCode] Poll loop crashed");
-            HandleDeviceCodeError("Unexpected error. Please try again.");
+            HandleDeviceCodeError(Loc.Get("dialog_login_unexpected_error"));
         }
     }
 
@@ -823,7 +823,7 @@ Closed += (_, _) =>
     {
         if (string.IsNullOrEmpty((string?)result.AuthToken) || string.IsNullOrEmpty((string?)result.UnifiedId))
         {
-            HandleDeviceCodeError("Server returned an incomplete response.");
+            HandleDeviceCodeError(Loc.Get("dialog_login_incomplete_response"));
             return;
         }
 
@@ -861,7 +861,7 @@ Closed += (_, _) =>
     {
         _deviceCts?.Cancel();
         _deviceCode = null;
-        MessageBoxStub.Show("Sign-in code expired. Please try again.", Loc.Get("title_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        MessageBoxStub.Show(Loc.Get("dialog_login_code_expired"), Loc.Get("title_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
         ShowProviderSelection();
     }
 
@@ -886,7 +886,7 @@ Closed += (_, _) =>
                 item.SetText(_deviceCode);
                 data.Add(item);
                 await clipboard.SetDataAsync(data);
-                TxtDeviceStatus.Text = "Code copied. Paste in your browser.";
+                TxtDeviceStatus.Text = Loc.Get("dialog_login_code_copied");
             }
         }
         catch (Exception ex)

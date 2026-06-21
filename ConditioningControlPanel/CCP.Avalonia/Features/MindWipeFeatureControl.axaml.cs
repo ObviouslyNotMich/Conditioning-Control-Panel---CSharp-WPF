@@ -4,8 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.MindWipe;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -13,12 +15,18 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class MindWipeFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IMindWipeService? _mindWipe;
+    private readonly ISessionService? _session;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     public MindWipeFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _mindWipe = App.Services.GetService<IMindWipeService>();
+        _session = App.Services.GetService<ISessionService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -81,8 +89,10 @@ public partial class MindWipeFeatureControl : UserControl
     private void ChkEnable_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        _settings.Current.MindWipeEnabled = ChkEnable.IsChecked ?? false;
+        var on = ChkEnable.IsChecked ?? false;
+        _settings.Current.MindWipeEnabled = on;
         _settings.Save();
+        LiveApply(on);
     }
 
     private void SliderFreq_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -91,12 +101,17 @@ public partial class MindWipeFeatureControl : UserControl
         var v = Math.Clamp((int)e.NewValue, (int)SliderFreq.Minimum, (int)SliderFreq.Maximum);
         TxtFreq.Text = $"{v}/h";
         _settings.Current.MindWipeFrequency = v;
-
-        // TODO: live-apply mind-wipe engine settings once App.MindWipe is available in Avalonia.
-        // try { App.MindWipe?.UpdateSettings(_settings.Current.MindWipeFrequency, _settings.Current.MindWipeVolume / 100.0); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "MindWipe UpdateSettings failed"); }
-
         _settings.Save();
+
+        if (_mindWipe?.IsRunning == true && _session?.State == SessionState.Running)
+        {
+            try
+            {
+                _mindWipe.Stop();
+                _mindWipe.Start(_settings.Current.MindWipeFrequency, _settings.Current.MindWipeVolume / 100.0);
+            }
+            catch (Exception ex) { _logger?.Warning(ex, "MindWipe frequency change failed"); }
+        }
     }
 
     private void SliderVolume_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -105,12 +120,13 @@ public partial class MindWipeFeatureControl : UserControl
         var v = Math.Clamp((int)e.NewValue, (int)SliderVolume.Minimum, (int)SliderVolume.Maximum);
         TxtVolume.Text = $"{v}%";
         _settings.Current.MindWipeVolume = v;
-
-        // TODO: live-apply mind-wipe engine settings once App.MindWipe is available in Avalonia.
-        // try { App.MindWipe?.UpdateSettings(_settings.Current.MindWipeFrequency, _settings.Current.MindWipeVolume / 100.0); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "MindWipe UpdateSettings failed"); }
-
         _settings.Save();
+
+        if (_settings.Current.MindWipeLoop && _session?.State == SessionState.Running)
+        {
+            try { _mindWipe?.StartLoop(_settings.Current.MindWipeVolume / 100.0); }
+            catch (Exception ex) { _logger?.Warning(ex, "MindWipe volume/loop change failed"); }
+        }
     }
 
     private void ChkLoop_Changed(object? sender, RoutedEventArgs e)
@@ -118,25 +134,47 @@ public partial class MindWipeFeatureControl : UserControl
         if (_isLoading || _settings.Current == null) return;
         var looping = ChkLoop.IsChecked ?? false;
         _settings.Current.MindWipeLoop = looping;
-
-        // TODO: live-apply mind-wipe loop once App.MindWipe is available in Avalonia.
-        // try
-        // {
-        //     if (looping)
-        //         App.MindWipe?.StartLoop(_settings.Current.MindWipeVolume / 100.0);
-        //     else
-        //         App.MindWipe?.StopLoop();
-        // }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "MindWipe loop toggle failed"); }
-
         _settings.Save();
+
+        if (_session?.State != SessionState.Running || _mindWipe == null) return;
+        try
+        {
+            if (looping)
+                _mindWipe.StartLoop(_settings.Current.MindWipeVolume / 100.0);
+            else
+                _mindWipe.StopLoop();
+        }
+        catch (Exception ex) { _logger?.Warning(ex, "MindWipe loop toggle failed"); }
     }
 
     private void BtnTest_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: trigger mind-wipe once App.MindWipe is available in Avalonia.
-        // try { App.MindWipe?.TriggerOnce(); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "MindWipe TriggerOnce failed"); }
+        try { _mindWipe?.TriggerOnce(); }
+        catch (Exception ex) { _logger?.Warning(ex, "MindWipe TriggerOnce failed"); }
+    }
+
+    private void LiveApply(bool on)
+    {
+        if (_session?.State != SessionState.Running || _mindWipe == null) return;
+
+        try
+        {
+            if (on && !_mindWipe.IsRunning)
+            {
+                if (_settings.Current?.MindWipeLoop == true)
+                    _mindWipe.StartLoop((_settings.Current?.MindWipeVolume ?? 50) / 100.0);
+                else
+                    _mindWipe.Start(_settings.Current?.MindWipeFrequency ?? 10, (_settings.Current?.MindWipeVolume ?? 50) / 100.0);
+            }
+            else if (!on && _mindWipe.IsRunning)
+            {
+                _mindWipe.Stop();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "MindWipe enable toggle: live apply failed");
+        }
     }
 
     private async void BtnSelectAudio_Click(object? sender, RoutedEventArgs e)

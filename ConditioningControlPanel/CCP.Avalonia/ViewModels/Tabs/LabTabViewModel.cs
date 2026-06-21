@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Webcam;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -18,6 +19,7 @@ public partial class LabTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
+    private readonly IWebcamService? _webcam;
     private readonly IAppLogger? _logger;
     private bool _syncingPlayMode;
 
@@ -35,10 +37,12 @@ public partial class LabTabViewModel : TabItemViewModel
     public LabTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
+        IWebcamService webcam,
         IAppLogger logger) : base("lab", "Lab", "🧪")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
+        _webcam = webcam;
         _logger = logger;
         LockdownDurations = new ObservableCollection<int> { 5, 10, 15, 30, 60 };
         PastQuizzes = new ObservableCollection<PastQuizViewModel>();
@@ -360,6 +364,7 @@ public partial class LabTabViewModel : TabItemViewModel
     [RelayCommand]
     private void RefreshDevices()
     {
+        _webcam?.RefreshDevices();
         WebcamDevices.Clear();
         WebcamDevices.Add(new WebcamDeviceOption(0, Loc.Get("blink_trainer_default_camera")));
         SelectedWebcamDevice = WebcamDevices[0];
@@ -378,13 +383,23 @@ public partial class LabTabViewModel : TabItemViewModel
     [RelayCommand]
     private void StartTracking()
     {
-        IsTracking = !IsTracking;
+        if (IsTracking)
+        {
+            _webcam?.StopTracking();
+            IsTracking = false;
+        }
+        else
+        {
+            _webcam?.StartTracking();
+            IsTracking = true;
+        }
     }
 
     [RelayCommand]
     private async Task CalibrateAsync()
     {
-        AppendLog("Calibration requested (visual shell only).");
+        _webcam?.Calibrate();
+        AppendLog("Calibration requested.");
         await (_dialogService?.ShowMessageAsync(
             "Calibration",
             "Calibration is not yet available in the Avalonia head.") ?? Task.CompletedTask);
@@ -393,7 +408,8 @@ public partial class LabTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task QuickRecalAsync()
     {
-        AppendLog("Quick recal requested (visual shell only).");
+        _webcam?.Calibrate();
+        AppendLog("Quick recal requested.");
         await (_dialogService?.ShowMessageAsync(
             "Quick Recalibrate",
             "Quick recalibration is not yet available in the Avalonia head.") ?? Task.CompletedTask);
@@ -402,7 +418,8 @@ public partial class LabTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task TrackerTestAsync()
     {
-        AppendLog("Tracker test requested (visual shell only).");
+        _webcam?.TestTracker();
+        AppendLog("Tracker test requested.");
         await (_dialogService?.ShowMessageAsync(
             "Tracker Test",
             "Tracker test is not yet available in the Avalonia head.") ?? Task.CompletedTask);
@@ -416,6 +433,7 @@ public partial class LabTabViewModel : TabItemViewModel
             "This disables webcam tracking. Continue?") ?? Task.FromResult(false));
         if (!confirmed) return;
 
+        _webcam?.RevokeConsent();
         IsTracking = false;
         DebugCursorEnabled = false;
         AppendLog("Consent revoked.");

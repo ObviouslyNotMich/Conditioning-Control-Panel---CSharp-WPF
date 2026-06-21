@@ -38,6 +38,8 @@ public sealed class PackUriToBitmapConverter : IValueConverter
             if (s.StartsWith("pack://application:,,,/", StringComparison.Ordinal))
             {
                 var relative = s.Substring("pack://application:,,,/".Length);
+                if (relative.StartsWith("Resources/", StringComparison.Ordinal))
+                    relative = relative.Substring("Resources/".Length);
                 var avares = $"avares://CCP.Avalonia/Assets/{relative}";
                 using var stream = AssetLoader.Open(new Uri(avares));
                 return new Bitmap(stream);

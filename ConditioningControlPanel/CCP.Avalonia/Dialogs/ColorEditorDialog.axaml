@@ -50,10 +50,8 @@
                      FontSize="11"
                      VerticalAlignment="Center"
                      Margin="0,0,8,0" />
-          <ToggleSwitch x:Name="ChkBgTransparent"
-                        IsCheckedChanged="ChkBgTransparent_Changed"
-                        OnContent=""
-                        OffContent="" />
+          <CheckBox x:Name="ChkBgTransparent"
+                    IsCheckedChanged="ChkBgTransparent_Changed" />
         </StackPanel>
       </Grid>
 
@@ -78,7 +76,7 @@
                      FontSize="11"
                      VerticalAlignment="Center"
                      Margin="0,0,8,0" />
-          <ToggleSwitch x:Name="ChkTextTransparent" OnContent="" OffContent="" />
+          <CheckBox x:Name="ChkTextTransparent" />
         </StackPanel>
       </Grid>
 
@@ -106,12 +104,10 @@
                      FontSize="10"
                      Margin="0,2,0,0" />
         </StackPanel>
-        <ToggleSwitch x:Name="ChkStealsFocus"
-                      Grid.Column="1"
-                      IsCheckedChanged="ChkStealsFocus_Changed"
-                      OnContent=""
-                      OffContent=""
-                      VerticalAlignment="Center" />
+        <CheckBox x:Name="ChkStealsFocus"
+                  Grid.Column="1"
+                  IsCheckedChanged="ChkStealsFocus_Changed"
+                  VerticalAlignment="Center" />
       </Grid>
     </StackPanel>
 

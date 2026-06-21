@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using Serilog;
 

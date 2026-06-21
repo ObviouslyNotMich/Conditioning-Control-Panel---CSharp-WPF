@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using ConditioningControlPanel.Core.Localization;
 
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Dialogs;
@@ -63,10 +64,10 @@ UpdateUiForStep();
         switch (_step)
         {
             case Step.Intro:
-                BtnNext.Content = "I want to know more →";
+                BtnNext.Content = Loc.Get("dialog_webcam_consent_i_want_know_more_content");
                 break;
             case Step.Privacy:
-                BtnNext.Content = "Continue →";
+                BtnNext.Content = Loc.Get("dialog_webcam_consent_continue_content");
                 break;
             case Step.Consent:
                 UpdateEnableButtonState();
@@ -116,16 +117,16 @@ UpdateUiForStep();
         {
             if (allChecked && typed)
             {
-                TxtConfirmHint.Text = "All gates passed. You can enable now.";
+                TxtConfirmHint.Text = Loc.Get("dialog_webcam_consent_all_gates_passed_text");
                 TxtConfirmHint.Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xE0, 0xA0));
             }
             else
             {
                 var missing = "";
-                if (!allChecked) missing += "all 3 checkboxes";
-                if (!allChecked && !typed) missing += " + ";
-                if (!typed) missing += "ENABLE typed";
-                TxtConfirmHint.Text = "Waiting for: " + missing + ".";
+                if (!allChecked) missing += Loc.Get("dialog_webcam_consent_waiting_checkboxes");
+                if (!allChecked && !typed) missing += Loc.Get("dialog_webcam_consent_waiting_separator");
+                if (!typed) missing += Loc.Get("dialog_webcam_consent_waiting_enable_typed");
+                TxtConfirmHint.Text = Loc.Get("dialog_webcam_consent_waiting_for_prefix") + missing + ".";
                 TxtConfirmHint.Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0xA0));
             }
         }

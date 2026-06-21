@@ -244,6 +244,9 @@ public partial class FeatureCard : UserControl
             if (uri.StartsWith("pack://application:,,,", StringComparison.Ordinal))
             {
                 var relative = uri.Substring("pack://application:,,,".Length).TrimStart('/');
+                // WPF Resources/ folder is linked into the Avalonia head as Assets/.
+                if (relative.StartsWith("Resources/", StringComparison.OrdinalIgnoreCase))
+                    relative = relative.Substring("Resources/".Length);
                 var avares = $"avares://CCP.Avalonia/Assets/{relative}";
                 using var stream = AssetLoader.Open(new Uri(avares));
                 return new Bitmap(stream);

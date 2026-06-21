@@ -1,10 +1,13 @@
-﻿using System;
+using System;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using ConditioningControlPanel.Core.Platform;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.AvatarTube
 {
@@ -17,6 +20,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private readonly DispatcherTimer _animTimer;
         private readonly Random _random;
         private readonly Action _onPop;
+        private readonly Image _bubbleImage;
 
         private double _posX, _posY;
         private double _startX;
@@ -30,45 +34,37 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private bool _isPopping;
         private bool _isAlive = true;
 
-        private readonly Ellipse _bubbleShape;
         private readonly int _size;
         private readonly double _screenTop;
 
-        public AvatarRandomBubble(Point avatarScreenPos, Random random, Action onPop)
+        public AvatarRandomBubble(global::Avalonia.Point avatarScreenPos, Random random, Action onPop)
+            : this(avatarScreenPos, random, onPop, App.Services.GetService<IAssetLoader>())
+        {
+        }
+
+        public AvatarRandomBubble(global::Avalonia.Point avatarScreenPos, Random random, Action onPop, IAssetLoader? assetLoader)
         {
             _random = random;
             _onPop = onPop;
 
-            _size = random.Next(100, 150);
+            _size = random.Next(80, 130);
             _speed = 1.0 + random.NextDouble() * 1.0;
             _animType = random.Next(4);
             _wobbleOffset = random.NextDouble() * 100;
             _angle = random.Next(360);
 
-            double dpiScale = 1.0; // TODO: Avalonia scaling.
+            double dpiScale = 1.0;
             _startX = avatarScreenPos.X / dpiScale + 50 + random.Next(-30, 30);
             _posX = _startX;
             _posY = avatarScreenPos.Y / dpiScale;
             _screenTop = -_size - 50;
 
-            var gradientBrush = new RadialGradientBrush
-            {
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(180, 200, 220, 255), 0),
-                    new GradientStop(Color.FromArgb(80, 255, 255, 255), 1)
-                },
-                Center = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
-                GradientOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative)
-            };
-
-            _bubbleShape = new Ellipse
+            _bubbleImage = new Image
             {
                 Width = _size,
                 Height = _size,
-                Fill = gradientBrush,
-                Stroke = Brushes.White,
-                StrokeThickness = 2,
+                Stretch = Stretch.Uniform,
+                Source = LoadBubbleImage(assetLoader),
                 RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
                 Cursor = new Cursor(StandardCursorType.Hand),
                 IsHitTestVisible = true
@@ -77,9 +73,9 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             var transformGroup = new TransformGroup();
             transformGroup.Children.Add(new ScaleTransform(1, 1));
             transformGroup.Children.Add(new RotateTransform(0));
-            _bubbleShape.RenderTransform = transformGroup;
+            _bubbleImage.RenderTransform = transformGroup;
 
-            _bubbleShape.PointerPressed += (s, e) =>
+            _bubbleImage.PointerPressed += (s, e) =>
             {
                 Pop();
                 e.Handled = true;
@@ -90,7 +86,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)),
                 IsHitTestVisible = true
             };
-            grid.Children.Add(_bubbleShape);
+            grid.Children.Add(_bubbleImage);
             grid.PointerPressed += (s, e) =>
             {
                 Pop();
@@ -120,6 +116,25 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             _animTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             _animTimer.Tick += Animate;
             _animTimer.Start();
+        }
+
+        private static Bitmap? LoadBubbleImage(IAssetLoader? loader)
+        {
+            try
+            {
+                const string uri = "avares://CCP.Avalonia/Assets/bubble.png";
+                if (loader != null)
+                {
+                    using var stream = loader.Open(new Uri(uri, UriKind.Absolute));
+                    return new Bitmap(stream);
+                }
+                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "bubble.png");
+                return File.Exists(path) ? new Bitmap(path) : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private void Animate(object? sender, EventArgs e)
@@ -153,7 +168,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             {
                 var wobble = 0.06 * Math.Sin(_timeAlive * 2.5 + _wobbleOffset);
                 var currentScale = _scale + wobble;
-                if (_bubbleShape.RenderTransform is TransformGroup tg && tg.Children.Count >= 2)
+                if (_bubbleImage.RenderTransform is TransformGroup tg && tg.Children.Count >= 2)
                 {
                     if (tg.Children[0] is ScaleTransform st) { st.ScaleX = currentScale; st.ScaleY = currentScale; }
                     if (tg.Children[1] is RotateTransform rt) rt.Angle = _angle;

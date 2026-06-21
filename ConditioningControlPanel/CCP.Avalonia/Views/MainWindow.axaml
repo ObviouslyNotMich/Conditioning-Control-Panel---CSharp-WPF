@@ -14,7 +14,7 @@
         Height="900"
         MinWidth="600"
         MinHeight="450"
-        SystemDecorations="None"
+        WindowDecorations="None"
         CanResize="True"
         WindowStartupLocation="CenterScreen"
         DragDrop.AllowDrop="True">

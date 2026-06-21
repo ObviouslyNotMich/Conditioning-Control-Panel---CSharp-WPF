@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
-namespace ConditioningControlPanel.Core.Models.Deeper
+namespace ConditioningControlPanel.Models.Deeper
 {
     /// <summary>
     /// Shared shape for anything carrying a stock-or-custom haptic pattern

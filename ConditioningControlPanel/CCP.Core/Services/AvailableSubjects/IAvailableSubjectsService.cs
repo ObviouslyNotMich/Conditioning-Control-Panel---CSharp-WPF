@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Core.Services.AvailableSubjects
 {

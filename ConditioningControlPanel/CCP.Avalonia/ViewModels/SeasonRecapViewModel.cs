@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels;
 

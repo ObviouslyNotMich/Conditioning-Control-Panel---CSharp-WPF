@@ -1,4 +1,4 @@
-using ConditioningControlPanel.Core.Models.AiEnrichment;
+using ConditioningControlPanel.Models.AiEnrichment;
 
 namespace ConditioningControlPanel.Core.Services.AIService.Enrichment
 {

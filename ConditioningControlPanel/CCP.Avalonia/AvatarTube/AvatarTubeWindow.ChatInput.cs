@@ -22,6 +22,15 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private void ImgAvatar_MouseLeftButtonDown()
         {
             var now = DateTime.Now;
+            _achievementService?.TrackAvatarClick();
+
+            if (_circeEmoteMode && CirceClickEmote())
+            {
+                PlayClickBounce();
+                _lastClickTime = now;
+                return;
+            }
+
             _animationRefreshClickCount++;
             if (_animationRefreshClickCount >= 4)
             {

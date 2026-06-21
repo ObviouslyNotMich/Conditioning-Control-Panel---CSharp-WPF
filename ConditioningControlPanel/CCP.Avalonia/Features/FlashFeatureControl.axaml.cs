@@ -4,7 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Flash;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -12,12 +15,18 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class FlashFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IFlashService? _flash;
+    private readonly ISessionService? _session;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     public FlashFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _flash = App.Services.GetService<IFlashService>();
+        _session = App.Services.GetService<ISessionService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -109,15 +118,7 @@ public partial class FlashFeatureControl : UserControl
         _settings.Current.FlashEnabled = on;
         _settings.Save();
 
-        // TODO: Live-apply: start/stop flash service if engine is running
-        // WPF used App.IsEngineRunning / App.Flash which are not available in Avalonia yet.
-        // if (App.IsEngineRunning)
-        // {
-        //     if (on)
-        //         App.Flash?.Start();
-        //     else
-        //         App.Flash?.Stop();
-        // }
+        LiveApply(on);
     }
 
     private void SliderFrequency_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -126,10 +127,25 @@ public partial class FlashFeatureControl : UserControl
         var v = (int)e.NewValue;
         TxtFrequency.Text = v.ToString();
         _settings.Current.FlashFrequency = v;
-
-        // TODO: WPF called App.Flash?.RefreshSchedule(); App.Logger?.Warning(...)
-        // Those services are not available in Avalonia yet.
         _settings.Save();
+
+        try { _flash?.RefreshSchedule(); }
+        catch (Exception ex) { _logger?.Warning(ex, "Flash frequency change: RefreshSchedule failed"); }
+    }
+
+    private void LiveApply(bool on)
+    {
+        if (_session?.State != SessionState.Running || _flash == null) return;
+
+        try
+        {
+            if (on && !_flash.IsRunning) _flash.Start();
+            else if (!on && _flash.IsRunning) _flash.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Flash enable toggle: live apply failed");
+        }
     }
 
     private void SliderImages_Changed(object? sender, RangeBaseValueChangedEventArgs e)

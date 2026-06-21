@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using Serilog;
 
 namespace ConditioningControlPanel.Core.Services.Audio

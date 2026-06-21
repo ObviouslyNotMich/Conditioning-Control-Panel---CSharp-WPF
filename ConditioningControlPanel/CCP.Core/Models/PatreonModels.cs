@@ -2,7 +2,7 @@ using System;
 using Newtonsoft.Json;
 using System.Text.Json.Serialization;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Patreon subscription tier levels

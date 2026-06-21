@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using global::Avalonia;
 using global::Avalonia.Controls;
@@ -179,6 +179,8 @@ WindowDecorations = WindowDecorations.None;
         if (Local(centerPx) is not Point c) return;
         double r = radiusPx;
         var ring = NewRing(c, r, RingColor, 6);
+        Canvas.SetLeft(ring, c.X - r);
+        Canvas.SetTop(ring, c.Y - r);
         _canvas.Children.Add(ring);
         _transientCount++;
         _ = new OpacityFade(ring, 0.95, 0, lifeMs, () => RemoveTransient(ring));
@@ -189,14 +191,94 @@ WindowDecorations = WindowDecorations.None;
         if (Local(centerPx) is not Point c) return;
         double r = radiusPx;
         var front = NewRing(c, r, Color.FromRgb(0x7A, 0xE0, 0xFF), 6);
+        Canvas.SetLeft(front, c.X - r);
+        Canvas.SetTop(front, c.Y - r);
         _canvas.Children.Add(front);
         _transientCount++;
         _ = new OpacityFade(front, 0.95, 0, lifeMs, () => RemoveTransient(front));
         var echo = NewRing(c, r * 0.82, Color.FromRgb(0xFF, 0x69, 0xB4), 3.5);
+        Canvas.SetLeft(echo, c.X - r * 0.82);
+        Canvas.SetTop(echo, c.Y - r * 0.82);
         _canvas.Children.Add(echo);
         _transientCount++;
         _ = new OpacityFade(echo, 0.65, 0, lifeMs, () => RemoveTransient(echo));
-        // TODO: radial shards.
+        AddRadialShards(c, r, lifeMs);
+    }
+
+    private void AddRadialShards(Point center, double radius, double lifeMs)
+    {
+        const int count = 10;
+        var rng = new Random();
+        for (int i = 0; i < count; i++)
+        {
+            double angle = rng.NextDouble() * Math.PI * 2;
+            double inner = radius * 0.15;
+            double outer = radius * (0.75 + rng.NextDouble() * 0.45);
+            var start = new Point(center.X + Math.Cos(angle) * inner, center.Y + Math.Sin(angle) * inner);
+            var end = new Point(center.X + Math.Cos(angle) * outer, center.Y + Math.Sin(angle) * outer);
+            var line = new Line
+            {
+                StartPoint = start,
+                EndPoint = start,
+                Stroke = new SolidColorBrush(Color.FromArgb(180, 0xFF, 0xE0, 0xFF)),
+                StrokeThickness = 1.2 + rng.NextDouble() * 1.4,
+                IsHitTestVisible = false,
+                Opacity = 0.85,
+            };
+            _canvas.Children.Add(line);
+            _transientCount++;
+            _ = new ShardExpand(line, start, end, lifeMs, () => RemoveTransient(line));
+        }
+    }
+
+    private sealed class ShardExpand : IDisposable
+    {
+        private readonly Line _line;
+        private readonly Point _from;
+        private readonly Point _to;
+        private readonly double _durationMs;
+        private readonly double _startMs;
+        private readonly Action? _onComplete;
+        private readonly DispatcherTimer _timer = new();
+        private bool _done;
+
+        public ShardExpand(Line line, Point from, Point to, double durationMs, Action? onComplete = null)
+        {
+            _line = line;
+            _from = from;
+            _to = to;
+            _durationMs = Math.Max(1, durationMs);
+            _startMs = Environment.TickCount64;
+            _onComplete = onComplete;
+            _timer.Interval = TimeSpan.FromMilliseconds(16);
+            _timer.Tick += Tick;
+            _timer.Start();
+        }
+
+        private void Tick(object? sender, EventArgs e)
+        {
+            if (_done) return;
+            double elapsed = Environment.TickCount64 - _startMs;
+            double t = Math.Min(1, elapsed / _durationMs);
+            double eased = 1 - Math.Pow(1 - t, 3);
+            double x = _from.X + (_to.X - _from.X) * eased;
+            double y = _from.Y + (_to.Y - _from.Y) * eased;
+            _line.EndPoint = new Point(x, y);
+            _line.Opacity = 0.85 * (1 - t);
+            if (t >= 1)
+            {
+                _done = true;
+                _timer.Stop();
+                _onComplete?.Invoke();
+            }
+        }
+
+        public void Dispose()
+        {
+            _done = true;
+            _timer.Stop();
+            _timer.Tick -= Tick;
+        }
     }
 
     private Ellipse NewRing(Point c, double r, Color color, double thickness)
@@ -274,12 +356,15 @@ _trailScales[_trailIndex];
         Canvas.SetLeft(dot, c.X - TRAIL_DOT_SIZE / 2);
         Canvas.SetTop(dot, c.Y - TRAIL_DOT_SIZE / 2);
         dot.Opacity = 0.65;
+        sc.ScaleX = 1.25;
+        sc.ScaleY = 1.25;
         _ = new OpacityFade(dot, 0.65, 0, lifeSec * 1000, () =>
         {
             if (_transientCount == 0 && _tethers.Count == 0 && AvaloniaChaosEnv.Bubbles?.ChaosRabbitTrailSecNow <= 0)
                 try { Hide(); } catch { }
         });
-        // TODO: scale shrink animation.
+        AvaloniaChaosAnim.AnimateDouble(sc, ScaleTransform.ScaleXProperty, 1.25, 0.0, lifeSec * 1000, AvaloniaChaosAnim.EasingMode.EaseOut);
+        AvaloniaChaosAnim.AnimateDouble(sc, ScaleTransform.ScaleYProperty, 1.25, 0.0, lifeSec * 1000, AvaloniaChaosAnim.EasingMode.EaseOut);
     }
 
     private void RemoveTransient(Control el)

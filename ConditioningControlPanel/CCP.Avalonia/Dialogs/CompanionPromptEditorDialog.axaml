@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
         xmlns:dialogs="using:ConditioningControlPanel.Avalonia.Dialogs"
-        xmlns:models="using:ConditioningControlPanel.Core.Models"
+        xmlns:models="using:ConditioningControlPanel.Models"
         x:Class="ConditioningControlPanel.Avalonia.Dialogs.CompanionPromptEditorDialog"
         Title="{loc:Str dialog_customize_ai_companion}"
         Width="720"

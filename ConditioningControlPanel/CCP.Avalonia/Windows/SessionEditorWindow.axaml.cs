@@ -15,7 +15,7 @@ using AvaloniaLayout = global::Avalonia.Layout;
 using IOPath = System.IO.Path;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Sessions;
 

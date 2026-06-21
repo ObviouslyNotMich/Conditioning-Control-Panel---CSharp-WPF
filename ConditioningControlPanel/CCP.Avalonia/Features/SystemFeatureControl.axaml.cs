@@ -5,7 +5,7 @@ using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +15,8 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class SystemFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IStartupRegistration _startup;
+    private readonly IInputHook? _inputHook;
     private bool _isLoading = true;
     private bool _capturingPanicKey;
 
@@ -24,6 +26,8 @@ public partial class SystemFeatureControl : UserControl
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _startup = App.Services.GetRequiredService<IStartupRegistration>();
+        _inputHook = App.Services.GetService<IInputHook>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -131,7 +135,11 @@ public partial class SystemFeatureControl : UserControl
         if (_isLoading || _settings.Current == null) return;
         var enable = ChkWinStart.IsChecked ?? false;
 
-        // TODO: Windows startup registration (StartupManager, MainWindow.RequestToggleWindowsStartup)
+        try { _startup.SetRegistered(enable); }
+        catch (Exception ex)
+        {
+            App.Services?.GetService<IAppLogger>()?.Warning(ex, "Failed to update startup registration");
+        }
 
         _settings.Current.RunOnStartup = enable;
         _settings.Save();
@@ -175,18 +183,23 @@ public partial class SystemFeatureControl : UserControl
 
     private void BtnPanicKey_Click(object? sender, RoutedEventArgs e)
     {
-        if (_capturingPanicKey) return;
+        if (_capturingPanicKey || _inputHook == null) return;
         _capturingPanicKey = true;
         BtnPanicKey.Content = LocalizationManager.Instance.Get("msg_press_any_key_to_set_as_the_new_panic_key");
         BtnPanicKey.IsEnabled = false;
 
-        // Subscribe to the next PanicKey change so we can confirm and re-enable.
-        // Use a one-shot handler so subsequent edits behave normally.
-        void OnPanicKeyChanged(object? s, PropertyChangedEventArgs ev)
+        EventHandler<KeyboardHookEventArgs>? handler = null;
+        handler = (s, ev) =>
         {
-            if (ev.PropertyName != nameof(AppSettings.PanicKey)) return;
-            if (_settings.Current is INotifyPropertyChanged inpc)
-                inpc.PropertyChanged -= OnPanicKeyChanged;
+            if (_inputHook == null) return;
+            _inputHook.KeyPressed -= handler;
+
+            var keyName = VirtualKeyToName(ev.VirtualKeyCode);
+            if (_settings.Current is { } settings && !string.IsNullOrEmpty(keyName))
+            {
+                settings.PanicKey = keyName;
+                _settings.Save();
+            }
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -207,12 +220,61 @@ public partial class SystemFeatureControl : UserControl
                 };
                 t.Start();
             });
-        }
+        };
 
-        if (_settings.Current is INotifyPropertyChanged inpc2)
-            inpc2.PropertyChanged += OnPanicKeyChanged;
+        _inputHook.KeyPressed += handler;
+    }
 
-        // TODO: Panic-key capture (RequestBeginPanicKeyCapture, global key hooks)
+    private static string VirtualKeyToName(int virtualKeyCode)
+    {
+        // Virtual-key codes are defined by Windows; keep a small portable map.
+        return virtualKeyCode switch
+        {
+            0x08 => "Backspace",
+            0x09 => "Tab",
+            0x0D => "Enter",
+            0x13 => "Pause",
+            0x1B => "Escape",
+            0x20 => "Space",
+            0x21 => "PageUp",
+            0x22 => "PageDown",
+            0x23 => "End",
+            0x24 => "Home",
+            0x25 => "Left",
+            0x26 => "Up",
+            0x27 => "Right",
+            0x28 => "Down",
+            0x2C => "PrintScreen",
+            0x2D => "Insert",
+            0x2E => "Delete",
+            >= 0x30 and <= 0x39 => ((char)('0' + (virtualKeyCode - 0x30))).ToString(),
+            >= 0x41 and <= 0x5A => ((char)('A' + (virtualKeyCode - 0x41))).ToString(),
+            0x60 => "NumPad0",
+            0x61 => "NumPad1",
+            0x62 => "NumPad2",
+            0x63 => "NumPad3",
+            0x64 => "NumPad4",
+            0x65 => "NumPad5",
+            0x66 => "NumPad6",
+            0x67 => "NumPad7",
+            0x68 => "NumPad8",
+            0x69 => "NumPad9",
+            0x70 => "F1",
+            0x71 => "F2",
+            0x72 => "F3",
+            0x73 => "F4",
+            0x74 => "F5",
+            0x75 => "F6",
+            0x76 => "F7",
+            0x77 => "F8",
+            0x78 => "F9",
+            0x79 => "F10",
+            0x7A => "F11",
+            0x7B => "F12",
+            0x90 => "NumLock",
+            0x91 => "ScrollLock",
+            _ => $"VK{virtualKeyCode:X}"
+        };
     }
 
     // ---- Asset folder / startup video ----

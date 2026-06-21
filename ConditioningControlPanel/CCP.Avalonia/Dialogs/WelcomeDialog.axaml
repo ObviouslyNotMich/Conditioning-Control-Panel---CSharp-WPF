@@ -33,7 +33,7 @@
               Margin="-10,-10,-10,20"
               Padding="20,15">
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-          <TextBlock Text="💖"
+          <TextBlock Text="{Binding [dialog_icon_heart], Source={x:Static loc:LocalizationManager.Instance}}"
                      FontSize="30"
                      VerticalAlignment="Center"
                      Margin="0,0,12,0" />

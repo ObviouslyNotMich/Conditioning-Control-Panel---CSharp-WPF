@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Available vibration modes/patterns for haptic feedback

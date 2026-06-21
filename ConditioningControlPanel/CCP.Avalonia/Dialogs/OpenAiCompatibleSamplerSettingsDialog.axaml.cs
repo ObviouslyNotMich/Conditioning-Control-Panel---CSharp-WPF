@@ -3,7 +3,7 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.Dialogs;
 

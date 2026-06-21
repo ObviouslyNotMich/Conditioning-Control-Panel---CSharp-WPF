@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using ConditioningControlPanel.Core.Localization;
 using Newtonsoft.Json;
 
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 public enum QuestType
 {

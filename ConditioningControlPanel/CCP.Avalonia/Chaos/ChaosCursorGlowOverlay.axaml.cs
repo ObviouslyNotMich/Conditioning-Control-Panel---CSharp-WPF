@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Controls.Shapes;
@@ -24,6 +24,7 @@ public partial class ChaosCursorGlowOverlay : Window
 
     private readonly Ellipse _halo;
     private readonly ScaleTransform _scale;
+    private ScalePulse? _pulse;
 
     public ChaosCursorGlowOverlay()
     {
@@ -101,7 +102,8 @@ WindowDecorations = WindowDecorations.None;
                     else if (!_active.IsVisible) ((global::Avalonia.Controls.Window)_active).Show();
                     _haloFor(_active).IsVisible = true;
                     AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
-                    // TODO: start scale pulse animation.
+                    _active._pulse?.Dispose();
+                    _active._pulse = new ScalePulse(_active._scale, 0.85, 1.12, 620);
                 }
                 catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosCursorGlow.Arm: {E}", ex.Message); }
             });
@@ -115,7 +117,17 @@ WindowDecorations = WindowDecorations.None;
         {
             Dispatcher.UIThread.Post(() =>
             {
-                try { if (_active != null) _haloFor(_active).IsVisible = false; }
+                try
+                {
+                    if (_active != null)
+                    {
+                        _haloFor(_active).IsVisible = false;
+                        _active._pulse?.Dispose();
+                        _active._pulse = null;
+                        _active._scale.ScaleX = 1;
+                        _active._scale.ScaleY = 1;
+                    }
+                }
                 catch { }
             });
         }

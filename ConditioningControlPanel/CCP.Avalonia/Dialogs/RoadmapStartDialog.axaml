@@ -30,7 +30,7 @@
       <StackPanel Grid.Row="0" Margin="0,0,0,15">
         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
           <TextBlock x:Name="TxtStepIcon"
-                     Text="📷"
+                     Text="{Binding [dialog_icon_camera], Source={x:Static loc:LocalizationManager.Instance}}"
                      FontSize="24"
                      VerticalAlignment="Center" />
           <TextBlock Text="{Binding [label_ready_to_complete], Source={x:Static loc:LocalizationManager.Instance}}"

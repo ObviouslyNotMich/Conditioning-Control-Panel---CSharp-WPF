@@ -9,112 +9,170 @@
     <vm:LockdownTabViewModel />
   </Design.DataContext>
 
+  <UserControl.Styles>
+    <Style Selector="Border.lockdownPulse.active">
+      <Style.Animations>
+        <Animation Duration="0:0:1.4"
+                   IterationCount="Infinite"
+                   PlaybackDirection="Alternate">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="0.25" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="0.85" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+  </UserControl.Styles>
+
   <Grid>
     <ScrollViewer IsVisible="{Binding !IsPremiumLocked}">
       <StackPanel Spacing="16" Margin="16" MaxWidth="720" HorizontalAlignment="Center">
         <!-- Header -->
-        <StackPanel Spacing="6" HorizontalAlignment="Center">
-          <TextBlock Text="🔒"
-                     FontSize="44"
-                     HorizontalAlignment="Center" />
-          <TextBlock Text="{loc:Str tab_lockdown_lockdown_text}"
-                     FontSize="22"
-                     FontWeight="Bold"
-                     Foreground="White"
-                     HorizontalAlignment="Center" />
-          <TextBlock Text="{loc:Str tab_lockdown_a_timed_strictlock_session_enter_secret_text}"
-                     Foreground="#AAAAAA"
-                     FontSize="12"
-                     TextWrapping="Wrap"
-                     TextAlignment="Center" />
-        </StackPanel>
+        <Grid ColumnDefinitions="Auto,*">
+          <Image Grid.Column="0"
+                 Width="44"
+                 Height="44"
+                 VerticalAlignment="Center"
+                 Margin="0,0,16,0"
+                 Source="avares://CCP.Avalonia/Assets/lockdown_icon.png" />
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Text="{loc:Str tab_lockdown_lockdown_text}"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="White" />
+            <TextBlock Text="{loc:Str tab_lockdown_a_timed_strictlock_session_enter_secret_text}"
+                       Foreground="#AAAAAA"
+                       FontSize="13"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,0" />
+          </StackPanel>
+        </Grid>
 
-        <!-- Main card -->
-        <Border BorderThickness="2"
-                CornerRadius="16"
-                Padding="20">
-          <Border.Background>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-              <GradientStop Offset="0" Color="#1A1A32" />
-              <GradientStop Offset="1" Color="#201A38" />
-            </LinearGradientBrush>
-          </Border.Background>
-          <Border.BorderBrush>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-              <GradientStop Offset="0" Color="#FF69B4" />
-              <GradientStop Offset="1" Color="#9370DB" />
-            </LinearGradientBrush>
-          </Border.BorderBrush>
+        <!-- Main card with pulsing active border -->
+        <Grid>
+          <Border Classes="lockdownPulse"
+                  Classes.active="{Binding ActiveVisible}"
+                  CornerRadius="16"
+                  Padding="0"
+                  Margin="-6"
+                  BorderThickness="4"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch"
+                  IsHitTestVisible="False">
+            <Border.BorderBrush>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Offset="0" Color="#FF69B4" />
+                <GradientStop Offset="1" Color="#9370DB" />
+              </LinearGradientBrush>
+            </Border.BorderBrush>
+          </Border>
 
-          <StackPanel Spacing="16">
-            <!-- Setup panel -->
-            <StackPanel Spacing="12" IsVisible="{Binding SetupVisible}">
-              <TextBlock Text="{loc:Str tab_lockdown_session_duration_text}"
-                         FontSize="14"
-                         FontWeight="SemiBold"
-                         Foreground="White" />
+          <Border BorderThickness="2"
+                  CornerRadius="16"
+                  Padding="20">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Offset="0" Color="#1A1A32" />
+                <GradientStop Offset="1" Color="#201A38" />
+              </LinearGradientBrush>
+            </Border.Background>
+            <Border.BorderBrush>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Offset="0" Color="#FF69B4" />
+                <GradientStop Offset="1" Color="#9370DB" />
+              </LinearGradientBrush>
+            </Border.BorderBrush>
 
-              <ComboBox ItemsSource="{Binding DurationOptions}"
-                        DisplayMemberBinding="{Binding Label}"
-                        SelectedIndex="{Binding SelectedDurationIndex, Mode=TwoWay}"
-                        HorizontalAlignment="Stretch" />
+            <StackPanel Spacing="16">
+              <!-- Lockdown hero image -->
+              <Border CornerRadius="10"
+                      Height="220"
+                      BorderThickness="2"
+                      ClipToBounds="True"
+                      BoxShadow="0 0 14 0 #FF1493">
+                <Border.Background>
+                  <SolidColorBrush Color="#12FFFFFF" />
+                </Border.Background>
+                <Border.BorderBrush>
+                  <SolidColorBrush Color="#FF1493" />
+                </Border.BorderBrush>
+                <Image Source="avares://CCP.Avalonia/Assets/lockdown_icon.png"
+                       Stretch="Uniform"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Center" />
+              </Border>
 
-              <Button Content="{loc:Str tab_lockdown_activate_lockdown_content}"
-                      Command="{Binding ActivateCommand}"
-                      HorizontalAlignment="Stretch"
-                      HorizontalContentAlignment="Center">
-                <Button.Background>
-                  <SolidColorBrush Color="#FF69B4" />
-                </Button.Background>
-                <Button.Foreground>
-                  <SolidColorBrush Color="White" />
-                </Button.Foreground>
-              </Button>
-            </StackPanel>
+              <!-- Setup panel -->
+              <StackPanel Spacing="12" IsVisible="{Binding SetupVisible}">
+                <TextBlock Text="{loc:Str tab_lockdown_session_duration_text}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="White" />
 
-            <!-- Active panel -->
-            <StackPanel Spacing="16" IsVisible="{Binding ActiveVisible}">
-              <TextBlock Text="{loc:Str tab_lockdown_lockdown_active_text}"
-                         FontSize="18"
-                         FontWeight="Bold"
-                         Foreground="#DC143C"
-                         HorizontalAlignment="Center" />
+                <ComboBox ItemsSource="{Binding DurationOptions}"
+                          DisplayMemberBinding="{Binding Label}"
+                          SelectedIndex="{Binding SelectedDurationIndex, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch" />
 
-              <TextBlock Text="{Binding TimerText}"
-                         FontSize="36"
-                         FontWeight="Bold"
-                         Foreground="#DC143C"
-                         HorizontalAlignment="Center"
-                         FontFamily="Consolas, Monospace" />
-
-              <Button Content="{loc:Str tab_lockdown_request_exit_content}"
-                      Command="{Binding ToggleExitInputCommand}"
-                      HorizontalAlignment="Center" />
-
-              <StackPanel Spacing="8" IsVisible="{Binding ExitInputVisible}">
-                <TextBlock Text="{loc:Str tab_lockdown_enter_secret_exit_phrase_text}"
-                           Foreground="#AAAAAA"
-                           FontSize="12" />
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBox Grid.Column="0"
-                           Text="{Binding ExitInputText, Mode=TwoWay}"
-                           Watermark="{loc:Str tab_lockdown_secret_phrase_watermark}"
-                           VerticalAlignment="Center" />
-                  <Button Grid.Column="1"
-                          Content="{loc:Str tab_lockdown_submit_content}"
-                          Command="{Binding SubmitExitPhraseCommand}"
-                          Margin="8,0,0,0" />
-                </Grid>
+                <Button Content="{loc:Str tab_lockdown_activate_lockdown_content}"
+                        Command="{Binding ActivateCommand}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center">
+                  <Button.Background>
+                    <SolidColorBrush Color="#FF69B4" />
+                  </Button.Background>
+                  <Button.Foreground>
+                    <SolidColorBrush Color="White" />
+                  </Button.Foreground>
+                </Button>
               </StackPanel>
 
-              <Button Content="{loc:Str tab_lockdown_abort_lockdown_content}"
-                      Command="{Binding AbortCommand}"
-                      HorizontalAlignment="Center"
-                      Background="#DC143C"
-                      Foreground="White" />
+              <!-- Active panel -->
+              <StackPanel Spacing="16" IsVisible="{Binding ActiveVisible}">
+                <TextBlock Text="{loc:Str tab_lockdown_lockdown_active_text}"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="#DC143C"
+                           HorizontalAlignment="Center" />
+
+                <TextBlock Text="{Binding TimerText}"
+                           FontSize="36"
+                           FontWeight="Bold"
+                           Foreground="#DC143C"
+                           HorizontalAlignment="Center"
+                           FontFamily="Consolas, Monospace" />
+
+                <Button Content="{loc:Str tab_lockdown_request_exit_content}"
+                        Command="{Binding ToggleExitInputCommand}"
+                        HorizontalAlignment="Center" />
+
+                <StackPanel Spacing="8" IsVisible="{Binding ExitInputVisible}">
+                  <TextBlock Text="{loc:Str tab_lockdown_enter_secret_exit_phrase_text}"
+                             Foreground="#AAAAAA"
+                             FontSize="12" />
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding ExitInputText, Mode=TwoWay}"
+                             Watermark="{loc:Str tab_lockdown_secret_phrase_watermark}"
+                             VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Content="{loc:Str tab_lockdown_submit_content}"
+                            Command="{Binding SubmitExitPhraseCommand}"
+                            Margin="8,0,0,0" />
+                  </Grid>
+                </StackPanel>
+
+                <Button Content="{loc:Str tab_lockdown_abort_lockdown_content}"
+                        Command="{Binding AbortCommand}"
+                        HorizontalAlignment="Center"
+                        Background="#DC143C"
+                        Foreground="White" />
+              </StackPanel>
             </StackPanel>
-          </StackPanel>
-        </Border>
+          </Border>
+        </Grid>
 
         <TextBlock Text="{Binding WarningText}"
                    Foreground="#FF69B4"
@@ -132,9 +190,10 @@
       <StackPanel Spacing="12"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Center">
-        <TextBlock Text="🔒"
-                   FontSize="56"
-                   HorizontalAlignment="Center" />
+        <Image Width="56"
+               Height="56"
+               HorizontalAlignment="Center"
+               Source="avares://CCP.Avalonia/Assets/lockdown_icon.png" />
         <TextBlock Text="{loc:Str tab_lockdown_premium_locked_text}"
                    FontSize="22"
                    FontWeight="Bold"

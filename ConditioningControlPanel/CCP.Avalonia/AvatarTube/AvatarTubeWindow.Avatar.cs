@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,7 +8,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 #pragma warning disable CS0169 // Avalonia port: unused stub fields kept for future companion/avatar work
 #pragma warning disable CS0414
@@ -120,6 +120,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                     ImgAvatarAnimated.Source = File.Exists(path) ? new Bitmap(path) : null;
                 }
                 _poseTimer.Stop();
+                TryUpdateCirceEmoteMode();
             }
             catch (Exception ex)
             {
@@ -186,6 +187,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             UpdateTitleDisplay(_settings?.Current?.PlayerLevel ?? 1);
             UpdateNavigationArrows();
             ApplyAvatarTransform(setNumber);
+            TryUpdateCirceEmoteMode();
         }
 
         private static CompanionId? GetCompanionForAvatarSet(int setNumber)
@@ -287,9 +289,11 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 SwitchToAvatarSet(target, animate: true);
         }
 
-        private void OnModChanged()
+        private void OnModChanged(object? sender, global::ConditioningControlPanel.Models.ModPackage e)
         {
-            // TODO: refresh tube image, layout offsets, video links, mod-aware titles.
+            UpdateTitleDisplay(_settings?.Current?.PlayerLevel ?? 1);
+            TryUpdateCirceEmoteMode();
+            // TODO: refresh tube frame image and video links when mod assets are exposed.
         }
 
         private void ApplyTubeLayoutOffsets()
@@ -326,17 +330,6 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private void CancelCrossfade() { }
         private void CrossfadeTo(Bitmap? next, bool preempt = false) { }
 
-        // Circe emote stubs
-        private bool _circeMapValid;
-        private void TryUpdateCirceEmoteMode() { }
-        private void EnterCirceEmoteMode(string folder) { }
-        private void LeaveCirceEmoteMode() { }
-        private void ReassertCirceEmoteVisuals() { }
-        private void CircePause() { }
-        private void CirceResume() { }
-        internal bool CirceClickEmote() => false;
-        private void RefreshVoiceLines() { }
-        private bool LoadCirceMap() => false;
         private bool IsSingleEmoteAvatarMod(out int set)
         {
             set = 0;

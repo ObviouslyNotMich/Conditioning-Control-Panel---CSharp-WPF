@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -16,8 +16,9 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Localization;
 
 using Animation = global::Avalonia.Animation.Animation;
 using KeyFrame = global::Avalonia.Animation.KeyFrame;
@@ -253,7 +254,7 @@ public partial class TutorialOverlay : Window
                 return;
             }
 
-            TxtStepCounter.Text = $"Step {GetCurrentStepIndex() + 1} of {GetTotalSteps()}";
+            TxtStepCounter.Text = string.Format(Loc.Get("window_tutorial_overlay_step_counter_fmt"), GetCurrentStepIndex() + 1, GetTotalSteps());
             TxtIcon.Text = step.Icon;
             TxtTitle.Text = step.Title;
             TxtDescription.Text = step.Description;
@@ -271,7 +272,7 @@ public partial class TutorialOverlay : Window
             return;
         }
 
-        TxtStepCounter.Text = $"Step {GetCurrentStepIndex() + 1} of {GetTotalSteps()}";
+        TxtStepCounter.Text = string.Format(Loc.Get("window_tutorial_overlay_step_counter_fmt"), GetCurrentStepIndex() + 1, GetTotalSteps());
         TxtIcon.Text = step.Icon;
         TxtTitle.Text = step.Title;
         TxtDescription.Text = step.Description;
@@ -282,7 +283,7 @@ public partial class TutorialOverlay : Window
 
         bool isManual = step.AdvanceTrigger == TutorialAdvanceTrigger.Manual;
         BtnNext.IsVisible = isManual && !step.IsFollowUpCard;
-        BtnNext.Content = IsLastStep() ? "Finish" : "Next";
+        BtnNext.Content = IsLastStep() ? Loc.Get("window_tutorial_overlay_finish_content") : Loc.Get("btn_next");
 
         BtnPrevious.IsVisible = isManual && !IsFirstStep() && !step.IsFollowUpCard;
 
@@ -557,8 +558,8 @@ public partial class TutorialOverlay : Window
     {
         try
         {
-            var topLeft = element.PointToScreen(new Point(0, 0));
-            var bottomRight = element.PointToScreen(new Point(element.Bounds.Width, element.Bounds.Height));
+            var topLeft = element.PointToScreen(new global::Avalonia.Point(0, 0));
+            var bottomRight = element.PointToScreen(new global::Avalonia.Point(element.Bounds.Width, element.Bounds.Height));
             var localTopLeft = this.PointToClient(topLeft);
             var localBottomRight = this.PointToClient(bottomRight);
             return new Rect(localTopLeft, localBottomRight);

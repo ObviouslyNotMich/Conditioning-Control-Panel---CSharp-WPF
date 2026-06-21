@@ -10,64 +10,106 @@
   </Design.DataContext>
 
   <ScrollViewer>
-    <StackPanel Spacing="12" Margin="16">
-      <TextBlock Text="{loc:Str tab_companion_companion_text}"
-                 FontSize="20"
-                 FontWeight="Bold"
-                 Foreground="White" />
+    <StackPanel Spacing="16" Margin="24">
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
-              BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
-          <TextBlock Text="{Binding ActiveCompanionName}"
-                     FontSize="18"
-                     FontWeight="Bold"
-                     Foreground="White" />
-          <TextBlock Text="{Binding ActiveCompanionLevelText}"
-                     Foreground="#FF69B4" />
-          <TextBlock Text="{Binding ActiveCompanionDescription}"
-                     TextWrapping="Wrap"
-                     Opacity="0.8" />
-          <TextBlock Text="{Binding ActiveCompanionXpText}" />
-          <ProgressBar Value="{Binding ActiveCompanionProgress}"
-                       Maximum="100"
-                       Minimum="0"
-                       Height="10" />
-        </StackPanel>
+      <!-- Banner -->
+      <Border Height="140"
+              CornerRadius="12"
+              ClipToBounds="True">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#2A0E2E" />
+            <GradientStop Offset="1" Color="#7B3FA0" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+          <Border Opacity="0.12"
+                  Background="White"
+                  Width="280"
+                  Height="280"
+                  CornerRadius="140"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  Margin="0,0,-60,-100" />
+          <StackPanel VerticalAlignment="Center" Margin="24,0">
+            <TextBlock Text="{loc:Str tab_companion_banner_title}"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       Foreground="White" />
+            <TextBlock Text="{loc:Str tab_companion_banner_subtitle}"
+                       FontSize="14"
+                       Foreground="{DynamicResource TextMutedBrush}"
+                       TextWrapping="Wrap"
+                       MaxWidth="520"
+                       HorizontalAlignment="Left" />
+          </StackPanel>
+        </Grid>
       </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <!-- Active companion -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
+              BorderThickness="2"
+              CornerRadius="12"
+              Padding="18">
+        <Grid ColumnDefinitions="Auto,*">
+          <TextBlock Text="🤖"
+                     FontSize="48"
+                     VerticalAlignment="Center"
+                     Margin="0,0,16,0" />
+          <StackPanel Grid.Column="1" Spacing="6">
+            <TextBlock Text="{Binding ActiveCompanionName}"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="White" />
+            <TextBlock Text="{Binding ActiveCompanionLevelText}"
+                       Foreground="{DynamicResource PinkBrush}"
+                       FontSize="14"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ActiveCompanionDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextMutedBrush}" />
+            <TextBlock Text="{Binding ActiveCompanionXpText}"
+                       Foreground="{DynamicResource TextMutedBrush}"
+                       FontSize="12" />
+            <ProgressBar Value="{Binding ActiveCompanionProgress}"
+                         Maximum="100"
+                         Minimum="0"
+                         Height="10" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Settings -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
+              CornerRadius="12"
+              Padding="18">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_companion_settings_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
           <ToggleButton Content="{loc:Str tab_companion_avatar_enabled_content}"
                         IsChecked="{Binding AvatarEnabled, Mode=TwoWay}" />
           <ToggleButton Content="{loc:Str tab_companion_trigger_mode_content}"
                         IsChecked="{Binding TriggerModeEnabled, Mode=TwoWay}" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="12">
             <TextBlock Text="{loc:Str tab_companion_trigger_interval_s_text}"
                        VerticalAlignment="Center" />
             <NumericUpDown Value="{Binding TriggerIntervalSeconds}"
                            Minimum="1"
                            Width="120" />
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="12">
             <TextBlock Text="{loc:Str tab_companion_idle_interval_s_text}"
                        VerticalAlignment="Center" />
             <NumericUpDown Value="{Binding IdleIntervalSeconds}"
                            Minimum="1"
                            Width="120" />
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="12">
             <TextBlock Text="{loc:Str tab_companion_bubble_duration_s_text}"
                        VerticalAlignment="Center" />
             <NumericUpDown Value="{Binding BubbleDurationSeconds}"
@@ -80,21 +122,24 @@
         </StackPanel>
       </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <!-- Active prompt -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
+              CornerRadius="12"
+              Padding="18">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_companion_active_prompt_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
-          <TextBlock Text="{Binding ActivePromptName}" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
+          <TextBlock Text="{Binding ActivePromptName}"
+                     Foreground="{DynamicResource PinkBrush}"
+                     FontWeight="SemiBold" />
           <TextBlock Text="{Binding CustomizePromptName}"
-                     Opacity="0.7"
+                     Foreground="{DynamicResource TextMutedBrush}"
                      FontSize="12" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="12">
             <Button Content="{loc:Str tab_companion_customize_prompt_content}"
                     Command="{Binding CustomizePromptCommand}" />
             <Button Content="{loc:Str tab_companion_deactivate_prompt_content}"
@@ -103,16 +148,17 @@
         </StackPanel>
       </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <!-- Companion roster -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
+              CornerRadius="12"
+              Padding="18">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_companion_companions_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
           <ItemsControl ItemsSource="{Binding Companions}"
                         x:Name="CompanionsList">
             <ItemsControl.ItemsPanel>
@@ -122,7 +168,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate DataType="vm:CompanionCardViewModel">
-                <Border Background="#252540"
+                <Border Background="{DynamicResource PanelBgBrush}"
                         BorderBrush="{Binding ColorHex}"
                         BorderThickness="2"
                         CornerRadius="10"
@@ -130,14 +176,25 @@
                         Margin="6"
                         Width="200">
                   <StackPanel Spacing="6">
-                    <TextBlock Text="{Binding Name}"
-                               FontWeight="SemiBold"
-                               Foreground="White"
-                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="{Binding Name}"
+                                 FontWeight="SemiBold"
+                                 Foreground="White"
+                                 TextWrapping="Wrap" />
+                      <Border Background="{DynamicResource TransparentPinkBrush}"
+                              CornerRadius="8"
+                              Padding="6,2"
+                              IsVisible="{Binding IsActive}">
+                        <TextBlock Text="{loc:Str tab_companion_active_text}"
+                                   Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold" />
+                      </Border>
+                    </StackPanel>
                     <TextBlock Text="{Binding LevelText}"
-                               Foreground="#FF69B4" />
+                               Foreground="{DynamicResource PinkBrush}" />
                     <TextBlock Text="{Binding AssignedPromptName}"
-                               Opacity="0.7"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                FontSize="11"
                                TextWrapping="Wrap" />
                     <Button Content="{loc:Str tab_companion_switch_content}"
@@ -154,34 +211,44 @@
         </StackPanel>
       </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <!-- Installed prompts -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
+              CornerRadius="12"
+              Padding="18">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_companion_installed_prompts_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
           <ItemsControl ItemsSource="{Binding InstalledPrompts}"
                         x:Name="PromptsList">
             <ItemsControl.ItemTemplate>
               <DataTemplate DataType="vm:CommunityPromptRowViewModel">
-                <Border Background="#252540"
+                <Border Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource DeeperAccentTransparent20Brush}"
+                        BorderThickness="1"
                         CornerRadius="8"
                         Padding="12"
-                        Margin="0,4">
+                        Margin="0,0,0,8">
                   <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Spacing="4">
                       <TextBlock Text="{Binding Name}"
                                  FontWeight="SemiBold"
                                  Foreground="White" />
                       <TextBlock Text="{Binding Author}"
-                                 Opacity="0.7" />
-                      <TextBlock Text="{loc:Str tab_companion_active_text}"
-                                 Foreground="#FF69B4"
-                                 IsVisible="{Binding IsActive}" />
+                                 Foreground="{DynamicResource TextMutedBrush}" />
+                      <Border Background="{DynamicResource TransparentPinkBrush}"
+                              CornerRadius="8"
+                              Padding="6,2"
+                              HorizontalAlignment="Left"
+                              IsVisible="{Binding IsActive}">
+                        <TextBlock Text="{loc:Str tab_companion_active_text}"
+                                   Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold" />
+                      </Border>
                     </StackPanel>
                     <StackPanel Grid.Column="1"
                                 Orientation="Vertical"

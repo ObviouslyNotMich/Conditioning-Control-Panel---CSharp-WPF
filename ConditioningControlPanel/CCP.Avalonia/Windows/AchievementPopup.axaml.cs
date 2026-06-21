@@ -10,7 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 using Animation = global::Avalonia.Animation.Animation;
 using IterationCount = global::Avalonia.Animation.IterationCount;

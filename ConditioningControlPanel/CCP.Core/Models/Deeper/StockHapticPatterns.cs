@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models.Deeper
+namespace ConditioningControlPanel.Models.Deeper
 {
     /// <summary>
     /// Named haptic patterns available to creators in the Deeper editor.

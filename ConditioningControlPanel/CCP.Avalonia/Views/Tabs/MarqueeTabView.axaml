@@ -10,25 +10,55 @@
   </Design.DataContext>
 
   <ScrollViewer>
-    <StackPanel Spacing="12" Margin="16">
-      <TextBlock Text="{loc:Str tab_marquee_marquee_text}"
-                 FontSize="20"
-                 FontWeight="Bold"
-                 Foreground="White" />
+    <StackPanel Spacing="16" Margin="24">
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <!-- Banner -->
+      <Border Height="140"
+              CornerRadius="12"
+              ClipToBounds="True">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#1A1A2E" />
+            <GradientStop Offset="1" Color="#4A2C6A" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+          <Border Opacity="0.12"
+                  Background="White"
+                  Width="260"
+                  Height="260"
+                  CornerRadius="130"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  Margin="0,0,-60,-100" />
+          <StackPanel VerticalAlignment="Center" Margin="24,0">
+            <TextBlock Text="{loc:Str tab_marquee_banner_title}"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       Foreground="White" />
+            <TextBlock Text="{loc:Str tab_marquee_banner_subtitle}"
+                       FontSize="14"
+                       Foreground="{DynamicResource TextMutedBrush}"
+                       TextWrapping="Wrap"
+                       MaxWidth="520"
+                       HorizontalAlignment="Left" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
+              CornerRadius="12"
+              Padding="18">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_marquee_message_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
           <TextBox Text="{Binding MarqueeMessage, Mode=TwoWay}"
                    PlaceholderText="{loc:Str tab_marquee_marquee_message_placeholder}" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="12">
             <Button Content="{loc:Str tab_marquee_refresh_from_server_content}"
                     Command="{Binding RefreshFromServerCommand}"
                     IsEnabled="{Binding !IsBusy}" />
@@ -42,17 +72,18 @@
         </StackPanel>
       </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
+              CornerRadius="12"
+              Padding="18">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_marquee_welcome_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
           <TextBlock Text="{Binding WelcomeText}"
+                     Foreground="{DynamicResource TextMutedBrush}"
                      TextWrapping="Wrap" />
           <Button Content="{loc:Str tab_marquee_update_welcome_message_content}"
                   Command="{Binding UpdateWelcomeMessageCommand}"
@@ -60,17 +91,18 @@
         </StackPanel>
       </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
-              Padding="16">
-        <StackPanel Spacing="10">
+              CornerRadius="12"
+              Padding="18">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_marquee_update_banner_text}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
           <TextBlock Text="{Binding UpdateBannerText}"
+                     Foreground="{DynamicResource TextMutedBrush}"
                      TextWrapping="Wrap" />
           <Button Content="{loc:Str tab_marquee_open_update_url_content}"
                   Command="{Binding OpenUpdateUrlCommand}"

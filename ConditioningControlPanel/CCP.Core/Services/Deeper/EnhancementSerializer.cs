@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ConditioningControlPanel.Core.Models.Deeper;
+using ConditioningControlPanel.Models.Deeper;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 

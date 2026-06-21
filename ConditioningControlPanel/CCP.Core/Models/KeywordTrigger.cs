@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// A single entry in the Awareness Engine's live pulse ring buffer.

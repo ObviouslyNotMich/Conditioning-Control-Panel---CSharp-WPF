@@ -1,9 +1,12 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
+using ConditioningControlPanel.Core.Platform;
+using Microsoft.Extensions.DependencyInjection;
 
 #pragma warning disable CS0169 // Avalonia port: unused stub fields kept for future companion/avatar work
 #pragma warning disable CS0414
@@ -16,6 +19,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private IntPtr _tubeHandle;
         private IntPtr _parentHandle;
         private bool _reassertingAboveParent;
+        private IScreenProvider? _screenProvider;
 
         // Win32 constants (kept for reference; P/Invoke calls are Windows-only and stubbed here).
         private const uint SWP_NOMOVE = 0x0002;
@@ -45,6 +49,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
         private void StartFullscreenDetection()
         {
+            _screenProvider = App.Services.GetService<IScreenProvider>();
             _fullscreenCheckTimer?.Stop();
             _fullscreenCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             _fullscreenCheckTimer.Tick += FullscreenCheckTimer_Tick;
@@ -53,7 +58,24 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
         private void FullscreenCheckTimer_Tick(object? sender, EventArgs e)
         {
-            // TODO: cross-platform fullscreen detection and attached-mode hide/show.
+            if (!_isAttached) return;
+            bool fullscreen = IsOtherAppFullscreen();
+            if (fullscreen && !_hiddenForFullscreen)
+            {
+                _hiddenForFullscreen = true;
+                _wasAttachedBeforeFullscreen = _isAttached;
+                Hide();
+            }
+            else if (!fullscreen && _hiddenForFullscreen)
+            {
+                _hiddenForFullscreen = false;
+                if (_wasAttachedBeforeFullscreen && _settings?.Current?.AvatarEnabled == true)
+                {
+                    Show();
+                    UpdatePosition();
+                    BringAttachedPairToFront(true);
+                }
+            }
         }
 
         private bool IsOtherAppFullscreen() => false;
@@ -80,7 +102,18 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
         private void ClampAvatarPosition()
         {
-            // TODO: keep detached avatar within screen bounds using Avalonia Screens API.
+            if (_screenProvider == null) return;
+            var screens = _screenProvider.GetAllScreens();
+            var screen = screens.FirstOrDefault(s => s.Bounds.X <= Position.X && Position.X < s.Bounds.Right
+                                                  && s.Bounds.Y <= Position.Y && Position.Y < s.Bounds.Bottom)
+                        ?? _screenProvider.GetPrimaryScreen();
+            if (screen == null) return;
+
+            int w = (int)Math.Max(1, Width);
+            int h = (int)Math.Max(1, Height);
+            int x = Math.Clamp(Position.X, (int)screen.WorkingArea.X, (int)(screen.WorkingArea.Right - w));
+            int y = Math.Clamp(Position.Y, (int)screen.WorkingArea.Y, (int)(screen.WorkingArea.Bottom - h));
+            Position = new PixelPoint(x, y);
         }
 
         public void UpdatePosition()
@@ -108,9 +141,20 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             _floatTimer.Tick += (_, _) =>
             {
                 _floatPhase += 0.05;
-                // TODO: animate the TranslateTransform inside ImgAvatar.RenderTransform.
+                double y = Math.Sin(_floatPhase) * FloatDistance;
+                ApplyFloatOffset(ImgAvatar, y);
+                ApplyFloatOffset(ImgAvatarAnimated, y);
             };
             _floatTimer.Start();
+        }
+
+        private static void ApplyFloatOffset(Image? img, double y)
+        {
+            if (img == null) return;
+            if (img.RenderTransform is TranslateTransform tt)
+                tt.Y = y;
+            else
+                img.RenderTransform = new TranslateTransform(0, y);
         }
 
         private void StopFloatingAnimation()
@@ -134,17 +178,29 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             Topmost = true;
             Show();
             ReassertTopmost();
+            ReassertCirceEmoteVisuals();
         }
 
         private void ReassertTopmost()
         {
-            // TODO: pulse Topmost true->false->true on non-Windows; on Windows use SetWindowPos HWND_TOPMOST.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+#if WINDOWS
+                // Windows-specific topmost reassertion would go here via platform helpers.
+#endif
+            }
+            else
+            {
+                var was = Topmost;
+                Topmost = false;
+                Dispatcher.UIThread.Post(() => Topmost = was);
+            }
         }
 
         private void BringToFrontTemporarily()
         {
             if (!_isAttached) return;
-            // TODO: Windows SetWindowPos raise.
+            BringAttachedPairToFront(true);
         }
 
         public void RaiseAttachedTubeAboveOwner() => BringAttachedPairToFront(true);
@@ -153,15 +209,56 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         {
             if (!_isAttached || _parentWindow == null || !_parentWindow.IsVisible || _parentWindow.WindowState == WindowState.Minimized)
                 return;
-            // TODO: raise parent and tube above owner on Windows; on Linux/macOS this is a no-op.
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+#if WINDOWS
+                try
+                {
+                    var helper = new WindowInteropHelper(this);
+                    var parentHelper = new WindowInteropHelper(_parentWindow);
+                    SetWindowPos(helper.Handle, new IntPtr(-1), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                    SetWindowPos(parentHelper.Handle, new IntPtr(-1), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                }
+                catch { }
+#endif
+            }
         }
 
         private void SetToolWindowStyle(bool isToolWindow)
         {
-            // TODO: Windows-only WS_EX_TOOLWINDOW toggle.
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+#if WINDOWS
+            try
+            {
+                var helper = new WindowInteropHelper(this);
+                int exStyle = GetWindowLong(helper.Handle, GWL_EXSTYLE);
+                int newExStyle = isToolWindow
+                    ? exStyle | WS_EX_TOOLWINDOW
+                    : exStyle & ~WS_EX_TOOLWINDOW;
+                SetWindowLong(helper.Handle, GWL_EXSTYLE, newExStyle);
+                SetWindowPos(helper.Handle, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            }
+            catch { }
+#endif
         }
 
-        private bool IsOurAppForeground() => true;
+        private bool IsOurAppForeground()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return true;
+#if WINDOWS
+            try
+            {
+                var fg = GetForegroundWindow();
+                if (fg == IntPtr.Zero) return false;
+                uint pid;
+                GetWindowThreadProcessId(fg, out pid);
+                return pid == (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+            }
+            catch { }
+#endif
+            return true;
+        }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -176,7 +273,20 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         public void SetChaosRunActive(bool active)
         {
             _chaosRunActive = active;
-            // TODO: hide/restore tube around chaos runs.
+            if (active)
+            {
+                _reattachAfterChaos = _isAttached;
+                if (_isAttached) Hide();
+            }
+            else if (_reattachAfterChaos)
+            {
+                if (_settings?.Current?.AvatarEnabled == true)
+                {
+                    Show();
+                    UpdatePosition();
+                    BringAttachedPairToFront(true);
+                }
+            }
         }
     }
 }

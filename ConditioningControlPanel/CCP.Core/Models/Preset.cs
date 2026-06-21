@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Represents a saved preset configuration

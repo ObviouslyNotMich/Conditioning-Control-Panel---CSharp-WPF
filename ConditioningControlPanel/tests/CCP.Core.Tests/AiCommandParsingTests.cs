@@ -1,5 +1,5 @@
-using ConditioningControlPanel.Core.Models;
-using ConditioningControlPanel.Core.Models.CommandData;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Models.CommandData;
 using Xunit;
 
 namespace ConditioningControlPanel.Core.Tests;

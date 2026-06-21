@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     public class HelpContent
     {

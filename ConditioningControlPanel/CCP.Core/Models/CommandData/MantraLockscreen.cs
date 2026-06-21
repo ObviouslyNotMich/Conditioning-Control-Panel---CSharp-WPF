@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ConditioningControlPanel.Core.Models.CommandData
+namespace ConditioningControlPanel.Models.CommandData
 {
     public record MantraLockscreen(
         [property: JsonPropertyName("mantra")] string Mantra,

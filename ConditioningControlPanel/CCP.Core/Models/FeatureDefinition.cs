@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Category grouping for features in the editor

@@ -6,7 +6,7 @@ using global::Avalonia;
 using global::Avalonia.Media;
 using global::Avalonia.Media.Imaging;
 using global::Avalonia.Platform;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 using Svg.Skia;
 using SK = SkiaSharp;

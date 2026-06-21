@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:views="using:ConditioningControlPanel.Avalonia.Views.Tabs"
              x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.LabTabView"
              x:DataType="vm:LabTabViewModel"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
@@ -451,103 +452,7 @@
         </Grid>
 
         <!-- Webcam engine bar -->
-        <Border Background="{DynamicResource SurfaceBgBrush}"
-                BorderBrush="{DynamicResource PinkBrush}"
-                BorderThickness="1"
-                CornerRadius="10"
-                Padding="14">
-          <StackPanel Spacing="12">
-            <TextBlock Text="{loc:Str lab_webcam_engine_title}"
-                       FontSize="15"
-                       FontWeight="Bold"
-                       Foreground="White" />
-            <Grid ColumnDefinitions="*,*,Auto,Auto,Auto,Auto"
-                  ColumnSpacing="10">
-              <StackPanel Grid.Column="0" Spacing="4">
-                <TextBlock Text="{loc:Str lab_camera_device}"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="White" />
-                <ComboBox ItemsSource="{Binding WebcamDevices}"
-                          SelectedItem="{Binding SelectedWebcamDevice, Mode=TwoWay}"
-                          DisplayMemberBinding="{Binding Name}"
-                          HorizontalAlignment="Stretch" />
-              </StackPanel>
-              <StackPanel Grid.Column="1" Spacing="4">
-                <TextBlock Text="{loc:Str webcam_monitor_label}"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="White" />
-                <ComboBox ItemsSource="{Binding Monitors}"
-                          SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}"
-                          DisplayMemberBinding="{Binding Label}"
-                          HorizontalAlignment="Stretch" />
-              </StackPanel>
-              <Button Grid.Column="2"
-                      Content="{loc:Str lab_refresh}"
-                      Command="{Binding RefreshDevicesCommand}"
-                      VerticalAlignment="Bottom" />
-              <Border Grid.Column="3"
-                      Background="{DynamicResource ElevatedSurfaceBrush}"
-                      CornerRadius="12"
-                      Padding="8,4"
-                      VerticalAlignment="Bottom">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <Ellipse Width="8"
-                           Height="8"
-                           Fill="{Binding TrackerStatusColor}"
-                           VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding TrackerStatusText}"
-                             FontSize="12"
-                             VerticalAlignment="Center" />
-                </StackPanel>
-              </Border>
-              <Button Grid.Column="4"
-                      Content="{loc:Str lab_calibrate}"
-                      Command="{Binding CalibrateCommand}"
-                      VerticalAlignment="Bottom" />
-              <Button Grid.Column="5"
-                      Content="{Binding TrackerButtonText}"
-                      Command="{Binding StartTrackingCommand}"
-                      Theme="{StaticResource PinkButton}"
-                      VerticalAlignment="Bottom" />
-            </Grid>
-
-            <Expander HorizontalAlignment="Stretch">
-              <Expander.Header>
-                <TextBlock Text="{loc:Str lab_webcam_advanced}"
-                           FontWeight="SemiBold"
-                           Foreground="White" />
-              </Expander.Header>
-              <StackPanel Spacing="10" Margin="0,10,0,0">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <Button Content="{loc:Str lab_tracker_test}"
-                          Command="{Binding TrackerTestCommand}" />
-                  <Button Content="{loc:Str lab_revoke_consent}"
-                          Command="{Binding RevokeConsentCommand}" />
-                  <ToggleButton Content="{loc:Str lab_debug_cursor}"
-                                IsChecked="{Binding DebugCursorEnabled, Mode=TwoWay}" />
-                </StackPanel>
-
-                <TextBlock Text="{loc:Str lab_counters}"
-                           FontSize="13"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource PinkBrush}" />
-                <TextBlock Text="{Binding CountersText}"
-                           FontSize="12"
-                           Opacity="0.8" />
-
-                <TextBlock Text="{loc:Str lab_log}"
-                           FontSize="13"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource PinkBrush}" />
-                <ListBox ItemsSource="{Binding DebugLog}"
-                         Background="Transparent"
-                         MaxHeight="120" />
-              </StackPanel>
-            </Expander>
-          </StackPanel>
-        </Border>
+        <views:WebcamEngineView />
 
         <!-- EYES cards -->
         <Grid ColumnDefinitions="* *" ColumnSpacing="16">

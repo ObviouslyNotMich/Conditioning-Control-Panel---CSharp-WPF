@@ -1,7 +1,7 @@
 using System.Windows.Input;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 

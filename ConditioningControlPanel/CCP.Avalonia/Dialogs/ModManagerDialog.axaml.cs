@@ -9,7 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using AvaloniaApp = global::ConditioningControlPanel.Avalonia.App;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,13 +80,13 @@ public partial class ModManagerDialog : Window
 
         if (package.IsBuiltIn)
         {
-            await ShowMessageAsync("Built-in mods cannot be uninstalled.");
+            await ShowMessageAsync(Loc.Get("dialog_mod_manager_built_in_cannot_uninstall"));
             return;
         }
 
         var confirmed = await (_dialogService?.ShowConfirmationAsync(
             Loc.Get("title_confirm_uninstall"),
-            $"Uninstall '{package.Name}'? This cannot be undone.") ?? Task.FromResult(false));
+            Loc.GetF("dialog_mod_manager_uninstall_confirm_fmt", package.Name)) ?? Task.FromResult(false));
 
         if (!confirmed) return;
 
@@ -97,7 +97,7 @@ public partial class ModManagerDialog : Window
         }
         else
         {
-            await ShowMessageAsync("Failed to uninstall the mod.");
+            await ShowMessageAsync(Loc.Get("dialog_mod_manager_uninstall_failed"));
         }
     }
 
@@ -138,7 +138,7 @@ public partial class ModManagerDialog : Window
         }
         else
         {
-            await ShowMessageAsync(result.ErrorMessage ?? "Installation failed.");
+            await ShowMessageAsync(result.ErrorMessage ?? Loc.Get("dialog_mod_manager_installation_failed"));
         }
     }
 
@@ -197,8 +197,8 @@ public partial class ModManagerDialog : Window
         }
 
         TxtModName.Text = package.Name;
-        TxtModAuthor.Text = $"Author: {package.Manifest.Author}";
-        TxtModVersion.Text = $"Version: {package.Manifest.Version}";
+        TxtModAuthor.Text = Loc.GetF("dialog_mod_manager_author_fmt", package.Manifest.Author);
+        TxtModVersion.Text = Loc.GetF("dialog_mod_manager_version_fmt", package.Manifest.Version);
         TxtModDescription.Text = package.Manifest.Description ?? "";
 
         var accent = package.Manifest.Theme?.AccentColor ?? "#FF69B4";

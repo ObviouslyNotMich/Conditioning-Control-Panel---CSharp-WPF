@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
-namespace ConditioningControlPanel.Core.Models.Deeper
+namespace ConditioningControlPanel.Models.Deeper
 {
     public enum TimelineItemKind
     {

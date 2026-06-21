@@ -3,7 +3,9 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -11,12 +13,16 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class PinkFilterFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IOverlayService? _overlay;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     public PinkFilterFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _overlay = App.Services.GetService<IOverlayService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -62,9 +68,8 @@ public partial class PinkFilterFeatureControl : UserControl
         _settings.Current.PinkFilterEnabled = ChkEnable.IsChecked ?? false;
         _settings.Save();
 
-        // TODO: Wire up overlay refresh once Avalonia overlay service is available.
-        // try { App.Overlay?.RefreshOverlays(); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "PinkFilter toggle: RefreshOverlays failed"); }
+        try { _overlay?.RefreshOverlays(); }
+        catch (Exception ex) { _logger?.Warning(ex, "PinkFilter toggle: RefreshOverlays failed"); }
     }
 
     private void SliderOpacity_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -75,8 +80,7 @@ public partial class PinkFilterFeatureControl : UserControl
         _settings.Current.PinkFilterOpacity = v;
         _settings.Save();
 
-        // TODO: Wire up overlay refresh once Avalonia overlay service is available.
-        // try { App.Overlay?.RefreshOverlays(); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "PinkFilter opacity: RefreshOverlays failed"); }
+        try { _overlay?.RefreshOverlays(); }
+        catch (Exception ex) { _logger?.Warning(ex, "PinkFilter opacity: RefreshOverlays failed"); }
     }
 }

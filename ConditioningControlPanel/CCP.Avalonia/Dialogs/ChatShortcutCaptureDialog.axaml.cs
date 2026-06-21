@@ -109,8 +109,8 @@ public partial class ChatShortcutCaptureDialog : Window
 
     /// <summary>
     /// Serializes the captured shortcut to the settings format used by
-    /// <see cref="Core.Models.CompanionPromptSettings.ChatShortcutKey"/>
-    /// and <see cref="Core.Models.CompanionPromptSettings.ChatShortcutModifiers"/>.
+    /// <see cref="Models.CompanionPromptSettings.ChatShortcutKey"/>
+    /// and <see cref="Models.CompanionPromptSettings.ChatShortcutModifiers"/>.
     /// </summary>
     public static (string Key, string Modifiers) ToSettings(Key key, KeyModifiers mods)
     {

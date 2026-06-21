@@ -27,13 +27,20 @@ public sealed class AvaloniaAnimatedGif : IDisposable
     private int _frameIndex;
     private int _remainingLoops = -1;
     private bool _disposed;
+    private bool _playOnce;
 
     /// <summary>The Avalonia image source to bind to an <see cref="Avalonia.Controls.Image"/>.</summary>
     public IImage Source => _bitmap;
 
+    /// <summary>True when the clip has finished playing (play-once mode).</summary>
+    public bool IsComplete { get; private set; }
+
+    /// <summary>Fired once when the clip finishes playing (play-once mode).</summary>
+    public event EventHandler? Completed;
+
     /// <summary>Attempt to create an animated GIF renderer for <paramref name="path"/>.</summary>
     /// <returns>The renderer, or <c>null</c> if the file is missing, not a GIF, or has no animation.</returns>
-    public static AvaloniaAnimatedGif? TryCreate(string path)
+    public static AvaloniaAnimatedGif? TryCreate(string path, bool playOnce = false)
     {
         try
         {
@@ -47,7 +54,7 @@ public sealed class AvaloniaAnimatedGif : IDisposable
                 return null;
             }
 
-            return new AvaloniaAnimatedGif(codec);
+            return new AvaloniaAnimatedGif(codec, playOnce);
         }
         catch
         {
@@ -55,9 +62,10 @@ public sealed class AvaloniaAnimatedGif : IDisposable
         }
     }
 
-    private AvaloniaAnimatedGif(SKCodec codec)
+    private AvaloniaAnimatedGif(SKCodec codec, bool playOnce)
     {
         _codec = codec;
+        _playOnce = playOnce;
         if (codec.FrameCount > 0)
         {
             _frames = new SKCodecFrameInfo[codec.FrameCount];
@@ -80,7 +88,7 @@ public sealed class AvaloniaAnimatedGif : IDisposable
             global::Avalonia.Platform.PixelFormat.Bgra8888,
             global::Avalonia.Platform.AlphaFormat.Premul);
 
-        _remainingLoops = Math.Max(-1, codec.RepetitionCount);
+        _remainingLoops = playOnce ? 1 : Math.Max(-1, codec.RepetitionCount);
 
         _timer.Tick += OnTick;
         RenderFrame();
@@ -118,9 +126,18 @@ public sealed class AvaloniaAnimatedGif : IDisposable
                 _remainingLoops--;
                 if (_remainingLoops == 0)
                 {
+                    IsComplete = true;
                     _timer.Stop();
+                    try { Completed?.Invoke(this, EventArgs.Empty); } catch { }
                     return;
                 }
+            }
+            else if (_playOnce)
+            {
+                IsComplete = true;
+                _timer.Stop();
+                try { Completed?.Invoke(this, EventArgs.Empty); } catch { }
+                return;
             }
         }
 

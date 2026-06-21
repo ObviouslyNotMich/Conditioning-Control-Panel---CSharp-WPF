@@ -13,7 +13,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using ConditioningControlPanel.Avalonia.Services.Companion;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using CoreApp = global::ConditioningControlPanel.App;
 using Microsoft.Extensions.DependencyInjection;

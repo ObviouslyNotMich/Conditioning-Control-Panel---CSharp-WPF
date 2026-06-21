@@ -1,4 +1,4 @@
-namespace ConditioningControlPanel.Core.Models.CommandData
+namespace ConditioningControlPanel.Models.CommandData
 {
     public interface IAiCommandData
     {

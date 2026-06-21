@@ -4,7 +4,8 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 
@@ -137,8 +138,8 @@ public partial class LockdownTabViewModel : TabItemViewModel
         if (_lockdownService == null) return;
 
         var confirmed = await (_dialogService?.ShowConfirmationAsync(
-            "Abort Lockdown",
-            "Are you sure you want to end the lockdown early? This will restore your previous strict-lock and panic-key settings.") ?? Task.FromResult(false));
+            Loc.Get("dialog_title_abort_lockdown"),
+            Loc.Get("dialog_message_abort_lockdown")) ?? Task.FromResult(false));
 
         if (confirmed)
         {
@@ -162,7 +163,7 @@ public partial class LockdownTabViewModel : TabItemViewModel
 
         if (!matched)
         {
-            WarningText = "That is not the secret phrase.";
+            WarningText = Loc.Get("tab_lockdown_wrong_secret_phrase_text");
         }
         else
         {
@@ -175,8 +176,8 @@ public partial class LockdownTabViewModel : TabItemViewModel
     private async Task UnlockAsync()
     {
         await (_dialogService?.ShowMessageAsync(
-            "Premium Locked",
-            "Link Patreon or Discord in the Profile tab to unlock Lockdown.",
+            Loc.Get("dialog_title_premium_locked"),
+            Loc.Get("dialog_message_lockdown_premium_locked"),
             DialogSeverity.Info) ?? Task.CompletedTask);
     }
 

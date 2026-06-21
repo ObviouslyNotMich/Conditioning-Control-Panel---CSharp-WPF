@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Localization;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 
@@ -40,19 +41,19 @@ public partial class WebcamQuickRecalWindow : Window
     {
         if (_frameSource == null)
         {
-            ShowError("Eye-tracking service is not available in the Avalonia port yet.");
+            ShowError(Loc.Get("window_webcam_quick_recal_service_unavailable_error"));
             return;
         }
 
         // TODO: wire real OnGazeMove stream once WebcamTrackingService is ported to CCP.Core.
         Dot.IsVisible = true;
-        TxtStatus.Text = "Get comfortable, then look at the pink dot.";
+        TxtStatus.Text = Loc.Get("window_webcam_quick_recal_get_comfortable_then_look_pink_dot_text");
         await Task.Delay(ReadyMs);
-        TxtStatus.Text = "Hold your gaze on the dot…";
+        TxtStatus.Text = Loc.Get("window_webcam_quick_recal_hold_gaze_status");
         await Task.Delay(SampleMs);
 
         _completedOk = true;
-        TxtStatus.Text = "Done. Cursor nudged by (0, 0) px.";
+        TxtStatus.Text = Loc.Get("window_webcam_quick_recal_done_nudged_status");
         await Task.Delay(FinishHoldMs);
         DialogResult = true;
         Close(true);

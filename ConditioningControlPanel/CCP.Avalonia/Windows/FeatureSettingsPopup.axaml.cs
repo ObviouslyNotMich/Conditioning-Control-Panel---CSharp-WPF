@@ -11,7 +11,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using Microsoft.Extensions.DependencyInjection;
 using CoreApp = ConditioningControlPanel.App;

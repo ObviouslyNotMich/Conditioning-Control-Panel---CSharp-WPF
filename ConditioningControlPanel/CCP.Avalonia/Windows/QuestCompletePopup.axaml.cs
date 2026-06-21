@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Localization;
 
 using Animation = global::Avalonia.Animation.Animation;
 using KeyFrame = global::Avalonia.Animation.KeyFrame;
@@ -31,8 +32,8 @@ public partial class QuestCompletePopup : Window
         InitializeComponent();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-TxtQuestName.Text = questName;
-        TxtXPAwarded.Text = $"+{xpAwarded} XP";
+        TxtQuestName.Text = questName;
+        TxtXPAwarded.Text = $"+{xpAwarded} {Loc.Get("label_xp")}";
 
         PositionWindow();
 

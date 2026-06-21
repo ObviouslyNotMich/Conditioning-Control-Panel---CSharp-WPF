@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Factory class for the 6 built-in personality presets.

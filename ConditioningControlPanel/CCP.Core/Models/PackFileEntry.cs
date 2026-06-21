@@ -1,4 +1,4 @@
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// Entry for a file in an installed content pack.

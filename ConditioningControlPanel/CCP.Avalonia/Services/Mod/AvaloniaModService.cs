@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Newtonsoft.Json;
@@ -264,6 +264,12 @@ public sealed class AvaloniaModService : IModService
             _ => Array.Empty<string>()
         };
     }
+
+    public string GetAttentionCheckFailMessage()
+        => MakeModAware(ActiveManifest.Messages?.AttentionCheckFail ?? "DUMB BAMBI!\nTRY AGAIN");
+
+    public string GetAttentionCheckMercyMessage()
+        => MakeModAware(ActiveManifest.Messages?.AttentionCheckMercy ?? "BAMBI GETS MERCY");
 
     #endregion
 

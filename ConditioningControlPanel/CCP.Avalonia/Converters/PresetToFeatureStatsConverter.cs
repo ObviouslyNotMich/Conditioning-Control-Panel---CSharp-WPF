@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.Converters;
 

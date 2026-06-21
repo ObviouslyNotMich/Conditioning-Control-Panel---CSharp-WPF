@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models.Deeper;
+using ConditioningControlPanel.Models.Deeper;
 using ConditioningControlPanel.Core.Platform;
 using Microsoft.Extensions.DependencyInjection;
 

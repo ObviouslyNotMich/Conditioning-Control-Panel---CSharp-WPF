@@ -17,13 +17,13 @@ public partial class WarningDialog : Window
         InitializeComponent();
     }
 
-    public WarningDialog(string title, string message, string confirmText = "I understand the risks")
+    public WarningDialog(string title, string message, string? confirmText = null)
     {
         InitializeComponent();
 
         TxtTitle.Text = title;
         TxtMessage.Text = message;
-        TxtConfirmLabel.Text = confirmText;
+        TxtConfirmLabel.Text = confirmText ?? Loc.Get("dialog_warning_i_understand_risks_text");
     }
 
     private void ChkConfirm_Changed(object? sender, RoutedEventArgs e)

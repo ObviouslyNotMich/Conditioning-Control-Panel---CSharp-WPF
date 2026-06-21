@@ -5,7 +5,8 @@
              x:Name="Root"
              x:DataType="vm:RemoteControlTabViewModel"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-             xmlns:features="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia">
+             xmlns:features="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base">
 
   <Design.DataContext>
     <vm:RemoteControlTabViewModel />
@@ -252,14 +253,23 @@
                       Background="{DynamicResource ElevatedSurfaceBrush}"
                       BorderBrush="{DynamicResource PinkBrush}"
                       BorderThickness="1"
-                      CornerRadius="8">
-                <TextBlock Text="{loc:Str tab_remote_control_qr_placeholder}"
-                           Foreground="{DynamicResource TextMutedBrush}"
-                           FontSize="12"
-                           TextWrapping="Wrap"
-                           TextAlignment="Center"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
+                      CornerRadius="8"
+                      ClipToBounds="True">
+                <Grid>
+                  <Image Source="{Binding PairingQrImage}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding PairingQrImage, Converter={x:Static conv:ObjectConverters.IsNotNull}}" />
+                  <TextBlock Text="{loc:Str tab_remote_control_qr_placeholder}"
+                             Foreground="{DynamicResource TextMutedBrush}"
+                             FontSize="12"
+                             TextWrapping="Wrap"
+                             TextAlignment="Center"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding PairingQrImage, Converter={x:Static conv:ObjectConverters.IsNull}}" />
+                </Grid>
               </Border>
             </StackPanel>
           </Grid>

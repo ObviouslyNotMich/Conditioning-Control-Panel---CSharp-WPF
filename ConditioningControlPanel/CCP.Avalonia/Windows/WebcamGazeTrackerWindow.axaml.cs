@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Localization;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 
@@ -41,7 +42,7 @@ public partial class WebcamGazeTrackerWindow : Window
     {
         if (_frameSource == null)
         {
-            ShowError("Webcam tracking is not running. Start tracking before opening the tracker test.");
+            ShowError(Loc.Get("window_webcam_gaze_tracker_tracking_not_running_error"));
             return;
         }
 

@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using ConditioningControlPanel.Core.Models.Deeper;
+using ConditioningControlPanel.Models.Deeper;
 
 namespace ConditioningControlPanel.Avalonia.Views.Deeper;
 

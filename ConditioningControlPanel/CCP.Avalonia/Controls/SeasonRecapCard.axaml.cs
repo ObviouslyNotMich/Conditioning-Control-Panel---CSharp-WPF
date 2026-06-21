@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -121,11 +121,13 @@ Loaded += OnLoaded;
         if (uriOrPath.StartsWith("pack://application:,,,/", StringComparison.Ordinal))
         {
             var relative = uriOrPath.Substring("pack://application:,,,/".Length);
+            if (relative.StartsWith("Resources/", StringComparison.Ordinal))
+                relative = relative.Substring("Resources/".Length);
             var avares = $"avares://CCP.Avalonia/Assets/{relative}";
             try
             {
                 using var stream = AssetLoader.Open(new Uri(avares));
-return new Bitmap(stream);
+                return new Bitmap(stream);
             }
             catch { /* fall through */ }
         }

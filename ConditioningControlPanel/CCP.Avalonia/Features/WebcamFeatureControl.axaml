@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
+             xmlns:views="using:ConditioningControlPanel.Avalonia.Views.Tabs"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.WebcamFeatureControl"
              x:Name="Root"
@@ -23,8 +24,9 @@
                  TextWrapping="Wrap" />
     </Border>
 
-    <StackPanel x:Name="SettingsHost"
-                IsVisible="{Binding Capabilities.SupportsScreenCapture, ElementName=Root, Converter={StaticResource BoolToVisibilityConverter}}" />
+    <views:WebcamEngineView
+        DataContext="{Binding WebcamViewModel, ElementName=Root}"
+        IsVisible="{Binding Capabilities.SupportsScreenCapture, ElementName=Root, Converter={StaticResource BoolToVisibilityConverter}}" />
   </StackPanel>
 
 </UserControl>

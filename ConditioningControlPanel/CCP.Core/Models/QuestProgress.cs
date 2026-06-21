@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// Tracks the current progress of active quests and reroll state.

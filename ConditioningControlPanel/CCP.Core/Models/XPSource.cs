@@ -1,4 +1,4 @@
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// Source categories for XP gain.

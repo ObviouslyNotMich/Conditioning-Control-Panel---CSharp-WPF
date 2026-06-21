@@ -38,10 +38,35 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
         [ObservableProperty]
         private ObservableCollection<string> _linkedProviders = new();
 
+        [ObservableProperty]
+        private int _playerLevel;
+
+        [ObservableProperty]
+        private string _playerXpText = "0";
+
+        [ObservableProperty]
+        private string _totalHoursText = "0h";
+
+        [ObservableProperty]
+        private string _peakRankText = "—";
+
+        [ObservableProperty]
+        private string _avatarInitials = "?";
+
+        [ObservableProperty]
+        private ObservableCollection<string> _badges = new();
+
         public ProfileTabViewModel()
             : base("discord", "Profile", "👤")
         {
             _settingsService = null!;
+            DisplayName = "Bambi";
+            AvatarInitials = "B";
+            PlayerLevel = 5;
+            PlayerXpText = "1 240";
+            TotalHoursText = "12.5h";
+            PeakRankText = "#3 / 1 200";
+            Badges = new ObservableCollection<string> { "Member", "Conditioned" };
         }
 
         public ProfileTabViewModel(ISettingsService settingsService, IAppLogger? logger = null)
@@ -84,6 +109,24 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
             if (settings.HasLinkedPatreon) providers.Add("Patreon");
             if (settings.HasLinkedDiscord) providers.Add("Discord");
             LinkedProviders = providers;
+
+            PlayerLevel = settings.PlayerLevel;
+            PlayerXpText = $"{settings.PlayerXP:F0}";
+            TotalHoursText = $"{settings.TotalConditioningMinutes / 60.0:F1}h";
+            PeakRankText = settings.SeasonPeakRank > 0 && settings.SeasonPeakRankTotal > 0
+                ? $"#{settings.SeasonPeakRank} / {settings.SeasonPeakRankTotal}"
+                : "—";
+            AvatarInitials = string.IsNullOrWhiteSpace(DisplayName)
+                ? "?"
+                : DisplayName.Trim().Substring(0, 1).ToUpperInvariant();
+
+            var badges = new ObservableCollection<string>();
+            if (IsLoggedIn) badges.Add(Loc.Get("badge_member"));
+            if (HasLinkedPatreon) badges.Add(Loc.Get("badge_patreon_supporter"));
+            if (settings.TotalConditioningMinutes >= 60) badges.Add(Loc.Get("badge_conditioned"));
+            if (settings.PlayerLevel >= 10) badges.Add(Loc.Get("badge_veteran"));
+            if (settings.SeasonPeakRank > 0 && settings.SeasonPeakRank <= 10) badges.Add(Loc.Get("badge_top_ten"));
+            Badges = badges;
 
             LoginStatusText = IsLoggedIn
                 ? Loc.Get("label_logged_in_as")

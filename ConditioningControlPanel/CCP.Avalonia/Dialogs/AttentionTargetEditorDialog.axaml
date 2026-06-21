@@ -145,12 +145,10 @@
                        Foreground="White"
                        VerticalAlignment="Center"
                        ToolTip.Tip="{loc:Str tooltip_remove_background_just_show_text_transparent}" />
-            <ToggleSwitch x:Name="ChkFloatingText"
-                          Grid.Column="1"
-                          VerticalAlignment="Center"
-                          IsCheckedChanged="ChkFloatingText_Changed"
-                          OnContent=""
-                          OffContent="" />
+            <CheckBox x:Name="ChkFloatingText"
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      IsCheckedChanged="ChkFloatingText_Changed" />
           </Grid>
 
           <!-- Border Toggle -->
@@ -158,12 +156,10 @@
             <TextBlock Text="{loc:Str label_show_border}"
                        Foreground="White"
                        VerticalAlignment="Center" />
-            <ToggleSwitch x:Name="ChkShowBorder"
-                          Grid.Column="1"
-                          VerticalAlignment="Center"
-                          IsCheckedChanged="ChkShowBorder_Changed"
-                          OnContent=""
-                          OffContent="" />
+            <CheckBox x:Name="ChkShowBorder"
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      IsCheckedChanged="ChkShowBorder_Changed" />
           </Grid>
 
           <!-- Border Color -->

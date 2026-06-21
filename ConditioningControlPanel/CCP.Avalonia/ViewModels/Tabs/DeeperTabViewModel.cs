@@ -10,7 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Avalonia.Views.Deeper;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models.Deeper;
+using ConditioningControlPanel.Models.Deeper;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 

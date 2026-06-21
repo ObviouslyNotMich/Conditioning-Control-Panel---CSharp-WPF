@@ -1,5 +1,5 @@
 using System;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Settings;
 
 namespace ConditioningControlPanel.Avalonia.Platform;

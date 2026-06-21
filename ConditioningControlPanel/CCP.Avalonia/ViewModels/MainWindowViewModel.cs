@@ -10,14 +10,17 @@ using Avalonia.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Avalonia.Chaos;
+using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Avalonia.Models;
 using ConditioningControlPanel.Avalonia.Platform;
 using ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Sessions;
+using ConditioningControlPanel.Core.Services.Update;
+using Session = ConditioningControlPanel.Models.Session;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,7 +32,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly ISessionService? _sessionService;
     private readonly ISessionManager? _sessionManager;
     private readonly IDialogService? _dialogService;
-    private readonly IUpdateInstaller? _updateInstaller;
+    private readonly IUpdateService? _updateService;
     private readonly IAppLogger? _logger;
     private readonly IUiDispatcher? _uiDispatcher;
     private readonly IScheduler? _scheduler;
@@ -45,6 +48,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly IProgressionService? _progressionService;
     private readonly ISkillTreeService? _skillTreeService;
     private readonly IRemoteControlService? _remoteControlService;
+    private readonly ISessionEffectOrchestrator? _effectOrchestrator;
 
     private IDisposable? _clockTimer;
     private IDisposable? _sessionProgressTimer;
@@ -77,7 +81,7 @@ public partial class MainWindowViewModel : ObservableObject
         _sessionService = services.GetService<ISessionService>();
         _sessionManager = services.GetService<ISessionManager>();
         _dialogService = services.GetService<IDialogService>();
-        _updateInstaller = services.GetService<IUpdateInstaller>();
+        _updateService = services.GetService<IUpdateService>();
         _logger = services.GetService<IAppLogger>();
         _uiDispatcher = services.GetService<IUiDispatcher>();
         _scheduler = services.GetService<IScheduler>();
@@ -93,6 +97,7 @@ public partial class MainWindowViewModel : ObservableObject
         _progressionService = services.GetService<IProgressionService>();
         _skillTreeService = services.GetService<ISkillTreeService>();
         _remoteControlService = services.GetService<IRemoteControlService>();
+        _effectOrchestrator = services.GetService<ISessionEffectOrchestrator>();
 
         InitializeTabs();
         UpdateHeaderFromSettings();
@@ -500,14 +505,12 @@ public partial class MainWindowViewModel : ObservableObject
         IsLoggedIn = !string.IsNullOrEmpty(s.UnifiedId);
         DisplayName = s.UserDisplayName ?? "";
 
-        var installed = _updateInstaller?.GetInstalledVersion();
-        HeaderVersionText = !string.IsNullOrEmpty(installed) ? $"v{installed}" : "";
-        UpdateButtonText = !string.IsNullOrEmpty(installed)
-            ? $"v{installed}"
-            : Loc.Get("btn_check_updates");
+        var currentVersion = UpdateService.GetCurrentVersion().ToString(3);
+        HeaderVersionText = $"v{currentVersion}";
+        UpdateButtonText = $"v{currentVersion}";
+        Title = $"Conditioning Control Panel v{currentVersion}";
 
-        Title = $"Conditioning Control Panel v{installed ?? "6.1.4"}";
-
+        SubscribeUpdateEvents();
         RefreshProgressionHeader();
     }
 
@@ -676,6 +679,82 @@ public partial class MainWindowViewModel : ObservableObject
         };
     }
 
+    private void SubscribeUpdateEvents()
+    {
+        if (_updateService == null) return;
+
+        _updateService.UpdateAvailable += (_, update) =>
+        {
+            _uiDispatcher?.Post(() => _ = ShowUpdateNotificationAsync(update));
+        };
+        _updateService.UpdateFailed += (_, ex) =>
+        {
+            _logger?.Warning(ex, "Update check failed");
+        };
+
+        // Background check on startup (fire-and-forget; skip on mobile/dev runs).
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                await _updateService.CheckForUpdatesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning(ex, "Background update check failed");
+            }
+        });
+    }
+
+    private async Task ShowUpdateNotificationAsync(UpdateInfo update)
+    {
+        try
+        {
+            UpdatePillState = "UpdateAvailable";
+            UpdateButtonText = $"v{update.Version}";
+
+            var dialog = new UpdateNotificationDialog(update);
+            var owner = GetCurrentWindow();
+            bool? result;
+            if (owner != null)
+                result = await dialog.ShowDialog<bool?>(owner);
+            else
+            {
+                dialog.Show();
+                result = dialog.InstallRequested ? true : null;
+            }
+
+            if (result == true)
+            {
+                UpdateButtonText = Loc.Get("btn_downloading");
+                var downloaded = await _updateService!.DownloadUpdateAsync();
+                if (downloaded)
+                {
+                    await _updateService.InstallUpdateAsync();
+                }
+                else
+                {
+                    UpdateButtonText = $"v{update.Version}";
+                    await (_dialogService?.ShowMessageAsync(
+                        Loc.Get("title_update_failed"),
+                        Loc.Get("msg_update_download_failed")) ?? Task.CompletedTask);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to show update notification");
+        }
+    }
+
+    private Window? GetCurrentWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            return desktop.MainWindow;
+        return null;
+    }
+
     private void OnRemoteControllerConnectedChanged(object? sender, EventArgs e)
     {
         _uiDispatcher?.Post(() =>
@@ -748,6 +827,8 @@ public partial class MainWindowViewModel : ObservableObject
                 IsEngineRunning = true;
                 UpdateStartButton();
                 StartConditioningTimeTracker();
+                if (_sessionService.CurrentSession is { } session)
+                    _effectOrchestrator?.StartEffects(session);
             });
         };
 
@@ -758,6 +839,7 @@ public partial class MainWindowViewModel : ObservableObject
                 IsEngineRunning = false;
                 UpdateStartButton();
                 StopConditioningTimeTracker();
+                _effectOrchestrator?.StopEffects();
             });
         };
 
@@ -768,6 +850,7 @@ public partial class MainWindowViewModel : ObservableObject
                 IsEngineRunning = false;
                 UpdateStartButton();
                 StopConditioningTimeTracker();
+                _effectOrchestrator?.StopEffects();
                 _progressionService?.AddXP(e.XPEarned, XPSource.Session);
                 RefreshProgressionHeader();
                 _logger?.Information("Session completed: {Name}, XP: {XP}", e.Session.Name, e.XPEarned);
@@ -1455,20 +1538,26 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task CheckUpdatesAsync()
     {
+        if (_updateService == null) return;
+
         UpdateButtonText = Loc.Get("btn_checking");
         try
         {
             _logger?.Information("Manual update check requested");
-            await Task.Delay(250);
-            UpdateButtonText = Loc.Get("btn_check_updates");
-            await (_dialogService?.ShowMessageAsync(
-                Loc.Get("title_up_to_date"),
-                Loc.Get("msg_you_are_on_the_latest_version")) ?? Task.CompletedTask);
+            var update = await _updateService.CheckForUpdatesAsync(forceCheck: true);
+            if (update == null || !update.IsNewer)
+            {
+                UpdateButtonText = $"v{UpdateService.GetCurrentVersion():3}";
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_up_to_date"),
+                    Loc.Get("msg_you_are_on_the_latest_version")) ?? Task.CompletedTask);
+            }
+            // If an update is available, the UpdateAvailable handler shows the dialog.
         }
         catch (Exception ex)
         {
             _logger?.Error(ex, "Update check failed");
-            UpdateButtonText = Loc.Get("btn_check_updates");
+            UpdateButtonText = $"v{UpdateService.GetCurrentVersion():3}";
         }
     }
 

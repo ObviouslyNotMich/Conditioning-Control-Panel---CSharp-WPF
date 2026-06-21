@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models.CommandData
+namespace ConditioningControlPanel.Models.CommandData
 {
     public record GetBackToMe(
         int Delay,

@@ -1,4 +1,4 @@
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Core.Services.Sessions;
 
@@ -50,13 +50,13 @@ public class SessionProgressEventArgs : EventArgs
 /// </summary>
 public class SessionCompletedEventArgs : EventArgs
 {
-    public ConditioningControlPanel.Core.Models.Session Session { get; }
+    public ConditioningControlPanel.Models.Session Session { get; }
     public TimeSpan Duration { get; }
     public int XPEarned { get; }
     public int PauseCount { get; }
     public int XPPenalty => PauseCount * 100;
 
-    public SessionCompletedEventArgs(ConditioningControlPanel.Core.Models.Session session, TimeSpan duration, int xp, int pauseCount = 0)
+    public SessionCompletedEventArgs(ConditioningControlPanel.Models.Session session, TimeSpan duration, int xp, int pauseCount = 0)
     {
         Session = session;
         Duration = duration;

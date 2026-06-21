@@ -1,6 +1,6 @@
 using System;
 using System.Linq;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using Xunit;
 
 namespace ConditioningControlPanel.Core.Tests;

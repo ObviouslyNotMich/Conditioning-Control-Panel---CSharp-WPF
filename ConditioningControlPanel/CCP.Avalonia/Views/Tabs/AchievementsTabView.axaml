@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
              x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.AchievementsTabView"
              x:DataType="vm:AchievementsTabViewModel">
 
@@ -10,13 +11,44 @@
   </Design.DataContext>
 
   <ScrollViewer>
-    <StackPanel Spacing="12" Margin="16">
-      <TextBlock Text="{loc:Str tab_achievements}"
-                 FontSize="20"
-                 FontWeight="Bold"
-                 Foreground="White" />
+    <StackPanel Spacing="16" Margin="24">
 
-      <StackPanel Orientation="Horizontal" Spacing="8">
+      <!-- Banner -->
+      <Border Height="140"
+              CornerRadius="12"
+              ClipToBounds="True">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#1A1A2E" />
+            <GradientStop Offset="1" Color="#5A3A1A" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+          <Border Opacity="0.12"
+                  Background="White"
+                  Width="260"
+                  Height="260"
+                  CornerRadius="130"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  Margin="0,0,-60,-100" />
+          <StackPanel VerticalAlignment="Center" Margin="24,0">
+            <TextBlock Text="{loc:Str tab_achievements_banner_title}"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       Foreground="White" />
+            <TextBlock Text="{loc:Str tab_achievements_banner_subtitle}"
+                       FontSize="14"
+                       Foreground="{DynamicResource TextMutedBrush}"
+                       TextWrapping="Wrap"
+                       MaxWidth="520"
+                       HorizontalAlignment="Left" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Actions -->
+      <StackPanel Orientation="Horizontal" Spacing="12">
         <Button Content="{loc:Str btn_refresh}"
                 Command="{Binding RefreshCommand}" />
         <Button Content="{loc:Str btn_view_season_recap}"
@@ -24,18 +56,53 @@
                 IsVisible="{Binding HasSeasonRecap}" />
       </StackPanel>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <!-- Summary -->
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+        <Border Grid.Column="0"
+                Background="{DynamicResource SurfaceBgBrush}"
+                BorderBrush="{DynamicResource TransparentPinkBrush}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="16">
+          <StackPanel Spacing="4">
+            <TextBlock Text="{Binding FreeCountText}"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <TextBlock Text="Free Achievements"
+                       FontSize="12"
+                       Foreground="{DynamicResource TextMutedBrush}" />
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1"
+                Background="{DynamicResource SurfaceBgBrush}"
+                BorderBrush="{DynamicResource TransparentPinkBrush}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="16">
+          <StackPanel Spacing="4">
+            <TextBlock Text="{Binding PatronCountText}"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PinkBrush}" />
+            <TextBlock Text="Patron Achievements"
+                       FontSize="12"
+                       Foreground="{DynamicResource TextMutedBrush}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Free achievements -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
+              CornerRadius="12"
               Padding="16">
-        <StackPanel Spacing="10">
+        <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str section_free_achievements}"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="#FF69B4" />
-          <TextBlock Text="{Binding FreeCountText}"
-                     Opacity="0.8" />
+                     FontSize="16"
+                     FontWeight="Bold"
+                     Foreground="White" />
           <ItemsControl ItemsSource="{Binding FreeTiles}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -46,40 +113,59 @@
               <DataTemplate DataType="vm:AchievementTileViewModel">
                 <Border Width="160"
                         Height="120"
-                        Background="#252540"
-                        BorderBrush="#FF69B4"
+                        Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource PinkBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
                         Padding="10"
                         Margin="4"
                         ToolTip.Tip="{Binding ToolTip}">
-                  <Grid RowDefinitions="*,Auto,Auto">
-                    <TextBlock Grid.Row="0"
+                  <Grid RowDefinitions="Auto,*,Auto,Auto">
+                    <Image Grid.Row="0"
+                           Source="{Binding IconUri, Converter={StaticResource PackUriToBitmapConverter}}"
+                           Width="48"
+                           Height="48"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Margin="0,0,0,6"
+                           IsVisible="{Binding IconUri, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Grid.Row="1"
                                Text="{Binding Name}"
                                FontWeight="SemiBold"
                                Foreground="White"
                                TextWrapping="Wrap"
                                TextAlignment="Center"
                                VerticalAlignment="Center" />
-                    <TextBlock Grid.Row="1"
+                    <TextBlock Grid.Row="2"
                                Text="{Binding Requirement}"
                                FontSize="10"
-                               Opacity="0.7"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap"
                                TextAlignment="Center"
                                Margin="0,4,0,0" />
-                    <TextBlock Grid.Row="2"
+                    <TextBlock Grid.Row="3"
                                Text="{loc:Str achievement_status_unlocked}"
                                FontSize="11"
-                               Foreground="#FF69B4"
+                               Foreground="{DynamicResource PinkBrush}"
                                TextAlignment="Center"
                                IsVisible="{Binding IsUnlocked}" />
-                    <TextBlock Grid.Row="2"
+                    <TextBlock Grid.Row="3"
                                Text="{loc:Str achievement_status_locked}"
                                FontSize="11"
-                               Foreground="#8888AA"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextAlignment="Center"
                                IsVisible="{Binding !IsUnlocked}" />
+                    <Border Grid.Row="0"
+                            Grid.RowSpan="4"
+                            Background="#CC000000"
+                            CornerRadius="8"
+                            IsVisible="{Binding !IsUnlocked}">
+                      <TextBlock Text="🔒"
+                                 FontSize="28"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                    </Border>
                   </Grid>
                 </Border>
               </DataTemplate>
@@ -88,19 +174,18 @@
         </StackPanel>
       </Border>
 
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <!-- Patron achievements -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource TransparentPinkBrush}"
               BorderThickness="1"
-              CornerRadius="10"
+              CornerRadius="12"
               Padding="16">
         <Grid>
-          <StackPanel Spacing="10">
+          <StackPanel Spacing="12">
             <TextBlock Text="{loc:Str section_patron_achievements_title}"
-                       FontSize="14"
-                       FontWeight="SemiBold"
-                       Foreground="#FF69B4" />
-            <TextBlock Text="{Binding PatronCountText}"
-                       Opacity="0.8" />
+                       FontSize="16"
+                       FontWeight="Bold"
+                       Foreground="White" />
             <ItemsControl ItemsSource="{Binding PatronTiles}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -111,39 +196,59 @@
                 <DataTemplate DataType="vm:AchievementTileViewModel">
                   <Border Width="160"
                           Height="120"
-                          Background="#252540"
-                          BorderBrush="#FF69B4"
+                          Background="{DynamicResource PanelBgBrush}"
+                          BorderBrush="{DynamicResource PinkBrush}"
                           BorderThickness="1"
                           CornerRadius="8"
                           Padding="10"
+                          Margin="4"
                           ToolTip.Tip="{Binding ToolTip}">
-                    <Grid RowDefinitions="*,Auto,Auto">
-                      <TextBlock Grid.Row="0"
+                    <Grid RowDefinitions="Auto,*,Auto,Auto">
+                      <Image Grid.Row="0"
+                             Source="{Binding IconUri, Converter={StaticResource PackUriToBitmapConverter}}"
+                             Width="48"
+                             Height="48"
+                             Stretch="Uniform"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Margin="0,0,0,6"
+                             IsVisible="{Binding IconUri, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                      <TextBlock Grid.Row="1"
                                  Text="{Binding Name}"
                                  FontWeight="SemiBold"
                                  Foreground="White"
                                  TextWrapping="Wrap"
                                  TextAlignment="Center"
                                  VerticalAlignment="Center" />
-                      <TextBlock Grid.Row="1"
+                      <TextBlock Grid.Row="2"
                                  Text="{Binding Requirement}"
                                  FontSize="10"
-                                 Opacity="0.7"
+                                 Foreground="{DynamicResource TextMutedBrush}"
                                  TextWrapping="Wrap"
                                  TextAlignment="Center"
                                  Margin="0,4,0,0" />
-                      <TextBlock Grid.Row="2"
+                      <TextBlock Grid.Row="3"
                                  Text="{loc:Str achievement_status_unlocked}"
                                  FontSize="11"
-                                 Foreground="#FF69B4"
+                                 Foreground="{DynamicResource PinkBrush}"
                                  TextAlignment="Center"
                                  IsVisible="{Binding IsUnlocked}" />
-                      <TextBlock Grid.Row="2"
+                      <TextBlock Grid.Row="3"
                                  Text="{loc:Str achievement_status_locked}"
                                  FontSize="11"
-                                 Foreground="#8888AA"
+                                 Foreground="{DynamicResource TextMutedBrush}"
                                  TextAlignment="Center"
                                  IsVisible="{Binding !IsUnlocked}" />
+                      <Border Grid.Row="0"
+                              Grid.RowSpan="4"
+                              Background="#CC000000"
+                              CornerRadius="8"
+                              IsVisible="{Binding !IsUnlocked}">
+                        <TextBlock Text="🔒"
+                                   FontSize="28"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                      </Border>
                     </Grid>
                   </Border>
                 </DataTemplate>
@@ -151,15 +256,15 @@
             </ItemsControl>
           </StackPanel>
 
-          <Border Background="#1A1A2E"
-                  CornerRadius="10"
+          <Border Background="{DynamicResource SurfaceBgBrush}"
+                  CornerRadius="12"
                   IsVisible="{Binding ShowPatronOverlay}"
                   Opacity="0.9"
                   Padding="20">
             <TextBlock Text="{loc:Str msg_patron_achievements_locked}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       Foreground="#FF69B4"
+                       Foreground="{DynamicResource PinkBrush}"
                        FontWeight="SemiBold"
                        TextWrapping="Wrap"
                        TextAlignment="Center" />

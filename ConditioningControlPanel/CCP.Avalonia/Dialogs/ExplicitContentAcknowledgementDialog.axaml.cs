@@ -4,7 +4,7 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Dialogs;

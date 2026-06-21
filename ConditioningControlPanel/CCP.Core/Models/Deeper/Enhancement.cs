@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace ConditioningControlPanel.Core.Models.Deeper
+namespace ConditioningControlPanel.Models.Deeper
 {
     public class Enhancement
     {

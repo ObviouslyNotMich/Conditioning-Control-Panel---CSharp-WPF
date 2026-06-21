@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using ConditioningControlPanel.Core.Localization;
 
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// Defines a skill in the bimbo enhancement tree

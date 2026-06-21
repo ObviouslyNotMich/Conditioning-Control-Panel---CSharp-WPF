@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Defines the four built-in mods (CCPDefault, BambiSleep, SissyHypno, Dronification) as ModManifest objects.

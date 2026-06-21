@@ -1,7 +1,7 @@
 using System;
 using Newtonsoft.Json;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Tracks one Deeper enhancement the user has submitted to the catalogue so

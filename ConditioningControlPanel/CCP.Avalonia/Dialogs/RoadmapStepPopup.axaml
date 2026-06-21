@@ -49,7 +49,7 @@
                  IsVisible="False" />
           <!-- Default checkmark icon -->
           <TextBlock x:Name="CheckmarkIcon"
-                     Text="✓"
+                     Text="{loc:Str dialog_icon_checkmark}"
                      FontSize="48"
                      FontWeight="Bold"
                      Foreground="#00E676"
@@ -62,7 +62,7 @@
       <StackPanel Grid.Column="1" VerticalAlignment="Center">
         <!-- Star Icon + "Step Complete" -->
         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-          <TextBlock Text="✨"
+          <TextBlock Text="{loc:Str dialog_icon_star}"
                      FontSize="22"
                      VerticalAlignment="Center"
                      Margin="0,0,8,0" />
@@ -93,7 +93,7 @@
 
       <!-- Close Button -->
       <Button Grid.Column="1"
-              Content="✕"
+              Content="{loc:Str dialog_icon_close}"
               HorizontalAlignment="Right"
               VerticalAlignment="Top"
               Width="24"

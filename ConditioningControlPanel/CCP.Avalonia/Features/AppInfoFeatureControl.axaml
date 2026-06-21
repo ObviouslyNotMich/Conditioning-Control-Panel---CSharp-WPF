@@ -36,6 +36,7 @@
 
     <Button x:Name="BtnCheckUpdates"
             Content="{loc:Str btn_check_updates}"
+            Theme="{StaticResource OutlineButton}"
             Padding="14,12"
             FontSize="14"
             Click="BtnCheckUpdates_Click"
@@ -43,6 +44,7 @@
 
     <Button x:Name="BtnReportBug"
             Content="{loc:Str btn_report_bug}"
+            Theme="{StaticResource OutlineButton}"
             Padding="14,12"
             FontSize="14"
             Click="BtnReportBug_Click" />

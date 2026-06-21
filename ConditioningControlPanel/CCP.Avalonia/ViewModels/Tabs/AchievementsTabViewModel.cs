@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services;
 using ConditioningControlPanel.Core.Services.Progression;
@@ -192,7 +192,12 @@ public partial class AchievementTileViewModel : ObservableObject
     private string _flavorText = "";
 
     [ObservableProperty]
+    [global::CommunityToolkit.Mvvm.ComponentModel.NotifyPropertyChangedFor(nameof(IconUri))]
     private string _imageName = "";
+
+    public string IconUri => string.IsNullOrWhiteSpace(ImageName)
+        ? ""
+        : $"pack://application:,,,/Resources/achievements/{ImageName}";
 
     [ObservableProperty]
     private bool _isUnlocked;

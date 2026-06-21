@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        xmlns:models="using:ConditioningControlPanel.Core.Models"
+        xmlns:models="using:ConditioningControlPanel.Models"
         x:Class="ConditioningControlPanel.Avalonia.Dialogs.CataloguePickerDialog"
         Title="{Binding [dialog_catalogue_picker_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="620"
@@ -35,7 +35,7 @@
                   Orientation="Horizontal"
                   Spacing="12"
                   Margin="0,0,0,6">
-        <TextBlock Text="📥"
+        <TextBlock Text="{Binding [dialog_catalogue_picker_title_icon], Source={x:Static loc:LocalizationManager.Instance}}"
                    FontSize="28"
                    VerticalAlignment="Center" />
         <TextBlock Text="{Binding [dialog_catalogue_picker_title], Source={x:Static loc:LocalizationManager.Instance}}"
@@ -85,7 +85,7 @@
                           BorderThickness="1"
                           VerticalAlignment="Center"
                           ClipToBounds="True">
-                    <TextBlock Text="▶"
+                    <TextBlock Text="{Binding [dialog_catalogue_picker_play_icon], Source={x:Static loc:LocalizationManager.Instance}}"
                                FontSize="22"
                                Foreground="#606080"
                                HorizontalAlignment="Center"

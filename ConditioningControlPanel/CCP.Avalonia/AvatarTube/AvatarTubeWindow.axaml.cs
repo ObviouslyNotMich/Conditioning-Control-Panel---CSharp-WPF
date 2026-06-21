@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -17,8 +18,12 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Progression;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.AIService;
+using ConditioningControlPanel.Core.Services.Moderation;
+using ModerationSource = ConditioningControlPanel.Core.Services.Moderation.ModerationSource;
 using ConditioningControlPanel.Avalonia.Views;
 using CoreApp = ConditioningControlPanel.App;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,17 +34,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.AvatarTube
 {
-    public enum ModerationSource
-    {
-        Input,
-        Output
-    }
-
     public partial class AvatarTubeWindow : Window
     {
         private readonly global::ConditioningControlPanel.IAppLogger? _logger;
         private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService? _settings;
-
+        private readonly IAudioPlayer? _audioPlayer;
+        private readonly IProgressionService? _progression;
+        private readonly global::ConditioningControlPanel.IModService? _modService;
 
         private readonly Window? _parentWindow;
         private bool _isAttached = true;
@@ -135,6 +136,10 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private bool _reattachAfterChaos;
         private bool _chaosRunActive;
 
+        private bool _isDragging;
+        private PixelPoint _dragStartWindowPos;
+        private global::Avalonia.Point _dragStartPointerPos;
+
         private bool IsAvatarVisibleOnScreen => IsVisible && !IsEffectivelyMinimized();
 
         public ObservableCollection<ChatMessage> ChatHistory { get; } = new();
@@ -150,6 +155,11 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
             _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
             _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
+            _audioPlayer = App.Services.GetService<IAudioPlayer>();
+            _progression = App.Services.GetService<IProgressionService>();
+            _modService = App.Services.GetService<global::ConditioningControlPanel.IModService>();
+            if (_modService != null)
+                _modService.ActiveModChanged += OnModChanged;
 _parentWindow = parentWindow;
 
             _poseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
@@ -158,6 +168,8 @@ _parentWindow = parentWindow;
             Loaded += (_, _) => ApplyChatShortcutTo(this);
             KeyDown += AvatarTubeWindow_PreviewKeyDown;
             PointerPressed += Window_PointerPressed;
+            PointerReleased += Window_PointerReleased;
+            PointerMoved += Window_PointerMoved;
             PointerWheelChanged += Window_PointerWheelChanged;
 
             ChatHistoryList.ItemsSource = ChatHistory;
@@ -239,12 +251,59 @@ _parentWindow = parentWindow;
 
         private void Window_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            // TODO: report autonomy activity and close input panel when clicking outside it.
+            var point = e.GetCurrentPoint(this);
+            if (point.Properties.IsLeftButtonPressed && !_isAttached)
+            {
+                _isDragging = true;
+                _dragStartPointerPos = point.Position;
+                _dragStartWindowPos = Position;
+                e.Pointer.Capture(this);
+                e.Handled = true;
+                return;
+            }
+
+            if (_isInputVisible && InputPanel != null)
+            {
+                var source = e.Source as Visual;
+                if (source != null && !IsDescendantOf(source, InputPanel))
+                    HideInputPanel();
+            }
+        }
+
+        private void Window_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isDragging) return;
+            var pos = e.GetPosition(this);
+            var delta = pos - _dragStartPointerPos;
+            Position = new PixelPoint(
+                _dragStartWindowPos.X + (int)delta.X,
+                _dragStartWindowPos.Y + (int)delta.Y);
+            ClampAvatarPosition();
+        }
+
+        private void Window_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (_isDragging)
+            {
+                _isDragging = false;
+                e.Pointer.Capture(null);
+            }
         }
 
         private void Window_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
         {
-            // TODO: resize detached avatar with Ctrl+scroll.
+            if (!_isAttached && e.KeyModifiers == KeyModifiers.Control)
+            {
+                var delta = e.Delta.Y > 0 ? ScaleStep : -ScaleStep;
+                double next = Math.Clamp(_currentScale + delta, MinScale, MaxScale);
+                if (next != _currentScale)
+                {
+                    _currentScale = next;
+                    ApplyScale();
+                    UpdateResizeMenuState();
+                }
+                e.Handled = true;
+            }
         }
 
         private void BtnCloseChatHistory_Click(object? sender, RoutedEventArgs e)
@@ -325,7 +384,11 @@ _parentWindow = parentWindow;
         }
         private void MenuItemTriggerMode_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO: toggle trigger mode in settings.
+            if (_settings?.Current == null) return;
+            _settings.Current.TriggerModeEnabled = !_settings.Current.TriggerModeEnabled;
+            _settings.Save();
+            RestartTriggerTimer();
+            UpdateQuickMenuState();
         }
         private void MenuItemBambiTakeover_Click(object? sender, RoutedEventArgs e)
         {
@@ -339,7 +402,10 @@ _parentWindow = parentWindow;
         }
         private void MenuItemEmote_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO: send remote emote through the companion/chat seam.
+            if (sender is MenuItem { Tag: string emote } && _circeEngine?.IsActive == true)
+            {
+                _circeEngine.PlayEmote(emote, null, emote, null);
+            }
         }
         private void MenuItemShowChatHistory_Click(object? sender, RoutedEventArgs e) => EnterChatHistoryMode();
         private void MenuItemMuteWhispers_Click(object? sender, RoutedEventArgs e)
@@ -366,17 +432,36 @@ _parentWindow = parentWindow;
         }
 
         // ===== Open chat command =====
-        public static readonly ICommand OpenChatCommand = new RelayCommand(_ => { });
+        public static readonly ICommand OpenChatCommand = new RelayCommand(param =>
+        {
+            if (param is AvatarTubeWindow tube) tube.OpenChatInput();
+        });
 
         public static void ApplyChatShortcutTo(Window window)
         {
-            // TODO: parse CoreApp.Settings.Current.CompanionPrompt and attach a KeyBinding to OpenChatCommand.
+            if (window is not AvatarTubeWindow tube) return;
+            var settings = CoreApp.Settings?.Current?.CompanionPrompt;
+            if (settings == null) return;
+
+            if (!TryParseModifiers(settings.ChatShortcutModifiers, out var modifiers))
+                modifiers = KeyModifiers.Control;
+            if (!Enum.TryParse<Key>(settings.ChatShortcutKey, true, out var key))
+                key = Key.T;
+
+            window.KeyBindings.Add(new KeyBinding
+            {
+                Gesture = new KeyGesture(key, modifiers),
+                Command = OpenChatCommand,
+                CommandParameter = tube
+            });
         }
 
         public static string FormatChatShortcut()
         {
-            // TODO: read CompanionPrompt settings.
-            return "Ctrl+T";
+            var settings = CoreApp.Settings?.Current?.CompanionPrompt;
+            if (settings == null) return "Ctrl+T";
+            var mods = SerializeModifiers(TryParseModifiers(settings.ChatShortcutModifiers, out var m) ? m : KeyModifiers.Control);
+            return string.IsNullOrEmpty(mods) ? settings.ChatShortcutKey : $"{mods}+{settings.ChatShortcutKey}";
         }
 
         public void OpenChatInput()
@@ -387,19 +472,42 @@ _parentWindow = parentWindow;
 
         private void UpdateQuickMenuState()
         {
-            // TODO: sync menu item visibility/enabled state from settings and remote control state.
+            if (MenuItemMute != null) MenuItemMute.Header = _isMuted ? "Unmute" : "Mute";
+            if (MenuItemTriggerMode != null && _settings?.Current != null)
+                MenuItemTriggerMode.Header = _settings.Current.TriggerModeEnabled ? "Stop trigger mode" : "Start trigger mode";
+            UpdateContextMenuForState();
+            UpdateResizeMenuState();
+            RefreshEmoteMenuItemsForRemoteState();
         }
         private void UpdateResizeMenuState()
         {
-            // TODO: enable/disable shrink/grow based on current scale.
+            if (MenuItemShrink != null) MenuItemShrink.IsEnabled = !_isAttached && _currentScale > MinScale;
+            if (MenuItemGrow != null) MenuItemGrow.IsEnabled = !_isAttached && _currentScale < MaxScale;
         }
         private void UpdateContextMenuForState()
         {
-            // TODO: swap attach/detach visibility.
+            if (MenuItemDetach != null) MenuItemDetach.IsVisible = _isAttached;
+            if (MenuItemAttach != null) MenuItemAttach.IsVisible = !_isAttached;
+            if (MenuItemShrink != null) MenuItemShrink.IsVisible = !_isAttached;
+            if (MenuItemGrow != null) MenuItemGrow.IsVisible = !_isAttached;
         }
         private void RefreshEmoteMenuItemsForRemoteState()
         {
-            // TODO: populate remote emote presets when a controller is connected.
+            var emoteItems = new[] { MenuItemEmote1, MenuItemEmote2, MenuItemEmote3, MenuItemEmote4, MenuItemEmote5 };
+            if (_circeEngine?.IsActive != true)
+            {
+                foreach (var mi in emoteItems) if (mi != null) mi.IsVisible = false;
+                return;
+            }
+            var pool = new[] { "giggle", "sultry", "wink", "tease", "blowkiss" };
+            for (int i = 0; i < emoteItems.Length; i++)
+            {
+                var mi = emoteItems[i];
+                if (mi == null) continue;
+                mi.Header = i < pool.Length ? char.ToUpperInvariant(pool[i][0]) + pool[i][1..] : "Emote";
+                mi.IsVisible = i < pool.Length;
+                mi.Tag = i < pool.Length ? pool[i] : null;
+            }
         }
 
         // ===== Input panel =====
@@ -480,22 +588,48 @@ _parentWindow = parentWindow;
             var input = TxtUserInput?.Text?.Trim();
             if (string.IsNullOrEmpty(input)) return;
 
+            var counter = App.Services.GetService<global::ConditioningControlPanel.Avalonia.Services.Moderation.IModerationCounter>();
+            var counterState = counter?.GetState();
+            if (counterState?.CooldownActive == true)
+            {
+                _logger?.Information("AvatarTubeWindow: chat send swallowed (cooldown active)");
+                return;
+            }
+
             if (TxtUserInput != null) TxtUserInput.Text = "";
             ToggleInputPanel();
 
-            // TODO: moderation cooldown gate.
-            AddToChatHistory(input, true);
-
             bool aiEnabled = _settings?.Current?.AiChatEnabled == true;
-            if (aiEnabled)
+            var ai = App.Services.GetService<IAiService>();
+            if (aiEnabled && ai != null && ai.IsAvailable)
             {
-                StartThinkingAnimation();
-                await Task.Delay(500); // placeholder
-                StopThinkingAnimation();
-                GigglePriority("TODO: AI reply placeholder", aiGenerated: false);
+                try
+                {
+                    StartThinkingAnimation();
+                    var result = await ai.GetBambiReplyExAsync(input);
+
+                    if (result.Refusal != null)
+                    {
+                        PlayDoubleBounce();
+                        ShowModerationRefusalBubble(result.Refusal.Source);
+                    }
+                    else
+                    {
+                        AddToChatHistory(input, true);
+                        PlayDoubleBounce();
+                        GigglePriority(result.Text, aiGenerated: result.IsAiGenerated);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warning(ex, "Failed to get AI reply");
+                    AddToChatHistory(input, true);
+                    GigglePriority(GetRandomBambiPhrase(), aiGenerated: false);
+                }
             }
             else
             {
+                AddToChatHistory(input, true);
                 Giggle(GetRandomBambiPhrase());
             }
         }
@@ -504,13 +638,36 @@ _parentWindow = parentWindow;
         private void Giggle(string text, string? phraseAudioPath = null, bool barkVoice = false, string? mood = null)
         {
             if (_isPlayingUninterruptibleClip) return;
-            GigglePriority(text, playSound: false, aiGenerated: false, mood: mood);
+            if (_isWaitingForAi || _isShowingAiBubble) return;
+
+            string? emotionLineId = phraseAudioPath != null ? Path.GetFileNameWithoutExtension(phraseAudioPath) : null;
+
+            if (_isGiggling)
+            {
+                _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId, mood));
+                return;
+            }
+
+            if (!IsSpeechReady())
+            {
+                _speechQueue.Enqueue((text, SpeechSource.Preset, emotionLineId, mood));
+                _isGiggling = true;
+                ProcessNextSpeech();
+                return;
+            }
+
+            _presetGiggleCounter++;
+            bool playSound = _presetGiggleCounter % 5 == 0;
+            ShowGiggle(text, playSound, SpeechSource.Preset, phraseAudioPath, barkVoice,
+                emotionLineId: emotionLineId, mood: mood);
         }
 
         private void GigglePriority(string text, bool playSound = true, bool aiGenerated = true,
             string? phraseAudioPath = null, bool barkVoice = false, string? mood = null)
         {
             if (_isPlayingUninterruptibleClip) return;
+            string? emotionLineId = phraseAudioPath != null ? Path.GetFileNameWithoutExtension(phraseAudioPath) : null;
+
             if (aiGenerated) _lastAiBubbleUtc = DateTime.UtcNow;
             StopThinkingAnimation();
             _isWaitingForAi = false;
@@ -519,7 +676,8 @@ _parentWindow = parentWindow;
             _speechDelayTimer?.Stop();
             _isGiggling = false;
             if (aiGenerated) AddToChatHistory(text, false);
-            ShowGiggle(text, playSound, aiGenerated ? SpeechSource.AI : SpeechSource.Preset, mood: mood);
+            ShowGiggle(text, playSound, aiGenerated ? SpeechSource.AI : SpeechSource.Preset,
+                phraseAudioPath, barkVoice, emotionLineId: emotionLineId, mood: mood);
         }
 
         private void ShowGiggle(string text, bool playSound = false, SpeechSource source = SpeechSource.Preset,
@@ -550,34 +708,113 @@ _parentWindow = parentWindow;
 
             _isGiggling = true;
             _isShowingAiBubble = source == SpeechSource.AI;
+            StopTypewriter();
+
+            if (_circeEmoteMode)
+                CircePlayEmote(emotionLineId, phraseAudioPath, text, mood);
 
             PopulateSpeechBubble(text);
             AdjustBubbleSize(text);
             if (SpeechBubble != null) SpeechBubble.IsVisible = true;
 
-            double duration = Math.Clamp(_settings?.Current?.BubbleDurationSeconds ?? 2.0, 1.0, 10.0);
-            _speechTimer?.Stop();
-            _speechTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(duration) };
-            var capturedSource = source;
-            var capturedLength = text?.Length ?? 0;
-            _speechTimer.Tick += (_, _) =>
+            StartZOrderRefreshTimer();
+            BringAttachedPairToFront();
+
+            Action speak = () =>
             {
-                if (_isMouseOverSpeechBubble)
+                if (!_isGiggling) return;
+
+                StopSpokenAudio();
+
+                if (phraseAudioPath != null)
                 {
-                    _speechTimer.Interval = TimeSpan.FromSeconds(1);
-                    return;
+                    if (barkVoice)
+                        PlayBarkVoice(phraseAudioPath);
+                    else
+                        PlayPhraseAudio(phraseAudioPath);
                 }
-                _speechTimer.Stop();
-                if (SpeechBubble != null) SpeechBubble.IsVisible = false;
-                _isShowingAiBubble = false;
-                _lastSpeechEndTime = DateTime.Now;
-                _lastSpeechSource = capturedSource;
-                _lastSpeechLength = capturedLength;
-                _isGiggling = false;
-                ProcessNextSpeech();
+                else if (playSound)
+                {
+                    PlayGiggleSound();
+                }
+                else if (source != SpeechSource.AI)
+                {
+                    PlayFallbackBubbleSound();
+                }
+
+                bool isThinking = source == SpeechSource.AI && _isWaitingForAi;
+                bool slowType = source != SpeechSource.AI;
+                if (!isThinking)
+                    StartTypewriter(text, slowType);
+                else
+                    PopulateSpeechBubble(text);
+
+                double userSetting = Math.Clamp(_settings?.Current?.BubbleDurationSeconds ?? 2.0, 1.0, 10.0);
+                double displayDuration = userSetting;
+
+                if (!isThinking)
+                {
+                    double typewriterSec = EstimateTypewriterDurationMs(text?.Length ?? 0, slowType) / 1000.0;
+                    displayDuration += typewriterSec;
+
+                    if (source == SpeechSource.AI)
+                    {
+                        const double charsPerSecond = 12.0;
+                        const double maxPostTypeSec = 30.0;
+                        double readingFloorSec = Math.Min(maxPostTypeSec, (text?.Length ?? 0) / charsPerSecond);
+                        double minTotalSec = typewriterSec + Math.Max(userSetting, readingFloorSec);
+                        if (minTotalSec > displayDuration) displayDuration = minTotalSec;
+                    }
+                }
+
+                _speechTimer?.Stop();
+                _speechTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(displayDuration) };
+                var capturedSource = source;
+                var capturedLength = text?.Length ?? 0;
+                _speechTimer.Tick += (_, _) =>
+                {
+                    if (_isMouseOverSpeechBubble)
+                    {
+                        _speechTimer.Interval = TimeSpan.FromSeconds(1);
+                        return;
+                    }
+                    _speechTimer.Stop();
+                    StopZOrderRefreshTimer();
+                    if (SpeechBubble != null) SpeechBubble.IsVisible = false;
+                    _isShowingAiBubble = false;
+                    _lastSpeechEndTime = DateTime.Now;
+                    _lastSpeechSource = capturedSource;
+                    _lastSpeechLength = capturedLength;
+                    _isGiggling = false;
+                    ProcessNextSpeech();
+                };
+                _speechTimer.Start();
+                ResetIdleTimer();
             };
-            _speechTimer.Start();
-            ResetIdleTimer();
+
+            _speechLeadInTimer?.Stop();
+            if (source != SpeechSource.AI)
+            {
+                int leadInMs = _circeEmoteMode ? (_circeEngine?.AudioLeadInMs ?? 0) : (int)(SpeechLeadInSeconds * 1000);
+                if (leadInMs > 0)
+                {
+                    _speechLeadInTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(leadInMs) };
+                    _speechLeadInTimer.Tick += (_, _) =>
+                    {
+                        _speechLeadInTimer?.Stop();
+                        speak();
+                    };
+                    _speechLeadInTimer.Start();
+                }
+                else
+                {
+                    speak();
+                }
+            }
+            else
+            {
+                speak();
+            }
         }
 
         private void ProcessNextSpeech()
@@ -587,8 +824,28 @@ _parentWindow = parentWindow;
                 _isGiggling = false;
                 return;
             }
-            var next = _speechQueue.Dequeue();
-            ShowSpeechBySource(next.text, next.source, next.emotionLineId, next.mood);
+
+            var (nextText, source, emotionLineId, mood) = _speechQueue.Dequeue();
+
+            double timeSinceLastSpeech = (DateTime.Now - _lastSpeechEndTime).TotalSeconds;
+            double requiredDelay = CalculateRequiredDelayAfterLastSpeech();
+            double remainingDelay = Math.Max(0, requiredDelay - timeSinceLastSpeech);
+
+            if (remainingDelay > 0)
+            {
+                _speechDelayTimer?.Stop();
+                _speechDelayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(remainingDelay) };
+                _speechDelayTimer.Tick += (_, _) =>
+                {
+                    _speechDelayTimer.Stop();
+                    ShowSpeechBySource(nextText, source, emotionLineId, mood);
+                };
+                _speechDelayTimer.Start();
+            }
+            else
+            {
+                ShowSpeechBySource(nextText, source, emotionLineId, mood);
+            }
         }
 
         private void ShowSpeechBySource(string text, SpeechSource source, string? emotionLineId = null, string? mood = null)
@@ -668,41 +925,115 @@ _parentWindow = parentWindow;
         private void StartIdleTimer()
         {
             _idleTimer?.Stop();
-            _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
-            _idleTimer.Tick += (_, _) =>
-            {
-                // TODO: occasional idle giggle.
-            };
+            var interval = _settings?.Current?.IdleGiggleIntervalSeconds ?? 120;
+            _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(interval) };
+            _idleTimer.Tick += OnIdleTick;
             _idleTimer.Start();
         }
+
+        public void RestartIdleTimer()
+        {
+            StartIdleTimer();
+        }
+
         private void ResetIdleTimer()
         {
-            _idleTimer?.Stop();
-            _idleTimer?.Start();
+            StartIdleTimer();
         }
+
+        private void OnIdleTick(object? sender, EventArgs e)
+        {
+            var configured = _settings?.Current?.IdleGiggleIntervalSeconds ?? 120;
+            if (_idleTimer != null && Math.Abs(_idleTimer.Interval.TotalSeconds - configured) > 0.5)
+                _idleTimer.Interval = TimeSpan.FromSeconds(configured);
+
+            if (!IsSpeechReady()) return;
+            Giggle(GetRandomBambiPhrase());
+        }
+
         private void StartTriggerTimer()
         {
+            if (_settings?.Current?.TriggerModeEnabled != true) return;
+
             _triggerTimer?.Stop();
-            _triggerTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
-            _triggerTimer.Tick += (_, _) =>
-            {
-                // TODO: custom trigger phrases.
-            };
+            var interval = _settings?.Current?.TriggerIntervalSeconds ?? 60;
+            _triggerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(interval) };
+            _triggerTimer.Tick += OnTriggerTick;
             _triggerTimer.Start();
+
+            // First trigger shortly after window init.
+            Dispatcher.UIThread.Post(async () =>
+            {
+                await Task.Delay(2000);
+                OnTriggerTick(null, EventArgs.Empty);
+            });
         }
-        private void RestartTriggerTimer()
+
+        public void RestartTriggerTimer()
         {
             StartTriggerTimer();
         }
+
+        private void OnTriggerTick(object? sender, EventArgs e)
+        {
+            if (_settings?.Current?.TriggerModeEnabled != true) return;
+            if (!IsSpeechReady()) return;
+            GiggleFromCategory("Trigger");
+        }
+
         private void StartRandomBubbleTimer()
         {
+            if (_settings?.Current?.RandomBubbleEnabled != true) return;
+
             _randomBubbleTimer?.Stop();
-            _randomBubbleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-            _randomBubbleTimer.Tick += (_, _) =>
-            {
-                // TODO: spawn AvatarRandomBubble near the avatar.
-            };
+            var interval = _random.Next(180, 301);
+            _randomBubbleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(interval) };
+            _randomBubbleTimer.Tick += OnRandomBubbleTick;
             _randomBubbleTimer.Start();
+        }
+
+        public void RestartRandomBubbleTimer()
+        {
+            StartRandomBubbleTimer();
+        }
+
+        private void OnRandomBubbleTick(object? sender, EventArgs e)
+        {
+            if (_randomBubbleTimer != null)
+                _randomBubbleTimer.Interval = TimeSpan.FromSeconds(_random.Next(180, 301));
+
+            if (!IsOurAppForeground()) return;
+            SpawnRandomBubble();
+        }
+
+        private void SpawnRandomBubble()
+        {
+            GiggleFromCategory("RandomBubble");
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1000);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    try
+                    {
+                        var pixelPos = AvatarBorder.PointToScreen(new global::Avalonia.Point(AvatarBorder.Bounds.Width / 2, AvatarBorder.Bounds.Height / 2));
+                        var pos = new global::Avalonia.Point(pixelPos.X, pixelPos.Y);
+                        var bubble = new AvatarRandomBubble(pos, _random, OnRandomBubblePopped);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.Warning("RandomBubble: failed to spawn - {Error}", ex.Message);
+                    }
+                });
+            });
+        }
+
+        private void OnRandomBubblePopped()
+        {
+            PlayAvatarPopSound();
+            _progression?.AddXP(5, XPSource.AvatarInteraction);
+            _achievementService?.TrackBubblePopped();
+            Giggle("Good girl! *giggles*");
         }
         private void StopZOrderRefreshTimer()
         {
@@ -734,20 +1065,94 @@ _parentWindow = parentWindow;
         }
 
         // ===== Audio =====
-        private void PlayFallbackBubbleSound() { /* TODO: cross-platform IAudioPlayer */ }
-        private void PlayGiggleSound() { /* TODO: cross-platform IAudioPlayer */ }
-        private void PlayBarkVoice(string path) { /* TODO: cross-platform IAudioPlayer */ }
-        private void PlayPhraseAudio(string path) { /* TODO: cross-platform IAudioPlayer */ }
-        private void PlayAvatarPopSound() { /* TODO: cross-platform IAudioPlayer */ }
-        private void StopSpokenAudio() { /* TODO: stop cross-platform spoken audio channel */ }
-        private void StopVoiceLineAudio() { /* TODO: stop voice line playback */ }
-        private double AudioDurationSec(string path) => 0;
+        private string BubbleSoundPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "bubble_pop.wav");
+        private string GiggleSoundPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "giggle.wav");
+        private string PopSoundPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "pop.wav");
+
+        private void PlayFallbackBubbleSound() => PlayAudio(BubbleSoundPath(), 0.5);
+        private void PlayGiggleSound() => PlayAudio(GiggleSoundPath(), 0.6);
+        private void PlayBarkVoice(string path) => PlayAudio(path, 0.9);
+        private void PlayPhraseAudio(string path) => PlayAudio(path, 0.8);
+        private void PlayAvatarPopSound() => PlayAudio(PopSoundPath(), 0.5);
+
+        private void PlayAudio(string path, double volume)
+        {
+            if (_audioPlayer == null || string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+            try
+            {
+                var master = (_settings?.Current?.MasterVolume ?? 100) / 100.0;
+                _audioPlayer.SetVolume(volume * master);
+                _ = _audioPlayer.PlayAsync(path);
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning(ex, "Audio playback failed for {Path}", path);
+            }
+        }
+
+        private void StopSpokenAudio()
+        {
+            try { _audioPlayer?.Stop(); }
+            catch { }
+        }
+
+        private void StopVoiceLineAudio() => StopSpokenAudio();
+
+        private double AudioDurationSec(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return 0;
+                var info = new FileInfo(path);
+                return Math.Clamp(info.Length / 16000.0, 1.0, 30.0);
+            }
+            catch { return 0; }
+        }
+
         private double EstimateDurationSec(string? text) => Math.Max(1, (text?.Length ?? 0) / 12.0);
 
         // ===== Helpers =====
-        private string GetRandomBambiPhrase() => "Bimbo doll~";
-        private void PlayClickBounce() { /* TODO: Avalonia animation */ }
-        private void PlayDoubleBounce() { /* TODO: Avalonia animation */ }
+        private bool IsSpeechReady()
+        {
+            if (_isGiggling) return false;
+            double timeSinceLastSpeech = (DateTime.Now - _lastSpeechEndTime).TotalSeconds;
+            return timeSinceLastSpeech >= CalculateRequiredDelayAfterLastSpeech();
+        }
+
+        private void PlayClickBounce()
+        {
+            if (AvatarBounceHost == null) return;
+            AnimateBounce(AvatarBounceHost, 12, 120);
+        }
+
+        private void PlayDoubleBounce()
+        {
+            if (AvatarBounceHost == null) return;
+            AnimateBounce(AvatarBounceHost, 18, 160, bounces: 2);
+        }
+
+        private void AnimateBounce(Control target, double amplitude, int durationMs, int bounces = 1)
+        {
+            var original = target.RenderTransform;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            long start = Environment.TickCount64;
+            timer.Tick += (_, _) =>
+            {
+                long elapsed = Environment.TickCount64 - start;
+                if (elapsed >= durationMs)
+                {
+                    timer.Stop();
+                    target.RenderTransform = original;
+                    return;
+                }
+                double t = elapsed / (double)durationMs;
+                double decay = 1 - t;
+                double y = -amplitude * Math.Sin(t * Math.PI * bounces) * decay;
+                target.RenderTransform = new TranslateTransform(0, y);
+            };
+            timer.Start();
+        }
+
         private void TriggerBambiCumAndCollapse() { /* TODO: chaos / achievement hook */ }
 
         private double CalculateRequiredDelayAfterLastSpeech()
@@ -761,11 +1166,24 @@ _parentWindow = parentWindow;
 
         private void WireModerationCounter()
         {
-            // TODO: subscribe to Core moderation counter when available.
+            try
+            {
+                var counter = App.Services.GetService<global::ConditioningControlPanel.Avalonia.Services.Moderation.IModerationCounter>();
+                if (counter == null) return;
+                counter.WarningTriggered += OnWarningTriggered;
+                counter.CooldownStarted += OnCooldownStarted;
+                counter.CooldownEnded += OnCooldownEnded;
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning(ex, "Failed to wire moderation counter");
+            }
         }
-        private void OnWarningTriggered(object state)
+
+        private void OnWarningTriggered(global::ConditioningControlPanel.Avalonia.Services.Moderation.ModerationCounterState state)
         {
-            // TODO: show content policy warning dialog.
+            // TODO: show ContentPolicyWarningDialog when available in Avalonia dialogs.
+            _logger?.Warning("Moderation warning triggered (hits={Hits})", state.HitsInLastTenMinutes);
         }
         private void OnCooldownStarted(DateTime endsAt)
         {
@@ -809,6 +1227,7 @@ _parentWindow = parentWindow;
                     UpdatePosition();
                     StartFloatingAnimation();
                     BringAttachedPairToFront(true);
+                    ShowGreeting();
                 }
                 if (SpeechBubble != null) SpeechBubble.Margin = new Thickness(0, 0, 125, 550);
             }, DispatcherPriority.Normal);
@@ -848,6 +1267,10 @@ _parentWindow = parentWindow;
             if (_achievementService != null)
             {
                 _achievementService.AchievementUnlocked -= OnAchievementUnlocked;
+            }
+            if (_modService != null)
+            {
+                _modService.ActiveModChanged -= OnModChanged;
             }
             base.OnClosed(e);
         }

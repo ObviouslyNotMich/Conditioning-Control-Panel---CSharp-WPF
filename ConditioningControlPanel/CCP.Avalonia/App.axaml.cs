@@ -10,8 +10,11 @@ using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Views;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel;
+using ConditioningControlPanel.Core.Services.Chaos;
+using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Roadmap;
+using ConditioningControlPanel.Avalonia.Chaos;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -76,6 +79,14 @@ public partial class App : Application
             CoreApp.Settings = Services.GetRequiredService<ISettingsService>();
             CoreApp.Roadmap = Services.GetRequiredService<IRoadmapService>();
             CoreApp.Logger = Services.GetRequiredService<IAppLogger>();
+
+            // Wire the ported bubble and overlay services into the legacy static facade.
+            CoreApp.Bubbles = Services.GetRequiredService<IBubbleService>();
+            CoreApp.Overlay = Services.GetRequiredService<IOverlayService>();
+            AvaloniaChaosEnv.Bubbles = (IAvaloniaBubbleService)CoreApp.Bubbles;
+
+            // Report any previous abnormal chaos session termination.
+            Services.GetRequiredService<ChaosCrashSentinel>().ConsumeAndReport();
 
             // Initialize the mod service (loads built-ins + user mods, restores active mod)
             // off the UI thread so startup stays responsive.
@@ -193,7 +204,7 @@ public partial class App : Application
             .CreateLogger();
     }
 
-    private static void OnAchievementUnlocked(object? sender, Core.Models.Achievement achievement)
+    private static void OnAchievementUnlocked(object? sender, ConditioningControlPanel.Models.Achievement achievement)
     {
         try
         {

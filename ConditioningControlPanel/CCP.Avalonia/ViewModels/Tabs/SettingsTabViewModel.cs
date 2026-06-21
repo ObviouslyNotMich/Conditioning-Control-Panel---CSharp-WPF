@@ -1,6 +1,15 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
+using ConditioningControlPanel.Models;
+using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -19,6 +28,9 @@ public partial class SettingsTabViewModel : TabItemViewModel
     private readonly IDialogService? _dialogService;
     private readonly IAppLogger? _logger;
     private readonly IBrowserHost? _browserHost;
+    private readonly IAudioPlayer? _audioPlayer;
+    private readonly IAudioDeviceService? _audioDeviceService;
+    private bool _populatingAudioOutputs;
 
     /// <summary>
     /// Exposed so the view can request an embedded browser control from the platform host.
@@ -27,23 +39,52 @@ public partial class SettingsTabViewModel : TabItemViewModel
 
     public SettingsTabViewModel() : base("settings", "Dashboard", "📊")
     {
+        _audioOutputDevices = new ObservableCollection<AudioDeviceInfo>();
     }
 
     public SettingsTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
         IAppLogger logger,
-        IBrowserHost browserHost) : base("settings", "Dashboard", "📊")
+        IBrowserHost browserHost,
+        IAudioPlayer audioPlayer,
+        IAudioDeviceService audioDeviceService) : base("settings", "Dashboard", "📊")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
         _browserHost = browserHost;
+        _audioPlayer = audioPlayer;
+        _audioDeviceService = audioDeviceService;
+        _audioOutputDevices = new ObservableCollection<AudioDeviceInfo>();
+        RefreshAudioOutputDevices();
         RefreshFromSettings();
+
+        if (_settingsService?.Current is INotifyPropertyChanged inpc)
+            inpc.PropertyChanged += OnSettingsPropertyChanged;
+    }
+
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AppSettings.UnifiedId)
+            or nameof(AppSettings.UserDisplayName)
+            or nameof(AppSettings.IsSeason0Og))
+        {
+            RefreshLoginState();
+        }
     }
 
     [ObservableProperty]
     private bool _isHelpOverlayVisible;
+
+    [ObservableProperty]
+    private bool _isLoggedIn;
+
+    [ObservableProperty]
+    private bool _isNotLoggedIn = true;
+
+    [ObservableProperty]
+    private string _loggedInDisplayName = "";
 
     #region Feature toggles
 
@@ -64,6 +105,18 @@ public partial class SettingsTabViewModel : TabItemViewModel
 
     [ObservableProperty]
     private bool _lockCardEnabled;
+
+    [ObservableProperty]
+    private bool _videoEnabled;
+
+    [ObservableProperty]
+    private bool _bubbleCountEnabled;
+
+    [ObservableProperty]
+    private bool _bouncingTextEnabled;
+
+    [ObservableProperty]
+    private bool _mindWipeEnabled;
 
     partial void OnFlashEnabledChanged(bool value)
     {
@@ -107,6 +160,34 @@ public partial class SettingsTabViewModel : TabItemViewModel
         Save();
     }
 
+    partial void OnVideoEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.MandatoryVideosEnabled = value;
+        Save();
+    }
+
+    partial void OnBubbleCountEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.BubbleCountEnabled = value;
+        Save();
+    }
+
+    partial void OnBouncingTextEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.BouncingTextEnabled = value;
+        Save();
+    }
+
+    partial void OnMindWipeEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.MindWipeEnabled = value;
+        Save();
+    }
+
     private void RefreshFromSettings()
     {
         if (_settingsService?.Current == null) return;
@@ -116,12 +197,43 @@ public partial class SettingsTabViewModel : TabItemViewModel
         PinkFilterEnabled = _settingsService.Current.PinkFilterEnabled;
         BubblesEnabled = _settingsService.Current.BubblesEnabled;
         LockCardEnabled = _settingsService.Current.LockCardEnabled;
+        VideoEnabled = _settingsService.Current.MandatoryVideosEnabled;
+        BubbleCountEnabled = _settingsService.Current.BubbleCountEnabled;
+        BouncingTextEnabled = _settingsService.Current.BouncingTextEnabled;
+        MindWipeEnabled = _settingsService.Current.MindWipeEnabled;
         AudioDuckEnabled = _settingsService.Current.AudioDuckingEnabled;
         MasterVolume = _settingsService.Current.MasterVolume;
+        _audioPlayer?.SetVolume(MasterVolume / 100.0);
         VideoVolume = _settingsService.Current.VideoVolume;
         DuckVolume = _settingsService.Current.DuckingLevel;
         ExcludeBrowserDucking = _settingsService.Current.ExcludeBambiCloudFromDucking;
         DiscordRichPresenceEnabled = _settingsService.Current.DiscordRichPresenceEnabled;
+        BrowserEnhanceIfPossible = _settingsService.Current.BrowserEnhanceIfPossible;
+        RefreshEnhanceMatchStatus();
+
+        var audioSync = _settingsService.Current.Haptics?.AudioSync;
+        if (audioSync != null)
+        {
+            AudioSyncLatencyPanelVisible = audioSync.Enabled;
+            LegacyAudioSyncLatency = audioSync.ManualLatencyOffsetMs;
+            LegacyAudioSyncIntensity = (int)(audioSync.LiveIntensity * 100);
+        }
+
+        RefreshLoginState();
+    }
+
+    private void RefreshLoginState()
+    {
+        var settings = _settingsService?.Current;
+        if (settings == null) return;
+
+        var displayName = settings.UserDisplayName;
+        if (string.IsNullOrWhiteSpace(displayName)) displayName = "User";
+        if (settings.IsSeason0Og) displayName = $"⭐ {displayName}";
+
+        LoggedInDisplayName = displayName;
+        IsLoggedIn = !string.IsNullOrEmpty(settings.UnifiedId);
+        IsNotLoggedIn = !IsLoggedIn;
     }
 
     #endregion
@@ -146,6 +258,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.MasterVolume = value;
         MasterVolumeText = $"{value}%";
+        _audioPlayer?.SetVolume(value / 100.0);
         Save();
     }
 
@@ -190,6 +303,147 @@ public partial class SettingsTabViewModel : TabItemViewModel
         Save();
     }
 
+    [ObservableProperty]
+    private ObservableCollection<AudioDeviceInfo> _audioOutputDevices;
+
+    [ObservableProperty]
+    private AudioDeviceInfo? _selectedAudioOutputDevice;
+
+    partial void OnSelectedAudioOutputDeviceChanged(AudioDeviceInfo? value)
+    {
+        if (_populatingAudioOutputs) return;
+        if (_settingsService?.Current == null) return;
+
+        var id = value?.Id ?? "";
+        var name = value?.Name ?? "";
+        _settingsService.Current.AudioOutputDeviceId = id;
+        _settingsService.Current.AudioOutputDeviceName = name;
+        _audioDeviceService?.SetPreferredDevice(id);
+        Save();
+        _logger?.Information("Audio output device set to '{Name}' (id={Id})",
+            string.IsNullOrEmpty(name) ? "System default" : name,
+            string.IsNullOrEmpty(id) ? "(default)" : id);
+    }
+
+    [RelayCommand]
+    private void RefreshAudioOutputDevices()
+    {
+        try
+        {
+            _populatingAudioOutputs = true;
+            AudioOutputDevices.Clear();
+
+            // Synthetic "System default" entry mirrors the WPF audio picker.
+            var systemDefault = new AudioDeviceInfo("", "System default", true);
+            AudioOutputDevices.Add(systemDefault);
+
+            foreach (var dev in _audioDeviceService?.GetOutputDevices() ?? System.Linq.Enumerable.Empty<AudioDeviceInfo>())
+                AudioOutputDevices.Add(dev);
+
+            var settings = _settingsService?.Current;
+            if (settings != null)
+            {
+                var savedId = settings.AudioOutputDeviceId ?? "";
+                var savedName = settings.AudioOutputDeviceName ?? "";
+                AudioDeviceInfo? pick = null;
+                foreach (var d in AudioOutputDevices)
+                {
+                    if (!string.IsNullOrEmpty(savedId) && d.Id == savedId) { pick = d; break; }
+                }
+                if (pick == null && !string.IsNullOrEmpty(savedName))
+                {
+                    foreach (var d in AudioOutputDevices)
+                    {
+                        if (string.Equals(d.Name, savedName, StringComparison.OrdinalIgnoreCase)) { pick = d; break; }
+                    }
+                }
+                SelectedAudioOutputDevice = pick ?? systemDefault;
+            }
+            else
+            {
+                SelectedAudioOutputDevice = systemDefault;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "RefreshAudioOutputDevices failed");
+        }
+        finally
+        {
+            _populatingAudioOutputs = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task TestAudioAsync()
+    {
+        try
+        {
+            var baseDir = AppContext.BaseDirectory;
+            var soundsDir = Path.Combine(baseDir, "Resources", "sounds");
+            var subAudioDir = Path.Combine(baseDir, "Resources", "sub_audio");
+            var awarenessDir = Path.Combine(baseDir, "Resources", "AwarenessPresets", "audio");
+
+            var diagnostics = new System.Text.StringBuilder();
+            diagnostics.AppendLine("=== Audio Diagnostics ===");
+
+            if (!Directory.Exists(soundsDir))
+                diagnostics.AppendLine("WARNING: Resources/sounds/ directory MISSING");
+            else
+                diagnostics.AppendLine($"Resources/sounds/: {Directory.GetFiles(soundsDir, "*.*", SearchOption.AllDirectories).Length} files");
+
+            if (!Directory.Exists(subAudioDir))
+                diagnostics.AppendLine("WARNING: Resources/sub_audio/ directory MISSING");
+            else
+                diagnostics.AppendLine($"Resources/sub_audio/: {Directory.GetFiles(subAudioDir, "*.*").Length} files");
+
+            var testFiles = new[]
+            {
+                Path.Combine(soundsDir, "chime1.mp3"),
+                Path.Combine(soundsDir, "lvup.mp3"),
+                Path.Combine(soundsDir, "bubbles", "Pop.mp3"),
+                Path.Combine(awarenessDir, "chime.wav")
+            };
+
+            string? playFile = null;
+            foreach (var f in testFiles)
+            {
+                if (File.Exists(f)) { playFile = f; break; }
+            }
+
+            if (playFile == null)
+            {
+                diagnostics.AppendLine("WARNING: No test sound files found to play");
+            }
+            else
+            {
+                await (_audioPlayer?.PlayAsync(playFile) ?? Task.CompletedTask);
+                diagnostics.AppendLine($"Playing: {Path.GetFileName(playFile)} at {MasterVolume}% master volume");
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1200);
+                    _audioPlayer?.Stop();
+                });
+            }
+
+            var s = _settingsService?.Current;
+            if (s != null)
+            {
+                diagnostics.AppendLine($"\nMaster Volume: {s.MasterVolume}%");
+                diagnostics.AppendLine($"Output Device: {SelectedAudioOutputDevice?.Name ?? "System default"}");
+            }
+
+            var message = diagnostics.ToString();
+            _logger?.Information("[AudioDiag] Test requested:\n{Result}", message);
+            await (_dialogService?.ShowMessageAsync("Audio Diagnostics", message) ?? Task.CompletedTask);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Audio test failed");
+            await (_dialogService?.ShowMessageAsync("Audio Diagnostics", $"Playback FAILED: {ex.Message}") ?? Task.CompletedTask);
+        }
+    }
+
     #endregion
 
     #region Quick Links
@@ -208,29 +462,70 @@ public partial class SettingsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task UnifiedLoginAsync()
     {
-        _logger?.Information("Unified login requested");
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_login_dialog_not_yet_ported")) ?? Task.CompletedTask);
+        try
+        {
+            Window? owner = null;
+            if (global::Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+                owner = lifetime.MainWindow;
+
+            var dialog = new LoginDialog();
+            await dialog.ShowDialog<bool>(owner);
+
+            if (dialog.Result is { Success: true } result)
+            {
+                var settings = _settingsService?.Current;
+                if (settings == null) return;
+
+                settings.UnifiedId = result.UnifiedId;
+                settings.UserDisplayName = result.DisplayName;
+                Save();
+                RefreshLoginState();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Unified login failed");
+        }
+    }
+
+    [RelayCommand]
+    private void Logout()
+    {
+        try
+        {
+            foreach (var provider in App.Services?.GetServices<IAuthProvider>() ?? System.Linq.Enumerable.Empty<IAuthProvider>())
+                provider.Logout();
+
+            var settings = _settingsService?.Current;
+            if (settings != null)
+            {
+                settings.UnifiedId = null;
+                settings.UserDisplayName = "";
+                Save();
+                RefreshLoginState();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Logout failed");
+        }
     }
 
     [RelayCommand]
     private async Task OpenDiscordAsync()
     {
+        const string url = "https://discord.gg/YxVAMt4qaZ";
         try
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "https://discord.gg/YxVAMt4qaZ",
-                UseShellExecute = true
-            });
-            _logger?.Information("Opened Discord invite link");
+            if (_browserHost != null)
+                await _browserHost.NavigateAsync(new Uri(url));
+            else
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to open Discord link");
+            _logger?.Warning(ex, "Failed to open Discord");
         }
-        await Task.CompletedTask;
     }
 
     #endregion
@@ -298,6 +593,29 @@ public partial class SettingsTabViewModel : TabItemViewModel
     private bool _isBambiCloudSelected = true;
 
     [ObservableProperty]
+    private bool _browserEnhanceIfPossible = true;
+
+    partial void OnBrowserEnhanceIfPossibleChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.BrowserEnhanceIfPossible = value;
+        Save();
+        RefreshEnhanceMatchStatus();
+    }
+
+    [ObservableProperty]
+    private string _enhanceMatchStatusText = Loc.Get("browser_enhance_match_none");
+
+    [ObservableProperty]
+    private bool _deeperBrowserBadgeVisible;
+
+    [ObservableProperty]
+    private string _deeperBrowserBadgeText = "🌊 Deeper";
+
+    [ObservableProperty]
+    private string _deeperBrowserBadgeToolTip = "";
+
+    [ObservableProperty]
     private bool _audioSyncLatencyPanelVisible;
 
     [ObservableProperty]
@@ -339,6 +657,28 @@ public partial class SettingsTabViewModel : TabItemViewModel
             "bambicloud" => "https://bambicloud.com/",
             _ => url
         };
+    }
+
+    private void RefreshEnhanceMatchStatus()
+    {
+        try
+        {
+            if (!BrowserEnhanceIfPossible)
+            {
+                EnhanceMatchStatusText = Loc.Get("browser_enhance_match_off");
+                DeeperBrowserBadgeVisible = false;
+                return;
+            }
+
+            // The Avalonia head does not yet have a live Deeper browser enhancement bridge.
+            // Keep the badge hidden until the bridge is ported; the UI bindings are in place.
+            EnhanceMatchStatusText = Loc.Get("browser_enhance_match_none");
+            DeeperBrowserBadgeVisible = false;
+        }
+        catch
+        {
+            EnhanceMatchStatusText = Loc.Get("browser_enhance_match_none");
+        }
     }
 
     [RelayCommand]
@@ -418,4 +758,5 @@ public partial class SettingsTabViewModel : TabItemViewModel
         try { _settingsService?.Save(); }
         catch (Exception ex) { _logger?.Warning(ex, "Failed to save settings"); }
     }
+
 }

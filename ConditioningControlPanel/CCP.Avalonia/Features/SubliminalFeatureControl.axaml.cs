@@ -2,20 +2,29 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Subliminal;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
 
 public partial class SubliminalFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly ISubliminalService? _subliminal;
+    private readonly ISessionService? _session;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     public SubliminalFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _subliminal = App.Services.GetService<ISubliminalService>();
+        _session = App.Services.GetService<ISessionService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -69,15 +78,25 @@ public partial class SubliminalFeatureControl : UserControl
     private void ChkEnable_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        _settings.Current.SubliminalEnabled = ChkEnable.IsChecked ?? false;
+        var on = ChkEnable.IsChecked ?? false;
+        _settings.Current.SubliminalEnabled = on;
         _settings.Save();
+        LiveApply(on);
+    }
 
-        // TODO: live start/stop subliminal service once the engine is ported to Avalonia.
-        // if (App.IsEngineRunning)
-        // {
-        //     if (_settings.Current.SubliminalEnabled) App.Subliminal?.Start();
-        //     else App.Subliminal?.Stop();
-        // }
+    private void LiveApply(bool on)
+    {
+        if (_session?.State != SessionState.Running || _subliminal == null) return;
+
+        try
+        {
+            if (on && !_subliminal.IsRunning) _subliminal.Start();
+            else if (!on && _subliminal.IsRunning) _subliminal.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Subliminal enable toggle: live apply failed");
+        }
     }
 
     private void SliderPerMin_Changed(object? sender, RangeBaseValueChangedEventArgs e)

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using ConditioningControlPanel.Core.Models.Deeper;
+using ConditioningControlPanel.Models.Deeper;
 
 namespace ConditioningControlPanel.Core.Services.Deeper
 {

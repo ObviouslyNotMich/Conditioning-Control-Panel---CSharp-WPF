@@ -4,8 +4,11 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.LockCard;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -13,6 +16,9 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class LockCardFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly ILockCardService? _lockCard;
+    private readonly ISessionService? _session;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     public IPlatformCapabilities Capabilities { get; }
@@ -21,6 +27,9 @@ public partial class LockCardFeatureControl : UserControl
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _lockCard = App.Services.GetService<ILockCardService>();
+        _session = App.Services.GetService<ISessionService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -74,13 +83,22 @@ public partial class LockCardFeatureControl : UserControl
         s.LockCardEnabled = on;
         _settings.Save();
 
-        // TODO: live-apply lock card service when engine is running
-        // (App.IsEngineRunning / App.LockCard are not available in Avalonia yet).
-        // if (App.IsEngineRunning)
-        // {
-        //     if (on) App.LockCard?.Start();
-        //     else App.LockCard?.Stop();
-        // }
+        LiveApply(on);
+    }
+
+    private void LiveApply(bool on)
+    {
+        if (_session?.State != SessionState.Running || _lockCard == null) return;
+
+        try
+        {
+            if (on && !_lockCard.IsRunning) _lockCard.Start();
+            else if (!on && _lockCard.IsRunning) _lockCard.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "LockCard enable toggle: live apply failed");
+        }
     }
 
     private void SliderFreq_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -103,7 +121,7 @@ public partial class LockCardFeatureControl : UserControl
         _settings.Save();
     }
 
-    private void ChkStrict_Changed(object? sender, RoutedEventArgs e)
+    private async void ChkStrict_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
         var s = _settings.Current;
@@ -111,8 +129,24 @@ public partial class LockCardFeatureControl : UserControl
 
         if (on)
         {
-            // TODO: WarningDialog.ShowDoubleWarning is WPF-only and has not been ported to Avalonia yet.
-            // The strict-lock toggle is accepted without a confirmation prompt for now.
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner != null)
+            {
+                var confirmed = await WarningDialog.ShowDoubleWarning(
+                    owner,
+                    "Strict Lock Card",
+                    "• You will NOT be able to escape lock cards with ESC\n" +
+                    "• You MUST type the phrase the required number of times\n" +
+                    "• This can be very restrictive!");
+
+                if (!confirmed)
+                {
+                    _isLoading = true;
+                    ChkStrict.IsChecked = false;
+                    _isLoading = false;
+                    return;
+                }
+            }
         }
 
         s.LockCardStrict = on;
@@ -124,6 +158,7 @@ public partial class LockCardFeatureControl : UserControl
         if (_settings.Current is not { } s) return;
         // TODO: TextEditorDialog / lock-card phrase editor is WPF-only and not ported to Avalonia yet.
         // When ported, open it, assign s.LockCardPhrases = editor.ResultData, then call _settings.Save().
+        _logger?.Information("LockCard manage phrases clicked (dialog not yet ported)");
         _settings.Save();
     }
 
@@ -134,15 +169,17 @@ public partial class LockCardFeatureControl : UserControl
             .Where(p => p.Value).Select(p => p.Key).ToList();
         if (enabledPhrases.Count == 0)
         {
-            // TODO: MessageBox warning ("No phrases enabled...") is WPF-only and not ported to Avalonia yet.
+            _logger?.Warning("LockCard test: no phrases enabled");
             return;
         }
 
-        // TODO: App.LockCard?.TestLockCard() is WPF-only and not ported to Avalonia yet.
+        try { _lockCard?.TestLockCard(); }
+        catch (Exception ex) { _logger?.Warning(ex, "LockCard test failed"); }
     }
 
     private void BtnColorSettings_Click(object? sender, RoutedEventArgs e)
     {
         // TODO: LockCardColorDialog is WPF-only and not ported to Avalonia yet.
+        _logger?.Information("LockCard color settings clicked (dialog not yet ported)");
     }
 }

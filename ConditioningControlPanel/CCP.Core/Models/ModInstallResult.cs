@@ -1,4 +1,4 @@
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Outcome of an attempt to install a .ccpmod package.

@@ -4,9 +4,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Avalonia.Services.Video;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Update;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -22,11 +23,13 @@ public partial class AppInfoTabViewModel : TabItemViewModel
     private readonly IAppLogger? _logger;
     private readonly IAudioPlayer? _audioPlayer;
     private readonly AvaloniaDualMonitorVideoService? _videoService;
+    private readonly IUpdateService? _updateService;
 
     public AppInfoTabViewModel() : base("appinfo", "App Info", "ℹ️")
     {
         LanguageOptions = new ObservableCollection<LanguageOption>();
         InitializeLanguages();
+        VersionText = $"v{Core.Services.Update.UpdateService.GetCurrentVersion()}";
     }
 
     public AppInfoTabViewModel(
@@ -35,7 +38,8 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         IDialogService dialogService,
         IAppLogger logger,
         IAudioPlayer? audioPlayer = null,
-        AvaloniaDualMonitorVideoService? videoService = null) : base("appinfo", "App Info", "ℹ️")
+        AvaloniaDualMonitorVideoService? videoService = null,
+        IUpdateService? updateService = null) : base("appinfo", "App Info", "ℹ️")
     {
         _settingsService = settingsService;
         _backupProvider = backupProvider;
@@ -43,8 +47,10 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         _logger = logger;
         _audioPlayer = audioPlayer;
         _videoService = videoService;
+        _updateService = updateService;
         LanguageOptions = new ObservableCollection<LanguageOption>();
         InitializeLanguages();
+        VersionText = $"v{Core.Services.Update.UpdateService.GetCurrentVersion()}";
         _ = RefreshBackupStatusAsync();
     }
 
@@ -68,6 +74,9 @@ public partial class AppInfoTabViewModel : TabItemViewModel
 
     [ObservableProperty]
     private bool _isBusy;
+
+    [ObservableProperty]
+    private string _versionText = $"v{Core.Services.Update.UpdateService.GetCurrentVersion()}";
 
     partial void OnSelectedLanguageChanged(LanguageOption? value)
     {
@@ -336,6 +345,52 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             _logger?.Error(ex, "Video smoke-test failed");
             await (_dialogService?.ShowMessageAsync("Video smoke test", $"Failed: {ex.Message}", DialogSeverity.Error) ?? Task.CompletedTask);
         }
+    }
+
+    [RelayCommand]
+    private async Task CheckUpdatesAsync()
+    {
+        try
+        {
+            IsBusy = true;
+            _logger?.Information("Manual update check requested");
+            var update = _updateService != null
+                ? await _updateService.CheckForUpdatesAsync(forceCheck: true)
+                : null;
+            if (update?.IsNewer == true)
+            {
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("update_available_title"),
+                    Loc.GetF("update_available_body_0", update.Version)) ?? Task.CompletedTask);
+            }
+            else
+            {
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("up_to_date_title"),
+                    Loc.Get("up_to_date_body")) ?? Task.CompletedTask);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Manual update check failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.GetF("update_check_failed_0", ex.Message),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenBugReportAsync()
+    {
+        _logger?.Information("Bug report requested from App Info");
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("bug_report_title"),
+            Loc.Get("bug_report_error_toast")) ?? Task.CompletedTask);
     }
 }
 

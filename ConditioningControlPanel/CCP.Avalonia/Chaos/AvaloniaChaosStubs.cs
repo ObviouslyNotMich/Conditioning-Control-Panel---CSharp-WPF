@@ -12,7 +12,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 
 #region legacy enums / identifiers
 
-public enum ChaosRank { Curious, Slipping, Devoted, Lost, Claimed }
+public enum ChaosRank { Curious, Tempted, Slipping, Devoted, Entranced, Lost, Claimed }
 public enum ChaosBranch { Control, Greed, Depth }
 public enum ChaosRarity { Common, Uncommon, Rare }
 public enum ChaosSpeaker { Madam, Rabbit, Hatter, Doll, Enemy }
@@ -164,7 +164,49 @@ public sealed class ChaosRunConfig
 {
     public ChaosPlayMode PlayMode { get; set; } = ChaosPlayMode.Story;
     public string Difficulty { get; set; } = "Easy";
-    public static ChaosRunConfig FromSettings() => new();
+    public string MotionMode { get; set; } = "Mixed";
+    public int RunDurationSec { get; set; } = 180;
+    public int WaveCount { get; set; } = 5;
+    public List<string> EnabledVariants { get; set; } = new();
+    public bool BoonDraftEnabled { get; set; } = true;
+    public bool AllowCurses { get; set; } = true;
+    public bool DartersEnabled { get; set; } = true;
+    public double DifficultyMult { get; set; } = 1.0;
+    public double SparkGainMult { get; set; } = 1.0;
+    public double BaseMult { get; set; } = 1.0;
+    public int StartingShields { get; set; } = 0;
+    public double StartingFocus { get; set; } = 50;
+
+    public static ChaosRunConfig FromSettings()
+    {
+        var s = App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current;
+        if (s == null) return new ChaosRunConfig();
+        return new ChaosRunConfig
+        {
+            PlayMode = s.NarrativeModeEnabled ? ChaosPlayMode.Story : ChaosPlayMode.FreeDesktop,
+            Difficulty = s.ChaosDifficulty,
+            MotionMode = s.ChaosMotionMode,
+            RunDurationSec = s.ChaosRunDurationSec,
+            WaveCount = s.ChaosWaveCount,
+            EnabledVariants = s.ChaosEnabledVariants?.ToList() ?? new List<string>(),
+            BoonDraftEnabled = s.ChaosBoonDraftEnabled,
+            AllowCurses = s.ChaosAllowCurses,
+            DartersEnabled = s.ChaosDartersEnabled,
+            DifficultyMult = DifficultyToMult(s.ChaosDifficulty),
+            SparkGainMult = 1.0,
+            BaseMult = 1.0,
+            StartingShields = 0,
+            StartingFocus = 50,
+        };
+    }
+
+    private static double DifficultyToMult(string? diff) => (diff ?? "Easy") switch
+    {
+        "Extreme" => 2.0,
+        "Hard" => 1.5,
+        "Medium" => 1.2,
+        _ => 1.0,
+    };
 }
 
 public sealed class ChaosRunState : INotifyPropertyChanged
@@ -208,6 +250,12 @@ public sealed class ChaosRunState : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public void RaiseChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+    public void PushEvent(string text)
+    {
+        RecentEvents.Add(text);
+        if (RecentEvents.Count > 40) RecentEvents.RemoveAt(0);
+    }
 }
 
 public sealed class BubblePreset

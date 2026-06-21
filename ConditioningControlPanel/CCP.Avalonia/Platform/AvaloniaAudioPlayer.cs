@@ -10,11 +10,13 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
 {
     private readonly LibVLC _libVlc;
     private readonly MediaPlayer _player;
+    private readonly IAudioDeviceService? _audioDeviceService;
     private Media? _currentMedia;
 
-    public AvaloniaAudioPlayer(LibVLC libVlc)
+    public AvaloniaAudioPlayer(LibVLC libVlc, IAudioDeviceService? audioDeviceService = null)
     {
         _libVlc = libVlc;
+        _audioDeviceService = audioDeviceService;
         _player = new MediaPlayer(_libVlc);
     }
 
@@ -22,6 +24,7 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
     {
         cancellationToken.ThrowIfCancellationRequested();
         StopInternal();
+        ApplyPreferredOutputDevice();
         _currentMedia = new Media(_libVlc, filePath);
         _player.Play(_currentMedia);
         return Task.CompletedTask;
@@ -31,6 +34,7 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
     {
         cancellationToken.ThrowIfCancellationRequested();
         StopInternal();
+        ApplyPreferredOutputDevice();
         _currentMedia = new Media(_libVlc, filePath);
         _currentMedia.AddOption(":input-repeat=-1");
         _player.Play(_currentMedia);
@@ -40,6 +44,24 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
     public void Stop() => StopInternal();
 
     public void SetVolume(double volume) => _player.Volume = (int)(volume * 100);
+
+    private void ApplyPreferredOutputDevice()
+    {
+        try
+        {
+            var deviceId = _audioDeviceService?.GetDefaultOutputDeviceId();
+            if (string.IsNullOrEmpty(deviceId))
+                return;
+
+            // LibVLCSharp provides SetOutputDevice on MediaPlayer for LibVLC 3.x+.
+            // Failure is non-fatal: playback falls back to the default endpoint.
+            _player.SetOutputDevice(deviceId);
+        }
+        catch
+        {
+            // Device enumeration or selection may not be supported on this platform.
+        }
+    }
 
     private void StopInternal()
     {

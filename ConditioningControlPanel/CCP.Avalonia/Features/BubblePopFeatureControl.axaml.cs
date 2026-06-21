@@ -3,7 +3,9 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Services.Chaos;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -11,12 +13,16 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class BubblePopFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly ISessionService _sessionService;
+    private readonly IBubbleService? _bubbles;
     private bool _isLoading = true;
 
     public BubblePopFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _sessionService = App.Services.GetRequiredService<ISessionService>();
+        _bubbles = App.Services.GetService<IBubbleService>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -70,14 +76,18 @@ public partial class BubblePopFeatureControl : UserControl
         _settings.Current.BubblesEnabled = on;
         _settings.Save();
 
-        // TODO: live-apply start/stop bubble service once the engine/bubble service is available in Avalonia.
-        // if (App.IsEngineRunning)
-        // {
-        //     if (on)
-        //         App.Bubbles?.Start();
-        //     else
-        //         App.Bubbles?.Stop();
-        // }
+        try
+        {
+            if (_sessionService.State == SessionState.Running && _bubbles != null)
+            {
+                if (on && !_bubbles.IsRunning) _bubbles.Start();
+                else if (!on && _bubbles.IsRunning) _bubbles.Stop();
+            }
+        }
+        catch (Exception ex)
+        {
+            global::ConditioningControlPanel.Avalonia.App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "BubblePopFeatureControl start/stop failed");
+        }
     }
 
     private void SliderFreq_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -87,9 +97,11 @@ public partial class BubblePopFeatureControl : UserControl
         TxtFreq.Text = v.ToString();
         _settings.Current.BubblesFrequency = v;
 
-        // TODO: refresh live bubble spawn rate once the bubble service is available in Avalonia.
-        // try { App.Bubbles?.RefreshFrequency(); }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "Bubbles RefreshFrequency failed"); }
+        try { _bubbles?.RefreshFrequency(); }
+        catch (Exception ex)
+        {
+            global::ConditioningControlPanel.Avalonia.App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "Bubbles RefreshFrequency failed");
+        }
 
         _settings.Save();
     }

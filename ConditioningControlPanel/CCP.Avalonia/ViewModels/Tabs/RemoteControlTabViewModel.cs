@@ -2,17 +2,20 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
+using QRCoder;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -105,6 +108,9 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
     private string _pairingUrl = "https://cclabs.app/remote/";
 
     [ObservableProperty]
+    private Bitmap? _pairingQrImage;
+
+    [ObservableProperty]
     private string _statusMessage = "";
 
     [ObservableProperty]
@@ -186,6 +192,32 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
         }
 
         OnPropertyChanged(nameof(OptInStatusCharacterCount));
+    }
+
+    partial void OnPairingUrlChanged(string value) => RegenerateQr();
+
+    private void RegenerateQr()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(PairingUrl))
+            {
+                PairingQrImage = null;
+                return;
+            }
+
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrData = qrGenerator.CreateQrCode(PairingUrl, QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new PngByteQRCode(qrData);
+            var pngBytes = qrCode.GetGraphic(20);
+            using var stream = new MemoryStream(pngBytes);
+            PairingQrImage = new Bitmap(stream);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Failed to generate QR code for pairing URL");
+            PairingQrImage = null;
+        }
     }
 
     partial void OnCommandLogChanged(ObservableCollection<string> value)
@@ -508,23 +540,23 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
 
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is not Core.Models.AppSettings settings) return;
+        if (sender is not ConditioningControlPanel.Models.AppSettings settings) return;
 
-        if (e.PropertyName == nameof(Core.Models.AppSettings.StopEffectsOnRemoteDisconnect))
+        if (e.PropertyName == nameof(ConditioningControlPanel.Models.AppSettings.StopEffectsOnRemoteDisconnect))
         {
             StopEffectsOnDisconnect = settings.StopEffectsOnRemoteDisconnect;
         }
-        else if (e.PropertyName == nameof(Core.Models.AppSettings.RemoteShareAvatar))
+        else if (e.PropertyName == nameof(ConditioningControlPanel.Models.AppSettings.RemoteShareAvatar))
         {
             ShareAvatar = settings.RemoteShareAvatar;
         }
-        else if (e.PropertyName is nameof(Core.Models.AppSettings.HasLinkedPatreon) or nameof(Core.Models.AppSettings.HasLinkedDiscord))
+        else if (e.PropertyName is nameof(ConditioningControlPanel.Models.AppSettings.HasLinkedPatreon) or nameof(ConditioningControlPanel.Models.AppSettings.HasLinkedDiscord))
         {
             IsPremiumLocked = !(settings.HasLinkedPatreon || settings.HasLinkedDiscord);
         }
     }
 
-    private void LoadSettings(Core.Models.AppSettings settings)
+    private void LoadSettings(ConditioningControlPanel.Models.AppSettings settings)
     {
         StopEffectsOnDisconnect = settings.StopEffectsOnRemoteDisconnect;
         ShareAvatar = settings.RemoteShareAvatar;

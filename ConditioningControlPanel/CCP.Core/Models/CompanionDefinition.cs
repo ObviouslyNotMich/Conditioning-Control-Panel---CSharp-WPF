@@ -1,6 +1,6 @@
 using System;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Unique identifier for each companion type.

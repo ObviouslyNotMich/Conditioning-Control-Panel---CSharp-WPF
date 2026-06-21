@@ -33,8 +33,9 @@ The recommended strategy is **engine-first extraction**:
 > than a linear reading of §8 implies. Update this snapshot whenever a phase materially changes.
 
 **Headline:** the architecture is fully stood up and the entire desktop solution builds with **0 errors**
-(`dotnet build CCP.Desktop.slnf` → 0 errors, ~291 warnings, mostly `CA1416` on the kept-alive WPF head).
-The dominant remaining cost is **UI parity** (Phase 4) plus media/mobile polish — not scaffolding.
+(`dotnet build CCP.Desktop.slnf` → 0 errors, ~1 warning from the kept-alive WPF head).
+The dominant remaining cost is **UI parity** (Phase 4: AvatarTube depth, Chaos overlay animations/z-order/boons,
+remaining hard-coded dialogs) plus mobile polish — not scaffolding.
 
 > **Execution model:** the remaining work is highly parallel and is meant to be run as a **multi-agent
 > swarm**. Before assigning or starting work, read **§20 — Multi-Agent Swarm Execution & Context Discipline**
@@ -48,8 +49,8 @@ The dominant remaining cost is **UI parity** (Phase 4) plus media/mobile polish 
 | 1 — Carve out `CCP.Core` | ✅ substantially done | 156 `.cs` files: 53 models, the full platform-seam interface set (26 interface files in `CCP.Core/Platform/`), plus services for Sessions, Moderation, Deeper, Bark, Chaos, AIService, Progression, Quests, Settings, Content, Commands. Core builds clean on `net8.0`. |
 | 2 — Prove Core off-Windows | 🚧 partial | CI (`.github/workflows/build.yml`) builds Core + heads on `ubuntu-latest`/`macos-latest` and runs `CCP.Core.Tests`. Needs ongoing "no Windows leaks" auditing as Core grows. |
 | 3 — Avalonia solution | ✅ done | All heads exist and build (see §3.1, **updated**). |
-| 4 — XAML/UI migration | 🚧 largest remaining effort | 149 `.axaml` + 279 `.cs` in `CCP.Avalonia`: Dialogs (67), Windows (59), Views/Tabs (58) + 33 tab ViewModels, Features (52), Chaos (46), AvatarTube (10), Converters/Controls. Remaining: full `MainWindow` parity smoke-test, leftover WPF-only dialogs/utility windows, accessibility labels, run the parity matrix. Tracked in `docs/avalonia-migration-task-board.md` and `docs/avalonia-ui-parity-matrix.md`. |
-| 5 — Media & audio | 🚧 partial | `AvaloniaVideoSurface`, `AvaloniaAudioPlayer`, `AvaloniaDualMonitorVideoService`, and `LibVLCNativeDiscovery` exist. Remaining: mobile `IVideoSurface`, ducking parity, GIF/SVG finalize. |
+| 4 — XAML/UI migration | 🚧 largest remaining effort | 149 `.axaml` + 279 `.cs` in `CCP.Avalonia`: Dialogs (67), Windows (59), Views/Tabs (58) + 33 tab ViewModels, Features (52), Chaos (46), AvatarTube (10), Converters/Controls. `MainWindow` shell, chrome, drag-drop/resize grips, XP bar, and banner are present. Remaining: AvatarTube runtime behavior (in progress under agent1), Chaos overlay animations/z-order/boon logic, hard-coded onboarding/privacy dialogs and webcam windows, accessibility labels. Tracked in `docs/avalonia-migration-task-board.md` and `docs/avalonia-ui-parity-matrix.md`. |
+| 5 — Media & audio | 🚧 partial | `AvaloniaVideoSurface`, `AvaloniaAudioPlayer`, `AvaloniaDualMonitorVideoService`, and `LibVLCNativeDiscovery` exist. Mandatory-video attention checks, strict mode, post-play penalty/mercy loop, and dual-monitor secondary windows are ported. Windows system-audio ducking is implemented via `WindowsSystemAudioDucker`; Linux/macOS use best-effort `pactl`/`osascript`. Remaining: mobile `IVideoSurface`, GIF/SVG finalize. |
 | 6 — OS-shell features | ✅ structurally done | Per-head implementations exist for tray, hotkeys, input hook, wallpaper, browser host (WebView2 / WebKitGTK / WebKit), window chrome, frame source, audio device + ducker. Wired via `App.ConfigurePlatformServices` overrides per head. |
 | 7 — Build & publish | 🚧 desktop done | RIDs defined per head; CI publishes single-file desktop artifacts for win/linux/macOS. The Android job currently only `dotnet build`s the head — **AAB packaging is not yet wired**. Remaining: Android AAB publish, code signing/notarization, Android keystore. |
 | 8 — Mobile gating | 🚧 structural only | Android head builds; capability gating is in place via `IPlatformCapabilities` + `OperatingSystem.IsAndroid()` branch in DI. Remaining: mobile-first shell, touch UX, native camera. |
@@ -1144,14 +1145,14 @@ These `main` changes landed in the WPF head but are **not yet** reflected in Cor
 
 | Item | Landed in (WPF) | Port to | Notes |
 |---|---|---|---|
-| `AppSettings` new fields (+66 LOC) | `Models/AppSettings.cs` | `CCP.Core/Models/AppSettings.cs` (copy ~55 LOC behind) | Pure data; port field-by-field, then check any Avalonia VM/setting bindings. |
-| `ChaosSkiaFxOverlay` (pop bursts, ripples, rim-shine, multiplier HUD) | `Chaos/ChaosSkiaFxOverlay.cs` (644 LOC) | `CCP.Avalonia/Chaos` | No Avalonia equivalent. Skia FX → maps to Avalonia `CustomDrawOp`/Skia. |
-| `ChaosBoonColors`, `ChaosBubbleHostOverlay`, `ChaosDvdHostOverlay` | `Chaos/*.cs` | `CCP.Avalonia/Chaos` | Shared-host perf overlays (default-on bubble + DVD host). |
-| `ChaosCrashSentinel` | `Services/Chaos/ChaosCrashSentinel.cs` | Core or Avalonia service | Crash instrumentation around Chaos. |
-| `BubbleService` overhaul (popping minigame, +464 LOC) | `Services/BubbleService.cs` | `CCP.Avalonia` | Bubble-*popping* not yet ported (only `BubbleCount` exists). |
-| `UpdateService` rework (~120 LOC) | `Services/Update/UpdateService.cs` | Core update logic + `IUpdateInstaller` heads | Reconcile GitHub/Inno flow against the seam. |
-| `ModService` / `FlashService` / `GlobalMouseHook` deltas | `Services/*.cs` | matching Core/Avalonia services | Small; verify each. |
-| `Fredoka.ttf` | `Fonts/Fredoka.ttf` | `CCP.Avalonia` `AvaloniaResource` + `FontFamily` | Register as `avares://` font and wire where the WPF UI uses it. |
+| ✅ `AppSettings` new fields (+66 LOC) | `Models/AppSettings.cs` | `CCP.Core/Models/AppSettings.cs` | Done: ported Chaos Skia/SharedHost/AvatarOwnThread/MemTelemetry/PinOnTop flags to Core; namespace aligned. |
+| ✅ `ChaosSkiaFxOverlay` (pop bursts, ripples, rim-shine, multiplier HUD) | `Chaos/ChaosSkiaFxOverlay.cs` (644 LOC) | `CCP.Avalonia/Chaos/ChaosSkiaFxOverlay.cs` | Done: ported using `ICustomDrawOperation` + `ISkiaSharpApiLease` (Avalonia 12 public Skia API). |
+| ✅ `ChaosBoonColors`, `ChaosBubbleHostOverlay`, `ChaosDvdHostOverlay` | `Chaos/*.cs` | `CCP.Avalonia/Chaos` | Done: ported host overlays (`ChaosBubbleHostOverlay`, `ChaosDvdHostOverlay`) and color map (`ChaosBoonColors`) to Avalonia. Wiring into a running Chaos engine is pending the engine port. |
+| ✅ `ChaosCrashSentinel` | `Services/Chaos/ChaosCrashSentinel.cs` | Core service + Avalonia startup | Done: ported to `CCP.Core/Services/Chaos/ChaosCrashSentinel.cs` using `IAppEnvironment`/`IAppLogger`, registered in DI, `ConsumeAndReport` called at startup. `Mark`/`Clear` to be wired when the Chaos engine is ported. |
+| ✅ `BubbleService` overhaul (popping minigame, +464 LOC) | `Services/BubbleService.cs` | `CCP.Core/Services/Chaos/BubbleEngine.cs` + `CCP.Avalonia/Services/AvaloniaBubbleService.cs` | Done: ambient bubbles, chaos effect bubbles (live, treats, darters, Chaperone, Bound, Echo, Tease, Brittle, Prism), chain reaction, field hazards (ripples/residue/Tail-Plug trails), shared-host renderer, and global low-level mouse hook ported. Stage 3 boon synergy (VibePop/E-Stim/Spanker) awaits a ported Avalonia ChaosModeService engine. |
+| ✅ `UpdateService` rework (~120 LOC) | `Services/Update/UpdateService.cs` | Core update logic + `IUpdateInstaller` heads | Done: created `IUpdateService` + `UpdateService` in Core (GitHub check, skip-file logic, asset resolution), registered in Avalonia DI, wired `MainWindowViewModel` to auto/manual check and `UpdateNotificationDialog`, bumped all Avalonia project versions to 6.1.6. |
+| ✅ `ModService` / `FlashService` / `GlobalMouseHook` deltas | `Services/*.cs` | matching Core/Avalonia services | Verified: `ModService.cs` unchanged; `FlashService.cs` moved to `Services/Flash/` and gained decode counters + `RaiseAllToFront()` (WPF-specific, no Avalonia action); `GlobalMouseHook.cs` moved to `Services/Input/` (Windows-only). |
+| ✅ `Fredoka.ttf` | `Fonts/Fredoka.ttf` | `CCP.Avalonia` `AvaloniaResource` + `FontFamily` | Done: copied to `Assets/Fonts/`, registered `FredokaFont` resource in `App.axaml`, wired in `ChaosHudWindow.axaml` multiplier labels. |
 
 ### 19.4 Strategic fix — collapse the duplication (highest-leverage move)
 
@@ -1162,25 +1163,23 @@ copy in `CCP.Core/Models/` (0 WPF-only), and the copies have already silently dr
 `Session.cs` both differ between the two trees today. This is two hand-synced codebases, and it is the single
 biggest recurring tax in the whole migration.
 
-**The only real blocker is the namespace.** WPF models are `namespace ConditioningControlPanel.Models`; the Core
-copies are `namespace ConditioningControlPanel.Core.Models`. That mismatch is why the WPF head can't just
-`ProjectReference` Core and delete its copies — every `using ConditioningControlPanel.Models` in the WPF code
-would miss the Core types.
+**Namespace alignment is done; project-reference collapse is blocked.** WPF models are `namespace ConditioningControlPanel.Models`; the Core copies were `namespace ConditioningControlPanel.Core.Models`. The mismatch was fixed by standardizing Core model namespace to `ConditioningControlPanel.Models` and sweeping Avalonia/tests.
 
-**Recommended bounded fix (do this *before* porting more UI — it shrinks every later step):**
+**Why a direct `ProjectReference` from WPF to `CCP.Core` does not yet work:** `CCP.Core/App.cs` defines a static `ConditioningControlPanel.App` service-locator stub that collides with the WPF `App` class, and Core carries its own generated assembly attributes that conflict with the WPF head's `Properties/AssemblyInfo.cs`. Referencing Core therefore produces `CS0102`/`CS0260`/`CS0579` errors. Do not attempt the §19.4 project-reference collapse until `CCP.Core/App.cs` is removed or renamed and the assembly-info story is reconciled.
 
-1. Standardize the Core model namespace to **`ConditioningControlPanel.Models`** (drop the `.Core` segment for
-   `CCP.Core/Models/` only; keep `…Core.Services` etc. as-is). Pure POCOs, low risk.
-2. Mechanical sweep the Avalonia tree: replace `ConditioningControlPanel.Core.Models` → `ConditioningControlPanel.Models`
-   in `using`s (one find/replace; the build catches stragglers).
-3. Add `<ProjectReference Include="CCP.Core\CCP.Core.csproj" />` to the WPF head and **delete `Models/*.cs`** from
-   it (remove the `CCP.Core\**` exclude). Now `main` and the cross-platform tree share one model definition and
-   drift on models is *impossible*.
-4. Repeat the same pattern opportunistically for genuinely portable, copy-not-reimplemented services.
+**Current bounded fix (applied 2026-06-21):**
 
-Do models first — it removes ~70 files of drift surface for a contained, mostly-mechanical change. Until it
-lands, treat `Models/` as a known liability and `diff` it on every merge (§19.2). The `CCP.Core` `<Version>` is
-pinned at `6.1.4` while `main` shipped `6.1.6` — a quick "is Core behind?" tripwire; bump it as part of each sync.
+1. ✅ Standardize Core model namespace to **`ConditioningControlPanel.Models`** (drop the `.Core` segment for
+   `CCP.Core/Models/` only; keep `…Core.Services` etc. as-is).
+2. ✅ Mechanical sweep of Avalonia/tests: replaced `ConditioningControlPanel.Core.Models` → `ConditioningControlPanel.Models`.
+3. ⛔ **Deferred:** direct WPF `ProjectReference` to Core. Instead, keep WPF `Models/` as a synced copy and diff it on every merge (§19.2).
+4. ✅ Bumped `CCP.Core` `<Version>` from `6.1.4` → `6.1.6` to match `main`.
+
+**Prerequisite before retrying the collapse:**
+- Remove or rename `CCP.Core/App.cs` (and update all `App.X` call sites in Core models/services to use DI or a `CoreApp` helper).
+- Reconcile assembly attributes (either suppress Core's generated attributes when referenced from WPF, or share a single `AssemblyInfo`).
+
+Until then, treat `Models/` as a known liability and `diff` it on every merge (§19.2).
 
 ---
 

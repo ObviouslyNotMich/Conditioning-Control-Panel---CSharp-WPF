@@ -2,8 +2,9 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,6 +23,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
     private readonly IDialogService? _dialogService;
     private readonly IAppEnvironment? _appEnvironment;
     private readonly IPlatformCapabilities? _platformCapabilities;
+    private readonly IFlashService? _flashService;
     private readonly IAppLogger? _logger;
 
     private static readonly string[] ValidExtensions =
@@ -49,12 +51,14 @@ public partial class AssetsTabViewModel : TabItemViewModel
         IDialogService dialogService,
         IAppEnvironment appEnvironment,
         IPlatformCapabilities platformCapabilities,
+        IFlashService flashService,
         IAppLogger logger) : base("assets", "Assets", "📁")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _appEnvironment = appEnvironment;
         _platformCapabilities = platformCapabilities;
+        _flashService = flashService;
         _logger = logger;
         _assetTree = new ObservableCollection<AssetTreeItem>();
         _currentFiles = new ObservableCollection<AssetFileItem>();
@@ -434,7 +438,17 @@ public partial class AssetsTabViewModel : TabItemViewModel
 
     private void InvalidateAssetPools(bool fullReload = false)
     {
-        // TODO: wire to IFlashService.ClearFileCache(), IVideoService.ReloadAssets(), IBubbleCountService.ReloadAssets() once extracted.
+        try
+        {
+            if (fullReload)
+                _flashService?.LoadAssets();
+            else
+                _flashService?.ClearFileCache();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "InvalidateAssetPools: flash service cache clear failed");
+        }
         _logger?.Information("Asset selection changed; pool invalidation requested (fullReload={FullReload})", fullReload);
     }
 

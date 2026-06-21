@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Controls.ApplicationLifetimes;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Chaos;
@@ -23,9 +24,15 @@ internal static class AvaloniaChaosWindowZ
         if (w == null) return;
         try
         {
+            bool topmost = BornTopmost;
             w.Topmost = false;
-            w.Topmost = BornTopmost;
-            // TODO: platform-specific NOACTIVATE z-order (Windows SetWindowPos, Linux/macOS WM hints).
+            w.Topmost = topmost;
+            if (OperatingSystem.IsWindows() && w.TryGetPlatformHandle() is { } handle)
+            {
+                var insertAfter = topmost ? HWND_TOPMOST : HWND_NOTOPMOST;
+                SetWindowPos(handle.Handle, insertAfter, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            }
         }
         catch { }
     }
@@ -78,4 +85,15 @@ internal static class AvaloniaChaosWindowZ
         }
         return null;
     }
+
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private static readonly IntPtr HWND_NOTOPMOST = new(-2);
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 }

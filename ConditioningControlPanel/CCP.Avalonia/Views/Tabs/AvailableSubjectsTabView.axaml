@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
-             xmlns:models="using:ConditioningControlPanel.Core.Models"
+             xmlns:models="using:ConditioningControlPanel.Models"
              x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.AvailableSubjectsTabView"
              x:Name="Root"
              x:DataType="vm:AvailableSubjectsTabViewModel">

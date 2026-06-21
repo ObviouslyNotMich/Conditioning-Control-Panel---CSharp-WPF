@@ -17,7 +17,7 @@ using IModerationLog = ConditioningControlPanel.IModerationLog;
 using ConditioningControlPanel.Avalonia.Services.Companion;
 using ConditioningControlPanel.Avalonia.Services.KeywordTriggers;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Moderation;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Dialogs;
@@ -104,7 +104,7 @@ _preset = preset;
             TxtNameEdit.LostFocus += (_, _) =>
             {
                 var name = (TxtNameEdit.Text ?? "").Trim();
-                preset.Name = string.IsNullOrEmpty(name) ? "Untitled preset" : name;
+                preset.Name = string.IsNullOrEmpty(name) ? Loc.Get("dialog_awareness_preset_detail_untitled_preset") : name;
                 TxtNameEdit.Text = preset.Name;
                 PersistAndMaybeCreate();
             };
@@ -244,12 +244,12 @@ _preset = preset;
         var installed = _keywordPresetService.IsInstalled(_preset.Id);
         if (installed)
         {
-            BtnInstall.Content = "Deactivate";
+            BtnInstall.Content = Loc.Get("dialog_awareness_preset_detail_deactivate_content");
             BtnInstall.Background = new SolidColorBrush(Color.FromRgb(0x5A, 0x30, 0x30));
         }
         else
         {
-            BtnInstall.Content = "Activate";
+            BtnInstall.Content = Loc.Get("dialog_awareness_preset_detail_activate_content");
             BtnInstall.Background = this.TryGetResource("PinkBrush", ThemeVariant.Default, out var res) && res is IBrush b
                 ? b
                 : new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4));
@@ -260,7 +260,7 @@ _preset = preset;
     {
         var btn = new Button
         {
-            Content = "＋ Add trigger",
+            Content = "＋ " + Loc.Get("dialog_awareness_preset_detail_add_trigger_content"),
             Padding = new Thickness(12, 6, 12, 6),
             Margin = new Thickness(0, 10, 0, 0),
             Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x44)),
@@ -270,7 +270,7 @@ _preset = preset;
             HorizontalAlignment = HorizontalAlignment.Left,
             FontSize = 11,
         };
-        ToolTip.SetTip(btn, "Append a fresh keyword trigger. Edit the keyword field to name it, then Add actions to define what fires.");
+        ToolTip.SetTip(btn, Loc.Get("dialog_awareness_preset_detail_add_trigger_tooltip"));
         btn.Click += (_, _) => AddNewTrigger();
         return btn;
     }
@@ -279,7 +279,7 @@ _preset = preset;
     {
         return new TextBlock
         {
-            Text = "No triggers defined for this preset.",
+            Text = Loc.Get("dialog_awareness_preset_detail_no_triggers_text"),
             Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x8A, 0xA0)),
             FontStyle = FontStyle.Italic,
             FontSize = 11,
@@ -392,7 +392,7 @@ _preset = preset;
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
         };
-        ToolTip.SetTip(enableBox, "Toggle whether this keyword fires");
+        ToolTip.SetTip(enableBox, Loc.Get("dialog_awareness_preset_detail_trigger_enabled_tooltip"));
         enableBox.IsCheckedChanged += (_, _) =>
         {
             trigger.Enabled = enableBox.IsChecked == true;
@@ -416,7 +416,7 @@ _preset = preset;
                 Padding = new Thickness(6, 3, 6, 3),
                 MinWidth = 140,
             };
-            ToolTip.SetTip(keywordBox, "Word or phrase that fires this trigger. Edit freely.");
+            ToolTip.SetTip(keywordBox, Loc.Get("dialog_awareness_preset_detail_keyword_tooltip"));
             keywordBox.LostFocus += (_, _) =>
             {
                 var newKeyword = (keywordBox.Text ?? "").Trim();
@@ -429,7 +429,7 @@ _preset = preset;
 
             var addBtn = new Button
             {
-                Content = "＋ Add action",
+                Content = "＋ " + Loc.Get("dialog_awareness_preset_detail_add_action_content"),
                 Padding = new Thickness(10, 4, 10, 4),
                 Margin = new Thickness(6, 0, 0, 0),
                 Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x44)),
@@ -455,13 +455,13 @@ _preset = preset;
                 Cursor = new Cursor(StandardCursorType.Hand),
                 FontSize = 14,
             };
-            ToolTip.SetTip(deleteTriggerBtn, "Delete this trigger from the preset");
+            ToolTip.SetTip(deleteTriggerBtn, Loc.Get("dialog_awareness_preset_detail_delete_trigger_tooltip"));
             deleteTriggerBtn.Click += (_, _) =>
             {
-                var label = string.IsNullOrWhiteSpace(trigger.Keyword) ? "(unnamed trigger)" : $"\"{trigger.Keyword}\"";
+                var label = string.IsNullOrWhiteSpace(trigger.Keyword) ? Loc.Get("dialog_awareness_preset_detail_unnamed_trigger") : $"\"{trigger.Keyword}\"";
                 var confirm = MessageBoxStub.Show(
-                    $"Delete trigger {label}?\n\nThis removes the keyword and all its actions.",
-                    "Delete trigger",
+                    string.Format(Loc.Get("dialog_awareness_preset_detail_delete_trigger_message_fmt"), label),
+                    Loc.Get("dialog_awareness_preset_detail_delete_trigger_title"),
                     MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (confirm == MessageBoxResult.Yes)
                     DeleteTrigger(trigger);
@@ -529,7 +529,7 @@ _preset = preset;
         {
             PlayAudioAction pa => BuildPlayAudioRow(trigger, pa, editable, parentBorder),
             VisualEffectAction ve => BuildVisualEffectRow(trigger, ve, editable, parentBorder),
-            HighlightAction hi => BuildSimpleRow("👁", "Highlight matched words on screen", trigger, hi, editable, parentBorder),
+            HighlightAction hi => BuildSimpleRow("👁", Loc.Get("dialog_awareness_preset_detail_highlight_description"), trigger, hi, editable, parentBorder),
             HapticAction h => BuildHapticRow(trigger, h, editable, parentBorder),
             AvatarCommentAction ac => BuildAvatarCommentRow(trigger, ac, editable, parentBorder),
             ExtendSessionAction es => BuildExtendSessionRow(trigger, es, editable, parentBorder),
@@ -582,7 +582,7 @@ _preset = preset;
                 Cursor = new Cursor(StandardCursorType.Hand),
                 FontSize = 13,
             };
-            ToolTip.SetTip(removeBtn, "Remove this action from the trigger");
+            ToolTip.SetTip(removeBtn, Loc.Get("dialog_awareness_preset_detail_remove_action_tooltip"));
             removeBtn.Click += (_, _) =>
             {
                 trigger.Actions?.Remove(action);
@@ -619,18 +619,18 @@ _preset = preset;
         Grid.SetColumn(fileText, 0);
         body.Children.Add(fileText);
 
-        var browseBtn = MakeChipButton("Browse", editable);
+        var browseBtn = MakeChipButton(Loc.Get("btn_browse"), editable);
         browseBtn.Click += async (_, _) =>
         {
             var top = TopLevel.GetTopLevel(this);
             if (top?.StorageProvider is not { } provider) return;
             var result = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Select trigger sound",
+                Title = Loc.Get("dialog_awareness_preset_detail_select_sound_title"),
                 FileTypeFilter = new[]
                 {
-                    new FilePickerFileType("Audio Files") { Patterns = new[] { "*.mp3", "*.wav", "*.ogg" } },
-                    new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+                    new FilePickerFileType(Loc.Get("dialog_awareness_preset_detail_audio_files_filter")) { Patterns = new[] { "*.mp3", "*.wav", "*.ogg" } },
+                    new FilePickerFileType(Loc.Get("dialog_awareness_preset_detail_all_files_filter")) { Patterns = new[] { "*.*" } }
                 }
             });
             var file = result?.FirstOrDefault();
@@ -644,7 +644,7 @@ _preset = preset;
         Grid.SetColumn(browseBtn, 1);
         body.Children.Add(browseBtn);
 
-        var testBtn = MakeChipButton("▶ Test", editable);
+        var testBtn = MakeChipButton("▶ " + Loc.Get("btn_test"), editable);
         testBtn.Click += (_, _) =>
         {
             if (!string.IsNullOrEmpty(pa.FilePath))
@@ -655,7 +655,7 @@ _preset = preset;
 
         var volLabel = new TextBlock
         {
-            Text = "Vol",
+            Text = Loc.Get("dialog_awareness_preset_detail_volume_label"),
             Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x8A, 0xA0)),
             FontSize = 10,
             VerticalAlignment = VerticalAlignment.Center,
@@ -704,7 +704,7 @@ _preset = preset;
 
         var label = new TextBlock
         {
-            Text = "Effect:",
+            Text = Loc.Get("dialog_awareness_preset_detail_effect_label"),
             Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xB8)),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
@@ -760,7 +760,7 @@ _preset = preset;
 
         var label = new TextBlock
         {
-            Text = "Intensity:",
+            Text = Loc.Get("setting_intensity"),
             Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xB8)),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
@@ -808,7 +808,7 @@ _preset = preset;
 
         var exampleText = new TextBlock
         {
-            Text = "e.g. \"She just encountered the word '{keyword}'. Remind her she's locked, in character, one sentence.\"",
+            Text = Loc.Get("dialog_awareness_preset_detail_avatar_example"),
             Foreground = new SolidColorBrush(Color.FromRgb(0x7A, 0x7A, 0x9A)),
             FontSize = 10,
             FontStyle = FontStyle.Italic,
@@ -823,7 +823,7 @@ _preset = preset;
 
         var promptLabel = new TextBlock
         {
-            Text = "Prompt:",
+            Text = Loc.Get("dialog_awareness_preset_detail_prompt_label"),
             Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xB8)),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
@@ -844,7 +844,7 @@ _preset = preset;
             Padding = new Thickness(4, 2, 4, 2),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        ToolTip.SetTip(promptBox, "AI prompt template. Use {keyword} as a placeholder. Leave empty for the preset's default.");
+        ToolTip.SetTip(promptBox, Loc.Get("dialog_awareness_preset_detail_prompt_tooltip"));
         promptBox.LostFocus += (_, _) =>
         {
             ac.PromptTemplate = string.IsNullOrWhiteSpace(promptBox.Text) ? null : promptBox.Text;
@@ -862,7 +862,7 @@ _preset = preset;
 
         var fallbackLabel = new TextBlock
         {
-            Text = "Fallback pool:",
+            Text = Loc.Get("dialog_awareness_preset_detail_fallback_pool_label"),
             Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xB8)),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
@@ -883,9 +883,9 @@ _preset = preset;
             CornerRadius = new CornerRadius(3),
             Padding = new Thickness(6, 3),
         };
-        ToolTip.SetTip(fallbackCombo, "Canned phrase pool used when AI is unavailable. Categories come from the active mod + any installed preset packs.");
+        ToolTip.SetTip(fallbackCombo, Loc.Get("dialog_awareness_preset_detail_fallback_pool_tooltip"));
 
-        fallbackCombo.Items.Add(new ComboBoxItem { Content = "(none)", Tag = null });
+        fallbackCombo.Items.Add(new ComboBoxItem { Content = Loc.Get("dialog_awareness_preset_detail_fallback_none"), Tag = null });
 
         var currentCat = ac.FallbackPhraseCategory ?? "";
         int selectedIndex = 0;
@@ -902,7 +902,7 @@ _preset = preset;
         {
             fallbackCombo.Items.Add(new ComboBoxItem
             {
-                Content = currentCat + "  (not available)",
+                Content = string.Format(Loc.Get("dialog_awareness_preset_detail_fallback_unavailable_fmt"), currentCat),
                 Tag = currentCat,
             });
             selectedIndex = fallbackCombo.Items.Count - 1;
@@ -922,7 +922,7 @@ _preset = preset;
 
         var aiCheck = new CheckBox
         {
-            Content = "Require AI",
+            Content = Loc.Get("dialog_awareness_preset_detail_require_ai_content"),
             Foreground = Brushes.White,
             FontSize = 11,
             IsChecked = ac.RequireAiAvailable,
@@ -930,7 +930,7 @@ _preset = preset;
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(12, 0, 0, 0),
         };
-        ToolTip.SetTip(aiCheck, "When checked, this comment only fires if AI is available. Uncheck to always use canned phrases.");
+        ToolTip.SetTip(aiCheck, Loc.Get("dialog_awareness_preset_detail_require_ai_tooltip"));
         aiCheck.IsCheckedChanged += (_, _) =>
         {
             ac.RequireAiAvailable = aiCheck.IsChecked == true;
@@ -965,12 +965,12 @@ _preset = preset;
 
     private Border BuildExtendSessionRow(KeywordTrigger trigger, ExtendSessionAction es, bool editable, Border parentBorder)
     {
-        return BuildMinutesRow("⏱", "Extend session by:", es.Minutes, v => es.Minutes = v, trigger, es, editable, parentBorder);
+        return BuildMinutesRow("⏱", Loc.Get("dialog_awareness_preset_detail_extend_session_label"), es.Minutes, v => es.Minutes = v, trigger, es, editable, parentBorder);
     }
 
     private Border BuildChasterAddTimeRow(KeywordTrigger trigger, ChasterAddTimeAction ct, bool editable, Border parentBorder)
     {
-        return BuildMinutesRow("🔒", "Add lock time:", ct.Minutes, v => ct.Minutes = v, trigger, ct, editable, parentBorder);
+        return BuildMinutesRow("🔒", Loc.Get("dialog_awareness_preset_detail_chaster_label"), ct.Minutes, v => ct.Minutes = v, trigger, ct, editable, parentBorder);
     }
 
     private Border BuildMinutesRow(string icon, string label, int current, Action<int> setter, KeywordTrigger trigger, KeywordAction action, bool editable, Border parentBorder)
@@ -1022,7 +1022,7 @@ _preset = preset;
 
         var suffix = new TextBlock
         {
-            Text = " min",
+            Text = Loc.Get("dialog_awareness_preset_detail_minutes_suffix"),
             Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x8A, 0xA0)),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
@@ -1055,29 +1055,29 @@ _preset = preset;
             else existing.Add(a.GetType().Name);
         }
 
-        AddMenuItem(menu, "🔊 Play Audio", () => AddAction(trigger, new PlayAudioAction { Volume = 70 }, parentBorder),
-            existing.Contains(nameof(PlayAudioAction)) ? "(already added)" : null);
-        AddMenuItem(menu, "👁 Highlight matched words", () => AddAction(trigger, new HighlightAction(), parentBorder),
-            existing.Contains(nameof(HighlightAction)) ? "(already added)" : null);
-        AddMenuItem(menu, "💥 Haptic", () => AddAction(trigger, new HapticAction { Intensity = 0.3 }, parentBorder),
-            existing.Contains(nameof(HapticAction)) ? "(already added)" : null);
-        AddMenuItem(menu, "💬 Avatar Comment", () => AddAction(trigger, new AvatarCommentAction(), parentBorder),
-            existing.Contains(nameof(AvatarCommentAction)) ? "(already added)" : null);
+        AddMenuItem(menu, "🔊 " + Loc.Get("dialog_awareness_preset_detail_menu_play_audio"), () => AddAction(trigger, new PlayAudioAction { Volume = 70 }, parentBorder),
+            existing.Contains(nameof(PlayAudioAction)) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "👁 " + Loc.Get("dialog_awareness_preset_detail_menu_highlight_matched_words"), () => AddAction(trigger, new HighlightAction(), parentBorder),
+            existing.Contains(nameof(HighlightAction)) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "💥 " + Loc.Get("dialog_awareness_preset_detail_menu_haptic"), () => AddAction(trigger, new HapticAction { Intensity = 0.3 }, parentBorder),
+            existing.Contains(nameof(HapticAction)) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "💬 " + Loc.Get("dialog_awareness_preset_detail_menu_avatar_comment"), () => AddAction(trigger, new AvatarCommentAction(), parentBorder),
+            existing.Contains(nameof(AvatarCommentAction)) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
 
         menu.Items.Add(new Separator());
 
-        AddMenuItem(menu, "✨ Subliminal Flash", () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.SubliminalFlash }, parentBorder),
-            existing.Contains("VisualEffect:" + KeywordVisualEffect.SubliminalFlash) ? "(already added)" : null);
-        AddMenuItem(menu, "🔤 Exact Subliminal", () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.ExactSubliminal }, parentBorder),
-            existing.Contains("VisualEffect:" + KeywordVisualEffect.ExactSubliminal) ? "(already added)" : null);
-        AddMenuItem(menu, "⚡ Image Flash", () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.ImageFlash }, parentBorder),
-            existing.Contains("VisualEffect:" + KeywordVisualEffect.ImageFlash) ? "(already added)" : null);
-        AddMenuItem(menu, "🌫 Overlay Pulse", () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.OverlayPulse }, parentBorder),
-            existing.Contains("VisualEffect:" + KeywordVisualEffect.OverlayPulse) ? "(already added)" : null);
-        AddMenuItem(menu, "🧠 Mind Wipe", () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.MindWipe }, parentBorder),
-            existing.Contains("VisualEffect:" + KeywordVisualEffect.MindWipe) ? "(already added)" : null);
-        AddMenuItem(menu, "🫧 Bubbles", () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.Bubbles }, parentBorder),
-            existing.Contains("VisualEffect:" + KeywordVisualEffect.Bubbles) ? "(already added)" : null);
+        AddMenuItem(menu, "✨ " + Loc.Get("dialog_awareness_preset_detail_menu_subliminal_flash"), () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.SubliminalFlash }, parentBorder),
+            existing.Contains("VisualEffect:" + KeywordVisualEffect.SubliminalFlash) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "🔤 " + Loc.Get("dialog_awareness_preset_detail_menu_exact_subliminal"), () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.ExactSubliminal }, parentBorder),
+            existing.Contains("VisualEffect:" + KeywordVisualEffect.ExactSubliminal) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "⚡ " + Loc.Get("dialog_awareness_preset_detail_menu_image_flash"), () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.ImageFlash }, parentBorder),
+            existing.Contains("VisualEffect:" + KeywordVisualEffect.ImageFlash) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "🌫 " + Loc.Get("dialog_awareness_preset_detail_menu_overlay_pulse"), () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.OverlayPulse }, parentBorder),
+            existing.Contains("VisualEffect:" + KeywordVisualEffect.OverlayPulse) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "🧠 " + Loc.Get("dialog_awareness_preset_detail_menu_mind_wipe"), () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.MindWipe }, parentBorder),
+            existing.Contains("VisualEffect:" + KeywordVisualEffect.MindWipe) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
+        AddMenuItem(menu, "🫧 " + Loc.Get("dialog_awareness_preset_detail_menu_bubbles"), () => AddAction(trigger, new VisualEffectAction { Effect = KeywordVisualEffect.Bubbles }, parentBorder),
+            existing.Contains("VisualEffect:" + KeywordVisualEffect.Bubbles) ? Loc.Get("dialog_awareness_preset_detail_already_added_suffix") : null);
 
         menu.Open(anchor);
     }
@@ -1132,7 +1132,7 @@ _preset = preset;
         Changed = true;
         if (copy == null)
         {
-            MessageBoxStub.Show("Couldn't copy this preset.", "Copy failed",
+            MessageBoxStub.Show(Loc.Get("dialog_awareness_preset_detail_copy_failed_message"), Loc.Get("dialog_awareness_preset_detail_copy_failed_title"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -1149,10 +1149,10 @@ _preset = preset;
         if (_preset is null) return;
         if (_preset.IsBuiltIn) return;
 
-        var label = string.IsNullOrWhiteSpace(_preset.Name) ? "this preset" : $"\"{_preset.Name}\"";
+        var label = string.IsNullOrWhiteSpace(_preset.Name) ? Loc.Get("dialog_awareness_preset_detail_this_preset") : $"\"{_preset.Name}\"";
         var confirm = MessageBoxStub.Show(
-            $"Delete {label}?\n\nThis removes the preset and all its triggers permanently.",
-            "Delete preset",
+            string.Format(Loc.Get("dialog_awareness_preset_detail_delete_preset_message_fmt"), label),
+            Loc.Get("dialog_awareness_preset_detail_delete_preset_content"),
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.Yes) return;
 
@@ -1218,19 +1218,19 @@ _preset = preset;
 
     private static string DescribeAudioFile(string? path)
     {
-        if (string.IsNullOrEmpty(path)) return "(no file)";
+        if (string.IsNullOrEmpty(path)) return Loc.Get("dialog_awareness_preset_detail_no_file");
         try { return Path.GetFileName(path) ?? path; }
         catch { return path; }
     }
 
     private static string DescribeVisualEffect(KeywordVisualEffect e) => e switch
     {
-        KeywordVisualEffect.SubliminalFlash => "Subliminal Flash (random pool word)",
-        KeywordVisualEffect.ExactSubliminal => "Exact Subliminal (flash the keyword itself)",
-        KeywordVisualEffect.ImageFlash => "Image Flash (burst image)",
-        KeywordVisualEffect.OverlayPulse => "Overlay Pulse",
-        KeywordVisualEffect.MindWipe => "Mind Wipe",
-        KeywordVisualEffect.Bubbles => "Bubbles (spawn once)",
+        KeywordVisualEffect.SubliminalFlash => Loc.Get("dialog_awareness_preset_detail_effect_subliminal_flash"),
+        KeywordVisualEffect.ExactSubliminal => Loc.Get("dialog_awareness_preset_detail_effect_exact_subliminal"),
+        KeywordVisualEffect.ImageFlash => Loc.Get("dialog_awareness_preset_detail_effect_image_flash"),
+        KeywordVisualEffect.OverlayPulse => Loc.Get("dialog_awareness_preset_detail_effect_overlay_pulse"),
+        KeywordVisualEffect.MindWipe => Loc.Get("dialog_awareness_preset_detail_effect_mind_wipe"),
+        KeywordVisualEffect.Bubbles => Loc.Get("dialog_awareness_preset_detail_effect_bubbles"),
         _ => e.ToString(),
     };
 

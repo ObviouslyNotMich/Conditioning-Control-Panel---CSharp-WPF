@@ -1,7 +1,8 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 
@@ -21,6 +22,9 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
 
     public BambiTakeoverTabViewModel() : base("bambitakeover", "Takeover", "🌀")
     {
+        IsPremiumLocked = false;
+        StartStopButtonText = Loc.Get("btn_start_2");
+        StartStopButtonForeground = "#90EE90";
     }
 
     public BambiTakeoverTabViewModel(
@@ -32,6 +36,13 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
         _dialogService = dialogService;
         _logger = logger;
         LoadFromSettings();
+
+        var settings = _settingsService.Current;
+        IsPremiumLocked = settings == null || !(settings.HasLinkedPatreon || settings.HasLinkedDiscord);
+        if (settings != null)
+        {
+            settings.PropertyChanged += OnSettingsPropertyChanged;
+        }
     }
 
     [ObservableProperty]
@@ -97,8 +108,20 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
     [ObservableProperty]
     private int _announcementChance = 50;
 
+    [ObservableProperty]
+    private bool _isPremiumLocked;
+
+    [ObservableProperty]
+    private string _startStopButtonText = Loc.Get("btn_start_2");
+
+    [ObservableProperty]
+    private string _startStopButtonForeground = "#90EE90";
+
     partial void OnAutonomyEnabledChanged(bool value)
     {
+        StartStopButtonText = value ? Loc.Get("btn_stop_2") : Loc.Get("btn_start_2");
+        StartStopButtonForeground = value ? "#FF6B6B" : "#90EE90";
+
         if (_settingsService?.Current == null) return;
 
         if (value && !AutonomyConsentGiven)
@@ -185,10 +208,8 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
     private async Task PromptForConsentAsync()
     {
         var confirm = await (_dialogService?.ShowConfirmationAsync(
-            "Enable Autonomy Mode",
-            "AUTONOMY MODE\n\nThis feature allows the companion to autonomously trigger effects:\n" +
-            "• Flash images\n• Videos\n• Subliminal messages\n• Comments\n\n" +
-            "You can disable this at any time. Do you consent?") ?? Task.FromResult(false));
+            Loc.Get("dialog_title_enable_autonomy_mode"),
+            Loc.Get("dialog_message_enable_autonomy_mode")) ?? Task.FromResult(false));
 
         if (confirm && _settingsService?.Current != null)
         {
@@ -212,8 +233,8 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
         if (!AutonomyEnabled && !AutonomyConsentGiven)
         {
             var confirm = await (_dialogService?.ShowConfirmationAsync(
-                "Autonomy Mode Consent",
-                "Do you consent to enabling Autonomy Mode?") ?? Task.FromResult(false));
+                Loc.Get("dialog_title_autonomy_mode_consent"),
+                Loc.Get("dialog_message_autonomy_mode_consent")) ?? Task.FromResult(false));
             if (!confirm) return;
             AutonomyConsentGiven = true;
             _settingsService.Current.AutonomyConsentGiven = true;
@@ -235,6 +256,33 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
     private void ForceStartAutonomy()
     {
         _logger?.Information("Autonomy force start requested");
+    }
+
+    [RelayCommand]
+    private async Task StartStopAsync()
+    {
+        await ToggleAutonomyAsync();
+    }
+
+    [RelayCommand]
+    private async Task UnlockAsync()
+    {
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("dialog_title_premium_locked"),
+            Loc.Get("dialog_message_takeover_premium_locked"),
+            DialogSeverity.Info) ?? Task.CompletedTask);
+    }
+
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AppSettings.HasLinkedPatreon) or nameof(AppSettings.HasLinkedDiscord))
+        {
+            var settings = _settingsService?.Current;
+            if (settings != null)
+            {
+                IsPremiumLocked = !(settings.HasLinkedPatreon || settings.HasLinkedDiscord);
+            }
+        }
     }
 
     private void LoadFromSettings()

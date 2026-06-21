@@ -4,15 +4,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Windows;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,9 +22,28 @@ namespace ConditioningControlPanel.Avalonia.Views;
 
 public partial class MainWindow : Window
 {
+    private readonly IInputHook? _inputHook;
+    private readonly ISettingsService? _settingsService;
+    private readonly ISessionService? _sessionService;
+    private readonly ISessionManager? _sessionManager;
+    private readonly IAudioPlayer? _audioPlayer;
+    private readonly IAppLogger? _logger;
+    private readonly ILockdownService? _lockdownService;
+
+    private DateTime _lastPanicPress = DateTime.MinValue;
+    private int _panicPressCount;
+
     public MainWindow()
     {
         InitializeComponent();
+
+        _inputHook = App.Services?.GetService<IInputHook>();
+        _settingsService = App.Services?.GetService<ISettingsService>();
+        _sessionService = App.Services?.GetService<ISessionService>();
+        _sessionManager = App.Services?.GetService<ISessionManager>();
+        _audioPlayer = App.Services?.GetService<IAudioPlayer>();
+        _logger = App.Services?.GetService<IAppLogger>();
+        _lockdownService = App.Services?.GetService<ILockdownService>();
 
         // Remove the native title bar and extend the client area on all platforms.
         App.Services?.GetService<IWindowChrome>()?.ExtendClientArea(this, true);
@@ -41,6 +62,140 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DragLeaveEvent, MainWindow_DragLeave);
         AddHandler(DragDrop.DragOverEvent, MainWindow_DragOver);
         AddHandler(DragDrop.DropEvent, MainWindow_Drop);
+
+        WirePanicKey();
+    }
+
+    private void WirePanicKey()
+    {
+        if (_inputHook == null) return;
+        _inputHook.KeyPressed += (_, e) =>
+        {
+            if (!IsPanicKey(e.VirtualKeyCode)) return;
+
+            // The low-level hook runs on a background thread; marshal to the UI thread.
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    HandlePanicKeyPress();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warning(ex, "Panic-key handler failed");
+                }
+            });
+        };
+    }
+
+    private bool IsPanicKey(int virtualKeyCode)
+    {
+        var settings = _settingsService?.Current;
+        if (settings?.PanicKeyEnabled != true) return false;
+        if (string.IsNullOrWhiteSpace(settings.PanicKey)) return false;
+
+        return VirtualKeyToName(virtualKeyCode).Equals(settings.PanicKey, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string VirtualKeyToName(int virtualKeyCode)
+    {
+        return virtualKeyCode switch
+        {
+            0x08 => "Backspace",
+            0x09 => "Tab",
+            0x0D => "Enter",
+            0x13 => "Pause",
+            0x1B => "Escape",
+            0x20 => "Space",
+            0x21 => "PageUp",
+            0x22 => "PageDown",
+            0x23 => "End",
+            0x24 => "Home",
+            0x25 => "Left",
+            0x26 => "Up",
+            0x27 => "Right",
+            0x28 => "Down",
+            0x2C => "PrintScreen",
+            0x2D => "Insert",
+            0x2E => "Delete",
+            >= 0x30 and <= 0x39 => ((char)('0' + (virtualKeyCode - 0x30))).ToString(),
+            >= 0x41 and <= 0x5A => ((char)('A' + (virtualKeyCode - 0x41))).ToString(),
+            0x60 => "NumPad0",
+            0x61 => "NumPad1",
+            0x62 => "NumPad2",
+            0x63 => "NumPad3",
+            0x64 => "NumPad4",
+            0x65 => "NumPad5",
+            0x66 => "NumPad6",
+            0x67 => "NumPad7",
+            0x68 => "NumPad8",
+            0x69 => "NumPad9",
+            0x70 => "F1",
+            0x71 => "F2",
+            0x72 => "F3",
+            0x73 => "F4",
+            0x74 => "F5",
+            0x75 => "F6",
+            0x76 => "F7",
+            0x77 => "F8",
+            0x78 => "F9",
+            0x79 => "F10",
+            0x7A => "F11",
+            0x7B => "F12",
+            0x90 => "NumLock",
+            0x91 => "ScrollLock",
+            _ => $"VK{virtualKeyCode:X}"
+        };
+    }
+
+    private void HandlePanicKeyPress()
+    {
+        // Lockdown mode owns all key handling; panic key is intentionally disabled.
+        if (_lockdownService?.IsActive == true) return;
+
+        _logger?.Information("Panic key pressed");
+
+        var now = DateTime.Now;
+        if ((now - _lastPanicPress).TotalMilliseconds > 2000)
+            _panicPressCount = 0;
+        _panicPressCount++;
+        _lastPanicPress = now;
+
+        // First press while running: stop audio and pause the active session.
+        if (_sessionService?.State == SessionState.Running)
+        {
+            try { _audioPlayer?.Stop(); } catch { /* best effort */ }
+            _sessionService.PauseSession();
+            RestoreWindow();
+            return;
+        }
+
+        // Second press while stopped: exit the application.
+        if (_panicPressCount >= 2)
+        {
+            _logger?.Information("Double panic: exiting application");
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                try { _audioPlayer?.Stop(); } catch { /* best effort */ }
+                _sessionService?.StopSession(completed: false);
+                desktop.Shutdown();
+            }
+        }
+    }
+
+    private void RestoreWindow()
+    {
+        try
+        {
+            Show();
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
+            Activate();
+        }
+        catch
+        {
+            // window may be shutting down
+        }
     }
 
     private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -211,9 +366,67 @@ public partial class MainWindow : Window
         if (files == null || files.Count == 0)
             return;
 
+        int imported = 0, failed = 0;
+        foreach (var file in files)
+        {
+            var path = file.TryGetLocalPath();
+            if (string.IsNullOrEmpty(path)) continue;
+
+            try
+            {
+                if (path.EndsWith(".session.json", StringComparison.OrdinalIgnoreCase))
+                {
+                    var (success, message, session) = _sessionManager?.ImportSession(path) ?? (false, "Session manager not available", null);
+                    if (success && session != null)
+                    {
+                        imported++;
+                        _logger?.Information("Drag-drop imported session: {Name}", session.Name);
+                    }
+                    else
+                    {
+                        failed++;
+                        _logger?.Warning("Drag-drop session import failed: {Message}", message);
+                    }
+                }
+                else if (path.EndsWith(".preset.json", StringComparison.OrdinalIgnoreCase))
+                {
+                    var json = File.ReadAllText(path);
+                    var preset = Newtonsoft.Json.JsonConvert.DeserializeObject<Preset>(json);
+                    if (preset != null && _settingsService?.Current != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(preset.Name))
+                            preset.Name = Path.GetFileNameWithoutExtension(path).Replace(".preset", "", StringComparison.OrdinalIgnoreCase);
+                        _settingsService.Current.UserPresets.Add(preset);
+                        _settingsService.Save();
+                        imported++;
+                        _logger?.Information("Drag-drop imported preset: {Name}", preset.Name);
+                    }
+                    else
+                    {
+                        failed++;
+                    }
+                }
+                else
+                {
+                    failed++;
+                    _logger?.Debug("Drag-drop ignored unsupported file: {Path}", path);
+                }
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                _logger?.Warning(ex, "Drag-drop import failed for {Path}", path);
+            }
+        }
+
         if (DataContext is MainWindowViewModel vm2)
         {
-            vm2.AddNotification("Import", $"Dropped {files.Count} items");
+            if (failed == 0 && imported > 0)
+                vm2.AddNotification("Import", $"Imported {imported} item(s)");
+            else if (imported > 0)
+                vm2.AddNotification("Import", $"Imported {imported}, failed {failed}");
+            else
+                vm2.AddNotification("Import", $"No items imported ({failed} failed)");
         }
     }
 

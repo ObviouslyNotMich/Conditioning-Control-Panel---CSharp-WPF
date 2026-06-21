@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -8,14 +8,14 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
 
 using IModService = ConditioningControlPanel.IModService;
 using IInteractionQueueService = ConditioningControlPanel.IInteractionQueueService;
-using ILockCardService = ConditioningControlPanel.ILockCardService;
+using ILockCardService = ConditioningControlPanel.Core.Services.LockCard.ILockCardService;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Windows;

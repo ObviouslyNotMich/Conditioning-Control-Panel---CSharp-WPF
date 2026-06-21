@@ -1,10 +1,11 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 
@@ -28,6 +29,10 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         VisualEffectOptions = new ObservableCollection<string>(Enum.GetNames(typeof(KeywordVisualEffect)));
         OcrConfirmationOptions = new ObservableCollection<string> { "1 scan", "2 scans", "3 scans" };
         OcrHighlightModeOptions = new ObservableCollection<string> { "All matches", "First match only" };
+        IsPremiumLocked = false;
+        StatusText = Loc.Get("tab_awareness_status_off");
+        StatusColor = "#606060";
+        HighlightColorHex = "#FF69B4";
     }
 
     public AwarenessTabViewModel(
@@ -43,6 +48,15 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         OcrConfirmationOptions = new ObservableCollection<string> { "1 scan", "2 scans", "3 scans" };
         OcrHighlightModeOptions = new ObservableCollection<string> { "All matches", "First match only" };
         LoadFromSettings();
+
+        var settings = _settingsService.Current;
+        IsPremiumLocked = settings == null || !(settings.HasLinkedPatreon || settings.HasLinkedDiscord);
+        if (settings != null)
+        {
+            settings.PropertyChanged += OnSettingsPropertyChanged;
+        }
+
+        UpdateStatus();
     }
 
     [ObservableProperty]
@@ -100,6 +114,27 @@ public partial class AwarenessTabViewModel : TabItemViewModel
     private bool _highlightVisibleInCapture;
 
     [ObservableProperty]
+    private bool _isAwarenessMasterEnabled;
+
+    [ObservableProperty]
+    private bool _ignoreOwnUi;
+
+    [ObservableProperty]
+    private bool _loopProtectionEnabled;
+
+    [ObservableProperty]
+    private string _highlightColorHex = "#FF69B4";
+
+    [ObservableProperty]
+    private bool _isPremiumLocked;
+
+    [ObservableProperty]
+    private string _statusText = Loc.Get("tab_awareness_status_off");
+
+    [ObservableProperty]
+    private string _statusColor = "#606060";
+
+    [ObservableProperty]
     private ObservableCollection<KeywordTriggerViewModel> _triggers;
 
     [ObservableProperty]
@@ -110,22 +145,6 @@ public partial class AwarenessTabViewModel : TabItemViewModel
 
     [ObservableProperty]
     private ObservableCollection<string> _ocrHighlightModeOptions;
-
-    partial void OnKeywordTriggersEnabledChanged(bool value)
-    {
-        if (_settingsService?.Current == null) return;
-        _settingsService.Current.KeywordTriggersEnabled = value;
-        Save();
-        _logger?.Information("Keyword triggers toggled: {Enabled}", value);
-    }
-
-    partial void OnScreenOcrEnabledChanged(bool value)
-    {
-        if (_settingsService?.Current == null) return;
-        _settingsService.Current.ScreenOcrEnabled = value;
-        Save();
-        _logger?.Information("Screen OCR toggled: {Enabled}", value);
-    }
 
     partial void OnBufferTimeoutMsChanged(int value)
     {
@@ -201,6 +220,115 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.OcrHighlightVisibleInCapture = value;
         Save();
+        UpdateStatus();
+    }
+
+    partial void OnIsAwarenessMasterEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.AwarenessModeEnabled = value;
+        Save();
+        UpdateStatus();
+        _logger?.Information("Awareness master switch toggled: {Enabled}", value);
+    }
+
+    partial void OnIgnoreOwnUiChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.AwarenessIgnoreOwnUi = value;
+        Save();
+    }
+
+    partial void OnLoopProtectionEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.AwarenessLoopProtectionEnabled = value;
+        Save();
+    }
+
+    partial void OnHighlightColorHexChanged(string value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.KeywordHighlightColor = value;
+        Save();
+    }
+
+    partial void OnKeywordTriggersEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.KeywordTriggersEnabled = value;
+        Save();
+        _logger?.Information("Awareness keyboard capture toggled: {Enabled}", value);
+        UpdateStatus();
+    }
+
+    partial void OnScreenOcrEnabledChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.ScreenOcrEnabled = value;
+        Save();
+        _logger?.Information("Awareness screen OCR toggled: {Enabled}", value);
+        UpdateStatus();
+    }
+
+    private void UpdateStatus()
+    {
+        if (IsAwarenessMasterEnabled && (KeywordTriggersEnabled || ScreenOcrEnabled))
+        {
+            StatusText = Loc.Get("tab_awareness_status_on");
+            StatusColor = "#00E676";
+        }
+        else
+        {
+            StatusText = Loc.Get("tab_awareness_status_off");
+            StatusColor = "#606060";
+        }
+    }
+
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AppSettings.HasLinkedPatreon) or nameof(AppSettings.HasLinkedDiscord))
+        {
+            var settings = _settingsService?.Current;
+            if (settings != null)
+            {
+                IsPremiumLocked = !(settings.HasLinkedPatreon || settings.HasLinkedDiscord);
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void SetHighlightColor(string? color)
+    {
+        if (!string.IsNullOrWhiteSpace(color))
+            HighlightColorHex = color;
+    }
+
+    [RelayCommand]
+    private async Task OpenAdvancedAsync()
+    {
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("tab_awareness_advanced_title"),
+            Loc.Get("tab_awareness_advanced_message"),
+            DialogSeverity.Info) ?? Task.CompletedTask);
+    }
+
+    [RelayCommand]
+    private async Task OpenTutorialAsync()
+    {
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("tab_awareness_tutorial_title"),
+            Loc.Get("tab_awareness_tutorial_message"),
+            DialogSeverity.Info) ?? Task.CompletedTask);
+    }
+
+    [RelayCommand]
+    private async Task UnlockAsync()
+    {
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("dialog_title_premium_locked"),
+            Loc.Get("dialog_message_awareness_premium_locked"),
+            DialogSeverity.Info) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
@@ -288,6 +416,11 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         SelectedOcrHighlightModeIndex = s.OcrHighlightAll ? 0 : 1;
         SelectedOcrConfirmationIndex = Math.Clamp(s.OcrConfirmationScans - 1, 0, 2);
         HighlightVisibleInCapture = s.OcrHighlightVisibleInCapture;
+
+        IsAwarenessMasterEnabled = s.AwarenessModeEnabled;
+        IgnoreOwnUi = s.AwarenessIgnoreOwnUi;
+        LoopProtectionEnabled = s.AwarenessLoopProtectionEnabled;
+        HighlightColorHex = s.KeywordHighlightColor;
 
         Triggers.Clear();
         foreach (var trigger in s.KeywordTriggers)

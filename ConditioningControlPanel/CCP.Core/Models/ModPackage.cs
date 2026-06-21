@@ -1,4 +1,4 @@
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     /// <summary>
     /// Runtime representation of an installed mod.

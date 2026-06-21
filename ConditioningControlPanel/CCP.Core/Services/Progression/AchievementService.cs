@@ -1,6 +1,6 @@
 using System.Linq;
 using System.Text.Json;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 
 namespace ConditioningControlPanel.Core.Services.Progression;

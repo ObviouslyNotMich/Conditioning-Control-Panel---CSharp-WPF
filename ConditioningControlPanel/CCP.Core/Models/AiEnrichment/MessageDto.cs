@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace ConditioningControlPanel.Core.Models.AiEnrichment
+namespace ConditioningControlPanel.Models.AiEnrichment
 {
     public record MessageDto(
         [property: JsonPropertyName("role")] string Role,

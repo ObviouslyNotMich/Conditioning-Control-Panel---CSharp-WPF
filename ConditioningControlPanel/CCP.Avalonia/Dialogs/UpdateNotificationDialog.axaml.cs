@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.Dialogs;
 
@@ -81,12 +81,12 @@ public partial class UpdateNotificationDialog : Window
     private void BtnLater_Click(object? sender, RoutedEventArgs e)
     {
         InstallRequested = false;
-        Close();
+        Close(false);
     }
 
     private void BtnInstall_Click(object? sender, RoutedEventArgs e)
     {
         InstallRequested = true;
-        Close();
+        Close(true);
     }
 }

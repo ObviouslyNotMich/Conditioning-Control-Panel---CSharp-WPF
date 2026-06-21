@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia;
@@ -65,7 +65,7 @@ public partial class WebcamCalibrationWindow : Window
     {
         if (_frameSource == null)
         {
-            ShowError("Webcam tracking is not running. Start tracking before calibrating.");
+            ShowError(Loc.Get("window_webcam_calibration_tracking_not_running_error"));
             return;
         }
 
@@ -109,13 +109,13 @@ public partial class WebcamCalibrationWindow : Window
         for (int i = 0; i < positions.Count && !_cancelled; i++)
         {
             MoveDotTo(positions[i]);
-            TxtProgress.Text = $"Point {i + 1} / {positions.Count}";
-            TxtStatus.Text = "Look at the pink dot…";
+            TxtProgress.Text = string.Format(Loc.Get("window_webcam_calibration_point_counter_fmt"), i + 1, positions.Count);
+            TxtStatus.Text = Loc.Get("window_webcam_calibration_look_pink_dot_status");
             UpdateProgressRing(0);
             await Task.Delay(ReadyMs);
             if (_cancelled) return;
 
-            TxtStatus.Text = "Hold steady — sampling…";
+            TxtStatus.Text = Loc.Get("window_webcam_calibration_hold_steady_sampling_status");
             StartRingPulse();
             double progress = 0;
             var sampleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -150,33 +150,33 @@ public partial class WebcamCalibrationWindow : Window
     {
         DotCanvas.IsVisible = false;
         ValidationPanel.IsVisible = true;
-        TxtTitle.Text = "Verifying calibration";
-        TxtStatus.Text = "Follow the prompts to confirm the system can read your blinks and mouth.";
+        TxtTitle.Text = Loc.Get("window_webcam_calibration_verifying_calibration_title");
+        TxtStatus.Text = Loc.Get("window_webcam_calibration_follow_prompts_status");
         TxtProgress.Text = "";
 
         TxtValidationCue.Text = "";
-        TxtValidationPrompt.Text = "Get ready…";
-        TxtValidationDetail.Text = "A couple of quick gesture checks and you're done.";
+        TxtValidationPrompt.Text = Loc.Get("window_webcam_calibration_get_ready_prompt");
+        TxtValidationDetail.Text = Loc.Get("window_webcam_calibration_gesture_checks_detail");
         TxtValidationAttempt.Text = "";
         await Task.Delay(1400);
         if (_cancelled) return;
 
-        await RunGestureCheckAsync("👁", "Blink a couple of times");
+        await RunGestureCheckAsync("👁", Loc.Get("window_webcam_calibration_blink_prompt"));
         if (_cancelled) return;
-        await RunGestureCheckAsync("😮", "Open your mouth wide");
+        await RunGestureCheckAsync("😮", Loc.Get("window_webcam_calibration_open_mouth_prompt"));
     }
 
     private async Task RunGestureCheckAsync(string cue, string prompt)
     {
         TxtValidationCue.Text = cue;
         TxtValidationPrompt.Text = prompt;
-        TxtValidationDetail.Text = "Detected: 0 / 1";
+        TxtValidationDetail.Text = string.Format(Loc.Get("window_webcam_calibration_detected_counter_fmt"), 0, 1);
         TxtValidationAttempt.Text = "";
         await Task.Delay(1200);
         if (_cancelled) return;
         TxtValidationCue.Text = "✓";
         TxtValidationCue.Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0xE0, 0x80));
-        TxtValidationDetail.Text = "Detected.";
+        TxtValidationDetail.Text = Loc.Get("window_webcam_calibration_detected_status");
         await Task.Delay(700);
         TxtValidationCue.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4));
     }
@@ -185,8 +185,8 @@ public partial class WebcamCalibrationWindow : Window
     {
         // TODO: open ported HelpVideoWindow once available.
         _ = MessageBoxStub.Show(
-            "Calibration help is not yet ported to Avalonia.",
-            "Calibration Help",
+            Loc.Get("window_webcam_calibration_help_not_ported_message"),
+            Loc.Get("window_webcam_calibration_help_title"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }
@@ -217,14 +217,14 @@ public partial class WebcamCalibrationWindow : Window
 
     private void UpdateVerifyCountdownUi()
     {
-        TxtVerifyStatus.Text = $"Move your eyes around — the pink dot should track them. {_verifyCountdownSecondsLeft}s left.";
+        TxtVerifyStatus.Text = string.Format(Loc.Get("window_webcam_calibration_verify_status_fmt"), _verifyCountdownSecondsLeft);
     }
 
     private void StopVerifyCountdown()
     {
         _verifyTimer?.Stop();
         BtnVerifyAccuracy.IsEnabled = true;
-        TxtVerifyStatus.Text = "Click Verify to preview accuracy with a live gaze cursor, or close when ready.";
+        TxtVerifyStatus.Text = Loc.Get("window_webcam_calibration_click_verify_or_close_status");
     }
 
     private void BtnVerifyRecalibrate_Click(object? sender, RoutedEventArgs e)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using global::Avalonia;
 using global::Avalonia.Controls;
@@ -24,6 +24,7 @@ public partial class ChaosEffectBannerOverlay : Window
 
     private readonly StackPanel _row;
     private readonly Dictionary<string, Control> _entries = new();
+    private readonly Dictionary<string, ScalePulse> _pulses = new();
     private OpacityFade? _fade;
 
     public ChaosEffectBannerOverlay()
@@ -152,13 +153,19 @@ WindowDecorations = WindowDecorations.None;
 
         _fade?.Dispose();
         _fade = new OpacityFade(label, 0, 1, FADE_IN_MS);
-        // TODO: throb scale animation via Avalonia animation or timer.
+        _pulses[id]?.Dispose();
+        _pulses[id] = new ScalePulse(scale, 0.92, 1.10, 840);
     }
 
     private void FadeEntry(string id)
     {
         if (!_entries.TryGetValue(id, out var el)) return;
         _entries.Remove(id);
+        if (_pulses.TryGetValue(id, out var pulse))
+        {
+            _pulses.Remove(id);
+            pulse.Dispose();
+        }
         _fade?.Dispose();
         _fade = new OpacityFade(el, el.Opacity, 0, FADE_OUT_MS, () =>
         {
@@ -170,6 +177,8 @@ WindowDecorations = WindowDecorations.None;
     {
         if (ReferenceEquals(_active, this)) _active = null;
         _entries.Clear();
+        foreach (var p in _pulses.Values) p.Dispose();
+        _pulses.Clear();
         try { Close(); } catch { }
     }
 

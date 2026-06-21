@@ -16,6 +16,8 @@ public partial class OfflineUsernameDialog : Window
     {
         InitializeComponent();
 
+        TxtCharCount.Text = Loc.GetF("label_char_count_of_max", 0, 30);
+
         Loaded += (_, _) =>
         {
             TxtUsername.Focus();

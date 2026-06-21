@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using Serilog;
 
 namespace ConditioningControlPanel.Core.Services.Sessions;

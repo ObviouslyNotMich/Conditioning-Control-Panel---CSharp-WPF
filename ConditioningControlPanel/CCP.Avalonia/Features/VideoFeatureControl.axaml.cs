@@ -3,20 +3,29 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Video;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
 
 public partial class VideoFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IVideoService? _video;
+    private readonly ISessionService? _session;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     public VideoFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _video = App.Services.GetService<IVideoService>();
+        _session = App.Services.GetService<ISessionService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -94,16 +103,22 @@ public partial class VideoFeatureControl : UserControl
         var on = ChkEnable.IsChecked ?? false;
         _settings.Current.MandatoryVideosEnabled = on;
         _settings.Save();
+        LiveApply(on);
+    }
 
-        // TODO: Live-apply: start/stop video service if engine is running.
-        // WPF used App.IsEngineRunning / App.Video which are not available in Avalonia yet.
-        // if (App.IsEngineRunning)
-        // {
-        //     if (on)
-        //         App.Video?.Start();
-        //     else
-        //         App.Video?.Stop();
-        // }
+    private void LiveApply(bool on)
+    {
+        if (_session?.State != SessionState.Running || _video == null) return;
+
+        try
+        {
+            if (on && !_video.IsRunning) _video.Start();
+            else if (!on && _video.IsRunning) _video.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Video enable toggle: live apply failed");
+        }
     }
 
     private void SliderPerHour_Changed(object? sender, RangeBaseValueChangedEventArgs e)

@@ -1,4 +1,4 @@
-namespace ConditioningControlPanel.Core.Models.AiEnrichment
+namespace ConditioningControlPanel.Models.AiEnrichment
 {
     public interface IBaseModel
     {

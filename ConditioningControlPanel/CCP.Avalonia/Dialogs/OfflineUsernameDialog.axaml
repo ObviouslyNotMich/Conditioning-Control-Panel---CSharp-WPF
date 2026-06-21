@@ -73,7 +73,7 @@
       <!-- Character count -->
       <TextBlock x:Name="TxtCharCount"
                  Grid.Row="4"
-                 Text="0 / 30"
+                 Text=""
                  Foreground="#888888"
                  FontSize="11"
                  Margin="0,5,0,0"

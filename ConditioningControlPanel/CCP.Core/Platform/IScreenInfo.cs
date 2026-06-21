@@ -9,4 +9,8 @@ public interface IScreenProvider
 
 public sealed record ScreenInfo(string Name, PixelRect Bounds, PixelRect WorkingArea, double Scaling);
 
-public sealed record PixelRect(double X, double Y, double Width, double Height);
+public sealed record PixelRect(double X, double Y, double Width, double Height)
+{
+    public double Right => X + Width;
+    public double Bottom => Y + Height;
+}

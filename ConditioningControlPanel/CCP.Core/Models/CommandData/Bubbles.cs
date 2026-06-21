@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ConditioningControlPanel.Core.Models.CommandData
+namespace ConditioningControlPanel.Models.CommandData
 {
     public record Bubbles(
         [property: JsonPropertyName("On")] bool On,

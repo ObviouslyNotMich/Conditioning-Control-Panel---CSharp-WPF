@@ -30,7 +30,7 @@
 
       <!-- Title -->
       <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
-        <TextBlock Text="📤"
+        <TextBlock Text="{Binding [dialog_icon_upload], Source={x:Static loc:LocalizationManager.Instance}}"
                    FontSize="30"
                    VerticalAlignment="Center" />
         <TextBlock Text="{Binding [dialog_catalogue_submit_title], Source={x:Static loc:LocalizationManager.Instance}}"

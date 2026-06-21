@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;

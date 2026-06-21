@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace ConditioningControlPanel.Core.Models.CommandData
+namespace ConditioningControlPanel.Models.CommandData
 {
     public record Bounce(
         List<string> Words,

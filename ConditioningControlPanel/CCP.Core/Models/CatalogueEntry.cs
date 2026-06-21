@@ -1,6 +1,6 @@
 using ConditioningControlPanel.Core.Localization;
 
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// One catalogue entry as returned by /api/enhancements/by-ht-url.

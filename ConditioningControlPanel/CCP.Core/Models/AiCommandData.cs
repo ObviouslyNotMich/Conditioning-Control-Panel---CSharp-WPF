@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Serilog;
-using ConditioningControlPanel.Core.Models.CommandData;
+using ConditioningControlPanel.Models.CommandData;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     public class AiCommandData
     {

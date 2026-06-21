@@ -1,5 +1,5 @@
 using ConditioningControlPanel;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Core.Services.Settings;
 

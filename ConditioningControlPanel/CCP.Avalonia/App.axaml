@@ -15,6 +15,9 @@
     <converters:BoolToBrushConverter x:Key="BoolToBrushConverter"
                                      TrueBrush="#FFFFD700"
                                      FalseBrush="#FF3D3D60" />
+    <converters:MediaTypeToGlyphConverter x:Key="MediaTypeToGlyphConverter" />
+    <converters:MediaTypeToBrushConverter x:Key="MediaTypeToBrushConverter" />
+    <converters:RankToGlyphConverter x:Key="RankToGlyphConverter" />
 
     <!-- Core theme colors -->
     <Color x:Key="PinkColor">#FFFF69B4</Color>
@@ -102,6 +105,10 @@
     <SolidColorBrush x:Key="RecapStatFillBrush" Color="#1AFFFFFF" />
     <SolidColorBrush x:Key="RecapNameBrush" Color="{DynamicResource RecapVioletLite}" />
     <SolidColorBrush x:Key="RecapVoidBrush" Color="#FF07030F" />
+
+    <!-- Custom display font: Fredoka (OFL), used for Chaos multiplier hero numbers.
+         Avalonia font reference syntax: avares://<assembly>/<asset-path>#<font-family-name> -->
+    <FontFamily x:Key="FredokaFont">avares://CCP.Avalonia/Assets/Fonts/Fredoka.ttf#Fredoka</FontFamily>
 
     <!-- Outline button theme used by feature controls -->
     <ControlTheme x:Key="OutlineButton" TargetType="Button">

@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Newtonsoft.Json;

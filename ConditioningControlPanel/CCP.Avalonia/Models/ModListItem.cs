@@ -1,5 +1,5 @@
 using Avalonia.Media;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.Models;
 

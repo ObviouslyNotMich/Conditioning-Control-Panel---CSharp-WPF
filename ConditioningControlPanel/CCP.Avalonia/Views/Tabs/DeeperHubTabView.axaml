@@ -1,167 +1,236 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.DeeperHubTabView"
-             x:DataType="vm:DeeperHubTabViewModel"
-             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+             x:DataType="vm:DeeperHubTabViewModel">
 
   <Design.DataContext>
     <vm:DeeperHubTabViewModel />
   </Design.DataContext>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="12">
-    <TextBlock Grid.Row="0"
-               Text="{loc:Str tab_deeper_hub_deeper_hub_text}"
-               FontSize="20"
-               FontWeight="Bold"
-               Foreground="White"
-               Margin="0,0,0,12" />
+  <ScrollViewer>
+    <StackPanel Spacing="16" Margin="24">
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
-      <TextBox Grid.Column="0"
-               Text="{Binding SearchText}"
-               PlaceholderText="{loc:Str tab_deeper_hub_search_library_placeholder}" />
-      <Button Grid.Column="1"
-              Content="{loc:Str tab_deeper_hub_reload_content}"
-              Command="{Binding ReloadLibraryCommand}"
-              IsEnabled="{Binding !IsBusy}"
-              Margin="8,0,0,0" />
-    </Grid>
+      <!-- Banner -->
+      <Border Height="140"
+              CornerRadius="12"
+              ClipToBounds="True">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#0B1026" />
+            <GradientStop Offset="1" Color="#1A3A5C" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+          <Border Opacity="0.10"
+                  Background="White"
+                  Width="260"
+                  Height="260"
+                  CornerRadius="130"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  Margin="0,0,-50,-90" />
+          <StackPanel VerticalAlignment="Center" Margin="24,0">
+            <TextBlock Text="{loc:Str tab_deeper_hub_banner_title}"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       Foreground="White" />
+            <TextBlock Text="{loc:Str tab_deeper_hub_banner_subtitle}"
+                       FontSize="14"
+                       Foreground="{DynamicResource TextMutedBrush}"
+                       TextWrapping="Wrap"
+                       MaxWidth="520"
+                       HorizontalAlignment="Left" />
+          </StackPanel>
+        </Grid>
+      </Border>
 
-    <StackPanel Grid.Row="2"
-                Orientation="Horizontal"
-                Spacing="8"
-                Margin="0,12">
-      <Button Content="{Binding AllCount, StringFormat='All ({0})'}"
-              Command="{Binding SetMediaTypeFilterCommand}"
-              CommandParameter="all" />
-      <Button Content="{Binding VideoCount, StringFormat='Video ({0})'}"
-              Command="{Binding SetMediaTypeFilterCommand}"
-              CommandParameter="video" />
-      <Button Content="{Binding AudioCount, StringFormat='Audio ({0})'}"
-              Command="{Binding SetMediaTypeFilterCommand}"
-              CommandParameter="audio" />
-      <ToggleButton Content="{Binding HapticsCount, StringFormat='Haptics ({0})'}"
-                    IsChecked="{Binding FilterHaptics, Mode=TwoWay}"
-                    Command="{Binding ToggleHapticsFilterCommand}" />
-      <ToggleButton Content="{Binding WebcamCount, StringFormat='Webcam ({0})'}"
-                    IsChecked="{Binding FilterWebcam, Mode=TwoWay}"
-                    Command="{Binding ToggleWebcamFilterCommand}" />
-      <Button Content="{loc:Str tab_deeper_hub_recent_content}"
-              Command="{Binding SetSortModeCommand}"
-              CommandParameter="recent" />
-      <Button Content="{loc:Str tab_deeper_hub_name_content}"
-              Command="{Binding SetSortModeCommand}"
-              CommandParameter="name" />
-      <Button Content="{loc:Str tab_deeper_hub_creator_content}"
-              Command="{Binding SetSortModeCommand}"
-              CommandParameter="creator" />
-    </StackPanel>
-
-    <Border Grid.Row="3"
-            Background="#1A1A2E"
-            BorderBrush="#FF69B4"
-            BorderThickness="1"
-            CornerRadius="10"
-            Padding="12">
-      <Grid RowDefinitions="Auto,*">
-        <TextBlock Grid.Row="0"
-                   Text="{Binding LibraryCountText}"
-                   Foreground="#FF69B4"
-                   FontWeight="SemiBold"
-                   Margin="0,0,0,8" />
-
-        <ListBox Grid.Row="1"
-                 ItemsSource="{Binding FilteredEntries}"
-                 x:Name="HubList"
-                 Background="Transparent"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-          <ListBox.ItemTemplate>
-            <DataTemplate DataType="vm:DeeperLibraryRowViewModel">
-              <Border Background="#252540"
-                      CornerRadius="8"
-                      Padding="12"
-                      Margin="0,4">
-                <Grid ColumnDefinitions="*,Auto">
-                  <StackPanel Spacing="6">
-                    <TextBlock Text="{Binding Name}"
-                               FontWeight="SemiBold"
-                               Foreground="White"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Creator}"
-                               Opacity="0.7"
-                               TextWrapping="Wrap" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <TextBlock Text="{Binding MediaType}"
-                                 Foreground="#FF69B4" />
-                      <TextBlock Text="{Binding MediaSourceLabel}"
-                                 Opacity="0.7" />
-                    </StackPanel>
-                    <TextBlock Text="{Binding TimestampDisplay}"
-                               FontSize="11"
-                               Opacity="0.6" />
-                    <ItemsControl ItemsSource="{Binding Tags}">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                          <WrapPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="x:String">
-                          <Border Background="#3A3A5C"
-                                  CornerRadius="4"
-                                  Padding="6,2"
-                                  Margin="0,0,4,4">
-                            <TextBlock Text="{Binding}"
-                                       FontSize="11" />
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </StackPanel>
-
-                  <StackPanel Grid.Column="1"
-                              Orientation="Vertical"
-                              Spacing="6"
-                              MinWidth="72"
-                              Margin="12,0,0,0">
-                    <Button Content="{loc:Str tab_deeper_hub_open_content}"
-                            Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).OpenEntryCommand}"
-                            CommandParameter="{Binding}" />
-                    <Button Content="{loc:Str tab_deeper_hub_play_content}"
-                            Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).PlayEntryCommand}"
-                            CommandParameter="{Binding}" />
-                    <Button Content="{loc:Str tab_deeper_hub_delete_content}"
-                            Theme="{StaticResource DangerButton}"
-                            Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).DeleteEntryCommand}"
-                            CommandParameter="{Binding}" />
-                    <Button Content="{loc:Str tab_deeper_hub_submit_content}"
-                            IsVisible="{Binding IsCatalogueEligible}"
-                            Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).SubmitEntryCommand}"
-                            CommandParameter="{Binding}" />
-                  </StackPanel>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-
-        <StackPanel Grid.Row="1"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Spacing="8"
-                    IsVisible="{Binding FilteredEntries.Count, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
-          <TextBlock Text="🌊"
-                     FontSize="32"
-                     HorizontalAlignment="Center" />
-          <TextBlock Text="{Binding EmptyStateText}"
-                     HorizontalAlignment="Center"
-                     TextWrapping="Wrap"
-                     MaxWidth="400"
-                     Opacity="0.7" />
-        </StackPanel>
+      <!-- Search / reload -->
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox Grid.Column="0"
+                 Text="{Binding SearchText}"
+                 PlaceholderText="{loc:Str tab_deeper_hub_search_library_placeholder}" />
+        <Button Grid.Column="1"
+                Content="{loc:Str tab_deeper_hub_reload_content}"
+                Command="{Binding ReloadLibraryCommand}"
+                IsEnabled="{Binding !IsBusy}"
+                Margin="12,0,0,0" />
       </Grid>
-    </Border>
-  </Grid>
+
+      <!-- Filters -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource DeeperAccentTransparent20Brush}"
+              BorderThickness="1"
+              CornerRadius="10"
+              Padding="12">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{Binding AllCount, StringFormat='All ({0})'}"
+                    Command="{Binding SetMediaTypeFilterCommand}"
+                    CommandParameter="all" />
+            <Button Content="{Binding VideoCount, StringFormat='Video ({0})'}"
+                    Command="{Binding SetMediaTypeFilterCommand}"
+                    CommandParameter="video" />
+            <Button Content="{Binding AudioCount, StringFormat='Audio ({0})'}"
+                    Command="{Binding SetMediaTypeFilterCommand}"
+                    CommandParameter="audio" />
+            <ToggleButton Content="{Binding HapticsCount, StringFormat='Haptics ({0})'}"
+                          IsChecked="{Binding FilterHaptics, Mode=TwoWay}"
+                          Command="{Binding ToggleHapticsFilterCommand}" />
+            <ToggleButton Content="{Binding WebcamCount, StringFormat='Webcam ({0})'}"
+                          IsChecked="{Binding FilterWebcam, Mode=TwoWay}"
+                          Command="{Binding ToggleWebcamFilterCommand}" />
+          </StackPanel>
+
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="{loc:Str tab_deeper_hub_sort_text}"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource PinkBrush}"
+                       FontWeight="SemiBold" />
+            <Button Content="{loc:Str tab_deeper_hub_recent_content}"
+                    Command="{Binding SetSortModeCommand}"
+                    CommandParameter="recent" />
+            <Button Content="{loc:Str tab_deeper_hub_name_content}"
+                    Command="{Binding SetSortModeCommand}"
+                    CommandParameter="name" />
+            <Button Content="{loc:Str tab_deeper_hub_creator_content}"
+                    Command="{Binding SetSortModeCommand}"
+                    CommandParameter="creator" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Library list -->
+      <Border Background="{DynamicResource SurfaceBgBrush}"
+              BorderBrush="{DynamicResource DeeperAccentTransparent20Brush}"
+              BorderThickness="1"
+              CornerRadius="12"
+              Padding="16">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Grid.Row="0"
+                     Text="{Binding LibraryCountText}"
+                     Foreground="{DynamicResource PinkBrush}"
+                     FontWeight="SemiBold"
+                     Margin="0,0,0,12" />
+
+          <ListBox Grid.Row="1"
+                   ItemsSource="{Binding FilteredEntries}"
+                   x:Name="HubList"
+                   Background="Transparent"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:DeeperLibraryRowViewModel">
+                <Border Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource DeeperAccentTransparent20Brush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12"
+                        Margin="0,0,0,8">
+                  <Grid ColumnDefinitions="Auto,*,Auto">
+                    <!-- Type badge -->
+                    <Border Grid.Column="0"
+                            Width="40"
+                            Height="40"
+                            CornerRadius="8"
+                            Margin="0,0,12,0"
+                            Background="{Binding MediaType, Converter={StaticResource MediaTypeToBrushConverter}}"
+                            VerticalAlignment="Center">
+                      <TextBlock Text="{Binding MediaType, Converter={StaticResource MediaTypeToGlyphConverter}}"
+                                 FontSize="20"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- Name + meta -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                      <TextBlock Text="{Binding Name}"
+                                 Foreground="{DynamicResource TextLightBrush}"
+                                 FontSize="14"
+                                 FontWeight="SemiBold"
+                                 TextTrimming="CharacterEllipsis" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding Creator}"
+                                   Foreground="{DynamicResource TextDimBrush}"
+                                   FontSize="12"
+                                   IsVisible="{Binding ShowCreator}" />
+                        <TextBlock Text="·"
+                                   Foreground="{DynamicResource TextDimBrush}"
+                                   FontSize="12"
+                                   IsVisible="{Binding ShowCreator}" />
+                        <TextBlock Text="{Binding MediaSourceLabel}"
+                                   Foreground="{DynamicResource PinkBrush}"
+                                   FontSize="12" />
+                        <TextBlock Text="{Binding TimestampDisplay}"
+                                   Foreground="{DynamicResource TextDimBrush}"
+                                   FontSize="11" />
+                      </StackPanel>
+                      <ItemsControl ItemsSource="{Binding Tags}"
+                                    IsVisible="{Binding ShowTags}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate DataType="x:String">
+                            <Border Background="{DynamicResource DeeperAccentTransparent20Brush}"
+                                    CornerRadius="4"
+                                    Padding="6,2"
+                                    Margin="0,0,6,4">
+                              <TextBlock Text="{Binding}"
+                                         FontSize="11"
+                                         Foreground="{DynamicResource TextDimBrush}" />
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Actions -->
+                    <StackPanel Grid.Column="2"
+                                Orientation="Vertical"
+                                Spacing="6"
+                                MinWidth="80"
+                                Margin="12,0,0,0">
+                      <Button Content="{loc:Str tab_deeper_hub_open_content}"
+                              Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).OpenEntryCommand}"
+                              CommandParameter="{Binding}" />
+                      <Button Content="{loc:Str tab_deeper_hub_play_content}"
+                              Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).PlayEntryCommand}"
+                              CommandParameter="{Binding}" />
+                      <Button Content="{loc:Str tab_deeper_hub_delete_content}"
+                              Theme="{StaticResource DangerButton}"
+                              Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).DeleteEntryCommand}"
+                              CommandParameter="{Binding}" />
+                      <Button Content="{loc:Str tab_deeper_hub_submit_content}"
+                              IsVisible="{Binding IsCatalogueEligible}"
+                              Command="{Binding $parent[ListBox].((vm:DeeperHubTabViewModel)DataContext).SubmitEntryCommand}"
+                              CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <StackPanel Grid.Row="1"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Spacing="8"
+                      IsVisible="{Binding FilteredEntries.Count, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
+            <TextBlock Text="🌊"
+                       FontSize="48"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding EmptyStateText}"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="400"
+                       Foreground="{DynamicResource TextMutedBrush}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
 
 </UserControl>

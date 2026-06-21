@@ -32,6 +32,7 @@ class Program
             services.AddSingleton<IUpdateInstaller, WindowsUpdateInstaller>();
             services.AddSingleton<IWindowChrome, WindowsWindowChrome>();
             services.AddSingleton<IAudioDeviceService, WindowsAudioDeviceService>();
+            services.AddSingleton<IStartupRegistration, WindowsStartupRegistration>();
             services.AddSingleton<IBrowserHost, WebView2BrowserHost>();
             services.AddDesktopSecretStore();
             services.AddSingleton<ISingleInstanceService>(singleInstance);

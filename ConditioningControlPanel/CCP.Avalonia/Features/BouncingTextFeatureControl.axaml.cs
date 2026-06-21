@@ -3,7 +3,10 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.BouncingText;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -11,12 +14,18 @@ namespace ConditioningControlPanel.Avalonia.Features;
 public partial class BouncingTextFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IBouncingTextService? _bouncingText;
+    private readonly ISessionService? _session;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
 
     public BouncingTextFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _bouncingText = App.Services.GetService<IBouncingTextService>();
+        _session = App.Services.GetService<ISessionService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -61,52 +70,53 @@ public partial class BouncingTextFeatureControl : UserControl
         }
     }
 
+
     private void ChkEnable_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        var s = _settings.Current;
         var on = ChkEnable.IsChecked ?? false;
-        s.BouncingTextEnabled = on;
+        _settings.Current.BouncingTextEnabled = on;
         _settings.Save();
-
-        // TODO: Live-apply start/stop bouncing text when the Avalonia engine service is available.
-        // if (ConditioningControlPanel.App.IsEngineRunning)
-        // {
-        //     if (on)
-        //         ConditioningControlPanel.App.BouncingText?.Start();
-        //     else
-        //         ConditioningControlPanel.App.BouncingText?.Stop();
-        // }
+        LiveApply(on);
     }
 
     private void SliderSpeed_Changed(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        var s = _settings.Current;
         var v = (int)e.NewValue;
         TxtSpeed.Text = v.ToString();
-        s.BouncingTextSpeed = v;
-
-        // TODO: Refresh the Avalonia bouncing text renderer when the service is wired up.
-        // try { ConditioningControlPanel.App.BouncingText?.Refresh(); }
-        // catch (Exception ex) { ConditioningControlPanel.App.Logger?.Warning(ex, "BouncingText Refresh failed"); }
-
+        _settings.Current.BouncingTextSpeed = v;
         _settings.Save();
+
+        try { _bouncingText?.Refresh(); }
+        catch (Exception ex) { _logger?.Warning(ex, "BouncingText speed change: Refresh failed"); }
     }
 
     private void SliderSize_Changed(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        var s = _settings.Current;
         var v = (int)e.NewValue;
         TxtSize.Text = $"{v}%";
-        s.BouncingTextSize = v;
-
-        // TODO: Refresh the Avalonia bouncing text renderer when the service is wired up.
-        // try { ConditioningControlPanel.App.BouncingText?.Refresh(); }
-        // catch (Exception ex) { ConditioningControlPanel.App.Logger?.Warning(ex, "BouncingText Refresh failed"); }
-
+        _settings.Current.BouncingTextSize = v;
         _settings.Save();
+
+        try { _bouncingText?.Refresh(); }
+        catch (Exception ex) { _logger?.Warning(ex, "BouncingText size change: Refresh failed"); }
+    }
+
+    private void LiveApply(bool on)
+    {
+        if (_session?.State != SessionState.Running || _bouncingText == null) return;
+
+        try
+        {
+            if (on && !_bouncingText.IsRunning) _bouncingText.Start();
+            else if (!on && _bouncingText.IsRunning) _bouncingText.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "BouncingText enable toggle: live apply failed");
+        }
     }
 
     private void ChkAlwaysOnTop_Changed(object? sender, RoutedEventArgs e)

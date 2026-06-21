@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using global::Avalonia;
@@ -429,7 +429,126 @@ public partial class ChaosHubWindow
             if (OnShelfNow(b.Id)) HabitsHost.Children.Add(BuildLifetimeBoonRow(b));
     }
 
-    private Control BuildUpgradeRow(ChaosUpgrade u) => new TextBlock { Text = u.Name, Foreground = Brushes.White };
+    private Control BuildUpgradeRow(ChaosUpgrade u)
+    {
+        bool owned = ChaosMeta.IsOwned(u.Id);
+        bool on = owned && ChaosMeta.IsUpgradeActive(u.Id);
+        bool canBuy = ChaosMeta.CanAfford(u.Id);
+        bool rankLocked = ChaosMeta.IsPurchaseRankLocked(u.Id);
+        var accent = BranchColor(u.Branch);
+
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var glyph = new TextBlock
+        {
+            Text = u.Glyph, FontSize = 18, VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0), Foreground = new SolidColorBrush(accent),
+        };
+        Grid.SetColumn(glyph, 0);
+        grid.Children.Add(glyph);
+
+        var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        mid.Children.Add(new TextBlock
+        {
+            Text = u.Name, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeight.SemiBold,
+        });
+        mid.Children.Add(new TextBlock
+        {
+            Text = u.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)),
+            FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
+        });
+        if (!string.IsNullOrEmpty(u.Flavor))
+            mid.Children.Add(new TextBlock
+            {
+                Text = u.Flavor, Foreground = new SolidColorBrush(Color.FromArgb(0xAA, 0xB0, 0xB0, 0xC8)),
+                FontSize = 10.5, FontStyle = FontStyle.Italic, TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0),
+            });
+        Grid.SetColumn(mid, 1);
+        grid.Children.Add(mid);
+
+        Control right;
+        if (owned)
+        {
+            var toggle = new Button
+            {
+                Content = on ? "on ✓" : "off",
+                Tag = u.Id,
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = on ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                Foreground = on ? Brushes.Black : Brushes.White,
+                BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Pillify(toggle);
+            toggle.Click += UpgradeToggle_Click;
+            right = toggle;
+        }
+        else if (rankLocked)
+        {
+            right = new TextBlock
+            {
+                Text = "🔒", FontSize = 13, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+        else
+        {
+            var buy = new Button
+            {
+                Content = $"train ✦{u.Cost:N0}",
+                Tag = u.Id,
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = canBuy ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                Foreground = canBuy ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+                BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
+                Cursor = canBuy ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
+                IsEnabled = canBuy, VerticalAlignment = VerticalAlignment.Center,
+            };
+            Pillify(buy);
+            buy.Click += UpgradeTrain_Click;
+            right = buy;
+        }
+        Grid.SetColumn(right, 2);
+        grid.Children.Add(right);
+
+        var card = new Border
+        {
+            Child = grid,
+            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(owned ? 70 : 45), accent.R, accent.G, accent.B)),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 6),
+        };
+        ChaosTips.Attach(card, u.Name, u.Desc, u.Flavor, accent);
+        return card;
+    }
+
+    private void UpgradeToggle_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string id)
+        {
+            ChaosMeta.SetUpgradeActive(id, !ChaosMeta.IsUpgradeActive(id));
+            AvaloniaChaosSfx.Play(ChaosMeta.IsUpgradeActive(id) ? "ui_equip" : "ui_unequip", 0.45f);
+            AfterBoonChange();
+        }
+    }
+
+    private void UpgradeTrain_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string id)
+        {
+            if (ChaosMeta.TryPurchase(id))
+            {
+                AfterBoonChange();
+                AvaloniaChaosSfx.Play("ui_unlock", 0.55f);
+            }
+            else AvaloniaChaosSfx.Play("ui_denied", 0.45f);
+        }
+    }
 
     private void BuildLifetimeBoons()
     {
@@ -458,7 +577,143 @@ public partial class ChaosHubWindow
         foreach (var b in boons) host.Children.Add(BuildLifetimeBoonRow(b));
     }
 
-    private Control BuildLifetimeBoonRow(ChaosLifetimeBoon b) => new TextBlock { Text = b.Name, Foreground = Brushes.White };
+    private Control BuildLifetimeBoonRow(ChaosLifetimeBoon b)
+    {
+        int level = ChaosMeta.BoonLevel(b.Id);
+        bool unlocked = level >= 1;
+        bool active = ChaosMeta.IsBoonActive(b.Id);
+        bool rankLocked = ChaosMeta.IsBoonRankLocked(b.Id);
+        bool canUnlock = ChaosMeta.CanAffordUnlock(b.Id);
+        bool canUpgrade = level >= 1 && level < b.MaxLevel && ChaosMeta.CanAffordUpgrade(b.Id);
+        var accent = b.Category switch
+        {
+            ChaosBoonCategory.Skill => Color.FromRgb(0x7A, 0xFF, 0xD2),
+            ChaosBoonCategory.Accessory => Color.FromRgb(0xFF, 0xD2, 0x7A),
+            _ => Color.FromRgb(0x7A, 0xE0, 0xFF),
+        };
+
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var glyph = new TextBlock
+        {
+            Text = b.Glyph, FontSize = 22, VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 12, 0), Foreground = new SolidColorBrush(accent),
+        };
+        Grid.SetColumn(glyph, 0);
+        grid.Children.Add(glyph);
+
+        var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = b.Name, Foreground = Brushes.White, FontSize = 13, FontWeight = FontWeight.SemiBold,
+        });
+        if (unlocked && b.MaxLevel > 1)
+            titleRow.Children.Add(new TextBlock
+            {
+                Text = " · L" + level, Foreground = new SolidColorBrush(Color.FromRgb(0xE8, 0xB4, 0x43)),
+                FontSize = 11, Margin = new Thickness(6, 0, 0, 0),
+            });
+        mid.Children.Add(titleRow);
+        mid.Children.Add(new TextBlock
+        {
+            Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)),
+            FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
+        });
+        if (!string.IsNullOrEmpty(b.Flavor))
+            mid.Children.Add(new TextBlock
+            {
+                Text = b.Flavor, Foreground = new SolidColorBrush(Color.FromArgb(0xAA, 0xB0, 0xB0, 0xC8)),
+                FontSize = 10.5, FontStyle = FontStyle.Italic, TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0),
+            });
+        if (unlocked && level >= b.MaxLevel && !string.IsNullOrEmpty(b.CapstoneDesc))
+            mid.Children.Add(new TextBlock
+            {
+                Text = "max: " + b.CapstoneDesc, Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xC8, 0x3C)),
+                FontSize = 10.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
+            });
+        Grid.SetColumn(mid, 1);
+        grid.Children.Add(mid);
+
+        Control right;
+        if (rankLocked)
+        {
+            right = new TextBlock
+            {
+                Text = "🔒", FontSize = 13, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+        else if (!unlocked)
+        {
+            var buy = new Button
+            {
+                Content = $"unlock ✦{b.UnlockCost:N0}",
+                Tag = b.Id,
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = canUnlock ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                Foreground = canUnlock ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+                BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
+                Cursor = canUnlock ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
+                IsEnabled = canUnlock, VerticalAlignment = VerticalAlignment.Center,
+            };
+            Pillify(buy);
+            buy.Click += BoonUnlock_Click;
+            right = buy;
+        }
+        else if (level < b.MaxLevel)
+        {
+            var deepen = new Button
+            {
+                Content = "deepen",
+                Tag = b.Id,
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = canUpgrade ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                Foreground = canUpgrade ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+                BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
+                Cursor = canUpgrade ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
+                IsEnabled = canUpgrade, VerticalAlignment = VerticalAlignment.Center,
+            };
+            Pillify(deepen);
+            deepen.Click += BoonUpgrade_Click;
+            right = deepen;
+        }
+        else
+        {
+            bool canEquip = active || ChaosMeta.HasFreePocket(b.Category);
+            var equip = new Button
+            {
+                Content = active ? "unequip" : "equip",
+                Tag = b.Id,
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = active ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                Foreground = active ? Brushes.Black : Brushes.White,
+                BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
+                Cursor = canEquip ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
+                IsEnabled = canEquip, VerticalAlignment = VerticalAlignment.Center,
+            };
+            Pillify(equip);
+            equip.Click += BoonEquip_Click;
+            right = equip;
+        }
+        Grid.SetColumn(right, 2);
+        grid.Children.Add(right);
+
+        var card = new Border
+        {
+            Child = grid,
+            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(unlocked ? 70 : 45), accent.R, accent.G, accent.B)),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 6),
+        };
+        ChaosTips.Attach(card, b.Name, b.Desc,
+            unlocked && b.MaxLevel > 1 ? $"level {level}/{b.MaxLevel}" : null, accent, b.Flavor);
+        return card;
+    }
 
     private static Button BuyButton(string text, string id, bool afford, EventHandler<RoutedEventArgs> onClick)
     {
@@ -614,7 +869,31 @@ public partial class ChaosHubWindow
     {
         host.Children.Clear();
         foreach (var b in ChaosLifetimeBoons.InCategory(cat))
-            host.Children.Add(LoadoutTile(b.Glyph, b.Name, b.Desc, "", Color.FromRgb(0xE8, 0x43, 0x93), TileState.Owned, null));
+        {
+            bool unlocked = ChaosMeta.IsBoonUnlocked(b.Id);
+            bool active = ChaosMeta.IsBoonActive(b.Id);
+            var state = active ? TileState.Equipped : unlocked ? TileState.Owned : TileState.Locked;
+            var accent = b.Category switch
+            {
+                ChaosBoonCategory.Skill => Color.FromRgb(0x7A, 0xFF, 0xD2),
+                ChaosBoonCategory.Accessory => Color.FromRgb(0xFF, 0xD2, 0x7A),
+                _ => Color.FromRgb(0xE8, 0x43, 0x93),
+            };
+            Action? onClick = unlocked ? () => ToggleEquip(b.Id) : null;
+            host.Children.Add(LoadoutTile(b.Glyph, b.Name, b.Desc, "", accent, state, onClick,
+                caption: b.Name.Split(" · ")[0], flavor: b.Flavor));
+        }
+        int emptySlots = Math.Max(0, padTo - ChaosLifetimeBoons.InCategory(cat).Count());
+        for (int i = 0; i < emptySlots; i++)
+            host.Children.Add(LoadoutTile("+", "empty pocket", "buy a pocket on the bench to carry more.", "",
+                Color.FromRgb(0x88, 0xA0, 0xC0), TileState.Empty, () => NavigateTo("improve")));
+    }
+
+    private void ToggleEquip(string id)
+    {
+        ChaosMeta.SetBoonActive(id, !ChaosMeta.IsBoonActive(id));
+        AvaloniaChaosSfx.Play(ChaosMeta.IsBoonActive(id) ? "ui_equip" : "ui_unequip", 0.45f);
+        AfterBoonChange();
     }
     private void EquipSwapping(string id, ChaosBoonCategory cat) { }
 
@@ -677,7 +956,49 @@ public partial class ChaosHubWindow
             MantrasHost.Children.Add(MantraRow(b));
     }
 
-    private Control MantraRow(ChaosBoon b) => new TextBlock { Text = b.Name, Foreground = Brushes.White };
+    private Control MantraRow(ChaosBoon b)
+    {
+        var accent = b.IsCurse ? Color.FromRgb(0xFF, 0x78, 0x78)
+                   : b.Rarity == ChaosRarity.Rare ? Color.FromRgb(0xFF, 0xC8, 0x3C)
+                   : b.Rarity == ChaosRarity.Uncommon ? Color.FromRgb(0x8B, 0x5C, 0xF6)
+                   : Color.FromRgb(0x7A, 0xE0, 0xFF);
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new Border
+        {
+            Width = 32, Height = 32, CornerRadius = new CornerRadius(8),
+            Background = new SolidColorBrush(Color.FromArgb(45, accent.R, accent.G, accent.B)),
+            BorderBrush = new SolidColorBrush(accent), BorderThickness = new Thickness(1),
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0),
+            Child = new TextBlock
+            {
+                Text = b.IsCurse ? "☠" : "◈", Foreground = new SolidColorBrush(accent),
+                FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            },
+        });
+        var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 280 };
+        mid.Children.Add(new TextBlock
+        {
+            Text = b.Name, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeight.SemiBold,
+        });
+        mid.Children.Add(new TextBlock
+        {
+            Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)),
+            FontSize = 11, TextWrapping = TextWrapping.Wrap,
+        });
+        row.Children.Add(mid);
+
+        var card = new Border
+        {
+            Child = row,
+            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(45, accent.R, accent.G, accent.B)),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 6),
+        };
+        ChaosTips.Attach(card, b.Name, b.Desc, accent: accent, flavor: b.Flavor);
+        return card;
+    }
 
     private void BuildDiary()
     {

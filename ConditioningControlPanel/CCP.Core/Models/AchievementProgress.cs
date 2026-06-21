@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using ConditioningControlPanel.Core.Services;
 
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// Tracks progress towards all achievements

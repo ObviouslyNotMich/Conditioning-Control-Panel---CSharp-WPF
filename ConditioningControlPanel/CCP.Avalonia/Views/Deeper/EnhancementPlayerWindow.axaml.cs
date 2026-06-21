@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -17,7 +17,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using ShapesPath = Avalonia.Controls.Shapes.Path;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Models.Deeper;
+using ConditioningControlPanel.Models.Deeper;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Deeper;
 using LibVLCSharp.Shared;
@@ -555,8 +555,8 @@ public partial class EnhancementPlayerWindow : Window
             var x = (double)i / (samples - 1) * w;
             var idx = (int)Math.Round((double)i / (samples - 1) * (_peaks.Length - 1));
             var v = Math.Clamp(_peaks[idx], 0f, 1f);
-            figure.Segments?.Add(new LineSegment { Point = new Point(x, midY - v * amp) });
-            figure.Segments?.Add(new LineSegment { Point = new Point(x, midY + v * amp) });
+            figure.Segments?.Add(new LineSegment { Point = new global::Avalonia.Point(x, midY - v * amp) });
+            figure.Segments?.Add(new LineSegment { Point = new global::Avalonia.Point(x, midY + v * amp) });
         }
         geometry.Figures?.Add(figure);
         WaveformPath.Data = geometry;
@@ -568,8 +568,8 @@ public partial class EnhancementPlayerWindow : Window
         var h = WaveformCanvas.Bounds.Height;
         if (w <= 0 || h <= 0) return;
         var x = Math.Clamp(frac, 0, 1) * w;
-        PlayheadLine.StartPoint = new Point(x, 0);
-        PlayheadLine.EndPoint = new Point(x, h);
+        PlayheadLine.StartPoint = new global::Avalonia.Point(x, 0);
+        PlayheadLine.EndPoint = new global::Avalonia.Point(x, h);
     }
 
     private void WaveformCanvas_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -673,8 +673,8 @@ public partial class EnhancementPlayerWindow : Window
                     var x = (t / total) * w;
                     var line = new Line
                     {
-                        StartPoint = new Point(x, 1),
-                        EndPoint = new Point(x, h - 1),
+                        StartPoint = new global::Avalonia.Point(x, 1),
+                        EndPoint = new global::Avalonia.Point(x, h - 1),
                         Stroke = Brushes.Orange,
                         StrokeThickness = 1.5,
                         StrokeDashArray = new AvaloniaList<double> { 2, 2 },
@@ -685,9 +685,9 @@ public partial class EnhancementPlayerWindow : Window
                     {
                         Points = new Points
                         {
-                            new Point(x - 3, 1),
-                            new Point(x + 3, 1),
-                            new Point(x, 5),
+                            new global::Avalonia.Point(x - 3, 1),
+                            new global::Avalonia.Point(x + 3, 1),
+                            new global::Avalonia.Point(x, 5),
                         },
                         Fill = Brushes.Orange,
                         IsHitTestVisible = false,
@@ -698,8 +698,8 @@ public partial class EnhancementPlayerWindow : Window
 
             var ph = new Line
             {
-                StartPoint = new Point(0, 0),
-                EndPoint = new Point(0, h),
+                StartPoint = new global::Avalonia.Point(0, 0),
+                EndPoint = new global::Avalonia.Point(0, h),
                 Stroke = this.FindResource("DeeperAccentBrush") as IBrush ?? Brushes.Purple,
                 StrokeThickness = 2,
                 IsHitTestVisible = false,
@@ -737,8 +737,8 @@ public partial class EnhancementPlayerWindow : Window
         {
             if (child is Line l && (l.Tag as string) == "playhead")
             {
-                l.StartPoint = new Point(x, l.StartPoint.Y);
-                l.EndPoint = new Point(x, l.EndPoint.Y);
+                l.StartPoint = new global::Avalonia.Point(x, l.StartPoint.Y);
+                l.EndPoint = new global::Avalonia.Point(x, l.EndPoint.Y);
                 break;
             }
         }

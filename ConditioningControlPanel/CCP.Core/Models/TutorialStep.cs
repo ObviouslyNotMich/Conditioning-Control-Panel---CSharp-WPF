@@ -1,6 +1,6 @@
 using System;
 
-namespace ConditioningControlPanel.Core.Models
+namespace ConditioningControlPanel.Models
 {
     public enum TutorialStepPosition
     {

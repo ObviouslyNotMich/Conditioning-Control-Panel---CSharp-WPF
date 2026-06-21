@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Serilog;
@@ -20,7 +20,7 @@ public sealed class SessionService : ISessionService, IDisposable
     private readonly Random _random = new();
     private readonly Stopwatch _wallClockStopwatch = new();
 
-    private ConditioningControlPanel.Core.Models.Session? _currentSession;
+    private ConditioningControlPanel.Models.Session? _currentSession;
     private SessionState _state = SessionState.Idle;
     private IDisposable? _tickSubscription;
     private CancellationTokenSource? _cancellationTokenSource;
@@ -35,7 +35,7 @@ public sealed class SessionService : ISessionService, IDisposable
     private bool _sessionStartPanicKey;
 
     public SessionState State => _state;
-    public ConditioningControlPanel.Core.Models.Session? CurrentSession => _currentSession;
+    public ConditioningControlPanel.Models.Session? CurrentSession => _currentSession;
     public int CurrentPhaseIndex => _currentPhaseIndex;
     public int PauseCount => _pauseCount;
     public int XPPenalty => _pauseCount * 100;
@@ -91,7 +91,7 @@ public sealed class SessionService : ISessionService, IDisposable
         _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
     }
 
-    public Task StartSessionAsync(ConditioningControlPanel.Core.Models.Session session, CancellationToken cancellationToken = default)
+    public Task StartSessionAsync(ConditioningControlPanel.Models.Session session, CancellationToken cancellationToken = default)
     {
         if (_state != SessionState.Idle)
             throw new InvalidOperationException("A session is already running. Stop it first.");
@@ -239,7 +239,7 @@ public sealed class SessionService : ISessionService, IDisposable
         }
     }
 
-    private static void RecordSeasonFeatureUse(ConditioningControlPanel.Core.Models.Session session)
+    private static void RecordSeasonFeatureUse(ConditioningControlPanel.Models.Session session)
     {
         try
         {

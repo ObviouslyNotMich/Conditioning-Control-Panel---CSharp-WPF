@@ -3,7 +3,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Models;
 using MsBox.Avalonia;
 
 namespace ConditioningControlPanel.Avalonia.Dialogs;
@@ -38,8 +39,12 @@ public partial class SessionEditDialog : Window
         EditedSession = session;
         _isNew = isNew;
 
-        TxtTitle.Text = isNew ? "New Session" : "Edit Session";
-        Title = isNew ? "New Session" : "Edit Session";
+        TxtTitle.Text = isNew
+            ? Loc.Get("dialog_session_edit_new_session_title")
+            : Loc.Get("dialog_session_edit_edit_session_text");
+        Title = isNew
+            ? Loc.Get("dialog_session_edit_new_session_title")
+            : Loc.Get("dialog_session_edit_session_editor_title");
 
         CmbDifficulty.ItemsSource = Enum.GetValues(typeof(SessionDifficulty)).Cast<SessionDifficulty>().ToList();
 
@@ -62,25 +67,25 @@ public partial class SessionEditDialog : Window
         var name = TxtName.Text?.Trim() ?? "";
         if (string.IsNullOrEmpty(name))
         {
-            await ShowErrorAsync("Name is required.");
+            await ShowErrorAsync(Loc.Get("dialog_session_edit_error_name_required"));
             return;
         }
 
         if (!int.TryParse(NumDuration.Text, out var duration) || duration <= 0)
         {
-            await ShowErrorAsync("Duration must be a positive integer.");
+            await ShowErrorAsync(Loc.Get("dialog_session_edit_error_duration_positive"));
             return;
         }
 
         if (!int.TryParse(NumBonusXP.Text, out var bonusXp) || bonusXp < 0)
         {
-            await ShowErrorAsync("Bonus XP must be a non-negative integer.");
+            await ShowErrorAsync(Loc.Get("dialog_session_edit_error_bonus_xp_non_negative"));
             return;
         }
 
         if (CmbDifficulty.SelectedItem is not SessionDifficulty difficulty)
         {
-            await ShowErrorAsync("Please select a difficulty.");
+            await ShowErrorAsync(Loc.Get("dialog_session_edit_error_difficulty_required"));
             return;
         }
 
@@ -105,7 +110,7 @@ public partial class SessionEditDialog : Window
         TxtError.Text = message;
         TxtError.IsVisible = true;
 
-        var box = MessageBoxManager.GetMessageBoxStandard("Validation Error", message, MsBox.Avalonia.Enums.ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning);
+        var box = MessageBoxManager.GetMessageBoxStandard(Loc.Get("dialog_session_edit_validation_error_title"), message, MsBox.Avalonia.Enums.ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning);
         if (Owner is Window ownerWindow)
         {
             await box.ShowWindowDialogAsync(ownerWindow);

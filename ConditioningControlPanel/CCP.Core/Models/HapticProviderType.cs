@@ -1,4 +1,4 @@
-namespace ConditioningControlPanel.Core.Models;
+namespace ConditioningControlPanel.Models;
 
 /// <summary>
 /// Cross-platform haptic provider identifiers.

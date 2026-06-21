@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
@@ -11,6 +11,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Localization;
 
 using IModService = ConditioningControlPanel.IModService;
 using Animation = global::Avalonia.Animation.Animation;
@@ -136,7 +137,7 @@ public partial class PinkRushPopup : Window
             return;
         }
 
-        TxtCountdown.Text = $"{(int)remaining.TotalSeconds}s remaining";
+        TxtCountdown.Text = string.Format(Loc.Get("window_pink_rush_seconds_remaining_fmt"), (int)remaining.TotalSeconds);
     }
 
     private async Task RunFadeAnimation(double from, double to, TimeSpan duration)

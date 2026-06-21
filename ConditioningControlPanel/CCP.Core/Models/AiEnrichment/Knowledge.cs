@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ConditioningControlPanel.Core.Models.AiEnrichment
+namespace ConditioningControlPanel.Models.AiEnrichment
 {
     public class Knowledge
     {

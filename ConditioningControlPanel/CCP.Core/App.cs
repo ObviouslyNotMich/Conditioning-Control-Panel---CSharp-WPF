@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ConditioningControlPanel.Core.Services.Roadmap;
 
@@ -45,6 +46,9 @@ public static class App
     public static object? DeeperHost { get; set; }
     public static object? Quests { get; set; }
     public static object? Haptics { get; set; }
+
+    /// <summary>Ported bubble service. Assigned by cross-platform heads after DI is built.</summary>
+    public static IBubbleService? Bubbles { get; set; }
 }
 
 public interface IAppSettingsService
@@ -125,6 +129,16 @@ public interface IModService
     /// Activates the mod with the given ID, persists the choice, and raises <see cref="ActiveModChanged"/>.
     /// </summary>
     bool ActivateMod(string modId);
+
+    /// <summary>
+    /// Returns the attention-check failure message for the active mod.
+    /// </summary>
+    string GetAttentionCheckFailMessage();
+
+    /// <summary>
+    /// Returns the attention-check mercy message for the active mod.
+    /// </summary>
+    string GetAttentionCheckMercyMessage();
 }
 
 public interface IProgressionService
@@ -157,17 +171,32 @@ public interface ICompanionPhraseService
 
 public interface IInteractionQueueService
 {
+    /// <summary>Whether any fullscreen interaction is currently active.</summary>
+    bool IsBusy { get; }
+
+    /// <summary>Try to start an interaction. Returns true if started immediately; false if queued or discarded.</summary>
+    bool TryStart(string interactionType, Action triggerAction, bool queue = true);
+
+    /// <summary>Mark the current interaction as complete and trigger the next queued one.</summary>
     void Complete(string interactionType);
+
+    /// <summary>Force clear the current interaction and any queued items.</summary>
+    void ForceReset();
+
+    /// <summary>Extend the stuck-detection timeout for the current interaction.</summary>
+    void ExtendTimeout(TimeSpan duration);
 }
 
 public interface IBubbleCountService
 {
-    void ResetBusyState();
-}
+    bool IsRunning { get; }
+    bool IsBusy { get; }
 
-public interface ILockCardService
-{
-    void NotifyCompleted(string phrase, int totalErrors, int requiredRepeats);
+    void Start();
+    void Stop();
+    void TriggerGame(bool forceTest = false);
+    void RefreshSchedule();
+    void ResetBusyState();
 }
 
 public interface IAttentionCheckService

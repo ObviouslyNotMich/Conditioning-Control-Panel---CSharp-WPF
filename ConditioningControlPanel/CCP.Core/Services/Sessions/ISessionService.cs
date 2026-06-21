@@ -1,4 +1,4 @@
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Core.Services.Sessions;
 
@@ -10,7 +10,7 @@ namespace ConditioningControlPanel.Core.Services.Sessions;
 public interface ISessionService
 {
     SessionState State { get; }
-    ConditioningControlPanel.Core.Models.Session? CurrentSession { get; }
+    ConditioningControlPanel.Models.Session? CurrentSession { get; }
     TimeSpan ElapsedTime { get; }
     TimeSpan RemainingTime { get; }
     double ProgressPercent { get; }
@@ -37,7 +37,7 @@ public interface ISessionService
     /// <summary>
     /// Start a session. Throws if a session is already running.
     /// </summary>
-    Task StartSessionAsync(ConditioningControlPanel.Core.Models.Session session, CancellationToken cancellationToken = default);
+    Task StartSessionAsync(ConditioningControlPanel.Models.Session session, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stop the current session. Completes it if <paramref name="completed"/> is true.

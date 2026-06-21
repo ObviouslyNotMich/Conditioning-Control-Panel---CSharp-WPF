@@ -1,4 +1,4 @@
-using ConditioningControlPanel.Core.Models;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Roadmap;
 
 namespace ConditioningControlPanel.Avalonia.Platform;

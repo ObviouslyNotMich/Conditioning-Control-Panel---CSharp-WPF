@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>ConditioningControlPanel.Avalonia</RootNamespace>
     <AssemblyName>CCP.Avalonia</AssemblyName>
-    <Version>6.1.4</Version>
+    <Version>6.1.6</Version>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NoWarn>AVLN5001</NoWarn>
@@ -12,6 +12,13 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <Content Include="..\Resources\sounds\**\*">
+      <Link>Resources\sounds\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <AvaloniaResource Include="..\Resources\bubble.png">
+      <Link>Assets\bubble.png</Link>
+    </AvaloniaResource>
     <AvaloniaResource Include="..\Resources\achievements\**\*">
       <Link>Assets\achievements\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </AvaloniaResource>
@@ -24,11 +31,35 @@
     <AvaloniaResource Include="..\Resources\avatar0_emotes\**\*">
       <Link>Assets\avatar0_emotes\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\circe_emotes*\**\*">
+      <Link>Assets\circe_emotes\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\avatar*_pose*.png">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\animated*.gif">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\avatar_emotes_registry.json">
+      <Link>Assets\avatar_emotes_registry.json</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\tube2.png">
+      <Link>Assets\tube2.png</Link>
+    </AvaloniaResource>
     <AvaloniaResource Include="..\Resources\tube.png">
       <Link>Assets\tube.png</Link>
     </AvaloniaResource>
     <AvaloniaResource Include="..\Resources\Patreon tier*.png">
       <Link>Assets\patreon\%(Filename)%(Extension)</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\lockdown_icon.png">
+      <Link>Assets\lockdown_icon.png</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\logo.png">
+      <Link>Assets\logo.png</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\logo2.png">
+      <Link>Assets\logo2.png</Link>
     </AvaloniaResource>
   </ItemGroup>
 
@@ -43,6 +74,7 @@
     <PackageReference Include="MessageBox.Avalonia" Version="12.0.0" />
     <!-- Pin WindowsAppSDK (transitive from LibVLCSharp) to prevent WebView2 downgrade errors. -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.251106002" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="Svg.Skia" Version="5.1.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
   </ItemGroup>
