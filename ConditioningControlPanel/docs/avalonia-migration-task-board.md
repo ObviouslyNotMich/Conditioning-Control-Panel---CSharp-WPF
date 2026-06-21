@@ -290,10 +290,10 @@ Chaos overlay integration is complete and build/test green: cursor-glow/banner/f
 
 AvatarTube behavior restoration is complete (speech/AI chat/Circe emotes/reactions/windowing/fullscreen detection/context-menu toggles/emotive portrait system).
 
-Deeper runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource`. A functional `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview, visual timeline with drag-create/resize/rubber-band, custom haptic curve editor, browser preview, and `AudioWaveformCache`) is at parity. `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring.
+Deeper runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource`. A functional `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview, visual timeline with drag-create/resize/rubber-band, custom haptic curve editor, browser preview, and `AudioWaveformCache`) is at parity. `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring. The last WPF-only dialog, `LocalAiSetupWizard`, is now ported to Avalonia with its `OllamaSetupService` dependency moved to Core.
 
 Next priorities (pick one lane at a time):
 
-1. **Phase 4 UI parity smoke-test** — run the Avalonia desktop app and fill `docs/avalonia-ui-parity-matrix.md` gaps.
-2. **Phase 4 remaining work** — port WPF-only dialogs/utility windows and wire feature-control code-behind.
+1. **Phase 4 UI parity smoke-test / cleanup** — run the Avalonia desktop app, fix first-chance issues, replace `MessageBoxStub` with `IDialogService`, and fill `docs/avalonia-ui-parity-matrix.md` gaps.
+2. **Feature controls code-behind** — wire file pickers, audio, dispatch seams, and complete `FeatureSettingsPopup` parity.
 3. **Deeper player/editor integration live smoke test** — verify opening an enhancement from the hub plays correctly and editor edits persist.
