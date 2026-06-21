@@ -1823,6 +1823,154 @@ public partial class ChaosHubWindow : Window
 
     private void Menu_Exit_Click(object sender, RoutedEventArgs e) => Close();
 
+    // ======================= HOW TO PLAY (card tutorial overlay) =======================
+    private sealed record HowToLine(string Emoji, string EmojiColor, string Lead, string LeadColor, string Body);
+    private sealed record HowToCard(string Title, string Image, HowToLine[] Lines);
+
+    private static readonly HowToCard[] _howToCards =
+    {
+        new("What the Rabbit Hole is", "howto_1", new[]
+        {
+            new HowToLine("", "", "", "",
+                "Bubbles drift up the screen carrying flashes, videos and overlays. Pop the good ones, snap the dangerous ones before they go off, and ride it deeper. One descent is about **five minutes** — survive the waves, take what she offers, climb out a little more hers."),
+        }),
+        new("What you do", "howto_2", new[]
+        {
+            new HowToLine("🫧", "#FFFF9FD0", "Left-click", "#FFFF9FD0", "pop the treats — the soft pink bubbles. One click builds your streak and refills your focus."),
+            new HowToLine("◉", "#FFFFD228", "Press & hold", "#FFFFD228", "the glowing bubbles are live. Keep pressing until they snap — let one finish and it goes off (a flash or video fires)."),
+            new HowToLine("🌊", "#FF7AE0FF", "Right-click", "#FF7AE0FF", "the ripple. A wave near the bubbles pops treats, snaps live ones and scatters rabbits. Strong, but slow to gather again."),
+            new HowToLine("🐇", "#FFFF69B4", "The rabbits", "#FFFF69B4", "chase them for little bonuses. Everything else down there is yours to find out."),
+        }),
+        new("The two bars", "howto_3", new[]
+        {
+            new HowToLine("", "", "FOCUS", "#FFFFFFFF", "your nerve. Snapping live bubbles spends it; popping treats refills it. Run dry and you can't snap — so keep feeding."),
+            new HowToLine("", "", "HEAT", "#FFFFFFFF", "the burn. It climbs every time something triggers. Let it run high and the descent gets harder to resist."),
+        }),
+        new("A descent", "howto_4", new[]
+        {
+            new HowToLine("", "", "", "",
+                "Four waves, then it ends. Between waves she offers you a **mantra** — pick one and it bends the rules for that run only. Finish the whole descent for the full reward; slip out early and you forfeit it."),
+        }),
+        new("What you keep", "howto_5", new[]
+        {
+            new HowToLine("", "", "", "",
+                "Every descent earns **XP** toward your normal level, plus **Sparks** (gold) you carry back out."),
+            new HowToLine("", "", "", "",
+                "Spend Sparks in **the dollhouse** — accessories at the table by the door, charms, active toys you trigger mid-descent, and the seamstress's bench for permanent upgrades."),
+            new HowToLine("", "", "", "",
+                "The more descents you finish, the higher your **RANK** — curious, tempted, slipping, entranced, devoted… — and the more of the Rabbit Hole opens up to you."),
+        }),
+    };
+
+    private int _howToIdx;
+
+    private void Menu_HowTo_Click(object sender, RoutedEventArgs e)
+    {
+        _howToIdx = 0;
+        HowToShow();
+        MenuHowTo.Visibility = Visibility.Visible;
+    }
+
+    private void HowTo_Close_Click(object sender, RoutedEventArgs e) => MenuHowTo.Visibility = Visibility.Collapsed;
+
+    // backdrop dismiss: only when the click lands on the dim backdrop itself, not the card
+    private void HowTo_Backdrop_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, MenuHowTo)) MenuHowTo.Visibility = Visibility.Collapsed;
+    }
+
+    private void HowTo_Back_Click(object sender, RoutedEventArgs e)
+    {
+        if (_howToIdx > 0) { _howToIdx--; HowToShow(); }
+    }
+
+    private void HowTo_Next_Click(object sender, RoutedEventArgs e)
+    {
+        if (_howToIdx < _howToCards.Length - 1) { _howToIdx++; HowToShow(); }
+        else MenuHowTo.Visibility = Visibility.Collapsed;   // last card: "DONE" closes
+    }
+
+    private void HowToShow()
+    {
+        var card = _howToCards[_howToIdx];
+
+        HowToStep.Text = $"STEP {_howToIdx + 1} / {_howToCards.Length}";
+        HowToTitle.Text = card.Title;
+
+        // image (graceful hide when no screenshot dropped in yet)
+        var img = ChaosArt.Resolve("howto", card.Image);
+        HowToImageBrush.ImageSource = img;
+        HowToImageBox.Visibility = img != null ? Visibility.Visible : Visibility.Collapsed;
+
+        // body lines
+        HowToBody.Children.Clear();
+        foreach (var line in card.Lines)
+            HowToBody.Children.Add(BuildHowToLine(line));
+
+        // dots
+        HowToDots.Children.Clear();
+        for (int i = 0; i < _howToCards.Length; i++)
+        {
+            HowToDots.Children.Add(new System.Windows.Shapes.Ellipse
+            {
+                Width = 8, Height = 8, Margin = new Thickness(4, 0, 4, 0),
+                Fill = i == _howToIdx
+                    ? (Brush)FindResource("Pink")
+                    : new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+            });
+        }
+
+        // nav state
+        HowToBack.Visibility = _howToIdx > 0 ? Visibility.Visible : Visibility.Hidden;
+        HowToNext.Content = _howToIdx < _howToCards.Length - 1 ? "NEXT  ›" : "DONE";
+    }
+
+    private FrameworkElement BuildHowToLine(HowToLine line)
+    {
+        var tb = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 13.5, LineHeight = 21, Margin = new Thickness(0, 0, 0, 9) };
+
+        if (!string.IsNullOrEmpty(line.Lead))
+        {
+            tb.Inlines.Add(new System.Windows.Documents.Run(line.Lead + "  ")
+            {
+                FontWeight = FontWeights.Bold,
+                Foreground = BrushFromHex(line.LeadColor),
+            });
+        }
+        // body supports inline **bold** spans
+        bool bold = false;
+        foreach (var part in line.Body.Split("**"))
+        {
+            if (part.Length > 0)
+                tb.Inlines.Add(new System.Windows.Documents.Run(part)
+                {
+                    Foreground = bold ? Brushes.White : new SolidColorBrush(Color.FromRgb(0xC8, 0xC8, 0xDE)),
+                    FontWeight = bold ? FontWeights.Bold : FontWeights.Normal,
+                });
+            bold = !bold;
+        }
+
+        if (string.IsNullOrEmpty(line.Emoji)) return tb;
+
+        // emoji-led row: glyph in a fixed gutter, text beside it
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var glyph = new TextBlock { Text = line.Emoji, FontSize = 17, VerticalAlignment = VerticalAlignment.Top, Foreground = BrushFromHex(line.EmojiColor) };
+        Grid.SetColumn(glyph, 0);
+        Grid.SetColumn(tb, 1);
+        grid.Children.Add(glyph);
+        grid.Children.Add(tb);
+        return grid;
+    }
+
+    private static Brush BrushFromHex(string hex)
+    {
+        if (string.IsNullOrEmpty(hex)) return Brushes.White;
+        try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
+        catch { return Brushes.White; }
+    }
+
     private void Back_To_Menu_Click(object sender, RoutedEventArgs e)
     {
         SaveToSettings();    // keep any loadout/setup tweaks made in the dollhouse

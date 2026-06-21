@@ -661,6 +661,8 @@
                             <Button.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="18" ShadowDepth="0" Opacity="0.6"/></Button.Effect>
                             <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="12"/></Style></Button.Resources>
                         </Button>
+                        <Button x:Name="BtnMenuHowTo" Style="{StaticResource MenuBtn}" Content="📖  HOW TO PLAY"
+                                Click="Menu_HowTo_Click" ToolTip="new here? thirty seconds and you'll have it."/>
                         <Button x:Name="BtnMenuDollhouse" Style="{StaticResource MenuBtn}" Content="🏠  THE DOLL HOUSE"
                                 Click="Menu_Dollhouse_Click" ToolTip="pockets, toys, the bench — dress the fall."/>
                         <Button x:Name="BtnMenuStory" Style="{StaticResource MenuBtn}" Content="📖  STORY MODE  🔒"
@@ -747,6 +749,74 @@
                     <Button Grid.Row="2" Content="‹ back" Click="Options_Back_Click" Style="{StaticResource MenuBtn}"
                             HorizontalAlignment="Left" Width="170" Height="52" Margin="0,16,0,0"/>
                 </Grid>
+            </Border>
+
+            <!-- HOW TO PLAY: card overlay floating over the menu (art keeps breathing, music keeps
+                 playing underneath). Built one card at a time in code-behind (HowToShow). -->
+            <Border x:Name="MenuHowTo" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#D80B0B16"
+                    MouseLeftButtonDown="HowTo_Backdrop_Click">
+                <Border Width="660" MaxHeight="660" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Background="{StaticResource Card}" BorderBrush="{StaticResource Border1}" BorderThickness="2"
+                        CornerRadius="18" Margin="0,40,0,0">
+                    <Border.Effect><DropShadowEffect Color="#FFE84393" ShadowDepth="0" BlurRadius="34" Opacity="0.45"/></Border.Effect>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- card image (hidden when no screenshot present) -->
+                        <Border x:Name="HowToImageBox" Grid.Row="0" Height="252" CornerRadius="16,16,0,0" ClipToBounds="True">
+                            <Grid>
+                                <Border CornerRadius="16,16,0,0">
+                                    <Border.Background><ImageBrush x:Name="HowToImageBrush" Stretch="UniformToFill"/></Border.Background>
+                                </Border>
+                                <Border CornerRadius="16,16,0,0">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                            <GradientStop Color="#FF1C1A36" Offset="0"/>
+                                            <GradientStop Color="Transparent" Offset="0.85"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- title -->
+                        <StackPanel Grid.Row="1" Margin="32,18,32,0">
+                            <TextBlock x:Name="HowToStep" Text="STEP 1 / 5" Foreground="{StaticResource Pink}"
+                                       FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="HowToTitle" Text="" Foreground="White" FontSize="22" FontWeight="Bold" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- body lines (built in code-behind) -->
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="32,12,32,8">
+                            <StackPanel x:Name="HowToBody"/>
+                        </ScrollViewer>
+
+                        <!-- footer: back · dots · next -->
+                        <Grid Grid.Row="3" Margin="24,8,24,22">
+                            <Button x:Name="HowToBack" Content="‹  BACK" Click="HowTo_Back_Click" Style="{StaticResource MenuBtn}"
+                                    HorizontalAlignment="Left" Width="140" Height="46"/>
+                            <StackPanel x:Name="HowToDots" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button x:Name="HowToNext" Content="NEXT  ›" Click="HowTo_Next_Click"
+                                    HorizontalAlignment="Right" Width="140" Height="46" FontWeight="Bold" FontSize="14"
+                                    Foreground="White" Background="{StaticResource Brand}" BorderThickness="0" Cursor="Hand">
+                                <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                            </Button>
+                        </Grid>
+
+                        <!-- close X -->
+                        <Button x:Name="HowToClose" Grid.Row="0" Content="✕" Click="HowTo_Close_Click"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,12,0" Panel.ZIndex="5"
+                                Width="34" Height="34" FontSize="14" Foreground="White" Cursor="Hand"
+                                Background="#66000000" BorderThickness="0" ToolTip="Close">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="17"/></Style></Button.Resources>
+                        </Button>
+                    </Grid>
+                </Border>
             </Border>
         </Grid>
 
