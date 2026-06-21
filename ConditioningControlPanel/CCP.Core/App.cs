@@ -9,10 +9,10 @@ namespace ConditioningControlPanel;
 
 /// <summary>
 /// Temporary static application stub for CCP.Core so copied model files can compile.
-/// This mirrors the legacy WPF <c>App</c> service locator enough for Core build only;
+/// This mirrors the legacy WPF <c>CoreApp</c> service locator enough for Core build only;
 /// heads should replace these static references with dependency injection.
 /// </summary>
-public static class App
+public static class CoreApp
 {
     public static IAppSettingsService? Settings { get; set; }
     public static IAppLogger? Logger { get; set; }

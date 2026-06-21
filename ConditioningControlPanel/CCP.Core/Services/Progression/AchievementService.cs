@@ -145,7 +145,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         if (_isDisposed) return;
 
-        var settings = App.Settings?.Current;
+        var settings = CoreApp.Settings?.Current;
         if (settings == null) return;
 
         var now = DateTime.Now;
@@ -154,7 +154,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         // Track total conditioning time for skill tree (when overlay is running = session active)
         if (overlayRunning)
         {
-            App.SkillTree?.AddConditioningTime(1.0 / 60.0);
+            CoreApp.SkillTree?.AddConditioningTime(1.0 / 60.0);
         }
 
         // Track Pink Filter time - only when overlay is actually running
@@ -315,11 +315,11 @@ public sealed class AchievementService : IAchievementService, IDisposable
         // Award 1 sparkle point every 100 bubbles
         if (_progress.TotalBubblesPopped % 100 == 0)
         {
-            var settings = App.Settings?.Current;
+            var settings = CoreApp.Settings?.Current;
             if (settings != null)
             {
                 settings.SkillPoints += 1;
-                App.Settings?.Save();
+                CoreApp.Settings?.Save();
                 _logger.Information("Bubble milestone! {Total} bubbles popped — awarded 1 sparkle point (total: {Points})",
                     _progress.TotalBubblesPopped, settings.SkillPoints);
                 ShowBubbleMilestoneNotification(_progress.TotalBubblesPopped);
@@ -815,7 +815,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         try
         {
-            var overlay = App.Overlay;
+            var overlay = CoreApp.Overlay;
             if (overlay == null) return false;
 
             // Prefer a strongly typed interface if the head wires one up.
@@ -835,7 +835,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         try
         {
-            var deeper = App.DeeperHost;
+            var deeper = CoreApp.DeeperHost;
             if (deeper == null) return false;
 
             dynamic d = deeper;
@@ -872,7 +872,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         try
         {
-            var quests = App.Quests;
+            var quests = CoreApp.Quests;
             if (quests == null) return;
 
             var method = quests.GetType().GetMethod(methodName);
@@ -888,7 +888,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         try
         {
-            var haptics = App.Haptics;
+            var haptics = CoreApp.Haptics;
             if (haptics == null) return;
 
             var method = haptics.GetType().GetMethod("AchievementPatternAsync");
@@ -907,7 +907,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         try
         {
-            var haptics = App.Haptics;
+            var haptics = CoreApp.Haptics;
             if (haptics == null) return;
 
             var method = haptics.GetType().GetMethod("AvatarEasterEggPatternAsync");

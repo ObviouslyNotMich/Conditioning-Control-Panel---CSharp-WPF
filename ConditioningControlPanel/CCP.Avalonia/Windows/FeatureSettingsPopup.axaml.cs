@@ -14,7 +14,7 @@ using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using Microsoft.Extensions.DependencyInjection;
-using CoreApp = ConditioningControlPanel.App;
+using CoreApp = ConditioningControlPanel.CoreApp;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 

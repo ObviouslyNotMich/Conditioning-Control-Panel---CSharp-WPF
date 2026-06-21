@@ -402,7 +402,6 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var allTabs = new TabItemViewModel[]
         {
-            GetTab<AppInfoTabViewModel>() ?? new AppInfoTabViewModel(),
             GetTab<SettingsTabViewModel>() ?? new SettingsTabViewModel(),
             GetTab<PresetsTabViewModel>() ?? new PresetsTabViewModel(),
             GetTab<PresetIOTabViewModel>() ?? new PresetIOTabViewModel(),

@@ -90,7 +90,7 @@ namespace ConditioningControlPanel.Models
         /// </summary>
         public string GetModeAwareName()
         {
-            return App.Mods?.MakeModAware(Name) ?? Name;
+            return CoreApp.Mods?.MakeModAware(Name) ?? Name;
         }
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace ConditioningControlPanel.Models
         /// </summary>
         public string GetModeAwareDescription()
         {
-            return App.Mods?.MakeModAware(Description) ?? Description;
+            return CoreApp.Mods?.MakeModAware(Description) ?? Description;
         }
 
         /// <summary>
@@ -787,7 +787,7 @@ Your only purpose is to sit prettily and let the pink fog consume you. And remem
 
             if (Settings.LockCardEnabled)
             {
-                var phrases = App.Settings?.Current.LockCardPhrases.Where(p => p.Value).Select(p => p.Key);
+                var phrases = CoreApp.Settings?.Current.LockCardPhrases.Where(p => p.Value).Select(p => p.Key);
                 var phraseString = phrases != null && phrases.Any()
                     ? Loc.GetF("session_spoiler_using_phrases", string.Join("\", \"", phrases))
                     : Loc.Get("session_spoiler_uses_global_phrase_pool");

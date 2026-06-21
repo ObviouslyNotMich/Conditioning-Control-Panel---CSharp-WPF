@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -46,11 +46,7 @@ public partial class RoadmapStartDialog : Window
     {
         if (_dialogService == null)
         {
-            MessageBoxStub.Show(
-                "File picker is not available in this build.",
-                "Roadmap",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            // No IDialogService registered; cannot show file picker or message.
             return;
         }
 

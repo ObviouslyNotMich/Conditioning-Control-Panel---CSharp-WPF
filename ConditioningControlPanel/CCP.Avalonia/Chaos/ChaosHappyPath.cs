@@ -263,7 +263,7 @@ public static class ChaosHappyPath
                 ChaosAnnouncerOverlay.Announce("🐇 a white rabbit. catch it.", ChaosAnnounceKind.Item,
                     holdMs: ChaosAnnouncerOverlay.TEACH_HOLD_MS);
                 ChaosMeta.MarkDiscovered("bubble:darter");
-                global::ConditioningControlPanel.App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildDarter(s.RunIntensity, spotlight: false));
+                global::ConditioningControlPanel.CoreApp.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildDarter(s.RunIntensity, spotlight: false));
             }
             catch (Exception ex) { LogDebug("HappyPath darter: {E}", ex.Message); }
         }
@@ -286,7 +286,7 @@ public static class ChaosHappyPath
             var spec = ChaosBubbleVariants.Build(pink, s.RunIntensity,
                 s.FuseTimeMult * R1_THREAT_FUSE_MULT, null, s.Config.EffectIntensity, s.BubbleScale);
             ChaosMeta.MarkDiscovered("bubble:" + spec.VariantId);
-            global::ConditioningControlPanel.App.Bubbles?.SpawnChaosBubble(spec);
+            global::ConditioningControlPanel.CoreApp.Bubbles?.SpawnChaosBubble(spec);
             s.PushEvent("◉ one live one. take your time with it.");
         }
         catch (Exception ex) { LogDebug("HappyPath threat: {E}", ex.Message); }
@@ -354,7 +354,7 @@ public static class ChaosHappyPath
                             s.FuseTimeMult * ChaosTuning.DEBUT_FUSE_MULT, null,
                             s.Config.EffectIntensity, s.BubbleScale);
                         ChaosMeta.MarkDiscovered("bubble:braindrain");
-                        global::ConditioningControlPanel.App.Bubbles?.SpawnChaosBubble(spec);
+                        global::ConditioningControlPanel.CoreApp.Bubbles?.SpawnChaosBubble(spec);
                     }
                 }
                 catch (Exception ex) { LogDebug("HappyPath braindrain debut: {E}", ex.Message); }
@@ -367,8 +367,8 @@ public static class ChaosHappyPath
             try
             {
                 ChaosMeta.MarkDiscovered("bubble:golden");
-                global::ConditioningControlPanel.App.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildGolden());
-                global::ConditioningControlPanel.App.Bubbles?.PlayChime(0.30f);
+                global::ConditioningControlPanel.CoreApp.Bubbles?.SpawnChaosBubble(ChaosBubbleVariants.BuildGolden());
+                global::ConditioningControlPanel.CoreApp.Bubbles?.PlayChime(0.30f);
             }
             catch (Exception ex) { LogDebug("HappyPath golden: {E}", ex.Message); }
         }

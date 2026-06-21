@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Localization;
+using Microsoft.Extensions.DependencyInjection;
 using Point = global::Avalonia.Point;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
@@ -42,6 +43,7 @@ public partial class WebcamCalibrationWindow : Window
 
     private readonly IFrameSource? _frameSource;
     private readonly IVideoSurface? _videoSurface;
+    private readonly IDialogService? _dialogService;
     private bool _cancelled;
     private bool _completedOk;
     private ScaleTransform? _ringScale;
@@ -52,6 +54,7 @@ public partial class WebcamCalibrationWindow : Window
     {
         InitializeComponent();
         IsShowing = true;
+        _dialogService = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<IDialogService>();
         DotRingFg.StrokeDashArray = new AvaloniaList<double>(new[] { 0.0, 10000.0 });
     }
 
@@ -181,14 +184,16 @@ public partial class WebcamCalibrationWindow : Window
         TxtValidationCue.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4));
     }
 
-    private void BtnCalibrationHelp_Click(object? sender, RoutedEventArgs e)
+    private async void BtnCalibrationHelp_Click(object? sender, RoutedEventArgs e)
     {
         // TODO: open ported HelpVideoWindow once available.
-        _ = MessageBoxStub.Show(
-            Loc.Get("window_webcam_calibration_help_not_ported_message"),
-            Loc.Get("window_webcam_calibration_help_title"),
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        if (_dialogService != null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("window_webcam_calibration_help_title"),
+                Loc.Get("window_webcam_calibration_help_not_ported_message"),
+                DialogSeverity.Info);
+        }
     }
 
     private void BtnErrorClose_Click(object? sender, RoutedEventArgs e)

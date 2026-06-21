@@ -18,7 +18,7 @@ public static class SeasonRecapService
 
     public static void IncrementSessionStarted()
     {
-        var s = App.Settings?.Current;
+        var s = CoreApp.Settings?.Current;
         if (s == null) return;
         EnsureBucket(s);
         s.SeasonSessionsStarted += 1;
@@ -26,7 +26,7 @@ public static class SeasonRecapService
 
     public static void TrackFeature(string featureKey)
     {
-        var s = App.Settings?.Current;
+        var s = CoreApp.Settings?.Current;
         if (s == null) return;
         EnsureBucket(s);
         s.TrackSeasonFeature(featureKey);
@@ -63,7 +63,7 @@ public static class SeasonRecapService
     /// </summary>
     public static SeasonRecapSnapshot? CaptureAndRollover(string currentSeason)
     {
-        var s = App.Settings?.Current;
+        var s = CoreApp.Settings?.Current;
         if (s == null) return null;
 
         var snapshot = new SeasonRecapSnapshot
@@ -89,7 +89,7 @@ public static class SeasonRecapService
         s.SeasonPeakRank = 0;
         s.SeasonPeakRankTotal = 0;
 
-        App.Settings?.Save();
+        CoreApp.Settings?.Save();
 
         // Return null when there is no meaningful data to show.
         if (snapshot.SeasonMinutes <= 0 && snapshot.SessionCount <= 0 && snapshot.DaysActive <= 0)

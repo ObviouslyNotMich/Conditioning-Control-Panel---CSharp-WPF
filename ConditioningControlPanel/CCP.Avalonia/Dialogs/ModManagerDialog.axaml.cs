@@ -166,14 +166,14 @@ public partial class ModManagerDialog : Window
             }
         }
 
-        ShowTodo(path != null
+        await ShowTodoAsync(path != null
             ? $"mod export to '{path}'"
             : "mod export");
     }
 
-    private void BtnCreate_Click(object? sender, RoutedEventArgs e)
+    private async void BtnCreate_Click(object? sender, RoutedEventArgs e)
     {
-        ShowTodo("mod creation");
+        await ShowTodoAsync("mod creation");
     }
 
     private void RefreshModList()
@@ -222,20 +222,22 @@ public partial class ModManagerDialog : Window
     {
         if (_dialogService != null)
         {
-            await _dialogService.ShowMessageAsync("Mod Manager", message);
+            await _dialogService.ShowMessageAsync(Loc.Get("title_mod_manager"), message);
         }
         else
         {
-            ShowTodo(message);
+            await ShowTodoAsync(message);
         }
     }
 
-    private static void ShowTodo(string feature)
+    private async Task ShowTodoAsync(string feature)
     {
-        MessageBoxStub.Show(
-            $"TODO: {feature} is not yet wired up in the Avalonia build.",
-            "TODO",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        if (_dialogService != null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_todo"),
+                Loc.GetF("msg_todo_not_yet_wired_up", feature),
+                DialogSeverity.Info);
+        }
     }
 }

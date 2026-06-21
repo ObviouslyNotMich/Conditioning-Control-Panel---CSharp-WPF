@@ -1,5 +1,5 @@
 ﻿using ConditioningControlPanel.Core.Platform;
-using CoreApp = global::ConditioningControlPanel.App;
+using CoreApp = global::ConditioningControlPanel.CoreApp;
 
 
 namespace ConditioningControlPanel.Avalonia.Services.AttentionCheck;

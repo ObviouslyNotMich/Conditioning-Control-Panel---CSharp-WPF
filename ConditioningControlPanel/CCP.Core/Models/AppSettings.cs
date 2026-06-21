@@ -37,9 +37,9 @@ namespace ConditioningControlPanel.Models
 
     /// <summary>
     /// Legacy content mode enum. Kept for settings deserialization backward compatibility.
-    /// Use App.Mods (ModService) instead.
+    /// Use CoreApp.Mods (ModService) instead.
     /// </summary>
-    [Obsolete("Use App.Mods (ModService) and ActiveModId instead")]
+    [Obsolete("Use CoreApp.Mods (ModService) and ActiveModId instead")]
     public enum ContentMode
     {
         BambiSleep,
@@ -3005,7 +3005,7 @@ namespace ConditioningControlPanel.Models
         /// Display name for current content mode.
         /// </summary>
         [JsonIgnore]
-        public string ContentModeDisplay => App.Mods?.GetModeDisplayName() ?? "CCP Default";
+        public string ContentModeDisplay => CoreApp.Mods?.GetModeDisplayName() ?? "CCP Default";
 
         /// <summary>
         /// Gets/sets the hypnotube links for the currently active content mode.

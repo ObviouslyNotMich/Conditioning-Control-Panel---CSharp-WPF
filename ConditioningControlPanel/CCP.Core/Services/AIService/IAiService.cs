@@ -23,7 +23,7 @@ namespace ConditioningControlPanel.Core.Services.AIService
         /// (badge OFF) and from a moderation refusal (POLICY bubble). Implementations
         /// MUST set <c>IsAiGenerated=false</c> for any fallback / login-required /
         /// circuit-broken path, and MUST populate <c>Refusal</c> with the
-        /// input-or-output source when <see cref="App.ModerationGuard"/> blocks.
+        /// input-or-output source when <see cref="ModerationGuard"/> blocks.
         /// Existing <see cref="GetBambiReplyAsync"/> continues to work and is a
         /// thin wrapper over this method for non-UI callers (autonomy / commands)
         /// that only need the text.

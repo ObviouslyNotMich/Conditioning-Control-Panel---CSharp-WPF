@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Moderation;
 
@@ -28,6 +29,7 @@ public partial class CompanionPromptEditorDialog : Window
     private readonly CompanionPromptSettings _defaults;
     private readonly IPromptValidator _promptValidator;
     private readonly IModerationLog _moderationLog;
+    private readonly IDialogService? _dialogService;
     private bool _hasUnsavedChanges;
     private readonly ObservableCollection<KnowledgeBaseLink> _knowledgeLinks = new();
 
@@ -40,6 +42,7 @@ public partial class CompanionPromptEditorDialog : Window
 _defaults = CompanionPromptSettings.GetDefaults();
         _promptValidator = App.Services.GetRequiredService<IPromptValidator>();
         _moderationLog = App.Services.GetRequiredService<IModerationLog>();
+        _dialogService = App.Services?.GetService<IDialogService>();
         LoadCurrentSettings();
         LoadKnowledgeLinks();
         UpdateActivePromptDisplay();
@@ -226,7 +229,7 @@ _defaults = CompanionPromptSettings.GetDefaults();
         }
     }
 
-    private void RemoveKnowledgeLink_Click(object? sender, RoutedEventArgs e)
+    private async void RemoveKnowledgeLink_Click(object? sender, RoutedEventArgs e)
     {
         if (LstKnowledgeLinks.SelectedItem is KnowledgeBaseLink link)
         {
@@ -235,23 +238,23 @@ _defaults = CompanionPromptSettings.GetDefaults();
         }
         else
         {
-            MessageBoxStub.Show(
-                Loc.Get("msg_please_select_a_link_to_remove"),
-                "No Selection",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_no_selection"),
+                    Loc.Get("msg_please_select_a_link_to_remove"),
+                    DialogSeverity.Info);
+            }
         }
     }
 
-    private void ResetAll_Click(object? sender, RoutedEventArgs e)
+    private async void ResetAll_Click(object? sender, RoutedEventArgs e)
     {
-        var result = MessageBoxStub.Show(
-            "Reset all prompts to their default values?\n\nThis cannot be undone.",
-            "Reset All Prompts",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var confirmed = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_reset_all_prompts"),
+            Loc.Get("msg_reset_all_prompts_to_defaults")) ?? Task.FromResult(false));
 
-        if (result == MessageBoxResult.Yes)
+        if (confirmed)
         {
             TxtPersonality.Text = _defaults.Personality;
             TxtExplicitReaction.Text = _defaults.ExplicitReaction;
@@ -337,18 +340,15 @@ _defaults = CompanionPromptSettings.GetDefaults();
         }
     }
 
-    private void BtnCancel_Click(object? sender, RoutedEventArgs e)
+    private async void BtnCancel_Click(object? sender, RoutedEventArgs e)
     {
         if (_hasUnsavedChanges)
         {
-            var result =
-MessageBoxStub.Show(
-                "You have unsaved changes. Discard them?",
-                "Unsaved Changes",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+            var confirmed = await (_dialogService?.ShowConfirmationAsync(
+                Loc.Get("title_unsaved_changes"),
+                Loc.Get("msg_discard_changes")) ?? Task.FromResult(false));
 
-            if (result != MessageBoxResult.Yes)
+            if (!confirmed)
                 return;
         }
 

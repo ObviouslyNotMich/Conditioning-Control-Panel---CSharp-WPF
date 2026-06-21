@@ -29,6 +29,18 @@
     <converters:PercentToWidthConverter x:Key="PercentToWidthConverter" />
   </Window.Resources>
 
+  <Window.Styles>
+    <Style Selector="TabControl">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Content="{TemplateBinding SelectedContent}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+  </Window.Styles>
+
   <!-- 5-px resize-grip shell around the scaled UI. -->
   <Grid Background="Transparent">
     <Grid.RowDefinitions>
@@ -177,14 +189,6 @@
                     Theme="{StaticResource WindowControlButton}"
                     Click="BugReport_Click"
                     ToolTip.Tip="{loc:Str tooltip_report_bug}" />
-            <Button Content="🌀"
-                    Theme="{StaticResource WindowControlButton}"
-                    Command="{Binding ShowChaosOverlaySmokeTestCommand}"
-                    ToolTip.Tip="{loc:Str tooltip_chaos_overlay_smoke_test}" />
-            <Button Content="👤"
-                    Theme="{StaticResource WindowControlButton}"
-                    Command="{Binding OpenLoginDialogCommand}"
-                    ToolTip.Tip="{Binding DisplayName, FallbackValue={loc:Str tooltip_login}}" />
             <Button Content="─"
                     Theme="{StaticResource WindowControlButton}"
                     Command="{Binding MinimizeWindowCommand}" />
@@ -326,8 +330,8 @@
                       Spacing="6">
             <ToggleButton Theme="{StaticResource TabButtonActivePrimary}"
                           Command="{Binding SelectTabCommand}"
-                          CommandParameter="appinfo"
-                          IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=appinfo}"
+                          CommandParameter="settings"
+                          IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=settings}"
                           Padding="10,6">
               <TextBlock><Run Text="📊"/><Run Text="{loc:Str tab_dashboard}"/></TextBlock>
             </ToggleButton>
@@ -382,7 +386,7 @@
                       Spacing="8">
             <!-- Quick preset selector -->
             <ComboBox x:Name="CmbPresets"
-                      IsVisible="True"
+                      IsVisible="False"
                       ItemsSource="{Binding AvailablePresets}"
                       SelectedItem="{Binding SelectedPreset}"
                       Width="160"
@@ -551,11 +555,11 @@
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
-                          CommandParameter="companionhub"
-                          IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=companionhub}"
+                          CommandParameter="companion"
+                          IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=companion}"
                           Padding="8,5"
                           FontSize="11">
-              <TextBlock><Run Text="💬"/><Run Text="{loc:Str tab_companion}"/></TextBlock>
+              <TextBlock><Run Text="🤖"/><Run Text="{loc:Str tab_companion}"/></TextBlock>
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButtonDiscord}"
                           Command="{Binding SelectTabCommand}"
@@ -845,11 +849,6 @@
                     Margin="8"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch">
-          <TabControl.Styles>
-            <Style Selector="TabStrip">
-              <Setter Property="IsVisible" Value="False" />
-            </Style>
-          </TabControl.Styles>
           <TabControl.ItemTemplate>
             <DataTemplate x:DataType="tabs:TabItemViewModel">
               <StackPanel Orientation="Horizontal" Spacing="4">

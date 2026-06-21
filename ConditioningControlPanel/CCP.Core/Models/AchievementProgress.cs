@@ -233,7 +233,7 @@ public class AchievementProgress
         // which then risks being synced UP over the real cloud value (#344, #345, #331).
         if (lastDate == default)
         {
-            App.Logger?.Information("Login streak: no local launch history (fresh/reset install) — deferring to cloud restore, not breaking streak");
+            CoreApp.Logger?.Information("Login streak: no local launch history (fresh/reset install) — deferring to cloud restore, not breaking streak");
             if (ConsecutiveDays < 1) ConsecutiveDays = 1;
             LastLaunchDate = today;
             SyncCurrentStreak();
@@ -255,19 +255,19 @@ public class AchievementProgress
         else
         {
             var daysMissed = (today - lastDate).Days;
-            App.Logger?.Information("Login streak gap detected: {Days} day(s) missed (last launch: {LastDate}, today: {Today}, streak was: {Streak})",
+            CoreApp.Logger?.Information("Login streak gap detected: {Days} day(s) missed (last launch: {LastDate}, today: {Today}, streak was: {Streak})",
                 daysMissed, lastDate.ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"), ConsecutiveDays);
 
             // Streak would break - try streak shield first
-            if (App.SkillTree?.UseStreakShield() == true)
+            if (CoreApp.SkillTree?.UseStreakShield() == true)
             {
                 // Shield saved the streak! Increment as normal
                 ConsecutiveDays++;
-                App.Logger?.Information("Streak shield protected streak! Now at {Days} days", ConsecutiveDays);
+                CoreApp.Logger?.Information("Streak shield protected streak! Now at {Days} days", ConsecutiveDays);
                 PendingStreakBonus = true;
 
                 // Record the missed day(s) that were shielded
-                var settings = App.Settings?.Current;
+                var settings = CoreApp.Settings?.Current;
                 if (settings != null)
                 {
                     for (var d = lastDate.AddDays(1); d < today; d = d.AddDays(1))
@@ -277,15 +277,15 @@ public class AchievementProgress
                     }
                 }
             }
-            else if (App.SkillTree?.UseOopsieInsurance() == true)
+            else if (CoreApp.SkillTree?.UseOopsieInsurance() == true)
             {
                 // Insurance saved the streak at cost of 500 XP! Keep current streak
-                App.Logger?.Information("Oopsie Insurance saved streak at {Days} days for 500 XP", ConsecutiveDays);
+                CoreApp.Logger?.Information("Oopsie Insurance saved streak at {Days} days for 500 XP", ConsecutiveDays);
             }
             else
             {
                 // Streak broken, reset to 1
-                App.Logger?.Warning("Login streak RESET from {OldStreak} to 1 — gap of {Days} day(s), no shield/insurance available (last launch: {LastDate})",
+                CoreApp.Logger?.Warning("Login streak RESET from {OldStreak} to 1 — gap of {Days} day(s), no shield/insurance available (last launch: {LastDate})",
                     ConsecutiveDays, daysMissed, lastDate.ToString("yyyy-MM-dd"));
                 ConsecutiveDays = 1;
             }
@@ -310,11 +310,11 @@ public class AchievementProgress
         if (!PendingStreakBonus) return;
         PendingStreakBonus = false;
 
-        var streakXP = App.SkillTree?.GetDailyStreakBonus(ConsecutiveDays) ?? 0;
+        var streakXP = CoreApp.SkillTree?.GetDailyStreakBonus(ConsecutiveDays) ?? 0;
         if (streakXP > 0)
         {
-            App.Progression?.AddXP(streakXP, XPSource.Other);
-            App.Logger?.Information("Daily streak bonus! {Days} days - awarded {XP} XP", ConsecutiveDays, streakXP);
+            CoreApp.Progression?.AddXP(streakXP, XPSource.Other);
+            CoreApp.Logger?.Information("Daily streak bonus! {Days} days - awarded {XP} XP", ConsecutiveDays, streakXP);
         }
     }
 
@@ -323,7 +323,7 @@ public class AchievementProgress
     /// </summary>
     public void SyncCurrentStreak()
     {
-        var settings = App.Settings?.Current;
+        var settings = CoreApp.Settings?.Current;
         if (settings == null) return;
 
         settings.CurrentStreak = ConsecutiveDays;

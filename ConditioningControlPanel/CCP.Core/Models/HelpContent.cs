@@ -31,7 +31,7 @@ namespace ConditioningControlPanel.Models
 
         /// <summary>
         /// Absolute https URL for the "Watch full tutorial" button. Null/blank =>
-        /// button hidden. Typically built from <see cref="App.TutorialBaseUrl"/>.
+        /// button hidden. Typically built from <see cref="CoreApp.TutorialBaseUrl"/>.
         /// </summary>
         public string? FullTutorialUrl { get; set; }
 

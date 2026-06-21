@@ -4,6 +4,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Dialogs;
 
@@ -12,11 +14,13 @@ public partial class DisplayNameDialog : Window
     public string DisplayName { get; private set; } = "";
 
     private readonly bool _isDeleteMode;
+    private readonly IDialogService? _dialogService;
     private int _maxLength = 20;
 
     public DisplayNameDialog()
     {
         InitializeComponent();
+        _dialogService = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<IDialogService>();
         SetupTextChanged();
 
         Loaded += (_, _) => TxtDisplayName.Focus();
@@ -102,7 +106,7 @@ public partial class DisplayNameDialog : Window
         Accept();
     }
 
-    private void Accept()
+    private async void Accept()
     {
         var name = (TxtDisplayName.Text ?? "").Trim();
 
@@ -116,11 +120,13 @@ public partial class DisplayNameDialog : Window
 
         if (name.Length < 2 || name.Length > _maxLength)
         {
-            MessageBoxStub.Show(
-                Loc.Get("msg_enter_name_2_20_chars"),
-                Loc.Get("title_invalid_name"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_invalid_name"),
+                    Loc.Get("msg_enter_name_2_20_chars"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 

@@ -305,7 +305,7 @@ public partial class SystemFeatureControl : UserControl
             }
             catch (Exception ex)
             {
-                // TODO: App.Logger?.Warning(ex, "Could not create custom assets subdirectories");
+                // TODO: CoreApp.Logger?.Warning(ex, "Could not create custom assets subdirectories");
                 Console.WriteLine($"[SystemFeatureControl] Create subdirs failed: {ex.Message}");
             }
 
@@ -313,7 +313,7 @@ public partial class SystemFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            // TODO: App.Logger?.Warning(ex, "Pick assets folder failed");
+            // TODO: CoreApp.Logger?.Warning(ex, "Pick assets folder failed");
             Console.WriteLine($"[SystemFeatureControl] Pick assets folder failed: {ex.Message}");
         }
     }
@@ -336,7 +336,7 @@ public partial class SystemFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            // TODO: App.Logger?.Warning(ex, "Open assets folder failed");
+            // TODO: CoreApp.Logger?.Warning(ex, "Open assets folder failed");
             Console.WriteLine($"[SystemFeatureControl] Open assets folder failed: {ex.Message}");
         }
     }
@@ -364,7 +364,7 @@ public partial class SystemFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            // TODO: App.Logger?.Warning(ex, "Select startup video failed");
+            // TODO: CoreApp.Logger?.Warning(ex, "Select startup video failed");
             Console.WriteLine($"[SystemFeatureControl] Select startup video failed: {ex.Message}");
         }
     }

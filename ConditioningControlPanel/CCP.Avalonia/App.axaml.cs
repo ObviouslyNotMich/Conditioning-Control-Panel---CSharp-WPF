@@ -15,10 +15,11 @@ using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Roadmap;
 using ConditioningControlPanel.Avalonia.Chaos;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
-using CoreApp = ConditioningControlPanel.App;
+using CoreApp = ConditioningControlPanel.CoreApp;
 
 namespace ConditioningControlPanel.Avalonia;
 
@@ -79,6 +80,9 @@ public partial class App : Application
             CoreApp.Settings = Services.GetRequiredService<ISettingsService>();
             CoreApp.Roadmap = Services.GetRequiredService<IRoadmapService>();
             CoreApp.Logger = Services.GetRequiredService<IAppLogger>();
+
+            // Initialize localization before any UI is created so {loc:Str} bindings resolve.
+            LocalizationManager.Instance.Initialize(CoreApp.Settings.Current?.Language ?? "en");
 
             // Wire the ported bubble and overlay services into the legacy static facade.
             CoreApp.Bubbles = Services.GetRequiredService<IBubbleService>();

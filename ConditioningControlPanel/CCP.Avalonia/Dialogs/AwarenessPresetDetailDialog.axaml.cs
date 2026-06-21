@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +18,7 @@ using ConditioningControlPanel.Avalonia.Services.Companion;
 using ConditioningControlPanel.Avalonia.Services.KeywordTriggers;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Moderation;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Dialogs;
@@ -37,6 +38,7 @@ public partial class AwarenessPresetDetailDialog : Window
     private readonly IKeywordTriggerService _keywordTriggerService;
     private readonly ICompanionPhraseService _companionPhraseService;
     private readonly IModerationLog _moderationLog;
+    private readonly IDialogService? _dialogService;
     private bool _isCustomPresetUnsaved;
     public bool Changed { get; private set; }
 
@@ -52,6 +54,7 @@ _preset = new KeywordTriggerPreset();
         _keywordTriggerService = App.Services.GetRequiredService<IKeywordTriggerService>();
         _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseService>();
         _moderationLog = App.Services.GetRequiredService<IModerationLog>();
+        _dialogService = App.Services?.GetService<IDialogService>();
     }
 
     public AwarenessPresetDetailDialog(KeywordTriggerPreset preset)
@@ -69,6 +72,7 @@ _preset = preset;
         _keywordTriggerService = App.Services.GetRequiredService<IKeywordTriggerService>();
         _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseService>();
         _moderationLog = App.Services.GetRequiredService<IModerationLog>();
+        _dialogService = App.Services?.GetService<IDialogService>();
         _isCustomPresetUnsaved = isNewCustomPreset;
 
         if (preset.IsBuiltIn)
@@ -456,14 +460,13 @@ _preset = preset;
                 FontSize = 14,
             };
             ToolTip.SetTip(deleteTriggerBtn, Loc.Get("dialog_awareness_preset_detail_delete_trigger_tooltip"));
-            deleteTriggerBtn.Click += (_, _) =>
+            deleteTriggerBtn.Click += async (_, _) =>
             {
                 var label = string.IsNullOrWhiteSpace(trigger.Keyword) ? Loc.Get("dialog_awareness_preset_detail_unnamed_trigger") : $"\"{trigger.Keyword}\"";
-                var confirm = MessageBoxStub.Show(
-                    string.Format(Loc.Get("dialog_awareness_preset_detail_delete_trigger_message_fmt"), label),
+                var confirmed = await (_dialogService?.ShowConfirmationAsync(
                     Loc.Get("dialog_awareness_preset_detail_delete_trigger_title"),
-                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (confirm == MessageBoxResult.Yes)
+                    string.Format(Loc.Get("dialog_awareness_preset_detail_delete_trigger_message_fmt"), label)) ?? Task.FromResult(false));
+                if (confirmed)
                     DeleteTrigger(trigger);
             };
             Grid.SetColumn(deleteTriggerBtn, 3);
@@ -1132,8 +1135,13 @@ _preset = preset;
         Changed = true;
         if (copy == null)
         {
-            MessageBoxStub.Show(Loc.Get("dialog_awareness_preset_detail_copy_failed_message"), Loc.Get("dialog_awareness_preset_detail_copy_failed_title"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("dialog_awareness_preset_detail_copy_failed_title"),
+                    Loc.Get("dialog_awareness_preset_detail_copy_failed_message"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 
@@ -1144,17 +1152,16 @@ _preset = preset;
             await dlg.ShowDialog<bool?>(owner);
     }
 
-    private void BtnDeletePreset_Click(object? sender, RoutedEventArgs e)
+    private async void BtnDeletePreset_Click(object? sender, RoutedEventArgs e)
     {
         if (_preset is null) return;
         if (_preset.IsBuiltIn) return;
 
         var label = string.IsNullOrWhiteSpace(_preset.Name) ? Loc.Get("dialog_awareness_preset_detail_this_preset") : $"\"{_preset.Name}\"";
-        var confirm = MessageBoxStub.Show(
-            string.Format(Loc.Get("dialog_awareness_preset_detail_delete_preset_message_fmt"), label),
+        var confirmed = await (_dialogService?.ShowConfirmationAsync(
             Loc.Get("dialog_awareness_preset_detail_delete_preset_content"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirm != MessageBoxResult.Yes) return;
+            string.Format(Loc.Get("dialog_awareness_preset_detail_delete_preset_message_fmt"), label)) ?? Task.FromResult(false));
+        if (!confirmed) return;
 
         if (_keywordPresetService.IsInstalled(_preset.Id))
             _keywordPresetService.UninstallPreset(_preset.Id);

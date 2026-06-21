@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,7 @@ public partial class LoginDialog : Window
     private CancellationTokenSource? _deviceCts;
     private string? _deviceCode;
     private DateTimeOffset _deviceCodeExpiresAt;
+    private readonly IDialogService? _dialogService;
 
     /// <summary>
     /// Result of the login process.
@@ -65,6 +67,7 @@ public partial class LoginDialog : Window
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
         _authProviders = App.Services.GetRequiredService<IEnumerable<IAuthProvider>>();
         _unifiedUser = App.Services.GetRequiredService<IUnifiedUserService>();
+        _dialogService = App.Services?.GetService<IDialogService>();
 Closed += (_, _) =>
         {
             _deviceCts?.Cancel();
@@ -133,7 +136,7 @@ Closed += (_, _) =>
 
             if (service == null)
             {
-                ShowError(Loc.GetF("login_{0}_service_not_available", provider));
+                await ShowErrorAsync(Loc.GetF("login_{0}_service_not_available", provider));
                 return;
             }
 
@@ -152,7 +155,7 @@ Closed += (_, _) =>
             dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
             if (v2Auth == null)
             {
-                ShowError(Loc.Get("dialog_login_auth_service_not_available"));
+                await ShowErrorAsync(Loc.Get("dialog_login_auth_service_not_available"));
                 return;
             }
 
@@ -165,7 +168,7 @@ Closed += (_, _) =>
 
             if (!authResponse.Success)
             {
-                ShowError(SanitizeError((string?)authResponse.Error));
+                await ShowErrorAsync(SanitizeError((string?)authResponse.Error));
                 return;
             }
 
@@ -201,7 +204,7 @@ Closed += (_, _) =>
         catch (Exception ex)
         {
             _logger?.Error(ex, "Login failed for {Provider}", provider);
-            ShowError(Loc.Get("login_failed_please_try_again"));
+            await ShowErrorAsync(Loc.Get("login_failed_please_try_again"));
         }
     }
 
@@ -341,7 +344,7 @@ Closed += (_, _) =>
             dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
             if (v2Auth == null)
             {
-                ShowError(Loc.Get("dialog_login_auth_service_not_available"));
+                await ShowErrorAsync(Loc.Get("dialog_login_auth_service_not_available"));
                 return;
             }
 
@@ -351,7 +354,7 @@ Closed += (_, _) =>
                 if (string.IsNullOrEmpty(_pendingInviteCode) || string.IsNullOrEmpty(_pendingPassword))
                 {
                     ClearSensitiveData();
-                    ShowError(Loc.Get("login_session_expired"));
+                    await ShowErrorAsync(Loc.Get("login_session_expired"));
                     return;
                 }
                 authResponse = await v2Auth.RegisterAsync(_pendingInviteCode, displayName, _pendingPassword);
@@ -393,14 +396,14 @@ Closed += (_, _) =>
             else
             {
                 ClearSensitiveData();
-                ShowError(SanitizeError((string?)authResponse.Error));
+                await ShowErrorAsync(SanitizeError((string?)authResponse.Error));
             }
         }
         catch (Exception ex)
         {
             ClearSensitiveData();
             _logger?.Error(ex, "Failed to create account");
-            ShowError(Loc.Get("login_failed_to_create_account"));
+            await ShowErrorAsync(Loc.Get("login_failed_to_create_account"));
         }
     }
 
@@ -536,7 +539,7 @@ Closed += (_, _) =>
             dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
             if (v2Auth == null)
             {
-                ShowError(Loc.Get("dialog_login_auth_service_not_available"));
+                await ShowErrorAsync(Loc.Get("dialog_login_auth_service_not_available"));
                 return;
             }
 
@@ -610,9 +613,15 @@ Closed += (_, _) =>
         DeviceCodePanel.IsVisible = false;
     }
 
-    private void ShowError(string message)
+    private async Task ShowErrorAsync(string message)
     {
-        MessageBoxStub.Show(message, Loc.Get("title_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (_dialogService != null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_error"),
+                message,
+                DialogSeverity.Warning);
+        }
         ShowProviderSelection();
     }
 
@@ -672,7 +681,7 @@ Closed += (_, _) =>
             dynamic? svc = CreateLegacyService("ConditioningControlPanel.Services.V2DeviceCodeService");
             if (svc == null)
             {
-                ShowError(Loc.Get("dialog_login_device_code_not_available"));
+                await ShowErrorAsync(Loc.Get("dialog_login_device_code_not_available"));
                 return;
             }
 
@@ -680,7 +689,7 @@ Closed += (_, _) =>
 
             if (!resp.Success || string.IsNullOrEmpty((string?)resp.Code))
             {
-                ShowError(SanitizeError((string?)resp.Error));
+                await ShowErrorAsync(SanitizeError((string?)resp.Error));
                 return;
             }
 
@@ -698,7 +707,7 @@ Closed += (_, _) =>
         catch (Exception ex)
         {
             _logger?.Error(ex, "[DeviceCode] Initiate exception");
-            ShowError(Loc.Get("login_failed_please_try_again"));
+            await ShowErrorAsync(Loc.Get("login_failed_please_try_again"));
         }
     }
 
@@ -763,7 +772,7 @@ Closed += (_, _) =>
             {
                 if (DateTimeOffset.UtcNow > _deviceCodeExpiresAt)
                 {
-                    HandleDeviceCodeExpired();
+                    await HandleDeviceCodeExpiredAsync();
                     return;
                 }
 
@@ -782,10 +791,10 @@ Closed += (_, _) =>
                         TxtDeviceStatus.Text = Loc.Get("dialog_login_waiting_browser_confirmation");
                         break;
                     case 2: // Expired
-                        HandleDeviceCodeExpired();
+                        await HandleDeviceCodeExpiredAsync();
                         return;
                     case 3: // NotFound
-                        HandleDeviceCodeError(Loc.Get("dialog_login_code_not_recognized"));
+                        await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_code_not_recognized"));
                         return;
                     case 4: // RateLimited
                     case 5: // ServiceUnavailable
@@ -794,13 +803,13 @@ Closed += (_, _) =>
                         break;
                     case 6: // BadRequest
                     case 7: // Unauthorized
-                        HandleDeviceCodeError(Loc.Get("dialog_login_sign_in_failed"));
+                        await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_sign_in_failed"));
                         return;
                     default: // Unknown
                         consecutiveUnknown++;
                         if (consecutiveUnknown >= 5)
                         {
-                            HandleDeviceCodeError(Loc.Get("dialog_login_lost_connection"));
+                            await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_lost_connection"));
                             return;
                         }
                         intervalMs = Math.Min(intervalMs * 2, 30000);
@@ -815,15 +824,15 @@ Closed += (_, _) =>
         catch (Exception ex)
         {
             _logger?.Error(ex, "[DeviceCode] Poll loop crashed");
-            HandleDeviceCodeError(Loc.Get("dialog_login_unexpected_error"));
+            await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_unexpected_error"));
         }
     }
 
-    private void HandleDeviceCodeConfirmed(dynamic result)
+    private async void HandleDeviceCodeConfirmed(dynamic result)
     {
         if (string.IsNullOrEmpty((string?)result.AuthToken) || string.IsNullOrEmpty((string?)result.UnifiedId))
         {
-            HandleDeviceCodeError(Loc.Get("dialog_login_incomplete_response"));
+            await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_incomplete_response"));
             return;
         }
 
@@ -857,19 +866,31 @@ Closed += (_, _) =>
         Close(true);
     }
 
-    private void HandleDeviceCodeExpired()
+    private async Task HandleDeviceCodeExpiredAsync()
     {
         _deviceCts?.Cancel();
         _deviceCode = null;
-        MessageBoxStub.Show(Loc.Get("dialog_login_code_expired"), Loc.Get("title_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (_dialogService != null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("dialog_login_code_expired"),
+                DialogSeverity.Warning);
+        }
         ShowProviderSelection();
     }
 
-    private void HandleDeviceCodeError(string message)
+    private async Task HandleDeviceCodeErrorAsync(string message)
     {
         _deviceCts?.Cancel();
         _deviceCode = null;
-        MessageBoxStub.Show(message, Loc.Get("title_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (_dialogService != null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_error"),
+                message,
+                DialogSeverity.Warning);
+        }
         ShowProviderSelection();
     }
 

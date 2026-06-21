@@ -7,7 +7,7 @@ Status key:
 - ❌ Not started / missing
 - ⚠️ Blocked by platform seam, no direct counterpart, or external dependency
 
-Last updated: 2026-06-21
+Last updated: 2026-06-19
 
 ---
 
@@ -21,7 +21,7 @@ Last updated: 2026-06-21
   3. **Chaos overlays** — full parity: core animations/z-order helper, complete run lifecycle, meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting are all wired. Localization remains parity-only (unlocalized like WPF).
   4. **AvatarTube** — full parity restored: speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order, fullscreen detection, context-menu toggles, and emotive portrait system.
   5. **Deeper** — runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource` so effects/rules fire during playback. A functional editor (metadata/regions/rules/haptics + save/preview) replaces the placeholder; the visual Timeline tab supports three lanes, ruler, playhead, click-to-select, zoom, Shift+drag region creation, drag-move/resize for regions/effects/haptics, and Ctrl+drag rubber-band multi-select. The curve editor, browser preview, and audio waveform cache are now ported and wired.
-  6. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Virtual-key names remain English internal identifiers to keep settings compatibility.
+  6. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Startup layout now matches WPF: default tab is the Settings/Dashboard, the quick-preset selector is collapsed by default, and the title bar no longer shows the debug chaos-smoke-test or redundant login buttons. Virtual-key names remain English internal identifiers to keep settings compatibility.
 
 ---
 

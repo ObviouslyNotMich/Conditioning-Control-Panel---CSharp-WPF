@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -15,6 +15,7 @@ using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 
 using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Tasks;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 
@@ -24,6 +25,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 public partial class SessionCompleteWindow : Window
 {
     private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly IDialogService? _dialogService;
 
 
     private static readonly Random _random = new();
@@ -42,6 +44,7 @@ public partial class SessionCompleteWindow : Window
         InitializeComponent();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _dialogService = App.Services?.GetService<IDialogService>();
 }
 
     public SessionCompleteWindow(SessionLog log, bool playSound = true)
@@ -49,6 +52,7 @@ public partial class SessionCompleteWindow : Window
         InitializeComponent();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _dialogService = App.Services?.GetService<IDialogService>();
 LoadRandomCard();
         ApplyLog(log);
 
@@ -207,7 +211,7 @@ LoadRandomCard();
         }
     }
 
-    private void MediaRow_Click(object? sender, RoutedEventArgs e)
+    private async void MediaRow_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
         var path = btn.Tag as string;
@@ -238,10 +242,13 @@ LoadRandomCard();
                 return;
             }
 
-            MessageBoxStub.Show(
-                Loc.GetF("msg_file_not_found_with_path", path),
-                Loc.Get("title_error"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_error"),
+                    Loc.GetF("msg_file_not_found_with_path", path),
+                    DialogSeverity.Info);
+            }
         }
         catch (Exception ex)
         {

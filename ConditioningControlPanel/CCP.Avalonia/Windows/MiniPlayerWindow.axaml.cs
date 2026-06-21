@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
@@ -9,6 +9,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
 using LibVLCSharp.Shared;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 public partial class MiniPlayerWindow : Window
 {
     private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly IDialogService? _dialogService;
 
 
     private static readonly string[] VideoExtensions = { ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".webm", ".m4v", ".flv", ".mpeg", ".mpg", ".3gp" };
@@ -39,6 +41,7 @@ public partial class MiniPlayerWindow : Window
         InitializeComponent();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _dialogService = App.Services?.GetService<IDialogService>();
 }
 
     public void LoadFile(string filePath)
@@ -74,7 +77,7 @@ public partial class MiniPlayerWindow : Window
         return Array.Exists(GifExtensions, e => e.Equals(extension, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void LoadVideo(string filePath)
+    private async void LoadVideo(string filePath)
     {
         try
         {
@@ -83,11 +86,13 @@ public partial class MiniPlayerWindow : Window
             var libVLC = App.Services?.GetService<LibVLC>();
             if (libVLC == null)
             {
-                MessageBoxStub.Show(
-                    Loc.Get("msg_video_playback_not_available_libvlc_not_initi"),
-                    "Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                if (_dialogService != null)
+                {
+                    await _dialogService.ShowMessageAsync(
+                        Loc.Get("title_error"),
+                        Loc.Get("msg_video_playback_not_available_libvlc_not_initi"),
+                        DialogSeverity.Warning);
+                }
                 Close();
                 return;
             }
@@ -140,11 +145,13 @@ public partial class MiniPlayerWindow : Window
         catch (Exception ex)
         {
             _logger?.Error(ex, "MiniPlayerWindow: Failed to load video");
-            MessageBoxStub.Show(
-                $"Failed to load video: {ex.Message}",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_error"),
+                    Loc.GetF("msg_failed_to_load_video", ex.Message),
+                    DialogSeverity.Error);
+            }
             Close();
         }
     }
@@ -164,7 +171,7 @@ public partial class MiniPlayerWindow : Window
         }
     }
 
-    private void LoadImage(string filePath)
+    private async void LoadImage(string filePath)
     {
         try
         {
@@ -177,11 +184,13 @@ public partial class MiniPlayerWindow : Window
         catch (Exception ex)
         {
             _logger?.Error(ex, "MiniPlayerWindow: Failed to load image");
-            MessageBoxStub.Show(
-                $"Failed to load image: {ex.Message}",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_error"),
+                    Loc.GetF("msg_failed_to_load_image", ex.Message),
+                    DialogSeverity.Error);
+            }
             Close();
         }
     }

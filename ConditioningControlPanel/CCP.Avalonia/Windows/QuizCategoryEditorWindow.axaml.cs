@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Controls.Shapes;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,7 @@ public class ModerationLog
 public partial class QuizCategoryEditorWindow : Window
 {
     private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly IDialogService? _dialogService;
 
 
     private QuizCategoryDefinition? _existing;
@@ -65,6 +67,7 @@ public partial class QuizCategoryEditorWindow : Window
         InitializeComponent();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _dialogService = App.Services?.GetService<IDialogService>();
 BuildColorPicker();
         BuildArchetypeRows();
         ApplyPolicyBannerState();
@@ -349,13 +352,18 @@ BuildColorPicker();
         PreviewResultPanel.IsVisible = true;
     }
 
-    private void BtnSave_Click(object? sender, PointerPressedEventArgs e)
+    private async void BtnSave_Click(object? sender, PointerPressedEventArgs e)
     {
         var name = TxtName.Text?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(name))
         {
-            MessageBoxStub.Show(Loc.Get("msg_please_enter_a_category_name"), "Missing Name",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_missing_name"),
+                    Loc.Get("msg_please_enter_a_category_name"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 
@@ -364,24 +372,39 @@ BuildColorPicker();
         var prompt = TxtPrompt.Text?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(prompt))
         {
-            MessageBoxStub.Show(Loc.Get("msg_please_enter_a_system_prompt_for_the_ai"), "Missing Prompt",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_missing_prompt"),
+                    Loc.Get("msg_please_enter_a_system_prompt_for_the_ai"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 
         var archetypes = CollectArchetypes();
         if (archetypes.Count < 2)
         {
-            MessageBoxStub.Show(Loc.Get("msg_please_define_at_least_2_archetypes"), "Need Archetypes",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_need_archetypes"),
+                    Loc.Get("msg_please_define_at_least_2_archetypes"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 
         var builtInNames = QuizService.GetBuiltInCategories().Select(c => c.Name.ToLowerInvariant());
         if (builtInNames.Contains(name.ToLowerInvariant()) && _existing?.Name.ToLowerInvariant() != name.ToLowerInvariant())
         {
-            MessageBoxStub.Show(Loc.Get("msg_this_name_conflicts_with_a_built_in_category"),
-                "Name Conflict", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_name_conflict"),
+                    Loc.Get("msg_this_name_conflicts_with_a_built_in_category"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 
@@ -434,15 +457,15 @@ BuildColorPicker();
         }
     }
 
-    private void BtnDelete_Click(object? sender, PointerPressedEventArgs e)
+    private async void BtnDelete_Click(object? sender, PointerPressedEventArgs e)
     {
         if (_existing == null) return;
 
-        var result = MessageBoxStub.Show(
-            $"Delete the \"{_existing.Name}\" category? This cannot be undone.",
-            "Delete Category", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var confirmed = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_delete_category"),
+            Loc.GetF("msg_delete_category", _existing.Name)) ?? Task.FromResult(false));
 
-        if (result != MessageBoxResult.Yes) return;
+        if (!confirmed) return;
 
         QuizService.DeleteCustomCategory(_existing.Id);
         Result = null;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -21,6 +21,7 @@ using ConditioningControlPanel.Core.Services.Sessions;
 
 using AvaPoint = global::Avalonia.Point;
 using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Tasks;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 
@@ -54,6 +55,8 @@ public partial class SessionEditorWindow : Window
     private int _segmentDragOriginalStopMinute;
     private double _segmentDragStartX;
 
+    private readonly IDialogService? _dialogService;
+
     public Session? ResultSession { get; private set; }
     public bool? DialogResult { get; set; }
 
@@ -62,6 +65,8 @@ public partial class SessionEditorWindow : Window
     public SessionEditorWindow(Session? existingSession)
     {
         InitializeComponent();
+
+        _dialogService = App.Services?.GetService<IDialogService>();
 
         var env = App.Services?.GetService<IAppEnvironment>()
                   ?? throw new InvalidOperationException("IAppEnvironment is required for the session editor.");
@@ -319,7 +324,7 @@ public partial class SessionEditorWindow : Window
         _draggedFeatureId = null;
     }
 
-    private void AddFeatureAtPosition(string featureId, double x)
+    private async void AddFeatureAtPosition(string featureId, double x)
     {
         var startMinute = PositionToMinute(x);
         var defaultDuration = Math.Min(10, _session.DurationMinutes - startMinute);
@@ -336,7 +341,13 @@ public partial class SessionEditorWindow : Window
 
                 if (startMinute >= _session.DurationMinutes)
                 {
-                    MessageBoxStub.Show(Loc.Get("msg_no_more_room_in_the_timeline_for_this_effect"), Loc.Get("title_timeline_full"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    if (_dialogService != null)
+                    {
+                        await _dialogService.ShowMessageAsync(
+                            Loc.Get("title_timeline_full"),
+                            Loc.Get("msg_no_more_room_in_the_timeline_for_this_effect"),
+                            DialogSeverity.Warning);
+                    }
                     return;
                 }
                 if (endMinute <= startMinute)
@@ -937,14 +948,26 @@ public partial class SessionEditorWindow : Window
 
         if (!_fileService.ValidateSessionFile(fileName, out var error))
         {
-            MessageBoxStub.Show(Loc.GetF("msg_invalid_session_file", error), Loc.Get("title_import_error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_import_error"),
+                    Loc.GetF("msg_invalid_session_file", error),
+                    DialogSeverity.Error);
+            }
             return;
         }
 
         var definition = _fileService.ImportSession(fileName);
         if (definition == null)
         {
-            MessageBoxStub.Show(Loc.Get("msg_failed_to_import_session"), Loc.Get("title_import_error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_import_error"),
+                    Loc.Get("msg_failed_to_import_session"),
+                    DialogSeverity.Error);
+            }
             return;
         }
 
@@ -968,7 +991,13 @@ public partial class SessionEditorWindow : Window
         RefreshTimeline();
         RefreshStats();
 
-        MessageBoxStub.Show(Loc.GetF("msg_imported_session", _session.Name), Loc.Get("title_import_successful"), MessageBoxButton.OK, MessageBoxImage.Information);
+        if (_dialogService != null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_import_successful"),
+                Loc.GetF("msg_imported_session", _session.Name),
+                DialogSeverity.Info);
+        }
     }
 
     private async void BtnExport_Click(object? sender, RoutedEventArgs e)
@@ -989,7 +1018,13 @@ public partial class SessionEditorWindow : Window
 
         var session = _session.ToSession();
         _fileService.ExportSession(session, path);
-        MessageBoxStub.Show(Loc.GetF("msg_session_exported_to", path), Loc.Get("title_export_successful"), MessageBoxButton.OK, MessageBoxImage.Information);
+        if (_dialogService != null)
+        {
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_export_successful"),
+                Loc.GetF("msg_session_exported_to", path),
+                DialogSeverity.Info);
+        }
     }
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e)
@@ -999,14 +1034,20 @@ public partial class SessionEditorWindow : Window
         Close(false);
     }
 
-    private void BtnSave_Click(object? sender, RoutedEventArgs e)
+    private async void BtnSave_Click(object? sender, RoutedEventArgs e)
     {
         _session.Name = TxtSessionName.Text ?? "";
         _session.Description = TxtDescription.Text ?? "";
 
         if (string.IsNullOrWhiteSpace(_session.Name))
         {
-            MessageBoxStub.Show(Loc.Get("msg_please_enter_a_session_name"), Loc.Get("title_validation_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_validation_error"),
+                    Loc.Get("msg_please_enter_a_session_name"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 

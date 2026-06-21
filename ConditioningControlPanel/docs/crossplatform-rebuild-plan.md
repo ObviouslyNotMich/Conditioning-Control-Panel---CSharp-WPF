@@ -890,6 +890,69 @@ Every phase must end with a **build checkpoint** and a **test checkpoint**. The 
 - **Performance gate:** startup time and working-set memory must not regress vs. WPF baseline.
 - **Accessibility gate:** keyboard navigation and screen-reader labels for every new view.
 
+### 13.5 Visual Parity Verification (reference screenshots)
+
+The ported UI must *look* like the original, not just compile. Early Avalonia ports shipped small-but-real visual
+mistakes that a build can't catch — most visibly **raw localization keys rendered as text** (`tab_dashboard`,
+`lbl_…​` instead of "Dashboard"), **missing or unstyled feature cards**, a missing central emblem and avatar tube,
+wrong fonts, and broken spacing/theme. Verify by eye against reference images — **not necessarily every iteration,
+but at least once per tab/screen before marking it ✅.**
+
+**Reference assets** live in the repo-root folder **`img state/`**. The dashboard *layout* is shared across all
+themes; the *palette/avatar/card art* differ **per theme** (the top-left mod switcher — §15.11). There are **five
+themes**: **CCP Default, Bambi, Sissy Hypno, Droneification, Circe Lock**. Compare each ported screen against the
+reference for the **matching active theme**:
+
+| File | Theme it shows | Use |
+|---|---|---|
+| `default good view.jpg` | **CCP Default** | Target look for the default theme. |
+| `good view.png` | **Sissy Hypno** (pink) | Target look for the Sissy theme. |
+| _(missing)_ | **Bambi, Droneification, Circe Lock** | No reference yet — capture from the running WPF app per theme (or have the maintainer add them). Each has its own palette/avatar. |
+| `bad view.jpg`, `bad view2.png` | — | Known-wrong examples — treat their defects as an explicit "do NOT ship" checklist (raw loc keys, empty/missing card grid, unstyled wrapped tab list, broken layout). |
+| `avalonia_screenshot_*.png` | — | Captures of the current Avalonia state for before/after comparison. |
+
+> **Suggested naming** (if you add more): `good-view-<theme>.(png|jpg)` e.g. `good-view-default`, `good-view-sissy`,
+> `good-view-bambi`, `good-view-drone`, `good-view-circe`. The current two files are the maintainer's originals.
+
+> **Prerequisite:** the `img state/` folder is currently **untracked** in git — commit it so worktree-isolated
+> swarm agents (§20.3) actually have the references. The folder name contains a space, so **quote the path**
+> (`"img state/good view.png"`). Consider renaming to `img-state/` or `docs/reference-screenshots/` to avoid the
+> space entirely.
+
+**Procedure per tab/screen:**
+1. Run the **Avalonia Windows head** and screenshot the tab you ported.
+2. Compare against (a) the reference image **for the active theme** (`default good view.jpg` for CCP Default,
+   `good view.png` for Sissy Hypno; for Bambi/Droneification/Circe Lock capture from the WPF app), and (b) a
+   screenshot of the **same tab in the same theme in the running WPF app** — the WPF app is the visual + behavioral
+   source of truth. Launch it and capture, or drop OG captures into `img state/` and reuse them.
+3. Check the recurring failure modes specifically:
+   - **No raw `{loc:Str}` keys leaking as text** — every label localized (§17.2); tab headers translated.
+   - **All cards/controls present and themed** — accents match the **active theme** (pink for Sissy Hypno, as in the
+     reference), correct fonts (incl. Fredoka), icons present, central emblem + avatar tube rendered. Colors come
+     from theme resources, not hard-coded hex (§15.11).
+   - **Correct grid/spacing/margins/alignment** vs. the reference.
+   - **Theme switching works** — switch the top-left mod selector to at least one other mod (e.g. Drone = green)
+     and confirm the whole UI re-skins; the look must be right for *every* theme, not just Sissy Hypno (§15.11).
+4. Log every mismatch as a row in `docs/avalonia-ui-parity-matrix.md` and fix it before closing the lane.
+
+**Self-serve references — you can launch the WPF app yourself.** Don't block on the maintainer, and **don't guess**.
+Whenever you're unsure how *any* tab, dialog, popup, or view looks or should look/behave — not just a missing theme
+reference — go look at it in the running WPF app. It runs on Windows today and is the visual + behavioral source of
+truth, so capture whatever you need:
+- Build & run it (from the `ConditioningControlPanel/` dir, same cwd as the other build commands):
+  `dotnet run --project ConditioningControlPanel.csproj` — the WPF head; it stays runnable throughout the migration
+  (§13). Run the Avalonia head side-by-side (`dotnet run --project CCP.Avalonia.Desktop.Windows/CCP.Avalonia.Desktop.Windows.csproj`)
+  to compare directly.
+- Use the **top-left mod switcher** to select the theme you're verifying (CCP Default / Bambi / Sissy Hypno /
+  Droneification / Circe Lock), open the tab/dialog/popup in question (in whatever state you're unsure about —
+  hover, expanded, error, populated vs. empty), and **screenshot it**. This is the answer to "how should this look?"
+  for any view, not only the dashboard.
+- Treat that capture as the reference, and save the ones worth keeping into `img state/` (e.g. `good-view-bambi.png`)
+  so the rest of the swarm and later runs reuse them — this is exactly how to fill the missing
+  Bambi/Droneification/Circe Lock references.
+- This is a **local Windows** step (needs a desktop session + screenshot tooling); it isn't available in headless
+  CI, so it's part of per-lane local verification, not the build gate.
+
 ---
 
 ## 14. Quality & Improvement Goals
@@ -1041,6 +1104,30 @@ Target:
 - Windows: keep named mutex/event.
 - Linux/macOS: use file lock (`FileStream.Lock`) + Unix domain socket or signal file.
 - Mobile: not applicable (OS controls single instance).
+
+### 15.11 Per-Mod Theming / Dynamic Palette (the top-left mod switcher re-skins the app)
+
+**This was being overlooked and is the root cause of several "UI looks wrong" reports.** The top-left selector
+(`ModSelectorCombo`) is the **mod switcher**, and *each mod is a theme/skin* with its own palette (and avatar/card
+art). The shipped themes are **CCP Default, Bambi, Sissy Hypno, Droneification, and Circe Lock** — each looks
+distinct. The app's accent palette is **not fixed** — it is driven by the active mod's manifest and applied at
+runtime:
+
+- Each `.ccpmod`/mod manifest carries a `"theme"` block (e.g. `drone_mod.json` → `"accentColor": "#00FF41"` — Drone
+  is **green**). Sissy Hypno is the default **pink** (`#FF69B4`), which is what `img state/good view.png` shows.
+- WPF reads it via `App.Mods.GetAccentColorHex()` / `…DarkColorHex()` / `…LightColorHex()` / `GetSecondaryColorHex()`
+  and `MainWindow.RefreshThemeAwareElements()` (`MainWindow.xaml.cs:1128`) **rewrites `Application.Current.Resources`**
+  Color/Brush entries so the entire UI re-skins on every mod switch.
+
+**Port requirement:**
+- Reproduce the apply step: a small theme applier (e.g. an `IThemeService` / mod-theme bridge) that, on mod change,
+  pushes the active mod's accent set into the Avalonia `Application.Current.Resources` (the same keys defined in
+  `App.axaml`: `PinkColor`/`DarkPinkColor`/accents → and their `*Brush` forms).
+- **Views must consume accents via `DynamicResource`, never hard-coded hex**, so they re-skin live. Audit ported
+  XAML/code-behind for literal `#FF69B4`/`#FF1493` etc. and replace with the resource keys.
+- **Current gap:** `CCP.Avalonia/App.axaml` hard-codes the palette as fixed `<Color>` keys and there is no Avalonia
+  equivalent of `RefreshThemeAwareElements()` — so the port currently renders only the Sissy/pink skin and does
+  **not** re-skin on mod switch. Closing this is required for parity. See also the visual-parity note in §13.5.
 
 ---
 
@@ -1299,8 +1386,9 @@ This migration will exhaust any single context if you let it. Compact aggressive
 ### 20.9 The per-agent task loop
 
 `read tracker → claim next lane (claim commit) → targeted reads of just that subtree → port → build
-(ErrorsOnly) + Core tests → update tracker (✅ + hand-off notes: files, DI line, loc keys) → commit/hand off →
-compact (keep only trackers + outcome) → repeat.`
+(ErrorsOnly) + Core tests → **visual-parity check vs the active theme's `img state/` reference + the WPF app's same tab (§13.5)**
+→ update tracker (✅ + hand-off notes: files, DI line, loc keys) → commit/hand off → compact (keep only trackers
++ outcome) → repeat.`
 
 Orchestrator loop: `assign wave → wait for hand-offs → apply DI lines + loc merge + csproj assets → merge batch
 → integration build/test → reconcile trackers → compact → next wave.`
@@ -1331,6 +1419,9 @@ Rules that follow from this map:
   economy/mode service vs. host pooling) rather than handing it to one agent.
 - **Cross-check against the parity matrix.** `docs/avalonia-ui-parity-matrix.md` already tracks per-screen parity;
   reconcile the lane map against it so a "done" tab isn't re-claimed.
+- **Eyeball every tab before ✅ (§13.5).** A clean build is *not* visual parity — earlier ports leaked raw
+  `{loc:Str}` keys and dropped whole card grids. Screenshot the ported tab and compare it to `img state/good
+  view.png` and the same tab in the running WPF app; fix any mismatch before closing the lane.
 
 ---
 
@@ -1360,6 +1451,10 @@ Concrete things hit during implementation that the original draft did not antici
 - **`Avalonia.Diagnostics` is recommended (§4.1) but not yet referenced** by any head. Add it as a
   `Debug`-conditional package and call `AttachDeveloperTools()` (F12 DevTools) — it materially speeds up the
   Phase-4 binding/parity work. Low effort, high leverage for the swarm.
+- **Accent colors are theme-driven — never hard-code them.** The top-left mod switcher re-skins the whole app
+  (Sissy = pink, Drone = green, …). Bind to the accent **resource keys via `DynamicResource`**, not literal hex,
+  and port the per-mod re-skin path. The current `App.axaml` hard-codes the palette with no re-skin path — see
+  §15.11. This is the cause of "looks wrong after switching mods."
 - **Models are duplicated into Core** — the single largest drift hazard; see §19.4.
 
 ---

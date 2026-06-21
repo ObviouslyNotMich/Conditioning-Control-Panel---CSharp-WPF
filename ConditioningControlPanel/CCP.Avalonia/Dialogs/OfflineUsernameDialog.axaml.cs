@@ -2,6 +2,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Dialogs;
 
@@ -12,9 +14,13 @@ public partial class OfflineUsernameDialog : Window
 {
     public string Username { get; private set; } = "";
 
+    private readonly IDialogService? _dialogService;
+
     public OfflineUsernameDialog()
     {
         InitializeComponent();
+
+        _dialogService = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<IDialogService>();
 
         TxtCharCount.Text = Loc.GetF("label_char_count_of_max", 0, 30);
 
@@ -53,16 +59,18 @@ public partial class OfflineUsernameDialog : Window
         Accept();
     }
 
-    private void Accept()
+    private async void Accept()
     {
         var name = TxtUsername.Text?.Trim() ?? "";
         if (name.Length < 2)
         {
-            MessageBoxStub.Show(
-                Loc.Get("msg_enter_name_min_2_chars"),
-                Loc.Get("title_invalid_name"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_invalid_name"),
+                    Loc.Get("msg_enter_name_min_2_chars"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 

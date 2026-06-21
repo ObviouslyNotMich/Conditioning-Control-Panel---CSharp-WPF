@@ -30,8 +30,11 @@ STEP 0 — RECONCILE THE LATEST MERGE FROM `main` (do this BEFORE porting anythi
      duplicates) — it permanently removes the drift that caused this and shrinks every later step.
 
 DEFINITION OF DONE:
-  - `CCP.Avalonia.Desktop.Windows` launches and every tab / feature / dialog / window behaves the same as today's
-    WPF app — every row in `docs/avalonia-ui-parity-matrix.md` is ✅.
+  - `CCP.Avalonia.Desktop.Windows` launches and every tab / feature / dialog / window behaves AND **looks** the
+    same as today's WPF app — every row in `docs/avalonia-ui-parity-matrix.md` is ✅, and each tab visually matches
+    the `img state/` reference **for the active theme** + the running WPF app (no raw `{loc:Str}` keys shown as
+    text, all feature cards / controls / emblem / avatar tube present, correct per-theme palette and fonts — see
+    plan §13.5, §15.11).
   - All media/audio/video run on `LibVLCSharp.Avalonia` + the cross-platform seams (no WebView2/WPF-only path in
     shared UI; WebView2 only behind the Windows head).
   - `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly` is clean (0 errors) and `CCP.Core.Tests` pass.
@@ -50,7 +53,8 @@ EXECUTION MODEL (per §20):
   - You MAY spawn worktree-isolated sub-agents per lane if that's available; otherwise run lanes sequentially.
   - PER-LANE LOOP: claim (append a row to the Active Claims Ledger in the task board, commit it first) →
     targeted reads of just that subtree → port → `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly` + Core tests →
-    update task board + parity matrix → commit → **COMPACT CONTEXT** and move on.
+    **visual-parity check: screenshot the tab and compare to the `img state/` reference for the active theme + the
+    same tab in the running WPF app (§13.5)** → update task board + parity matrix → commit → **COMPACT CONTEXT**.
   - COMPACT AGGRESSIVELY (§20.6): after every finished item, after each green build, after any large file read,
     and at ~50–60% of the context window. Keep only the trackers + the outcome; never carry one lane's source
     into the next.
@@ -72,6 +76,27 @@ GUARDRAILS (from §21 / the v12 gotchas — validate against §23 docs):
     `python tools/merge-localization-keys.py` (never hand-merge the per-language JSON in parallel).
   - Every change must build; never leave the tree red. Don't touch a chokepoint from a porter lane — route it
     through the task board's Hand-off Queue.
+  - VISUAL PARITY (§13.5): a clean build is not "done" — earlier ports made small UI mistakes (raw loc keys shown
+    as text, missing/unstyled cards, wrong spacing). At least once per tab before marking it ✅, screenshot the
+    Avalonia tab and compare to the `img state/` reference for the active theme and the same tab in the running WPF
+    app; avoid the defects in `img state/bad view*.png`. Doesn't need to be every iteration, but must happen before
+    a tab is complete.
+  - SELF-SERVE REFERENCES — DON'T GUESS: whenever you're unsure how *any* tab/dialog/popup/view looks or should
+    look/behave (a missing theme reference, or just an unfamiliar screen/state), **launch the WPF app yourself**
+    (from the `ConditioningControlPanel/` dir: `dotnet run --project ConditioningControlPanel.csproj`), switch the
+    top-left mod selector to the relevant theme (CCP Default / Bambi / Sissy Hypno / Droneification / Circe Lock),
+    open that exact view in the state you care about, and screenshot it — that's your reference. Save useful captures
+    into `img state/` (e.g. `good-view-bambi.png`) so they're reusable (this is how to fill the missing
+    Bambi/Droneification/Circe Lock references). Run the Avalonia head side-by-side to compare. (Local Windows step —
+    needs a desktop session + screenshot tooling.)
+  - THEMING (§15.11): the top-left mod switcher re-skins the app — **each mod is a theme**, and there are five with
+    distinct looks: **CCP Default, Bambi, Sissy Hypno, Droneification, Circe Lock**. The dashboard *layout* is shared;
+    *palette/avatar/card art* differ per theme. Reference images: `img state/default good view.jpg` (CCP Default),
+    `img state/good view.png` (Sissy Hypno); for Bambi/Droneification/Circe Lock capture from the running WPF app.
+    Compare each tab to the reference **for the active theme** — match layout/elements always, colors per theme.
+    Accent colors must come from theme resources via `DynamicResource` (never hard-coded hex), and the per-mod
+    re-skin path (WPF's `RefreshThemeAwareElements` reading `App.Mods` accents) must be ported. Smoke-test the app
+    across themes (at least CCP Default + one non-pink, e.g. Droneification) to confirm the whole UI re-skins.
 
 CADENCE: Work until the Definition of Done holds, updating the trackers and compacting after each lane. If you hit
 a genuine decision, record it in the task board and proceed with the best reasonable default; only stop for truly

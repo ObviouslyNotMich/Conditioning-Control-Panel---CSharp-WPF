@@ -108,7 +108,7 @@ public class AssetPreset : INotifyPropertyChanged
     /// </summary>
     public static AssetPreset FromCurrentSettings(string name, int imageCount, int videoCount)
     {
-        var current = App.Settings?.Current;
+        var current = CoreApp.Settings?.Current;
         return new AssetPreset
         {
             Name = name,
@@ -125,7 +125,7 @@ public class AssetPreset : INotifyPropertyChanged
     /// </summary>
     public void ApplyToSettings()
     {
-        if (App.Settings?.Current is not { } settings) return;
+        if (CoreApp.Settings?.Current is not { } settings) return;
         settings.DisabledAssetPaths = new HashSet<string>(DisabledAssetPaths);
         LastUsed = DateTime.Now;
     }
@@ -135,7 +135,7 @@ public class AssetPreset : INotifyPropertyChanged
     /// </summary>
     public void UpdateFromCurrentSettings(int imageCount, int videoCount)
     {
-        DisabledAssetPaths = new HashSet<string>(App.Settings?.Current?.DisabledAssetPaths ?? new HashSet<string>());
+        DisabledAssetPaths = new HashSet<string>(CoreApp.Settings?.Current?.DisabledAssetPaths ?? new HashSet<string>());
         EnabledImageCount = imageCount;
         EnabledVideoCount = videoCount;
         LastUsed = DateTime.Now;

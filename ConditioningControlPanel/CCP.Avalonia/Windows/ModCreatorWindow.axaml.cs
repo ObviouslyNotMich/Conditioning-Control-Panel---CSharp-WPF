@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -21,7 +21,7 @@ using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using Newtonsoft.Json;
-using CoreApp = global::ConditioningControlPanel.App;
+using CoreApp = global::ConditioningControlPanel.CoreApp;
 using IModService = ConditioningControlPanel.IModService;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -2091,14 +2091,26 @@ _dialogService = App.Services?.GetService<IDialogService>();
         var author = GetTextBoxValue(_txtAuthor);
         if (string.IsNullOrWhiteSpace(name))
         {
-            MessageBoxStub.Show(Loc.Get("msg_mod_name_is_required"), Loc.Get("title_validation_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_validation_error"),
+                    Loc.Get("msg_mod_name_is_required"),
+                    DialogSeverity.Warning);
+            }
             NavigateToSection("info");
             _txtModName?.Focus();
             return;
         }
         if (string.IsNullOrWhiteSpace(author))
         {
-            MessageBoxStub.Show(Loc.Get("msg_author_is_required"), Loc.Get("title_validation_error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_validation_error"),
+                    Loc.Get("msg_author_is_required"),
+                    DialogSeverity.Warning);
+            }
             NavigateToSection("info");
             _txtAuthor?.Focus();
             return;
@@ -2163,13 +2175,23 @@ _dialogService = App.Services?.GetService<IDialogService>();
             try { Directory.Delete(tempDir, recursive: true); } catch { }
 
             TxtStatus.Text = Loc.GetF("mod_exported_filename", Path.GetFileName(filePath));
-            MessageBoxStub.Show(Loc.GetF("msg_mod_exported_successfully", filePath), Loc.Get("title_export_complete"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_export_complete"),
+                    Loc.GetF("msg_mod_exported_successfully", filePath),
+                    DialogSeverity.Info);
+            }
         }
         catch (Exception ex)
         {
-            MessageBoxStub.Show(Loc.GetF("msg_export_failed", ex.Message), Loc.Get("title_export_error"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_export_error"),
+                    Loc.GetF("msg_export_failed", ex.Message),
+                    DialogSeverity.Warning);
+            }
         }
     }
 
@@ -2190,8 +2212,13 @@ _dialogService = App.Services?.GetService<IDialogService>();
             var manifestPath = Path.Combine(_loadedTempDir, "mod.json");
             if (!File.Exists(manifestPath))
             {
-                MessageBoxStub.Show(Loc.Get("msg_invalid_mod_package_mod_json_not_found"), Loc.Get("title_load_error"),
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (_dialogService != null)
+                {
+                    await _dialogService.ShowMessageAsync(
+                        Loc.Get("title_load_error"),
+                        Loc.Get("msg_invalid_mod_package_mod_json_not_found"),
+                        DialogSeverity.Warning);
+                }
                 CleanupTempDir();
                 return;
             }
@@ -2200,8 +2227,13 @@ _dialogService = App.Services?.GetService<IDialogService>();
             var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
             if (manifest == null)
             {
-                MessageBoxStub.Show(Loc.Get("msg_failed_to_parse_mod_json"), Loc.Get("title_load_error"),
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (_dialogService != null)
+                {
+                    await _dialogService.ShowMessageAsync(
+                        Loc.Get("title_load_error"),
+                        Loc.Get("msg_failed_to_parse_mod_json"),
+                        DialogSeverity.Warning);
+                }
                 CleanupTempDir();
                 return;
             }
@@ -2228,16 +2260,22 @@ _dialogService = App.Services?.GetService<IDialogService>();
         }
         catch (Exception ex)
         {
-            MessageBoxStub.Show(Loc.GetF("msg_load_failed", ex.Message), Loc.Get("title_load_error"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_load_error"),
+                    Loc.GetF("msg_load_failed", ex.Message),
+                    DialogSeverity.Warning);
+            }
         }
     }
 
-    private void BtnReset_Click(object? sender, RoutedEventArgs e)
+    private async void BtnReset_Click(object? sender, RoutedEventArgs e)
     {
-        var result = MessageBoxStub.Show(Loc.Get("msg_reset_all_fields_to_defaults_this_cannot_be_u"),
-            Loc.Get("title_confirm_reset"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (result != MessageBoxResult.Yes) return;
+        var confirmed = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_confirm_reset"),
+            Loc.Get("msg_reset_all_fields_to_defaults_this_cannot_be_u")) ?? Task.FromResult(false));
+        if (!confirmed) return;
 
         SetTextBoxValue(_txtModName, "");
         SetTextBoxValue(_txtAuthor, "");

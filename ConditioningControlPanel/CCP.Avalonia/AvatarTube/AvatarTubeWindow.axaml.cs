@@ -27,7 +27,7 @@ using ConditioningControlPanel.Core.Services.AvatarTube;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ModerationSource = ConditioningControlPanel.Core.Services.Moderation.ModerationSource;
 using ConditioningControlPanel.Avalonia.Views;
-using CoreApp = ConditioningControlPanel.App;
+using CoreApp = ConditioningControlPanel.CoreApp;
 using Microsoft.Extensions.DependencyInjection;
 
 #pragma warning disable CS0169 // Avalonia port: unused stub fields kept for future companion/avatar work

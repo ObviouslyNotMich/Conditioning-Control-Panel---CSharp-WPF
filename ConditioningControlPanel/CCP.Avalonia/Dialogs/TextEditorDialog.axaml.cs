@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Dialogs;
 
@@ -20,6 +23,7 @@ public partial class TextEditorDialog : Window
     private ObservableCollection<TextItem> _items = new();
     private bool _hasChanges;
     private bool? _dialogResult;
+    private readonly IDialogService? _dialogService;
 
     /// <summary>
     /// The edited data after Save is clicked.
@@ -29,11 +33,13 @@ public partial class TextEditorDialog : Window
     public TextEditorDialog()
     {
         InitializeComponent();
+        _dialogService = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<IDialogService>();
     }
 
     public TextEditorDialog(string title, Dictionary<string, bool> data)
     {
         InitializeComponent();
+        _dialogService = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<IDialogService>();
 
         TxtTitle.Text = $"📝 {title}";
         Title = Loc.GetF("title_manager", title);
@@ -59,7 +65,7 @@ public partial class TextEditorDialog : Window
         }
     }
 
-    private void AddNewItem()
+    private async void AddNewItem()
     {
         var text = TxtNewItem.Text?.Trim().ToUpperInvariant();
 
@@ -68,11 +74,13 @@ public partial class TextEditorDialog : Window
 
         if (_items.Any(x => x.Text.Equals(text, StringComparison.OrdinalIgnoreCase)))
         {
-            MessageBoxStub.Show(
-                Loc.Get("msg_this_item_already_exists"),
-                Loc.Get("title_duplicate"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_duplicate"),
+                    Loc.Get("msg_this_item_already_exists"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 
@@ -122,19 +130,17 @@ public partial class TextEditorDialog : Window
         _hasChanges = true;
     }
 
-    private void BtnRemove_Click(object? sender, PointerPressedEventArgs e)
+    private async void BtnRemove_Click(object? sender, PointerPressedEventArgs e)
     {
         e.Handled = true;
 
         if (sender is Control { DataContext: TextItem item })
         {
-            var result = MessageBoxStub.Show(
-                Loc.GetF("msg_confirm_remove_item", item.Text),
+            var confirmed = await (_dialogService?.ShowConfirmationAsync(
                 Loc.Get("title_confirm"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                Loc.GetF("msg_confirm_remove_item", item.Text)) ?? Task.FromResult(false));
 
-            if (result == MessageBoxResult.Yes)
+            if (confirmed)
             {
                 _items.Remove(item);
                 _hasChanges = true;
@@ -142,27 +148,27 @@ public partial class TextEditorDialog : Window
         }
     }
 
-    private void BtnRemoveSelected_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRemoveSelected_Click(object? sender, RoutedEventArgs e)
     {
         var selected = _items.Where(x => x.IsSelected).ToList();
 
         if (selected.Count == 0)
         {
-            MessageBoxStub.Show(
-                Loc.Get("msg_no_items_selected_n_nclick_on_items_to_select"),
-                Loc.Get("title_no_selection"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_no_selection"),
+                    Loc.Get("msg_no_items_selected_n_nclick_on_items_to_select"),
+                    DialogSeverity.Info);
+            }
             return;
         }
 
-        var result = MessageBoxStub.Show(
-            Loc.GetF("msg_confirm_remove_selected", selected.Count),
+        var confirmed = await (_dialogService?.ShowConfirmationAsync(
             Loc.Get("title_confirm"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            Loc.GetF("msg_confirm_remove_selected", selected.Count)) ?? Task.FromResult(false));
 
-        if (result == MessageBoxResult.Yes)
+        if (confirmed)
         {
             foreach (var item in selected)
             {
@@ -172,17 +178,15 @@ public partial class TextEditorDialog : Window
         }
     }
 
-    private void BtnCancel_Click(object? sender, RoutedEventArgs e)
+    private async void BtnCancel_Click(object? sender, RoutedEventArgs e)
     {
         if (_hasChanges)
         {
-            var result = MessageBoxStub.Show(
-                Loc.Get("msg_discard_changes"),
+            var confirmed = await (_dialogService?.ShowConfirmationAsync(
                 Loc.Get("title_unsaved_changes"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                Loc.Get("msg_discard_changes")) ?? Task.FromResult(false));
 
-            if (result != MessageBoxResult.Yes)
+            if (!confirmed)
                 return;
         }
 
@@ -202,26 +206,32 @@ public partial class TextEditorDialog : Window
     {
         if (!_dialogResult.HasValue && _hasChanges)
         {
-            var result = MessageBoxStub.Show(
-                Loc.Get("msg_save_changes_before_closing"),
-                Loc.Get("title_unsaved_changes"),
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                ResultData = _items.ToDictionary(x => x.Text, x => x.IsEnabled);
-                _dialogResult = true;
-                Close(true);
-            }
-            else if (result == MessageBoxResult.Cancel)
-            {
-                e.Cancel = true;
-                return;
-            }
+            // IDialogService only supports two-way confirmation, so Cancel is mapped to No (close without saving).
+            e.Cancel = true;
+            _ = HandleClosingAsync();
+            return;
         }
 
         base.OnClosing(e);
+    }
+
+    private async Task HandleClosingAsync()
+    {
+        var confirmed = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_unsaved_changes"),
+            Loc.Get("msg_save_changes_before_closing")) ?? Task.FromResult(false));
+
+        if (confirmed)
+        {
+            ResultData = _items.ToDictionary(x => x.Text, x => x.IsEnabled);
+            _dialogResult = true;
+            Close(true);
+        }
+        else
+        {
+            _dialogResult = false;
+            Close(false);
+        }
     }
 }
 

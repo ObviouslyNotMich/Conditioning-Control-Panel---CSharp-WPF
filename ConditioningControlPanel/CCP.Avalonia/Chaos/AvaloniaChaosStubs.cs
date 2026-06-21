@@ -869,12 +869,12 @@ public static class ChaosMeta
 
     private static void LogWarning(string message, params object?[] args)
     {
-        try { global::ConditioningControlPanel.App.Logger?.Warning(message, args); } catch { }
+        try { global::ConditioningControlPanel.CoreApp.Logger?.Warning(message, args); } catch { }
     }
 
     private static void LogInformation(string message, params object?[] args)
     {
-        try { global::ConditioningControlPanel.App.Logger?.Information(message, args); } catch { }
+        try { global::ConditioningControlPanel.CoreApp.Logger?.Information(message, args); } catch { }
     }
 
     public readonly record struct ChaosNextGoal(string Id, string Name, int Cost, string? LessonId)
@@ -952,7 +952,7 @@ public static class RevealService
 
     private static void Log(string message, params object?[] args)
     {
-        try { global::ConditioningControlPanel.App.Logger?.Information(message, args); } catch { }
+        try { global::ConditioningControlPanel.CoreApp.Logger?.Information(message, args); } catch { }
     }
 }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -15,7 +15,7 @@ using ConditioningControlPanel.Avalonia.Services.Companion;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
-using CoreApp = global::ConditioningControlPanel.App;
+using CoreApp = global::ConditioningControlPanel.CoreApp;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Dialogs;
 
@@ -36,6 +36,7 @@ public partial class CompanionPhraseEditorDialog : Window
     private string _searchTerm = "";
     private bool _bulkUpdating;
     private readonly ICompanionPhraseService _companionPhraseService;
+    private readonly IDialogService? _dialogService;
 
     /// <summary>
     /// Optional dialog service for file pickers. When null, audio browsing is stubbed.
@@ -87,6 +88,7 @@ public partial class CompanionPhraseEditorDialog : Window
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseService>();
+        _dialogService = App.Services?.GetService<IDialogService>();
         PopulateCategoryFilter();
         RefreshPhraseList();
     }
@@ -95,6 +97,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         : this()
     {
         DialogService = dialogService;
+        _dialogService = dialogService;
     }
 
     private void PopulateCategoryFilter()
@@ -277,11 +280,13 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         }
         else
         {
-            MessageBoxStub.Show(
-                "Audio browsing requires a registered IDialogService. Please wire up AvaloniaDialogService.",
-                "Not Available",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_not_available"),
+                    Loc.Get("msg_audio_browsing_requires_idialogservice"),
+                    DialogSeverity.Info);
+            }
             return;
         }
 
@@ -367,22 +372,26 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         UpdateTotalCount();
     }
 
-    private void BtnRemoveSelected_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRemoveSelected_Click(object? sender, RoutedEventArgs e)
     {
         var selected = _phrases.Where(p => p.IsSelected).ToList();
         if (selected.Count == 0)
         {
-            MessageBoxStub.Show("No phrases selected.", "Remove Selected", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_remove_selected"),
+                    Loc.Get("msg_no_phrases_selected"),
+                    DialogSeverity.Warning);
+            }
             return;
         }
 
-        var result = MessageBoxStub.Show(
-            $"Remove {selected.Count} selected phrase(s)?\n\nBuilt-in phrases and bark lines will be hidden (can be restored by clearing settings).\nCustom phrases will be permanently deleted.",
-            "Remove Selected",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var confirmed = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_remove_selected"),
+            Loc.GetF("msg_remove_selected_phrases", selected.Count)) ?? Task.FromResult(false));
 
-        if (result != MessageBoxResult.Yes) return;
+        if (!confirmed) return;
 
         var settings = _settings?.Current;
         if (settings == null) return;
@@ -496,13 +505,11 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
             Enabled = true
         };
 
-        var addAudio = MessageBoxStub.Show(
-            "Would you like to connect an audio file to this phrase?",
-            "Audio File",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+        var addAudio = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_audio_file"),
+            Loc.Get("msg_connect_audio_file_to_phrase")) ?? Task.FromResult(false));
 
-        if (addAudio == MessageBoxResult.Yes && DialogService != null)
+        if (addAudio && DialogService != null)
         {
             var files = await DialogService.ShowOpenFileDialogAsync(
                 "Select audio file for phrase",

@@ -146,20 +146,20 @@ public class AchievementServiceTests
         var env = new TestAppEnvironment();
         try
         {
-            App.Settings = new TestSettingsService();
+            CoreApp.Settings = new TestSettingsService();
             var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
-            var startingPoints = App.Settings.Current.SkillPoints;
+            var startingPoints = CoreApp.Settings.Current.SkillPoints;
 
             for (int i = 0; i < 100; i++)
             {
                 service.TrackBubblePopped();
             }
 
-            Assert.Equal(startingPoints + 1, App.Settings.Current.SkillPoints);
+            Assert.Equal(startingPoints + 1, CoreApp.Settings.Current.SkillPoints);
         }
         finally
         {
-            App.Settings = null;
+            CoreApp.Settings = null;
             env.Cleanup();
         }
     }

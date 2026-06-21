@@ -138,7 +138,7 @@ public partial class BouncingTextFeatureControl : UserControl
         // {
         //     s.BouncingTextPool = editor.ResultData;
         //     _settings.Save();
-        //     ConditioningControlPanel.App.Logger?.Information("Bouncing text phrases updated: {Count} items", editor.ResultData.Count);
+        //     ConditioningControlPanel.CoreApp.Logger?.Information("Bouncing text phrases updated: {Count} items", editor.ResultData.Count);
         // }
     }
 }
