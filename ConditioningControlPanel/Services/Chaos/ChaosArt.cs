@@ -79,6 +79,29 @@ public static class ChaosArt
         return null;
     }
 
+    /// <summary>The main-menu cinematic art at <c>assets/Chaos/menu.png</c> (tall portrait), or
+    /// null when absent — callers fall back to <see cref="ResolveBanner"/>.</summary>
+    public static ImageSource? ResolveMenu()
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", "menu.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
+    /// <summary>A menu flipbook frame at <c>assets/Chaos/menu_{n}.png</c>, or null when absent.</summary>
+    public static ImageSource? ResolveMenuFrame(int n)
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", $"menu_{n}.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
     /// <summary>The recap-card hero banner at <c>assets/Chaos/recap.png</c>, or null when absent.</summary>
     public static ImageSource? ResolveRecap()
     {

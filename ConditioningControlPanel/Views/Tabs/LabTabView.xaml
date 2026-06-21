@@ -84,10 +84,11 @@
     
                         <!-- right: launch -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="24,0,0,0">
-                            <!-- Play-mode pick (moved here from the in-game hub). Story is disabled
-                                 until there's story content — RbChaosStory.IsEnabled is driven by
-                                 ChaosModeService.StoryModeEnabled in code-behind. -->
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                            <!-- Play-mode pick: retired from the Lab card now that the in-game main
+                                 menu owns mode selection (FALL IN = Free Desktop; Story is greyed there
+                                 until it ships). Kept collapsed — flip back to Visible to restore the
+                                 radios here. Story is still disabled via ChaosModeService.StoryModeEnabled. -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8" Visibility="Collapsed">
                                 <RadioButton x:Name="RbChaosFreeDesktop" GroupName="ChaosPlayMode" Content="🖥 Free Desktop"
                                              Checked="ChaosPlayMode_Changed" Cursor="Hand"
                                              Foreground="{DynamicResource TextMutedBrush}" FontSize="12" Margin="0,0,14,0"

@@ -8,6 +8,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using SkiaSharp;
+using SkiaSharp.Views.Desktop;
 using ConditioningControlPanel.Services.Chaos;
 
 namespace ConditioningControlPanel;
@@ -40,17 +42,20 @@ public partial class ChaosHubWindow : Window
         Closed += (_, _) =>
         {
             Current = null;
+            StopMenuFog();
+            StopFlipbook();
             App.Chaos?.CloseLoadoutSidebar();
             // Entering the Dollhouse detached the avatar; if we're leaving WITHOUT a descent
             // starting (FALL IN sets _fallingIn), put it back where it was.
             if (!_fallingIn) App.AvatarWindow?.SetChaosRunActive(false);
         };
-        App.Chaos?.ShowLoadoutSidebar();
-        // Detach the companion the moment we enter the hole's antechamber — not at run start —
-        // so it's already a floating widget out of the dollhouse's way. The run-start call is
-        // then a no-op; a hub closed without falling in re-attaches it (above).
-        App.AvatarWindow?.SetChaosRunActive(true);
-        TitleBar.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) { try { DragMove(); } catch { } } };
+        // The loadout sidebar + avatar detach are deferred: they no longer fire on open (that
+        // would pop the sidebar over a bare menu). EnterRunContext() spawns them the moment the
+        // player commits — picking THE DOLL HOUSE or FALL IN. See ShowMenuView/Menu_* handlers.
+        TitleBar.MouseLeftButtonDown += DragWindow;
+        MenuTitleBar.MouseLeftButtonDown += DragWindow;
+        DragBar.MouseLeftButtonDown += DragWindow;
+        StateChanged += OnHubStateChanged;
 
         LoadFromSettings();
         InitRevealMap();
@@ -67,6 +72,9 @@ public partial class ChaosHubWindow : Window
         LoadBanner();
         BuildDebugStrip();   // CCP_CHAOS_DEBUG=1 only — a normal launch builds nothing
         ShowTab("loadout");
+        BtnMenuStory.IsEnabled = Services.Chaos.ChaosModeService.StoryModeEnabled;   // greyed until story ships
+        ShowMenuView();      // the main menu is the landing view; the dollhouse waits behind it
+        SetupMenuMotion();   // breathing + wobble + pulsing neon border
         Loaded += (_, _) => { OnHubOpenedReveals(); FireHubGreeting(); };
         _uiSoundsReady = true;
     }
@@ -98,6 +106,9 @@ public partial class ChaosHubWindow : Window
     {
         var src = ChaosArt.ResolveBanner();
         if (src != null) { BannerImage.Source = src; BannerImage.Visibility = Visibility.Visible; }
+
+        // Menu's right panel: the crossfading flipbook (menu_1/2/3.png) or a still fallback.
+        LoadMenuFrames();
         var bd = ChaosArt.Resolve("hub", "backdrop");
         if (bd != null) { HubBackdrop.Source = bd; HubBackdrop.Visibility = Visibility.Visible; }
     }
@@ -192,6 +203,9 @@ public partial class ChaosHubWindow : Window
         _shownSparks = ChaosMeta.State.Sparks;
         _shownGold = ChaosMeta.State.Gold;
         TxtRank.Text = ChaosMeta.Rank;
+        // mirror onto the main-menu chips (plain text; the animated balance lives on the dollhouse top bar)
+        try { MenuRank.Text = ChaosMeta.Rank; MenuSparks.Text = ChaosMeta.State.Sparks.ToString(); MenuGold.Text = ChaosMeta.State.Gold.ToString(); }
+        catch { /* menu chips not built yet during very early ctor calls */ }
         RefreshTabBadges();   // every balance change re-counts what the shelves can sell
     }
 
@@ -1715,6 +1729,369 @@ public partial class ChaosHubWindow : Window
     public void FallIn() => BtnBegin_Click(this, new RoutedEventArgs());
 
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+
+    // ============================ main menu / view swap ============================
+
+    /// <summary>True once the player has committed (entered the dollhouse or fallen in): the
+    /// loadout sidebar + detached avatar belong to that context, not the bare menu.</summary>
+    private bool _runContext;
+
+    /// <summary>Spawn the loadout sidebar and detach the companion — deferred from the ctor so the
+    /// main menu stays clean. Idempotent; safe to call from both DOLL HOUSE and (not used by) FALL IN.</summary>
+    private void EnterRunContext()
+    {
+        if (_runContext) return;
+        _runContext = true;
+        App.Chaos?.ShowLoadoutSidebar();
+        App.AvatarWindow?.SetChaosRunActive(true);
+    }
+
+    /// <summary>Tear the sidebar back down and re-attach the companion (unless we're falling in) —
+    /// used when backing out of the dollhouse to the menu.</summary>
+    private void LeaveRunContext()
+    {
+        if (!_runContext) return;
+        _runContext = false;
+        App.Chaos?.CloseLoadoutSidebar();
+        if (!_fallingIn) App.AvatarWindow?.SetChaosRunActive(false);
+    }
+
+    private void ShowMenuView()
+    {
+        MenuView.Visibility = Visibility.Visible;
+        DollhouseView.Visibility = Visibility.Collapsed;
+        MenuLeftCol.Visibility = Visibility.Visible;
+        MenuArtPanel.Visibility = Visibility.Visible;
+        MenuOptions.Visibility = Visibility.Collapsed;
+        RefreshTopBar();   // keep the menu chips current
+        StartMenuFog();
+        StartFlipbook();
+    }
+
+    private void ShowDollhouseView()
+    {
+        MenuView.Visibility = Visibility.Collapsed;
+        DollhouseView.Visibility = Visibility.Visible;
+    }
+
+    private void Menu_FallIn_Click(object sender, RoutedEventArgs e)
+    {
+        // Straight into a descent. No sidebar (it would only flash before the run swaps in the
+        // real HUD) — just detach the companion for the handoff, the way FALL IN always has.
+        App.AvatarWindow?.SetChaosRunActive(true);
+        FallIn();
+    }
+
+    private void Menu_Dollhouse_Click(object sender, RoutedEventArgs e)
+    {
+        EnterRunContext();   // the loadout sidebar belongs beside the dollhouse
+        StopMenuFog();
+        StopFlipbook();
+        ShowDollhouseView();
+        ShowTab("loadout");
+    }
+
+    /// <summary>Story is greyed (BtnMenuStory.IsEnabled = StoryModeEnabled); this only ever fires
+    /// if the flag flips true, at which point it would route into the story descent.</summary>
+    private void Menu_Story_Click(object sender, RoutedEventArgs e) { /* coming soon — disabled */ }
+
+    private void Menu_Options_Click(object sender, RoutedEventArgs e)
+    {
+        if (OptFullscreen != null) OptFullscreen.IsChecked = WindowState == WindowState.Maximized;
+        MenuLeftCol.Visibility = Visibility.Collapsed;
+        MenuArtPanel.Visibility = Visibility.Collapsed;
+        MenuOptions.Visibility = Visibility.Visible;
+        StopMenuFog();   // art hidden — no need to render
+        StopFlipbook();
+    }
+
+    private void Options_Back_Click(object sender, RoutedEventArgs e)
+    {
+        MenuOptions.Visibility = Visibility.Collapsed;
+        MenuLeftCol.Visibility = Visibility.Visible;
+        MenuArtPanel.Visibility = Visibility.Visible;
+        StartMenuFog();
+        StartFlipbook();
+    }
+
+    private void Menu_Exit_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Back_To_Menu_Click(object sender, RoutedEventArgs e)
+    {
+        SaveToSettings();    // keep any loadout/setup tweaks made in the dollhouse
+        LeaveRunContext();
+        ShowMenuView();
+    }
+
+    // ============================ menu art motion (breathing, wobble, neon glow) ============================
+
+    /// <summary>Almost-imperceptible life on the menu art: a slow breathing scale, a gentle
+    /// up/down drift and a tiny wobble — plus a pulsing pink neon glow on the border.</summary>
+    private void SetupMenuMotion()
+    {
+        var ease = new System.Windows.Media.Animation.SineEase
+        { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut };
+        System.Windows.Media.Animation.DoubleAnimation Loop(double from, double to, double secs) =>
+            new(from, to, new Duration(TimeSpan.FromSeconds(secs)))
+            {
+                AutoReverse = true,
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                EasingFunction = ease,
+            };
+
+        // Breathing happens INSIDE the fixed rounded image Borders, by zooming the ImageBrush
+        // (RelativeTransform, 0..1 space) — NOT by scaling the Border. Scaling the Border made it
+        // overflow the panel and its square-ish corner poked past the rounded neon edge (the "box").
+        // Baseline 1.02 zoom gives overscan so the tiny rotate never bares an edge.
+        var grp = new TransformGroup();
+        var sx = new ScaleTransform(1.02, 1.02, 0.5, 0.5);
+        var rot = new RotateTransform(0, 0.5, 0.5);
+        grp.Children.Add(sx); grp.Children.Add(rot);
+        MenuArtBrush.RelativeTransform = grp;
+        MenuArtTopBrush.RelativeTransform = grp;   // shared so both crossfade layers breathe together
+        sx.BeginAnimation(ScaleTransform.ScaleXProperty, Loop(1.02, 1.035, 6.5));
+        sx.BeginAnimation(ScaleTransform.ScaleYProperty, Loop(1.02, 1.035, 6.5));
+        rot.BeginAnimation(RotateTransform.AngleProperty, Loop(-0.2, 0.2, 7.5));
+
+        // pulsing neon border glow
+        if (MenuArtPanel.Effect is System.Windows.Media.Effects.DropShadowEffect glow)
+        {
+            glow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.BlurRadiusProperty, Loop(16, 34, 2.4));
+            glow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, Loop(0.55, 0.95, 2.4));
+        }
+    }
+
+    // ============================ menu flipbook (crossfading frames) ============================
+
+    private ImageSource?[]? _frames;
+    private (int f, int holdMs)[] _flipSeq = System.Array.Empty<(int, int)>();
+    private int _seqPos;
+    private int _shownFrame = -1;
+    private DispatcherTimer? _flipTimer;
+
+    /// <summary>Load the menu art: the 3-frame flipbook if all of menu_1/2/3.png are present,
+    /// else a single still (menu.png, then the banner). Shows the first frame.</summary>
+    private void LoadMenuFrames()
+    {
+        // frame indices: 0 idle · 1 blink · 2 invite · 3 kiss · 4 wink · 5 hair-tuck
+        var all = new ImageSource?[6];
+        for (int i = 0; i < 6; i++) all[i] = ChaosArt.ResolveMenuFrame(i + 1);
+        if (all[0] != null && all[1] != null && all[2] != null)   // core 3 must exist
+        {
+            _frames = all;
+            _flipSeq = BuildFlipSeq();
+            MenuArtBrush.ImageSource = all[0];
+            _shownFrame = 0; _seqPos = 0;
+            return;
+        }
+        // fallback: a single still
+        var still = ChaosArt.ResolveMenu();
+        if (still != null) { MenuArtBrush.ImageSource = still; return; }
+        var banner = ChaosArt.ResolveBanner();
+        if (banner != null) { MenuArtBrush.ImageSource = banner; MenuArtBrush.Stretch = System.Windows.Media.Stretch.Uniform; }
+    }
+
+    /// <summary>Build the loop: settle on idle (0) between each expression so they read as momentary.
+    /// Any frame that's missing from disk is skipped. Holds in ms; the crossfade rides on top.</summary>
+    private (int f, int holdMs)[] BuildFlipSeq()
+    {
+        const int IDLE = 6000;   // rest on idle ~6s, then one expression, then back to idle
+        var seq = new List<(int, int)>();
+        void Add(int idx, int hold) { if (_frames != null && idx < _frames.Length && _frames[idx] != null) seq.Add((idx, hold)); }
+        Add(0, IDLE);  Add(1, 1900);  // idle, blink     (+1s linger)
+        Add(0, IDLE);  Add(4, 2300);  // idle, wink      (+1s linger)
+        Add(0, IDLE);  Add(2, 3000);  // idle, invite    (+1s linger)
+        Add(0, IDLE);  Add(3, 2700);  // idle, kiss      (+1s linger)
+        Add(0, IDLE);  Add(5, 2500);  // idle, hair-tuck (+1s linger)
+        if (seq.Count == 0) seq.Add((0, IDLE));
+        return seq.ToArray();
+    }
+
+    private void StartFlipbook()
+    {
+        if (_frames == null || _frames.Length < 2 || _flipSeq.Length == 0) return;
+        if (_flipTimer == null)
+        {
+            _flipTimer = new DispatcherTimer();
+            _flipTimer.Tick += (_, _) => AdvanceFlip();
+        }
+        _flipTimer.Interval = TimeSpan.FromMilliseconds(_flipSeq[_seqPos].holdMs);
+        _flipTimer.Start();
+    }
+
+    private void StopFlipbook() => _flipTimer?.Stop();
+
+    private void AdvanceFlip()
+    {
+        if (_frames == null || _flipSeq.Length == 0) return;
+        _seqPos = (_seqPos + 1) % _flipSeq.Length;
+        var step = _flipSeq[_seqPos];
+        CrossfadeTo(step.f, 550);   // gentler crossfade
+        if (_flipTimer != null) _flipTimer.Interval = TimeSpan.FromMilliseconds(step.holdMs);
+    }
+
+    /// <summary>Crossfade the top layer in, then settle it onto the base layer.</summary>
+    private void CrossfadeTo(int idx, double fadeMs)
+    {
+        if (_frames == null || _frames.Length == 0) return;
+        idx = ((idx % _frames.Length) + _frames.Length) % _frames.Length;
+        var src = _frames[idx];
+        if (src == null || idx == _shownFrame) return;
+        _shownFrame = idx;
+        MenuArtTopBrush.ImageSource = src;
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(fadeMs)))
+        {
+            EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+        };
+        fade.Completed += (_, _) =>
+        {
+            MenuArtBrush.ImageSource = src;
+            MenuArtTopBox.BeginAnimation(UIElement.OpacityProperty, null);
+            MenuArtTopBox.Opacity = 0;
+        };
+        MenuArtTopBox.BeginAnimation(UIElement.OpacityProperty, fade);
+    }
+
+    private long _clickReadyAtMs;   // spam-click guard: no new click until the current pose plays out
+
+    /// <summary>Clicking the art advances the flipbook now and restarts the dwell timer — but only
+    /// once the previous click's pose has fully played (crossfade in + linger + fade back), so
+    /// spam-clicking can't race through every animation.</summary>
+    private void MenuArt_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (_frames == null || _frames.Length < 2) return;
+        long now = Environment.TickCount64;
+        if (now < _clickReadyAtMs) return;   // still cooling down
+        AdvanceFlip();
+        int hold = _flipSeq.Length > 0 ? _flipSeq[_seqPos].holdMs : 1000;
+        _clickReadyAtMs = now + 550 + hold + 550;   // fade-in + linger + fade-back
+        if (_flipTimer != null) { _flipTimer.Stop(); _flipTimer.Start(); }
+    }
+
+    // ============================ menu fog (Skia, animated) ============================
+
+    private struct FogPuff { public float X, Y, R, VX, VY, Phase, PhaseSpd, BaseA; }
+    private readonly List<FogPuff> _fog = new();
+    private DispatcherTimer? _fogTimer;
+    private int _fogW, _fogH;
+
+    /// <summary>Start the drifting fog if Enhanced FX is on; otherwise hide the layer entirely.</summary>
+    private void StartMenuFog()
+    {
+        if (App.Settings?.Current?.ChaosSkiaFxEnabled != true)
+        {
+            MenuFog.Visibility = Visibility.Collapsed;
+            StopMenuFog();
+            return;
+        }
+        MenuFog.Visibility = Visibility.Visible;
+        if (_fogTimer == null)
+        {
+            _fogTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };   // ~30fps
+            _fogTimer.Tick += (_, _) => StepFog();
+        }
+        _fogTimer.Start();
+    }
+
+    private void StopMenuFog() => _fogTimer?.Stop();
+
+    private void InitFog(int w, int h)
+    {
+        _fog.Clear();
+        _fogW = w; _fogH = h;
+        // Big soft puffs hugging the lower two-thirds, drifting up + sideways. Denser + more
+        // opaque than the first pass (visible pink fog, not a faint wash).
+        int n = 10;
+        for (int i = 0; i < n; i++)
+        {
+            float t = (i + 0.5f) / n;
+            _fog.Add(new FogPuff
+            {
+                X = w * (0.10f + 0.85f * Frac(t * 1.7f)),
+                Y = h * (0.40f + 0.65f * Frac(t * 2.3f)),
+                R = w * (0.30f + 0.24f * Frac(t * 3.1f)),
+                VX = w * (0.004f + 0.006f * Frac(t * 5f)) * (i % 2 == 0 ? 1 : -1),
+                VY = -h * (0.003f + 0.004f * Frac(t * 4f)),
+                Phase = t * 6.283f,
+                PhaseSpd = 0.012f + 0.01f * Frac(t * 6f),
+                BaseA = 0.22f + 0.16f * Frac(t * 7f),
+            });
+        }
+    }
+
+    private static float Frac(float v) { v -= (float)Math.Floor(v); return v; }
+
+    private void StepFog()
+    {
+        if (_fog.Count == 0) return;
+        for (int i = 0; i < _fog.Count; i++)
+        {
+            var p = _fog[i];
+            p.X += p.VX; p.Y += p.VY; p.Phase += p.PhaseSpd;
+            // wrap: a puff that floats off the top re-enters low, nudged across
+            if (p.Y + p.R < 0) { p.Y = _fogH + p.R; p.X = _fogW * (0.15f + 0.7f * Frac(p.Phase)); }
+            if (p.X - p.R > _fogW) p.X = -p.R;
+            if (p.X + p.R < 0) p.X = _fogW + p.R;
+            _fog[i] = p;
+        }
+        MenuFog.InvalidateVisual();
+    }
+
+    private void MenuFog_PaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    {
+        var canvas = e.Surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        var info = e.Info;
+        if (info.Width <= 0 || info.Height <= 0) return;
+        if (_fog.Count == 0 || _fogW != info.Width || _fogH != info.Height) InitFog(info.Width, info.Height);
+
+        // Round the fog to match the art box (canvas px = DIP × dpi scale, so scale the 22-DIP radius).
+        float rad = 22f * (MenuFog.ActualWidth > 0 ? (float)(info.Width / MenuFog.ActualWidth) : 1f);
+        canvas.ClipRoundRect(new SKRoundRect(new SKRect(0, 0, info.Width, info.Height), rad, rad), antialias: true);
+
+        using var paint = new SKPaint { IsAntialias = true };
+        foreach (var p in _fog)
+        {
+            float a = p.BaseA * (0.7f + 0.3f * (float)Math.Sin(p.Phase));   // gentle breathing
+            if (a <= 0.01f) continue;
+            var c = new SKPoint(p.X, p.Y);
+            using var shader = SKShader.CreateRadialGradient(
+                c, p.R,
+                new[] { new SKColor(0xE8, 0x43, 0x93, (byte)(a * 255)), new SKColor(0xE8, 0x43, 0x93, 0) },
+                null, SKShaderTileMode.Clamp);
+            paint.Shader = shader;
+            canvas.DrawCircle(c, p.R, paint);
+        }
+    }
+
+    // ============================ window chrome (move / resize / fullscreen) ============================
+
+    private void DragWindow(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ButtonState == MouseButtonState.Pressed) { try { DragMove(); } catch { } }
+    }
+
+    private void BtnMin_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void BtnFull_Click(object sender, RoutedEventArgs e) => SetFullscreen(WindowState != WindowState.Maximized);
+
+    private void OptFullscreen_Click(object sender, RoutedEventArgs e) => SetFullscreen(OptFullscreen.IsChecked == true);
+
+    /// <summary>Maximize covers the work area (WindowChrome handles the transparent-window sizing).
+    /// The actual checkbox/avatar sync happens in OnHubStateChanged so it also catches OS-driven
+    /// maximize (snap, Win+Up, double-click).</summary>
+    private void SetFullscreen(bool on) => WindowState = on ? WindowState.Maximized : WindowState.Normal;
+
+    /// <summary>Maximizing overlaps the attached companion tube (it's anchored to the main window).
+    /// Detach it to float out of the way while maximized; re-attach on restore unless we're already
+    /// in a dollhouse/run context (which keeps it detached on purpose).</summary>
+    private void OnHubStateChanged(object? sender, EventArgs e)
+    {
+        bool max = WindowState == WindowState.Maximized;
+        if (max) App.AvatarWindow?.SetChaosRunActive(true);
+        else if (!_runContext && !_fallingIn) App.AvatarWindow?.SetChaosRunActive(false);
+        if (OptFullscreen != null) OptFullscreen.IsChecked = max;
+    }
 
     /// <summary>Re-open the spoiler-free rules card on demand (the same card shown the first
     /// time the Dollhouse opened) — a "how do I play this" refresher anytime.</summary>
