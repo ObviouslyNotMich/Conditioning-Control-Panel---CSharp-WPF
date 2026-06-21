@@ -27,7 +27,7 @@ public partial class SettingsTabView : UserControl
 
     public SettingsTabView()
     {
-        AvaloniaXamlLoader.Load(this);
+        InitializeComponent();
         Loaded += OnLoaded;
         AddHandler(FeatureCard.ToggleRequestedEvent, OnFeatureCardToggleRequested);
     }
