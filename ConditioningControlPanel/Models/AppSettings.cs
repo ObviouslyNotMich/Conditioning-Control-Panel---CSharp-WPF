@@ -2149,6 +2149,13 @@ namespace ConditioningControlPanel.Models
             get => _chaosSkiaFxEnabled;
             set { _chaosSkiaFxEnabled = value; OnPropertyChanged(); }
         }
+        private bool _chaosMenuMusicMuted;
+        /// <summary>Persisted mute toggle for the Rabbit Hole main-menu soundtrack (menu_theme.mp3).</summary>
+        public bool ChaosMenuMusicMuted
+        {
+            get => _chaosMenuMusicMuted;
+            set { _chaosMenuMusicMuted = value; OnPropertyChanged(); }
+        }
         private bool _chaosBubbleSharedHost = true;
         /// <summary>Default ON (proven win): render all chaos bubbles as visuals on ONE shared
         /// click-through host window (Canvas-positioned) instead of one top-level layered Window per

@@ -690,6 +690,13 @@
                             <TextBlock x:Name="MenuGold" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
+                    <!-- soundtrack mute toggle (icon swaps 🔊/🔇 in code-behind) -->
+                    <Button x:Name="BtnMenuMute" Click="BtnMenuMute_Click" Cursor="Hand"
+                            ToolTip="Mute / unmute the menu music" Background="{StaticResource Card2}"
+                            BorderThickness="0" Padding="10,5" Margin="8,0,0,0">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="9"/></Style></Button.Resources>
+                        <TextBlock x:Name="MenuMuteIcon" Text="🔊" FontSize="15" VerticalAlignment="Center"/>
+                    </Button>
                 </StackPanel>
             </Grid>
 

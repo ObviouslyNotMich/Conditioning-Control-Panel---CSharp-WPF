@@ -46,6 +46,7 @@ public partial class ChaosHubWindow : Window
             StopMenuFog();
             StopFlipbook();
             DisposeMenuSkia();
+            DisposeMenuMusic();
             App.Chaos?.CloseLoadoutSidebar();
             // Entering the Dollhouse detached the avatar; if we're leaving WITHOUT a descent
             // starting (FALL IN sets _fallingIn), put it back where it was.
@@ -1766,20 +1767,24 @@ public partial class ChaosHubWindow : Window
         MenuArtPanel.Visibility = Visibility.Visible;
         MenuOptions.Visibility = Visibility.Collapsed;
         RefreshTopBar();   // keep the menu chips current
+        StartMenuIntro();
         StartMenuFog();
         StartFlipbook();
+        StartMenuMusic();
     }
 
     private void ShowDollhouseView()
     {
         MenuView.Visibility = Visibility.Collapsed;
         DollhouseView.Visibility = Visibility.Visible;
+        StopMenuMusic();
     }
 
     private void Menu_FallIn_Click(object sender, RoutedEventArgs e)
     {
         // Straight into a descent. No sidebar (it would only flash before the run swaps in the
         // real HUD) — just detach the companion for the handoff, the way FALL IN always has.
+        StopMenuMusic();
         App.AvatarWindow?.SetChaosRunActive(true);
         FallIn();
     }
@@ -1887,7 +1892,6 @@ public partial class ChaosHubWindow : Window
             _baseIdx = 0; _topIdx = 0; _fadeT = 1f; _fading = false;
             _shownFrame = 0; _seqPos = 0;
             if (_skFrames[0] != null) MenuArtBrush.ImageSource = null; else MenuArtBrush.ImageSource = all[0];
-            BuildBloom(0);
             return;
         }
         // fallback: a single still
@@ -1896,7 +1900,6 @@ public partial class ChaosHubWindow : Window
         {
             _baseIdx = -1;
             if (_skStill != null) MenuArtBrush.ImageSource = null; else MenuArtBrush.ImageSource = still;
-            BuildBloom(-1);
             return;
         }
         var banner = ChaosArt.ResolveBanner();
@@ -1905,7 +1908,6 @@ public partial class ChaosHubWindow : Window
             _baseIdx = -1;
             if (_skStill != null) MenuArtBrush.ImageSource = null;
             else { MenuArtBrush.ImageSource = banner; MenuArtBrush.Stretch = System.Windows.Media.Stretch.Uniform; }
-            BuildBloom(-1);
         }
     }
 
@@ -2009,7 +2011,8 @@ public partial class ChaosHubWindow : Window
     private DispatcherTimer? _fogTimer;
     private readonly SKImage?[] _skFrames = new SKImage?[6];
     private readonly SKImage?[] _fxMasks = new SKImage?[6];   // R=glow G=twinkle B=sheen
-    private SKImage? _skStill, _fxStill, _bloomImg;
+    private SKImage? _skStill, _fxStill, _bloomStill;
+    private readonly SKImage?[] _blooms = new SKImage?[6];    // per-frame glow bloom (cached so FX can crossfade)
     private SKColorFilter? _rToA, _gToA, _bToA;               // channel -> alpha (white) for DstIn
     private int _baseIdx, _topIdx = -1;                       // -1 = use _skStill
     private float _fadeT = 1f, _fadeDurSec = 0.55f;
@@ -2023,6 +2026,14 @@ public partial class ChaosHubWindow : Window
     private readonly (float nx, float ny, float w)[][] _twSpots = new (float, float, float)[6][];
     private (float nx, float ny, float w)[] _twStill = System.Array.Empty<(float, float, float)>();
     private float _twAccum, _sweepClock;
+    // pink fog drifting in front of the art
+    private struct FogPuff { public float X, Y, R, VX, VY, Phase, PhaseSpd, BaseA; }
+    private readonly List<FogPuff> _fog = new();
+    private int _fogW, _fogH;
+    // one-shot intro reveal (fade + settle) when the menu appears
+    private const float IntroDur = 1.1f;
+    private float _introClock;
+    private bool _introActive;
 
     private static SKImage? LoadSk(string? path)
     {
@@ -2061,6 +2072,7 @@ public partial class ChaosHubWindow : Window
 
         _rToA ??= ChanToAlpha(0); _gToA ??= ChanToAlpha(1); _bToA ??= ChanToAlpha(2);
         LoadFxTuning();
+        BuildAllBlooms();
     }
 
     /// <summary>Colour filter: output white with alpha = the given source channel (0=R,1=G,2=B).
@@ -2143,10 +2155,11 @@ public partial class ChaosHubWindow : Window
         if (_fading)
         {
             _fadeT += MenuDt / Math.Max(0.05f, _fadeDurSec);
-            if (_fadeT >= 1f) { _fadeT = 1f; _fading = false; _baseIdx = _topIdx; BuildBloom(_baseIdx); }
+            if (_fadeT >= 1f) { _fadeT = 1f; _fading = false; _baseIdx = _topIdx; }
         }
         _breathClock += MenuDt;
-        if (fx) StepTwinkles();
+        if (_introActive) { _introClock += MenuDt; if (_introClock >= IntroDur) _introActive = false; }
+        if (fx) { StepFogPuffs(); StepTwinkles(); }
         MenuFog.InvalidateVisual();
     }
 
@@ -2193,12 +2206,12 @@ public partial class ChaosHubWindow : Window
         return new SKRect((ew - dw) / 2f, (eh - dh) / 2f, (ew + dw) / 2f, (eh + dh) / 2f);
     }
 
-    /// <summary>Bake the base frame's glow pixels (art × glow-channel), blurred, into a cached SKImage.</summary>
-    private void BuildBloom(int idx)
+    /// <summary>Bake a frame's glow pixels (art × glow-channel), blurred, into an SKImage. Cached per
+    /// frame so the glow can crossfade between poses instead of hard-swapping at the transition.</summary>
+    private SKImage? MakeBloom(int idx)
     {
-        _bloomImg?.Dispose(); _bloomImg = null;
         var src = FrameImage(idx); var mask = FxMask(idx);
-        if (src == null || mask == null || _rToA == null) return;
+        if (src == null || mask == null || _rToA == null) return null;
         try
         {
             int bw = Math.Min(src.Width, 540);
@@ -2216,18 +2229,89 @@ public partial class ChaosHubWindow : Window
             s2.Canvas.Clear(SKColors.Transparent);
             using (var bp = new SKPaint { ImageFilter = SKImageFilter.CreateBlur(bw * 0.013f, bw * 0.013f) })
                 s2.Canvas.DrawImage(masked, rect, bp);
-            _bloomImg = s2.Snapshot();
+            return s2.Snapshot();
         }
-        catch (Exception ex) { App.Logger?.Debug("ChaosHub.BuildBloom: {E}", ex.Message); _bloomImg = null; }
+        catch (Exception ex) { App.Logger?.Debug("ChaosHub.MakeBloom: {E}", ex.Message); return null; }
     }
+
+    private void BuildAllBlooms()
+    {
+        for (int i = 0; i < 6; i++) { _blooms[i]?.Dispose(); _blooms[i] = MakeBloom(i); }
+        _bloomStill?.Dispose(); _bloomStill = MakeBloom(-1);
+    }
+
+    private SKImage? BloomFor(int idx) =>
+        (idx >= 0 && idx < _blooms.Length && _blooms[idx] != null) ? _blooms[idx] : _bloomStill;
+
+    // ---- pink fog ----
+    private static float Frac(float v) { v -= (float)Math.Floor(v); return v; }
+
+    private void InitFog(int w, int h)
+    {
+        _fog.Clear();
+        _fogW = w; _fogH = h;
+        int n = 14;                                     // denser cloud
+        for (int i = 0; i < n; i++)
+        {
+            float t = (i + 0.5f) / n;
+            _fog.Add(new FogPuff
+            {
+                X = w * (0.10f + 0.85f * Frac(t * 1.7f)),
+                Y = h * (0.40f + 0.65f * Frac(t * 2.3f)),
+                R = w * (0.34f + 0.26f * Frac(t * 3.1f)),   // bigger puffs
+                VX = w * (0.004f + 0.006f * Frac(t * 5f)) * (i % 2 == 0 ? 1 : -1),
+                VY = -h * (0.003f + 0.004f * Frac(t * 4f)),
+                Phase = t * 6.283f,
+                PhaseSpd = 0.012f + 0.01f * Frac(t * 6f),
+                BaseA = 0.34f + 0.22f * Frac(t * 7f),   // more prominent pink
+            });
+        }
+    }
+
+    private void StepFogPuffs()
+    {
+        for (int i = 0; i < _fog.Count; i++)
+        {
+            var p = _fog[i];
+            p.X += p.VX; p.Y += p.VY; p.Phase += p.PhaseSpd;
+            if (p.Y + p.R < 0) { p.Y = _fogH + p.R; p.X = _fogW * (0.15f + 0.7f * Frac(p.Phase)); }
+            if (p.X - p.R > _fogW) p.X = -p.R;
+            if (p.X + p.R < 0) p.X = _fogW + p.R;
+            _fog[i] = p;
+        }
+    }
+
+    private void DrawFog(SKCanvas canvas, SKImageInfo info)
+    {
+        if (_fog.Count == 0 || _fogW != info.Width || _fogH != info.Height) InitFog(info.Width, info.Height);
+        using var paint = new SKPaint { IsAntialias = true };
+        foreach (var p in _fog)
+        {
+            float a = p.BaseA * (0.7f + 0.3f * (float)Math.Sin(p.Phase));
+            if (a <= 0.01f) continue;
+            var c = new SKPoint(p.X, p.Y);
+            using var shader = SKShader.CreateRadialGradient(
+                c, p.R,
+                new[] { new SKColor(0xE8, 0x43, 0x93, (byte)(a * 255)), new SKColor(0xE8, 0x43, 0x93, 0) },
+                null, SKShaderTileMode.Clamp);
+            paint.Shader = shader;
+            canvas.DrawCircle(c, p.R, paint);
+        }
+    }
+
+    /// <summary>Kick the one-shot intro reveal (fade + settle) the next time the scene paints.</summary>
+    private void StartMenuIntro() { _introClock = 0f; _introActive = true; }
+
+    private static float EaseOutCubic(float p) { p = Math.Clamp(p, 0f, 1f); float u = 1f - p; return 1f - u * u * u; }
 
     private void DisposeMenuSkia()
     {
         for (int i = 0; i < _skFrames.Length; i++) { _skFrames[i]?.Dispose(); _skFrames[i] = null; }
         for (int i = 0; i < _fxMasks.Length; i++) { _fxMasks[i]?.Dispose(); _fxMasks[i] = null; }
+        for (int i = 0; i < _blooms.Length; i++) { _blooms[i]?.Dispose(); _blooms[i] = null; }
         _skStill?.Dispose(); _skStill = null;
         _fxStill?.Dispose(); _fxStill = null;
-        _bloomImg?.Dispose(); _bloomImg = null;
+        _bloomStill?.Dispose(); _bloomStill = null;
     }
 
     private void MenuFog_PaintSurface(object? sender, SKPaintSurfaceEventArgs e)
@@ -2241,11 +2325,22 @@ public partial class ChaosHubWindow : Window
         canvas.ClipRoundRect(new SKRoundRect(new SKRect(0, 0, info.Width, info.Height), rad, rad), antialias: true);
 
         bool fx = App.Settings?.Current?.ChaosSkiaFxEnabled == true;
+
+        // intro reveal: fade the whole scene in (one shot) the first time the menu paints
+        float ia = _introActive ? EaseOutCubic(_introClock / IntroDur) : 1f;
+        bool introLayer = ia < 0.999f;
+        if (introLayer) canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(ia * 255)) });
+
         canvas.Save();
         ApplyBreath(canvas, info);
         DrawMenuArt(canvas, info);
         if (fx) { try { DrawAuthoredFx(canvas, info); } catch (Exception ex) { App.Logger?.Debug("ChaosHub.DrawAuthoredFx: {E}", ex.Message); } }
         canvas.Restore();
+
+        // pink fog drifts in front of the character (fades in with the intro layer)
+        if (fx) { try { DrawFog(canvas, info); } catch (Exception ex) { App.Logger?.Debug("ChaosHub.DrawFog: {E}", ex.Message); } }
+
+        if (introLayer) canvas.Restore();
     }
 
     /// <summary>Slow breathing scale + drift (the SKElement is outside the WPF MenuArtMotion transform,
@@ -2257,6 +2352,13 @@ public partial class ChaosHubWindow : Window
         float dx = 0.0025f * info.Width * (float)Math.Sin(t * 0.50);
         float dy = 0.0040f * info.Height * (float)Math.Sin(t * 0.78);
         float ang = 0.18f * (float)Math.Sin(t * 0.62);
+        // intro: start a touch zoomed-in + lifted, settle into place (ease-out)
+        if (_introActive)
+        {
+            float e = EaseOutCubic(_introClock / IntroDur);
+            s *= 1.10f - 0.10f * e;
+            dy += (1f - e) * 0.03f * info.Height;
+        }
         canvas.Translate(info.Width / 2f, info.Height / 2f);
         canvas.Scale(s, s);
         canvas.RotateDegrees(ang);
@@ -2288,19 +2390,21 @@ public partial class ChaosHubWindow : Window
         var baseImg = FrameImage(_baseIdx);
         if (baseImg == null) return;
         var rect = CoverRect(baseImg, info);
-        var mask = FxMask(_baseIdx);
         float t = _breathClock;
+        bool fading = _fading;
+        float tt = Math.Clamp(_fadeT, 0f, 1f);
 
-        // Glow — breathing additive bloom
-        if (_bloomImg != null && _glowI > 0.001f)
+        // Glow — breathing additive bloom, crossfaded between the outgoing and incoming frame so it
+        // never hard-pops at the transition (was the "blur vanishes the instant we swap" bug).
+        if (_glowI > 0.001f)
         {
-            byte a = (byte)Math.Clamp((0.42f + 0.22f * (float)Math.Sin(t * 1.6 * _glowF)) * _glowI * 255f, 0, 255);
-            using var p = new SKPaint { BlendMode = SKBlendMode.Plus, IsAntialias = true, FilterQuality = SKFilterQuality.High, Color = SKColors.White.WithAlpha(a) };
-            canvas.DrawImage(_bloomImg, rect, p);
+            float pulse = (0.42f + 0.22f * (float)Math.Sin(t * 1.6 * _glowF)) * _glowI;
+            DrawBloom(canvas, rect, BloomFor(_baseIdx), pulse * (fading ? 1f - tt : 1f));
+            if (fading) DrawBloom(canvas, rect, BloomFor(_topIdx), pulse * tt);
         }
 
-        // Sheen — diagonal band masked to the painted gloss (B channel)
-        if (mask != null && _bToA != null && _shI > 0.001f)
+        // Sheen — diagonal band masked to the painted gloss (B channel), crossfaded between frames.
+        if (_bToA != null && _shI > 0.001f)
         {
             float period = SweepPeriodBase / Math.Max(0.05f, _shF);
             float ph = _sweepClock % period;
@@ -2309,23 +2413,9 @@ public partial class ChaosHubWindow : Window
                 float pp = ph / SweepDur;
                 float env = (float)Math.Sin(Math.PI * pp);
                 float center = -0.15f + 1.3f * pp;
-                byte a = (byte)Math.Clamp(0.5f * env * _shI * 255f, 0, 255);
-                float c0 = Math.Max(0f, center - 0.16f), c2 = Math.Min(1f, center + 0.16f);
-                if (a > 1 && c2 > c0)
-                {
-                    float c1 = Math.Min(Math.Max(center, c0), c2);
-                    using var layer = new SKPaint { BlendMode = SKBlendMode.Plus };
-                    canvas.SaveLayer(layer);
-                    using (var band = SKShader.CreateLinearGradient(
-                        new SKPoint(rect.Left, rect.Top), new SKPoint(rect.Right, rect.Bottom),
-                        new[] { SKColors.Transparent, new SKColor(0xFF, 0xFF, 0xFF, a), SKColors.Transparent },
-                        new[] { c0, c1, c2 }, SKShaderTileMode.Clamp))
-                    using (var bp = new SKPaint { Shader = band })
-                        canvas.DrawRect(rect, bp);
-                    using (var mp = new SKPaint { BlendMode = SKBlendMode.DstIn, ColorFilter = _bToA, FilterQuality = SKFilterQuality.Medium })
-                        canvas.DrawImage(mask, rect, mp);
-                    canvas.Restore();
-                }
+                float baseA = 0.5f * env * _shI;
+                DrawSheen(canvas, rect, FxMask(_baseIdx), center, baseA * (fading ? 1f - tt : 1f));
+                if (fading) DrawSheen(canvas, rect, FxMask(_topIdx), center, baseA * tt);
             }
         }
 
@@ -2351,6 +2441,124 @@ public partial class ChaosHubWindow : Window
                 canvas.DrawCircle(cx, cy, r * 0.45f, paint);
             }
         }
+    }
+
+    /// <summary>Additive glow bloom at the given alpha (0..1). Used twice during a crossfade.</summary>
+    private static void DrawBloom(SKCanvas canvas, SKRect rect, SKImage? bloom, float alpha)
+    {
+        if (bloom == null || alpha <= 0.002f) return;
+        byte a = (byte)Math.Clamp(alpha * 255f, 0, 255);
+        using var p = new SKPaint { BlendMode = SKBlendMode.Plus, IsAntialias = true, FilterQuality = SKFilterQuality.High, Color = SKColors.White.WithAlpha(a) };
+        canvas.DrawImage(bloom, rect, p);
+    }
+
+    /// <summary>One sheen-band pass masked to a frame's gloss (B channel) at the given alpha.</summary>
+    private void DrawSheen(SKCanvas canvas, SKRect rect, SKImage? mask, float center, float alpha)
+    {
+        if (mask == null || _bToA == null || alpha <= 0.002f) return;
+        byte a = (byte)Math.Clamp(alpha * 255f, 0, 255);
+        const float hw = 0.16f;
+        float c0 = Math.Max(0f, center - hw), c2 = Math.Min(1f, center + hw);
+        if (a <= 1 || c2 <= c0) return;
+        float c1 = Math.Min(Math.Max(center, c0), c2);
+        using var layer = new SKPaint { BlendMode = SKBlendMode.Plus };
+        canvas.SaveLayer(layer);
+        using (var band = SKShader.CreateLinearGradient(
+            new SKPoint(rect.Left, rect.Top), new SKPoint(rect.Right, rect.Bottom),
+            new[] { SKColors.Transparent, new SKColor(0xFF, 0xFF, 0xFF, a), SKColors.Transparent },
+            new[] { c0, c1, c2 }, SKShaderTileMode.Clamp))
+        using (var bp = new SKPaint { Shader = band })
+            canvas.DrawRect(rect, bp);
+        using (var mp = new SKPaint { BlendMode = SKBlendMode.DstIn, ColorFilter = _bToA, FilterQuality = SKFilterQuality.Medium })
+            canvas.DrawImage(mask, rect, mp);
+        canvas.Restore();
+    }
+
+    // ============================ menu music (looping soundtrack + fade + mute) ============================
+    //
+    // Resources/sounds/chaos/menu_theme.mp3 loops under the main menu with a 2s fade in/out (fades
+    // out when leaving the menu for the dollhouse / a descent). The 🔊/🔇 chip toggles + persists mute.
+
+    private const double MenuMusicVol = 0.5;
+    private MediaPlayer? _music;
+    private DispatcherTimer? _musicFade;
+    private double _fadeFrom, _fadeTo;
+    private int _fadeStep, _fadeSteps;
+    private Action? _fadeDone;
+
+    private void StartMenuMusic()
+    {
+        try
+        {
+            if (_music == null)
+            {
+                var path = ConditioningControlPanel.Services.ModResourceResolver.ResolveAudioPath("chaos/menu_theme.mp3");
+                if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+                _music = new MediaPlayer();
+                _music.MediaEnded += (_, _) => { try { if (_music != null) { _music.Position = TimeSpan.Zero; _music.Play(); } } catch { } };
+                _music.Open(new Uri(path, UriKind.Absolute));
+                _music.Volume = 0;
+            }
+            bool muted = App.Settings?.Current?.ChaosMenuMusicMuted == true;
+            UpdateMuteIcon(muted);
+            _music.Play();                                   // resumes where it left off (or from 0 on first open)
+            FadeMusicTo(muted ? 0.0 : MenuMusicVol, 2.0);    // 2s fade in
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChaosHub.StartMenuMusic: {E}", ex.Message); }
+    }
+
+    private void StopMenuMusic()
+    {
+        if (_music == null) return;
+        FadeMusicTo(0.0, 2.0, () => { try { _music?.Pause(); } catch { } });   // 2s fade out, then pause
+    }
+
+    private void DisposeMenuMusic()
+    {
+        _musicFade?.Stop();
+        try { _music?.Stop(); _music?.Close(); } catch { }
+        _music = null;
+    }
+
+    /// <summary>Ramp the music volume to a target over <paramref name="secs"/> (50ms steps).</summary>
+    private void FadeMusicTo(double target, double secs, Action? onDone = null)
+    {
+        if (_music == null) return;
+        _fadeFrom = _music.Volume; _fadeTo = target;
+        _fadeSteps = Math.Max(1, (int)(secs / 0.05)); _fadeStep = 0; _fadeDone = onDone;
+        if (_musicFade == null)
+        {
+            _musicFade = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _musicFade.Tick += MusicFadeTick;
+        }
+        _musicFade.Start();
+    }
+
+    private void MusicFadeTick(object? sender, EventArgs e)
+    {
+        if (_music == null) { _musicFade?.Stop(); return; }
+        _fadeStep++;
+        double t = Math.Min(1.0, (double)_fadeStep / _fadeSteps);
+        _music.Volume = Math.Clamp(_fadeFrom + (_fadeTo - _fadeFrom) * t, 0, 1);
+        if (t >= 1.0)
+        {
+            _musicFade?.Stop();
+            var d = _fadeDone; _fadeDone = null; d?.Invoke();
+        }
+    }
+
+    private void UpdateMuteIcon(bool muted)
+    {
+        if (MenuMuteIcon != null) MenuMuteIcon.Text = muted ? "🔇" : "🔊";
+    }
+
+    private void BtnMenuMute_Click(object sender, RoutedEventArgs e)
+    {
+        bool muted = !(App.Settings?.Current?.ChaosMenuMusicMuted == true);
+        if (App.Settings?.Current != null) App.Settings.Current.ChaosMenuMusicMuted = muted;
+        UpdateMuteIcon(muted);
+        if (!muted) { try { _music?.Play(); } catch { } }
+        FadeMusicTo(muted ? 0.0 : MenuMusicVol, 0.6);   // quick fade on toggle
     }
 
     // ============================ window chrome (move / resize / fullscreen) ============================
