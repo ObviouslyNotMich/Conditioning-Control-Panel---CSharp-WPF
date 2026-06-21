@@ -426,6 +426,13 @@ public sealed class AvaloniaChaosService : IChaosService
                 ChaosLessonHooks.OnLoopCompleted();
                 _waveIndex++;
                 _state.WaveIndex = _waveIndex;
+
+                var waveCtx = BuildNarrativeContext(depth: _waveIndex);
+                ChaosNarrativeHooks.OnWaveStart(_waveIndex, waveCtx);
+                var waveConvo = ChaosNarrativeDirector.Pick(waveCtx, "zone_border")
+                    ?? (_waveIndex >= 5 ? ChaosNarrativeDirector.Pick(waveCtx, "depthV_enter") : null);
+                if (waveConvo != null)
+                    RunOnUi(() => _overlay?.ShowConversation(waveConvo, null, () => { }));
             }
         }
     }
@@ -476,6 +483,7 @@ public sealed class AvaloniaChaosService : IChaosService
     {
         if (_state == null) return;
         ChaosLessonHooks.OnTreatPopped(spec.VariantId);
+        ChaosNarrativeHooks.OnFirstPop(BuildNarrativeContext(depth: _waveIndex));
         double basePay = 100 * (_state.DifficultyMult) * (1 + _state.Heat);
         double pay = basePay * _state.ComboMult * _state.BoonMult * _state.UrgeMult;
         _state.Score += pay;
@@ -501,6 +509,7 @@ public sealed class AvaloniaChaosService : IChaosService
         }
 
         ChaosLessonHooks.OnDefuseCompleted(fuseSec, viaChannel);
+        ChaosNarrativeHooks.OnFirstDefuse(BuildNarrativeContext(depth: _waveIndex));
 
         double basePay = 250 * _state.DifficultyMult * (1 + _state.Heat);
         double pay = basePay * _state.ComboMult * _state.BoonMult * _state.UrgeMult;
@@ -516,6 +525,7 @@ public sealed class AvaloniaChaosService : IChaosService
         if (_state == null) return;
         _state.Detonated++;
         ChaosLessonHooks.OnDetonation();
+        ChaosNarrativeHooks.OnFirstDetonation(BuildNarrativeContext(depth: _waveIndex));
 
         // A shield absorbs the detonation and preserves the streak.
         bool shieldAbsorbed = _state.Shields > 0;
@@ -613,6 +623,8 @@ public sealed class AvaloniaChaosService : IChaosService
         _bubbles.SetChaosFrozen(true);
         _bubbles.SetChaosInputLocked(true);
 
+        ChaosNarrativeHooks.OnBoonDraft(_waveIndex, BuildNarrativeContext(depth: _waveIndex));
+
         var options = PickDraftOptions(_state.Config.AllowCurses);
         RunOnUi(() => _overlay?.ShowBoonDraft(_waveIndex, options, OnBoonPicked, autoResumeSec: 12));
     }
@@ -641,6 +653,8 @@ public sealed class AvaloniaChaosService : IChaosService
             _state.RunPickTiles.Add(new ChaosSidebarBoon { Id = boon.Id, Name = boon.Name, Glyph = boon.IsCurse ? "☠" : "◈" });
             _state.PushEvent($"{(boon.IsCurse ? "☠ accepted" : "◈ chose")} {boon.Name}");
             ChaosLessonHooks.OnDraftCardTaken(boon.IsCurse);
+            if (boon.IsCurse)
+                ChaosNarrativeHooks.OnSinAccepted(boon.Id, BuildNarrativeContext(depth: _waveIndex));
         }
         _waveIndex++;
         _state.WaveIndex = _waveIndex;
@@ -666,6 +680,7 @@ public sealed class AvaloniaChaosService : IChaosService
         if (state != null)
         {
             ChaosLessonHooks.OnRunCompleted(state.Shields, ranFullCourse, state.Config.Difficulty);
+            ChaosNarrativeHooks.OnRunEnded(BuildNarrativeContext(depth: _waveIndex), state.Score, ranFullCourse);
 
             double baseXp = Math.Sqrt(Math.Max(0, state.Score)) * 1.5 + state.RunDurationSec / 60.0 * 35.0 * state.DifficultyMult;
             double skillMult = 1.0;
@@ -1117,6 +1132,30 @@ public sealed class AvaloniaChaosService : IChaosService
                 _ => false,
             };
         }
+    }
+
+    private ChaosNarrativeContext BuildNarrativeContext(int depth)
+    {
+        var ctx = new ChaosNarrativeContext
+        {
+            RankIndex = ChaosMeta.RankIndex,
+            Depth = depth,
+            OwnedItemIds = _state?.ActiveBoons.Select(b => b.Id)
+                .Concat(_state?.ActiveCurses.Select(c => c.Id) ?? Enumerable.Empty<string>())
+                .ToList(),
+        };
+        if (_state != null)
+        {
+            ctx.RunStats = new Dictionary<string, double>
+            {
+                ["streak"] = _state.Combo,
+                ["bestStreak"] = _state.BestCombo,
+                ["defused"] = _state.Defused,
+                ["detonated"] = _state.Detonated,
+                ["score"] = _state.Score,
+            };
+        }
+        return ctx;
     }
 
     private void RunOnUi(Action action)
