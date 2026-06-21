@@ -71,6 +71,14 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         _logger?.Information("AvaloniaSubliminalService started");
     }
 
+    public void FlashSubliminalCustom(string text, int? overrideDurationMs = null, bool suppressHaptic = false)
+    {
+        _logger?.Debug(
+            "AvaloniaSubliminalService: Deeper custom subliminal ignored (stub): \"{Text}\" duration={Duration}ms",
+            text,
+            overrideDurationMs?.ToString() ?? "(default)");
+    }
+
     public void Stop()
     {
         if (!IsRunning) return;

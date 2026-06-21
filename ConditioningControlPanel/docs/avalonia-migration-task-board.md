@@ -71,7 +71,15 @@ Append a row to **claim**; the orchestrator marks `✅ done` and removes the row
 | `Services/Video/AvaloniaVideoService.cs` | Port attention checks, strict mode, and post-play penalty loop/mercy from WPF `VideoService` | orchestrator | `✅ done` | `main` | 2026-06-21 |
 | `CCP.Avalonia/AvatarTube/` | Restore AvatarTube behavior: speech phrase system, AI chat replies, Circe emote playback/scheduling, reactions, and windowing behavior | agent | `✅ done` | `main` | 2026-06-21 |
 | `CCP.Avalonia/Chaos/` | Chaos overlay animation/z-order/boon logic parity: port remaining WPF animations, finish `AvaloniaChaosWindowZ`, wire run-state/boon logic | agent | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Services/Chaos/` + `CCP.Core/Services/Chaos/` | Chaos runtime parity — P0: meta persistence (`ChaosMetaStore`) + reveal service; P1: boon runtime + active toy framework | orchestrator | `🚧 wip @orchestrator` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Services/Chaos/` + `CCP.Core/Services/Chaos/` | Chaos runtime parity — meta persistence + reveal service, boon runtime + active toy framework, focus economy, lessons, narrative director, happy-path scripting | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/AvatarTube/` | AvatarTube emotive portrait system (`_portraitMode` / `_portraitSet`) | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/` + `CCP.Core/Services/Deeper/` | Deeper player/editor integration audit and parity port | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Core/Services/Deeper/` | Migrate runtime engine + dispatcher + host to Core (copy from WPF, adapt to seams) | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Services/Deeper/` + `Views/Deeper/EnhancementPlayerWindow` | Avalonia LibVLC time source + host wiring + player engine bind | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Port basic Deeper editor (metadata + regions/rules/haptics lists + save/preview) | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/GazePickerWindow` | Port gaze-picker window for gaze-target/avoid rect authoring | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Full visual timeline editor parity (WPF timeline lanes/drag/curve editor/browser preview) | — | `⬜ todo` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/UrlPromptDialog` + `EnhancementPlayerWindow` | Port URL prompt dialog and wire Load URL fetch | orchestrator | `✅ done` | `main` | 2026-06-21 |
 
 ### Hand-off Queue (porter → orchestrator)
 
@@ -323,10 +331,14 @@ When a lane reaches `🔵 review`, append an entry here. The orchestrator applie
 
 §19.3 main-merge backlog is complete: `AppSettings`, `Fredoka`, `UpdateService`, service-deltas, `ChaosCrashSentinel`, `ChaosBoonColors`, shared-host overlays, `ChaosSkiaFxOverlay`, and the full `BubbleService` overhaul (ambient + chaos variants + field hazards + shared-host + global mouse hook) are ported. The §19.4 project-reference collapse remains blocked; see plan §19.4.
 
-Chaos overlay integration is complete and build/test green: cursor-glow/banner/field-FX animations, `AvaloniaChaosWindowZ` topmost re-assert, full countdown → descent → spawn → scoring → draft → results lifecycle, and seeded Hub catalogues are in `main`. AvatarTube behavior restoration is in progress by `@agent1`.
+Chaos overlay integration is complete and build/test green: cursor-glow/banner/field-FX animations, `AvaloniaChaosWindowZ` topmost re-assert, full countdown → descent → spawn → scoring → draft → results lifecycle, meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting are in `main`.
+
+AvatarTube behavior restoration is complete (speech/AI chat/Circe emotes/reactions/windowing/fullscreen detection/context-menu toggles/emotive portrait system).
+
+Deeper runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource`. A functional basic `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview) replaces the placeholder. `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring. The full WPF visual timeline, curve editor, browser preview, and `AudioWaveformCache` remain.
 
 Next priorities (pick one lane at a time):
 
-1. **AvatarTube behavior** — integrate `@agent1` output when ready; restore speech phrase system, AI chat replies, Circe emote playback/scheduling, reactions, and windowing behavior.
-2. **Phase 4 UI parity smoke-test** — run the Avalonia desktop app and fill `docs/avalonia-ui-parity-matrix.md`.
-3. **Phase 4 remaining work** — port WPF-only dialogs/utility windows, localize hard-coded onboarding/privacy strings, and wire feature-control code-behind.
+1. **Deeper editor depth** — full visual timeline editor parity (drag-create/resize regions, curve editor, browser preview, `AudioWaveformCache`). This is a large slice; sub-split before starting.
+2. **Phase 4 UI parity smoke-test** — run the Avalonia desktop app and fill `docs/avalonia-ui-parity-matrix.md` gaps.
+3. **Phase 4 remaining work** — port WPF-only dialogs/utility windows and wire feature-control code-behind.

@@ -60,6 +60,8 @@ public static class ChaosTuning
     public const double VIBE_POP_SWEEP_DIP = 120;
 
     // ============================ The Ripple ============================
+    public const double DEBUT_FUSE_MULT = 1.5;
+
     public const double RIPPLE_RECHARGE_SEC = 15;
     public const double RIPPLE_RADIUS_PX = 260;
     public const double RIPPLE_LIFE_MS = 520;

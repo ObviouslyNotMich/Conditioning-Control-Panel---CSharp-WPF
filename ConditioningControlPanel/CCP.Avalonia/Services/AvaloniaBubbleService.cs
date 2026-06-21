@@ -284,6 +284,12 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     public void TriggerPlayerRipple(Point centerPx, double radiusPx, double lifeMs) =>
         _chaosEngine?.TriggerPlayerRipple(centerPx, radiusPx, lifeMs);
 
+    public void PlayChime(float volumeScale = 0.3f)
+    {
+        try { _sfx.Play("chime", volumeScale * 0.6f); }
+        catch (Exception ex) { _logger?.Warning(ex, "PlayChime failed"); }
+    }
+
     private void OnMouseHookLeftDown(object? sender, HookPoint e)
     {
         var pt = new Point(e.X, e.Y);

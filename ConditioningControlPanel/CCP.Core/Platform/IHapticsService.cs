@@ -18,4 +18,10 @@ public interface IHapticsService
     Task<bool> ConnectAsync(string providerUrl);
     void Disconnect();
     Task<bool> TestAsync(int intensityPercent, int durationMs);
+
+    /// <summary>Play a synchronous haptic pattern over the given duration in milliseconds.</summary>
+    Task SetSyncPatternAsync(float[] samples, int durationMs);
+
+    /// <summary>Stop any active haptic pattern immediately.</summary>
+    Task StopAsync();
 }

@@ -15,4 +15,9 @@ public interface ISubliminalService
 
     /// <summary>Stops the subliminal display scheduler and clears active messages.</summary>
     void Stop();
+
+    /// <summary>
+    /// Flash a single custom subliminal phrase. Used by the Deeper enhancement engine.
+    /// </summary>
+    void FlashSubliminalCustom(string text, int? overrideDurationMs = null, bool suppressHaptic = false);
 }

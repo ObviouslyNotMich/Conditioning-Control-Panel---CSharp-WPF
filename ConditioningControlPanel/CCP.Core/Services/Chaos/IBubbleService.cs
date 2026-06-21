@@ -110,4 +110,7 @@ public interface IBubbleService
 
     /// <summary>Casts a player ripple wave from the given physical-pixel centre.</summary>
     void TriggerPlayerRipple(Point centerPx, double radiusPx, double lifeMs);
+
+    /// <summary>Plays a soft gold/loot chime (WPF parity). Stage 1 is a no-op.</summary>
+    void PlayChime(float volumeScale = 0.3f);
 }

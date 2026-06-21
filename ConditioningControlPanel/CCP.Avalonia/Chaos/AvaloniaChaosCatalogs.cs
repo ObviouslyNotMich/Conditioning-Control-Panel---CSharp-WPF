@@ -635,9 +635,9 @@ public static class AvaloniaChaosCatalogs
 
         Add(new ChaosBubbleVariants.Variant { Id = "flash", Name = "Flash", Tint = Color.FromRgb(0xFF, 0xD7, 0x00) });
         Add(new ChaosBubbleVariants.Variant { Id = "subliminal", Name = "Subliminal", Tint = Color.FromRgb(0x9C, 0x5C, 0xFF) });
-        Add(new ChaosBubbleVariants.Variant { Id = "pink", Name = "Pink Filter", Tint = Color.FromRgb(0xFF, 0x4D, 0xC4) });
-        Add(new ChaosBubbleVariants.Variant { Id = "spiral", Name = "Spiral", Tint = Color.FromRgb(0x7A, 0xE0, 0xFF) });
-        Add(new ChaosBubbleVariants.Variant { Id = "braindrain", Name = "BrainDrain", Tint = Color.FromRgb(0xFF, 0x69, 0xB4) });
+        Add(new ChaosBubbleVariants.Variant { Id = "pink", Name = "Pink Filter", Tint = Color.FromRgb(0xFF, 0x4D, 0xC4), IsLive = true });
+        Add(new ChaosBubbleVariants.Variant { Id = "spiral", Name = "Spiral", Tint = Color.FromRgb(0x7A, 0xE0, 0xFF), IsLive = true });
+        Add(new ChaosBubbleVariants.Variant { Id = "braindrain", Name = "BrainDrain", Tint = Color.FromRgb(0xFF, 0x69, 0xB4), IsLive = true });
         Add(new ChaosBubbleVariants.Variant { Id = "bambifreeze", Name = "Bambi Freeze", Tint = Color.FromRgb(0xAA, 0xE8, 0xFF) });
         Add(new ChaosBubbleVariants.Variant { Id = "video", Name = "Video", Tint = Color.FromRgb(0xFF, 0x8A, 0x14) });
         Add(new ChaosBubbleVariants.Variant { Id = "htlink", Name = "Gif Rain", Tint = Color.FromRgb(0xFF, 0xA0, 0x70) });

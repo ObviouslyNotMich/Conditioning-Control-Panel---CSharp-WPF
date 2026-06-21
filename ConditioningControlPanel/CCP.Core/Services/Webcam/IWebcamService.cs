@@ -1,3 +1,5 @@
+using ConditioningControlPanel.Core.Platform;
+
 namespace ConditioningControlPanel.Core.Services.Webcam;
 
 /// <summary>
@@ -26,4 +28,21 @@ public interface IWebcamService
 
     /// <summary>Revoke user consent and stop tracking.</summary>
     void RevokeConsent();
+
+    // ---- Events consumed by the Deeper enhancement engine ----
+
+    /// <summary>Fires when a blink is detected (already marshalled to the UI thread by the provider).</summary>
+    event Action? OnBlink;
+
+    /// <summary>Fires when the mouth-open gesture is detected.</summary>
+    event Action? OnMouthOpen;
+
+    /// <summary>Fires when gaze moves; argument is in physical screen pixels.</summary>
+    event Action<Point>? OnGazeMove;
+
+    /// <summary>Fires when a tracked face is lost.</summary>
+    event Action? OnFaceLost;
+
+    /// <summary>Fires when a tracked face is found again.</summary>
+    event Action? OnFaceFound;
 }

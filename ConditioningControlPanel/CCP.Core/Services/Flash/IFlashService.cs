@@ -28,4 +28,10 @@ public interface IFlashService
 
     /// <summary>Reloads assets and clears caches (used after asset selection changes).</summary>
     void LoadAssets();
+
+    /// <summary>
+    /// Fire a single flash image overlay. A null <paramref name="imagePath"/> selects
+    /// a random image from the configured pool. Used by the Deeper enhancement engine.
+    /// </summary>
+    void TriggerFlashOnce(string? imagePath, int durationMs, bool playSound, bool suppressHaptic);
 }

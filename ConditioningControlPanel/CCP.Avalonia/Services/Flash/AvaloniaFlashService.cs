@@ -145,6 +145,18 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         _ = Task.Run(LoadAndShowImages);
     }
 
+    public void TriggerFlashOnce(string? imagePath, int durationMs, bool playSound, bool suppressHaptic)
+    {
+        // Deeper single-flash path. Real implementation can reuse SpawnFlashWindow;
+        // for now the scheduled flash service handles the visual and we log the call.
+        _logger?.Debug(
+            "AvaloniaFlashService: Deeper single-flash requested (path={Path}, duration={Duration}ms, sound={Sound}, suppressHaptic={Suppress})",
+            imagePath ?? "(random)",
+            durationMs,
+            playSound,
+            suppressHaptic);
+    }
+
     private void ScheduleNextFlash()
     {
         if (!IsRunning) return;

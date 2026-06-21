@@ -262,6 +262,10 @@ public interface IBarkService
     void NotifyChaosRankUp(string rankName);
     void NotifyChaosGiftGiven();
     void NotifyChaosDraftAutopick();
+    void NotifyChaosRunStarted(string difficulty);
+    void NotifyChaosFocusLow();
+    void NotifyChaosGoldFirst();
+    void NotifyChaosDuoDemo();
 }
 
 public interface IVideoInfo

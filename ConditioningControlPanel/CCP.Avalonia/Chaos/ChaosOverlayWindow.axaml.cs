@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using global::Avalonia;
@@ -172,9 +172,7 @@ CountdownText.RenderTransform = _countdownScale;
         BtnSkipBoon.IsVisible = _skipAllowed;
         if (_skipAllowed && !ChaosMeta.State.SeenSkipDebut)
         {
-            ChaosMeta.State.SeenSkipDebut = true;
-            ChaosMeta.Save();
-            ChaosAnnouncerOverlay.Announce("you're allowed to refuse now.", ChaosAnnounceKind.Willpower);
+            ChaosHappyPath.OnSkipDebutAvailable();
         }
 
         BoonCardHost.Children.Clear();

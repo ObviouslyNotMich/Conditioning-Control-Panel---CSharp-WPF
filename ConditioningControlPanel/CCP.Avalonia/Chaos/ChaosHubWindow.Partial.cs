@@ -121,12 +121,7 @@ public partial class ChaosHubWindow
         catch (Exception ex) { _logger?.Warning("Chaos intro guide failed ({E})", ex.Message); }
         try
         {
-            if (!ChaosMeta.State.SeenDollhouse)
-            {
-                ChaosMeta.State.SeenDollhouse = true;
-                ChaosMeta.Save();
-                AvaloniaChaosApp.Bark?.NotifyChaosDollhouseFirstOpen();
-            }
+            ChaosHappyPath.OnDollhouseFirstOpen();
         }
         catch (Exception ex) { _logger?.Information("Dollhouse first-open beat: {E}", ex.Message); }
         RunRevealFlashes("hub_open");

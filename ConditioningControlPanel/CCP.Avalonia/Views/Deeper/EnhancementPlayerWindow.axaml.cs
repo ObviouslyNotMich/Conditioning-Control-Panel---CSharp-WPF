@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Collections;
@@ -20,6 +21,7 @@ using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models.Deeper;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Deeper;
+using ConditioningControlPanel.Avalonia.Services.Deeper;
 using LibVLCSharp.Shared;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Views.Deeper;
@@ -60,8 +62,9 @@ public partial class EnhancementPlayerWindow : Window
     private Enhancement? _miniEnhancement;
     private double _miniTotalSeconds;
 
-    // Engine-host stub state
-    private bool _engineBound;
+    // Engine-host state
+    private readonly EnhancementHostService _host;
+    private AvaloniaLibVlcTimeSource? _timeSource;
 
     public EnhancementPlayerWindow()
     {
@@ -69,7 +72,11 @@ public partial class EnhancementPlayerWindow : Window
 
         _libVlc = App.Services.GetRequiredService<LibVLC>();
         _dialogService = App.Services.GetRequiredService<IDialogService>();
+        _host = App.Services.GetRequiredService<EnhancementHostService>();
         _mediaPlayer = new MediaPlayer(_libVlc);
+
+        _host.ActionLogged += OnHostActionLogged;
+        _host.Diagnostic += OnHostDiagnostic;
 
         WireMediaPlayerEvents();
 
@@ -159,7 +166,8 @@ public partial class EnhancementPlayerWindow : Window
     {
         BtnPlayPause.Content = "▶";
         TxtStatus.Text = Loc.Get("deeper_player_status_ended");
-        UnbindEngineIfRunning();
+        _host.UnbindEngine();
+        DisposeTimeSource();
     }
 
     // ========================================================================
@@ -198,6 +206,8 @@ public partial class EnhancementPlayerWindow : Window
         _loadedEnhancement = enh;
         _loadedFilePath = path;
 
+        _host.LoadFromMemory(enh, path);
+
         UpdateHostUi(enh, path);
         OnEnhancementLoadedForMini(enh);
 
@@ -222,7 +232,7 @@ public partial class EnhancementPlayerWindow : Window
     {
         _loadedEnhancement = null;
         _loadedFilePath = null;
-        UnbindEngineIfRunning();
+        _host.Unload();
         UpdateHostUi(null, null);
         OnEnhancementLoadedForMini(null);
     }
@@ -977,8 +987,7 @@ public partial class EnhancementPlayerWindow : Window
 
     private void EventOpenInEditor_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: wire once DeeperEditorWindow is ported to Avalonia.
-        IngestDiagnosticLine(Loc.Get("deeper_player_diag_open_editor_stub"));
+        OpenLoadedEnhancementInEditor();
     }
 
     // ========================================================================
@@ -1026,9 +1035,37 @@ public partial class EnhancementPlayerWindow : Window
     private async void BtnLoadUrl_Click(object? sender, RoutedEventArgs e)
     {
         ChangePopup.IsOpen = false;
-        // TODO: implement URL prompt dialog for Avalonia.
-        IngestDiagnosticLine(Loc.Get("deeper_player_diag_url_stub"));
-        await Task.CompletedTask;
+        var dialog = new UrlPromptDialog();
+        var result = await dialog.ShowDialog<bool?>(this);
+        if (result != true || string.IsNullOrWhiteSpace(dialog.Result)) return;
+
+        await FetchEnhancementFromUrlAsync(dialog.Result);
+    }
+
+    private static readonly HttpClient _httpClient = new();
+
+    private async Task FetchEnhancementFromUrlAsync(string url)
+    {
+        try
+        {
+            TxtStatus.Text = Loc.Get("deeper_player_status_loading_url");
+            using var response = await _httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            var json = await response.Content.ReadAsStringAsync();
+            var enh = EnhancementSerializer.Load(json);
+            var issues = EnhancementValidator.Validate(enh);
+            var firstError = issues.FirstOrDefault(i => i.Severity == ValidationSeverity.Error);
+            if (firstError != null)
+            {
+                IngestErrorLine(string.Format(Loc.Get("deeper_player_error_validation_fmt"), firstError.Message));
+                return;
+            }
+            LoadEnhancement(enh, url);
+        }
+        catch (Exception ex)
+        {
+            IngestErrorLine(string.Format(Loc.Get("deeper_player_error_fetch_url_fmt"), ex.Message));
+        }
     }
 
     private void BtnCreateNewEnhancement_Click(object? sender, RoutedEventArgs e)
@@ -1040,8 +1077,21 @@ public partial class EnhancementPlayerWindow : Window
 
     private void BtnOpenInEditor_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: wire to Avalonia Deeper editor once ported.
-        IngestDiagnosticLine(Loc.Get("deeper_player_diag_open_editor_stub"));
+        OpenLoadedEnhancementInEditor();
+    }
+
+    private void OpenLoadedEnhancementInEditor()
+    {
+        if (_loadedEnhancement == null) return;
+        try
+        {
+            var editor = new DeeperEditorWindow(_loadedEnhancement, _loadedFilePath);
+            editor.Show();
+        }
+        catch (Exception ex)
+        {
+            IngestErrorLine(string.Format(Loc.Get("deeper_editor_preview_open_failed_fmt"), ex.Message));
+        }
     }
 
     private void BtnZoomIn_Click(object? sender, RoutedEventArgs e)
@@ -1067,24 +1117,36 @@ public partial class EnhancementPlayerWindow : Window
     }
 
     // ========================================================================
-    // Engine-host stub
+    // Engine-host binding
     // ========================================================================
 
     private void BindEngineIfReady()
     {
         if (_loadedEnhancement == null) return;
-        if (_engineBound) return;
-        _engineBound = true;
-        IngestDiagnosticLine(Loc.Get("deeper_player_diag_engine_bound"));
-        // TODO: integrate Core EnhancementEngine / EnhancementHostService once migrated from WPF.
+        if (_host.IsRunning) return;
+        if (_timeSource != null) return;
+
+        var dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
+        _timeSource = new AvaloniaLibVlcTimeSource(_mediaPlayer, dispatcher, VideoView);
+        _host.Bind(_timeSource, attach: () => _timeSource.StartTicking(), detach: () => _timeSource.StopTicking());
     }
 
     private void UnbindEngineIfRunning()
     {
-        if (!_engineBound) return;
-        _engineBound = false;
-        IngestDiagnosticLine(Loc.Get("deeper_player_diag_engine_unbound"));
+        _host.UnbindEngine();
+        DisposeTimeSource();
     }
+
+    private void DisposeTimeSource()
+    {
+        if (_timeSource == null) return;
+        _timeSource.Dispose();
+        _timeSource = null;
+    }
+
+    private void OnHostActionLogged(string line) => IngestActionLine(line);
+
+    private void OnHostDiagnostic(string line) => IngestDiagnosticLine(line);
 
     // ========================================================================
     // Drag & drop
@@ -1173,6 +1235,8 @@ public partial class EnhancementPlayerWindow : Window
         try { _uiTimer.Stop(); } catch { }
         try { _uiTimer.Tick -= UiTimer_Tick; } catch { }
         try { UnbindEngineIfRunning(); } catch { }
+        try { _host.ActionLogged -= OnHostActionLogged; } catch { }
+        try { _host.Diagnostic -= OnHostDiagnostic; } catch { }
         try { StopInternal(); } catch { }
         try { _mediaPlayer.Dispose(); } catch { }
     }

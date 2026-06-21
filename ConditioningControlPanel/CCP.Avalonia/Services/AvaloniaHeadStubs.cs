@@ -14,6 +14,7 @@ using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
 using Microsoft.Extensions.DependencyInjection;
 using AvaloniaChaosTuning = ConditioningControlPanel.Avalonia.Chaos.ChaosTuning;
+using ChaosNarrativeContext = ConditioningControlPanel.Core.Services.Chaos.ChaosNarrativeContext;
 
 namespace ConditioningControlPanel.Avalonia.Services;
 
@@ -96,6 +97,7 @@ public sealed class AvaloniaChaosService : IChaosService
     private int _chromeRaiseTick;
     private int _waveIndex;
     private int _waveCount;
+    private bool _scriptedDraftPending;
 
     // ---- hold-to-defuse focus economy state ----
     private double _focusLowAccumSec;
@@ -146,6 +148,8 @@ public sealed class AvaloniaChaosService : IChaosService
         try
         {
             var config = cfg as ChaosRunConfig ?? ChaosRunConfig.FromSettings();
+            if (ChaosMeta.State.RunsCompleted == 0)
+                config = ChaosHappyPath.BuildFirstRunConfig();
             AvaloniaChaosMode.ActiveMode = config.PlayMode;
 
             _bubbles.PauseAndClear();
@@ -172,6 +176,7 @@ public sealed class AvaloniaChaosService : IChaosService
             };
             _waveCount = Math.Max(1, config.WaveCount);
             _waveIndex = 1;
+            _state.WaveCount = _waveCount;
             _active = true;
             _spawning = false;
             _paused = false;
@@ -272,6 +277,11 @@ public sealed class AvaloniaChaosService : IChaosService
             OnChannelBroken);
         _spawning = true;
         _state.PushEvent("🐇 the descent begins");
+
+        ChaosHappyPath.OnRunStarted(_state, this);
+        if (ChaosMeta.State.RunsCompleted == 0)
+            ChaosHappyPath.OnFirstDescentStarted(_state);
+        try { AvaloniaChaosApp.Bark?.NotifyChaosRunStarted(_state.Config.Difficulty); } catch { }
 
         // Apply equipped start boon, if any.
         var equipped = ChaosMeta.State.EquippedStartBoon;
@@ -395,6 +405,8 @@ public sealed class AvaloniaChaosService : IChaosService
             _state.ChannelHeldSec = (DateTime.UtcNow - _state.ChannelStartTime).TotalSeconds;
         }
 
+        ChaosHappyPath.Tick(dt);
+
         // rh_focus_low: warn once per run if focus sits below a defuse's price while lives remain.
         if (!_focusLowBarkFired && _state.FocusLow && _bubbles.ActiveBubbles > 0)
         {
@@ -403,6 +415,7 @@ public sealed class AvaloniaChaosService : IChaosService
             {
                 _focusLowBarkFired = true;
                 _state.PushEvent("◌ low focus. pop treats before you grab a live one.");
+                try { AvaloniaChaosApp.Bark?.NotifyChaosFocusLow(); } catch { }
             }
         }
         else _focusLowAccumSec = 0;
@@ -426,13 +439,7 @@ public sealed class AvaloniaChaosService : IChaosService
                 ChaosLessonHooks.OnLoopCompleted();
                 _waveIndex++;
                 _state.WaveIndex = _waveIndex;
-
-                var waveCtx = BuildNarrativeContext(depth: _waveIndex);
-                ChaosNarrativeHooks.OnWaveStart(_waveIndex, waveCtx);
-                var waveConvo = ChaosNarrativeDirector.Pick(waveCtx, "zone_border")
-                    ?? (_waveIndex >= 5 ? ChaosNarrativeDirector.Pick(waveCtx, "depthV_enter") : null);
-                if (waveConvo != null)
-                    RunOnUi(() => _overlay?.ShowConversation(waveConvo, null, () => { }));
+                ShowWaveConversation(_waveIndex);
             }
         }
     }
@@ -484,12 +491,22 @@ public sealed class AvaloniaChaosService : IChaosService
         if (_state == null) return;
         ChaosLessonHooks.OnTreatPopped(spec.VariantId);
         ChaosNarrativeHooks.OnFirstPop(BuildNarrativeContext(depth: _waveIndex));
+
+        if (spec.IsGolden)
+        {
+            int gold = 12 + _rng.Next(13);
+            ChaosMeta.AddGold(gold);
+            _state.PushEvent($"{ChaosGlyphs.Gold} +{gold} gold");
+            ChaosHappyPath.OnGoldFirstSeen();
+        }
+
+        double focusGain = spec.IsGolden ? AvaloniaChaosTuning.FocusPerGolden : AvaloniaChaosTuning.FocusPerPop;
         double basePay = 100 * (_state.DifficultyMult) * (1 + _state.Heat);
         double pay = basePay * _state.ComboMult * _state.BoonMult * _state.UrgeMult;
         _state.Score += pay;
         _state.Combo++;
         _state.EffectsFired++;
-        _state.Focus = Math.Min(_state.FocusMax, _state.Focus + AvaloniaChaosTuning.FocusPerPop);
+        _state.Focus = Math.Min(_state.FocusMax, _state.Focus + focusGain);
         _state.Heat = Math.Min(1.0, _state.Heat + 0.02);
         UpdateStateText();
     }
@@ -510,6 +527,7 @@ public sealed class AvaloniaChaosService : IChaosService
 
         ChaosLessonHooks.OnDefuseCompleted(fuseSec, viaChannel);
         ChaosNarrativeHooks.OnFirstDefuse(BuildNarrativeContext(depth: _waveIndex));
+        ChaosHappyPath.OnDefuseCompleted();
 
         double basePay = 250 * _state.DifficultyMult * (1 + _state.Heat);
         double pay = basePay * _state.ComboMult * _state.BoonMult * _state.UrgeMult;
@@ -626,7 +644,22 @@ public sealed class AvaloniaChaosService : IChaosService
         ChaosNarrativeHooks.OnBoonDraft(_waveIndex, BuildNarrativeContext(depth: _waveIndex));
 
         var options = PickDraftOptions(_state.Config.AllowCurses);
-        RunOnUi(() => _overlay?.ShowBoonDraft(_waveIndex, options, OnBoonPicked, autoResumeSec: 12));
+        ChaosHappyPath.RigDraft(options, _state);
+        RunOnUi(() => _overlay?.ShowBoonDraft(_waveIndex, options, OnBoonPicked, autoResumeSec: _state.Config.DraftAutoResumeSec));
+    }
+
+    /// <summary>Internal hook for ChaosHappyPath's scripted mid-run draft (run 1).</summary>
+    internal bool TriggerScriptedDraft(List<ChaosBoon> options)
+    {
+        if (_overlay == null || _state == null || !_spawning || _paused || _manualPaused || _ending) return false;
+        if (options.Count == 0) return false;
+        _paused = true;
+        _bubbles.SetChaosFrozen(true);
+        _bubbles.SetChaosInputLocked(true);
+        _scriptedDraftPending = true;
+        foreach (var o in options) ChaosMeta.MarkDiscovered("boon:" + o.Id);
+        RunOnUi(() => _overlay?.ShowBoonDraft(_waveIndex, options, OnBoonPicked, autoResumeSec: _state.Config.DraftAutoResumeSec));
+        return true;
     }
 
     private List<ChaosBoon> PickDraftOptions(bool allowCurses)
@@ -647,17 +680,37 @@ public sealed class AvaloniaChaosService : IChaosService
     private void OnBoonPicked(ChaosBoon? boon)
     {
         if (_state == null || !_active) return;
+        bool scripted = _scriptedDraftPending;
+        _scriptedDraftPending = false;
+
         if (boon != null)
         {
-            _state.ApplyBoon(boon);
+            bool shielded = ChaosHappyPath.ShouldShieldSin(boon.Id);
+            _state.ApplyBoon(boon, shielded);
             _state.RunPickTiles.Add(new ChaosSidebarBoon { Id = boon.Id, Name = boon.Name, Glyph = boon.IsCurse ? "☠" : "◈" });
-            _state.PushEvent($"{(boon.IsCurse ? "☠ accepted" : "◈ chose")} {boon.Name}");
+            _state.PushEvent($"{(boon.IsCurse ? (shielded ? "☠ shielded" : "☠ accepted") : "◈ chose")} {boon.Name}");
             ChaosLessonHooks.OnDraftCardTaken(boon.IsCurse);
             if (boon.IsCurse)
+            {
                 ChaosNarrativeHooks.OnSinAccepted(boon.Id, BuildNarrativeContext(depth: _waveIndex));
+                if (shielded) ChaosHappyPath.OnSinAccepted();
+            }
         }
+        ChaosHappyPath.OnDraftResolved();
+
+        if (scripted)
+        {
+            _paused = false;
+            _bubbles.SetChaosInputLocked(false);
+            _bubbles.SetChaosFrozen(false);
+            UpdateStateText();
+            return;
+        }
+
         _waveIndex++;
         _state.WaveIndex = _waveIndex;
+        ShowWaveConversation(_waveIndex);
+
         _paused = false;
         _bubbles.SetChaosInputLocked(false);
         _bubbles.SetChaosFrozen(false);
@@ -695,6 +748,7 @@ public sealed class AvaloniaChaosService : IChaosService
             ChaosMeta.State.TotalRunSeconds += state.ElapsedSec;
             ChaosMeta.Save();
             RevealService.Sync("run_complete");
+            ChaosHappyPath.OnRunResultsShown(state, baseXp, skillMult, finalXp, previousBest, sparks);
 
             RunOnUi(() =>
             {
@@ -709,6 +763,7 @@ public sealed class AvaloniaChaosService : IChaosService
 
     private void CleanupAfterRun()
     {
+        ChaosHappyPath.OnRunEnded();
         _ending = false;
         _active = false;
         _spawning = false;
@@ -1158,6 +1213,16 @@ public sealed class AvaloniaChaosService : IChaosService
         return ctx;
     }
 
+    private void ShowWaveConversation(int depth)
+    {
+        var ctx = BuildNarrativeContext(depth);
+        ChaosNarrativeHooks.OnWaveStart(depth, ctx);
+        var convo = ChaosNarrativeDirector.Pick(ctx, "zone_border")
+            ?? (depth >= 5 ? ChaosNarrativeDirector.Pick(ctx, "depthV_enter") : null);
+        if (convo != null)
+            RunOnUi(() => _overlay?.ShowConversation(convo, null, () => { }));
+    }
+
     private void RunOnUi(Action action)
     {
         if (_dispatcher != null)
@@ -1249,6 +1314,10 @@ public sealed class AvaloniaBarkService : IBarkService
     public void NotifyChaosRankUp(string rankName) { }
     public void NotifyChaosGiftGiven() { }
     public void NotifyChaosDraftAutopick() { }
+    public void NotifyChaosRunStarted(string difficulty) { }
+    public void NotifyChaosFocusLow() { }
+    public void NotifyChaosGoldFirst() { }
+    public void NotifyChaosDuoDemo() { }
 }
 
 /// <summary>Video state for the Avalonia head, backed by the dual-monitor video service.</summary>

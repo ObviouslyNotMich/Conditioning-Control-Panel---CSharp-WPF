@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using global::Avalonia;
@@ -11,6 +11,7 @@ using global::Avalonia.Interactivity;
 using global::Avalonia.Threading;
 
 using Microsoft.Extensions.DependencyInjection;
+using ChaosNarrativeContext = ConditioningControlPanel.Core.Services.Chaos.ChaosNarrativeContext;
 namespace ConditioningControlPanel.Avalonia.Chaos;
 
 public partial class ChaosHubWindow : Window

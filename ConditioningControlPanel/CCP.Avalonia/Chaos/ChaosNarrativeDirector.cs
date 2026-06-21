@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
+using ChaosNarrativeContext = ConditioningControlPanel.Core.Services.Chaos.ChaosNarrativeContext;
 
 namespace ConditioningControlPanel.Avalonia.Chaos;
 
@@ -157,7 +159,6 @@ public static class ChaosNarrativeDirector
     {
         if (g == null) return true;
         if (g.RankMin > 0 && ctx.RankIndex < g.RankMin) return false;
-        if (g.RankMax > 0 && ctx.RankIndex > g.RankMax) return false;
         if (g.DepthMatch is { } dm)
         {
             bool ok = dm switch

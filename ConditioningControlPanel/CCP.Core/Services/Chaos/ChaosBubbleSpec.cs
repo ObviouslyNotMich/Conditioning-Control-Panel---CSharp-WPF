@@ -121,4 +121,10 @@ public sealed class ChaosBubbleSpec
 
     /// <summary>True if the bubble should receive a spotlight highlight.</summary>
     public bool Spotlight { get; init; }
+
+    /// <summary>Visual/effect intensity multiplier (0..1+). WPF parity; safe default 1.0.</summary>
+    public double EffectIntensity { get; init; } = 1.0;
+
+    /// <summary>Chance this bubble drifts sideways during motion. WPF parity.</summary>
+    public double SideDriftChance { get; init; }
 }

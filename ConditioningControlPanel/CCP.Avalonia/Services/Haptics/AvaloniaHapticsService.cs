@@ -127,4 +127,16 @@ public sealed class AvaloniaHapticsService : IHapticsService
         _logger?.Information("Haptics test completed (stub)");
         return true;
     }
+
+    public Task SetSyncPatternAsync(float[] samples, int durationMs)
+    {
+        _logger?.Debug("Haptics sync pattern ignored (stub): {Duration}ms", durationMs);
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync()
+    {
+        _logger?.Debug("Haptics stop ignored (stub)");
+        return Task.CompletedTask;
+    }
 }

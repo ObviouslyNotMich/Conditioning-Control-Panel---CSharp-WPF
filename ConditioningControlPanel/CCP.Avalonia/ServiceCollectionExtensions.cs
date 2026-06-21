@@ -21,6 +21,8 @@ using ConditioningControlPanel.Avalonia.Services.Webcam;
 using ConditioningControlPanel.Avalonia.Services.Sessions;
 using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Avalonia.Services.Moderation;
+using ConditioningControlPanel.Avalonia.Services.Avatar;
+using ConditioningControlPanel.Core.Services.Avatar;
 using ConditioningControlPanel.Avalonia.Services.RemoteControl;
 using ConditioningControlPanel.Avalonia.Services.Video;
 using ConditioningControlPanel.Avalonia.ViewModels;
@@ -46,6 +48,7 @@ using ConditioningControlPanel.Core.Services.Webcam;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Update;
 using ConditioningControlPanel.Core.Services.Chaos;
+using ConditioningControlPanel.Core.Services.Deeper;
 using LibVLCSharp.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -172,6 +175,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IKeywordTriggerPresetService, AvaloniaKeywordTriggerPresetService>();
         services.AddSingleton<IKeywordTriggerService, AvaloniaKeywordTriggerService>();
         services.AddSingleton<ICompanionPhraseService, AvaloniaCompanionPhraseService>();
+        services.AddSingleton<IAvatarPortraitService, AvaloniaAvatarPortraitService>();
         services.AddSingleton<IAvailableSubjectsService, AvailableSubjectsService>();
         services.AddSingleton<IRemoteControlService, AvaloniaRemoteControlService>();
         services.AddSingleton<ILockdownService, AvaloniaLockdownService>();
@@ -179,6 +183,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<IStartupRegistration, AvaloniaStartupRegistration>();
         services.AddSingleton<ChaosCrashSentinel>();
+
+        // Deeper enhancement runtime.
+        services.AddTransient<RealActionDispatcher>();
+        services.AddSingleton<EnhancementHostService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

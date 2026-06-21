@@ -22,6 +22,7 @@ using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.AIService;
+using ConditioningControlPanel.Core.Services.Avatar;
 using ConditioningControlPanel.Core.Services.AvatarTube;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ModerationSource = ConditioningControlPanel.Core.Services.Moderation.ModerationSource;
@@ -165,6 +166,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             _audioPlayer = App.Services.GetService<IAudioPlayer>();
             _progression = App.Services.GetService<IProgressionService>();
             _modService = App.Services.GetService<global::ConditioningControlPanel.IModService>();
+            _portraitService = App.Services.GetService<IAvatarPortraitService>();
             if (_modService != null)
                 _modService.ActiveModChanged += OnModChanged;
 _parentWindow = parentWindow;
@@ -195,6 +197,9 @@ _parentWindow = parentWindow;
             ApplyAvatarTransform(_currentAvatarSet);
             UpdateTitleDisplay(playerLevel);
             UpdateNavigationArrows();
+
+            if (UsePortraitSystem())
+                TryEnterPortraitMode();
 
             WireParentEvents();
 
@@ -850,6 +855,9 @@ _parentWindow = parentWindow;
             if (_circeEmoteMode)
                 CircePlayEmote(emotionLineId, phraseAudioPath, text, mood);
 
+            if (_portraitMode)
+                PlayEmotionForLine(emotionLineId, phraseAudioPath, text, mood);
+
             PopulateSpeechBubble(text);
             AdjustBubbleSize(text);
             if (SpeechBubble != null) SpeechBubble.IsVisible = true;
@@ -1234,19 +1242,6 @@ _parentWindow = parentWindow;
         }
 
         private void StopVoiceLineAudio() => StopSpokenAudio();
-
-        private double AudioDurationSec(string path)
-        {
-            try
-            {
-                if (!File.Exists(path)) return 0;
-                var info = new FileInfo(path);
-                return Math.Clamp(info.Length / 16000.0, 1.0, 30.0);
-            }
-            catch { return 0; }
-        }
-
-        private double EstimateDurationSec(string? text) => Math.Max(1, (text?.Length ?? 0) / 12.0);
 
         // ===== Helpers =====
         private bool IsSpeechReady()

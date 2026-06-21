@@ -21,6 +21,12 @@ public sealed class AvaloniaWebcamService : IWebcamService
 
     public bool IsRunning => _isRunning;
 
+    public event Action? OnBlink;
+    public event Action? OnMouthOpen;
+    public event Action<Point>? OnGazeMove;
+    public event Action? OnFaceLost;
+    public event Action? OnFaceFound;
+
     public void StartTracking()
     {
         _isRunning = true;

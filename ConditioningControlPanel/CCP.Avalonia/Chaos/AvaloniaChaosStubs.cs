@@ -162,7 +162,6 @@ public sealed class ChaosConversation
 public sealed class ChaosLineGate
 {
     public int RankMin { get; set; }
-    public int RankMax { get; set; }
     public ChaosDepthMatch? DepthMatch { get; set; }
     public int DepthA { get; set; }
     public int DepthB { get; set; }
@@ -186,16 +185,6 @@ public sealed class ChaosNarrativeCue
     public int Weight { get; set; } = 1;
     public string Text { get; set; } = "";
     public string? AudioKey { get; set; }
-}
-
-public sealed class ChaosNarrativeContext
-{
-    public string Trigger { get; set; } = "";
-    public int Depth { get; set; } = 1;
-    public int RankIndex { get; set; }
-    public IReadOnlyCollection<string>? OwnedItemIds { get; set; }
-    public string? SinId { get; set; }
-    public IReadOnlyDictionary<string, double>? RunStats { get; set; }
 }
 
 public sealed class ChaosToyState : INotifyPropertyChanged
@@ -267,6 +256,24 @@ public sealed class ChaosRunConfig
     public int StartingShields { get; set; } = 0;
     public double StartingFocus { get; set; } = 50;
 
+    // ---- happy-path / WPF parity knobs (kept additive; defaults are safe defaults) ----
+    public bool ScriptedFirstRun { get; set; }
+    public double SpawnRateMult { get; set; } = 1.0;
+    public double SinChance { get; set; } = 0.5;
+    public double EffectIntensity { get; set; } = 1.0;
+    public int DraftAutoResumeSec { get; set; } = 12;
+    public bool AmbientMode { get; set; }
+    public bool MagnetEnabled { get; set; }
+    public double FuseTimeMult { get; set; } = 1.0;
+    public bool PopupHeartEnabled { get; set; } = true;
+    public bool PendulumSwing { get; set; }
+    public double HitboxScale { get; set; } = 1.0;
+    public int DraftChoices { get; set; } = 3;
+    public bool ScreenShakeEnabled { get; set; } = true;
+    public bool ColorFlashesEnabled { get; set; } = true;
+    public double ShakeIntensity { get; set; } = 1.0;
+    public ChaosMotion? MotionOverride { get; set; }
+
     public static ChaosRunConfig FromSettings()
     {
         var s = App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current;
@@ -287,6 +294,10 @@ public sealed class ChaosRunConfig
             BaseMult = 1.0,
             StartingShields = 0,
             StartingFocus = 50,
+            EffectIntensity = s.ChaosEffectIntensity,
+            ScreenShakeEnabled = s.ChaosScreenShakeEnabled,
+            ColorFlashesEnabled = s.ChaosColorFlashesEnabled,
+            ShakeIntensity = s.ChaosShakeIntensity,
         };
     }
 
@@ -327,9 +338,12 @@ public sealed class ChaosRunState : INotifyPropertyChanged
     public string ChannelText { get; set; } = "";
 
     public double RunProgress { get; set; }
+    /// <summary>Mirrors WPF RunIntensity; currently tracks progress intensity 0..1.</summary>
+    public double RunIntensity => RunProgress;
     public string RunTimeText { get; set; } = "0:00";
     public string ActWaveText { get; set; } = "I · 1";
     public double RunDurationSec { get; set; } = 180;
+    public int WaveCount { get; set; } = 5;
     public double ElapsedSec { get; set; }
     public int ActIndex { get; set; } = 1;
     public int WaveIndex { get; set; } = 1;
@@ -987,11 +1001,62 @@ public static class ChaosBubbleVariants
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public Color Tint { get; set; }
+        public bool IsLive { get; set; }
     }
 
     public static List<Variant> All { get; } = new();
     public static string DescriptionFor(string id) => "";
     public static List<BubblePreset> Presets { get; } = new();
+
+    /// <summary>Build a variant spec from its catalog definition.</summary>
+    public static ChaosBubbleSpec Build(Variant variant, double intensity, double fuseTimeMult = 1.0,
+        ChaosMotion? motionOverride = null, double effectIntensity = 1.0, double sizeScale = 1.0,
+        double sideDriftChance = 0.0)
+    {
+        var rng = Random.Shared;
+        double size = 80 + rng.NextDouble() * 80;
+        bool isLive = variant.IsLive;
+        int fuseMs = isLive ? (int)(4000 * fuseTimeMult * (1.1 - intensity * 0.2)) : 0;
+        var motion = motionOverride ?? variant.Id switch
+        {
+            "flash" => ChaosMotion.FloatUp,
+            "subliminal" => ChaosMotion.RainDown,
+            "braindrain" => ChaosMotion.RoamBounce,
+            "pink" => ChaosMotion.RoamBounce,
+            "spiral" => ChaosMotion.RoamBounce,
+            _ => rng.Next(3) switch { 0 => ChaosMotion.FloatUp, 1 => ChaosMotion.RainDown, _ => ChaosMotion.RoamBounce }
+        };
+        var tint = variant.Tint;
+        return new ChaosBubbleSpec
+        {
+            VariantId = variant.Id,
+            PayloadKind = variant.Id,
+            SizePx = size * sizeScale,
+            IsLive = isLive,
+            FuseMs = Math.Max(500, fuseMs),
+            Motion = motion,
+            SpeedMult = 1.0 + rng.NextDouble() * 0.5,
+            EffectIntensity = effectIntensity,
+            SideDriftChance = sideDriftChance,
+            TintR = tint.R, TintG = tint.G, TintB = tint.B,
+        };
+    }
+
+    /// <summary>Build a lucky golden income bubble spec.</summary>
+    public static ChaosBubbleSpec BuildGolden()
+    {
+        var rng = Random.Shared;
+        return new ChaosBubbleSpec
+        {
+            VariantId = "golden",
+            PayloadKind = "golden",
+            IsGolden = true,
+            SizePx = 110 + rng.NextDouble() * 30,
+            Motion = rng.NextDouble() < 0.5 ? ChaosMotion.FloatUp : ChaosMotion.RainDown,
+            SpeedMult = 2.8,
+            TintR = 0xFF, TintG = 0xD7, TintB = 0x00,
+        };
+    }
 
     /// <summary>Builds a white-rabbit darter bubble spec for the Rabbit Caller active toy.</summary>
     public static ChaosBubbleSpec BuildDarter(double intensity = 1.0, bool spotlight = false,
@@ -1127,6 +1192,7 @@ public static class ChaosNarrativeHooks
         _sawFirstDefuse = false;
         _sawFirstDetonation = false;
         ctx.Trigger = "run_start";
+        if (ChaosHappyPath.IsScripting) return;
         ChaosNarrativeDirector.Fire(ctx);
     }
 
@@ -1159,7 +1225,7 @@ public static class ChaosNarrativeHooks
 
     public static void OnWaveStart(int waveIndex, ChaosNarrativeContext ctx)
     {
-        if (!_active) return;
+        if (!_active || ChaosHappyPath.IsScripting) return;
         ctx.Trigger = "zone_border";
         ctx.Depth = waveIndex;
         ChaosNarrativeDirector.Fire(ctx);
@@ -1173,7 +1239,7 @@ public static class ChaosNarrativeHooks
 
     public static void OnFirstPop(ChaosNarrativeContext ctx)
     {
-        if (!_active || _sawFirstPop) return;
+        if (!_active || _sawFirstPop || ChaosHappyPath.IsScripting) return;
         _sawFirstPop = true;
         ctx.Trigger = "first_pop";
         ChaosNarrativeDirector.Fire(ctx);
@@ -1181,7 +1247,7 @@ public static class ChaosNarrativeHooks
 
     public static void OnFirstDefuse(ChaosNarrativeContext ctx)
     {
-        if (!_active || _sawFirstDefuse) return;
+        if (!_active || _sawFirstDefuse || ChaosHappyPath.IsScripting) return;
         _sawFirstDefuse = true;
         ctx.Trigger = "first_defuse";
         ChaosNarrativeDirector.Fire(ctx);
@@ -1189,7 +1255,7 @@ public static class ChaosNarrativeHooks
 
     public static void OnFirstDetonation(ChaosNarrativeContext ctx)
     {
-        if (!_active || _sawFirstDetonation) return;
+        if (!_active || _sawFirstDetonation || ChaosHappyPath.IsScripting) return;
         _sawFirstDetonation = true;
         ctx.Trigger = "first_bare_deto";
         ChaosNarrativeDirector.Fire(ctx);
@@ -1197,14 +1263,14 @@ public static class ChaosNarrativeHooks
 
     public static void OnBrinkDefuse(ChaosNarrativeContext ctx)
     {
-        if (!_active) return;
+        if (!_active || ChaosHappyPath.IsScripting) return;
         ctx.Trigger = "brink_defuse";
         ChaosNarrativeDirector.Fire(ctx);
     }
 
     public static void OnSinAccepted(string sinId, ChaosNarrativeContext ctx)
     {
-        if (!_active) return;
+        if (!_active || ChaosHappyPath.IsScripting) return;
         ctx.Trigger = "sin_accepted";
         ctx.SinId = sinId;
         ChaosNarrativeDirector.Fire(ctx);

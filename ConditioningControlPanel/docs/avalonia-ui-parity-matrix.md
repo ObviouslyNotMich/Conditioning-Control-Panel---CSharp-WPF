@@ -18,9 +18,10 @@ Last updated: 2026-06-21
 - **Biggest remaining gaps:**
   1. **Dialogs & windows** — structure and commands are wired; all audited dialogs are now localized. Remaining hard-coded content is limited to a few WPF-only message strings and symbol-only affordances. `FeatureSettingsPopup` editor is fully ported.
   2. **Feature controls** — XAML and settings binding are solid; `ISessionEffectOrchestrator` starts/stops Flash, Video, Subliminal, MindWipe, BouncingText, Bubbles, BubbleCount, LockCard, and Overlay services. The Flash, Video (including attention checks, strict mode, and post-play penalties), BouncingText, Subliminal, MindWipe, LockCard, pink-filter/spiral/brain-drain, and ad-hoc timed/sustained overlay engines are real implementations.
-  3. **Chaos overlays** — cursor-glow scale pulse, effect-banner throb, and field-FX radial shards/scale-shrink are now implemented. `AvaloniaChaosWindowZ` uses Windows `SetWindowPos` for focus-free topmost re-assert. `AvaloniaChaosService` now runs a full countdown → descent → spawn loop → scoring/heat/combo → wave-end draft → results lifecycle. Meta persistence (`ChaosMetaStore`), `RevealService`, boon runtime application, focus economy/hold-to-defuse, active toy framework, and lessons are now wired. Remaining: narrative/story cards, happy-path scripting, and minor FX/telemetry polish. Localization remains parity-only (unlocalized like WPF).
-  4. **AvatarTube** — window shell and core behavior restored (speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order). Fullscreen detection of other apps and context-menu toggles (engine/takeover/whispers/browser pause) are now wired. Emotive portrait system remains stubbed.
-  5. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Virtual-key names remain English internal identifiers to keep settings compatibility.
+  3. **Chaos overlays** — full parity: core animations/z-order helper, complete run lifecycle, meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting are all wired. Localization remains parity-only (unlocalized like WPF).
+  4. **AvatarTube** — full parity restored: speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order, fullscreen detection, context-menu toggles, and emotive portrait system.
+  5. **Deeper** — runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource` so effects/rules fire during playback. A functional basic editor (metadata/regions/rules/haptics + save/preview) replaces the placeholder; the full WPF visual timeline, curve editor, browser preview, gaze-picker, and waveform cache remain to port.
+  6. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Virtual-key names remain English internal identifiers to keep settings compatibility.
 
 ---
 
@@ -186,7 +187,7 @@ Last updated: 2026-06-21
 | ChaosFlashOverlay.cs | ChaosFlashOverlay.axaml.cs | ✅ | Full-screen flash. |
 | ChaosFxWindow.cs | ChaosFxWindow.cs | ✅ | Effect host window. |
 | ChaosGifCascadeOverlay.cs | ChaosGifCascadeOverlay.axaml.cs | ✅ | GIF-rain overlay. |
-| ChaosHubWindow.* | ChaosHubWindow.axaml + .axaml.cs + .Partial.cs | 🚧 | Catalogue data seeded (lifetime boons, upgrades, mantras, bubble variants); habit/boon/mantra row cards and loadout tiles now render real info with lock/unlock/train/equip affordances. Reveal/debug strips and bench already present; Lessons still use stub progress. |
+| ChaosHubWindow.* | ChaosHubWindow.axaml + .axaml.cs + .Partial.cs | ✅ | Catalogue data seeded (lifetime boons, upgrades, mantras, bubble variants); habit/boon/mantra row cards and loadout tiles now render real info with lock/unlock/train/equip affordances. Reveal/debug strips, bench, and lesson progress now wired. |
 | ChaosHudWindow.* | ChaosHudWindow.axaml + .axaml.cs + VM | ✅ | DropShadow TODOs. |
 | ChaosIntroWindow.cs | ChaosIntroWindow.cs | ✅ | — |
 | ChaosOverlayWindow.* | ChaosOverlayWindow.axaml + .axaml.cs | ✅ | Countdown/draft/results/story cards. |
@@ -197,7 +198,7 @@ Last updated: 2026-06-21
 | ChaosWaveTimerOverlay.cs | ChaosWaveTimerOverlay.axaml.cs | ✅ | — |
 | ChaosSkiaFxOverlay.cs | ChaosSkiaFxOverlay.cs | ✅ | Skia particle FX (trail, burst, ripple, cursor glow, lightning) ported with `ICustomDrawOperation`/`ISkiaSharpApiLease`. |
 | BubbleService.cs | AvaloniaBubbleService.cs + BubbleEngine/BubbleState | ✅ | Ambient + chaos bubbles ported (variants, chain reaction, field hazards, shared-host, global mouse hook). |
-| ChaosModeService.cs | AvaloniaChaosService | 🚧 | Now runs a full countdown → descent → spawn loop → scoring/heat/combo → wave-end boon draft → results lifecycle using `ChaosOverlayWindow`/`ChaosHudWindow` and `IBubbleService`. Still simplified vs WPF (no story cards, active toys, or lesson hooks). |
+| ChaosModeService.cs | AvaloniaChaosService | ✅ | Full countdown → descent → spawn loop → scoring/heat/combo → wave-end boon draft → results lifecycle; meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting all wired. |
 | ChaosWindowZ.cs | AvaloniaChaosWindowZ.cs | ✅ | Windows `SetWindowPos(HWND_TOPMOST/HWND_NOTOPMOST, SWP_NOACTIVATE)` wired; cross-platform fallback toggles `Topmost`. |
 
 **Localization:** ❌ None of the Chaos UI is localized (WPF Chaos was also unlocalized, so this is parity, not a regression).
@@ -210,7 +211,7 @@ Last updated: 2026-06-21
 |----------|---------------------|--------|-------|
 | AvatarTubeWindow.xaml | AvatarTubeWindow.axaml | ✅ | Layout and tube visual ported. |
 | AvatarTubeWindow.xaml.cs | AvatarTubeWindow.axaml.cs | ✅ | Speech/audio timers, AI send, moderation wiring, drag/wheel, chat shortcut, and menu state wired; engine/takeover/whispers/browser-pause toggles now functional. |
-| AvatarTubeWindow.Avatar.cs | AvatarTubeWindow.Avatar.cs | ⚠️ | Static avatar poses and Circe emote mode wired; portrait/emotive system still stubbed. |
+| AvatarTubeWindow.Avatar.cs | AvatarTubeWindow.Avatar.cs | ✅ | Static avatar poses and Circe emote mode wired; emotive-portrait system now implemented with cross-fading, emotion sequences, continuous ambient animation, and speech-driven reactions. |
 | AvatarTubeWindow.ChatInput.cs | AvatarTubeWindow.ChatInput.cs | ✅ | AI reply uses `IAiService.GetBambiReplyExAsync`; moderation refusal handled; avatar click triggers Circe emote. |
 | AvatarTubeWindow.CirceEmotes.cs | AvatarTubeWindow.CirceEmotes.cs | ✅ | `CirceEmoteEngine` drives two-layer GIF crossfades, talk/reaction scheduling, click emotes, and registry-based folder resolution. |
 | AvatarTubeWindow.Reactions.cs | AvatarTubeWindow.Reactions.cs | ✅ | Activity/still-on, flash audio filename, level/companion, mindwipe/braindrain, and lock-card AI reaction hooks implemented. |
@@ -219,6 +220,29 @@ Last updated: 2026-06-21
 | AvatarRandomBubble.cs | AvatarRandomBubble.cs | ⚠️ | Uses `bubble.png`; DPI-aware scaling and pop-sound/XP hooks wired; spawn focus check is Windows-only. |
 
 **Localization:** ✅ Shell and code-driven strings are localized; a few symbol-only affordances remain.
+
+---
+
+## Deeper (`CCP.Avalonia/Views/Deeper`)
+
+| WPF File | Avalonia Equivalent | Status | Notes |
+|----------|---------------------|--------|-------|
+| `EnhancementPlayerWindow.xaml` | `EnhancementPlayerWindow.axaml` | ✅ | Layout ported; uses `vlc:VideoView`; event log, filters, mini-timeline, transport present. |
+| `EnhancementPlayerWindow.xaml.cs` | `EnhancementPlayerWindow.axaml.cs` | ✅ | LibVLC playback, drag-drop, file pickers, mini-timeline, Load URL wired; `EnhancementHostService` + `AvaloniaLibVlcTimeSource` bind the engine for live effect/rule playback. Waveform generation still stubbed. |
+| `NewEnhancementDialog.xaml` | `NewEnhancementDialog.axaml` | ✅ | Visuals and bindings ported. |
+| `NewEnhancementDialog.xaml.cs` | `NewEnhancementDialog.axaml.cs` | 🚧 | Browse/create work; tutorial buttons stubbed. |
+| `DeeperEditorWindow.xaml` | `DeeperEditorWindow.axaml` | 🚧 | Functional first-pass UI: toolbar, tabbed metadata/regions/rules/haptics editors. Visual timeline and curve editor are not yet ported. |
+| `DeeperEditorWindow.xaml.cs` | `DeeperEditorWindow.axaml.cs` | 🚧 | Load/save/validation, dirty-state handling, preview launch, and basic list+property editing are wired. Full WPF timeline drag/curve/browser-preview parity remains. |
+| `UrlPromptDialog.xaml` + `.xaml.cs` | `UrlPromptDialog.axaml` + `.axaml.cs` | ✅ | URL input dialog ported and wired from Load URL. |
+| `GazePickerWindow.xaml` + `.xaml.cs` | `GazePickerWindow.axaml` + `.axaml.cs` | 🚧 | Ported with drag-to-create/move/resize rect, eight resize handles, and Done/Cancel keys. Wired into the basic editor's gaze rect field. Positioned over the editor window since there is no embedded video preview yet. |
+| `Services/Deeper/IPlaybackTimeSource.cs` | `CCP.Core/Services/Deeper/IPlaybackTimeSource.cs` | ✅ | Migrated to Core; `GetVideoRect()` returns cross-platform `PixelRect`. |
+| `Services/Deeper/IActionDispatcher.cs` | `CCP.Core/Services/Deeper/IActionDispatcher.cs` | ✅ | Migrated to Core; `RealActionDispatcher` uses DI-injected cross-platform seams. |
+| `Services/Deeper/EnhancementHostService.cs` | `CCP.Core/Services/Deeper/EnhancementHostService.cs` | ✅ | Migrated to Core; binds engine to any `IPlaybackTimeSource`. |
+| `Services/Deeper/EnhancementEngine.cs` | `CCP.Core/Services/Deeper/EnhancementEngine.cs` | ✅ | Migrated to Core; uses `IWebcamService`, `IUiDispatcher`, `IAppLogger`. |
+| `Services/Deeper/EnhancementAudioPlayer.cs` | — | ⚠️ | Not needed for Avalonia; player uses LibVLC `MediaPlayer` directly. |
+| `Services/Deeper/AudioWaveformCache.cs` | — | ❌ | Waveform peak cache not migrated; audio pane stays blank. |
+
+**Localization:** ✅ UI localized; runtime diagnostics use localized keys.
 
 ---
 
@@ -236,7 +260,7 @@ Last updated: 2026-06-21
 | Windows | ✅ | All audited windows localized; a few symbol-only affordances remain |
 | Chaos overlays | ❌ | All hard-coded English (parity with WPF) |
 | AvatarTube | ✅ | Shell and code-driven strings localized; a few symbol-only affordances remain |
-| Deeper editor/player | ✅ | UI localized; full playback/editor integration still pending audit |
+| Deeper editor/player | ✅ | UI localized; engine/editor integration partially ported (player + URL load done; editor/engine/waveform pending) |
 
 ---
 
@@ -257,9 +281,8 @@ Last updated: 2026-06-21
 
 1. **Onboarding/privacy dialogs** — `WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, and `SessionEditDialog` are now fully localized. Remaining localization work is in webcam windows/popups and a few WPF-only message strings.
 2. **Webcam windows** — shells are ported; calibration/eye-tracking pipeline remains stubbed, but all user-facing strings are now localized.
-3. **AvatarTube depth** — core behavior restored: speech phrase system, AI chat replies, Circe emote playback/scheduling, reaction hooks, and windowing (drag/scale/floating/z-order). Remaining: fullscreen detection of other apps, emotive portrait system, and a few context-menu toggles.
-4. **Chaos overlays** — core animations/z-order helper and a simplified full run lifecycle are now in place; remaining work is WPF-level story cards, active toys, lesson hooks, and deeper boon runtime effects. Localization matches the unlocalized WPF version.
-5. **Deeper player/editor** — UI is ported and all hard-coded strings are localized; full playback/editor integration still pending audit.
+3. **Deeper editor depth** — a functional basic editor is in place (metadata, regions/rules/haptics lists, save, preview). The `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring. The full WPF visual timeline, drag-create/resize regions, curve editor, browser preview, and audio waveform cache remain to port.
+4. **Phase 4 remaining UI** — a handful of WPF-only dialogs/utility windows and feature-control code-behind still need smoke testing and minor wiring.
 
 ---
 
@@ -267,15 +290,18 @@ Last updated: 2026-06-21
 
 ### Sprint A — Localization Blitz
 - ✅ Onboarding/privacy dialogs localized (`WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, `SessionEditDialog`).
-- ✅ Webcam windows and popups localized (`AchievementPopup`, `AnnouncementPopup`, `PinkRushPopup`, `PopQuizWindow`, `QuestCompletePopup`, `SplashScreen`, `TutorialOverlay`, `WebcamCalibrationWindow`, `WebcamGazeTrackerWindow`, `WebcamQuickRecalWindow`).
+- ✅ Webcam windows and popups localized (`AchievementPopup`, `AnnouncementPopup`, `PinkRushPopup`, `QuestCompletePopup`, `SplashScreen`, `TutorialOverlay`, `WebcamCalibrationWindow`, `WebcamGazeTrackerWindow`, `WebcamQuickRecalWindow`).
 
 ### Sprint B — AvatarTube Behavior
-- Restore speech phrase system, AI chat replies, Circe emote playback/scheduling, reactions, and windowing behavior.
+- ✅ Restore speech phrase system, AI chat replies, Circe emote playback/scheduling, reactions, windowing behavior, fullscreen detection, context-menu toggles, and emotive portrait system.
 
 ### Sprint C — Chaos Overlay Polish
-- Finish Skia/host overlay animations, z-order helper, and run-state/boon logic.
+- ✅ Finish Skia/host overlay animations, z-order helper, run-state/boon logic, meta persistence, lessons, narrative director, and happy-path scripting.
 
-### Sprint D — MainWindow / Deeper Polish
-- ✅ MainWindow chrome implemented and all user-facing strings localized (virtual-key identifiers kept as English for settings compatibility).
-- ⏳ Audit MainWindow runtime behavior (maximize, drag-drop, panic key) in a live run.
-- Deeper player/editor integration pending functional audit.
+### Sprint D — Deeper Runtime + Editor
+- ✅ Migrate `EnhancementEngine`, `IActionDispatcher`, and `EnhancementHostService` to `CCP.Core` behind cross-platform seams.
+- ✅ Create `AvaloniaLibVlcTimeSource` and wire the player to bind/unbind the engine.
+- ✅ Port basic `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview).
+- ✅ Port `GazePickerWindow` for gaze-target/avoid rect authoring.
+- ⏳ Full visual timeline editor parity (drag-create/resize, curve editor, browser preview, waveform cache).
+- ⏳ Deeper player/editor integration live smoke test.
