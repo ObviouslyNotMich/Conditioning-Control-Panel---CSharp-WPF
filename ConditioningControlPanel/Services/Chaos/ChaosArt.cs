@@ -124,6 +124,21 @@ public static class ChaosArt
         return null;
     }
 
+    /// <summary>First existing path for a bare file under <c>assets/Chaos/</c> (e.g. "menu_glint.png",
+    /// "menu_fx.json"), or null. For callers that load the file themselves (Skia / JSON).</summary>
+    public static string? FilePath(string fileName)
+    {
+        foreach (var root in Roots())
+        {
+            var p = Path.Combine(root, "assets", "Chaos", fileName);
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
+    /// <summary>Path to a menu flipbook frame file (<c>assets/Chaos/menu_{n}.png</c>), or null.</summary>
+    public static string? MenuFramePath(int n) => FilePath($"menu_{n}.png");
+
     private static System.Collections.Generic.IEnumerable<string> Roots()
     {
         string? user = null;

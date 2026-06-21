@@ -153,8 +153,8 @@
          from AppContext.BaseDirectory\Assets\Chaos\{kind}\{id}.png. Staging candidates are
          excluded so only the promoted finals ship. Remove from the default None glob first
          so the no-copy None item doesn't suppress this Content copy. -->
-    <None Remove="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" />
-    <Content Include="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" Exclude="assets\Chaos\**\_staging*\**">
+    <None Remove="assets\Chaos\**\*.png;assets\Chaos\**\*.gif;assets\Chaos\**\*.json" />
+    <Content Include="assets\Chaos\**\*.png;assets\Chaos\**\*.gif;assets\Chaos\**\*.json" Exclude="assets\Chaos\**\_staging*\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>

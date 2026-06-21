@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -44,6 +45,7 @@ public partial class ChaosHubWindow : Window
             Current = null;
             StopMenuFog();
             StopFlipbook();
+            DisposeMenuSkia();
             App.Chaos?.CloseLoadoutSidebar();
             // Entering the Dollhouse detached the avatar; if we're leaving WITHOUT a descent
             // starting (FALL IN sets _fallingIn), put it back where it was.
@@ -1876,19 +1878,35 @@ public partial class ChaosHubWindow : Window
         // frame indices: 0 idle · 1 blink · 2 invite · 3 kiss · 4 wink · 5 hair-tuck
         var all = new ImageSource?[6];
         for (int i = 0; i < 6; i++) all[i] = ChaosArt.ResolveMenuFrame(i + 1);
+        LoadMenuFx();   // SK frames + per-frame fx masks + tuning (Skia renders the scene)
+
         if (all[0] != null && all[1] != null && all[2] != null)   // core 3 must exist
         {
             _frames = all;
             _flipSeq = BuildFlipSeq();
-            MenuArtBrush.ImageSource = all[0];
+            _baseIdx = 0; _topIdx = 0; _fadeT = 1f; _fading = false;
             _shownFrame = 0; _seqPos = 0;
+            if (_skFrames[0] != null) MenuArtBrush.ImageSource = null; else MenuArtBrush.ImageSource = all[0];
+            BuildBloom(0);
             return;
         }
         // fallback: a single still
         var still = ChaosArt.ResolveMenu();
-        if (still != null) { MenuArtBrush.ImageSource = still; return; }
+        if (still != null)
+        {
+            _baseIdx = -1;
+            if (_skStill != null) MenuArtBrush.ImageSource = null; else MenuArtBrush.ImageSource = still;
+            BuildBloom(-1);
+            return;
+        }
         var banner = ChaosArt.ResolveBanner();
-        if (banner != null) { MenuArtBrush.ImageSource = banner; MenuArtBrush.Stretch = System.Windows.Media.Stretch.Uniform; }
+        if (banner != null)
+        {
+            _baseIdx = -1;
+            if (_skStill != null) MenuArtBrush.ImageSource = null;
+            else { MenuArtBrush.ImageSource = banner; MenuArtBrush.Stretch = System.Windows.Media.Stretch.Uniform; }
+            BuildBloom(-1);
+        }
     }
 
     /// <summary>Build the loop: settle on idle (0) between each expression so they read as momentary.
@@ -1938,6 +1956,14 @@ public partial class ChaosHubWindow : Window
         var src = _frames[idx];
         if (src == null || idx == _shownFrame) return;
         _shownFrame = idx;
+
+        if (_skFrames[idx] != null)   // Skia crossfade (the render timer drives _fadeT)
+        {
+            _topIdx = idx; _fadeT = 0f; _fading = true; _fadeDurSec = (float)(fadeMs / 1000.0);
+            return;
+        }
+
+        // WPF fallback when this frame has no SK image
         MenuArtTopBrush.ImageSource = src;
         var fade = new System.Windows.Media.Animation.DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(fadeMs)))
         {
@@ -1968,73 +1994,240 @@ public partial class ChaosHubWindow : Window
         if (_flipTimer != null) { _flipTimer.Stop(); _flipTimer.Start(); }
     }
 
-    // ============================ menu fog (Skia, animated) ============================
+    // ============================ menu scene (Skia: art + authored glint FX) ============================
+    //
+    // The SKElement (MenuFog) renders the whole menu scene so the glint can be true additive (Plus)
+    // light on the real pixels. Placement is authored per frame in assets/Chaos/menu_{n}_fx.png
+    // (R=Glow, G=Twinkle, B=Sheen — painted with tools/menu_glint_painter.py), and the per-effect
+    // intensity/frequency come from assets/Chaos/menu_fx.json. Gated on Enhanced FX (ChaosSkiaFxEnabled);
+    // with it off, or with no fx masks present, the art just shows plainly.
 
-    private struct FogPuff { public float X, Y, R, VX, VY, Phase, PhaseSpd, BaseA; }
-    private readonly List<FogPuff> _fog = new();
+    private const float MenuDt = 0.033f;          // ~30fps render tick
+    private const float SweepDur = 1.4f;          // seconds the sheen band takes to cross
+    private const float SweepPeriodBase = 7.5f;   // base seconds between sweeps (÷ frequency)
+
     private DispatcherTimer? _fogTimer;
-    private int _fogW, _fogH;
+    private readonly SKImage?[] _skFrames = new SKImage?[6];
+    private readonly SKImage?[] _fxMasks = new SKImage?[6];   // R=glow G=twinkle B=sheen
+    private SKImage? _skStill, _fxStill, _bloomImg;
+    private SKColorFilter? _rToA, _gToA, _bToA;               // channel -> alpha (white) for DstIn
+    private int _baseIdx, _topIdx = -1;                       // -1 = use _skStill
+    private float _fadeT = 1f, _fadeDurSec = 0.55f;
+    private bool _fading;
+    private float _breathClock;
+    // tuning from menu_fx.json (intensity, frequency) per effect
+    private float _glowI = 1f, _glowF = 1f, _twkI = 1f, _twkF = 1f, _shI = 1f, _shF = 1f;
+    // twinkle particles + per-frame candidate spots (from the green channel)
+    private struct Tw { public float Nx, Ny, Age, Life, Size; public SKColor Col; }
+    private readonly List<Tw> _tw = new();
+    private readonly (float nx, float ny, float w)[][] _twSpots = new (float, float, float)[6][];
+    private (float nx, float ny, float w)[] _twStill = System.Array.Empty<(float, float, float)>();
+    private float _twAccum, _sweepClock;
 
-    /// <summary>Start the drifting fog if Enhanced FX is on; otherwise hide the layer entirely.</summary>
+    private static SKImage? LoadSk(string? path)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+            using var s = File.OpenRead(path);
+            return SKImage.FromEncodedData(s);
+        }
+        catch { return null; }
+    }
+
+    private SKImage? FrameImage(int idx) =>
+        idx >= 0 && idx < _skFrames.Length && _skFrames[idx] != null ? _skFrames[idx] : _skStill;
+
+    private SKImage? FxMask(int idx) =>
+        idx >= 0 && idx < _fxMasks.Length && _fxMasks[idx] != null ? _fxMasks[idx] : _fxStill;
+
+    private (float nx, float ny, float w)[] TwSpots(int idx) =>
+        (idx >= 0 && idx < _twSpots.Length && _twSpots[idx] != null) ? _twSpots[idx] : _twStill;
+
+    /// <summary>Load SK frames + per-frame fx masks + tuning + channel filters. Called from LoadMenuFrames.</summary>
+    private void LoadMenuFx()
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            _skFrames[i] = LoadSk(ChaosArt.MenuFramePath(i + 1));
+            var fxp = ChaosArt.FilePath($"menu_{i + 1}_fx.png");
+            _fxMasks[i] = LoadSk(fxp);
+            _twSpots[i] = ExtractSpots(fxp, 1);   // green channel
+        }
+        _skStill = LoadSk(ChaosArt.FilePath("menu.png")) ?? LoadSk(ChaosArt.FilePath("banner.png"));
+        var stillFx = ChaosArt.FilePath("menu_fx.png");
+        _fxStill = LoadSk(stillFx);
+        _twStill = ExtractSpots(stillFx, 1);
+
+        _rToA ??= ChanToAlpha(0); _gToA ??= ChanToAlpha(1); _bToA ??= ChanToAlpha(2);
+        LoadFxTuning();
+    }
+
+    /// <summary>Colour filter: output white with alpha = the given source channel (0=R,1=G,2=B).
+    /// Lets a painted RGB mask act as a per-effect alpha matte for DstIn compositing.</summary>
+    private static SKColorFilter ChanToAlpha(int ch)
+    {
+        var m = new float[20];
+        m[4] = 1; m[9] = 1; m[14] = 1;          // RGB -> white
+        m[15 + ch] = 1;                          // A = source channel
+        return SKColorFilter.CreateColorMatrix(m);
+    }
+
+    private void LoadFxTuning()
+    {
+        try
+        {
+            var p = ChaosArt.FilePath("menu_fx.json");
+            if (p == null) return;
+            var o = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(p));
+            float Get(string fx, string k, float def) => (float?)o[fx]?[k] ?? def;
+            _glowI = Get("glow", "intensity", 1f); _glowF = Get("glow", "frequency", 1f);
+            _twkI = Get("twinkle", "intensity", 1f); _twkF = Get("twinkle", "frequency", 1f);
+            _shI = Get("sheen", "intensity", 1f); _shF = Get("sheen", "frequency", 1f);
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChaosHub.LoadFxTuning: {E}", ex.Message); }
+    }
+
+    /// <summary>Scan a downsized copy of an fx mask for bright spots in one channel — the twinkle
+    /// spawn anchors. Returns normalized (x,y,weight), the brightest ~10 cells of a coarse grid.</summary>
+    private static (float nx, float ny, float w)[] ExtractSpots(string? path, int channel)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return System.Array.Empty<(float, float, float)>();
+            using var raw = SKBitmap.Decode(path);
+            if (raw == null) return System.Array.Empty<(float, float, float)>();
+            int tw = 96, th = Math.Max(1, raw.Height * 96 / Math.Max(1, raw.Width));
+            using var small = raw.Resize(new SKImageInfo(tw, th), SKFilterQuality.Medium) ?? raw;
+            int w = small.Width, h = small.Height;
+            const int cell = 8;
+            int cols = Math.Max(1, w / cell), rows = Math.Max(1, h / cell);
+            var best = new (float v, int x, int y)[cols * rows];
+            float gmax = 0.001f;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    var c = small.GetPixel(x, y);
+                    float v = (channel == 0 ? c.Red : channel == 1 ? c.Green : c.Blue) / 255f;
+                    int ci = Math.Min(rows - 1, y * rows / h) * cols + Math.Min(cols - 1, x * cols / w);
+                    if (v > best[ci].v) best[ci] = (v, x, y);
+                    if (v > gmax) gmax = v;
+                }
+            var list = new List<(float, float, float)>();
+            foreach (var b in best)
+                if (b.v > gmax * 0.5f)
+                    list.Add(((b.x + 0.5f) / w, (b.y + 0.5f) / h, b.v / gmax));
+            return list.OrderByDescending(z => z.Item3).Take(10).ToArray();
+        }
+        catch { return System.Array.Empty<(float, float, float)>(); }
+    }
+
+    /// <summary>Start the menu render loop — ALWAYS runs while the menu art shows (Skia draws the art);
+    /// the authored FX inside gate on Enhanced FX.</summary>
     private void StartMenuFog()
     {
-        if (App.Settings?.Current?.ChaosSkiaFxEnabled != true)
-        {
-            MenuFog.Visibility = Visibility.Collapsed;
-            StopMenuFog();
-            return;
-        }
         MenuFog.Visibility = Visibility.Visible;
         if (_fogTimer == null)
         {
-            _fogTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };   // ~30fps
-            _fogTimer.Tick += (_, _) => StepFog();
+            _fogTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+            _fogTimer.Tick += (_, _) => StepMenu();
         }
         _fogTimer.Start();
     }
 
     private void StopMenuFog() => _fogTimer?.Stop();
 
-    private void InitFog(int w, int h)
+    private void StepMenu()
     {
-        _fog.Clear();
-        _fogW = w; _fogH = h;
-        // Big soft puffs hugging the lower two-thirds, drifting up + sideways. Denser + more
-        // opaque than the first pass (visible pink fog, not a faint wash).
-        int n = 10;
-        for (int i = 0; i < n; i++)
+        bool fx = App.Settings?.Current?.ChaosSkiaFxEnabled == true;
+        if (_fading)
         {
-            float t = (i + 0.5f) / n;
-            _fog.Add(new FogPuff
+            _fadeT += MenuDt / Math.Max(0.05f, _fadeDurSec);
+            if (_fadeT >= 1f) { _fadeT = 1f; _fading = false; _baseIdx = _topIdx; BuildBloom(_baseIdx); }
+        }
+        _breathClock += MenuDt;
+        if (fx) StepTwinkles();
+        MenuFog.InvalidateVisual();
+    }
+
+    private void StepTwinkles()
+    {
+        _sweepClock += MenuDt;
+        var spots = TwSpots(_baseIdx);
+        if (spots.Length > 0)
+        {
+            _twAccum -= MenuDt;
+            int maxn = Math.Max(1, (int)Math.Round(3 * _twkI));
+            if (_twAccum <= 0f)
             {
-                X = w * (0.10f + 0.85f * Frac(t * 1.7f)),
-                Y = h * (0.40f + 0.65f * Frac(t * 2.3f)),
-                R = w * (0.30f + 0.24f * Frac(t * 3.1f)),
-                VX = w * (0.004f + 0.006f * Frac(t * 5f)) * (i % 2 == 0 ? 1 : -1),
-                VY = -h * (0.003f + 0.004f * Frac(t * 4f)),
-                Phase = t * 6.283f,
-                PhaseSpd = 0.012f + 0.01f * Frac(t * 6f),
-                BaseA = 0.22f + 0.16f * Frac(t * 7f),
-            });
+                _twAccum = (0.35f + (float)_rng.NextDouble() * 0.45f) / Math.Max(0.05f, _twkF);
+                if (_tw.Count < maxn)
+                {
+                    float total = 0; foreach (var s in spots) total += s.w + 0.05f;
+                    float pick = (float)_rng.NextDouble() * total; var hs = spots[0];
+                    foreach (var s in spots) { pick -= s.w + 0.05f; if (pick <= 0) { hs = s; break; } }
+                    double r = _rng.NextDouble();
+                    var col = r < 0.55 ? new SKColor(255, 255, 255) : r < 0.8 ? new SKColor(255, 230, 176) : new SKColor(255, 199, 230);
+                    _tw.Add(new Tw
+                    {
+                        Nx = hs.nx, Ny = hs.ny, Age = 0,
+                        Life = 0.7f + (float)_rng.NextDouble() * 0.45f,
+                        Size = 6f + (float)_rng.NextDouble() * 8f,
+                        Col = col,
+                    });
+                }
+            }
+        }
+        for (int i = _tw.Count - 1; i >= 0; i--)
+        {
+            var t = _tw[i]; t.Age += MenuDt;
+            if (t.Age >= t.Life) _tw.RemoveAt(i); else _tw[i] = t;
         }
     }
 
-    private static float Frac(float v) { v -= (float)Math.Floor(v); return v; }
-
-    private void StepFog()
+    private static SKRect CoverRect(SKImage img, SKImageInfo info)
     {
-        if (_fog.Count == 0) return;
-        for (int i = 0; i < _fog.Count; i++)
+        float ew = info.Width, eh = info.Height, iw = img.Width, ih = img.Height;
+        float s = Math.Max(ew / iw, eh / ih);
+        float dw = iw * s, dh = ih * s;
+        return new SKRect((ew - dw) / 2f, (eh - dh) / 2f, (ew + dw) / 2f, (eh + dh) / 2f);
+    }
+
+    /// <summary>Bake the base frame's glow pixels (art × glow-channel), blurred, into a cached SKImage.</summary>
+    private void BuildBloom(int idx)
+    {
+        _bloomImg?.Dispose(); _bloomImg = null;
+        var src = FrameImage(idx); var mask = FxMask(idx);
+        if (src == null || mask == null || _rToA == null) return;
+        try
         {
-            var p = _fog[i];
-            p.X += p.VX; p.Y += p.VY; p.Phase += p.PhaseSpd;
-            // wrap: a puff that floats off the top re-enters low, nudged across
-            if (p.Y + p.R < 0) { p.Y = _fogH + p.R; p.X = _fogW * (0.15f + 0.7f * Frac(p.Phase)); }
-            if (p.X - p.R > _fogW) p.X = -p.R;
-            if (p.X + p.R < 0) p.X = _fogW + p.R;
-            _fog[i] = p;
+            int bw = Math.Min(src.Width, 540);
+            int bh = Math.Max(1, src.Height * bw / src.Width);
+            var bi = new SKImageInfo(bw, bh, SKColorType.Rgba8888, SKAlphaType.Premul);
+            var rect = new SKRect(0, 0, bw, bh);
+            using var s1 = SKSurface.Create(bi);
+            s1.Canvas.Clear(SKColors.Transparent);
+            using (var ap = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.Medium })
+                s1.Canvas.DrawImage(src, rect, ap);
+            using (var mp = new SKPaint { BlendMode = SKBlendMode.DstIn, ColorFilter = _rToA, FilterQuality = SKFilterQuality.Medium })
+                s1.Canvas.DrawImage(mask, rect, mp);
+            using var masked = s1.Snapshot();
+            using var s2 = SKSurface.Create(bi);
+            s2.Canvas.Clear(SKColors.Transparent);
+            using (var bp = new SKPaint { ImageFilter = SKImageFilter.CreateBlur(bw * 0.013f, bw * 0.013f) })
+                s2.Canvas.DrawImage(masked, rect, bp);
+            _bloomImg = s2.Snapshot();
         }
-        MenuFog.InvalidateVisual();
+        catch (Exception ex) { App.Logger?.Debug("ChaosHub.BuildBloom: {E}", ex.Message); _bloomImg = null; }
+    }
+
+    private void DisposeMenuSkia()
+    {
+        for (int i = 0; i < _skFrames.Length; i++) { _skFrames[i]?.Dispose(); _skFrames[i] = null; }
+        for (int i = 0; i < _fxMasks.Length; i++) { _fxMasks[i]?.Dispose(); _fxMasks[i] = null; }
+        _skStill?.Dispose(); _skStill = null;
+        _fxStill?.Dispose(); _fxStill = null;
+        _bloomImg?.Dispose(); _bloomImg = null;
     }
 
     private void MenuFog_PaintSurface(object? sender, SKPaintSurfaceEventArgs e)
@@ -2043,24 +2236,120 @@ public partial class ChaosHubWindow : Window
         canvas.Clear(SKColors.Transparent);
         var info = e.Info;
         if (info.Width <= 0 || info.Height <= 0) return;
-        if (_fog.Count == 0 || _fogW != info.Width || _fogH != info.Height) InitFog(info.Width, info.Height);
 
-        // Round the fog to match the art box (canvas px = DIP × dpi scale, so scale the 22-DIP radius).
         float rad = 22f * (MenuFog.ActualWidth > 0 ? (float)(info.Width / MenuFog.ActualWidth) : 1f);
         canvas.ClipRoundRect(new SKRoundRect(new SKRect(0, 0, info.Width, info.Height), rad, rad), antialias: true);
 
-        using var paint = new SKPaint { IsAntialias = true };
-        foreach (var p in _fog)
+        bool fx = App.Settings?.Current?.ChaosSkiaFxEnabled == true;
+        canvas.Save();
+        ApplyBreath(canvas, info);
+        DrawMenuArt(canvas, info);
+        if (fx) { try { DrawAuthoredFx(canvas, info); } catch (Exception ex) { App.Logger?.Debug("ChaosHub.DrawAuthoredFx: {E}", ex.Message); } }
+        canvas.Restore();
+    }
+
+    /// <summary>Slow breathing scale + drift (the SKElement is outside the WPF MenuArtMotion transform,
+    /// so the art animates here). Baseline scale &gt;1 gives overscan so the drift never bares an edge.</summary>
+    private void ApplyBreath(SKCanvas canvas, SKImageInfo info)
+    {
+        float t = _breathClock;
+        float s = 1.035f + 0.012f * (float)Math.Sin(t * 0.9);
+        float dx = 0.0025f * info.Width * (float)Math.Sin(t * 0.50);
+        float dy = 0.0040f * info.Height * (float)Math.Sin(t * 0.78);
+        float ang = 0.18f * (float)Math.Sin(t * 0.62);
+        canvas.Translate(info.Width / 2f, info.Height / 2f);
+        canvas.Scale(s, s);
+        canvas.RotateDegrees(ang);
+        canvas.Translate(-info.Width / 2f + dx, -info.Height / 2f + dy);
+    }
+
+    private void DrawMenuArt(SKCanvas canvas, SKImageInfo info)
+    {
+        var baseImg = FrameImage(_baseIdx);
+        if (baseImg == null) return;
+        using var p = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
+        canvas.DrawImage(baseImg, CoverRect(baseImg, info), p);
+        if (_fading)
         {
-            float a = p.BaseA * (0.7f + 0.3f * (float)Math.Sin(p.Phase));   // gentle breathing
-            if (a <= 0.01f) continue;
-            var c = new SKPoint(p.X, p.Y);
-            using var shader = SKShader.CreateRadialGradient(
-                c, p.R,
-                new[] { new SKColor(0xE8, 0x43, 0x93, (byte)(a * 255)), new SKColor(0xE8, 0x43, 0x93, 0) },
-                null, SKShaderTileMode.Clamp);
-            paint.Shader = shader;
-            canvas.DrawCircle(c, p.R, paint);
+            var topImg = FrameImage(_topIdx);
+            if (topImg != null)
+            {
+                p.Color = SKColors.White.WithAlpha((byte)(Math.Clamp(_fadeT, 0f, 1f) * 255));
+                canvas.DrawImage(topImg, CoverRect(topImg, info), p);
+            }
+        }
+    }
+
+    /// <summary>The authored, masked, additive glint pass — matches the painter's preview:
+    /// (Glow) breathing bloom of the painted glow pixels, (Sheen) a band masked to the painted gloss
+    /// that sweeps across, (Twinkle) sparkle pops on the painted twinkle spots. Tuned by menu_fx.json.</summary>
+    private void DrawAuthoredFx(SKCanvas canvas, SKImageInfo info)
+    {
+        var baseImg = FrameImage(_baseIdx);
+        if (baseImg == null) return;
+        var rect = CoverRect(baseImg, info);
+        var mask = FxMask(_baseIdx);
+        float t = _breathClock;
+
+        // Glow — breathing additive bloom
+        if (_bloomImg != null && _glowI > 0.001f)
+        {
+            byte a = (byte)Math.Clamp((0.42f + 0.22f * (float)Math.Sin(t * 1.6 * _glowF)) * _glowI * 255f, 0, 255);
+            using var p = new SKPaint { BlendMode = SKBlendMode.Plus, IsAntialias = true, FilterQuality = SKFilterQuality.High, Color = SKColors.White.WithAlpha(a) };
+            canvas.DrawImage(_bloomImg, rect, p);
+        }
+
+        // Sheen — diagonal band masked to the painted gloss (B channel)
+        if (mask != null && _bToA != null && _shI > 0.001f)
+        {
+            float period = SweepPeriodBase / Math.Max(0.05f, _shF);
+            float ph = _sweepClock % period;
+            if (ph < SweepDur)
+            {
+                float pp = ph / SweepDur;
+                float env = (float)Math.Sin(Math.PI * pp);
+                float center = -0.15f + 1.3f * pp;
+                byte a = (byte)Math.Clamp(0.5f * env * _shI * 255f, 0, 255);
+                float c0 = Math.Max(0f, center - 0.16f), c2 = Math.Min(1f, center + 0.16f);
+                if (a > 1 && c2 > c0)
+                {
+                    float c1 = Math.Min(Math.Max(center, c0), c2);
+                    using var layer = new SKPaint { BlendMode = SKBlendMode.Plus };
+                    canvas.SaveLayer(layer);
+                    using (var band = SKShader.CreateLinearGradient(
+                        new SKPoint(rect.Left, rect.Top), new SKPoint(rect.Right, rect.Bottom),
+                        new[] { SKColors.Transparent, new SKColor(0xFF, 0xFF, 0xFF, a), SKColors.Transparent },
+                        new[] { c0, c1, c2 }, SKShaderTileMode.Clamp))
+                    using (var bp = new SKPaint { Shader = band })
+                        canvas.DrawRect(rect, bp);
+                    using (var mp = new SKPaint { BlendMode = SKBlendMode.DstIn, ColorFilter = _bToA, FilterQuality = SKFilterQuality.Medium })
+                        canvas.DrawImage(mask, rect, mp);
+                    canvas.Restore();
+                }
+            }
+        }
+
+        // Twinkle — soft glint pops on the painted twinkle spots
+        if (_tw.Count > 0 && _twkI > 0.001f)
+        {
+            float surf = Math.Min(rect.Width, rect.Height) / 760f;
+            using var paint = new SKPaint { IsAntialias = true, BlendMode = SKBlendMode.Plus };
+            foreach (var tw in _tw)
+            {
+                float env = (float)Math.Sin(Math.PI * (tw.Age / tw.Life)) * _twkI;
+                if (env <= 0.01f) continue;
+                float cx = rect.Left + tw.Nx * rect.Width;
+                float cy = rect.Top + tw.Ny * rect.Height;
+                float r = tw.Size * surf * (0.7f + 0.3f * env);
+                using (var glow = SKShader.CreateRadialGradient(new SKPoint(cx, cy), r * 2.4f,
+                    new[] { tw.Col.WithAlpha((byte)(Math.Clamp(env, 0, 1) * 150)), tw.Col.WithAlpha(0) }, null, SKShaderTileMode.Clamp))
+                {
+                    paint.Shader = glow; canvas.DrawCircle(cx, cy, r * 2.4f, paint);
+                }
+                paint.Shader = null;
+                paint.Color = SKColors.White.WithAlpha((byte)(Math.Clamp(env, 0, 1) * 220));
+                canvas.DrawCircle(cx, cy, r * 0.45f, paint);
+            }
         }
     }
 
