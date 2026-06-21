@@ -1850,7 +1850,11 @@ internal class Bubble
     private readonly Func<bool>? _isChaosFrozen;   // true while the field is frozen (freeze-bubble power-up)
     private readonly Func<double>? _timeScaleFn;   // <1 = slow-mo (darter power-up); 1 = normal speed
     private readonly Func<double>? _freezeVibrateMsFn;   // >0 = whole-field shudder remaining (freeze impact)
-    private double TimeScale => _spec != null ? Math.Max(0.0, _timeScaleFn?.Invoke() ?? 1.0) : 1.0;
+    // Global FIELD_PACE folds in here so the one knob slows BOTH ambient (spec==null → 1.0 base) and
+    // chaos (slow-mo fn base) bubbles: every motion step (_vx*ts) and countdown (-= 32*ts) reads this.
+    // See ChaosTuning.FIELD_PACE for the why (fixed-step anim + perf pass un-starved the timer).
+    private double TimeScale =>
+        (_spec != null ? Math.Max(0.0, _timeScaleFn?.Invoke() ?? 1.0) : 1.0) * ChaosTuning.FIELD_PACE;
 
     // ---- hold-to-defuse channel state (live chaos bubbles only) ----
     // The player's hand on a live bubble: press starts a channel (the trance pauses, the bubble
