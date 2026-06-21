@@ -127,6 +127,7 @@ Last updated: 2026-06-21
 | LoginDialog | ✅ | ✅ | ✅ | ✅ | Device-code status/error strings now localized; uses `TextBox.PasswordChar` instead of `PasswordBox`. |
 | UsernamePickerDialog | ✅ | ✅ | ✅ | ✅ | — |
 | DisplayNameDialog | ✅ | ✅ | ✅ | ✅ | — |
+| LocalAiSetupWizard | ✅ | ✅ | ✅ | ✅ | Ported from WPF; uses `IOllamaSetupService` from Core and resolves `ISettingsService` to save provider/model on success. |
 | AttentionCheckSettingsDialog | ✅ | ✅ | ✅ | ✅ | "Test now" button + tooltip localized. |
 | WarningDialog | ✅ | ✅ | ✅ | ✅ | Default confirm text falls back to localized key. |
 | OfflineUsernameDialog | ❌ | ✅ | ✅ | ✅ | No WPF original; char count now localized. |

@@ -34,6 +34,7 @@ Append a row to **claim**; the orchestrator marks `✅ done` and removes the row
 | `CCP.Core/App.cs` + Core `App.X` call sites | Remove/rename Core `App` stub so WPF can reference Core and delete model copies | — | `🚫 blocked` | see plan §19.4 | 2026-06-21 |
 | `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Curve editor for custom haptic patterns | orchestrator | `✅ done` | `main` | 2026-06-21 |
 | `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Browser preview + audio waveform cache | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Dialogs/LocalAiSetupWizard` + `CCP.Core/Services/AIService` | Port remaining WPF-only dialog and its `OllamaSetupService` dependency to Avalonia/Core | orchestrator | `✅ done` | `main` | 2026-06-21 |
 
 ### Hand-off Queue (porter → orchestrator)
 

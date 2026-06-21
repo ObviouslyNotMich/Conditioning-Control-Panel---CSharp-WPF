@@ -31,6 +31,7 @@ using ConditioningControlPanel.Core.Services.AvailableSubjects;
 using ConditioningControlPanel.Core.Services.BouncingText;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.AIService;
 using ConditioningControlPanel.Core.Services.AIService.Enrichment;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ConditioningControlPanel.Core.Services.Progression;
@@ -129,6 +130,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPromptService, PromptService>();
         services.AddSingleton<IPromptValidator, PromptValidator>();
         services.AddSingleton<IModerationGuard, ModerationGuard>();
+        services.AddSingleton<IOllamaSetupService, OllamaSetupService>();
         services.AddSingleton<ILogger>(_ => Log.Logger);
         services.AddSingleton<IAppLogger, SerilogAppLogger>();
         services.AddSingleton<AvaloniaDualMonitorVideoService>();
