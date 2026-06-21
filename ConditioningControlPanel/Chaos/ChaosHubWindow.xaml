@@ -640,15 +640,12 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- title (drag region) -->
+                <!-- title (drag region) — neon logo wordmark, centered above the buttons -->
                 <StackPanel Grid.Row="0" x:Name="MenuTitleBar" Background="Transparent">
-                    <TextBlock Text="🐇 DOWN THE" Foreground="White" FontSize="26" FontWeight="Bold">
-                        <TextBlock.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/></TextBlock.Effect>
-                    </TextBlock>
-                    <TextBlock Text="RABBIT HOLE" Foreground="White" FontSize="26" FontWeight="Bold" Margin="0,-6,0,0">
-                        <TextBlock.Effect><DropShadowEffect Color="#FFE84393" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/></TextBlock.Effect>
-                    </TextBlock>
-                    <TextBlock Text="· the dollhouse ·" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" Margin="2,6,0,0"/>
+                    <Image x:Name="MenuLogo" Stretch="Uniform" HorizontalAlignment="Center"
+                           MaxHeight="224" Margin="0,48,0,0" SnapsToDevicePixels="True"/>
+                    <TextBlock Text="· the dollhouse ·" Foreground="{StaticResource Pink}" FontFamily="Consolas"
+                               FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                 </StackPanel>
 
                 <!-- center: the menu list (options now lives full-width — see MenuOptions below) -->

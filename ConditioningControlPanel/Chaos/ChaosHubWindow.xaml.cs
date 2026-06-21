@@ -1766,6 +1766,8 @@ public partial class ChaosHubWindow : Window
         MenuLeftCol.Visibility = Visibility.Visible;
         MenuArtPanel.Visibility = Visibility.Visible;
         MenuOptions.Visibility = Visibility.Collapsed;
+        if (MenuLogo.Source == null)   // neon wordmark above the buttons (cached load, once)
+            MenuLogo.Source = ChaosArt.TryLoad(ChaosArt.FilePath("menu_logo.png"));
         RefreshTopBar();   // keep the menu chips current
         StartMenuIntro();
         StartMenuFog();
