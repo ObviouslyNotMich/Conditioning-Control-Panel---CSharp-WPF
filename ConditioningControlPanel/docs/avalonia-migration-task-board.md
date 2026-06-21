@@ -31,55 +31,9 @@ Append a row to **claim**; the orchestrator marks `✅ done` and removes the row
 
 | Lane (owned subtree) | Item | Owner | Status | Branch / worktree | Updated |
 |---|---|---|---|---|---|
-| `CCP.Core/Models/` + Avalonia/tests | Align model namespace to `ConditioningControlPanel.Models`; port `AppSettings` drift from main | orchestrator | `✅ done` | `main` | 2026-06-21 |
 | `CCP.Core/App.cs` + Core `App.X` call sites | Remove/rename Core `App` stub so WPF can reference Core and delete model copies | — | `🚫 blocked` | see plan §19.4 | 2026-06-21 |
-| `Services/Chaos/ChaosCrashSentinel.cs` → Core + Avalonia startup | Crash-instrumentation sentinel | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Chaos/ChaosBubbleHostOverlay.cs` + `ChaosDvdHostOverlay.cs` + `ChaosBoonColors.cs` → `CCP.Avalonia/Chaos` | Shared-host perf overlays + color map | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Chaos/ChaosSkiaFxOverlay.cs` → `CCP.Avalonia/Chaos` | Skia GPU-style FX (pop bursts, ripples, rim-shine, multiplier HUD) | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Services/BubbleService.cs` → `CCP.Avalonia` | Port bubble-popping minigame overhaul — Stages 1, 2a, 2b & 2c done | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Services/Update/UpdateService.cs` → Core + heads | Rework update service against `IUpdateInstaller` seam | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Services/*.cs` deltas | Verify `ModService`/`FlashService`/`GlobalMouseHook` changes | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Fonts/Fredoka.ttf` → `CCP.Avalonia` | Register Fredoka as AvaloniaResource and wire usages | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Views/Tabs/LockdownTabView` | Visual parity: header/hero/premium gate images, pulsing active border, VM localization | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/BambiTakeoverTabView` | Visual parity: description image, guide sidebar, Start/Stop controls, premium gate, VM localization | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/AwarenessTabView` | Visual parity: hero banner, header/pulse/presets, signal sources + safety + color swatches, advanced link, premium gate, VM wiring | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/RemoteControlTabView` | Real QR code generation for pairing URL (QRCoder) | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/ProfileTabView` | Visual parity: banner gradient, avatar initials, stats row, badges, gallery placeholder, VM stats/badges | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/DeeperHubTabView` | Visual parity: hero banner, media-type glyph/brush converters, richer row cards, filter/sort panel, empty state | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/CompanionHubTabView` | Visual parity: hero banner, status card, action buttons, pose/audio cards, settings link | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/CompanionTabView` | Visual parity: hero banner, active-companion card, settings/prompt panels, companion roster, installed prompts | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/PresetIOTabView` | Visual parity: hero banner, preset list cards, drag-drop import zone, action buttons | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/LeaderboardTabView` | Visual parity: hero banner, mode toggles, sort card, rank badges, online/OG badges, row cards | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/AppInfoTabView` | Visual parity: hero banner, version hero card, account/language/backup/legal/smoke-test cards | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/AchievementsTabView` | Visual parity: hero banner, summary cards, achievement icon tiles with locked overlay, season-recap action | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/MarqueeTabView` | Visual parity: hero banner, debug message/welcome/banner cards | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/AnimationsTabView` | Visual parity: hero banner, debug animation control cards | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/CatalogueSubmissionsTabView` | Visual parity: hero banner, status buttons, preset/session submission cards | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Dialogs/RoadmapStepPopup`, `RoadmapConfirmDialog`, `RoadmapStartDialog`, `WelcomeDialog`, `AssetSubmitDialog`, `UpdateProgressDialog` | Localized decorative icons and hard-coded progress text | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Services/Flash/FlashService.cs` → `CCP.Avalonia/Services/Flash/AvaloniaFlashService.cs` | Real overlay-window flash engine: scheduler, image loading, topmost transparent windows, click-to-close, hydra multiplication, cache invalidation | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Services/Subliminal/BouncingTextService.cs` → `CCP.Avalonia/Services/BouncingText/AvaloniaBouncingTextService.cs` | Real bouncing-text engine: per-screen transparent overlays, drifting text, bounce XP, corner-hit achievements | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Services/Subliminal/SubliminalService.cs` → `CCP.Avalonia/Services/Subliminal/AvaloniaSubliminalService.cs` | Real subliminal engine: topmost transparent full-screen flashes, phrase pool, duration/opacity, XP | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Services/LockCard/MindWipeService.cs` → `CCP.Avalonia/Services/MindWipe/AvaloniaMindWipeService.cs` | Real mind-wipe engine: scheduled/loop LibVLC playback, custom audio path, test trigger, duration achievement | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Services/Video/VideoService.cs` → `CCP.Avalonia/Services/Video/AvaloniaVideoService.cs` | Real mandatory-video engine: scheduler, full-screen `VideoView` overlay, local file + URL playback, strict-mode shell; attention checks and post-play penalties not yet ported | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Services/Notifications/OverlayService.cs` → `CCP.Avalonia/Services/Overlays/AvaloniaOverlayService.cs` | Real brain-drain overlay + ad-hoc sustained/timed overlays: full-screen dark violet pulsing distortion, `pink`/`spiral`/`braindrain`/`blur` kinds, topmost click-through windows | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `Services/LockCard/LockCardService.cs` → `CCP.Avalonia/Services/LockCard/AvaloniaLockCardService.cs` | Real lock-card engine: scheduled lock-card popups via existing `LockCardWindow`, multi-monitor sync, strict mode, completion events | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Services/UI/InteractionQueueService.cs` → `CCP.Avalonia/Services/InteractionQueue/AvaloniaInteractionQueueService.cs` | Real interaction queue: coordinates fullscreen interactions, queues duplicates, stuck-detection recovery; integrated with lock-card and video | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/SettingsTabViewModel` | Wire master-volume slider to `IAudioPlayer.SetVolume` | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/SettingsTabView.axaml` + `.axaml.cs` | Dashboard parity: load mod-aware center logo (`logo.png`/`logo2.png`) as AvaloniaResource; wire feature-card right-click quick-toggle | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/SettingsTabViewModel` | Dashboard quick-links login state: `IsLoggedIn`/`LoggedInDisplayName`, `UnifiedLoginCommand`, `LogoutCommand`, `OpenDiscordCommand` | orchestrator | `✅ done` | `main` | 2026-06-19 |
-| `Views/Tabs/SettingsTabView.axaml` + `.axaml.cs` + `ViewModel` | Dashboard parity: audio output device picker + Test Audio; browser Enhance toggle, Deeper badge, Webcam Tracking button, Haptic Audio Sync panel, fixed site-toggle two-way binding | agent | `✅ done` | `main` | 2026-06-21 |
-| `Services/Video/AvaloniaVideoService.cs` | Port attention checks, strict mode, and post-play penalty loop/mercy from WPF `VideoService` | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/AvatarTube/` | Restore AvatarTube behavior: speech phrase system, AI chat replies, Circe emote playback/scheduling, reactions, and windowing behavior | agent | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Chaos/` | Chaos overlay animation/z-order/boon logic parity: port remaining WPF animations, finish `AvaloniaChaosWindowZ`, wire run-state/boon logic | agent | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Services/Chaos/` + `CCP.Core/Services/Chaos/` | Chaos runtime parity — meta persistence + reveal service, boon runtime + active toy framework, focus economy, lessons, narrative director, happy-path scripting | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/AvatarTube/` | AvatarTube emotive portrait system (`_portraitMode` / `_portraitSet`) | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Views/Deeper/` + `CCP.Core/Services/Deeper/` | Deeper player/editor integration audit and parity port | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Core/Services/Deeper/` | Migrate runtime engine + dispatcher + host to Core (copy from WPF, adapt to seams) | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Services/Deeper/` + `Views/Deeper/EnhancementPlayerWindow` | Avalonia LibVLC time source + host wiring + player engine bind | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Port basic Deeper editor (metadata + regions/rules/haptics lists + save/preview) | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Views/Deeper/GazePickerWindow` | Port gaze-picker window for gaze-target/avoid rect authoring | orchestrator | `✅ done` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Full visual timeline editor parity (WPF timeline lanes/drag/curve editor/browser preview) | — | `⬜ todo` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Views/Deeper/UrlPromptDialog` + `EnhancementPlayerWindow` | Port URL prompt dialog and wire Load URL fetch | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Timeline drag-create/resize regions, effects, haptics + rubber-band multi-select | orchestrator | `🚧 wip` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Browser preview + audio waveform cache + curve editor | — | `⬜ todo` | `main` | 2026-06-21 |
 
 ### Hand-off Queue (porter → orchestrator)
 

@@ -44,6 +44,7 @@ public partial class DeeperEditorWindow : Window
         _enhancement = new Enhancement();
         InitializeOptions();
         WireEvents();
+        InitializeTimeline();
         LoadEnhancementIntoUi();
     }
 
@@ -179,6 +180,7 @@ public partial class DeeperEditorWindow : Window
             PopulateHapticDetail(LstHaptics.SelectedItem as HapticEvent);
 
             RefreshRegionDependentCombos();
+            RebuildTimeline();
         }
         finally
         {

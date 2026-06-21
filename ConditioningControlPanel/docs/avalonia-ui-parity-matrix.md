@@ -20,7 +20,7 @@ Last updated: 2026-06-21
   2. **Feature controls** — XAML and settings binding are solid; `ISessionEffectOrchestrator` starts/stops Flash, Video, Subliminal, MindWipe, BouncingText, Bubbles, BubbleCount, LockCard, and Overlay services. The Flash, Video (including attention checks, strict mode, and post-play penalties), BouncingText, Subliminal, MindWipe, LockCard, pink-filter/spiral/brain-drain, and ad-hoc timed/sustained overlay engines are real implementations.
   3. **Chaos overlays** — full parity: core animations/z-order helper, complete run lifecycle, meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting are all wired. Localization remains parity-only (unlocalized like WPF).
   4. **AvatarTube** — full parity restored: speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order, fullscreen detection, context-menu toggles, and emotive portrait system.
-  5. **Deeper** — runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource` so effects/rules fire during playback. A functional basic editor (metadata/regions/rules/haptics + save/preview) replaces the placeholder; the full WPF visual timeline, curve editor, browser preview, gaze-picker, and waveform cache remain to port.
+  5. **Deeper** — runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource` so effects/rules fire during playback. A functional editor (metadata/regions/rules/haptics + save/preview) replaces the placeholder; a visual Timeline tab now renders three lanes (regions/effects/haptics), ruler, playhead, supports click-to-select and zoom. Full WPF drag-create/resize, curve editor, browser preview, and waveform cache remain to port.
   6. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Virtual-key names remain English internal identifiers to keep settings compatibility.
 
 ---
@@ -231,8 +231,8 @@ Last updated: 2026-06-21
 | `EnhancementPlayerWindow.xaml.cs` | `EnhancementPlayerWindow.axaml.cs` | ✅ | LibVLC playback, drag-drop, file pickers, mini-timeline, Load URL wired; `EnhancementHostService` + `AvaloniaLibVlcTimeSource` bind the engine for live effect/rule playback. Waveform generation still stubbed. |
 | `NewEnhancementDialog.xaml` | `NewEnhancementDialog.axaml` | ✅ | Visuals and bindings ported. |
 | `NewEnhancementDialog.xaml.cs` | `NewEnhancementDialog.axaml.cs` | 🚧 | Browse/create work; tutorial buttons stubbed. |
-| `DeeperEditorWindow.xaml` | `DeeperEditorWindow.axaml` | 🚧 | Functional first-pass UI: toolbar, tabbed metadata/regions/rules/haptics editors. Visual timeline and curve editor are not yet ported. |
-| `DeeperEditorWindow.xaml.cs` | `DeeperEditorWindow.axaml.cs` | 🚧 | Load/save/validation, dirty-state handling, preview launch, and basic list+property editing are wired. Full WPF timeline drag/curve/browser-preview parity remains. |
+| `DeeperEditorWindow.xaml` | `DeeperEditorWindow.axaml` | 🚧 | Functional UI: toolbar, tabbed metadata/regions/rules/haptics editors, plus a visual Timeline tab with three lanes (regions/effects/haptics), ruler, playhead, click-to-select, and zoom. Drag-create/resize, curve editor, browser preview, and waveform cache remain. |
+| `DeeperEditorWindow.xaml.cs` | `DeeperEditorWindow.axaml.cs` + `.Timeline.cs` | 🚧 | Load/save/validation, dirty-state handling, preview launch, list+property editing, and visual timeline rendering/selection/zoom are wired. Full WPF drag/resize/curve/browser-preview parity remains. |
 | `UrlPromptDialog.xaml` + `.xaml.cs` | `UrlPromptDialog.axaml` + `.axaml.cs` | ✅ | URL input dialog ported and wired from Load URL. |
 | `GazePickerWindow.xaml` + `.xaml.cs` | `GazePickerWindow.axaml` + `.axaml.cs` | 🚧 | Ported with drag-to-create/move/resize rect, eight resize handles, and Done/Cancel keys. Wired into the basic editor's gaze rect field. Positioned over the editor window since there is no embedded video preview yet. |
 | `Services/Deeper/IPlaybackTimeSource.cs` | `CCP.Core/Services/Deeper/IPlaybackTimeSource.cs` | ✅ | Migrated to Core; `GetVideoRect()` returns cross-platform `PixelRect`. |
@@ -303,5 +303,7 @@ Last updated: 2026-06-21
 - ✅ Create `AvaloniaLibVlcTimeSource` and wire the player to bind/unbind the engine.
 - ✅ Port basic `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview).
 - ✅ Port `GazePickerWindow` for gaze-target/avoid rect authoring.
-- ⏳ Full visual timeline editor parity (drag-create/resize, curve editor, browser preview, waveform cache).
+- ✅ Visual timeline tab: lanes, ruler, playhead, region/effect/haptic rendering, click-to-select, zoom.
+- ⏳ Timeline drag-create/resize + rubber-band multi-select.
+- ⏳ Browser preview + audio waveform cache + curve editor.
 - ⏳ Deeper player/editor integration live smoke test.

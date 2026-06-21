@@ -4336,5 +4336,6 @@
   "msg_imported_with_failed_fmt": "Imported {0}, failed {1}",
   "msg_no_items_imported_fmt": "No items imported ({0} failed)",
   "deeper_player_status_loading_url": "Loading enhancement from URL...",
-  "deeper_player_error_fetch_url_fmt": "Failed to fetch enhancement from URL: {0}"
+  "deeper_player_error_fetch_url_fmt": "Failed to fetch enhancement from URL: {0}",
+  "deeper_editor_tab_timeline": "Timeline"
 }
