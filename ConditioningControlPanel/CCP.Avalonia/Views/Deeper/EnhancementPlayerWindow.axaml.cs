@@ -133,7 +133,7 @@ public partial class EnhancementPlayerWindow : Window
         _mediaPlayer.EncounteredError += (_, _) => Dispatcher.UIThread.Post(() =>
         {
             TxtStatus.Text = Loc.Get("deeper_player_status_audio_failed");
-            IngestErrorLine("LibVLC playback error");
+            IngestErrorLine(Loc.Get("deeper_player_error_libvlc"));
         });
     }
 
@@ -172,7 +172,7 @@ public partial class EnhancementPlayerWindow : Window
         {
             if (!File.Exists(path))
             {
-                IngestErrorLine($"File not found: {path}");
+                IngestErrorLine(string.Format(Loc.Get("deeper_player_error_file_not_found_fmt"), path));
                 return;
             }
 
@@ -181,7 +181,7 @@ public partial class EnhancementPlayerWindow : Window
             var firstError = issues.FirstOrDefault(i => i.Severity == ValidationSeverity.Error);
             if (firstError != null)
             {
-                IngestErrorLine($"Validation failed: {firstError.Message}");
+                IngestErrorLine(string.Format(Loc.Get("deeper_player_error_validation_fmt"), firstError.Message));
                 return;
             }
 
@@ -189,7 +189,7 @@ public partial class EnhancementPlayerWindow : Window
         }
         catch (Exception ex)
         {
-            IngestErrorLine(ex.Message);
+            IngestErrorLine(string.Format(Loc.Get("deeper_player_error_load_fmt"), ex.Message));
         }
     }
 
@@ -250,9 +250,10 @@ public partial class EnhancementPlayerWindow : Window
             return;
         }
 
-        var name = string.IsNullOrEmpty(enh.Metadata?.Name) ? "(untitled)" : enh.Metadata!.Name;
+        var name = string.IsNullOrEmpty(enh.Metadata?.Name) ? Loc.Get("deeper_player_untitled") : enh.Metadata!.Name;
         var creator = string.IsNullOrEmpty(enh.Metadata?.Creator) ? "" : $" — {enh.Metadata.Creator}";
-        var counts = $"{enh.Regions.Count} regions, {enh.HapticTracks.Sum(t => t?.Events?.Count ?? 0)} haptic events, {enh.Rules.Count} rules";
+        var haptics = enh.HapticTracks.Sum(t => t?.Events?.Count ?? 0);
+        var counts = string.Format(Loc.Get("deeper_player_meta_counts_fmt"), enh.Regions.Count, enh.Rules.Count, haptics);
         TxtEnhName.Text = name;
         TxtEnhMetadata.Text = $"{name}{creator}  ·  {counts}";
         TxtEnhPath.Text = path ?? "";
@@ -283,7 +284,7 @@ public partial class EnhancementPlayerWindow : Window
             return;
         }
 
-        var name = string.IsNullOrEmpty(enh.Metadata?.Name) ? "(untitled)" : enh.Metadata!.Name;
+        var name = string.IsNullOrEmpty(enh.Metadata?.Name) ? Loc.Get("deeper_player_untitled") : enh.Metadata!.Name;
         TxtEnhName.Text = name;
 
         var isVideo = string.Equals(enh.MediaType, MediaTypes.Video, StringComparison.OrdinalIgnoreCase);
@@ -301,7 +302,7 @@ public partial class EnhancementPlayerWindow : Window
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(creator)) parts.Add(creator!);
         if (!string.IsNullOrWhiteSpace(srcText)) parts.Add($"{srcGlyph} {srcText}");
-        parts.Add(string.Format(Loc.Get("deeper_player_meta_counts_fmt") ?? "{0} regions · {1} rules · {2} haptics", regions, rules, haptics));
+        parts.Add(string.Format(Loc.Get("deeper_player_meta_counts_fmt"), regions, rules, haptics));
         TxtEnhMetadata.Text = string.Join("  ·  ", parts);
 
         TxtEnhPath.Text = path ?? "";
@@ -315,7 +316,7 @@ public partial class EnhancementPlayerWindow : Window
     private static (string Glyph, string Text) DescribeMediaSource(Enhancement enh)
     {
         var src = enh.MediaSource;
-        if (string.IsNullOrWhiteSpace(src)) return ("⚠", Loc.Get("deeper_player_source_missing") ?? "missing");
+        if (string.IsNullOrWhiteSpace(src)) return ("⚠", Loc.Get("deeper_player_source_missing"));
         if (src.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || src.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
@@ -361,7 +362,7 @@ public partial class EnhancementPlayerWindow : Window
         catch (Exception ex)
         {
             TxtStatus.Text = Loc.Get("deeper_player_status_audio_failed");
-            IngestErrorLine($"Audio load failed: {ex.Message}");
+            IngestErrorLine(string.Format(Loc.Get("deeper_player_error_audio_load_fmt"), ex.Message));
         }
         finally
         {
@@ -388,7 +389,7 @@ public partial class EnhancementPlayerWindow : Window
         catch (Exception ex)
         {
             TxtVideoStatus.Text = Loc.Get("deeper_player_video_no_video");
-            IngestErrorLine($"Video load failed: {ex.Message}");
+            IngestErrorLine(string.Format(Loc.Get("deeper_player_error_video_load_fmt"), ex.Message));
         }
     }
 
@@ -710,7 +711,7 @@ public partial class EnhancementPlayerWindow : Window
         }
         catch (Exception ex)
         {
-            IngestDiagnosticLine($"Mini-timeline build failed: {ex.Message}");
+            IngestDiagnosticLine(string.Format(Loc.Get("deeper_player_error_mini_timeline_fmt"), ex.Message));
         }
     }
 
@@ -977,7 +978,7 @@ public partial class EnhancementPlayerWindow : Window
     private void EventOpenInEditor_Click(object? sender, RoutedEventArgs e)
     {
         // TODO: wire once DeeperEditorWindow is ported to Avalonia.
-        IngestDiagnosticLine("Open-in-editor not yet available in Avalonia head.");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_open_editor_stub"));
     }
 
     // ========================================================================
@@ -995,11 +996,11 @@ public partial class EnhancementPlayerWindow : Window
         ChangePopup.IsOpen = false;
         var filters = new[]
         {
-            new FileFilter("Media", new[] { "mp3", "wav", "m4a", "aac", "flac", "ogg", "mp4", "webm", "mkv", "mov", "avi", "m4v" }),
-            new FileFilter("Audio", new[] { "mp3", "wav", "m4a", "aac", "flac", "ogg" }),
-            new FileFilter("Video", new[] { "mp4", "webm", "mkv", "mov", "avi", "m4v" }),
+            new FileFilter(Loc.Get("deeper_filter_media"), new[] { "mp3", "wav", "m4a", "aac", "flac", "ogg", "mp4", "webm", "mkv", "mov", "avi", "m4v" }),
+            new FileFilter(Loc.Get("deeper_editor_media_type_audio"), new[] { "mp3", "wav", "m4a", "aac", "flac", "ogg" }),
+            new FileFilter(Loc.Get("deeper_editor_media_type_video"), new[] { "mp4", "webm", "mkv", "mov", "avi", "m4v" }),
         };
-        var files = await _dialogService.ShowOpenFileDialogAsync(Loc.Get("deeper_player_pick_media") ?? "Pick media", filters);
+        var files = await _dialogService.ShowOpenFileDialogAsync(Loc.Get("deeper_player_pick_media"), filters);
         var path = files.FirstOrDefault();
         if (string.IsNullOrEmpty(path)) return;
 
@@ -1010,8 +1011,8 @@ public partial class EnhancementPlayerWindow : Window
     private async void BtnPickEnhancement_Click(object? sender, RoutedEventArgs e)
     {
         ChangePopup.IsOpen = false;
-        var filters = new[] { new FileFilter("Deeper Enhancement", new[] { "ccpenh.json" }) };
-        var files = await _dialogService.ShowOpenFileDialogAsync(Loc.Get("deeper_player_pick_enh") ?? "Pick enhancement", filters);
+        var filters = new[] { new FileFilter(Loc.Get("deeper_filter_deeper_enhancement"), new[] { "ccpenh.json" }) };
+        var files = await _dialogService.ShowOpenFileDialogAsync(Loc.Get("deeper_player_pick_enh"), filters);
         var path = files.FirstOrDefault();
         if (!string.IsNullOrEmpty(path)) _ = LoadEnhancementFromFileAsync(path);
     }
@@ -1026,7 +1027,7 @@ public partial class EnhancementPlayerWindow : Window
     {
         ChangePopup.IsOpen = false;
         // TODO: implement URL prompt dialog for Avalonia.
-        IngestDiagnosticLine("URL loading is stubbed pending an Avalonia URL prompt dialog.");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_url_stub"));
         await Task.CompletedTask;
     }
 
@@ -1034,13 +1035,13 @@ public partial class EnhancementPlayerWindow : Window
     {
         ChangePopup.IsOpen = false;
         // TODO: wire to Avalonia Deeper editor once ported.
-        IngestDiagnosticLine("Create-new enhancement is stubbed pending the Avalonia Deeper editor.");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_create_new_stub"));
     }
 
     private void BtnOpenInEditor_Click(object? sender, RoutedEventArgs e)
     {
         // TODO: wire to Avalonia Deeper editor once ported.
-        IngestDiagnosticLine("Open-in-editor is stubbed pending the Avalonia Deeper editor.");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_open_editor_stub"));
     }
 
     private void BtnZoomIn_Click(object? sender, RoutedEventArgs e)
@@ -1056,13 +1057,13 @@ public partial class EnhancementPlayerWindow : Window
     private void BtnPictureInPicture_Click(object? sender, RoutedEventArgs e)
     {
         // TODO: PiP support for LibVLC if/when a cross-platform surface is available.
-        IngestDiagnosticLine("Picture-in-picture is stubbed for LibVLC.");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_pip_stub"));
     }
 
     private void BtnEyeTracking_Click(object? sender, RoutedEventArgs e)
     {
         // TODO: wire to Avalonia webcam/eye-tracking service once ported.
-        IngestDiagnosticLine("Eye tracking is stubbed pending Avalonia webcam integration.");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_eye_tracking_stub"));
     }
 
     // ========================================================================
@@ -1074,7 +1075,7 @@ public partial class EnhancementPlayerWindow : Window
         if (_loadedEnhancement == null) return;
         if (_engineBound) return;
         _engineBound = true;
-        IngestDiagnosticLine("Engine bound (stub).");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_engine_bound"));
         // TODO: integrate Core EnhancementEngine / EnhancementHostService once migrated from WPF.
     }
 
@@ -1082,7 +1083,7 @@ public partial class EnhancementPlayerWindow : Window
     {
         if (!_engineBound) return;
         _engineBound = false;
-        IngestDiagnosticLine("Engine unbound (stub).");
+        IngestDiagnosticLine(Loc.Get("deeper_player_diag_engine_unbound"));
     }
 
     // ========================================================================
@@ -1128,7 +1129,7 @@ public partial class EnhancementPlayerWindow : Window
         }
         catch (Exception ex)
         {
-            IngestErrorLine($"Drop failed: {ex.Message}");
+            IngestErrorLine(string.Format(Loc.Get("deeper_player_error_drop_fmt"), ex.Message));
         }
     }
 

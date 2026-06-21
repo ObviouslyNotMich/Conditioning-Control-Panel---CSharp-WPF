@@ -4,7 +4,7 @@
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
         xmlns:local="using:ConditioningControlPanel.Avalonia.Views.Deeper"
         x:Class="ConditioningControlPanel.Avalonia.Views.Deeper.EnhancementPlayerWindow"
-        Title="Deeper Player"
+        Title="{Binding [deeper_player_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="768"
         Width="900"
         MinHeight="504"

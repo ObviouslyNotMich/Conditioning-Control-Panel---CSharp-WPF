@@ -6,6 +6,7 @@
         xmlns:features="using:ConditioningControlPanel.Avalonia.Features"
         xmlns:converters="using:ConditioningControlPanel.Avalonia.Converters"
         xmlns:models="using:ConditioningControlPanel.Avalonia.Models"
+        xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
         x:Class="ConditioningControlPanel.Avalonia.Views.MainWindow"
         x:Name="Root"
         x:DataType="vm:MainWindowViewModel"
@@ -154,7 +155,7 @@
                     Padding="10,4"
                     VerticalAlignment="Center"
                     Cursor="Hand"
-                    ToolTip.Tip="Webcam tracking is active. Click to stop."
+                    ToolTip.Tip="{loc:Str tooltip_browser_webcam_tracking_on}"
                     PointerPressed="WebcamActivePill_PointerPressed">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <Ellipse Width="8"
@@ -175,15 +176,15 @@
             <Button Content="🐛"
                     Theme="{StaticResource WindowControlButton}"
                     Click="BugReport_Click"
-                    ToolTip.Tip="Report a bug" />
+                    ToolTip.Tip="{loc:Str tooltip_report_bug}" />
             <Button Content="🌀"
                     Theme="{StaticResource WindowControlButton}"
                     Command="{Binding ShowChaosOverlaySmokeTestCommand}"
-                    ToolTip.Tip="Chaos overlay smoke test" />
+                    ToolTip.Tip="{loc:Str tooltip_chaos_overlay_smoke_test}" />
             <Button Content="👤"
                     Theme="{StaticResource WindowControlButton}"
                     Command="{Binding OpenLoginDialogCommand}"
-                    ToolTip.Tip="{Binding DisplayName, FallbackValue='Log in'}" />
+                    ToolTip.Tip="{Binding DisplayName, FallbackValue={loc:Str tooltip_login}}" />
             <Button Content="─"
                     Theme="{StaticResource WindowControlButton}"
                     Command="{Binding MinimizeWindowCommand}" />
@@ -245,7 +246,7 @@
                       BorderThickness="0"
                       FontSize="14"
                       Padding="0"
-                      ToolTip.Tip="Manage mods" />
+                      ToolTip.Tip="{loc:Str tooltip_manage_mods}" />
             </StackPanel>
 
             <!-- Player title with pink drop shadow -->
@@ -323,48 +324,55 @@
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"
                       Spacing="6">
-            <ToggleButton Content="📊 Dashboard"
-                          Theme="{StaticResource TabButtonActivePrimary}"
+            <ToggleButton Theme="{StaticResource TabButtonActivePrimary}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="appinfo"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=appinfo}"
-                          Padding="10,6" />
-            <ToggleButton Content="📋 Presets"
-                          Theme="{StaticResource TabButton}"
+                          Padding="10,6">
+              <TextBlock><Run Text="📊"/><Run Text="{loc:Str tab_dashboard}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="presets"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=presets}"
-                          Padding="10,6" />
-            <ToggleButton Content="📜 Quests"
-                          Theme="{StaticResource TabButton}"
+                          Padding="10,6">
+              <TextBlock><Run Text="📋"/><Run Text="{loc:Str tab_presets}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="quests"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=quests}"
-                          Padding="10,6" />
-            <ToggleButton Content="✨ Enhancements"
-                          Theme="{StaticResource TabButton}"
+                          Padding="10,6">
+              <TextBlock><Run Text="📜"/><Run Text="{loc:Str tab_quests}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="enhancements"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=enhancements}"
-                          Padding="10,6" />
-            <ToggleButton Content="🌊 Deeper"
-                          Theme="{StaticResource TabButtonDeeper}"
+                          Padding="10,6">
+              <TextBlock><Run Text="✨"/><Run Text="{loc:Str tab_enhancements}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButtonDeeper}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="deeper"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=deeper}"
-                          Padding="10,6" />
-            <ToggleButton Content="🛰️ Available Subjects"
-                          Theme="{StaticResource TabButtonNeon}"
+                          Padding="10,6">
+              <TextBlock><Run Text="🌊"/><Run Text="{loc:Str tab_deeper}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButtonNeon}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="availablesubjects"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=availablesubjects}"
-                          Padding="10,6" />
-            <ToggleButton Content="📁 Assets"
-                          Theme="{StaticResource TabButton}"
+                          Padding="10,6">
+              <TextBlock><Run Text="🛰️"/><Run Text="{loc:Str tab_available_subjects}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="assets"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=assets}"
-                          Padding="10,6" />
+                          Padding="10,6">
+              <TextBlock><Run Text="📁"/><Run Text="{loc:Str tab_assets}"/></TextBlock>
+            </ToggleButton>
           </StackPanel>
 
           <StackPanel Grid.Column="2"
@@ -525,47 +533,53 @@
                       VerticalAlignment="Center"
                       Margin="12,6"
                       Spacing="6">
-            <ToggleButton Content="🏆 Achievements"
-                          Theme="{StaticResource TabButton}"
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="achievements"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=achievements}"
                           Padding="8,5"
-                          FontSize="11" />
-            <ToggleButton Content="📊 Leaderboard"
-                          Theme="{StaticResource TabButton}"
+                          FontSize="11">
+              <TextBlock><Run Text="🏆"/><Run Text="{loc:Str tab_achievements}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="leaderboard"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=leaderboard}"
                           Padding="8,5"
-                          FontSize="11" />
-            <ToggleButton Content="💬 Companion"
-                          Theme="{StaticResource TabButton}"
+                          FontSize="11">
+              <TextBlock><Run Text="📊"/><Run Text="{loc:Str tab_leaderboard}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="companionhub"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=companionhub}"
                           Padding="8,5"
-                          FontSize="11" />
-            <ToggleButton Content="👤 Profile"
-                          Theme="{StaticResource TabButtonDiscord}"
+                          FontSize="11">
+              <TextBlock><Run Text="💬"/><Run Text="{loc:Str tab_companion}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButtonDiscord}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="discord"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=discord}"
                           Padding="8,5"
-                          FontSize="11" />
-            <ToggleButton Content="🧪 Lab"
-                          Theme="{StaticResource TabButton}"
+                          FontSize="11">
+              <TextBlock><Run Text="👤"/><Run Text="{loc:Str tab_profile}"/></TextBlock>
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="lab"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=lab}"
                           Padding="8,5"
-                          FontSize="11" />
+                          FontSize="11">
+              <TextBlock><Run Text="🧪"/><Run Text="{loc:Str tab_lab}"/></TextBlock>
+            </ToggleButton>
             <Button x:Name="BtnPatreonExclusives"
-                    Content="⭐ Patreon Exclusives"
                     Command="{Binding TogglePatreonPopupCommand}"
                     Theme="{StaticResource PatreonButton}"
                     Padding="8,5"
-                    FontSize="11" />
+                    FontSize="11">
+              <TextBlock><Run Text="⭐"/><Run Text="{loc:Str label_patreon_exclusives}"/></TextBlock>
+            </Button>
             <Popup IsOpen="{Binding IsPatreonPopupOpen, Mode=TwoWay}"
                    PlacementTarget="{Binding #BtnPatreonExclusives}"
                    Placement="Bottom"
@@ -584,7 +598,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="⭐" VerticalAlignment="Center" />
-                        <TextBlock Text="Blink Trainer" VerticalAlignment="Center" />
+                        <TextBlock Text="{loc:Str tab_blink_trainer}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock Text="✨" FontSize="9" Foreground="White" />
@@ -598,7 +612,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="🎮" VerticalAlignment="Center" />
-                        <TextBlock Text="Remote Control" VerticalAlignment="Center" />
+                        <TextBlock Text="{loc:Str tab_remote_control}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock Text="✨" FontSize="9" Foreground="White" />
@@ -612,7 +626,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="🤖" VerticalAlignment="Center" />
-                        <TextBlock Text="Bambi Takeover" VerticalAlignment="Center" />
+                        <TextBlock Text="{loc:Str tab_takeover}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock Text="✨" FontSize="9" Foreground="White" />
@@ -626,7 +640,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="💜" VerticalAlignment="Center" />
-                        <TextBlock Text="Haptics" VerticalAlignment="Center" />
+                        <TextBlock Text="{loc:Str tab_haptics}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock Text="✨" FontSize="9" Foreground="White" />
@@ -640,7 +654,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="👁" VerticalAlignment="Center" />
-                        <TextBlock Text="Awareness" VerticalAlignment="Center" />
+                        <TextBlock Text="{loc:Str tab_awareness}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock Text="✨" FontSize="9" Foreground="White" />
@@ -654,7 +668,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="🔒" VerticalAlignment="Center" />
-                        <TextBlock Text="Lockdown" VerticalAlignment="Center" />
+                        <TextBlock Text="{loc:Str tab_lockdown}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
                         <TextBlock Text="✨" FontSize="9" Foreground="White" />
@@ -675,7 +689,7 @@
                     CornerRadius="13"
                     Padding="0"
                     BorderThickness="0"
-                    ToolTip.Tip="Help"
+                    ToolTip.Tip="{loc:Str btn_help}"
                     Margin="3,0" />
             <Button Content="🐛"
                     Click="BugReport_Click"
@@ -687,7 +701,7 @@
                     CornerRadius="13"
                     Padding="0"
                     BorderThickness="0"
-                    ToolTip.Tip="Report a bug"
+                    ToolTip.Tip="{loc:Str tooltip_report_bug}"
                     Margin="3,0" />
           </StackPanel>
         </Grid>
@@ -814,7 +828,7 @@
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch"
                   Padding="12,6">
-            <TextBlock Text="Log in with Discord or Patreon to track your XP."
+            <TextBlock Text="{loc:Str msg_login_to_track_xp}"
                        Foreground="{DynamicResource PinkBrush}"
                        FontSize="11"
                        FontWeight="SemiBold"
@@ -1051,7 +1065,7 @@
                   ColumnDefinitions="*,*"
                   Margin="8,0,0,0">
               <Button Grid.Column="0"
-                      Content="Save"
+                      Content="{loc:Str btn_save}"
                       Command="{Binding SaveSettingsCommand}"
                       HorizontalAlignment="Stretch"
                       Margin="0,0,5,0"
@@ -1059,7 +1073,7 @@
                       Theme="{StaticResource PinkButton}"
                       FontSize="16" />
               <Button Grid.Column="1"
-                      Content="Exit"
+                      Content="{loc:Str btn_exit_plain}"
                       Command="{Binding ExitApplicationCommand}"
                       HorizontalAlignment="Stretch"
                       Margin="5,0,0,0"
@@ -1089,12 +1103,12 @@
             <StackPanel Grid.Row="1"
                         Spacing="12"
                         HorizontalAlignment="Center">
-              <TextBlock Text="Remote Controlled"
+              <TextBlock Text="{loc:Str label_remote_controlled_title}"
                          FontSize="28"
                          FontWeight="Bold"
                          Foreground="White"
                          HorizontalAlignment="Center" />
-              <TextBlock Text="{Binding RemoteControlSessionCode, StringFormat='Session code: {0}'}"
+              <TextBlock Text="{Binding RemoteControlSessionCodeDisplay}"
                          FontSize="14"
                          Foreground="{DynamicResource TextMutedBrush}"
                          HorizontalAlignment="Center" />
@@ -1103,17 +1117,17 @@
                       Padding="20"
                       Margin="0,16,0,0">
                 <StackPanel Spacing="8">
-                  <TextBlock Text="Session info"
+                  <TextBlock Text="{loc:Str label_session_info}"
                              FontSize="16"
                              FontWeight="Bold"
                              Foreground="{DynamicResource PinkBrush}" />
-                  <TextBlock Text="{Binding RemoteControllerSessionName, StringFormat='Connected controller: {0}'}"
+                  <TextBlock Text="{Binding RemoteControllerSessionNameDisplay}"
                              FontSize="13"
                              Foreground="White" />
-                  <TextBlock Text="{Binding RemoteControlStatus, StringFormat='Status: {0}'}"
+                  <TextBlock Text="{Binding RemoteControlStatusDisplay}"
                              FontSize="13"
                              Foreground="{DynamicResource TextMutedBrush}" />
-                  <TextBlock Text="{Binding RemoteControlPin, StringFormat='PIN: {0}'}"
+                  <TextBlock Text="{Binding RemoteControlPinDisplay}"
                              FontSize="13"
                              Foreground="{DynamicResource TextMutedBrush}" />
                 </StackPanel>
@@ -1122,17 +1136,17 @@
                           Spacing="10"
                           HorizontalAlignment="Center"
                           Margin="0,12,0,0">
-                <Button Content="Emote 1"
+                <Button Content="{loc:Str label_emote_1}"
                         Background="#3D1A3D"
                         Foreground="{DynamicResource PinkBrush}"
                         Padding="12,6"
                         CornerRadius="6" />
-                <Button Content="Emote 2"
+                <Button Content="{loc:Str label_emote_2}"
                         Background="#3D1A3D"
                         Foreground="{DynamicResource PinkBrush}"
                         Padding="12,6"
                         CornerRadius="6" />
-                <Button Content="Emote 3"
+                <Button Content="{loc:Str label_emote_3}"
                         Background="#3D1A3D"
                         Foreground="{DynamicResource PinkBrush}"
                         Padding="12,6"
@@ -1140,7 +1154,7 @@
               </StackPanel>
             </StackPanel>
             <Button Grid.Row="2"
-                    Content="End Session"
+                    Content="{loc:Str btn_end_session}"
                     Command="{Binding StopRemoteControlSessionCommand}"
                     HorizontalAlignment="Center"
                     Margin="0,24,0,0"
@@ -1168,12 +1182,12 @@
                          FontSize="64"
                          HorizontalAlignment="Center"
                          Foreground="White" />
-              <TextBlock Text="Drop to import"
+              <TextBlock Text="{loc:Str label_drop_to_import_title}"
                          FontSize="24"
                          FontWeight="Bold"
                          Foreground="White"
                          HorizontalAlignment="Center" />
-              <TextBlock Text="Drop presets, assets, or catalogue files here"
+              <TextBlock Text="{loc:Str label_drop_zone_hint}"
                          FontSize="13"
                          Foreground="{DynamicResource TextMutedBrush}"
                          HorizontalAlignment="Center" />
@@ -1198,7 +1212,7 @@
                   ColumnDefinitions="*,Auto"
                   Margin="20,16">
               <TextBlock Grid.Column="0"
-                         Text="Choose a guide"
+                         Text="{loc:Str label_choose_a_guide}"
                          FontSize="22"
                          FontWeight="Bold"
                          Foreground="White"
@@ -1226,15 +1240,15 @@
                                VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1"
                                 Spacing="6">
-                      <TextBlock Text="Getting Started"
+                      <TextBlock Text="{loc:Str label_getting_started}"
                                  FontSize="16"
                                  FontWeight="Bold"
                                  Foreground="White" />
-                      <TextBlock Text="Learn the basics of the control panel and your first session."
+                      <TextBlock Text="{loc:Str msg_getting_started_desc}"
                                  FontSize="12"
                                  Foreground="{DynamicResource TextMutedBrush}"
                                  TextWrapping="Wrap" />
-                      <Button Content="Start guide"
+                      <Button Content="{loc:Str btn_start_guide_lowercase}"
                               Background="#3D1A3D"
                               Foreground="{DynamicResource PinkBrush}"
                               Padding="10,4"
@@ -1254,15 +1268,15 @@
                                VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1"
                                 Spacing="6">
-                      <TextBlock Text="Presets"
+                      <TextBlock Text="{loc:Str tab_presets}"
                                  FontSize="16"
                                  FontWeight="Bold"
                                  Foreground="White" />
-                      <TextBlock Text="Create, import, and manage conditioning presets."
+                      <TextBlock Text="{loc:Str msg_presets_desc}"
                                  FontSize="12"
                                  Foreground="{DynamicResource TextMutedBrush}"
                                  TextWrapping="Wrap" />
-                      <Button Content="Start guide"
+                      <Button Content="{loc:Str btn_start_guide_lowercase}"
                               Background="#3D1A3D"
                               Foreground="{DynamicResource PinkBrush}"
                               Padding="10,4"
@@ -1282,15 +1296,15 @@
                                VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1"
                                 Spacing="6">
-                      <TextBlock Text="Lockdown"
+                      <TextBlock Text="{loc:Str tab_lockdown}"
                                  FontSize="16"
                                  FontWeight="Bold"
                                  Foreground="White" />
-                      <TextBlock Text="Set up immersive lockdown and focus modes."
+                      <TextBlock Text="{loc:Str msg_lockdown_desc}"
                                  FontSize="12"
                                  Foreground="{DynamicResource TextMutedBrush}"
                                  TextWrapping="Wrap" />
-                      <Button Content="Start guide"
+                      <Button Content="{loc:Str btn_start_guide_lowercase}"
                               Background="#3D1A3D"
                               Foreground="{DynamicResource PinkBrush}"
                               Padding="10,4"
@@ -1306,7 +1320,7 @@
                         HorizontalAlignment="Right"
                         Spacing="10"
                         Margin="20">
-              <Button Content="Skip tutorials"
+              <Button Content="{loc:Str btn_skip_tutorials}"
                       Command="{Binding ToggleTutorialOverlayCommand}"
                       Background="Transparent"
                       Foreground="{DynamicResource TextMutedBrush}"
@@ -1314,7 +1328,7 @@
                       BorderThickness="1"
                       Padding="12,6"
                       CornerRadius="6" />
-              <Button Content="Done"
+              <Button Content="{loc:Str btn_done}"
                       Command="{Binding ToggleTutorialOverlayCommand}"
                       Background="{DynamicResource PinkBrush}"
                       Foreground="White"

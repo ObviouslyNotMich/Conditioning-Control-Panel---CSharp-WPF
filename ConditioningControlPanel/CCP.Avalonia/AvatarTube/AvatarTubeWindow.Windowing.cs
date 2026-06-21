@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -20,6 +22,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private IntPtr _parentHandle;
         private bool _reassertingAboveParent;
         private IScreenProvider? _screenProvider;
+        private string _diagLastFullscreenWindow = "(none)";
 
         // Win32 constants (kept for reference; P/Invoke calls are Windows-only and stubbed here).
         private const uint SWP_NOMOVE = 0x0002;
@@ -45,6 +48,17 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
         [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, [MarshalAs(UnmanagedType.Bool)] bool fAttach);
         [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)] private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+        [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
 #endif
 
         private void StartFullscreenDetection()
@@ -78,7 +92,119 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             }
         }
 
-        private bool IsOtherAppFullscreen() => false;
+        private bool IsOtherAppFullscreen()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return false;
+
+#if WINDOWS
+            try
+            {
+                IntPtr foregroundWindow = GetForegroundWindow();
+                if (foregroundWindow == IntPtr.Zero) return false;
+
+                // Ignore our own windows.
+                if (foregroundWindow == _tubeHandle || foregroundWindow == _parentHandle)
+                    return false;
+
+                GetWindowThreadProcessId(foregroundWindow, out uint foregroundPid);
+                if (foregroundPid == (uint)Process.GetCurrentProcess().Id)
+                    return false;
+
+                var className = new StringBuilder(256);
+                GetClassName(foregroundWindow, className, className.Capacity);
+                string windowClass = className.ToString();
+
+                string[] safeClasses =
+                {
+                    "Chrome_WidgetWin",
+                    "MozillaWindowClass",
+                    "ApplicationFrameWindow",
+                    "Windows.UI.Core",
+                    "CabinetWClass",
+                    "Shell_TrayWnd",
+                    "Progman",
+                    "WorkerW",
+                    "XLMAIN",
+                    "OpusApp",
+                    "PPTFrameClass",
+                    "VLC",
+                    "mpv",
+                    "MediaPlayerClassicW",
+                };
+
+                foreach (var safeClass in safeClasses)
+                {
+                    if (windowClass.StartsWith(safeClass, StringComparison.OrdinalIgnoreCase))
+                        return false;
+                }
+
+                int style = GetWindowLong(foregroundWindow, GWL_STYLE);
+                int exStyle = GetWindowLong(foregroundWindow, GWL_EXSTYLE);
+
+                bool hasCaption = ((uint)style & WS_CAPTION) == WS_CAPTION;
+                bool isPopup = ((uint)style & WS_POPUP) == WS_POPUP;
+                bool isTopmost = (exStyle & WS_EX_TOPMOST) == WS_EX_TOPMOST;
+
+                if (hasCaption)
+                    return false;
+
+                if (!isPopup || !isTopmost)
+                    return false;
+
+                if (!GetWindowRect(foregroundWindow, out RECT windowRect))
+                    return false;
+
+                if (_screenProvider == null)
+                    return false;
+
+                int centerX = (windowRect.Left + windowRect.Right) / 2;
+                int centerY = (windowRect.Top + windowRect.Bottom) / 2;
+
+                var screens = _screenProvider.GetAllScreens();
+                var screen = screens.FirstOrDefault(s =>
+                {
+                    double left = s.Bounds.X * s.Scaling;
+                    double top = s.Bounds.Y * s.Scaling;
+                    double right = s.Bounds.Right * s.Scaling;
+                    double bottom = s.Bounds.Bottom * s.Scaling;
+                    return left <= centerX && centerX < right && top <= centerY && centerY < bottom;
+                }) ?? _screenProvider.GetPrimaryScreen();
+
+                if (screen == null)
+                    return false;
+
+                double screenLeft = screen.Bounds.X * screen.Scaling;
+                double screenTop = screen.Bounds.Y * screen.Scaling;
+                double screenRight = screen.Bounds.Right * screen.Scaling;
+                double screenBottom = screen.Bounds.Bottom * screen.Scaling;
+
+                const int tolerance = 5;
+                bool coversFullScreen =
+                    windowRect.Left <= screenLeft + tolerance &&
+                    windowRect.Top <= screenTop + tolerance &&
+                    windowRect.Right >= screenRight - tolerance &&
+                    windowRect.Bottom >= screenBottom - tolerance;
+
+                if (coversFullScreen)
+                {
+                    GetWindowThreadProcessId(foregroundWindow, out uint offPid);
+                    string procName = "?";
+                    try { procName = Process.GetProcessById((int)offPid).ProcessName; } catch { }
+                    _diagLastFullscreenWindow = $"class={windowClass} proc={procName}(pid {offPid}) rect=[{windowRect.Left},{windowRect.Top},{windowRect.Right},{windowRect.Bottom}]";
+                    _logger?.Debug("Exclusive fullscreen detected: {Win}", _diagLastFullscreenWindow);
+                }
+
+                return coversFullScreen;
+            }
+            catch
+            {
+                return false;
+            }
+#else
+            return false;
+#endif
+        }
 
         private void CalculateScaleFactor()
         {

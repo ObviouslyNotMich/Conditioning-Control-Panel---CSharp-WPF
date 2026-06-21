@@ -11,6 +11,7 @@ using Avalonia.Platform.Storage;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Windows;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services;
@@ -422,11 +423,11 @@ public partial class MainWindow : Window
         if (DataContext is MainWindowViewModel vm2)
         {
             if (failed == 0 && imported > 0)
-                vm2.AddNotification("Import", $"Imported {imported} item(s)");
+                vm2.AddNotification(Loc.Get("btn_import"), Loc.GetF("msg_imported_items_fmt", imported));
             else if (imported > 0)
-                vm2.AddNotification("Import", $"Imported {imported}, failed {failed}");
+                vm2.AddNotification(Loc.Get("btn_import"), Loc.GetF("msg_imported_with_failed_fmt", imported, failed));
             else
-                vm2.AddNotification("Import", $"No items imported ({failed} failed)");
+                vm2.AddNotification(Loc.Get("btn_import"), Loc.GetF("msg_no_items_imported_fmt", failed));
         }
     }
 

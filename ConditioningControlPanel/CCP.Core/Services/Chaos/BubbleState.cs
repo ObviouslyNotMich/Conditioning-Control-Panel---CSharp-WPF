@@ -66,6 +66,9 @@ public sealed class BubbleState
     /// <summary>True after a live bubble has been successfully defused.</summary>
     public bool IsDefused { get; set; }
 
+    /// <summary>True while the player is holding a defuse channel on this live bubble.</summary>
+    public bool IsChanneling { get; set; }
+
     /// <summary>Parent bubble id for linked/mimic/echo bubbles.</summary>
     public Guid? ParentId { get; init; }
 

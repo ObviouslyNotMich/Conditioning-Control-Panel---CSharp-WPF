@@ -18,9 +18,9 @@ Last updated: 2026-06-21
 - **Biggest remaining gaps:**
   1. **Dialogs & windows** — structure and commands are wired; all audited dialogs are now localized. Remaining hard-coded content is limited to a few WPF-only message strings and symbol-only affordances. `FeatureSettingsPopup` editor is fully ported.
   2. **Feature controls** — XAML and settings binding are solid; `ISessionEffectOrchestrator` starts/stops Flash, Video, Subliminal, MindWipe, BouncingText, Bubbles, BubbleCount, LockCard, and Overlay services. The Flash, Video (including attention checks, strict mode, and post-play penalties), BouncingText, Subliminal, MindWipe, LockCard, pink-filter/spiral/brain-drain, and ad-hoc timed/sustained overlay engines are real implementations.
-  3. **Chaos overlays** — cursor-glow scale pulse, effect-banner throb, and field-FX radial shards/scale-shrink are now implemented. `AvaloniaChaosWindowZ` uses Windows `SetWindowPos` for focus-free topmost re-assert. `AvaloniaChaosService` now runs a full countdown → descent → spawn loop → scoring/heat/combo → wave-end draft → results lifecycle. The Hub has seeded catalogues and richer habit/boon/mantra/loadout rows. Localization remains parity-only (unlocalized like WPF).
-  4. **AvatarTube** — window shell and core behavior restored (speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order); a few menu/fullscreen items remain stubbed.
-  5. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, and cross-platform drag-drop import are implemented. A few notification strings and virtual-key labels remain unlocalized.
+  3. **Chaos overlays** — cursor-glow scale pulse, effect-banner throb, and field-FX radial shards/scale-shrink are now implemented. `AvaloniaChaosWindowZ` uses Windows `SetWindowPos` for focus-free topmost re-assert. `AvaloniaChaosService` now runs a full countdown → descent → spawn loop → scoring/heat/combo → wave-end draft → results lifecycle. Meta persistence (`ChaosMetaStore`), `RevealService`, boon runtime application, focus economy/hold-to-defuse, active toy framework, and lessons are now wired. Remaining: narrative/story cards, happy-path scripting, and minor FX/telemetry polish. Localization remains parity-only (unlocalized like WPF).
+  4. **AvatarTube** — window shell and core behavior restored (speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order). Fullscreen detection of other apps and context-menu toggles (engine/takeover/whispers/browser pause) are now wired. Emotive portrait system remains stubbed.
+  5. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Virtual-key names remain English internal identifiers to keep settings compatibility.
 
 ---
 
@@ -209,16 +209,16 @@ Last updated: 2026-06-21
 | WPF File | Avalonia Equivalent | Status | Notes |
 |----------|---------------------|--------|-------|
 | AvatarTubeWindow.xaml | AvatarTubeWindow.axaml | ✅ | Layout and tube visual ported. |
-| AvatarTubeWindow.xaml.cs | AvatarTubeWindow.axaml.cs | ✅ | Speech/audio timers, AI send, moderation wiring, drag/wheel, chat shortcut, and menu state wired; a few menu items (engine, takeover, whispers, browser pause) still stubbed. |
+| AvatarTubeWindow.xaml.cs | AvatarTubeWindow.axaml.cs | ✅ | Speech/audio timers, AI send, moderation wiring, drag/wheel, chat shortcut, and menu state wired; engine/takeover/whispers/browser-pause toggles now functional. |
 | AvatarTubeWindow.Avatar.cs | AvatarTubeWindow.Avatar.cs | ⚠️ | Static avatar poses and Circe emote mode wired; portrait/emotive system still stubbed. |
 | AvatarTubeWindow.ChatInput.cs | AvatarTubeWindow.ChatInput.cs | ✅ | AI reply uses `IAiService.GetBambiReplyExAsync`; moderation refusal handled; avatar click triggers Circe emote. |
 | AvatarTubeWindow.CirceEmotes.cs | AvatarTubeWindow.CirceEmotes.cs | ✅ | `CirceEmoteEngine` drives two-layer GIF crossfades, talk/reaction scheduling, click emotes, and registry-based folder resolution. |
 | AvatarTubeWindow.Reactions.cs | AvatarTubeWindow.Reactions.cs | ✅ | Activity/still-on, flash audio filename, level/companion, mindwipe/braindrain, and lock-card AI reaction hooks implemented. |
 | AvatarTubeWindow.Speech.cs | AvatarTubeWindow.Speech.cs | ✅ | Phrase pools merge mod phrases (`IModService.GetPhrases/MakeModAware`) with custom phrases; idle/trigger/random-bubble timers wired. |
-| AvatarTubeWindow.Windowing.cs | AvatarTubeWindow.Windowing.cs | ⚠️ | Floating, attach/detach, drag, scale clamping, and Windows z-order wired; fullscreen detection of other apps remains stubbed. |
+| AvatarTubeWindow.Windowing.cs | AvatarTubeWindow.Windowing.cs | ✅ | Floating, attach/detach, drag, scale clamping, Windows z-order, and fullscreen detection of other apps wired. |
 | AvatarRandomBubble.cs | AvatarRandomBubble.cs | ⚠️ | Uses `bubble.png`; DPI-aware scaling and pop-sound/XP hooks wired; spawn focus check is Windows-only. |
 
-**Localization:** 🚧 `.axaml` shell is localized; code-driven strings are mostly hard-coded English placeholders.
+**Localization:** ✅ Shell and code-driven strings are localized; a few symbol-only affordances remain.
 
 ---
 
@@ -236,7 +236,7 @@ Last updated: 2026-06-21
 | Windows | ✅ | All audited windows localized; a few symbol-only affordances remain |
 | Chaos overlays | ❌ | All hard-coded English (parity with WPF) |
 | AvatarTube | ✅ | Shell and code-driven strings localized; a few symbol-only affordances remain |
-| Deeper editor/player | ❌ | Not audited separately; assumed hard-coded |
+| Deeper editor/player | ✅ | UI localized; full playback/editor integration still pending audit |
 
 ---
 
@@ -259,7 +259,7 @@ Last updated: 2026-06-21
 2. **Webcam windows** — shells are ported; calibration/eye-tracking pipeline remains stubbed, but all user-facing strings are now localized.
 3. **AvatarTube depth** — core behavior restored: speech phrase system, AI chat replies, Circe emote playback/scheduling, reaction hooks, and windowing (drag/scale/floating/z-order). Remaining: fullscreen detection of other apps, emotive portrait system, and a few context-menu toggles.
 4. **Chaos overlays** — core animations/z-order helper and a simplified full run lifecycle are now in place; remaining work is WPF-level story cards, active toys, lesson hooks, and deeper boon runtime effects. Localization matches the unlocalized WPF version.
-5. **Deeper player/editor** — UI is ported; full playback/editor integration not audited.
+5. **Deeper player/editor** — UI is ported and all hard-coded strings are localized; full playback/editor integration still pending audit.
 
 ---
 
@@ -276,4 +276,6 @@ Last updated: 2026-06-21
 - Finish Skia/host overlay animations, z-order helper, and run-state/boon logic.
 
 ### Sprint D — MainWindow / Deeper Polish
-- Audit MainWindow chrome behavior and Deeper player/editor integration.
+- ✅ MainWindow chrome implemented and all user-facing strings localized (virtual-key identifiers kept as English for settings compatibility).
+- ⏳ Audit MainWindow runtime behavior (maximize, drag-drop, panic key) in a live run.
+- Deeper player/editor integration pending functional audit.

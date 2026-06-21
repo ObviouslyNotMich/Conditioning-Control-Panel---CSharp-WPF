@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Input;
@@ -378,6 +378,13 @@ Panel.RenderTransform = _panelSlide;
             _chaos?.UnequipFromSidebar(id);
         else
             _chaos?.OpenWarrenAt("enhance");
+    }
+
+    private void ToyTile_Click(object? sender, PointerPressedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is Grid { Tag: string id } && !string.IsNullOrEmpty(id))
+            _chaos?.UseToyById(id);
     }
 
     private void AnimatePanel(double toX, Action? done = null)

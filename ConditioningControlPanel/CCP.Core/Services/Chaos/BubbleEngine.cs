@@ -58,6 +58,14 @@ public sealed class BubbleEngine
     private Action<ChaosBubbleSpec>? _onBrittleShattered;
     private Action<ChaosBubbleSpec>? _onTreatExpired;
     private Action<ChaosBubbleSpec, bool>? _onDarterSpanked;
+
+    // ---- hold-to-defuse channel state (Avalonia port parity) ----
+    private Func<ChaosBubbleSpec, bool>? _canChannel;
+    private Action<ChaosBubbleSpec>? _onChannelStarted;
+    private Action<ChaosBubbleSpec, string>? _onChannelBroken;
+    private Guid? _channelBubbleId;
+    private DateTime _channelStartUtc = DateTime.MinValue;
+
     private readonly Queue<ChaosBubbleSpec> _chaosSpawnQueue = new();
     private readonly Dictionary<Guid, Guid> _pendingChaperoneEscorts = new();
     private readonly Dictionary<Guid, Guid> _pendingChaperoneLives = new();
@@ -108,8 +116,8 @@ public sealed class BubbleEngine
     {
         public Point CenterPx;
         public double AgeMs;
-        public double RadiusPx;
-        public double LifeMs;
+        public double RadiusPx = RIPPLE_RADIUS_PX;
+        public double LifeMs = RIPPLE_LIFE_MS;
         public readonly HashSet<BubbleState> Hit = new();
     }
 
@@ -331,7 +339,10 @@ public sealed class BubbleEngine
         Action<ChaosBubbleSpec>? onBrittleShattered = null,
         Action<ChaosBubbleSpec>? onTreatExpired = null,
         Action<ChaosBubbleSpec, bool>? onDarterSpanked = null,
-        double chainReachDip = DefaultChainReachDip)
+        double chainReachDip = DefaultChainReachDip,
+        Func<ChaosBubbleSpec, bool>? canChannel = null,
+        Action<ChaosBubbleSpec>? onChannelStarted = null,
+        Action<ChaosBubbleSpec, string>? onChannelBroken = null)
     {
         _onBenignPop = onBenignPop;
         _onDefuse = onDefuse;
@@ -346,10 +357,14 @@ public sealed class BubbleEngine
         _onTreatExpired = onTreatExpired;
         _onDarterSpanked = onDarterSpanked;
         _chainReachDip = chainReachDip > 0 ? chainReachDip : DefaultChainReachDip;
+        _canChannel = canChannel;
+        _onChannelStarted = onChannelStarted;
+        _onChannelBroken = onChannelBroken;
         _chaosActive = true;
         _chaosFrozen = false;
         _chaosTimeScale = 1.0;
         _chaosInputLocked = false;
+        _channelBubbleId = null;
 
         if (!_isRunning)
             Start();
@@ -372,6 +387,10 @@ public sealed class BubbleEngine
         _onBrittleShattered = null;
         _onTreatExpired = null;
         _onDarterSpanked = null;
+        _canChannel = null;
+        _onChannelStarted = null;
+        _onChannelBroken = null;
+        _channelBubbleId = null;
         _chaosSpawnQueue.Clear();
         _pendingChaperoneEscorts.Clear();
         _pendingChaperoneLives.Clear();
@@ -477,6 +496,67 @@ public sealed class BubbleEngine
 
     public void SetChaosInputLocked(bool locked) => _chaosInputLocked = locked;
 
+    /// <summary>
+    /// Starts a player hold-to-defuse channel on the given live bubble.
+    /// If the focus gate rejects the channel, the bubble detonates immediately.
+    /// </summary>
+    public void BeginChaosChannel(Guid bubbleId)
+    {
+        if (!_chaosActive || _chaosInputLocked) return;
+
+        var bubble = GetChaosBubble(bubbleId);
+        if (bubble?.Spec is not { IsLive: true } spec || bubble.IsPopping || bubble.IsChanneling)
+            return;
+
+        if (spec.IsChaperoneLive && bubble.IsShielded)
+            return; // chaperone shield bounces the press
+
+        if (_canChannel?.Invoke(spec) != true)
+        {
+            _onChannelBroken?.Invoke(spec, "nofocus");
+            DetonateBubble(bubble, spec);
+            return;
+        }
+
+        bubble.IsChanneling = true;
+        _channelBubbleId = bubbleId;
+        _channelStartUtc = DateTime.UtcNow;
+        _onChannelStarted?.Invoke(spec);
+    }
+
+    /// <summary>
+    /// Ends a hold-to-defuse channel because the pointer was released.
+    /// A short press below the click threshold detonates with reason "click";
+    /// a longer incomplete hold detonates with reason "release".
+    /// </summary>
+    public void EndChaosChannel(Guid bubbleId)
+    {
+        if (!_chaosActive || _channelBubbleId != bubbleId) return;
+
+        var bubble = GetChaosBubble(bubbleId);
+        if (bubble?.Spec is not { } spec)
+        {
+            _channelBubbleId = null;
+            return;
+        }
+
+        bubble.IsChanneling = false;
+        _channelBubbleId = null;
+
+        var elapsedMs = (DateTime.UtcNow - _channelStartUtc).TotalMilliseconds;
+        var reason = elapsedMs < ChaosTuning.CLICK_THRESHOLD_MS ? "click" : "release";
+        _onChannelBroken?.Invoke(spec, reason);
+        DetonateBubble(bubble, spec);
+    }
+
+    private void DetonateBubble(BubbleState bubble, ChaosBubbleSpec spec)
+    {
+        if (bubble.IsPopping) return;
+        bubble.IsDetonated = true;
+        _onDetonate?.Invoke(spec);
+        _renderer.Pop(bubble, () => _bubbles.Remove(bubble));
+    }
+
     /// <summary>Sets the Tail-Plug rabbit/darter trail duration in seconds.</summary>
     public void SetRabbitTrailSec(double seconds) => _rabbitTrailSec = Math.Max(0.0, seconds);
 
@@ -497,12 +577,18 @@ public sealed class BubbleEngine
     /// <summary>The Ripple: add a strong player ripple from a right-click at the given physical pixel center.</summary>
     public void TriggerPlayerRipple(Point centerPx)
     {
+        TriggerPlayerRipple(centerPx, RIPPLE_RADIUS_PX, RIPPLE_LIFE_MS);
+    }
+
+    /// <summary>The Ripple: add a strong player ripple with explicit reach and duration.</summary>
+    public void TriggerPlayerRipple(Point centerPx, double radiusPx, double lifeMs)
+    {
         if (!_chaosActive) return;
         _playerRipples.Add(new PlayerRipple
         {
             CenterPx = centerPx,
-            RadiusPx = 600.0,
-            LifeMs = 700.0,
+            RadiusPx = radiusPx > 0 ? radiusPx : RIPPLE_RADIUS_PX,
+            LifeMs = lifeMs > 0 ? lifeMs : RIPPLE_LIFE_MS,
             AgeMs = 0.0
         });
     }
@@ -531,10 +617,15 @@ public sealed class BubbleEngine
             var dy = cy - centerPx.Y;
             if (dx * dx + dy * dy > r * r) continue;
 
-            // Live hold-to-defuse bubbles must not swallow — the channel reads the held button.
-            bool swallow = !(spec.IsLive && !bubble.IsDefused && !bubble.IsDetonated && !bubble.IsShielded);
+            // Live hold-to-defuse bubbles start a channel; everything else pops instantly.
+            bool isLiveHold = spec.IsLive && !bubble.IsDefused && !bubble.IsDetonated && !bubble.IsShielded;
+            if (isLiveHold)
+            {
+                BeginChaosChannel(bubble.Id);
+                return false;
+            }
             PopBubble(bubble.Id);
-            return swallow;
+            return true;
         }
 
         return false;
@@ -569,6 +660,14 @@ public sealed class BubbleEngine
 
         var dt = TickIntervalSec * _chaosTimeScale;
         if (_chaosFrozen) dt = 0.0;
+
+        // Manual pause quietly cancels any active channel (no detonation, no completion).
+        if (_chaosInputLocked && _channelBubbleId.HasValue)
+        {
+            var pausedBubble = GetChaosBubble(_channelBubbleId.Value);
+            if (pausedBubble != null) pausedBubble.IsChanneling = false;
+            _channelBubbleId = null;
+        }
 
         var missed = new List<BubbleState>();
         var moved = new List<BubbleState>();
@@ -916,23 +1015,66 @@ public sealed class BubbleEngine
 
         if (spec.IsLive && !bubble.IsDefused && !bubble.IsDetonated && !bubble.IsShielded)
         {
-            bubble.FuseRemainingMs -= dt * 1000.0;
-            if (bubble.FuseRemainingMs <= 0)
+            if (bubble.IsChanneling)
             {
-                bubble.FuseRemainingMs = 0;
-                bubble.IsDetonated = true;
+                // Hold-to-defuse: the fuse pauses while the channel is held.
+                var elapsedMs = (DateTime.UtcNow - _channelStartUtc).TotalMilliseconds;
+                double t = Math.Clamp(elapsedMs / ChaosTuning.DEFUSE_HOLD_MS, 0.0, 1.0);
+                bubble.Scale = 1.0 - (1.0 - ChaosTuning.CHANNEL_MIN_SCALE) * t;
 
-                if (spec.IsEcho)
+                if (elapsedMs >= ChaosTuning.DEFUSE_HOLD_MS)
                 {
-                    EchoSplitRequested?.Invoke(spec, bubble.X + bubble.Size / 2.0, bubble.Y + bubble.Size / 2.0);
+                    bubble.IsChanneling = false;
+                    _channelBubbleId = null;
+                    bubble.IsDefused = true;
+                    bubble.Scale = ChaosTuning.CHANNEL_MIN_SCALE;
+
+                    if (bubble.BoundPairId != 0)
+                    {
+                        var mate = _bubbles.FirstOrDefault(b =>
+                            b != bubble
+                            && b.BoundPairId == bubble.BoundPairId
+                            && !b.IsPopping
+                            && !b.IsDefused
+                            && !b.IsDetonated);
+                        if (mate != null)
+                        {
+                            mate.BoundHalfResolved = true;
+                            mate.BoundResolveTimeRemainingMs = spec.BoundWindowMs > 0 ? spec.BoundWindowMs : 3500;
+                        }
+                    }
+
+                    _onDefuse?.Invoke(spec, bubble.FuseRemainingMs / 1000.0, true);
+                    _renderer.Pop(bubble, () =>
+                    {
+                        _bubbles.Remove(bubble);
+                        OnBubblePopped?.Invoke();
+                    });
+                    return;
                 }
 
-                _onDetonate?.Invoke(spec);
-                missed.Add(bubble);
-                return;
+                _renderer.SetFuse(bubble.Id, Math.Clamp(bubble.FuseRemainingMs / spec.FuseMs, 0.0, 1.0));
             }
+            else
+            {
+                bubble.FuseRemainingMs -= dt * 1000.0;
+                if (bubble.FuseRemainingMs <= 0)
+                {
+                    bubble.FuseRemainingMs = 0;
+                    bubble.IsDetonated = true;
 
-            _renderer.SetFuse(bubble.Id, Math.Clamp(bubble.FuseRemainingMs / spec.FuseMs, 0.0, 1.0));
+                    if (spec.IsEcho)
+                    {
+                        EchoSplitRequested?.Invoke(spec, bubble.X + bubble.Size / 2.0, bubble.Y + bubble.Size / 2.0);
+                    }
+
+                    _onDetonate?.Invoke(spec);
+                    missed.Add(bubble);
+                    return;
+                }
+
+                _renderer.SetFuse(bubble.Id, Math.Clamp(bubble.FuseRemainingMs / spec.FuseMs, 0.0, 1.0));
+            }
         }
 
         moved.Add(bubble);

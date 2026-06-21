@@ -13,6 +13,7 @@ using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
 using Microsoft.Extensions.DependencyInjection;
+using AvaloniaChaosTuning = ConditioningControlPanel.Avalonia.Chaos.ChaosTuning;
 
 namespace ConditioningControlPanel.Avalonia.Services;
 
@@ -76,6 +77,9 @@ public sealed class AvaloniaChaosService : IChaosService
     private readonly IAppLogger? _logger;
     private readonly IScheduler? _scheduler;
     private readonly IUiDispatcher? _dispatcher;
+    private readonly IInputHook? _inputHook;
+    private readonly IMouseHook? _mouseHook;
+    private readonly IPointerState? _pointerState;
     private readonly Random _rng = new();
 
     private bool _active;
@@ -93,11 +97,36 @@ public sealed class AvaloniaChaosService : IChaosService
     private int _waveIndex;
     private int _waveCount;
 
-    public AvaloniaChaosService(IBubbleService bubbles, ISettingsService settings, IAppLogger? logger = null)
+    // ---- hold-to-defuse focus economy state ----
+    private double _focusLowAccumSec;
+    private bool _focusLowBarkFired;
+
+    // ---- active toys ----
+    private readonly List<ChaosToyButtonWindow> _toyButtons = new();
+    private double _vibeRemainingSec;
+    private double _freezeRemainingSec;
+    private double _snapFlashRemainingSec;
+    private int _rabbitCallPending;
+    private bool _rabbitCallMaxed;
+    private DispatcherTimer? _rabbitAimTimer;
+    private bool _rabbitAimPrevDown;
+    private bool _dvdBannerOn;
+    private double _rippleCooldownSec;
+
+    public AvaloniaChaosService(
+        IBubbleService bubbles,
+        ISettingsService settings,
+        IAppLogger? logger = null,
+        IInputHook? inputHook = null,
+        IMouseHook? mouseHook = null,
+        IPointerState? pointerState = null)
     {
         _bubbles = bubbles;
         _settings = settings;
         _logger = logger;
+        _inputHook = inputHook;
+        _mouseHook = mouseHook;
+        _pointerState = pointerState;
         _scheduler = App.Services?.GetService<IScheduler>();
         _dispatcher = App.Services?.GetService<IUiDispatcher>();
         AvaloniaChaosCatalogs.EnsureInitialized();
@@ -205,7 +234,8 @@ public sealed class AvaloniaChaosService : IChaosService
         {
             _paused = false;
             _bubbles.SetChaosInputLocked(false);
-            _bubbles.SetChaosFrozen(false);
+            // A freeze power-up that was live when pause hit didn't tick down — let it finish.
+            if (_freezeRemainingSec <= 0) _bubbles.SetChaosFrozen(false);
             _state?.PushEvent("▶ sinking again");
         }
         RunOnUi(() => _hud?.SetPausedUi(_manualPaused));
@@ -220,21 +250,72 @@ public sealed class AvaloniaChaosService : IChaosService
     public void CloseWarrenPhase() => RequestStop();
     public void OpenWarrenAt(string tag) { }
     public void UnequipFromSidebar(string id) { }
-    public void UseToyById(string id) { }
 
     private void BeginRun()
     {
         if (!_active || _state == null) return;
 
-        _bubbles.BeginChaosMode(OnBenignPopped, OnDefused, OnDetonated);
+        ChaosLessonHooks.OnRunStarted();
+
+        var runStartCtx = BuildNarrativeContext(depth: 1);
+        ChaosNarrativeHooks.OnRunStarted(runStartCtx);
+        var runStartConvo = ChaosNarrativeDirector.Pick(runStartCtx, "run_start");
+        if (runStartConvo != null)
+            RunOnUi(() => _overlay?.ShowConversation(runStartConvo, null, () => { }));
+
+        _bubbles.BeginChaosMode(
+            OnBenignPopped,
+            OnDefused,
+            OnDetonated,
+            CanChannelDefuse,
+            OnChannelStarted,
+            OnChannelBroken);
         _spawning = true;
         _state.PushEvent("🐇 the descent begins");
 
+        // Apply equipped start boon, if any.
+        var equipped = ChaosMeta.State.EquippedStartBoon;
+        if (!string.IsNullOrEmpty(equipped))
+        {
+            var boon = ChaosBoonPool.All.FirstOrDefault(b => b.Id == equipped);
+            if (boon != null)
+            {
+                _state.ApplyBoon(boon);
+                _state.RunPickTiles.Add(new ChaosSidebarBoon { Id = boon.Id, Name = boon.Name, Glyph = "◈" });
+                _state.PushEvent($"◈ start: {boon.Name}");
+            }
+        }
+
+        // Apply lifetime boons (passive values + active toy power) and build HUD state.
+        ChaosMeta.ApplyLifetimeBoons(_state);
+        foreach (var lifetimeId in ChaosMeta.State.ActiveLifetimeBoons)
+        {
+            var lb = ChaosLifetimeBoons.ById(lifetimeId);
+            _logger?.Information("AvaloniaChaosService lifetime boon active: {Id}", lifetimeId);
+            _state.PushEvent($"👝 loadout: {lb?.Name ?? lifetimeId}");
+        }
+
+        // Active skills: build state, listen for keybinds, spawn one hero button per toy.
+        BuildActiveToys();
+        _state.RaiseChanged(nameof(ChaosRunState.ActiveToys));
+        StartKeyHook();
+        StartRippleHook();
         RunOnUi(() =>
         {
             _hud?.SetClockVisible(true);
             _hud?.SetHeroMode(preRun: false);
             _hud?.SetPreRunExpanded(false);
+
+            for (int i = 0; i < _state.ActiveToys.Count; i++)
+            {
+                try
+                {
+                    var btn = new ChaosToyButtonWindow(_state.ActiveToys[i], this, i);
+                    btn.Show();
+                    _toyButtons.Add(btn);
+                }
+                catch (Exception ex) { _logger?.Warning(ex, "Chaos toy button init failed"); }
+            }
         });
 
         StartTimers();
@@ -286,6 +367,46 @@ public sealed class AvaloniaChaosService : IChaosService
         double dt = 0.25;
         _state.ElapsedSec += dt;
         _state.Heat = Math.Max(0, _state.Heat - 0.0015);
+
+        // Power-ups run on the real clock.
+        if (_freezeRemainingSec > 0)
+        {
+            _freezeRemainingSec -= dt;
+            if (_freezeRemainingSec <= 0) EndFreeze();
+        }
+        if (_snapFlashRemainingSec > 0) _snapFlashRemainingSec -= dt;
+
+        // The Ripple recharges.
+        if (_rippleCooldownSec > 0)
+        {
+            _rippleCooldownSec -= dt;
+        }
+        _state.RippleReady = _rippleCooldownSec <= 0;
+        _state.RippleText = _state.RippleReady ? "READY" : $"{Math.Ceiling(_rippleCooldownSec):0}s";
+
+        TickActiveToys(dt);
+
+        // Passive focus regen while a run is active.
+        _state.Focus = Math.Min(_state.FocusMax, _state.Focus + AvaloniaChaosTuning.FocusRegenPerSec * dt);
+
+        // Advance active channel bookkeeping for the HUD.
+        if (_state.IsChanneling)
+        {
+            _state.ChannelHeldSec = (DateTime.UtcNow - _state.ChannelStartTime).TotalSeconds;
+        }
+
+        // rh_focus_low: warn once per run if focus sits below a defuse's price while lives remain.
+        if (!_focusLowBarkFired && _state.FocusLow && _bubbles.ActiveBubbles > 0)
+        {
+            _focusLowAccumSec += dt;
+            if (_focusLowAccumSec >= AvaloniaChaosTuning.FocusLowBarkSec)
+            {
+                _focusLowBarkFired = true;
+                _state.PushEvent("◌ low focus. pop treats before you grab a live one.");
+            }
+        }
+        else _focusLowAccumSec = 0;
+
         UpdateStateText();
 
         double waveDuration = _state.RunDurationSec / Math.Max(1, _waveCount);
@@ -293,14 +414,16 @@ public sealed class AvaloniaChaosService : IChaosService
         {
             if (_waveIndex < _waveCount && _state.Config.BoonDraftEnabled)
             {
+                ChaosLessonHooks.OnLoopCompleted();
                 ShowDraft();
             }
             else if (_waveIndex >= _waveCount)
             {
-                EndRun();
+                EndRun(ranFullCourse: true);
             }
             else
             {
+                ChaosLessonHooks.OnLoopCompleted();
                 _waveIndex++;
                 _state.WaveIndex = _waveIndex;
             }
@@ -352,12 +475,13 @@ public sealed class AvaloniaChaosService : IChaosService
     private void OnBenignPopped(ChaosBubbleSpec spec)
     {
         if (_state == null) return;
+        ChaosLessonHooks.OnTreatPopped(spec.VariantId);
         double basePay = 100 * (_state.DifficultyMult) * (1 + _state.Heat);
-        double pay = basePay * _state.ComboMult * _state.BoonMult;
+        double pay = basePay * _state.ComboMult * _state.BoonMult * _state.UrgeMult;
         _state.Score += pay;
         _state.Combo++;
         _state.EffectsFired++;
-        _state.Focus = Math.Min(_state.FocusMax, _state.Focus + 10);
+        _state.Focus = Math.Min(_state.FocusMax, _state.Focus + AvaloniaChaosTuning.FocusPerPop);
         _state.Heat = Math.Min(1.0, _state.Heat + 0.02);
         UpdateStateText();
     }
@@ -365,12 +489,24 @@ public sealed class AvaloniaChaosService : IChaosService
     private void OnDefused(ChaosBubbleSpec spec, double fuseSec, bool viaChannel)
     {
         if (_state == null) return;
+
+        // The player's hand pays for completed channels; toys/chains/ripples defuse for free.
+        if (viaChannel)
+        {
+            _state.Focus = Math.Max(0, _state.Focus - DefuseCostFor(spec));
+            ChaosMeta.State.TotalChannelSeconds += _state.ChannelHeldSec;
+            _state.IsChanneling = false;
+            _state.ChannelHeldSec = 0;
+            _state.ChannelTargetBubbleId = null;
+        }
+
+        ChaosLessonHooks.OnDefuseCompleted(fuseSec, viaChannel);
+
         double basePay = 250 * _state.DifficultyMult * (1 + _state.Heat);
-        double pay = basePay * _state.ComboMult * _state.BoonMult;
+        double pay = basePay * _state.ComboMult * _state.BoonMult * _state.UrgeMult;
         _state.Score += pay;
         _state.Combo++;
         _state.Defused++;
-        _state.Focus = Math.Min(_state.FocusMax, _state.Focus + 15);
         _state.Heat = Math.Min(1.0, _state.Heat + 0.03);
         UpdateStateText();
     }
@@ -379,10 +515,67 @@ public sealed class AvaloniaChaosService : IChaosService
     {
         if (_state == null) return;
         _state.Detonated++;
-        _state.Combo = 0;
-        _state.ComboMult = 1.0;
+        ChaosLessonHooks.OnDetonation();
+
+        // A shield absorbs the detonation and preserves the streak.
+        bool shieldAbsorbed = _state.Shields > 0;
+        if (shieldAbsorbed)
+        {
+            _state.Shields--;
+            _state.PushEvent("♥ shield absorbed the snap");
+        }
+        else
+        {
+            _state.Combo = 0;
+            _state.ComboMult = 1.0;
+        }
+
         _state.Heat = Math.Max(0, _state.Heat - 0.15);
-        if (_state.Shields > 0) _state.Shields--;
+        UpdateStateText();
+    }
+
+    /// <summary>Focus cost for one channel (Bound halves pay half each).</summary>
+    private double DefuseCostFor(ChaosBubbleSpec spec) =>
+        spec.IsBoundHalf ? AvaloniaChaosTuning.DefuseCostBound : AvaloniaChaosTuning.DefuseCost;
+
+    /// <summary>May the player's press start a defuse channel?</summary>
+    private bool CanChannelDefuse(ChaosBubbleSpec spec)
+    {
+        if (_state == null) return false;
+        return _state.Focus >= DefuseCostFor(spec);
+    }
+
+    private void OnChannelStarted(ChaosBubbleSpec spec)
+    {
+        if (_state == null) return;
+        ChaosLessonHooks.OnChannelStarted();
+        _state.IsChanneling = true;
+        _state.ChannelStartTime = DateTime.UtcNow;
+        _state.ChannelHeldSec = 0;
+        _state.ChannelTargetBubbleId = spec.Id.ToString();
+        UpdateStateText();
+    }
+
+    private void OnChannelBroken(ChaosBubbleSpec spec, string reason)
+    {
+        if (_state == null) return;
+        ChaosLessonHooks.OnChannelBroken();
+        _state.IsChanneling = false;
+        _state.ChannelHeldSec = 0;
+        _state.ChannelTargetBubbleId = null;
+
+        switch (reason)
+        {
+            case "nofocus":
+                _state.PushEvent("✋ no focus — it triggers in your grip");
+                break;
+            case "click":
+                _state.PushEvent("💥 a tap isn't a hold");
+                break;
+            default: // "release"
+                _state.PushEvent("💥 you let go");
+                break;
+        }
         UpdateStateText();
     }
 
@@ -390,12 +583,21 @@ public sealed class AvaloniaChaosService : IChaosService
     {
         if (_state == null) return;
         _state.BestCombo = Math.Max(_state.BestCombo, _state.Combo);
-        _state.ComboMult = 1.0 + Math.Min(2.0, _state.Combo * 0.02);
+        _state.ComboMult = 1.0 + Math.Min(2.0, _state.Combo * 0.02) + _state.ComboMultBonus;
         _state.HeatMult = 1.0 + _state.Heat;
-        _state.TotalMultText = $"x{_state.ComboMult * _state.BoonMult * _state.HeatMult:0.0}";
+        _state.TotalMultText = $"x{_state.ComboMult * _state.BoonMult * _state.HeatMult * _state.UrgeMult:0.0}";
         _state.ScoreText = ((int)_state.Score).ToString("N0");
         _state.ShieldText = $"{_state.Shields} ♥";
-        _state.FocusText = $"{(int)_state.Focus} / {(int)_state.FocusMax}";
+        _state.FocusText = _state.IsChanneling
+            ? $"HOLD {_state.ChannelHeldSec:0.0}s / {(int)_state.Focus} / {(int)_state.FocusMax}"
+            : $"{(int)_state.Focus} / {(int)_state.FocusMax}";
+        _state.ChannelText = _state.IsChanneling
+            ? $"channeling… {_state.ChannelHeldSec:0.0}s"
+            : "";
+        _state.FocusLow = _state.Focus < AvaloniaChaosTuning.FocusLowThreshold;
+        _state.RaiseChanged(nameof(ChaosRunState.FocusText));
+        _state.RaiseChanged(nameof(ChaosRunState.ChannelText));
+        _state.RaiseChanged(nameof(ChaosRunState.FocusLow));
 
         var remaining = Math.Max(0, _state.RunDurationSec - _state.ElapsedSec);
         _state.ClockText = $"{(int)remaining / 60}:{(int)remaining % 60:00}";
@@ -435,17 +637,10 @@ public sealed class AvaloniaChaosService : IChaosService
         if (_state == null || !_active) return;
         if (boon != null)
         {
+            _state.ApplyBoon(boon);
             _state.RunPickTiles.Add(new ChaosSidebarBoon { Id = boon.Id, Name = boon.Name, Glyph = boon.IsCurse ? "☠" : "◈" });
-            if (boon.IsCurse)
-            {
-                _state.BoonMult += 0.05;
-                _state.PushEvent($"accepted {boon.Name}");
-            }
-            else
-            {
-                _state.BoonMult += 0.10;
-                _state.PushEvent($"chose {boon.Name}");
-            }
+            _state.PushEvent($"{(boon.IsCurse ? "☠ accepted" : "◈ chose")} {boon.Name}");
+            ChaosLessonHooks.OnDraftCardTaken(boon.IsCurse);
         }
         _waveIndex++;
         _state.WaveIndex = _waveIndex;
@@ -455,17 +650,23 @@ public sealed class AvaloniaChaosService : IChaosService
         UpdateStateText();
     }
 
-    private void EndRun()
+    private void EndRun(bool ranFullCourse = false)
     {
         if (!_active || _ending) return;
         _ending = true;
         _spawning = false;
         StopTimers();
+        StopKeyHook();
+        StopRippleHook();
+        DisarmRabbitCall();
+        CloseToyButtons();
         _bubbles.EndChaosMode();
 
         var state = _state;
         if (state != null)
         {
+            ChaosLessonHooks.OnRunCompleted(state.Shields, ranFullCourse, state.Config.Difficulty);
+
             double baseXp = Math.Sqrt(Math.Max(0, state.Score)) * 1.5 + state.RunDurationSec / 60.0 * 35.0 * state.DifficultyMult;
             double skillMult = 1.0;
             double finalXp = baseXp * skillMult;
@@ -473,11 +674,12 @@ public sealed class AvaloniaChaosService : IChaosService
             long previousBest = (long)ChaosMeta.State.BestScore;
             ChaosMeta.State.Sparks += Math.Max(0, sparks);
             ChaosMeta.State.RunsCompleted++;
-            ChaosMeta.State.BestScore = Math.Max(ChaosMeta.State.BestScore, state.Score);
+            ChaosMeta.State.BestScore = Math.Max(ChaosMeta.State.BestScore, (long)state.Score);
             ChaosMeta.State.BestCombo = Math.Max(ChaosMeta.State.BestCombo, state.BestCombo);
             ChaosMeta.State.TotalDefused += state.Defused;
             ChaosMeta.State.TotalRunSeconds += state.ElapsedSec;
             ChaosMeta.Save();
+            RevealService.Sync("run_complete");
 
             RunOnUi(() =>
             {
@@ -498,6 +700,10 @@ public sealed class AvaloniaChaosService : IChaosService
         _paused = false;
         _manualPaused = false;
         StopTimers();
+        StopKeyHook();
+        StopRippleHook();
+        DisarmRabbitCall();
+        CloseToyButtons();
         try { _bubbles.EndChaosMode(); } catch { }
         RunOnUi(() =>
         {
@@ -507,6 +713,10 @@ public sealed class AvaloniaChaosService : IChaosService
             _overlay = null;
         });
         _state = null;
+        _vibeRemainingSec = 0;
+        _freezeRemainingSec = 0;
+        _snapFlashRemainingSec = 0;
+        _rippleCooldownSec = 0;
         AvaloniaChaosMode.ActiveMode = ChaosPlayMode.Story;
     }
 
@@ -538,6 +748,375 @@ public sealed class AvaloniaChaosService : IChaosService
             try { ChaosAnnouncerOverlay.RaiseActive(); } catch { }
             try { _hud?.RaiseToTopmost(); } catch { }
         });
+    }
+
+    // ============================ active toys ============================
+
+    private void BuildActiveToys()
+    {
+        if (_state == null) return;
+        _state.ActiveToys.Clear();
+        int pockets = ChaosMeta.SlotsFor(ChaosBoonCategory.Skill);
+        if (pockets <= 0) return;
+        var settings = _settings.Current;
+        string[] keys =
+        {
+            settings?.ChaosAccessoryKey1 ?? "Q",
+            settings?.ChaosAccessoryKey2 ?? "E",
+            "R",
+            "F"
+        };
+        int slot = 0;
+        foreach (var b in ChaosLifetimeBoons.All)
+        {
+            if (slot >= pockets) break;
+            if (!b.IsActiveUse || !ChaosMeta.IsBoonActive(b.Id)) continue;
+            if (!_state.ToyPower.TryGetValue(b.Id, out var power)) continue;
+            var toy = new ChaosToyState
+            {
+                Id = b.Id,
+                Name = b.Name,
+                Glyph = b.Glyph,
+                Desc = b.Desc,
+                Flavor = b.Flavor,
+                CapstoneDesc = b.CapstoneDesc,
+                KeyLabel = slot < keys.Length ? keys[slot] : "",
+                CooldownSec = b.UseCooldownSec,
+            };
+            if (b.UseCooldownSec <= 0) toy.ChargesLeft = (int)power; // charge-based (Freeze Trigger)
+            _state.ActiveToys.Add(toy);
+            slot++;
+        }
+    }
+
+    private void CloseToyButtons()
+    {
+        RunOnUi(() =>
+        {
+            foreach (var b in _toyButtons.ToArray())
+                try { b.Close(); } catch { }
+            _toyButtons.Clear();
+        });
+    }
+
+    private void StartKeyHook()
+    {
+        if (_inputHook == null) return;
+        try
+        {
+            _inputHook.KeyPressed += OnToyKey;
+        }
+        catch (Exception ex) { _logger?.Warning(ex, "Chaos toy key hook failed"); }
+    }
+
+    private void StopKeyHook()
+    {
+        try
+        {
+            if (_inputHook != null) _inputHook.KeyPressed -= OnToyKey;
+        }
+        catch { }
+    }
+
+    private void OnToyKey(object? sender, KeyboardHookEventArgs e)
+    {
+        RunOnUi(() =>
+        {
+            var settings = _settings.Current;
+            string name = VirtualKeyToName(e.VirtualKeyCode);
+
+            // Panic key outranks toys.
+            if (settings?.PanicKeyEnabled == true &&
+                name.Equals(settings.PanicKey, StringComparison.OrdinalIgnoreCase))
+            {
+                OnPanicKeyDuringRun();
+                return;
+            }
+
+            if (!_spawning || _state == null || _paused || _manualPaused) return;
+            foreach (var toy in _state.ActiveToys)
+            {
+                if (!string.IsNullOrEmpty(toy.KeyLabel) &&
+                    toy.KeyLabel.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    UseToyById(toy.Id);
+                    break;
+                }
+            }
+        });
+    }
+
+    private static string VirtualKeyToName(int vkCode)
+    {
+        if (vkCode is >= 0x30 and <= 0x39) return ((char)('0' + (vkCode - 0x30))).ToString();
+        if (vkCode is >= 0x41 and <= 0x5A) return ((char)vkCode).ToString();
+        return vkCode switch
+        {
+            0x20 => "Space",
+            0x1B => "Escape",
+            0x0D => "Return",
+            0x09 => "Tab",
+            0x70 => "F1", 0x71 => "F2", 0x72 => "F3", 0x73 => "F4",
+            0x74 => "F5", 0x75 => "F6", 0x76 => "F7", 0x77 => "F8",
+            0x78 => "F9", 0x79 => "F10", 0x7A => "F11", 0x7B => "F12",
+            _ => $"VK{vkCode}",
+        };
+    }
+
+    private void OnPanicKeyDuringRun()
+    {
+        if (!_spawning || _paused) return;
+        if (!_manualPaused) ToggleManualPause();
+        else RequestStop();
+    }
+
+    private void StartRippleHook()
+    {
+        // TODO: IMouseHook currently exposes RightButtonDown only. A right-button-up event
+        // would let us cast the ripple on release (WPF parity). For now we cast on down.
+        if (_mouseHook == null) return;
+        try
+        {
+            _mouseHook.RightButtonDown += OnRippleRightDown;
+            _mouseHook.Install();
+        }
+        catch (Exception ex) { _logger?.Warning(ex, "Chaos ripple hook failed"); }
+    }
+
+    private void StopRippleHook()
+    {
+        try
+        {
+            if (_mouseHook != null) _mouseHook.RightButtonDown -= OnRippleRightDown;
+        }
+        catch { }
+        try { _mouseHook?.Uninstall(); } catch { }
+    }
+
+    private void OnRippleRightDown(object? sender, Core.Platform.HookPoint e)
+    {
+        if (!_spawning || _state == null || _paused || _manualPaused) return;
+        // Without bubble-center access we fire whenever any chaos bubble is alive,
+        // letting right-clicks pass through to the desktop when the field is empty.
+        if (_bubbles.ActiveBubbles == 0) return;
+        RunOnUi(() => FireRipple(new Core.Platform.Point(e.X, e.Y)));
+    }
+
+    private void FireRipple(Core.Platform.Point px)
+    {
+        if (!_spawning || _state == null || _paused || _manualPaused) return;
+        if (_freezeRemainingSec > 0) return;
+        ChaosLessonHooks.OnRippleCast();
+        if (!_state.RippleReady)
+        {
+            _state.PushEvent($"🌊 still water... gathering {_state.RippleText}");
+            return;
+        }
+        _rippleCooldownSec = _state.RippleRechargeSec;
+        bool skips = _state.MaxedBoons.Contains("skipping_stone");
+        CastRippleWave(px);
+        if (skips)
+        {
+            for (int i = 1; i <= 2; i++)
+            {
+                var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(i * AvaloniaChaosTuning.RIPPLE_WAVE_GAP_MS) };
+                int local = i;
+                t.Tick += (_, _) => { t.Stop(); CastRippleWave(px); };
+                t.Start();
+            }
+        }
+        _state.PushEvent(skips ? "🌊 the stone skips — three waves" : "🌊 ripple");
+    }
+
+    private void CastRippleWave(Core.Platform.Point px)
+    {
+        if (!_spawning || _state == null) return;
+        _bubbles.TriggerPlayerRipple(px, _state.RippleRadiusPx, _state.RippleLifeMs);
+    }
+
+    public void UseToyById(string id)
+    {
+        if (_state == null) return;
+        foreach (var t in _state.ActiveToys)
+            if (t.Id == id) { UseToy(t); return; }
+    }
+
+    private void UseToy(ChaosToyState toy)
+    {
+        if (_state == null || !_spawning || _paused || _manualPaused) return;
+        if (_state.ActivesDisabled)
+        {
+            _state.PushEvent("🫦 the urge holds your hands — no toys");
+            return;
+        }
+        if (!toy.IsReady) return;
+        ChaosLessonHooks.OnToyUsed(toy.Id);
+        double power = _state.ToyPower.TryGetValue(toy.Id, out var p) ? p : 0;
+        bool maxed = _state.MaxedBoons.Contains(toy.Id);
+
+        switch (toy.Id)
+        {
+            case "vibe_popping":
+                _bubbles.SetVibePop(true, hoverPops: maxed);
+                _vibeRemainingSec = Math.Max(1, power);
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                _state.PushEvent("🔸 it buzzes. hold and sweep");
+                break;
+
+            case "freeze_trigger":
+                if (toy.ChargesLeft <= 0) return;
+                toy.ChargesLeft--;
+                ActivateFreeze();
+                if (maxed) _bubbles.DefuseAllLive();
+                toy.CooldownRemainingSec = 3; // anti-doubletap between charges
+                toy.IsEffectActive = true;
+                _state.PushEvent("❄ everything holds still");
+                break;
+
+            case "porn_dvd":
+                int lvl = ChaosMeta.BoonLevel(toy.Id);
+                double speed = lvl switch { 1 => 0.7, 2 => 0.85, _ => 1.0 };
+                double scale = lvl switch { 1 => 0.8, 2 => 0.9, _ => 1.0 };
+                ChaosDvdOverlay.Launch(Math.Max(5, power), speed, scale, count: maxed ? 2 : 1,
+                    splitBounces: _state.DvdSplitBounces);
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                _dvdBannerOn = true;
+                _state.PushEvent("📀 now loading");
+                break;
+
+            case "snap_field":
+                if (maxed) _bubbles.PopAllChaosPaid();
+                else _bubbles.DefuseAllLive();
+                toy.CooldownRemainingSec = Math.Max(5, power);
+                _snapFlashRemainingSec = 1.0;
+                toy.IsEffectActive = true;
+                _state.PushEvent(maxed ? "✋ snapped. all of it." : "✋ snapped — every live one let go");
+                break;
+
+            case "rabbit_caller":
+                ArmRabbitCall(Math.Max(1, (int)power), maxed);
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                _state.PushEvent("🐇 the whistle hangs — your next click calls them");
+                break;
+
+            case "e_stim":
+                int charges = Math.Max(1, (int)power) * Math.Max(1, _state.EStimChargeMult);
+                _bubbles.ArmEStim(charges, maxed);
+                toy.CooldownRemainingSec = toy.CooldownSec;
+                toy.IsEffectActive = true;
+                _state.PushEvent(maxed
+                    ? $"⚡ charged — your next {charges} pops chain-react"
+                    : $"⚡ charged — your next {charges} pops conduct");
+                break;
+        }
+    }
+
+    private void ActivateFreeze()
+    {
+        _freezeRemainingSec = AvaloniaChaosTuning.FREEZE_DURATION_SEC;
+        _bubbles.SetChaosFrozen(true);
+        _bubbles.VibrateAllForFreeze(AvaloniaChaosTuning.FREEZE_VIBRATE_MS);
+    }
+
+    private void EndFreeze()
+    {
+        _freezeRemainingSec = 0;
+        _bubbles.SetChaosFrozen(false);
+    }
+
+    private void ArmRabbitCall(int rabbits, bool maxed)
+    {
+        _rabbitCallPending = rabbits;
+        _rabbitCallMaxed = maxed;
+        _rabbitAimPrevDown = true; // swallow the press that armed the toy
+        try { ChaosCursorGlowOverlay.Arm(); } catch { }
+        if (_rabbitAimTimer == null)
+        {
+            _rabbitAimTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            _rabbitAimTimer.Tick += RabbitAimTick;
+        }
+        _rabbitAimTimer.Start();
+    }
+
+    private void DisarmRabbitCall()
+    {
+        _rabbitCallPending = 0;
+        _rabbitAimTimer?.Stop();
+        try { ChaosCursorGlowOverlay.Disarm(); } catch { }
+    }
+
+    private void RabbitAimTick(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_rabbitCallPending <= 0 || _state == null || !_active)
+            {
+                DisarmRabbitCall();
+                return;
+            }
+            var cur = _pointerState?.GetCursorPosition();
+            if (!cur.HasValue) return;
+            try { ChaosCursorGlowOverlay.MoveToPx(cur.Value.X, cur.Value.Y); } catch { }
+
+            bool down = _pointerState?.IsMouseButtonPressed(Core.Platform.MouseButton.Left) ?? false;
+            bool pressed = down && !_rabbitAimPrevDown;
+            _rabbitAimPrevDown = down;
+            if (!pressed || _paused || _manualPaused || !_spawning) return;
+
+            int rabbits = _rabbitCallPending;
+            bool maxed = _rabbitCallMaxed;
+            DisarmRabbitCall();
+            for (int i = 0; i < rabbits; i++)
+            {
+                double jx = cur.Value.X + _rng.Next(-60, 61);
+                double jy = cur.Value.Y + _rng.Next(-60, 61);
+                SpawnDarter(jx, jy);
+            }
+            _state.PushEvent(maxed ? $"🐇 {rabbits} at your fingertip… and the burrow is emptying"
+                                   : $"🐇 {rabbits} answered at your fingertip");
+        }
+        catch (Exception ex) { _logger?.Warning(ex, "RabbitAimTick failed"); }
+    }
+
+    private void SpawnDarter(double? atPxX = null, double? atPxY = null)
+    {
+        if (_state == null) return;
+        var spec = ChaosBubbleVariants.BuildDarter(_state.DifficultyMult, spotlight: false, atPxX, atPxY);
+        _bubbles.SpawnChaosBubble(spec);
+    }
+
+    private void TickActiveToys(double dt)
+    {
+        if (_state == null) return;
+        if (_vibeRemainingSec > 0)
+        {
+            _vibeRemainingSec -= dt;
+            if (_vibeRemainingSec <= 0)
+            {
+                _bubbles.SetVibePop(false);
+            }
+        }
+        if (_dvdBannerOn && !ChaosDvdOverlay.AnyToyActive) { _dvdBannerOn = false; }
+        foreach (var t in _state.ActiveToys)
+        {
+            if (t.CooldownRemainingSec > 0)
+            {
+                t.CooldownRemainingSec -= dt;
+            }
+            t.IsEffectActive = t.Id switch
+            {
+                "vibe_popping" => _vibeRemainingSec > 0,
+                "freeze_trigger" => _freezeRemainingSec > 0,
+                "porn_dvd" => ChaosDvdOverlay.AnyToyActive,
+                "snap_field" => _snapFlashRemainingSec > 0,
+                "rabbit_caller" => _rabbitCallPending > 0,
+                "e_stim" => _bubbles.EStimChargesLeft > 0,
+                _ => false,
+            };
+        }
     }
 
     private void RunOnUi(Action action)

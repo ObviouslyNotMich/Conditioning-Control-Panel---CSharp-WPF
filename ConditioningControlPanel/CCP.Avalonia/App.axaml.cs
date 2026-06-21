@@ -85,6 +85,17 @@ public partial class App : Application
             CoreApp.Overlay = Services.GetRequiredService<IOverlayService>();
             AvaloniaChaosEnv.Bubbles = (IAvaloniaBubbleService)CoreApp.Bubbles;
 
+            // Load persistent Chaos Mode meta-progression once at startup.
+            try
+            {
+                var env = Services.GetRequiredService<IAppEnvironment>();
+                ChaosMeta.Init(env);
+            }
+            catch (Exception ex)
+            {
+                Log.Logger?.Error(ex, "Failed to initialize Chaos meta state");
+            }
+
             // Report any previous abnormal chaos session termination.
             Services.GetRequiredService<ChaosCrashSentinel>().ConsumeAndReport();
 

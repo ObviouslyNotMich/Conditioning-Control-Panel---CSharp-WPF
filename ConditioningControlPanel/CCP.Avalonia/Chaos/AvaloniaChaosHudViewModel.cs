@@ -53,6 +53,7 @@ public sealed class AvaloniaChaosHudViewModel : INotifyPropertyChanged
     public ObservableCollection<ChaosSidebarBoon> ActiveSidebarAccessories { get; } = new();
     public ObservableCollection<ChaosSidebarBoon> RunPickTiles { get; } = new();
     public ObservableCollection<ChaosSidebarBoon> RunModifiers { get; } = new();
+    public ObservableCollection<ChaosToyState> ActiveToys { get; } = new();
     public ObservableCollection<string> RecentEvents { get; } = new();
 
     private string _shieldText = "0 ♥";
@@ -109,6 +110,7 @@ public sealed class AvaloniaChaosHudViewModel : INotifyPropertyChanged
         Sync(ActiveSidebarAccessories, state.ActiveSidebarAccessories);
         Sync(RunPickTiles, state.RunPickTiles);
         Sync(RunModifiers, state.RunModifiers);
+        Sync(ActiveToys, state.ActiveToys);
         Sync(RecentEvents, state.RecentEvents);
     }
 

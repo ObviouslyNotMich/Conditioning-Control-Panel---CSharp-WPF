@@ -30,6 +30,13 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     private bool _sharedHost;
     private Bitmap? _bubbleBitmap;
 
+    // ---- active-toy state (Avalonia parity stubs) ----
+    private bool _vibePopActive;
+    private bool _vibePopHoverPops;
+    private DateTime _vibePopEndUtc;
+    private int _eStimCharges;
+    private bool _eStimChainReaction;
+
     public AvaloniaBubbleService(
         ISettingsService settings,
         IScreenProvider screens,
@@ -133,9 +140,18 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     // ---- Stage 2a/2b chaos mode ----
 
-    void IBubbleService.BeginChaosMode(Action<ChaosBubbleSpec> onBenignPop, Action<ChaosBubbleSpec, double, bool> onDefuse, Action<ChaosBubbleSpec> onDetonate)
+    void IBubbleService.BeginChaosMode(
+        Action<ChaosBubbleSpec> onBenignPop,
+        Action<ChaosBubbleSpec, double, bool> onDefuse,
+        Action<ChaosBubbleSpec> onDetonate,
+        Func<ChaosBubbleSpec, bool>? canChannel = null,
+        Action<ChaosBubbleSpec>? onChannelStarted = null,
+        Action<ChaosBubbleSpec, string>? onChannelBroken = null)
     {
-        BeginChaosMode(onBenignPop, onDefuse, onDetonate);
+        BeginChaosMode(onBenignPop, onDefuse, onDetonate,
+            canChannel: canChannel,
+            onChannelStarted: onChannelStarted,
+            onChannelBroken: onChannelBroken);
     }
 
     public void BeginChaosMode(
@@ -151,7 +167,10 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         Action<ChaosBubbleSpec>? onBrittleShattered = null,
         Action<ChaosBubbleSpec>? onTreatExpired = null,
         Action<ChaosBubbleSpec, bool>? onDarterSpanked = null,
-        double chainReachDip = 120.0)
+        double chainReachDip = 120.0,
+        Func<ChaosBubbleSpec, bool>? canChannel = null,
+        Action<ChaosBubbleSpec>? onChannelStarted = null,
+        Action<ChaosBubbleSpec, string>? onChannelBroken = null)
     {
         LoadBubbleImage();
 
@@ -200,12 +219,17 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             onBrittleShattered,
             onTreatExpired,
             onDarterSpanked,
-            chainReachDip);
+            chainReachDip,
+            canChannel,
+            onChannelStarted,
+            onChannelBroken);
 
         if (_sharedHost)
         {
             _mouseHook.LeftButtonDown += OnMouseHookLeftDown;
             _mouseHook.RightButtonDown += OnMouseHookRightDown;
+            // TODO: add IMouseHook.LeftButtonUp and route to _chaosEngine.EndChaosChannel
+            // so shared-host mode supports early-release channel breaks.
             _mouseHook.Install();
         }
     }
@@ -236,9 +260,53 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     public void SetChaosInputLocked(bool locked) => _chaosEngine?.SetChaosInputLocked(locked);
 
+    public void SetVibePop(bool active, bool hoverPops = false)
+    {
+        _vibePopActive = active;
+        _vibePopHoverPops = hoverPops;
+        // Duration is driven by AvaloniaChaosService; keep sweeping until it calls SetVibePop(false).
+        _vibePopEndUtc = active ? DateTime.MaxValue : DateTime.UtcNow;
+    }
+
+    public void VibrateAllForFreeze(int durationMs)
+    {
+        // Stage 2c: window vibration stub; harmless no-op until visual FX layer is wired.
+    }
+
+    public void ArmEStim(int charges, bool chainReaction = false)
+    {
+        _eStimCharges = Math.Max(0, charges);
+        _eStimChainReaction = chainReaction;
+    }
+
+    public int EStimChargesLeft => _eStimCharges;
+
+    public void TriggerPlayerRipple(Point centerPx, double radiusPx, double lifeMs) =>
+        _chaosEngine?.TriggerPlayerRipple(centerPx, radiusPx, lifeMs);
+
     private void OnMouseHookLeftDown(object? sender, HookPoint e)
     {
         var pt = new Point(e.X, e.Y);
+
+        // VibePopping: while armed, every left-down sweeps the immediate area.
+        if (_vibePopActive && _chaosEngine != null)
+        {
+            if (DateTime.UtcNow >= _vibePopEndUtc) _vibePopActive = false;
+            else
+            {
+                const int sweep = 120;
+                PopBubblesInRect(new PixelRect(e.X - sweep, e.Y - sweep, sweep * 2, sweep * 2));
+            }
+        }
+
+        // E-Stim: discharge one charge on each click while armed.
+        if (_eStimCharges > 0 && _chaosEngine != null)
+        {
+            _eStimCharges--;
+            int radius = _eStimChainReaction ? 800 : 500;
+            PopBubblesInRect(new PixelRect(e.X - radius, e.Y - radius, radius * 2, radius * 2));
+        }
+
         var swallow = _chaosEngine?.OnSharedHostLeftDown(pt) ?? false;
         // Swallow is not directly supported by EventHandler<HookPoint>; the hook always calls
         // CallNextHookEx. The WPF version returns a bool via its own hook contract. For Stage 2c
@@ -248,7 +316,8 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     private void OnMouseHookRightDown(object? sender, HookPoint e)
     {
-        _chaosEngine?.TriggerPlayerRipple(new Point(e.X, e.Y));
+        // The Ripple verb is driven by AvaloniaChaosService so it can honor recharge/cooldown.
+        // The bubble engine still exposes TriggerPlayerRipple for consumers that call it directly.
     }
 
     private bool _lastHookSwallow;
@@ -284,8 +353,20 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
             var window = new AvaloniaBubbleWindow(_bubbleBitmap, state.Size);
             ApplyVisualState(window, state);
+            window.Bubble.StateId = state.Id;
 
-            window.Click += (_, _) => _ambientEngine.PopBubble(state.Id);
+            // Live chaos bubbles use hold-to-defuse; everything else pops on click.
+            if (state.Spec is { IsLive: true })
+            {
+                var bubbleId = state.Id;
+                window.Bubble.Click += (_, _) => _chaosEngine?.BeginChaosChannel(bubbleId);
+                window.Bubble.BubblePointerReleased += (_, _) => _chaosEngine?.EndChaosChannel(bubbleId);
+            }
+            else
+            {
+                var engine = state.Spec != null ? _chaosEngine : _ambientEngine;
+                window.Click += (_, _) => engine?.PopBubble(state.Id);
+            }
             _windows[state.Id] = window;
 
             try

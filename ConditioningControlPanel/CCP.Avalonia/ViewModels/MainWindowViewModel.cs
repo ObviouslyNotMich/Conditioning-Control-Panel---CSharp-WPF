@@ -72,6 +72,7 @@ public partial class MainWindowViewModel : ObservableObject
         UpdateHeaderFromSettings();
         InitializeHeaderRow1();
         WireSessionEvents();
+        HookLocalizationRefresh();
     }
 
     public MainWindowViewModel(IServiceProvider services)
@@ -109,6 +110,7 @@ public partial class MainWindowViewModel : ObservableObject
         SubscribeProgressionEvents();
         SubscribeRemoteControlEvents();
         SubscribeBrowserHostEvents();
+        HookLocalizationRefresh();
     }
 
     /// <summary>
@@ -209,7 +211,17 @@ public partial class MainWindowViewModel : ObservableObject
     private string _remoteControlPin = "";
 
     [ObservableProperty]
-    private string _remoteControllerSessionName = "Unknown";
+    private string _remoteControllerSessionName = Loc.Get("label_unknown");
+
+    public string RemoteControlSessionCodeDisplay => Loc.GetF("label_session_code_fmt", RemoteControlSessionCode);
+    public string RemoteControllerSessionNameDisplay => Loc.GetF("label_connected_controller_fmt", RemoteControllerSessionName);
+    public string RemoteControlStatusDisplay => Loc.GetF("label_remote_control_status_fmt", RemoteControlStatus);
+    public string RemoteControlPinDisplay => Loc.GetF("label_pin_fmt", RemoteControlPin);
+
+    partial void OnRemoteControlSessionCodeChanged(string value) => OnPropertyChanged(nameof(RemoteControlSessionCodeDisplay));
+    partial void OnRemoteControllerSessionNameChanged(string value) => OnPropertyChanged(nameof(RemoteControllerSessionNameDisplay));
+    partial void OnRemoteControlStatusChanged(string value) => OnPropertyChanged(nameof(RemoteControlStatusDisplay));
+    partial void OnRemoteControlPinChanged(string value) => OnPropertyChanged(nameof(RemoteControlPinDisplay));
 
     [ObservableProperty]
     private double _startButtonFlashOpacity = 1.0;
@@ -761,7 +773,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             RemoteControlConnected = _remoteControlService?.ControllerConnected ?? false;
             RemoteControlOverlayVisible = RemoteControlConnected;
-            RemoteControlStatus = RemoteControlConnected ? "Controller connected" : "";
+            RemoteControlStatus = RemoteControlConnected ? Loc.Get("label_controller_connected") : "";
             UpdateRemoteControlOverlayInfo();
         });
     }
@@ -770,7 +782,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         _uiDispatcher?.Post(() =>
         {
-            RemoteControlStatus = "Remote session started";
+            RemoteControlStatus = Loc.Get("label_remote_session_started");
             UpdateRemoteControlOverlayInfo();
         });
     }
@@ -784,7 +796,7 @@ public partial class MainWindowViewModel : ObservableObject
             RemoteControlStatus = "";
             RemoteControlSessionCode = "";
             RemoteControlPin = "";
-            RemoteControllerSessionName = "Unknown";
+            RemoteControllerSessionName = Loc.Get("label_unknown");
         });
     }
 
@@ -793,8 +805,20 @@ public partial class MainWindowViewModel : ObservableObject
         RemoteControlSessionCode = _remoteControlService?.SessionCode ?? "";
         RemoteControlPin = _remoteControlService?.ConnectPin ?? "";
         RemoteControllerSessionName = _remoteControlService?.ControllerConnected == true
-            ? "Connected controller"
-            : "Waiting for controller";
+            ? Loc.Get("label_connected_controller")
+            : Loc.Get("label_waiting_for_controller");
+    }
+
+    private void HookLocalizationRefresh()
+    {
+        LocalizationManager.Instance.LanguageChanged += (_, _) =>
+        {
+            UpdateRemoteControlOverlayInfo();
+            OnPropertyChanged(nameof(RemoteControlSessionCodeDisplay));
+            OnPropertyChanged(nameof(RemoteControllerSessionNameDisplay));
+            OnPropertyChanged(nameof(RemoteControlStatusDisplay));
+            OnPropertyChanged(nameof(RemoteControlPinDisplay));
+        };
     }
 
     private void OnLevelUp(object? sender, int level)

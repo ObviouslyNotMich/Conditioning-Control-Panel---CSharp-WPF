@@ -25,6 +25,9 @@ public sealed class AvaloniaBubble : Panel
     private bool _fading;
     private double _fuseFraction = 1.0;
 
+    /// <summary>Bubble identifier used to route pointer events back to the engine.</summary>
+    public Guid StateId { get; set; }
+
     public AvaloniaBubble(Bitmap? bitmap, double size)
     {
         Width = size;
@@ -123,10 +126,14 @@ public sealed class AvaloniaBubble : Panel
         Children.Add(_label);
 
         PointerPressed += OnPointerPressed;
+        PointerReleased += OnBubblePointerReleased;
     }
 
-    /// <summary>Raised when the bubble is clicked.</summary>
+    /// <summary>Raised when the bubble is clicked (left button press).</summary>
     public event EventHandler? Click;
+
+    /// <summary>Raised when the left pointer is released over this bubble.</summary>
+    public event EventHandler? BubblePointerReleased;
 
     /// <summary>Updates visual scale and opacity.</summary>
     public void SetVisual(double scale, double opacity)
@@ -243,6 +250,15 @@ public sealed class AvaloniaBubble : Panel
         {
             e.Handled = true;
             Click?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void OnBubblePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Left)
+        {
+            e.Handled = true;
+            BubblePointerReleased?.Invoke(this, EventArgs.Empty);
         }
     }
 }

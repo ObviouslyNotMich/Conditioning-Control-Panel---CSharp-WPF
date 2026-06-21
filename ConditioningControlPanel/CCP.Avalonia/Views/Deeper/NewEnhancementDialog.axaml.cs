@@ -36,11 +36,11 @@ public partial class NewEnhancementDialog : Window
         var filters = new[]
         {
             new FileFilter(
-                isVideo ? "Video files" : "Audio files",
+                isVideo ? Loc.Get("label_video_files") : Loc.Get("label_audio_files"),
                 isVideo
                     ? new[] { "mp4", "webm", "mkv", "mov", "avi", "m4v" }
                     : new[] { "mp3", "wav", "m4a", "aac", "flac", "ogg" }),
-            new FileFilter("All files", new[] { "*" })
+            new FileFilter(Loc.Get("label_all_files"), new[] { "*" })
         };
 
         var files = await (_dialogService?.ShowOpenFileDialogAsync(

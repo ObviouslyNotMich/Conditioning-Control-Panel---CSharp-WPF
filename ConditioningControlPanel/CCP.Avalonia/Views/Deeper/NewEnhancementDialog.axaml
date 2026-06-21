@@ -48,19 +48,27 @@
                   Orientation="Horizontal"
                   Margin="0,0,0,16">
         <RadioButton x:Name="RbVideo"
-                     Content="🎬  Video"
                      IsChecked="True"
                      GroupName="MediaType"
                      Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      Padding="8,6"
-                     Margin="0,0,16,0" />
+                     Margin="0,0,16,0">
+          <TextBlock>
+            <Run Text="🎬 " />
+            <Run Text="{Binding [deeper_editor_media_type_video], Source={x:Static loc:LocalizationManager.Instance}}" />
+          </TextBlock>
+        </RadioButton>
         <RadioButton x:Name="RbAudio"
-                     Content="🎵  Audio"
                      GroupName="MediaType"
                      Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
-                     Padding="8,6" />
+                     Padding="8,6">
+          <TextBlock>
+            <Run Text="🎵 " />
+            <Run Text="{Binding [deeper_editor_media_type_audio], Source={x:Static loc:LocalizationManager.Instance}}" />
+          </TextBlock>
+        </RadioButton>
       </StackPanel>
 
       <TextBlock Grid.Row="4"

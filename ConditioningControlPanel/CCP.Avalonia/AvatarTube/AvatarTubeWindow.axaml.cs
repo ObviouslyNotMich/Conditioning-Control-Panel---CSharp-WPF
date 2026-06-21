@@ -22,6 +22,7 @@ using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.AIService;
+using ConditioningControlPanel.Core.Services.AvatarTube;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ModerationSource = ConditioningControlPanel.Core.Services.Moderation.ModerationSource;
 using ConditioningControlPanel.Avalonia.Views;
@@ -71,6 +72,12 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private bool _isMuted;
         private bool _isMouseOverSpeechBubble;
         private bool _isPlayingUninterruptibleClip;
+
+        // Context-menu toggle state (engine/takeover fall back to AppSettings when no service seam is registered)
+        private bool _engineEnabled;
+        private bool _takeoverEnabled;
+        private bool _whispersMuted;
+        private bool _browserAudioPaused;
         private DateTime _lastSpeechEndTime = DateTime.MinValue;
         private SpeechSource _lastSpeechSource = SpeechSource.Preset;
         private int _lastSpeechLength;
@@ -380,7 +387,28 @@ _parentWindow = parentWindow;
         private void MenuItemDismiss_Click(object? sender, RoutedEventArgs e) => HideTube();
         private void MenuItemEngine_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO: toggle engine through the main window seam once available.
+            var engine = App.Services.GetService<IAwarenessEngine>();
+            bool next;
+            if (engine != null)
+            {
+                next = !engine.IsEnabled;
+                engine.IsEnabled = next;
+            }
+            else if (_settings?.Current != null)
+            {
+                next = !_settings.Current.AwarenessModeEnabled;
+                _settings.Current.AwarenessModeEnabled = next;
+                if (next)
+                    _settings.Current.AwarenessConsentGiven = true;
+                _settings.Save();
+            }
+            else
+            {
+                next = !_engineEnabled;
+            }
+            _engineEnabled = next;
+            Giggle(next ? "Engine started! *giggles*" : "Engine stopped~");
+            UpdateQuickMenuState();
         }
         private void MenuItemTriggerMode_Click(object? sender, RoutedEventArgs e)
         {
@@ -392,7 +420,27 @@ _parentWindow = parentWindow;
         }
         private void MenuItemBambiTakeover_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO: toggle autonomy/takeover mode (Patreon-gated).
+            var svc = App.Services.GetService<IBambiTakeoverService>();
+            bool next;
+            if (svc != null)
+            {
+                next = !svc.IsActive;
+                svc.IsActive = next;
+            }
+            else if (_settings?.Current != null)
+            {
+                next = !_settings.Current.AutonomyModeEnabled;
+                _settings.Current.AutonomyModeEnabled = next;
+                if (next && !_settings.Current.AutonomyConsentGiven)
+                    _settings.Current.AutonomyConsentGiven = true;
+                _settings.Save();
+            }
+            else
+            {
+                next = !_takeoverEnabled;
+            }
+            _takeoverEnabled = next;
+            UpdateQuickMenuState();
         }
         private void MenuItemMute_Click(object? sender, RoutedEventArgs e)
         {
@@ -410,11 +458,35 @@ _parentWindow = parentWindow;
         private void MenuItemShowChatHistory_Click(object? sender, RoutedEventArgs e) => EnterChatHistoryMode();
         private void MenuItemMuteWhispers_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO: toggle sub-audio whispers.
+            var svc = App.Services.GetService<IWhisperService>();
+            bool muted;
+            if (svc != null)
+            {
+                muted = !svc.IsMuted;
+                svc.IsMuted = muted;
+            }
+            else if (_settings?.Current != null)
+            {
+                bool currentlyMuted = _settings.Current.SubAudioEnabled != true;
+                muted = !currentlyMuted;
+                _settings.Current.SubAudioEnabled = !muted;
+                _settings.Save();
+            }
+            else
+            {
+                muted = !_whispersMuted;
+            }
+            _whispersMuted = muted;
+            UpdateQuickMenuState();
         }
         private void MenuItemPauseBrowser_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO: toggle browser audio pause.
+            var svc = App.Services.GetService<IBrowserAudioService>();
+            bool next = svc != null ? !svc.IsPaused : !_browserAudioPaused;
+            if (svc != null)
+                svc.IsPaused = next;
+            _browserAudioPaused = next;
+            UpdateQuickMenuState();
         }
 
         private void BtnPrevAvatar_Click(object? sender, PointerPressedEventArgs e)
@@ -475,6 +547,71 @@ _parentWindow = parentWindow;
             if (MenuItemMute != null) MenuItemMute.Header = _isMuted ? "Unmute" : "Mute";
             if (MenuItemTriggerMode != null && _settings?.Current != null)
                 MenuItemTriggerMode.Header = _settings.Current.TriggerModeEnabled ? "Stop trigger mode" : "Start trigger mode";
+
+            // Engine (Awareness) toggle
+            bool engineRunning;
+            var engine = App.Services.GetService<IAwarenessEngine>();
+            if (engine != null)
+                engineRunning = engine.IsEnabled;
+            else
+                engineRunning = _settings?.Current?.AwarenessModeEnabled ?? _engineEnabled;
+            _engineEnabled = engineRunning;
+            if (MenuItemEngine != null)
+            {
+                MenuItemEngine.ToggleType = MenuItemToggleType.CheckBox;
+                MenuItemEngine.IsChecked = engineRunning;
+                MenuItemEngine.Header = engineRunning ? Loc.Get("menu_stop_engine") : Loc.Get("menu_start_engine");
+                MenuItemEngine.Foreground = engineRunning ? new SolidColorBrush(Color.FromRgb(255, 99, 71)) : new SolidColorBrush(Color.FromRgb(144, 238, 144));
+            }
+
+            // Bambi Takeover toggle
+            bool takeoverOn;
+            var takeover = App.Services.GetService<IBambiTakeoverService>();
+            if (takeover != null)
+                takeoverOn = takeover.IsActive;
+            else
+                takeoverOn = _settings?.Current?.AutonomyModeEnabled ?? _takeoverEnabled;
+            _takeoverEnabled = takeoverOn;
+            if (MenuItemBambiTakeover != null)
+            {
+                MenuItemBambiTakeover.ToggleType = MenuItemToggleType.CheckBox;
+                MenuItemBambiTakeover.IsChecked = takeoverOn;
+                var label = Loc.Get("menu_takeover");
+                MenuItemBambiTakeover.Header = takeoverOn ? Loc.GetF("menu_takeover_on_format", label) : Loc.GetF("menu_takeover_off_format", label);
+            }
+
+            // Mute whispers toggle
+            bool whispersMuted;
+            var whisperSvc = App.Services.GetService<IWhisperService>();
+            if (whisperSvc != null)
+                whispersMuted = whisperSvc.IsMuted;
+            else
+                whispersMuted = _settings?.Current?.SubAudioEnabled != true;
+            _whispersMuted = whispersMuted;
+            if (MenuItemMuteWhispers != null)
+            {
+                MenuItemMuteWhispers.ToggleType = MenuItemToggleType.CheckBox;
+                MenuItemMuteWhispers.IsChecked = whispersMuted;
+                MenuItemMuteWhispers.Header = whispersMuted ? Loc.Get("menu_mute_whispers_on") : Loc.Get("menu_mute_whispers_off");
+                MenuItemMuteWhispers.Foreground = whispersMuted ? new SolidColorBrush(Color.FromRgb(255, 99, 71)) : new SolidColorBrush(Colors.White);
+            }
+
+            // Pause browser audio toggle
+            bool browserPaused;
+            var browserAudio = App.Services.GetService<IBrowserAudioService>();
+            if (browserAudio != null)
+                browserPaused = browserAudio.IsPaused;
+            else
+                browserPaused = _browserAudioPaused;
+            _browserAudioPaused = browserPaused;
+            if (MenuItemPauseBrowser != null)
+            {
+                MenuItemPauseBrowser.ToggleType = MenuItemToggleType.CheckBox;
+                MenuItemPauseBrowser.IsChecked = browserPaused;
+                MenuItemPauseBrowser.Header = browserPaused ? Loc.Get("menu_resume_browser") : Loc.Get("menu_pause_browser");
+                MenuItemPauseBrowser.Foreground = browserPaused ? new SolidColorBrush(Color.FromRgb(144, 238, 144)) : new SolidColorBrush(Colors.White);
+            }
+
             UpdateContextMenuForState();
             UpdateResizeMenuState();
             RefreshEmoteMenuItemsForRemoteState();
@@ -1237,6 +1374,10 @@ _parentWindow = parentWindow;
         private void OnFirstContentRendered(object? sender, EventArgs e)
         {
             Opened -= OnFirstContentRendered;
+
+            _tubeHandle = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            _parentHandle = _parentWindow?.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+
             if (ClientSize.Width > 0 && ClientSize.Height > 0)
             {
                 Width = ClientSize.Width;

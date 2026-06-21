@@ -314,6 +314,9 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         internal int EffAvatarDetachedOffsetY() => 0;
 
         // Portrait mode stubs
+        // TODO: port the WPF emotive portrait system when time permits. The legacy pose cycling
+        // above remains the active path; these stubs are kept harmless so switching companions
+        // and avatar sets continues to work.
         private bool UsePortraitSystem() => false;
         private void TryEnterPortraitMode() { }
         private void LeavePortraitMode()

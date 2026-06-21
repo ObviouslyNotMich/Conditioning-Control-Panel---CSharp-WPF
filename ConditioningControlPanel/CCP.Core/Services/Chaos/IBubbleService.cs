@@ -60,8 +60,17 @@ public interface IBubbleService
 
     // ---- Stage 2a chaos mode hooks ----
 
-    /// <summary>Enters chaos mode and wires callbacks for benign pops, defuses, and detonations.</summary>
-    void BeginChaosMode(Action<ChaosBubbleSpec> onBenignPop, Action<ChaosBubbleSpec, double, bool> onDefuse, Action<ChaosBubbleSpec> onDetonate);
+    /// <summary>
+    /// Enters chaos mode and wires callbacks for benign pops, defuses, detonations,
+    /// and (Avalonia port) hold-to-defuse channel start/broken events.
+    /// </summary>
+    void BeginChaosMode(
+        Action<ChaosBubbleSpec> onBenignPop,
+        Action<ChaosBubbleSpec, double, bool> onDefuse,
+        Action<ChaosBubbleSpec> onDetonate,
+        Func<ChaosBubbleSpec, bool>? canChannel = null,
+        Action<ChaosBubbleSpec>? onChannelStarted = null,
+        Action<ChaosBubbleSpec, string>? onChannelBroken = null);
 
     /// <summary>Leaves chaos mode and destroys all chaos bubbles.</summary>
     void EndChaosMode();
@@ -77,4 +86,28 @@ public interface IBubbleService
 
     /// <summary>Locks or unlocks chaos input handling.</summary>
     void SetChaosInputLocked(bool locked);
+
+    // ---- Active-toy APIs (Avalonia parity) ----
+
+    /// <summary>Enables or disables the VibePopping sweep mode. While active, left-clicks within
+    /// the sweep radius pop nearby chaos bubbles instantly (live bubbles snap for full pay).</summary>
+    void SetVibePop(bool active, bool hoverPops = false);
+
+    /// <summary>Briefly vibrates all chaos bubble windows to telegraph a freeze.</summary>
+    void VibrateAllForFreeze(int durationMs);
+
+    /// <summary>Instantly defuses every live chaos bubble currently on screen.</summary>
+    void DefuseAllLive();
+
+    /// <summary>Pops every paid chaos bubble (treats + lives) currently on screen.</summary>
+    void PopAllChaosPaid();
+
+    /// <summary>Arms the E-Stim effect for the next N bubble clicks/detonations.</summary>
+    void ArmEStim(int charges, bool chainReaction = false);
+
+    /// <summary>Remaining E-Stim charges; 0 when unarmed.</summary>
+    int EStimChargesLeft { get; }
+
+    /// <summary>Casts a player ripple wave from the given physical-pixel centre.</summary>
+    void TriggerPlayerRipple(Point centerPx, double radiusPx, double lifeMs);
 }

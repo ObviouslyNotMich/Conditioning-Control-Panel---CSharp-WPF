@@ -1,7 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:ConditioningControlPanel.Core.Localization"
         x:Class="ConditioningControlPanel.Avalonia.Views.Deeper.DeeperEditorWindow"
-        Title="Deeper"
+        Title="{Binding [deeper_empty_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="864"
         Width="1180"
         MinHeight="672"
@@ -11,7 +12,7 @@
         DragDrop.AllowDrop="True">
 
   <Grid>
-    <TextBlock Text="Deeper Editor is not yet fully ported to Avalonia.&#x0a;The full timeline editor will be restored in a follow-up pass."
+    <TextBlock Text="{Binding [deeper_editor_avalonia_not_ported], Source={x:Static loc:LocalizationManager.Instance}}"
                Foreground="{DynamicResource TextMutedBrush}"
                FontSize="16"
                HorizontalAlignment="Center"

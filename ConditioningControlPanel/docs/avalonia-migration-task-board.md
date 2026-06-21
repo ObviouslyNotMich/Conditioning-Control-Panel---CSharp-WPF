@@ -71,6 +71,7 @@ Append a row to **claim**; the orchestrator marks `✅ done` and removes the row
 | `Services/Video/AvaloniaVideoService.cs` | Port attention checks, strict mode, and post-play penalty loop/mercy from WPF `VideoService` | orchestrator | `✅ done` | `main` | 2026-06-21 |
 | `CCP.Avalonia/AvatarTube/` | Restore AvatarTube behavior: speech phrase system, AI chat replies, Circe emote playback/scheduling, reactions, and windowing behavior | agent | `✅ done` | `main` | 2026-06-21 |
 | `CCP.Avalonia/Chaos/` | Chaos overlay animation/z-order/boon logic parity: port remaining WPF animations, finish `AvaloniaChaosWindowZ`, wire run-state/boon logic | agent | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Services/Chaos/` + `CCP.Core/Services/Chaos/` | Chaos runtime parity — P0: meta persistence (`ChaosMetaStore`) + reveal service; P1: boon runtime + active toy framework | orchestrator | `🚧 wip @orchestrator` | `main` | 2026-06-21 |
 
 ### Hand-off Queue (porter → orchestrator)
 

@@ -8,6 +8,7 @@ using global::Avalonia.Layout;
 using global::Avalonia.Media;
 using global::Avalonia.Interactivity;
 using global::Avalonia.Threading;
+using ConditioningControlPanel.Core.Services.Chaos;
 
 namespace ConditioningControlPanel.Avalonia.Chaos;
 
