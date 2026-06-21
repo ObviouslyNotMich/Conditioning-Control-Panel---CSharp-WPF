@@ -20,7 +20,7 @@ Last updated: 2026-06-21
   2. **Feature controls** — XAML and settings binding are solid; `ISessionEffectOrchestrator` starts/stops Flash, Video, Subliminal, MindWipe, BouncingText, Bubbles, BubbleCount, LockCard, and Overlay services. The Flash, Video (including attention checks, strict mode, and post-play penalties), BouncingText, Subliminal, MindWipe, LockCard, pink-filter/spiral/brain-drain, and ad-hoc timed/sustained overlay engines are real implementations.
   3. **Chaos overlays** — full parity: core animations/z-order helper, complete run lifecycle, meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting are all wired. Localization remains parity-only (unlocalized like WPF).
   4. **AvatarTube** — full parity restored: speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order, fullscreen detection, context-menu toggles, and emotive portrait system.
-  5. **Deeper** — runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource` so effects/rules fire during playback. A functional editor (metadata/regions/rules/haptics + save/preview) replaces the placeholder; a visual Timeline tab now renders three lanes (regions/effects/haptics), ruler, playhead, supports click-to-select and zoom. Full WPF drag-create/resize, curve editor, browser preview, and waveform cache remain to port.
+  5. **Deeper** — runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource` so effects/rules fire during playback. A functional editor (metadata/regions/rules/haptics + save/preview) replaces the placeholder; the visual Timeline tab supports three lanes, ruler, playhead, click-to-select, zoom, Shift+drag region creation, drag-move/resize for regions/effects/haptics, and Ctrl+drag rubber-band multi-select. The curve editor, browser preview, and audio waveform cache are now ported and wired.
   6. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Virtual-key names remain English internal identifiers to keep settings compatibility.
 
 ---
@@ -231,8 +231,8 @@ Last updated: 2026-06-21
 | `EnhancementPlayerWindow.xaml.cs` | `EnhancementPlayerWindow.axaml.cs` | ✅ | LibVLC playback, drag-drop, file pickers, mini-timeline, Load URL wired; `EnhancementHostService` + `AvaloniaLibVlcTimeSource` bind the engine for live effect/rule playback. Waveform generation still stubbed. |
 | `NewEnhancementDialog.xaml` | `NewEnhancementDialog.axaml` | ✅ | Visuals and bindings ported. |
 | `NewEnhancementDialog.xaml.cs` | `NewEnhancementDialog.axaml.cs` | 🚧 | Browse/create work; tutorial buttons stubbed. |
-| `DeeperEditorWindow.xaml` | `DeeperEditorWindow.axaml` | 🚧 | Functional UI: toolbar, tabbed metadata/regions/rules/haptics editors, plus a visual Timeline tab with three lanes (regions/effects/haptics), ruler, playhead, click-to-select, and zoom. Drag-create/resize, curve editor, browser preview, and waveform cache remain. |
-| `DeeperEditorWindow.xaml.cs` | `DeeperEditorWindow.axaml.cs` + `.Timeline.cs` | 🚧 | Load/save/validation, dirty-state handling, preview launch, list+property editing, and visual timeline rendering/selection/zoom are wired. Full WPF drag/resize/curve/browser-preview parity remains. |
+| `DeeperEditorWindow.xaml` | `DeeperEditorWindow.axaml` | ✅ | Functional UI: toolbar, tabbed metadata/regions/rules/haptics editors, plus a visual Timeline tab with three lanes (regions/effects/haptics), ruler, playhead, click-to-select, zoom, drag-create regions, drag-move/resize regions/effects/haptics, and rubber-band multi-select. Curve editor, browser preview, and waveform cache are wired. |
+| `DeeperEditorWindow.xaml.cs` | `DeeperEditorWindow.axaml.cs` + `.Timeline.cs` + `.CurveEditor.cs` + `.Preview.cs` | ✅ | Load/save/validation, dirty-state handling, preview launch, list+property editing, full timeline interaction (select/seek/zoom/drag-create/resize/move/rubber-band), custom haptic curve editor, browser preview, and audio waveform cache are wired. |
 | `UrlPromptDialog.xaml` + `.xaml.cs` | `UrlPromptDialog.axaml` + `.axaml.cs` | ✅ | URL input dialog ported and wired from Load URL. |
 | `GazePickerWindow.xaml` + `.xaml.cs` | `GazePickerWindow.axaml` + `.axaml.cs` | 🚧 | Ported with drag-to-create/move/resize rect, eight resize handles, and Done/Cancel keys. Wired into the basic editor's gaze rect field. Positioned over the editor window since there is no embedded video preview yet. |
 | `Services/Deeper/IPlaybackTimeSource.cs` | `CCP.Core/Services/Deeper/IPlaybackTimeSource.cs` | ✅ | Migrated to Core; `GetVideoRect()` returns cross-platform `PixelRect`. |
@@ -240,7 +240,7 @@ Last updated: 2026-06-21
 | `Services/Deeper/EnhancementHostService.cs` | `CCP.Core/Services/Deeper/EnhancementHostService.cs` | ✅ | Migrated to Core; binds engine to any `IPlaybackTimeSource`. |
 | `Services/Deeper/EnhancementEngine.cs` | `CCP.Core/Services/Deeper/EnhancementEngine.cs` | ✅ | Migrated to Core; uses `IWebcamService`, `IUiDispatcher`, `IAppLogger`. |
 | `Services/Deeper/EnhancementAudioPlayer.cs` | — | ⚠️ | Not needed for Avalonia; player uses LibVLC `MediaPlayer` directly. |
-| `Services/Deeper/AudioWaveformCache.cs` | — | ❌ | Waveform peak cache not migrated; audio pane stays blank. |
+| `Services/Deeper/AudioWaveformCache.cs` | `CCP.Core/Services/Deeper/AudioWaveformCache.cs` + `IAudioWaveformProvider` + `NullAudioWaveformProvider` | ✅ | Cross-platform cache with DI-decoder seam; `NAudioWaveformProvider` registered in Windows head. |
 
 **Localization:** ✅ UI localized; runtime diagnostics use localized keys.
 
@@ -260,7 +260,7 @@ Last updated: 2026-06-21
 | Windows | ✅ | All audited windows localized; a few symbol-only affordances remain |
 | Chaos overlays | ❌ | All hard-coded English (parity with WPF) |
 | AvatarTube | ✅ | Shell and code-driven strings localized; a few symbol-only affordances remain |
-| Deeper editor/player | ✅ | UI localized; engine/editor integration partially ported (player + URL load done; editor/engine/waveform pending) |
+| Deeper editor/player | ✅ | UI localized; engine/editor integration ported (player + URL load + editor + timeline + curve editor + browser preview + waveform cache) |
 
 ---
 
@@ -281,7 +281,7 @@ Last updated: 2026-06-21
 
 1. **Onboarding/privacy dialogs** — `WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, and `SessionEditDialog` are now fully localized. Remaining localization work is in webcam windows/popups and a few WPF-only message strings.
 2. **Webcam windows** — shells are ported; calibration/eye-tracking pipeline remains stubbed, but all user-facing strings are now localized.
-3. **Deeper editor depth** — a functional basic editor is in place (metadata, regions/rules/haptics lists, save, preview). The `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring. The full WPF visual timeline, drag-create/resize regions, curve editor, browser preview, and audio waveform cache remain to port.
+3. **Deeper editor depth** — a functional basic editor is in place (metadata, regions/rules/haptics lists, save, preview). The `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring. The full WPF visual timeline, drag-create/resize regions, curve editor, browser preview, and audio waveform cache are now ported and wired.
 4. **Phase 4 remaining UI** — a handful of WPF-only dialogs/utility windows and feature-control code-behind still need smoke testing and minor wiring.
 
 ---
@@ -304,6 +304,6 @@ Last updated: 2026-06-21
 - ✅ Port basic `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview).
 - ✅ Port `GazePickerWindow` for gaze-target/avoid rect authoring.
 - ✅ Visual timeline tab: lanes, ruler, playhead, region/effect/haptic rendering, click-to-select, zoom.
-- ⏳ Timeline drag-create/resize + rubber-band multi-select.
-- ⏳ Browser preview + audio waveform cache + curve editor.
+- ✅ Timeline drag-create/resize + rubber-band multi-select.
+- ✅ Browser preview + audio waveform cache + curve editor.
 - ⏳ Deeper player/editor integration live smoke test.

@@ -4,7 +4,9 @@ using ConditioningControlPanel.Avalonia;
 using ConditioningControlPanel.Avalonia.Desktop;
 using ConditioningControlPanel.Avalonia.Desktop.Platform;
 using ConditioningControlPanel.Avalonia.Desktop.Windows.Platform;
+using ConditioningControlPanel.Avalonia.Desktop.Windows.Services;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Deeper;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Desktop.Windows;
@@ -34,6 +36,7 @@ class Program
             services.AddSingleton<IAudioDeviceService, WindowsAudioDeviceService>();
             services.AddSingleton<IStartupRegistration, WindowsStartupRegistration>();
             services.AddSingleton<IBrowserHost, WebView2BrowserHost>();
+            services.AddSingleton<IAudioWaveformProvider, NAudioWaveformProvider>();
             services.AddDesktopSecretStore();
             services.AddSingleton<ISingleInstanceService>(singleInstance);
 

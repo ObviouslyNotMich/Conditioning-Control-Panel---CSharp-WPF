@@ -32,8 +32,8 @@ Append a row to **claim**; the orchestrator marks `✅ done` and removes the row
 | Lane (owned subtree) | Item | Owner | Status | Branch / worktree | Updated |
 |---|---|---|---|---|---|
 | `CCP.Core/App.cs` + Core `App.X` call sites | Remove/rename Core `App` stub so WPF can reference Core and delete model copies | — | `🚫 blocked` | see plan §19.4 | 2026-06-21 |
-| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Timeline drag-create/resize regions, effects, haptics + rubber-band multi-select | orchestrator | `🚧 wip` | `main` | 2026-06-21 |
-| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Browser preview + audio waveform cache + curve editor | — | `⬜ todo` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Curve editor for custom haptic patterns | orchestrator | `✅ done` | `main` | 2026-06-21 |
+| `CCP.Avalonia/Views/Deeper/DeeperEditorWindow` | Browser preview + audio waveform cache | orchestrator | `✅ done` | `main` | 2026-06-21 |
 
 ### Hand-off Queue (porter → orchestrator)
 

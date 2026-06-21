@@ -17,6 +17,7 @@ namespace ConditioningControlPanel.Avalonia.Views.Deeper;
 /// Visual timeline tab for the Avalonia Deeper editor.
 /// Renders three lanes (Regions, Effects, Haptics), a time ruler, playhead,
 /// and the items in each lane. Supports click-to-select, click-to-seek,
+/// drag-create regions, drag-move/resize items, rubber-band multi-select,
 /// and horizontal zoom via buttons / Ctrl+wheel.
 /// </summary>
 public partial class DeeperEditorWindow
@@ -29,13 +30,16 @@ public partial class DeeperEditorWindow
     private const double MaxZoom = 16.0;
     private const double RulerHeight = 18.0;
     private const double MinBandVisualWidthPx = 8.0;
+    private const double EdgeResizePx = 6.0;
+    private const double MinResizableRectPx = 24.0;
 
     private readonly List<Control> _timelineVisuals = new();
     private readonly List<Control> _rulerVisuals = new();
-    private bool _isScrubbingPlayhead;
+    private readonly HashSet<object> _selectionSet = new();
 
     private static readonly Color RegionDefaultColor = Color.Parse("#7B5CFF");
     private static readonly Color HapticColor = Color.Parse("#7B5CFF");
+    private static readonly string[] RegionPalette = { "#7B5CFF", "#FF69B4", "#5CFFB7", "#FFC85C", "#5CC8FF", "#FF7B5C" };
 
     private static readonly Dictionary<string, Color> EffectColors = new()
     {
@@ -45,6 +49,39 @@ public partial class DeeperEditorWindow
         [EffectTypes.Subliminal] = Color.Parse("#FF69B4"),
         [EffectTypes.Overlay] = Color.Parse("#5CFFB7"),
     };
+
+    // Drag state
+    private enum DragMode
+    {
+        None, Scrub, CreateRegion, RubberBand,
+        DragRegion, ResizeRegionStart, ResizeRegionEnd,
+        DragEffect, ResizeEffectStart, ResizeEffectEnd,
+        DragHaptic, ResizeHapticStart, ResizeHapticEnd
+    }
+    private DragMode _dragMode = DragMode.None;
+
+    private Rectangle? _dragCreatePreview;
+    private double _dragCreateStartSec;
+
+    private Rectangle? _rubberBandRect;
+    private Point _rubberBandStartPoint;
+
+    private Region? _draggedRegion;
+    private double _regionDragOffsetSec;
+    private double _regionDragOriginalLength;
+
+    private TimelineItem? _draggedEffect;
+    private double _effectDragOffsetSec;
+    private double _effectDragOriginalDuration;
+
+    private HapticEvent? _draggedHaptic;
+    private HapticTrack? _draggedHapticTrack;
+    private double _hapticDragOffsetSec;
+    private double _hapticDragStartSec;
+    private double _hapticDragOriginalDuration;
+
+    private enum EdgeHit { Body, Start, End }
+    private enum TimelineLane { Regions, Effects, Haptics }
 
     private void InitializeTimeline()
     {
@@ -247,15 +284,16 @@ public partial class DeeperEditorWindow
         return (top, laneH);
     }
 
-    private enum TimelineLane { Regions, Effects, Haptics }
+    private static (double top, double height) LaneBandInset(TimelineLane lane, double canvasHeight)
+    {
+        var (top, height) = LaneBand(lane, canvasHeight);
+        const double inset = 3.0;
+        return (top + inset, Math.Max(0, height - 2 * inset));
+    }
 
     private void DrawRegions(double canvasWidth, double canvasHeight)
     {
-        var (top, height) = LaneBand(TimelineLane.Regions, canvasHeight);
-        var inset = 3.0;
-        var rectHeight = Math.Max(4, height - 2 * inset);
-        var y = top + inset;
-
+        var (top, height) = LaneBandInset(TimelineLane.Regions, canvasHeight);
         foreach (var region in _enhancement.Regions)
         {
             var startX = Math.Max(0, (region.Start / _totalSeconds) * canvasWidth);
@@ -263,23 +301,26 @@ public partial class DeeperEditorWindow
             var width = Math.Max(MinBandVisualWidthPx, endX - startX);
             var color = ParseHexColor(region.Color) ?? RegionDefaultColor;
             var fill = new Color(160, color.R, color.G, color.B);
-            var isSelected = LstRegions.SelectedItem == region;
+            var isSelected = _selectionSet.Contains(region);
 
             var rect = new Rectangle
             {
                 Width = width,
-                Height = rectHeight,
+                Height = height,
                 Fill = new SolidColorBrush(fill),
                 Stroke = new SolidColorBrush(isSelected ? Colors.White : color),
                 StrokeThickness = isSelected ? 2.0 : 1.0,
-                Cursor = new Cursor(StandardCursorType.SizeAll),
+                Cursor = new Cursor(StandardCursorType.Hand),
                 Tag = region,
             };
             ToolTip.SetTip(rect, $"{region.Label ?? region.Id} ({region.Start:0.##}s–{region.End:0.##}s)");
             Canvas.SetLeft(rect, startX);
-            Canvas.SetTop(rect, y);
+            Canvas.SetTop(rect, top);
             rect.ZIndex = 10;
+            rect.PointerEntered += ItemRect_PointerEntered;
+            rect.PointerExited += ItemRect_PointerExited;
             rect.PointerPressed += RegionRect_PointerPressed;
+            rect.PointerMoved += RegionRect_PointerMoved;
             TimelineCanvas!.Children.Add(rect);
             _timelineVisuals.Add(rect);
         }
@@ -299,7 +340,7 @@ public partial class DeeperEditorWindow
 
             var color = EffectColors.TryGetValue(item.EffectType ?? "", out var c) ? c : Colors.White;
             var fill = new Color(140, color.R, color.G, color.B);
-            var isSelected = LstRules.SelectedItem is EnhancementRule r && RuleRefersToEffect(r, item);
+            var isSelected = _selectionSet.Contains(item);
 
             if (IsOneShotEffect(item.EffectType))
             {
@@ -341,7 +382,10 @@ public partial class DeeperEditorWindow
                 Canvas.SetLeft(rect, startX);
                 Canvas.SetTop(rect, y);
                 rect.ZIndex = 10;
+                rect.PointerEntered += ItemRect_PointerEntered;
+                rect.PointerExited += ItemRect_PointerExited;
                 rect.PointerPressed += EffectRect_PointerPressed;
+                rect.PointerMoved += EffectRect_PointerMoved;
                 TimelineCanvas!.Children.Add(rect);
                 _timelineVisuals.Add(rect);
             }
@@ -353,11 +397,7 @@ public partial class DeeperEditorWindow
 
     private void DrawHaptics(double canvasWidth, double canvasHeight)
     {
-        var (top, height) = LaneBand(TimelineLane.Haptics, canvasHeight);
-        var inset = 3.0;
-        var rectHeight = Math.Max(4, height - 2 * inset);
-        var y = top + inset;
-
+        var (top, height) = LaneBandInset(TimelineLane.Haptics, canvasHeight);
         foreach (var track in _enhancement.HapticTracks)
         {
             foreach (var ev in track.Events)
@@ -366,23 +406,26 @@ public partial class DeeperEditorWindow
                 var endX = Math.Min(canvasWidth, ((ev.Start + ev.Duration) / _totalSeconds) * canvasWidth);
                 var width = Math.Max(MinBandVisualWidthPx, endX - startX);
                 var fill = new Color(160, HapticColor.R, HapticColor.G, HapticColor.B);
-                var isSelected = LstHaptics.SelectedItem == ev;
+                var isSelected = _selectionSet.Contains(ev);
 
                 var rect = new Rectangle
                 {
                     Width = width,
-                    Height = rectHeight,
+                    Height = height,
                     Fill = new SolidColorBrush(fill),
                     Stroke = new SolidColorBrush(isSelected ? Colors.White : HapticColor),
                     StrokeThickness = isSelected ? 2.0 : 1.0,
                     Cursor = new Cursor(StandardCursorType.SizeAll),
-                    Tag = ev,
+                    Tag = (track, ev),
                 };
                 ToolTip.SetTip(rect, $"{ev.PatternName ?? "Haptic"} @ {ev.Start:0.##}s · {ev.Duration:0.##}s");
                 Canvas.SetLeft(rect, startX);
-                Canvas.SetTop(rect, y);
+                Canvas.SetTop(rect, top);
                 rect.ZIndex = 10;
+                rect.PointerEntered += ItemRect_PointerEntered;
+                rect.PointerExited += ItemRect_PointerExited;
                 rect.PointerPressed += HapticRect_PointerPressed;
+                rect.PointerMoved += HapticRect_PointerMoved;
                 TimelineCanvas!.Children.Add(rect);
                 _timelineVisuals.Add(rect);
             }
@@ -506,6 +549,15 @@ public partial class DeeperEditorWindow
         RefreshTimelineTransport();
     }
 
+    private static EdgeHit ClassifyEdgeHit(double posX, double rectWidth)
+    {
+        if (rectWidth < MinResizableRectPx) return EdgeHit.Body;
+        var edge = Math.Min(EdgeResizePx, rectWidth / 3.0);
+        if (posX <= edge) return EdgeHit.Start;
+        if (posX >= rectWidth - edge) return EdgeHit.End;
+        return EdgeHit.Body;
+    }
+
     // ========================================================================
     // Pointer handlers
     // ========================================================================
@@ -514,26 +566,183 @@ public partial class DeeperEditorWindow
     {
         if (TimelineCanvas == null) return;
         var point = e.GetCurrentPoint(TimelineCanvas);
-        if (point.Properties.IsLeftButtonPressed)
+        if (!point.Properties.IsLeftButtonPressed) return;
+
+        var position = point.Position;
+        var modifiers = e.KeyModifiers;
+
+        // Shift+drag = create region
+        if ((modifiers & KeyModifiers.Shift) == KeyModifiers.Shift && _totalSeconds > 0)
         {
-            _isScrubbingPlayhead = true;
-            SeekToSeconds(MouseToSeconds(point.Position));
+            _dragMode = DragMode.CreateRegion;
+            _dragCreateStartSec = MouseToSeconds(position);
+            StartDragCreatePreview(_dragCreateStartSec);
+            e.Handled = true;
+            return;
         }
+
+        // Ctrl+drag = rubber-band multi-select
+        if ((modifiers & KeyModifiers.Control) == KeyModifiers.Control)
+        {
+            _dragMode = DragMode.RubberBand;
+            StartRubberBand(position);
+            e.Handled = true;
+            return;
+        }
+
+        // Plain drag on empty canvas = scrub
+        SelectNothingOnTimeline();
+        _dragMode = DragMode.Scrub;
+        SeekToSeconds(MouseToSeconds(position));
+        e.Handled = true;
     }
 
     private void TimelineCanvas_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (TimelineCanvas == null) return;
-        if (_isScrubbingPlayhead)
+        var point = e.GetCurrentPoint(TimelineCanvas);
+        var position = point.Position;
+
+        switch (_dragMode)
         {
-            var point = e.GetCurrentPoint(TimelineCanvas);
-            SeekToSeconds(MouseToSeconds(point.Position));
+            case DragMode.Scrub:
+                SeekToSeconds(MouseToSeconds(position));
+                break;
+            case DragMode.CreateRegion:
+                UpdateDragCreatePreview(MouseToSeconds(position));
+                break;
+            case DragMode.RubberBand:
+                UpdateRubberBand(position);
+                break;
+            case DragMode.DragRegion when _draggedRegion != null:
+                {
+                    var newStart = Math.Max(0, MouseToSeconds(position) - _regionDragOffsetSec);
+                    if (_totalSeconds > 0) newStart = Math.Min(newStart, Math.Max(0, _totalSeconds - _regionDragOriginalLength));
+                    _draggedRegion.Start = newStart;
+                    _draggedRegion.End = newStart + _regionDragOriginalLength;
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateRegionDetail(_draggedRegion);
+                }
+                break;
+            case DragMode.ResizeRegionStart when _draggedRegion != null:
+                {
+                    var newStart = Math.Max(0, Math.Min(MouseToSeconds(position), _draggedRegion.End - 0.05));
+                    _draggedRegion.Start = newStart;
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateRegionDetail(_draggedRegion);
+                }
+                break;
+            case DragMode.ResizeRegionEnd when _draggedRegion != null:
+                {
+                    var newEnd = Math.Min(_totalSeconds, Math.Max(MouseToSeconds(position), _draggedRegion.Start + 0.05));
+                    _draggedRegion.End = newEnd;
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateRegionDetail(_draggedRegion);
+                }
+                break;
+            case DragMode.DragEffect when _draggedEffect != null:
+                {
+                    var newStart = Math.Max(0, MouseToSeconds(position) - _effectDragOffsetSec);
+                    if (_totalSeconds > 0) newStart = Math.Min(newStart, Math.Max(0, _totalSeconds - _effectDragOriginalDuration));
+                    _draggedEffect.Start = newStart;
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateRuleDetail(LstRules.SelectedItem as EnhancementRule);
+                }
+                break;
+            case DragMode.ResizeEffectStart when _draggedEffect != null:
+                {
+                    var oldEnd = _draggedEffect.Start + Math.Max(0, _draggedEffect.Duration);
+                    var newStart = Math.Max(0, Math.Min(MouseToSeconds(position), oldEnd - 0.05));
+                    _draggedEffect.Duration = oldEnd - newStart;
+                    _draggedEffect.Start = newStart;
+                    _draggedEffect.EffectDurationMs = (int)Math.Max(50, _draggedEffect.Duration * 1000);
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateRuleDetail(LstRules.SelectedItem as EnhancementRule);
+                }
+                break;
+            case DragMode.ResizeEffectEnd when _draggedEffect != null:
+                {
+                    var newEnd = Math.Min(_totalSeconds, Math.Max(MouseToSeconds(position), _draggedEffect.Start + 0.05));
+                    _draggedEffect.Duration = newEnd - _draggedEffect.Start;
+                    _draggedEffect.EffectDurationMs = (int)Math.Max(50, _draggedEffect.Duration * 1000);
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateRuleDetail(LstRules.SelectedItem as EnhancementRule);
+                }
+                break;
+            case DragMode.DragHaptic when _draggedHaptic != null:
+                {
+                    var newStart = Math.Max(0, MouseToSeconds(position) - _hapticDragOffsetSec);
+                    if (_totalSeconds > 0) newStart = Math.Min(newStart, Math.Max(0, _totalSeconds - _draggedHaptic.Duration));
+                    _draggedHaptic.Start = newStart;
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateHapticDetail(_draggedHaptic);
+                }
+                break;
+            case DragMode.ResizeHapticStart when _draggedHaptic != null:
+                {
+                    var endSec = _hapticDragStartSec + _draggedHaptic.Duration;
+                    var newStart = Math.Max(0, Math.Min(MouseToSeconds(position), endSec - 0.05));
+                    _draggedHaptic.Duration = endSec - newStart;
+                    _draggedHaptic.Start = newStart;
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateHapticDetail(_draggedHaptic);
+                }
+                break;
+            case DragMode.ResizeHapticEnd when _draggedHaptic != null:
+                {
+                    var newEnd = Math.Min(_totalSeconds, Math.Max(MouseToSeconds(position), _draggedHaptic.Start + 0.05));
+                    _draggedHaptic.Duration = newEnd - _draggedHaptic.Start;
+                    MarkDirty();
+                    RebuildTimeline();
+                    PopulateHapticDetail(_draggedHaptic);
+                }
+                break;
         }
     }
 
     private void TimelineCanvas_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        _isScrubbingPlayhead = false;
+        if (TimelineCanvas == null) return;
+
+        switch (_dragMode)
+        {
+            case DragMode.RubberBand:
+                FinishRubberBand(e.GetPosition(TimelineCanvas));
+                break;
+            case DragMode.CreateRegion:
+                FinishDragCreate(MouseToSeconds(e.GetPosition(TimelineCanvas)));
+                break;
+        }
+
+        _dragMode = DragMode.None;
+        _draggedRegion = null;
+        _draggedEffect = null;
+        _draggedHaptic = null;
+        _draggedHapticTrack = null;
+        RefreshValidationStatus();
+    }
+
+    private void TimelineCanvas_PointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        _dragMode = DragMode.None;
+        if (_rubberBandRect != null)
+        {
+            try { TimelineCanvas?.Children.Remove(_rubberBandRect); } catch { }
+            _rubberBandRect = null;
+        }
+        if (_dragCreatePreview != null)
+        {
+            try { TimelineCanvas?.Children.Remove(_dragCreatePreview); } catch { }
+            _dragCreatePreview = null;
+        }
     }
 
     private void TimelineCanvas_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -560,39 +769,303 @@ public partial class DeeperEditorWindow
     }
 
     // ========================================================================
+    // Region drag-create
+    // ========================================================================
+
+    private void StartDragCreatePreview(double startSec)
+    {
+        _dragCreatePreview = new Rectangle
+        {
+            Fill = this.FindResource("DeeperAccentTransparent40Brush") as IBrush ?? new SolidColorBrush(Color.FromArgb(100, 123, 92, 255)),
+            Stroke = this.FindResource("DeeperAccentBrush") as IBrush ?? new SolidColorBrush(Color.Parse("#FF7B5CFF")),
+            StrokeThickness = 1.5,
+        };
+        _dragCreatePreview.ZIndex = 60;
+        TimelineCanvas!.Children.Add(_dragCreatePreview);
+        UpdateDragCreatePreview(startSec);
+    }
+
+    private void UpdateDragCreatePreview(double endSec)
+    {
+        if (_dragCreatePreview == null || TimelineCanvas == null) return;
+        var w = TimelineCanvas.Bounds.Width * _zoomFactor;
+        var h = TimelineCanvas.Bounds.Height;
+        if (w <= 0 || _totalSeconds <= 0) return;
+
+        var lo = Math.Min(_dragCreateStartSec, endSec);
+        var hi = Math.Max(_dragCreateStartSec, endSec);
+        var leftX = (lo / _totalSeconds) * w;
+        var rightX = (hi / _totalSeconds) * w;
+
+        var (regionTop, regionH) = LaneBandInset(TimelineLane.Regions, h);
+        _dragCreatePreview.Width = Math.Max(0, rightX - leftX);
+        _dragCreatePreview.Height = regionH;
+        Canvas.SetLeft(_dragCreatePreview, leftX);
+        Canvas.SetTop(_dragCreatePreview, regionTop);
+    }
+
+    private void FinishDragCreate(double endSec)
+    {
+        if (_dragCreatePreview != null)
+        {
+            TimelineCanvas!.Children.Remove(_dragCreatePreview);
+            _dragCreatePreview = null;
+        }
+        CreateRegion(_dragCreateStartSec, endSec);
+    }
+
+    private void CreateRegion(double a, double b)
+    {
+        var lo = Math.Min(a, b);
+        var hi = Math.Max(a, b);
+        if (hi - lo < 0.1) return;
+        if (_totalSeconds > 0) hi = Math.Min(hi, _totalSeconds);
+        lo = Math.Max(0, lo);
+
+        var region = new Region
+        {
+            Id = NextRegionId(),
+            Start = lo,
+            End = hi,
+            Label = $"Region {_enhancement.Regions.Count + 1}",
+            Color = NextRegionColor()
+        };
+        _enhancement.Regions.Add(region);
+        MarkDirty();
+        RebuildTimeline();
+        LstRegions.SelectedItem = region;
+        EditorTabControl.SelectedIndex = 2; // Regions tab
+    }
+
+    private string NextRegionId()
+    {
+        int n = _enhancement.Regions.Count + 1;
+        while (true)
+        {
+            var candidate = "r" + n;
+            if (!_enhancement.Regions.Any(r => r.Id == candidate)) return candidate;
+            n++;
+        }
+    }
+
+    private string NextRegionColor() => RegionPalette[_enhancement.Regions.Count % RegionPalette.Length];
+
+    // ========================================================================
+    // Rubber-band multi-select
+    // ========================================================================
+
+    private void StartRubberBand(Point canvasPt)
+    {
+        _rubberBandStartPoint = canvasPt;
+        _rubberBandRect = null;
+    }
+
+    private void UpdateRubberBand(Point canvasPt)
+    {
+        var dx = Math.Abs(canvasPt.X - _rubberBandStartPoint.X);
+        var dy = Math.Abs(canvasPt.Y - _rubberBandStartPoint.Y);
+        if (_rubberBandRect == null && dx < 3 && dy < 3) return;
+
+        if (_rubberBandRect == null)
+        {
+            _rubberBandRect = new Rectangle
+            {
+                Fill = new SolidColorBrush(Color.FromArgb(0x30, 0x68, 0xF0, 0xFF)),
+                Stroke = new SolidColorBrush(Color.FromArgb(0xC0, 0xB0, 0xE0, 0xFF)),
+                StrokeThickness = 1,
+                StrokeDashArray = new AvaloniaList<double> { 2, 2 },
+            };
+            _rubberBandRect.ZIndex = 60;
+            TimelineCanvas!.Children.Add(_rubberBandRect);
+        }
+
+        var x = Math.Min(_rubberBandStartPoint.X, canvasPt.X);
+        var y = Math.Min(_rubberBandStartPoint.Y, canvasPt.Y);
+        var w = Math.Abs(canvasPt.X - _rubberBandStartPoint.X);
+        var h = Math.Abs(canvasPt.Y - _rubberBandStartPoint.Y);
+        Canvas.SetLeft(_rubberBandRect, x);
+        Canvas.SetTop(_rubberBandRect, y);
+        _rubberBandRect.Width = w;
+        _rubberBandRect.Height = h;
+    }
+
+    private void FinishRubberBand(Point canvasPt)
+    {
+        if (_rubberBandRect != null)
+        {
+            TimelineCanvas!.Children.Remove(_rubberBandRect);
+            _rubberBandRect = null;
+        }
+
+        var canvasW = TimelineCanvas!.Bounds.Width * _zoomFactor;
+        var canvasH = TimelineCanvas.Bounds.Height;
+        if (canvasW <= 0 || canvasH <= 0 || _totalSeconds <= 0) return;
+
+        double xMin = Math.Max(0, Math.Min(_rubberBandStartPoint.X, canvasPt.X));
+        double xMax = Math.Min(canvasW, Math.Max(_rubberBandStartPoint.X, canvasPt.X));
+        double yMin = Math.Max(0, Math.Min(_rubberBandStartPoint.Y, canvasPt.Y));
+        double yMax = Math.Min(canvasH, Math.Max(_rubberBandStartPoint.Y, canvasPt.Y));
+
+        double tMin = (xMin / canvasW) * _totalSeconds;
+        double tMax = (xMax / canvasW) * _totalSeconds;
+
+        _selectionSet.Clear();
+
+        var (regionTop, regionHeight) = LaneBand(TimelineLane.Regions, canvasH);
+        var (effectsTop, effectsHeight) = LaneBand(TimelineLane.Effects, canvasH);
+        var (hapticsTop, hapticsHeight) = LaneBand(TimelineLane.Haptics, canvasH);
+
+        bool RangesOverlap(double a1, double a2, double b1, double b2) => a1 < b2 && a2 > b1;
+
+        if (RangesOverlap(yMin, yMax, regionTop, regionTop + regionHeight))
+        {
+            foreach (var r in _enhancement.Regions)
+                if (RangesOverlap(tMin, tMax, r.Start, r.End))
+                    _selectionSet.Add(r);
+        }
+        if (RangesOverlap(yMin, yMax, effectsTop, effectsTop + effectsHeight))
+        {
+            foreach (var item in _enhancement.TimelineItems)
+            {
+                if (item.Kind != TimelineItemKind.Effect || item.EffectType == EffectTypes.Haptic) continue;
+                if (RangesOverlap(tMin, tMax, item.Start, item.Start + Math.Max(0, item.Duration)))
+                    _selectionSet.Add(item);
+            }
+        }
+        if (RangesOverlap(yMin, yMax, hapticsTop, hapticsTop + hapticsHeight))
+        {
+            foreach (var track in _enhancement.HapticTracks)
+                foreach (var ev in track.Events)
+                    if (RangesOverlap(tMin, tMax, ev.Start, ev.Start + ev.Duration))
+                        _selectionSet.Add(ev);
+        }
+
+        RebuildTimeline();
+    }
+
+    // ========================================================================
     // Item selection from timeline
     // ========================================================================
 
     private void RegionRect_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Rectangle rect || rect.Tag is not Region region) return;
+        if (sender is not Rectangle r || r.Tag is not Region region) return;
         e.Handled = true;
+
+        var point = e.GetCurrentPoint(r);
+        var pos = point.Position;
+        var rectWidth = r.Bounds.Width;
+        var ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
+
+        HandleSelectionClick(region, ctrl);
+        if (ctrl)
+        {
+            RebuildTimeline();
+            return;
+        }
+
         LstRegions.SelectedItem = region;
         EditorTabControl.SelectedIndex = 2; // Regions tab
+
+        _draggedRegion = region;
+        _regionDragOriginalLength = Math.Max(0, region.End - region.Start);
+        var edge = ClassifyEdgeHit(pos.X, rectWidth);
+        _dragMode = edge switch
+        {
+            EdgeHit.Start => DragMode.ResizeRegionStart,
+            EdgeHit.End => DragMode.ResizeRegionEnd,
+            _ => DragMode.DragRegion,
+        };
+        if (_dragMode == DragMode.DragRegion)
+            _regionDragOffsetSec = MouseToSeconds(e.GetPosition(TimelineCanvas)) - region.Start;
     }
 
     private void EffectRect_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Rectangle rect || rect.Tag is not TimelineItem item) return;
+        if (sender is not Rectangle r || r.Tag is not TimelineItem item) return;
         e.Handled = true;
+
+        var point = e.GetCurrentPoint(r);
+        var pos = point.Position;
+        var rectWidth = r.Bounds.Width;
+        var ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
+
+        HandleSelectionClick(item, ctrl);
+        if (ctrl)
+        {
+            RebuildTimeline();
+            return;
+        }
+
         SelectRuleForEffect(item);
         EditorTabControl.SelectedIndex = 3; // Rules tab
+
+        _draggedEffect = item;
+        _effectDragOriginalDuration = Math.Max(0, item.Duration);
+        var edge = ClassifyEdgeHit(pos.X, rectWidth);
+        _dragMode = edge switch
+        {
+            EdgeHit.Start => DragMode.ResizeEffectStart,
+            EdgeHit.End => DragMode.ResizeEffectEnd,
+            _ => DragMode.DragEffect,
+        };
+        if (_dragMode == DragMode.DragEffect)
+            _effectDragOffsetSec = MouseToSeconds(e.GetPosition(TimelineCanvas)) - item.Start;
     }
 
     private void EffectDot_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Ellipse dot || dot.Tag is not TimelineItem item) return;
         e.Handled = true;
+        var ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
+        HandleSelectionClick(item, ctrl);
+        if (ctrl)
+        {
+            RebuildTimeline();
+            return;
+        }
         SelectRuleForEffect(item);
         EditorTabControl.SelectedIndex = 3; // Rules tab
+        _draggedEffect = item;
+        _effectDragOriginalDuration = 0;
+        _effectDragOffsetSec = MouseToSeconds(e.GetPosition(TimelineCanvas)) - item.Start;
+        _dragMode = DragMode.DragEffect;
     }
 
     private void HapticRect_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Rectangle rect || rect.Tag is not HapticEvent ev) return;
+        if (sender is not Rectangle r || r.Tag is not ValueTuple<HapticTrack, HapticEvent> tuple) return;
         e.Handled = true;
+
+        var (track, ev) = tuple;
+        var point = e.GetCurrentPoint(r);
+        var pos = point.Position;
+        var rectWidth = r.Bounds.Width;
+        var ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
+
+        HandleSelectionClick(ev, ctrl);
+        if (ctrl)
+        {
+            RebuildTimeline();
+            return;
+        }
+
         LstHaptics.SelectedItem = ev;
         EditorTabControl.SelectedIndex = 4; // Haptics tab
+
+        _draggedHaptic = ev;
+        _draggedHapticTrack = track;
+        _hapticDragOriginalDuration = ev.Duration;
+        _hapticDragStartSec = ev.Start;
+        var edge = ClassifyEdgeHit(pos.X, rectWidth);
+        _dragMode = edge switch
+        {
+            EdgeHit.Start => DragMode.ResizeHapticStart,
+            EdgeHit.End => DragMode.ResizeHapticEnd,
+            _ => DragMode.DragHaptic,
+        };
+        if (_dragMode == DragMode.DragHaptic)
+            _hapticDragOffsetSec = MouseToSeconds(e.GetPosition(TimelineCanvas)) - ev.Start;
     }
 
     private void RulePin_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -601,6 +1074,25 @@ public partial class DeeperEditorWindow
         e.Handled = true;
         LstRules.SelectedItem = rule;
         EditorTabControl.SelectedIndex = 3; // Rules tab
+    }
+
+    private void HandleSelectionClick(object item, bool ctrl)
+    {
+        if (ctrl)
+        {
+            if (!_selectionSet.Add(item)) _selectionSet.Remove(item);
+        }
+        else
+        {
+            _selectionSet.Clear();
+            _selectionSet.Add(item);
+        }
+    }
+
+    private void SelectNothingOnTimeline()
+    {
+        _selectionSet.Clear();
+        RebuildTimeline();
     }
 
     private void SelectRuleForEffect(TimelineItem item)
@@ -615,9 +1107,45 @@ public partial class DeeperEditorWindow
         }
     }
 
-    private static bool RuleRefersToEffect(EnhancementRule rule, TimelineItem item)
+    // ========================================================================
+    // Hover cursor feedback
+    // ========================================================================
+
+    private void ItemRect_PointerEntered(object? sender, PointerEventArgs e)
     {
-        return rule.Action is TriggerEffectAction a && a.EffectType == item.EffectType;
+        if (sender is InputElement ie) ie.Cursor = new Cursor(StandardCursorType.Hand);
+    }
+
+    private void ItemRect_PointerExited(object? sender, PointerEventArgs e)
+    {
+        if (sender is InputElement ie) ie.Cursor = Cursor.Default;
+    }
+
+    private void RegionRect_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragMode != DragMode.None || sender is not Rectangle r) return;
+        var pos = e.GetPosition(r);
+        r.Cursor = ClassifyEdgeHit(pos.X, r.Bounds.Width) == EdgeHit.Body
+            ? new Cursor(StandardCursorType.SizeAll)
+            : new Cursor(StandardCursorType.SizeWestEast);
+    }
+
+    private void EffectRect_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragMode != DragMode.None || sender is not Rectangle r) return;
+        var pos = e.GetPosition(r);
+        r.Cursor = ClassifyEdgeHit(pos.X, r.Bounds.Width) == EdgeHit.Body
+            ? new Cursor(StandardCursorType.SizeAll)
+            : new Cursor(StandardCursorType.SizeWestEast);
+    }
+
+    private void HapticRect_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragMode != DragMode.None || sender is not Rectangle r) return;
+        var pos = e.GetPosition(r);
+        r.Cursor = ClassifyEdgeHit(pos.X, r.Bounds.Width) == EdgeHit.Body
+            ? new Cursor(StandardCursorType.SizeAll)
+            : new Cursor(StandardCursorType.SizeWestEast);
     }
 
     private static Color? ParseHexColor(string? hex)

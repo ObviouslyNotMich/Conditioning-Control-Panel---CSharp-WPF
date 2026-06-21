@@ -121,6 +121,12 @@ public partial class DeeperEditorWindow : Window
     private void WireEvents()
     {
         Closing += Window_Closing;
+        Opened += DeeperEditorWindow_Opened;
+    }
+
+    private void DeeperEditorWindow_Opened(object? sender, EventArgs e)
+    {
+        InitializePreview();
     }
 
     private void LoadEnhancementIntoUi()
@@ -712,7 +718,11 @@ public partial class DeeperEditorWindow : Window
     private void PopulateHapticDetail(HapticEvent? ev)
     {
         HapticDetailPanel.IsVisible = ev != null;
-        if (ev == null) return;
+        if (ev == null)
+        {
+            CurveEditorPanel.IsVisible = false;
+            return;
+        }
 
         _populating = true;
         try
@@ -721,8 +731,15 @@ public partial class DeeperEditorWindow : Window
             TxtHapticDuration.Text = ev.Duration.ToString("G6");
             TxtHapticIntensity.Text = ev.Intensity.ToString("G6");
             SetHapticPatternCombo(CmbHapticPattern, ev.PatternName);
-            PanelHapticCustom.IsVisible = IsCustomPattern(ev.PatternName);
-            TxtHapticCustom.Text = SerializeCustomPattern(ev.CustomPattern);
+            var isCustom = IsCustomPattern(ev.PatternName);
+            PanelHapticCustom.IsVisible = isCustom;
+            CurveEditorPanel.IsVisible = isCustom;
+            if (isCustom)
+            {
+                EnsureCurveSeed(ev);
+                TxtHapticCustom.Text = SerializeCustomPattern(ev.CustomPattern);
+                RebuildCurveEditor();
+            }
         }
         finally
         {
@@ -739,6 +756,11 @@ public partial class DeeperEditorWindow : Window
     {
         if (_populating) return;
         MarkDirty();
+        if (sender == TxtHapticCustom && LstHaptics.SelectedItem is HapticEvent ev)
+        {
+            ev.CustomPattern = DeserializeCustomPattern(TxtHapticCustom.Text);
+            RebuildCurveEditor();
+        }
     }
 
     private void CmbHapticPattern_SelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -746,6 +768,13 @@ public partial class DeeperEditorWindow : Window
         if (_populating) return;
         var isCustom = IsCustomPattern(CmbHapticPattern.SelectedItem as string);
         PanelHapticCustom.IsVisible = isCustom;
+        CurveEditorPanel.IsVisible = isCustom;
+        if (isCustom && LstHaptics.SelectedItem is HapticEvent ev)
+        {
+            EnsureCurveSeed(ev);
+            TxtHapticCustom.Text = SerializeCustomPattern(ev.CustomPattern);
+            RebuildCurveEditor();
+        }
         CommitHaptic();
     }
 

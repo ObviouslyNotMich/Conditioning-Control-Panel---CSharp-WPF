@@ -4337,5 +4337,9 @@
   "msg_no_items_imported_fmt": "No items imported ({0} failed)",
   "deeper_player_status_loading_url": "Loading enhancement from URL...",
   "deeper_player_error_fetch_url_fmt": "Failed to fetch enhancement from URL: {0}",
-  "deeper_editor_tab_timeline": "Timeline"
+  "deeper_editor_tab_timeline": "Timeline",
+  "deeper_editor_tab_preview": "Preview",
+  "deeper_editor_preview_open_browser": "Open in browser",
+  "deeper_editor_preview_load_waveform": "Load waveform",
+  "deeper_editor_preview_placeholder": "Browser preview is shown here when a supported HTTPS media source is set. On platforms without an embedded browser, use Open in browser."
 }

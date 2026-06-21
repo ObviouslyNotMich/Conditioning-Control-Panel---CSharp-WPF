@@ -184,9 +184,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStartupRegistration, AvaloniaStartupRegistration>();
         services.AddSingleton<ChaosCrashSentinel>();
 
-        // Deeper enhancement runtime.
+        // Deeper enhancement runtime + audio waveform cache.
         services.AddTransient<RealActionDispatcher>();
         services.AddSingleton<EnhancementHostService>();
+        services.AddSingleton<IAudioWaveformProvider, NullAudioWaveformProvider>();
+        services.AddSingleton<AudioWaveformCache>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

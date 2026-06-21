@@ -230,6 +230,61 @@
         </Grid>
       </TabItem>
 
+      <!-- Preview -->
+      <TabItem Header="{Binding [deeper_editor_tab_preview], Source={x:Static loc:LocalizationManager.Instance}}">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="10">
+          <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <TextBlock x:Name="TxtPreviewSource"
+                       Foreground="{DynamicResource TextLightBrush}"
+                       FontSize="12"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+            <Button x:Name="BtnOpenBrowser"
+                    Theme="{StaticResource ToolbarButton}"
+                    Content="{Binding [deeper_editor_preview_open_browser], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Click="BtnOpenBrowser_Click" />
+            <Button x:Name="BtnLoadWaveform"
+                    Theme="{StaticResource ToolbarButton}"
+                    Content="{Binding [deeper_editor_preview_load_waveform], Source={x:Static loc:LocalizationManager.Instance}}"
+                    Click="BtnLoadWaveform_Click" />
+          </StackPanel>
+
+          <Border Grid.Row="1"
+                  Background="{DynamicResource PanelBgBrush}"
+                  BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}"
+                  BorderThickness="1"
+                  CornerRadius="6">
+            <Grid>
+              <ContentControl x:Name="BrowserPreviewContainer"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch" />
+              <TextBlock x:Name="TxtBrowserPlaceholder"
+                         Text="{Binding [deeper_editor_preview_placeholder], Source={x:Static loc:LocalizationManager.Instance}}"
+                         Foreground="{DynamicResource TextDimBrush}"
+                         FontSize="12"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         TextWrapping="Wrap"
+                         TextAlignment="Center"
+                         Margin="20"
+                         IsVisible="True" />
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="2"
+                  Height="120"
+                  Margin="0,10,0,0"
+                  Background="{DynamicResource PanelBgBrush}"
+                  BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}"
+                  BorderThickness="1"
+                  CornerRadius="6">
+            <Canvas x:Name="WaveformCanvas"
+                    Background="Transparent"
+                    SizeChanged="WaveformCanvas_SizeChanged" />
+          </Border>
+        </Grid>
+      </TabItem>
+
       <!-- Metadata -->
       <TabItem Header="{Binding [deeper_editor_section_metadata], Source={x:Static loc:LocalizationManager.Instance}}">
         <ScrollViewer>
@@ -249,7 +304,7 @@
                      VerticalContentAlignment="Top" />
 
             <TextBlock Theme="{StaticResource FormLabel}" Text="{Binding [deeper_editor_label_media_source], Source={x:Static loc:LocalizationManager.Instance}}" />
-            <TextBox x:Name="TxtMetaMediaSource" TextChanged="Metadata_TextChanged" />
+            <TextBox x:Name="TxtMetaMediaSource" TextChanged="Metadata_TextChanged" LostFocus="TxtMetaMediaSource_LostFocus" />
 
             <TextBlock Theme="{StaticResource FormLabel}" Text="{Binding [deeper_editor_label_media_type], Source={x:Static loc:LocalizationManager.Instance}}" />
             <ComboBox x:Name="CmbMediaType" SelectionChanged="CmbMediaType_SelectionChanged" Width="200" HorizontalAlignment="Left" />
@@ -639,6 +694,22 @@
               <StackPanel x:Name="PanelHapticCustom">
                 <TextBlock Theme="{StaticResource FormLabel}" Text="Custom keyframes (JSON [[t,i],...])" />
                 <TextBox x:Name="TxtHapticCustom" LostFocus="HapticField_LostFocus" TextChanged="HapticField_TextChanged" />
+
+                <Border x:Name="CurveEditorPanel"
+                        Margin="0,10,0,0"
+                        Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Height="160"
+                        IsVisible="False">
+                  <Canvas x:Name="CurveEditorCanvas"
+                          Background="Transparent"
+                          PointerPressed="CurveEditorCanvas_PointerPressed"
+                          PointerMoved="CurveEditorCanvas_PointerMoved"
+                          PointerReleased="CurveEditorCanvas_PointerReleased"
+                          SizeChanged="CurveEditorCanvas_SizeChanged" />
+                </Border>
               </StackPanel>
 
               <Button x:Name="BtnHapticTest"
