@@ -289,10 +289,10 @@ Chaos overlay integration is complete and build/test green: cursor-glow/banner/f
 
 AvatarTube behavior restoration is complete (speech/AI chat/Circe emotes/reactions/windowing/fullscreen detection/context-menu toggles/emotive portrait system).
 
-Deeper runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource`. A functional basic `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview) replaces the placeholder. `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring. The full WPF visual timeline, curve editor, browser preview, and `AudioWaveformCache` remain.
+Deeper runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource`. A functional `DeeperEditorWindow` (metadata, regions/rules/haptics lists, save, preview, visual timeline with drag-create/resize/rubber-band, custom haptic curve editor, browser preview, and `AudioWaveformCache`) is at parity. `GazePickerWindow` is ported and wired for gaze-target/avoid rect authoring.
 
 Next priorities (pick one lane at a time):
 
-1. **Deeper editor depth** — full visual timeline editor parity (drag-create/resize regions, curve editor, browser preview, `AudioWaveformCache`). This is a large slice; sub-split before starting.
-2. **Phase 4 UI parity smoke-test** — run the Avalonia desktop app and fill `docs/avalonia-ui-parity-matrix.md` gaps.
-3. **Phase 4 remaining work** — port WPF-only dialogs/utility windows and wire feature-control code-behind.
+1. **Phase 4 UI parity smoke-test** — run the Avalonia desktop app and fill `docs/avalonia-ui-parity-matrix.md` gaps.
+2. **Phase 4 remaining work** — port WPF-only dialogs/utility windows and wire feature-control code-behind.
+3. **Deeper player/editor integration live smoke test** — verify opening an enhancement from the hub plays correctly and editor edits persist.
