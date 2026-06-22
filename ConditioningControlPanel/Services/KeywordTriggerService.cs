@@ -1000,6 +1000,9 @@ namespace ConditioningControlPanel.Services
             {
                 if (_disposed) return;
 
+                // Quest credit: one keyword/OCR trigger fired (Patreon-exclusive quest category).
+                App.Quests?.TrackKeywordTrigger();
+
                 if (trigger.Actions != null && trigger.Actions.Count > 0)
                 {
                     await DispatchActionsAsync(trigger, matchedWords);
@@ -1042,6 +1045,11 @@ namespace ConditioningControlPanel.Services
                 await DispatchResponseAsync(first, matchedWords);
                 return;
             }
+
+            // Quest credit: count each trigger in a merged fire (DispatchResponseAsync,
+            // which credits the single-trigger path, is not called here).
+            for (int i = 0; i < firedTriggers.Count; i++)
+                App.Quests?.TrackKeywordTrigger();
 
             var merged = new List<KeywordAction>();
             var seen = new HashSet<string>();

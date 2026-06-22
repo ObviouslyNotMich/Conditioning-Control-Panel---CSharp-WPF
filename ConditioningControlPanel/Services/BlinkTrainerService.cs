@@ -225,6 +225,9 @@ public class BlinkTrainerService : IDisposable
         if (!IsRunning) return;
         ShowRandom();
         TriggerBlinkHaptic();
+        // Quest credit: a blink logged in the live blink trainer (Patreon-exclusive
+        // category). This path only runs while the live trainer is active.
+        App.Quests?.TrackBlinkTrainerBlink();
     }
 
     /// <summary>

@@ -1237,6 +1237,8 @@ namespace ConditioningControlPanel
             ScreenOcr = new ScreenOcrService();
             KeywordHighlight = new KeywordHighlightService();
             RemoteControl = new RemoteControlService();
+            // Quest credit: each remote-control command received (Patreon-exclusive quest category).
+            RemoteControl.CommandReceived += (_, _) => { try { Quests?.TrackRemoteCommand(); } catch { } };
             AvailableSubjects = new AvailableSubjectsService();
             CompanionPhrases = new CompanionPhraseService();
             Catalogue = new CatalogueService();
@@ -1322,6 +1324,8 @@ namespace ConditioningControlPanel
             // prior run that was killed mid-lockdown so the panic key isn't stuck off.
             LockdownService.RecoverIfNeeded();
             Lockdown = new LockdownService();
+            // Quest credit: each completed lockdown (Patreon-exclusive quest category).
+            Lockdown.LockdownDeactivated += () => { try { Quests?.TrackLockdownCompleted(); } catch { } };
 
             // Initialize mantra lab service
             Mantra = new MantraService();

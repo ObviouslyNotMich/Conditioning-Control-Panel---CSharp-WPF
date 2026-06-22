@@ -310,6 +310,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Bespoke per-quest art (one PNG per quest id), bundled in-app so quests
+         render without any CDN dependency. Loaded via pack:// by quest id. -->
+    <Resource Include="Resources\quests\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Sound files - must be copied to output and publish for file system access -->
     <Content Include="Resources\sounds\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
