@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia;
@@ -21,11 +23,13 @@ using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Services.AIService;
 using ConditioningControlPanel.Core.Services.Avatar;
 using ConditioningControlPanel.Core.Services.AvatarTube;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ModerationSource = ConditioningControlPanel.Core.Services.Moderation.ModerationSource;
+using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Avalonia.Views;
 using CoreApp = ConditioningControlPanel.CoreApp;
 using Microsoft.Extensions.DependencyInjection;
@@ -109,6 +113,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private DispatcherTimer? _floatTimer;
         private DispatcherTimer? _companionGreetingDebounce;
         private IAchievementService? _achievementService;
+        private readonly global::ConditioningControlPanel.IBarkService? _barkService;
 
         private int _flashCounter;
         private int _subliminalCounter;
@@ -213,6 +218,13 @@ _parentWindow = parentWindow;
             if (_achievementService != null)
             {
                 _achievementService.AchievementUnlocked += OnAchievementUnlocked;
+            }
+
+            _barkService = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<global::ConditioningControlPanel.IBarkService>();
+            if (_barkService is global::ConditioningControlPanel.Avalonia.Services.AvaloniaBarkService abs)
+            {
+                abs.AvatarClicked += OnBarkAvatarClicked;
+                abs.BarkRequested += OnBarkRequested;
             }
 
             StartIdleTimer();
@@ -669,6 +681,7 @@ _parentWindow = parentWindow;
         {
             _isInputVisible = true;
             if (InputPanel != null) InputPanel.IsVisible = true;
+            ForceForegroundWindow();
             FocusInputAfterLayout();
         }
         private void HideInputPanel()
@@ -736,7 +749,7 @@ _parentWindow = parentWindow;
             var input = TxtUserInput?.Text?.Trim();
             if (string.IsNullOrEmpty(input)) return;
 
-            var counter = App.Services.GetService<global::ConditioningControlPanel.Avalonia.Services.Moderation.IModerationCounter>();
+            var counter = App.Services.GetService<IModerationCounter>();
             var counterState = counter?.GetState();
             if (counterState?.CooldownActive == true)
             {
@@ -968,6 +981,9 @@ _parentWindow = parentWindow;
             }
         }
 
+        /// <summary>Public entry point for external services to make the avatar speak a short phrase.</summary>
+        public void ShowGiggle(string text) => ShowGiggle(text, playSound: true, source: SpeechSource.Preset);
+
         private void ProcessNextSpeech()
         {
             if (_speechQueue.Count == 0)
@@ -1034,8 +1050,98 @@ _parentWindow = parentWindow;
                 target.Add(new Run(text ?? ""));
                 return;
             }
-            target.Add(new Run(text));
-            // TODO: parse markdown and known video links into Hyperlink inlines.
+
+            var segments = FindLinkSegments(text);
+            if (segments.Count == 0)
+            {
+                target.Add(new Run(text));
+                return;
+            }
+
+            int lastIndex = 0;
+            foreach (var segment in segments)
+            {
+                if (segment.Start > lastIndex)
+                    target.Add(new Run(text[lastIndex..segment.Start]));
+
+                var displayText = segment.DisplayText;
+                if (string.IsNullOrEmpty(displayText))
+                    displayText = segment.Url;
+
+                try
+                {
+                    var capturedUrl = segment.Url;
+                    var button = new HyperlinkButton
+                    {
+                        Content = new TextBlock
+                        {
+                            Text = displayText,
+                            TextDecorations = TextDecorations.Underline,
+                            Foreground = AppBrush("PinkBrush", new SolidColorBrush(Color.FromRgb(255, 105, 180)))
+                        },
+                        NavigateUri = new Uri(segment.Url),
+                        Background = Brushes.Transparent,
+                        BorderThickness = new Thickness(0),
+                        Padding = new Thickness(0),
+                        Cursor = new Cursor(StandardCursorType.Hand)
+                    };
+                    button.Click += (_, _) => OpenUrl(capturedUrl);
+                    target.Add(new InlineUIContainer { Child = button });
+                }
+                catch
+                {
+                    target.Add(new Run(displayText));
+                }
+
+                lastIndex = segment.End;
+            }
+
+            if (lastIndex < text.Length)
+                target.Add(new Run(text[lastIndex..]));
+        }
+
+        private static List<LinkSegment> FindLinkSegments(string text)
+        {
+            var segments = new List<LinkSegment>();
+
+            // Markdown links: [text](url)
+            foreach (Match m in Regex.Matches(text, @"\[([^\]]+)\]\(([^)]+)\)"))
+            {
+                var url = m.Groups[2].Value.Trim();
+                if (Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+                    (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+                {
+                    segments.Add(new LinkSegment(m.Index, m.Length, url, m.Groups[1].Value));
+                }
+            }
+
+            // Raw URLs
+            foreach (Match m in Regex.Matches(text, @"https?://[^\s,""'<>]+", RegexOptions.IgnoreCase))
+            {
+                if (segments.Any(s => m.Index >= s.Start && m.Index < s.End))
+                    continue;
+
+                segments.Add(new LinkSegment(m.Index, m.Length, m.Value, m.Value));
+            }
+
+            return segments.OrderBy(s => s.Start).ToList();
+        }
+
+        private static void OpenUrl(string url)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to open URL: {ex.Message}");
+            }
+        }
+
+        private sealed record LinkSegment(int Start, int Length, string Url, string DisplayText)
+        {
+            public int End => Start + Length;
         }
 
         private void ShowModerationRefusalBubble(ModerationSource source)
@@ -1291,7 +1397,32 @@ _parentWindow = parentWindow;
             timer.Start();
         }
 
-        private void TriggerBambiCumAndCollapse() { /* TODO: chaos / achievement hook */ }
+        private void TriggerBambiCumAndCollapse()
+        {
+            _logger?.Information("Bambi Cum and Collapse triggered! (50 clicks in 1 minute)");
+
+            try
+            {
+                var phraseService = App.Services?.GetService<ICompanionPhraseService>();
+                var folder = phraseService?.VoiceLineFolder;
+                if (!string.IsNullOrEmpty(folder))
+                {
+                    var collapseFiles = new[] { "come and coll.mp3", "come and coll (1).mp3", "come and coll (2).mp3" };
+                    var chosenFile = collapseFiles[_random.Next(collapseFiles.Length)];
+                    var audioPath = System.IO.Path.Combine(folder, chosenFile);
+                    if (File.Exists(audioPath))
+                    {
+                        PlayAudio(audioPath, 1.0);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Debug("Failed to play Bambi Cum and Collapse audio: {Error}", ex.Message);
+            }
+
+            GigglePriority("BAMBI CUM AND COLLAPSE", aiGenerated: false);
+        }
 
         private double CalculateRequiredDelayAfterLastSpeech()
         {
@@ -1306,7 +1437,7 @@ _parentWindow = parentWindow;
         {
             try
             {
-                var counter = App.Services.GetService<global::ConditioningControlPanel.Avalonia.Services.Moderation.IModerationCounter>();
+                var counter = App.Services.GetService<IModerationCounter>();
                 if (counter == null) return;
                 counter.WarningTriggered += OnWarningTriggered;
                 counter.CooldownStarted += OnCooldownStarted;
@@ -1318,10 +1449,21 @@ _parentWindow = parentWindow;
             }
         }
 
-        private void OnWarningTriggered(global::ConditioningControlPanel.Avalonia.Services.Moderation.ModerationCounterState state)
+        private void OnWarningTriggered(ModerationCounterState state)
         {
-            // TODO: show ContentPolicyWarningDialog when available in Avalonia dialogs.
             _logger?.Warning("Moderation warning triggered (hits={Hits})", state.HitsInLastTenMinutes);
+            Dispatcher.UIThread.Post(async () =>
+            {
+                try
+                {
+                    var dialog = new ContentPolicyWarningDialog(state.HitsInLastTenMinutes);
+                    _ = await dialog.ShowDialog<bool?>(this);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warning(ex, "Failed to show content-policy warning dialog");
+                }
+            });
         }
         private void OnCooldownStarted(DateTime endsAt)
         {
@@ -1409,6 +1551,13 @@ _parentWindow = parentWindow;
             if (_achievementService != null)
             {
                 _achievementService.AchievementUnlocked -= OnAchievementUnlocked;
+            }
+            if (_barkService is global::ConditioningControlPanel.Avalonia.Services.AvaloniaBarkService abs)
+            {
+                try { abs.AvatarClicked -= OnBarkAvatarClicked; }
+                catch { }
+                try { abs.BarkRequested -= OnBarkRequested; }
+                catch { }
             }
             if (_modService != null)
             {

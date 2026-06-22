@@ -1347,23 +1347,36 @@ public sealed class AvaloniaBarkService : IBarkService
     /// <summary>Raised when the avatar is clicked; subscribers (e.g. the active AvatarTubeWindow) can react with speech/emote.</summary>
     public event Action? AvatarClicked;
 
+    /// <summary>
+    /// Raised when a Chaos (or other) notification wants the avatar to speak.
+    /// The kind string lets subscribers pick an appropriate phrase/style.
+    /// </summary>
+    public event Action<string>? BarkRequested;
+
     public void NotifyAvatarClicked()
     {
         try { AvatarClicked?.Invoke(); }
         catch { /* never break click handling for a bark */ }
     }
 
-    public void NotifyChaosDollhouseFirstOpen() { }
-    public void NotifyChaosRevealFlash(string id) { }
+    public void NotifyChaosDollhouseFirstOpen() => RaiseBark("chaos.dollhouse");
+    public void NotifyChaosRevealFlash(string id) => RaiseBark("chaos.reveal");
     public void NotifyChaosResultsShown(double score, double best, double delta, bool pb,
-                                        int defused, int detonated, int bestCombo, string difficulty) { }
-    public void NotifyChaosRankUp(string rankName) { }
-    public void NotifyChaosGiftGiven() { }
-    public void NotifyChaosDraftAutopick() { }
-    public void NotifyChaosRunStarted(string difficulty) { }
-    public void NotifyChaosFocusLow() { }
-    public void NotifyChaosGoldFirst() { }
-    public void NotifyChaosDuoDemo() { }
+                                        int defused, int detonated, int bestCombo, string difficulty)
+        => RaiseBark("chaos.results");
+    public void NotifyChaosRankUp(string rankName) => RaiseBark("chaos.rankup");
+    public void NotifyChaosGiftGiven() => RaiseBark("chaos.gift");
+    public void NotifyChaosDraftAutopick() => RaiseBark("chaos.autopick");
+    public void NotifyChaosRunStarted(string difficulty) => RaiseBark("chaos.runstarted");
+    public void NotifyChaosFocusLow() => RaiseBark("chaos.focuslow");
+    public void NotifyChaosGoldFirst() => RaiseBark("chaos.goldfirst");
+    public void NotifyChaosDuoDemo() => RaiseBark("chaos.duodemo");
+
+    private void RaiseBark(string kind)
+    {
+        try { BarkRequested?.Invoke(kind); }
+        catch { /* never break game flow for a bark */ }
+    }
 }
 
 /// <summary>Video state for the Avalonia head, backed by the dual-monitor video service.</summary>
