@@ -67,6 +67,8 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
             _remoteControlService.SessionStarted += OnServiceSessionStarted;
             _remoteControlService.SessionEnded += OnServiceSessionEnded;
             _remoteControlService.ControllerConnectedChanged += OnControllerConnectedChanged;
+            _remoteControlService.ControllerIdleChanged += OnControllerIdleChanged;
+            _remoteControlService.CommandReceived += OnCommandReceived;
         }
     }
 
@@ -352,7 +354,15 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
         if (string.IsNullOrWhiteSpace(emote)) return;
         _logger?.Information("Send emote requested: {Emote}", emote);
         CommandLog.Add($"[{DateTime.Now:HH:mm:ss}] Emote: {emote}");
-        await Task.CompletedTask;
+
+        if (_remoteControlService != null)
+        {
+            var (_, error, _) = await _remoteControlService.SendEmoteAsync(emote, "✨", "preset");
+            if (!string.IsNullOrEmpty(error) && error != "debounced")
+            {
+                _logger?.Warning("SendEmote failed: {Error}", error);
+            }
+        }
     }
 
     [RelayCommand]
@@ -461,6 +471,20 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
     private void OnControllerConnectedChanged(object? sender, EventArgs e)
     {
         _uiDispatcher?.Post(SyncFromService);
+    }
+
+    private void OnControllerIdleChanged(object? sender, EventArgs e)
+    {
+        _uiDispatcher?.Post(SyncFromService);
+    }
+
+    private void OnCommandReceived(object? sender, string action)
+    {
+        _uiDispatcher?.Post(() =>
+        {
+            CommandLog.Add($"[{DateTime.Now:HH:mm:ss}] {action}");
+            OnPropertyChanged(nameof(HasCommands));
+        });
     }
 
     private void SyncFromService()

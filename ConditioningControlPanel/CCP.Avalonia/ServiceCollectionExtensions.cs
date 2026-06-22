@@ -22,13 +22,14 @@ using ConditioningControlPanel.Avalonia.Services.Webcam;
 using ConditioningControlPanel.Avalonia.Services.Sessions;
 using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Services.SessionLog;
+using ConditioningControlPanel.Core.Services.BugReport;
 using ConditioningControlPanel.Avalonia.Services.Moderation;
 using ConditioningControlPanel.Avalonia.Services.Avatar;
 using ConditioningControlPanel.Avalonia.Services.Auth;
 using ConditioningControlPanel.Avalonia.Services.Content;
 using ConditioningControlPanel.Core.Services.Avatar;
 using ConditioningControlPanel.Core.Services.Content;
-using ConditioningControlPanel.Avalonia.Services.RemoteControl;
+using ConditioningControlPanel.Core.Services.RemoteControl;
 using ConditioningControlPanel.Avalonia.Services.Video;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.ViewModels.Tabs;
@@ -194,11 +195,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContentPackService, AvaloniaContentPackService>();
         services.AddSingleton<IAvatarPortraitService, AvaloniaAvatarPortraitService>();
         services.AddSingleton<IAvailableSubjectsService, AvailableSubjectsService>();
-        services.AddSingleton<IRemoteControlService, AvaloniaRemoteControlService>();
+        services.AddSingleton<IRemoteControlService, RemoteControlService>();
         services.AddSingleton<ILockdownService, AvaloniaLockdownService>();
         services.AddSingleton<ISessionEffectOrchestrator, AvaloniaSessionEffectOrchestrator>();
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<IStartupRegistration, AvaloniaStartupRegistration>();
+        services.AddSingleton<IBugReportService, BugReportService>();
         services.AddSingleton<ChaosCrashSentinel>();
 
         // Deeper enhancement runtime + audio waveform cache.
