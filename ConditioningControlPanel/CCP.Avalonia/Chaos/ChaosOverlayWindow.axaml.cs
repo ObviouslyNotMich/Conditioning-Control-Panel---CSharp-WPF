@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Input;
 using global::Avalonia.Layout;
 using global::Avalonia.Media;
+using global::Avalonia.Platform;
 using global::Avalonia.Interactivity;
 using global::Avalonia.Threading;
 
@@ -15,7 +17,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 public partial class ChaosOverlayWindow : Window
 {
     private readonly global::ConditioningControlPanel.IAppLogger _logger;
-
+    private readonly global::ConditioningControlPanel.Core.Platform.IInputHook? _inputHook;
 
     private Action<ChaosBoon?>? _onBoonPick;
     private bool _clickThrough = true;
@@ -29,6 +31,8 @@ public partial class ChaosOverlayWindow : Window
         public Border Art = null!;
         public SolidColorBrush ArtBorder = null!;
     }
+
+    private static ChaosHubWindow? _sharedHubWindow;
 
     private readonly List<DraftCard> _draftCards = new();
     private DispatcherTimer? _revealTimer;
@@ -51,7 +55,9 @@ public partial class ChaosOverlayWindow : Window
         InitializeComponent();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-CountdownText.RenderTransform = _countdownScale;
+        _inputHook = App.Services.GetService<global::ConditioningControlPanel.Core.Platform.IInputHook>();
+        if (_inputHook != null) _inputHook.KeyPressed += OnGlobalKey;
+        CountdownText.RenderTransform = _countdownScale;
         StoryBg.RenderTransform = new TransformGroup { Children = { _storyBgScale, _storyBgT } };
         StoryPortrait.RenderTransform = _storyPortraitT;
         StoryBox.RenderTransform = _storyBoxScale;
@@ -62,8 +68,26 @@ CountdownText.RenderTransform = _countdownScale;
         Width = bounds.width;
         Height = bounds.height;
         Opened += (_, _) => ApplyExStyles();
+        Closed += (_, _) =>
+        {
+            if (_inputHook != null) _inputHook.KeyPressed -= OnGlobalKey;
+        };
         StoryCardPanel.PointerPressed += (_, e) => { e.Handled = true; AdvanceStory(); };
         KeyDown += OnStoryKey;
+    }
+
+    private void OnGlobalKey(object? sender, global::ConditioningControlPanel.Core.Platform.KeyboardHookEventArgs e)
+    {
+        if (!IsVisible) return;
+        if (_countdownTimer != null && CountdownBox.IsVisible)
+        {
+            FinishCountdown();
+            return;
+        }
+        if (StoryCardPanel.IsVisible)
+        {
+            AdvanceStory();
+        }
     }
 
     #region countdown
@@ -735,15 +759,21 @@ CountdownText.RenderTransform = _countdownScale;
             try
             {
                 if (AvaloniaChaosApp.Chaos == null || AvaloniaChaosApp.Chaos.IsRunning) return;
-                // TODO: wire shared AvaloniaChaosHubWindow instance once the hub is ported and registered.
-                var hub = new ChaosHubWindow();
-                var owner = AvaloniaChaosApp.MainWindowRef;
-                if (owner is null)
-                    hub.Show();
-                else
-                    hub.Show(owner);
 
-                if (tab != null) hub.NavigateTo(tab);
+                if (_sharedHubWindow?.IsVisible != true)
+                {
+                    _sharedHubWindow?.Close();
+                    _sharedHubWindow = new ChaosHubWindow();
+                    _sharedHubWindow.Closed += (_, _) => _sharedHubWindow = null;
+                    var owner = AvaloniaChaosApp.MainWindowRef;
+                    if (owner is null)
+                        _sharedHubWindow.Show();
+                    else
+                        _sharedHubWindow.Show(owner);
+                }
+
+                if (tab != null) _sharedHubWindow?.NavigateTo(tab);
+                _sharedHubWindow?.Activate();
             }
             catch (Exception ex) { _logger?.Warning("Recap dollhouse door failed ({E})", ex.Message); }
         });
@@ -932,8 +962,32 @@ CountdownText.RenderTransform = _countdownScale;
 
     private void ApplyExStyles()
     {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE (+/- WS_EX_TRANSPARENT) on Windows.
+        if (TryGetPlatformHandle() is not { } handle) return;
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            var ex = GetWindowLong(handle.Handle, GWL_EXSTYLE);
+            ex |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+            if (_clickThrough) ex |= WS_EX_TRANSPARENT;
+            else ex &= ~WS_EX_TRANSPARENT;
+            SetWindowLong(handle.Handle, GWL_EXSTYLE, ex);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug("ChaosOverlayWindow.ApplyExStyles failed: {E}", ex.Message);
+        }
     }
+
+    private const int GWL_EXSTYLE = -20;
+    private const uint WS_EX_TOOLWINDOW = 0x00000080;
+    private const uint WS_EX_NOACTIVATE = 0x08000000;
+    private const uint WS_EX_TRANSPARENT = 0x00000020;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
 
     private static void AnimateTransform(Transform target, double from, double to, int ms, Func<double, double> ease)
     {
