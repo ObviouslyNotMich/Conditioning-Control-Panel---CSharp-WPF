@@ -1,4 +1,6 @@
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Settings;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Platform;
 
@@ -9,6 +11,15 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 /// </summary>
 public sealed class AvaloniaAppEnvironment : IAppEnvironment
 {
+    private readonly IServiceProvider? _services;
+
+    public AvaloniaAppEnvironment(IServiceProvider? services = null)
+    {
+        _services = services;
+    }
+
+    private ISettingsService? SettingsService => _services?.GetService<ISettingsService>();
+
     public string BaseDirectory => AppContext.BaseDirectory;
 
     public string UserDataPath => GetUserDataPath();
@@ -23,7 +34,19 @@ public sealed class AvaloniaAppEnvironment : IAppEnvironment
     {
         get
         {
-            // TODO: respect CustomAssetsPath from settings once the Avalonia UI exposes it.
+            var customPath = SettingsService?.Current?.CustomAssetsPath;
+            if (!string.IsNullOrWhiteSpace(customPath))
+            {
+                try
+                {
+                    if (Directory.Exists(customPath))
+                        return customPath;
+                }
+                catch
+                {
+                    // Fall back to default if the custom path is invalid.
+                }
+            }
             return Path.Combine(UserDataPath, "assets");
         }
     }
