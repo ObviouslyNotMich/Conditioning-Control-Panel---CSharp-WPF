@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using ConditioningControlPanel.Core.Platform;
@@ -60,6 +61,14 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
 
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
             var hash = ComputeFileHash(sourcePath);
+
+            // Skip writing an identical copy if we already have a backup with the same content hash.
+            if (HasBackupWithHash(backupDir, hash))
+            {
+                _logger?.Debug("AvaloniaSettingsBackupProvider: skipped backup (identical content hash {Hash})", hash);
+                return;
+            }
+
             var fileName = $"settings-{timestamp}-{hash}.json";
             var destPath = Path.Combine(backupDir, fileName);
 
@@ -75,6 +84,20 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
         catch (Exception ex)
         {
             _logger?.Warning(ex, "AvaloniaSettingsBackupProvider: local backup failed");
+        }
+    }
+
+    private static bool HasBackupWithHash(string backupDir, string hash)
+    {
+        try
+        {
+            var suffix = $"-{hash}.json";
+            return Directory.EnumerateFiles(backupDir, "settings-*.json")
+                .Any(f => f.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false;
         }
     }
 
