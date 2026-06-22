@@ -88,6 +88,8 @@ public partial class App : Application
             CoreApp.Settings = Services.GetRequiredService<ISettingsService>();
             CoreApp.Roadmap = Services.GetRequiredService<IRoadmapService>();
             CoreApp.Logger = Services.GetRequiredService<IAppLogger>();
+            CoreApp.SkillTree = Services.GetRequiredService<ISkillTreeService>();
+            CoreApp.SkillTree.Start();
 
             // Initialize localization before any UI is created so {loc:Str} bindings resolve.
             LocalizationManager.Instance.Initialize(CoreApp.Settings.Current?.Language ?? "en");

@@ -80,6 +80,16 @@ public interface ISkillTreeService
     event EventHandler<string>? SkillUnlocked;
     Task<(bool Success, string? Error)> PurchaseSkillAsync(string skillId);
 
+    /// <summary>
+    /// Starts background timers/checks (weekly shield reset, time-of-day tracking).
+    /// </summary>
+    void Start();
+
+    /// <summary>
+    /// Stops background timers.
+    /// </summary>
+    void Stop();
+
     // Legacy stubs still referenced by Core services until those services are fully ported.
     bool UseStreakShield();
     bool UseOopsieInsurance();
