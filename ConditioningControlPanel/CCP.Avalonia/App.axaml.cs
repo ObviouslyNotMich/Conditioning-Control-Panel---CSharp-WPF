@@ -104,6 +104,7 @@ public partial class App : Application
             try
             {
                 var env = Services.GetRequiredService<IAppEnvironment>();
+                AvaloniaChaosEnv.EffectiveAssetsPath = env.EffectiveAssetsPath;
                 ChaosMeta.Init(env);
             }
             catch (Exception ex)
