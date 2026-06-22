@@ -19,6 +19,7 @@ using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Sessions;
+using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Core.Services.Update;
 using Session = ConditioningControlPanel.Models.Session;
 
@@ -49,6 +50,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly ISkillTreeService? _skillTreeService;
     private readonly IRemoteControlService? _remoteControlService;
     private readonly ISessionEffectOrchestrator? _effectOrchestrator;
+    private readonly ISessionLogService? _sessionLog;
 
     private IDisposable? _clockTimer;
     private IDisposable? _sessionProgressTimer;
@@ -99,6 +101,7 @@ public partial class MainWindowViewModel : ObservableObject
         _skillTreeService = services.GetService<ISkillTreeService>();
         _remoteControlService = services.GetService<IRemoteControlService>();
         _effectOrchestrator = services.GetService<ISessionEffectOrchestrator>();
+        _sessionLog = services.GetService<ISessionLogService>();
 
         InitializeTabs();
         UpdateHeaderFromSettings();
@@ -864,6 +867,7 @@ public partial class MainWindowViewModel : ObservableObject
                 UpdateStartButton();
                 StopConditioningTimeTracker();
                 _effectOrchestrator?.StopEffects();
+                _sessionLog?.EndSession(completed: false, _sessionService.ElapsedTime, 0);
             });
         };
 
@@ -878,6 +882,18 @@ public partial class MainWindowViewModel : ObservableObject
                 _progressionService?.AddXP(e.XPEarned, XPSource.Session);
                 RefreshProgressionHeader();
                 _logger?.Information("Session completed: {Name}, XP: {XP}", e.Session.Name, e.XPEarned);
+
+                _sessionLog?.EndSession(completed: true, e.Duration, e.XPEarned);
+
+                try
+                {
+                    var completeWindow = new Windows.SessionCompleteWindow(e.Session, e.Duration, e.XPEarned);
+                    completeWindow.Show();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warning(ex, "Failed to show session complete window");
+                }
             });
         };
 
@@ -1204,17 +1220,17 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (IsEngineRunning || _sessionService.State != SessionState.Idle)
         {
-            var session = _sessionService.CurrentSession;
+            var stopSession = _sessionService.CurrentSession;
             var elapsed = _sessionService.ElapsedTime;
             var remaining = _sessionService.RemainingTime;
-            var potentialXp = session?.BonusXP ?? 0;
+            var potentialXp = stopSession?.BonusXP ?? 0;
             var penalty = _sessionService.XPPenalty;
             var finalXp = Math.Max(0, potentialXp - penalty);
 
             var confirmed = await (_dialogService?.ShowConfirmationAsync(
                 Loc.Get("title_confirm_stop"),
                 $"{Loc.Get("msg_stop_session_confirm")}\n\n" +
-                $"{session?.Icon} {session?.Name}\n" +
+                $"{stopSession?.Icon} {stopSession?.Name}\n" +
                 $"{Loc.Get("label_elapsed")}: {elapsed:mm\\:ss}\n" +
                 $"{Loc.Get("label_remaining")}: {remaining:mm\\:ss}\n\n" +
                 $"{Loc.Get("msg_xp_lost")}: {finalXp} XP") ?? Task.FromResult(false));
@@ -1228,18 +1244,11 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (_sessionService.CurrentSession == null)
-        {
-            _logger?.Information("Start session requested but no session selected.");
-            await (_dialogService?.ShowMessageAsync(
-                Loc.Get("title_no_session"),
-                Loc.Get("msg_select_session_first")) ?? Task.CompletedTask);
-            return;
-        }
+        var session = _sessionService.CurrentSession ?? Session.QuickStartFromSettings(_settingsService.Current);
 
         try
         {
-            await _sessionService.StartSessionAsync(_sessionService.CurrentSession);
+            await _sessionService.StartSessionAsync(session);
             IsEngineRunning = true;
             UpdateStartButton();
             StartConditioningTimeTracker();

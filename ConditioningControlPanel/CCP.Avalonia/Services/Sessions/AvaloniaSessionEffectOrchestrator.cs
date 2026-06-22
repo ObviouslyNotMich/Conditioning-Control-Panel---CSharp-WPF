@@ -10,6 +10,7 @@ using ConditioningControlPanel.Core.Services.MindWipe;
 using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Core.Services.Subliminal;
 using ConditioningControlPanel.Core.Services.Video;
 using ConditioningControlPanel.Models;
@@ -33,6 +34,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
     private readonly ILockCardService? _lockCard;
     private readonly IBubbleService? _bubbles;
     private readonly IBubbleCountService? _bubbleCount;
+    private readonly ISessionLogService? _sessionLog;
     private readonly IAppLogger? _logger;
 
     public AvaloniaSessionEffectOrchestrator(
@@ -46,6 +48,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         ILockCardService? lockCard = null,
         IBubbleService? bubbles = null,
         IBubbleCountService? bubbleCount = null,
+        ISessionLogService? sessionLog = null,
         IAppLogger? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -58,6 +61,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         _lockCard = lockCard;
         _bubbles = bubbles;
         _bubbleCount = bubbleCount;
+        _sessionLog = sessionLog;
         _logger = logger;
     }
 
@@ -67,6 +71,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         var s = session.Settings;
 
         _logger?.Information("Starting session effects for {SessionName}", session.Name);
+        TryRun("session log begin", () => _sessionLog?.BeginSession(session));
 
         TryRun("overlay", () => _overlay?.Start());
 
@@ -92,6 +97,8 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
     {
         _logger?.Information("Stopping all session effects");
 
+        // Note: session log end is handled by SessionService.SessionCompleted so we get
+        // the real duration/XP/completed flag. Stopping effects alone does not end the log.
         TryRun("flash", () => _flash?.Stop());
         TryRun("video", () => _video?.Stop());
         TryRun("subliminal", () => _subliminal?.Stop());

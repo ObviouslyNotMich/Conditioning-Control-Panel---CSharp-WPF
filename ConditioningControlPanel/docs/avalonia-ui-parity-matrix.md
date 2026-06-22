@@ -2,12 +2,31 @@
 
 Audit of the Avalonia UI versus the legacy WPF implementation.
 Status key:
-- ✅ Parity achieved / functionally complete
+- ✅ Ported & renders / looks right — **NOT a guarantee it works** (see banner below)
 - 🚧 Partially ported, known gaps
 - ❌ Not started / missing
 - ⚠️ Blocked by platform seam, no direct counterpart, or external dependency
 
-Last updated: 2026-06-21
+Last updated: 2026-06-22
+
+> ## ⚠️ READ FIRST — ✅ here means "renders," not "works"
+>
+> The ✅ marks in this matrix were assigned on **"builds + looks right"** during the swarm port. Maintainer
+> testing + a code audit (2026-06-22) found that **many ✅ rows do not actually function** — the UI renders but
+> the action is a stub/no-op. Confirmed not-working despite ✅/parity claims below:
+> - **Account login / premium gating is dead** — all OAuth providers are no-ops, `HasPremiumAccess` is hard-coded
+>   `false` (so Patreon/premium features are locked). *(matrix "Login/Patreon" rows say ✅)*
+> - ✅ **START now launches the mode** — fixed: quick-start session from `AppSettings` when no preset is selected.
+> - ✅ **Avatar now reacts to clicks** — fixed: `AvatarBorder` made hit-testable with `Background="Transparent"`; click wired to `IBarkService.NotifyAvatarClicked()` → `AvatarClicked` event → random phrase giggle; AI chat double-click restored; `AvatarEnabled` toggle shows/hides the tube.
+> - ✅ **Chaos run progression now awards XP** — fixed: `AvaloniaChaosService` calls `IProgressionService.AddXP(..., XPSource.Chaos)` at run end. Dashboard banner rotator / Marquee tab already wired.
+> - ✅ **Pink-fill & spiral overlays are now click-through** — fixed: `IsHitTestVisible=false` + Win32 transparent ex-styles.
+> - **Chaos / "Down the Rabbit Hole" broader run economy is still largely placeholder** *(SFX, catalogues, narrative audio, etc.; matrix says "full parity")*.
+> - **Content-pack management (Assets), several feature-card editors, and webcam tracking are stubbed.**
+>
+> **The authoritative not-done list is the task board → `docs/avalonia-migration-task-board.md` → "Known
+> Functional Gaps" (reported #1–#5 + audit groups A–K).** Treat every ✅ in this matrix as "renders" until the
+> feature is **exercised end-to-end** in the running app (plan §13.6) and re-marked. Do not trust an ✅ as
+> functional parity.
 
 ---
 
@@ -16,12 +35,14 @@ Last updated: 2026-06-21
 - **Build health:** All desktop heads compile with 0 errors. A full rebuild of `CCP.Desktop.slnf` reports ~300 warnings, mostly nullable reference warnings and a few Avalonia/XAML analyzer diagnostics; none block execution. The complete solution (`ConditioningControlPanel.sln`), including the Windows, Linux, and macOS desktop heads, also builds with 0 errors and 0 warnings in the latest incremental build. `CCP.Core.Tests` pass (95/95). Windows head starts, loads settings, and runs a background update check without crashing.
 - **Dashboard rendering:** Fixed. The custom `TabControl` template in `MainWindow.axaml` was only binding `SelectedContent` and the content area was not instantiating tab views. Replaced the `TabControl` with a `ContentControl` bound to `SelectedTab` and moved the view-selector `DataTemplate`s to `ContentControl.DataTemplates`. The dashboard was restructured from a `ScrollViewer`/`StackPanel` to a star-height `Grid` and the main window default size was increased so the full velvet mosaic (12 cards + center logo + browser/audio/quick-links), bottom helper buttons, marquee, and global action bar all fit without clipping. Startup now defaults to the dashboard. A `--smoke-screenshots` flag was added to the Windows smoke-test runner so every tab is captured for visual parity checks, and the runner now also switches mods and saves `smoke-dashboard-theme-<modId>.png` for all five themes to verify per-theme palette parity. The smoke-test console report now lists every captured screenshot path (not just the first five), and the JSON report already contained the full list. The runner now also flags any tab that renders `PlaceholderTabView` as a smoke-test finding, preventing silent fallback regressions. The dashboard **Visuals** feature-card glyph was changed from an eye (👁) to a target (◎) to match the WPF reference.
 - **Theme switching / dashboard polish:** Verified across all five mods (CCP Default, Bambi Sleep, Sissy Hypno, Droneification, Circe's Lock). Accent colors (title bar, buttons, slider thumbs, toggle switches, checkboxes, radio buttons) now change per mod because `AvaloniaThemeService` updates the `FluentTheme` palette `Accent` at runtime. Dashboard helper buttons and Audio/Quick Links headers show their icons. The **Join Discord** button is styled with Discord blue. The marquee banner now scrolls continuously using a duplicated-text loop. The top-right update pill now shows the localized celebratory version message (e.g., “💖 v6.1.6 IS OUT! 💖”) on a filled accent background, matching the WPF reference. Primary tab buttons were tightened so all seven tab labels (including “Assets”) fit without truncation. The tertiary banner link now uses a cyan `BannerTertiaryBrush`, matching the WPF reference. The **VIP Bonus** chip in the XP bar is now rendered as a dark surface pill with muted text, matching the WPF reference, while the XP bonus chips keep their pink accent styling. Fixed an integer-overflow bug in `MainWindowViewModel.UpdateConditioningTimeDisplay()` that wrapped large `TotalConditioningMinutes` values into negative hours in the VIP Bonus pill; display now clamps to non-negative values and uses `long` arithmetic. Added the missing `TextDim` color resource so dialog button text (InputDialog, WarningDialog, etc.) is visible instead of transparent. Added the missing `LockdownTabViewModel` DataTemplate in `MainWindow.axaml` so the Lockdown tab renders its real view instead of the placeholder. The desktop smoke test now exercises the dashboard helper buttons: it verifies all four buttons are visible and icon-prefixed, clicks Webcam/App Info/Scheduler to open their popups (capturing screenshots), and confirms the Catalogue button is present without opening the external browser. This coverage uncovered two missing localization keys (`btn_login_discord`, `btn_login_patreon`) used by the App Info popup, which have been added to `en.json`. The smoke test also opens every dashboard `FeatureCard` popup (12 cards) to verify each feature control loads without raw localization markup or first-chance exceptions.
+- **Mod-aware images and animations:** Added `AvaloniaModResourceResolver` and `AvaloniaBitmapHelper` to mirror the WPF `ModResourceResolver`: every `Resources/` image path is checked against the active mod's `resources/` folder first, then falls back to the embedded Avalonia assets. The `PackUriToBitmapConverter`, all dashboard/feature/quest/skill/season-recap/achievement cards, the center logo, the default spiral GIF, avatar poses/animations, and the bubble image now use this resolver. The dashboard, Enhancements tab, Quests tab, and Achievements tab refresh their images when the active mod changes.
+- **Overlay click-through:** Pink-filter and spiral overlays are now pure passive paint layers. `OverlayWindow` sets `IsHitTestVisible=false`; `ApplyWindowStyles` applies `WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW` so the overlay does not steal focus, appear in Alt-Tab/taskbar, or block input to apps behind it.
 - **Main-merge sync (§19.3 + §19.4):** `AppSettings` drift, `Fredoka.ttf`, service-deltas, `UpdateService` rework, `ChaosCrashSentinel`, `ChaosBoonColors`, shared-host overlays, `ChaosSkiaFxOverlay`, and the `BubbleService` overhaul (ambient + chaos variants + field hazards + shared-host + global mouse hook) are done. §19.3 backlog is complete. §19.4 is done: WPF now references `CCP.Core` and the WPF `Models/` duplicate folder is deleted; `CatalogueEntry`, `HapticProviderType`, `XPSource`, and `PackFileEntry` are sourced from Core.
 - **Biggest remaining gaps:**
   1. **Dialogs & windows** — structure and commands are wired; all audited dialogs are now localized. Remaining hard-coded content is limited to a few WPF-only message strings and symbol-only affordances. `FeatureSettingsPopup` editor is fully ported.
   2. **Feature controls** — XAML and settings binding are solid; `ISessionEffectOrchestrator` starts/stops Flash, Video, Subliminal, MindWipe, BouncingText, Bubbles, BubbleCount, LockCard, and Overlay services. The Flash, Video (including attention checks, strict mode, and post-play penalties), BouncingText, Subliminal, MindWipe, LockCard, pink-filter/spiral/brain-drain, and ad-hoc timed/sustained overlay engines are real implementations.
-  3. **Chaos overlays** — full parity: core animations/z-order helper, complete run lifecycle, meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting are all wired. Localization remains parity-only (unlocalized like WPF).
-  4. **AvatarTube** — full parity restored: speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order, fullscreen detection, context-menu toggles, and emotive portrait system. The window is now created at startup when `AvatarEnabled`, the `tube.png` resource path was fixed to `avares://CCP.Avalonia/Assets/tube.png`, content is scaled before the first `Show()` to prevent a `SizeToContent` blow-up, and the main window shifts right to keep the attached tube visible on screen.
+  3. **Chaos overlays** — *(⚠️ rendering/structure only — see READ-FIRST banner. The 2026-06-22 audit found the run economy is largely **placeholder**: SFX has no audio, art/images and lifetime-boon/habit/unlock-card catalogues are stubbed/return null, narrator audio + conversations are placeholders, hub window unwired. Task-board gap C.)* The wiring claims below describe the ported structure: core animations/z-order helper, run lifecycle, meta persistence, `RevealService`, boon runtime, focus economy, active toys, lessons, narrative director, and happy-path scripting. Localization remains parity-only (unlocalized like WPF).
+  4. **AvatarTube** — *(✅ click reactions restored; companion-switch/community-prompt/attach-detach paths are TODO, task-board gap B.)* Structure restored: speech phrase system, AI chat, Circe emote engine, reaction hooks, drag/scale/floating/z-order, fullscreen detection, context-menu toggles, and emotive portrait system. Fixes applied: `AvatarBorder` given `Background="Transparent"` so Avalonia hit-testing registers clicks, `IBarkService.NotifyAvatarClicked()` raises an `AvatarClicked` event consumed by the active window to speak a random phrase, AI chat double-click opens the input panel, and `AvatarEnabled` changes show/hide the tube. The window is created at startup when `AvatarEnabled`, content is scaled before the first `Show()` to prevent a `SizeToContent` blow-up, and the main window shifts right to keep the attached tube visible on screen.
   5. **Deeper** — runtime engine, dispatcher, and host are now in `CCP.Core`; the Avalonia player binds the engine via `AvaloniaLibVlcTimeSource` so effects/rules fire during playback. A functional editor (metadata/regions/rules/haptics + save/preview) replaces the placeholder; the visual Timeline tab supports three lanes, ruler, playhead, click-to-select, zoom, Shift+drag region creation, drag-move/resize for regions/effects/haptics, and Ctrl+drag rubber-band multi-select. The curve editor, browser preview, and audio waveform cache are now ported and wired.
   6. **MainWindow chrome** — custom window chrome, resize grips, title-bar drag/maximize, cross-platform drag-drop import, and all user-facing strings are localized. Startup layout now matches WPF: default tab is the Settings/Dashboard, the quick-preset selector is collapsed by default, and the title bar no longer shows the debug chaos-smoke-test or redundant login buttons. Virtual-key names remain English internal identifiers to keep settings compatibility.
 
@@ -34,7 +55,7 @@ Last updated: 2026-06-21
 | Tab View | XAML | Code-Behind | Rich Cards/Images | Localization | Design-Time Data | Notes |
 |----------|------|-------------|-------------------|--------------|------------------|-------|
 | SettingsTabView (Dashboard) | ✅ | ✅ | ✅ | ✅ | ✅ | Dashboard feature cards now open their feature popups and reflect active state; bottom helper buttons (webcam/app-info/scheduler-ramp/catalogue) wired and now show emoji icons (📷 Webcam, ℹ️ App Info, 📅 Scheduler + Intensity Ramp, 📁 CCP Catalogue) to match WPF. The desktop smoke test verifies all four helper buttons, opens the Webcam/App Info/Scheduler popups, and captures screenshots of each; it also opens every dashboard `FeatureCard` popup (12 cards) to verify each feature control loads cleanly. WebView2 browser host wired on Windows; feature-card right-click quick-toggles settings and starts/stops running services. Center logo loads mod-aware `logo.png`/`logo2.png`. Quick Links show login-state panel with display name + logout. Master-volume slider drives `IAudioPlayer.SetVolume`. Audio output device picker populates from `IAudioDeviceService` and sets `IAudioPlayer` output device; Test Audio plays the system test sound. Browser toolbar "Enhance if possible" binds to `BrowserTabViewModel.EnhanceIfPossible`. Deeper auto-bind badge and Haptic Audio Sync latency/intensity controls visible. HypnoTube/BambiCloud radio toggle fixed. Background update check runs from `MainWindowViewModel`. |
-| LevelFeaturesTabView | ✅ | ✅ | ✅ | ✅ | ⚠️ | `FeatureCard` grid at top; detail card layout present. |
+| LevelFeaturesTabView | ✅ | ✅ | ✅ | ✅ | ⚠️ | `FeatureCard` grid at top; detail card layout present. Bubble Count, Bouncing Text, Mind Wipe, and Brain Drain toggles now drive the live services during a running session; test commands trigger the real engines; Mind Wipe loop starts/stops immediately. |
 | QuestsTabView | ✅ | ✅ | ✅ | ✅ | ⚠️ | `QuestCard` + `RoadmapNodeCard` in place; roadmap interactions need smoke test. |
 | EnhancementsTabView | ✅ | ✅ | ✅ | ✅ | ⚠️ | `SkillNodeCard` + skill images; connection lines present. |
 | AssetsTabView | ✅ | ✅ | ✅ | ✅ | ⚠️ | `ContentPackCard` + tree browser; drag-drop and context menus need verification. |
@@ -53,7 +74,7 @@ Last updated: 2026-06-21
 | PatreonTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Brand-colored account cards, tier badge visuals, support-development card, cloud backup/privacy sections added. Provider/success colors moved to view resources; status, expiry, and link strings localized. |
 | DeeperHubTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Hero banner, media-type glyph/brush converters, richer row cards, filter/sort panel, empty state added; Open/Play/Delete/Submit row commands wired. |
 | DeeperSubmissionsTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Submission list with status badges, Refresh/Check Statuses actions, and empty state. Row Record command bound via `ReflectionBinding`; accent colors theme-resourced; design-time sample rows added. |
-| CompanionHubTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Hero banner, status card with robot icon, action buttons, pose/audio cards, and settings link added. |
+| CompanionHubTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Hero banner, status card with robot icon, action buttons, pose/audio cards, and settings link added. Initialize/Show/Hide/Wake/Toggle Detach/Set Pose/Mute now route through `IAvatarWindowService`; avatar tube window is created lazily and responds to the commands. |
 | CompanionTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Hero banner, active-companion hero card, settings panel, prompt panel, companion roster cards with active badges, and installed-prompts list added. |
 | PresetIOTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Hero banner, preset list cards, drag-drop import zone, and action buttons added. |
 | LeaderboardTabView | ✅ | ✅ | ✅ | ✅ | ✅ | Hero banner, mode toggle buttons, sort card, rank medal/number badges, online/OG badges, and richer row cards added. |
@@ -80,7 +101,7 @@ Last updated: 2026-06-21
 | PresetCard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | ContentPackCard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | SkillNodeCard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| AttentionCheckFeatureControl | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| AttentionCheckFeatureControl | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `IAttentionCheckService` is now a real Avalonia scheduler: click-through topmost ring, gaze dwell tracking, grace timer, XP pass reward, configurable fail penalty (XP loss or lock card). Toggle starts/stops the service; `App.axaml.cs` auto-starts it when enabled. |
 | VisualsFeatureControl | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | SchedulerFeatureControl | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | VideoFeatureControl | ✅ | ✅ | ✅ | ✅ (`IVideoService` seam + real `AvaloniaVideoService`; scheduled/random full-screen `VideoView` playback on primary + muted secondary windows when `DualMonitorEnabled`, `PlaySpecificVideo`, `PlayUrl`, strict-mode window, attention-check floating targets with dual-monitor spawn/expire, post-play pass/fail XP + achievement tracking, penalty retry loop, mercy message after 3 failures; participates in interaction queue; `BtnTestVideo_Click` wired via `IDialogService` confirmations and `IVideoService`/`IInteractionQueueService` behind existing seams; attention phrase/style buttons wired to `TextEditorDialog`/`AttentionTargetEditorDialog`) | ✅ | ✅ |
@@ -155,7 +176,7 @@ Last updated: 2026-06-21
 | LockCardWindow | ✅ | ✅ | ✅ | ✅ | — |
 | MantraWindow | ✅ | ✅ | ✅ | ✅ | — |
 | MiniPlayerWindow | ✅ | ✅ | ✅ | ✅ | — |
-| ModCreatorWindow | ✅ | ✅ | ✅ | ✅ | Minimize glyph `_` hard-coded. |
+| ModCreatorWindow | ✅ | ✅ | ✅ | ✅ | Minimize glyph `_` hard-coded. Modding tutorial overlay wired via `AvaloniaTutorialService`. |
 | PinkRushPopup | ✅ | ✅ | ✅ | ✅ | Title/default labels localized; hard-coded dark-pink title foreground and drop shadow now use `DynamicResource` theme colors (shadow color is built from the active mod accent at startup). |
 | PopQuizWindow | ✅ | ✅ | ✅ | ✅ | Title/ESC hint/XP text localized; text drop-shadow/glow restored with BoxShadow borders. |
 | QuestCompletePopup | ✅ | ✅ | ✅ | ✅ | Title/header localized. |
@@ -163,13 +184,13 @@ Last updated: 2026-06-21
 | QuizReportWindow | ✅ | ✅ | ✅ | ✅ | — |
 | QuizWindow | ✅ | ✅ | ✅ | ✅ | WPF storyboards replaced with Avalonia `Animation` (glow pulse, score pulse, question fade-in); background gradient animation, drone loop, surrender easter-egg, effect triggers, and avatar muting restored. |
 | SeasonRecapWindow | ⚠️ in Controls | ✅ | ✅ | ✅ | WPF counterpart in `Controls/`; copy and save render the recap card to a PNG via `RenderTargetBitmap` and use Avalonia v12's `IClipboard.SetBitmapAsync(Bitmap)` extension. Clipboard-unavailable and save-error messages are localized. |
-| SessionCompleteWindow | ✅ | ✅ | ✅ | ✅ | — |
+| SessionCompleteWindow | ✅ | ✅ | ✅ | ✅ | Shown automatically when a session completes; media list is now populated from the real session log captured during the run. |
 | SessionEditorWindow | ✅ | ✅ | ✅ | ✅ | — |
-| SessionLogHistoryWindow | ✅ | ✅ | ✅ | ✅ | — |
+| SessionLogHistoryWindow | ✅ | ✅ | ✅ | ✅ | Now backed by real `ISessionLogService`; loads persisted session logs from disk instead of design-time stubs. |
 | SplashScreen | ✅ | ✅ | ✅ | ✅ | Brand/status/version localized; progress fill is solid instead of gradient. |
 | TutorialOverlay | ✅ | ✅ | ✅ | ✅ | First-run text localized. |
-| WebcamCalibrationWindow | ✅ | ✅ | ✅ | ✅ | User-visible strings localized; eye-tracking pipeline stubbed. Hard-coded pink accent hexes replaced with `DynamicResource` theme keys (`PinkColor`, `PinkBrush`, `PinkButtonHoveredBrush`, `TransparentPink*Brush`, `DarkPinkColor`). |
-| WebcamGazeTrackerWindow | ✅ | ✅ | ✅ | ✅ | Strings localized; drop shadow removed. |
+| WebcamCalibrationWindow | ✅ | ✅ | ✅ | ✅ | User-visible strings localized; eye-tracking pipeline now implemented in `AvaloniaWebcamTrackingService` (Windows head). Hard-coded pink accent hexes replaced with `DynamicResource` theme keys. |
+| WebcamGazeTrackerWindow | ✅ | ✅ | ✅ | ✅ | Strings localized; drop shadow removed. Live tracker implemented in `AvaloniaWebcamTrackingService` (Windows head). |
 | WebcamLoadingSplash | ✅ | ✅ | ✅ | ✅ | Now uses localization bindings; loading-progress gradient end color changed from hard-coded orchid to `PinkButtonHovered` theme color. |
 | WebcamQuickRecalWindow | ✅ | ✅ | ✅ | ✅ | Strings localized; hard-coded pink accent hexes replaced with `DynamicResource` theme keys. |
 
@@ -282,6 +303,20 @@ Last updated: 2026-06-21
 
 ## Critical Gaps (Ranked)
 
+> **P0 — Functional (actually broken; full list + file refs in task board → Known Functional Gaps).** These
+> outrank everything below, which is mostly rendering/localization polish. Fix the feature, then exercise it
+> end-to-end (plan §13.6) before re-marking its matrix row.
+>
+> 0a. **Account login / premium gating dead** (gap A) — wire `IAuthProvider.StartOAuthFlowAsync` + real
+>    `HasPremiumAccess`. Blocks reaching/testing every premium-gated feature, so do it **first**.
+> 0b. ✅ **START launches the mode** (reported #1) — fixed: `MainWindowViewModel.StartSessionAsync` falls back to `Session.QuickStartFromSettings(_settingsService.Current)` when no preset is selected and starts the effect orchestrator.
+> 0c. ✅ **Avatar reacts to clicks** (reported #2) — fixed: hit-testable avatar border, `IBarkService.NotifyAvatarClicked()` + `AvatarClicked` event → phrase giggle, AI chat double-click restored, `AvatarEnabled` toggle shows/hides the tube. ✅ **Chaos run progression** (reported #3) — fixed: `AvaloniaChaosService` now calls `IProgressionService.AddXP(..., XPSource.Chaos)` at run end. Dashboard banner rotator / Marquee tab were already wired.
+> 0d. ✅ **Pink-fill & spiral overlays are click-through** (reported #4/#5) — fixed: `IsHitTestVisible=false` + `WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`.
+> 0e. **Chaos run economy placeholder** (gap C); **content packs** (gap D); **feature-card editors** (gap E);
+>    **webcam tracking** (gap F); plus gaps G–K.
+>
+> The ranked items below are the *rendering/polish* gaps from the original swarm audit — secondary to the above.
+
 1. **Per-mod dynamic palette (§15.11)** — ✅ Infrastructure and audit complete. `AvaloniaThemeService` updates `Application.Current.Resources` on `ActiveModChanged`; hard-coded accent/background/text hexes across `Views`, `Features`, `Windows`, `Dialogs`, `Chaos`, `AvatarTube`, `Converters`, and `Services` have been replaced with `DynamicResource` theme keys. The MainWindow player-title drop shadow is now assigned in code-behind from the `TransparentPink60` theme color and refreshed on `AvaloniaThemeService.ThemeChanged`. Remaining: local visual parity check (running WPF + Avalonia side-by-side, switching mods) to confirm every tab re-skins correctly.
 2. **Onboarding/privacy dialogs** — `WebcamConsentDialog`, `LoginDialog`, `AwarenessPresetDetailDialog`, and `SessionEditDialog` are now fully localized. Remaining localization work is in webcam windows/popups and a few WPF-only message strings.
 3. **Webcam windows** — shells are ported; calibration/eye-tracking pipeline remains stubbed, but all user-facing strings are now localized.
@@ -317,6 +352,13 @@ Last updated: 2026-06-21
 ## Smoke-Test Findings
 
 Run on `CCP.Avalonia.Desktop.Windows` using the `--smoke-test` automation in `CCP.Avalonia.Desktop.Windows/Program.cs`.
+
+> **⚠️ What the smoke test proves — and doesn't.** It visits tabs, opens dialogs/popups, switches mods, and checks
+> for **render-time** problems: first-chance exceptions, raw `{loc:Str}` markup, missing loc keys, binding/layout
+> warnings, and `PlaceholderTabView` fallbacks. A "clean" run means **it renders without crashing** — it does
+> **not** verify behavior (it never confirms START launches a mode, the avatar reacts, overlays are click-through,
+> login works, a content pack installs, etc.). Functional parity needs the §13.6 exercise-it pass + the task-board
+> Known Functional Gaps; don't read "smoke-test clean" as "works."
 
 ### Automated run summary (latest)
 

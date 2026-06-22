@@ -49,6 +49,9 @@ public static class CoreApp
 
     /// <summary>Ported bubble service. Assigned by cross-platform heads after DI is built.</summary>
     public static IBubbleService? Bubbles { get; set; }
+
+    /// <summary>Ported session log service. Assigned by cross-platform heads after DI is built.</summary>
+    public static Core.Services.SessionLog.ISessionLogService? SessionLog { get; set; }
 }
 
 public interface IAppSettingsService
@@ -137,6 +140,11 @@ public interface IModService
     bool ActivateMod(string modId);
 
     /// <summary>
+    /// Exports the current configuration as a .ccpmod file.
+    /// </summary>
+    Task ExportCurrentAsModAsync(string outputPath, string modName, string author);
+
+    /// <summary>
     /// Returns the attention-check failure message for the active mod.
     /// </summary>
     string GetAttentionCheckFailMessage();
@@ -145,6 +153,11 @@ public interface IModService
     /// Returns the attention-check mercy message for the active mod.
     /// </summary>
     string GetAttentionCheckMercyMessage();
+
+    /// <summary>
+    /// Returns the active mod's preferred affirmation term (e.g. "Subject").
+    /// </summary>
+    string GetAffirmation();
 }
 
 public interface IProgressionService
@@ -173,6 +186,21 @@ public interface IKeywordTriggerService
 public interface ICompanionPhraseService
 {
     IEnumerable<string> GetCategoryNames();
+
+    /// <summary>
+    /// Returns all built-in + custom companion phrases with enable/audio status resolved.
+    /// </summary>
+    IReadOnlyList<CompanionPhrase> GetAllPhrases();
+
+    /// <summary>
+    /// Copies an audio file into the companion audio folder and returns the stored filename.
+    /// </summary>
+    string? CopyAudioToFolder(string sourcePath, string phraseText);
+
+    /// <summary>
+    /// Absolute path to the folder that contains companion voice-line audio files.
+    /// </summary>
+    string VoiceLineFolder { get; }
 }
 
 public interface IInteractionQueueService
@@ -207,6 +235,12 @@ public interface IBubbleCountService
 
 public interface IAttentionCheckService
 {
+    bool IsRunning { get; }
+    event Action? OnPass;
+    event Action? OnFail;
+
+    void Start();
+    void Stop();
     void FireNow();
 }
 
@@ -254,13 +288,20 @@ public interface IChaosService
 public interface IAvatarWindowService
 {
     bool IsMuted { get; }
+    bool IsVisible { get; }
+    void ShowTube();
+    void HideTube();
     void SetMuteAvatar(bool muted);
     void SetChaosRunActive(bool active);
+    void SetDetached(bool detached);
+    void SetPose(int poseNumber);
     void OpenChatWindow();
+    void Giggle(string? text = null);
 }
 
 public interface IBarkService
 {
+    void NotifyAvatarClicked();
     void NotifyChaosDollhouseFirstOpen();
     void NotifyChaosRevealFlash(string id);
     void NotifyChaosResultsShown(double score, double best, double delta, bool pb,
@@ -282,11 +323,6 @@ public interface IVideoInfo
 public interface IMainWindowService
 {
     object? MainWindow { get; }
-}
-
-public interface ISessionLogService
-{
-    IReadOnlyList<SessionLog> LoadRecentLogs();
 }
 
 #endregion

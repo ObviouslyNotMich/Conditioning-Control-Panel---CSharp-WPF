@@ -34,4 +34,19 @@ public interface IFlashService
     /// a random image from the configured pool. Used by the Deeper enhancement engine.
     /// </summary>
     void TriggerFlashOnce(string? imagePath, int durationMs, bool playSound, bool suppressHaptic);
+
+    /// <summary>
+    /// Paths of the images most recently displayed by the flash engine.
+    /// Used by the session log to record media played during a session.
+    /// </summary>
+    IReadOnlyList<string> LastDisplayedImagePaths { get; }
+
+    /// <summary>Raised when flash images are about to be displayed.</summary>
+    event EventHandler? FlashAboutToDisplay;
+
+    /// <summary>Raised when flash images have been displayed.</summary>
+    event EventHandler? FlashDisplayed;
+
+    /// <summary>Raised when a flash image is clicked/closed by the user.</summary>
+    event EventHandler? FlashClicked;
 }

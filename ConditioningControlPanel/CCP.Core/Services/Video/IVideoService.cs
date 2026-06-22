@@ -25,4 +25,19 @@ public interface IVideoService
 
     /// <summary>Immediately plays a video from a URL.</summary>
     void PlayUrl(string url);
+
+    /// <summary>
+    /// The file path of the video most recently started by the scheduler.
+    /// Used by the session log to record media played during a session.
+    /// </summary>
+    string? LastVideoPath { get; }
+
+    /// <summary>Raised when a video is about to start playing.</summary>
+    event EventHandler? VideoAboutToStart;
+
+    /// <summary>Raised when a video has started playing.</summary>
+    event EventHandler? VideoStarted;
+
+    /// <summary>Raised when a video has finished playing.</summary>
+    event EventHandler? VideoEnded;
 }

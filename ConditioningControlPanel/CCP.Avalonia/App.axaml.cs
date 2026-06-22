@@ -14,6 +14,7 @@ using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Roadmap;
+using ConditioningControlPanel.Core.Services.Moderation;
 using ConditioningControlPanel.Avalonia.Chaos;
 using ConditioningControlPanel.Avalonia.Services.Theme;
 using ConditioningControlPanel.Core.Localization;
@@ -91,9 +92,10 @@ public partial class App : Application
             // Initialize localization before any UI is created so {loc:Str} bindings resolve.
             LocalizationManager.Instance.Initialize(CoreApp.Settings.Current?.Language ?? "en");
 
-            // Wire the ported bubble and overlay services into the legacy static facade.
+            // Wire the ported bubble, overlay, and session-log services into the legacy static facade.
             CoreApp.Bubbles = Services.GetRequiredService<IBubbleService>();
             CoreApp.Overlay = Services.GetRequiredService<IOverlayService>();
+            CoreApp.SessionLog = Services.GetRequiredService<Core.Services.SessionLog.ISessionLogService>();
             AvaloniaChaosEnv.Bubbles = (IAvaloniaBubbleService)CoreApp.Bubbles;
 
             // Load persistent Chaos Mode meta-progression once at startup.
@@ -109,6 +111,10 @@ public partial class App : Application
 
             // Report any previous abnormal chaos session termination.
             Services.GetRequiredService<ChaosCrashSentinel>().ConsumeAndReport();
+
+            // Hydrate the persisted moderation counter so escalation carries across launches.
+            try { Services.GetRequiredService<IModerationCounter>().LoadFromDisk(); }
+            catch (Exception ex) { Log.Logger?.Debug("ModerationCounter.LoadFromDisk failed: {Error}", ex.Message); }
 
             // Initialize the mod service (loads built-ins + user mods, restores active mod)
             // off the UI thread so startup stays responsive. Apply the active mod's theme
@@ -189,6 +195,17 @@ public partial class App : Application
                     DataContext = Services.GetRequiredService<MainWindowViewModel>()
                 };
             }
+
+            // Start attention-check scheduler if the user has it enabled.
+            try
+            {
+                var settings = Services.GetRequiredService<ISettingsService>().Current;
+                if (settings?.AttentionCheckEnabled == true)
+                {
+                    Services.GetRequiredService<IAttentionCheckService>().Start();
+                }
+            }
+            catch { }
 
             base.OnFrameworkInitializationCompleted();
         }

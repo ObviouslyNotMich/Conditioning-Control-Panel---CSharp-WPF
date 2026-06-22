@@ -18,48 +18,6 @@ using ChaosNarrativeContext = ConditioningControlPanel.Core.Services.Chaos.Chaos
 
 namespace ConditioningControlPanel.Avalonia.Services;
 
-/// <summary>Stub Discord auth provider for the Avalonia head.</summary>
-public sealed class AvaloniaDiscordProvider : IAuthProvider
-{
-    public string ProviderName => "discord";
-    public bool IsLoggedIn => !string.IsNullOrEmpty(UnifiedUserId);
-    public bool HasPremiumAccess => false;
-    public string? UnifiedUserId { get; set; }
-    public string? DisplayName { get; set; }
-
-    public Task StartOAuthFlowAsync() => Task.CompletedTask;
-    public string? GetAccessToken() => null;
-    public void Logout() => UnifiedUserId = null;
-}
-
-/// <summary>Stub Patreon auth provider for the Avalonia head.</summary>
-public sealed class AvaloniaPatreonProvider : IAuthProvider
-{
-    public string ProviderName => "patreon";
-    public bool IsLoggedIn => !string.IsNullOrEmpty(UnifiedUserId);
-    public bool HasPremiumAccess => false;
-    public string? UnifiedUserId { get; set; }
-    public string? DisplayName { get; set; }
-
-    public Task StartOAuthFlowAsync() => Task.CompletedTask;
-    public string? GetAccessToken() => null;
-    public void Logout() => UnifiedUserId = null;
-}
-
-/// <summary>Stub SubscribeStar auth provider for the Avalonia head.</summary>
-public sealed class AvaloniaSubscribeStarProvider : IAuthProvider
-{
-    public string ProviderName => "substar";
-    public bool IsLoggedIn => !string.IsNullOrEmpty(UnifiedUserId);
-    public bool HasPremiumAccess => false;
-    public string? UnifiedUserId { get; set; }
-    public string? DisplayName { get; set; }
-
-    public Task StartOAuthFlowAsync() => Task.CompletedTask;
-    public string? GetAccessToken() => null;
-    public void Logout() => UnifiedUserId = null;
-}
-
 /// <summary>In-memory unified user ID store for the Avalonia head.</summary>
 public sealed class AvaloniaUnifiedUserService : IUnifiedUserService
 {
@@ -75,6 +33,7 @@ public sealed class AvaloniaChaosService : IChaosService
 {
     private readonly IBubbleService _bubbles;
     private readonly ISettingsService _settings;
+    private readonly IProgressionService _progression;
     private readonly IAppLogger? _logger;
     private readonly IScheduler? _scheduler;
     private readonly IUiDispatcher? _dispatcher;
@@ -118,6 +77,7 @@ public sealed class AvaloniaChaosService : IChaosService
     public AvaloniaChaosService(
         IBubbleService bubbles,
         ISettingsService settings,
+        IProgressionService progression,
         IAppLogger? logger = null,
         IInputHook? inputHook = null,
         IMouseHook? mouseHook = null,
@@ -125,6 +85,7 @@ public sealed class AvaloniaChaosService : IChaosService
     {
         _bubbles = bubbles;
         _settings = settings;
+        _progression = progression;
         _logger = logger;
         _inputHook = inputHook;
         _mouseHook = mouseHook;
@@ -740,6 +701,10 @@ public sealed class AvaloniaChaosService : IChaosService
             double finalXp = baseXp * skillMult;
             int sparks = (int)Math.Round(finalXp);
             long previousBest = (long)ChaosMeta.State.BestScore;
+
+            try { _progression.AddXP(sparks, XPSource.Chaos); }
+            catch (Exception ex) { _logger?.Debug("Chaos payout AddXP: {E}", ex.Message); }
+
             ChaosMeta.State.Sparks += Math.Max(0, sparks);
             ChaosMeta.State.RunsCompleted++;
             ChaosMeta.State.BestScore = Math.Max(ChaosMeta.State.BestScore, (long)state.Score);
@@ -942,12 +907,10 @@ public sealed class AvaloniaChaosService : IChaosService
 
     private void StartRippleHook()
     {
-        // TODO: IMouseHook currently exposes RightButtonDown only. A right-button-up event
-        // would let us cast the ripple on release (WPF parity). For now we cast on down.
         if (_mouseHook == null) return;
         try
         {
-            _mouseHook.RightButtonDown += OnRippleRightDown;
+            _mouseHook.RightButtonUp += OnRippleRightUp;
             _mouseHook.Install();
         }
         catch (Exception ex) { _logger?.Warning(ex, "Chaos ripple hook failed"); }
@@ -957,13 +920,13 @@ public sealed class AvaloniaChaosService : IChaosService
     {
         try
         {
-            if (_mouseHook != null) _mouseHook.RightButtonDown -= OnRippleRightDown;
+            if (_mouseHook != null) _mouseHook.RightButtonUp -= OnRippleRightUp;
         }
         catch { }
         try { _mouseHook?.Uninstall(); } catch { }
     }
 
-    private void OnRippleRightDown(object? sender, Core.Platform.HookPoint e)
+    private void OnRippleRightUp(object? sender, Core.Platform.HookPoint e)
     {
         if (!_spawning || _state == null || _paused || _manualPaused) return;
         // Without bubble-center access we fire whenever any chaos bubble is alive,
@@ -1251,6 +1214,7 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
     private AvatarTube.AvatarTubeWindow? _window;
     private bool _isMuted;
     private bool _chaosRunActive;
+    private bool _detached;
 
     public AvaloniaAvatarWindowService()
     {
@@ -1263,6 +1227,33 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
     }
 
     public bool IsMuted => _isMuted;
+
+    public bool IsVisible => _window?.IsVisible ?? false;
+
+    public void ShowTube()
+    {
+        try
+        {
+            EnsureWindow();
+            _window?.ShowTube();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to show avatar tube");
+        }
+    }
+
+    public void HideTube()
+    {
+        try
+        {
+            _window?.HideTube();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to hide avatar tube");
+        }
+    }
 
     public void SetMuteAvatar(bool muted)
     {
@@ -1282,31 +1273,86 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         }
     }
 
+    public void SetDetached(bool detached)
+    {
+        _detached = detached;
+        if (_window != null)
+        {
+            _window.SetDetached(detached);
+        }
+    }
+
+    public void SetPose(int poseNumber)
+    {
+        try
+        {
+            EnsureWindow();
+            _window?.SetPose(poseNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to set avatar pose");
+        }
+    }
+
     public void OpenChatWindow()
     {
         try
         {
-            if (_window == null)
-            {
-                _window = new AvatarTube.AvatarTubeWindow(_parentWindow);
-                _window.Closed += (_, _) => _window = null;
-                _window.SetMuted(_isMuted);
-                _window.SetChaosRunActive(_chaosRunActive);
-            }
-
-            _window.ShowTube();
-            _window.OpenChatInput();
+            EnsureWindow();
+            _window?.ShowTube();
+            _window?.OpenChatInput();
         }
         catch (Exception ex)
         {
             _logger?.Error(ex, "Failed to open avatar chat window");
         }
     }
+
+    public void Giggle(string? text = null)
+    {
+        try
+        {
+            EnsureWindow();
+            if (_window == null) return;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                _window.ShowGiggle("*giggles*");
+            }
+            else
+            {
+                _window.ShowGiggle(text);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to trigger avatar giggle");
+        }
+    }
+
+    private void EnsureWindow()
+    {
+        if (_window != null) return;
+        _window = new AvatarTube.AvatarTubeWindow(_parentWindow);
+        _window.Closed += (_, _) => _window = null;
+        _window.SetMuted(_isMuted);
+        _window.SetChaosRunActive(_chaosRunActive);
+        _window.SetDetached(_detached);
+    }
 }
 
-/// <summary>Stub bark/notification service for the Avalonia head.</summary>
+/// <summary>Bark/notification service for the Avalonia head.</summary>
 public sealed class AvaloniaBarkService : IBarkService
 {
+    /// <summary>Raised when the avatar is clicked; subscribers (e.g. the active AvatarTubeWindow) can react with speech/emote.</summary>
+    public event Action? AvatarClicked;
+
+    public void NotifyAvatarClicked()
+    {
+        try { AvatarClicked?.Invoke(); }
+        catch { /* never break click handling for a bark */ }
+    }
+
     public void NotifyChaosDollhouseFirstOpen() { }
     public void NotifyChaosRevealFlash(string id) { }
     public void NotifyChaosResultsShown(double score, double best, double delta, bool pb,
@@ -1342,33 +1388,4 @@ public sealed class AvaloniaMainWindowService : IMainWindowService
             : null;
 }
 
-/// <summary>Stub session-log service for the Avalonia head.</summary>
-public sealed class AvaloniaSessionLogService : ISessionLogService
-{
-    public IReadOnlyList<SessionLog> LoadRecentLogs()
-    {
-        return new List<SessionLog>
-        {
-            new()
-            {
-                SessionName = "Morning Drift",
-                SessionIcon = "🌅",
-                StartedAt = DateTime.Now.AddDays(-1),
-                Duration = TimeSpan.FromMinutes(30),
-                Completed = true,
-                XPEarned = 400,
-                Media = new List<MediaLogEntry>()
-            },
-            new()
-            {
-                SessionName = "Gamer Girl",
-                SessionIcon = "🎮",
-                StartedAt = DateTime.Now.AddDays(-2),
-                Duration = TimeSpan.FromMinutes(45),
-                Completed = false,
-                XPEarned = 0,
-                Media = new List<MediaLogEntry>()
-            }
-        };
-    }
-}
+

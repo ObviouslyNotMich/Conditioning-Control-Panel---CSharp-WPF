@@ -12,6 +12,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.Progression;
@@ -51,6 +52,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     private IDisposable? _scheduledTimer;
     private bool _isBusy;
     private bool _noImagesWarningShown;
+    private readonly List<string> _lastDisplayedImagePaths = new();
 
     public AvaloniaFlashService(
         ISettingsService settings,
@@ -75,6 +77,14 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     }
 
     public bool IsRunning { get; private set; }
+
+    public IReadOnlyList<string> LastDisplayedImagePaths
+    {
+        get
+        {
+            lock (_lastDisplayedImagePaths) { return _lastDisplayedImagePaths.ToList(); }
+        }
+    }
 
     public event EventHandler? FlashAboutToDisplay;
     public event EventHandler? FlashDisplayed;
@@ -269,10 +279,18 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         var lifetimeMs = settings.FlashDuration * 1000 + 1000;
         var maxOpacity = Math.Clamp(settings.FlashOpacity, 10, 100) / 100.0;
 
+        var displayedPaths = new List<string>();
         for (int i = 0; i < images.Count; i++)
         {
             var data = images[i];
             SpawnFlashWindow(data, settings, lifetimeMs, hydraGeneration, maxOpacity);
+            displayedPaths.Add(data.FilePath);
+        }
+
+        lock (_lastDisplayedImagePaths)
+        {
+            _lastDisplayedImagePaths.Clear();
+            _lastDisplayedImagePaths.AddRange(displayedPaths);
         }
 
         FlashDisplayed?.Invoke(this, EventArgs.Empty);
@@ -302,16 +320,15 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             if (!IsOverlapping(geom.X, geom.Y, geom.Width, geom.Height)) break;
             geom = new ImageGeometry
             {
-                X = monitor.X + _random.Next(0, Math.Max(1, monitor.Width - geom.Width)),
-                Y = monitor.Y + _random.Next(0, Math.Max(1, monitor.Height - geom.Height)),
+                X = (int)(monitor.X + _random.Next(0, Math.Max(1, (int)(monitor.Width - geom.Width)))),
+                Y = (int)(monitor.Y + _random.Next(0, Math.Max(1, (int)(monitor.Height - geom.Height)))),
                 Width = geom.Width,
                 Height = geom.Height
             };
         }
 
         var window = new FlashOverlayWindow(
-            geom.X, geom.Y, geom.Width, geom.Height,
-            data.Bitmap, settings.FlashClickable, lifetimeMs, hydraGeneration, monitor,
+            geom, data.Bitmap, settings.FlashClickable, lifetimeMs, hydraGeneration, monitor,
             maxOpacity, OnFlashClicked);
 
         try
@@ -394,6 +411,10 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             if (loaded.Count > 0)
             {
                 _dispatcher.Invoke(() => ShowImages(loaded, true, childGeneration));
+            }
+            else
+            {
+                _isBusy = false;
             }
         }
         catch (Exception ex)
@@ -518,12 +539,14 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             var primary = _screens.GetPrimaryScreen();
             foreach (var screen in _screens.GetAllScreens())
             {
+                var scale = screen.Scaling > 0 ? screen.Scaling : 1.0;
                 monitors.Add(new MonitorInfo
                 {
-                    X = (int)screen.Bounds.X,
-                    Y = (int)screen.Bounds.Y,
-                    Width = (int)screen.Bounds.Width,
-                    Height = (int)screen.Bounds.Height,
+                    X = screen.Bounds.X / scale,
+                    Y = screen.Bounds.Y / scale,
+                    Width = screen.Bounds.Width / scale,
+                    Height = screen.Bounds.Height / scale,
+                    Scaling = scale,
                     IsPrimary = screen == primary
                 });
             }
@@ -535,7 +558,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
         if (monitors.Count == 0)
         {
-            monitors.Add(new MonitorInfo { X = 0, Y = 0, Width = 1920, Height = 1080, IsPrimary = true });
+            monitors.Add(new MonitorInfo { X = 0, Y = 0, Width = 1920, Height = 1080, Scaling = 1.0, IsPrimary = true });
         }
 
         if (!dualMonitor)
@@ -546,24 +569,24 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         return monitors;
     }
 
-    private ImageGeometry CalculateGeometry(int origWidth, int origHeight, MonitorInfo monitor, double scale)
+    private ImageGeometry CalculateGeometry(int origWidth, int origHeight, MonitorInfo monitor, double userScale)
     {
         var baseWidth = monitor.Width * 0.4;
         var baseHeight = monitor.Height * 0.4;
-        var ratio = Math.Min(baseWidth / origWidth, baseHeight / origHeight) * scale;
+        var ratio = Math.Min(baseWidth / origWidth, baseHeight / origHeight) * userScale;
         var targetWidth = Math.Max(50, (int)(origWidth * ratio));
         var targetHeight = Math.Max(50, (int)(origHeight * ratio));
 
         const int edgePadding = 50;
         var minX = edgePadding;
         var minY = edgePadding;
-        var maxX = Math.Max(minX + 1, monitor.Width - targetWidth - edgePadding);
-        var maxY = Math.Max(minY + 1, monitor.Height - targetHeight - edgePadding);
+        var maxX = Math.Max(minX + 1, (int)(monitor.Width - targetWidth - edgePadding));
+        var maxY = Math.Max(minY + 1, (int)(monitor.Height - targetHeight - edgePadding));
 
         return new ImageGeometry
         {
-            X = monitor.X + _random.Next(minX, maxX),
-            Y = monitor.Y + _random.Next(minY, maxY),
+            X = (int)(monitor.X + _random.Next(minX, maxX)),
+            Y = (int)(monitor.Y + _random.Next(minY, maxY)),
             Width = targetWidth,
             Height = targetHeight
         };
@@ -577,12 +600,13 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             {
                 try
                 {
-                    var wx = window.Position.X;
-                    var wy = window.Position.Y;
+                    var scale = window.Monitor.Scaling > 0 ? window.Monitor.Scaling : 1.0;
+                    var wx = window.Position.X / scale;
+                    var wy = window.Position.Y / scale;
                     var ww = (int)window.Width;
                     var wh = (int)window.Height;
-                    var dx = Math.Min(x + w, wx + ww) - Math.Max(x, wx);
-                    var dy = Math.Min(y + h, wy + wh) - Math.Max(y, wy);
+                    var dx = Math.Min(x + w, (int)(wx + ww)) - Math.Max(x, (int)wx);
+                    var dy = Math.Min(y + h, (int)(wy + wh)) - Math.Max(y, (int)wy);
                     if (dx >= 0 && dy >= 0)
                     {
                         var overlapArea = dx * dy;
@@ -683,10 +707,11 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
     private sealed class MonitorInfo
     {
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public double Scaling { get; set; } = 1.0;
         public bool IsPrimary { get; set; }
     }
 
@@ -706,7 +731,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         public DateTime ExpiresAt => _expiresAt;
 
         public FlashOverlayWindow(
-            int x, int y, int width, int height,
+            ImageGeometry geom,
             Bitmap bitmap, bool clickable, int lifetimeMs, int hydraGeneration, MonitorInfo monitor,
             double maxOpacity, Action<FlashOverlayWindow> onClick)
         {
@@ -726,17 +751,18 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             CanResize = false;
             ShowActivated = false;
 
-            Position = new PixelPoint(x, y);
-            Width = width;
-            Height = height;
+            var scale = monitor.Scaling > 0 ? monitor.Scaling : 1.0;
+            Position = new PixelPoint((int)(geom.X * scale), (int)(geom.Y * scale));
+            Width = geom.Width;
+            Height = geom.Height;
             Opacity = 0;
 
             var image = new Image
             {
                 Source = bitmap,
                 Stretch = Stretch.Uniform,
-                Width = width,
-                Height = height
+                Width = geom.Width,
+                Height = geom.Height
             };
 
             if (clickable)

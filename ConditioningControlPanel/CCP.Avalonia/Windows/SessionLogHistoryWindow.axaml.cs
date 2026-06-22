@@ -6,13 +6,13 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Models;
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Windows;
 
 /// <summary>
 /// Avalonia port of the session-log history browser.
-/// The backing log service is stubbed until ISessionLogService is available in CCP.Core.
 /// </summary>
 public partial class SessionLogHistoryWindow : Window
 {
