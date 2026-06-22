@@ -17,4 +17,16 @@ public interface IRemoteCommandExecutor
     /// <param name="action">The command action name (e.g. "trigger_flash").</param>
     /// <param name="parameters">Optional command parameters supplied by the controller.</param>
     Task ExecuteCommandAsync(string action, JObject? parameters);
+
+    /// <summary>
+    /// Stops all effects that may have been started by a remote controller.
+    /// Called when the session ends or a panic command is received.
+    /// </summary>
+    Task StopAllRemoteEffectsAsync();
+
+    /// <summary>
+    /// Called when the controller disconnects. Implementations should stop remote-triggered
+    /// effects and, if the user has opted in, restore the local engine state.
+    /// </summary>
+    Task HandleControllerDisconnectAsync();
 }

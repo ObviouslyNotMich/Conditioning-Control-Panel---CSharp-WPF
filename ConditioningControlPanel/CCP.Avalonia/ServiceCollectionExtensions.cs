@@ -30,6 +30,7 @@ using ConditioningControlPanel.Avalonia.Services.Content;
 using ConditioningControlPanel.Core.Services.Avatar;
 using ConditioningControlPanel.Core.Services.Content;
 using ConditioningControlPanel.Core.Services.RemoteControl;
+using ConditioningControlPanel.Avalonia.Services.RemoteControl;
 using ConditioningControlPanel.Avalonia.Services.Video;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.ViewModels.Tabs;
@@ -195,6 +196,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContentPackService, AvaloniaContentPackService>();
         services.AddSingleton<IAvatarPortraitService, AvaloniaAvatarPortraitService>();
         services.AddSingleton<IAvailableSubjectsService, AvailableSubjectsService>();
+        services.AddSingleton<IRemoteCommandExecutor, AvaloniaRemoteCommandExecutor>();
+        services.AddSingleton<IRemoteStatusProvider, AvaloniaRemoteStatusProvider>();
         services.AddSingleton<IRemoteControlService, RemoteControlService>();
         services.AddSingleton<ILockdownService, AvaloniaLockdownService>();
         services.AddSingleton<ISessionEffectOrchestrator, AvaloniaSessionEffectOrchestrator>();

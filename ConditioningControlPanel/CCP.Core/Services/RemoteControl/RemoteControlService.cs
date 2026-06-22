@@ -448,6 +448,8 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
         if (wasActive)
         {
             _logger?.Information("[RemoteControl] Session stopped.");
+            if (_commandExecutor != null)
+                _ = _commandExecutor.StopAllRemoteEffectsAsync();
             SessionEnded?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -612,9 +614,12 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
         if (controllerConnectedChanged)
         {
+            var wasConnected = ControllerConnected;
             ControllerConnected = connected;
-            if (!connected)
+            if (!connected && wasConnected)
             {
+                if (_commandExecutor != null)
+                    _ = _commandExecutor.HandleControllerDisconnectAsync();
                 _ = RepublishDirectoryIfOptedInAsync();
             }
         }
