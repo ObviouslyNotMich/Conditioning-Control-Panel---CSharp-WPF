@@ -613,7 +613,8 @@ Panel.RenderTransform = _panelSlide;
 
     private void ApplyExStyles()
     {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE on Windows.
+        // HUD is interactive (buttons), so keep it hit-testable (transparent=false).
+        ChaosWin32Helper.ApplyOverlayExStyles(this, transparent: false);
     }
 
     private static void AnimateTransform(Transform target, double from, double to, int ms, Func<double, double> ease)
