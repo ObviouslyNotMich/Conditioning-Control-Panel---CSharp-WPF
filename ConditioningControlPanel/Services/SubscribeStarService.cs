@@ -155,11 +155,10 @@ namespace ConditioningControlPanel.Services
                 // pass redirect_uri here (only the CSRF state, which round-trips).
                 var authUrl = $"{ProxyBaseUrl}/substar/authorize?state={state}";
 
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = authUrl,
-                    UseShellExecute = true
-                });
+                // Robust open with fallbacks; on total failure copies the link to the clipboard
+                // and prompts the user (machines with no default browser otherwise fail silently —
+                // see ccp-bugs #404). The callback listener keeps waiting in the meantime.
+                Helpers.BrowserLauncher.OpenUrlOrPrompt(authUrl, "sign in with SubscribeStar");
 
                 // Wait for callback with timeout
                 var getContextTask = _callbackListener.GetContextAsync();

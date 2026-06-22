@@ -177,11 +177,11 @@ namespace ConditioningControlPanel.Services
                 // Open browser to authorization URL
                 var authUrl = $"{ProxyBaseUrl}/discord/authorize?redirect_uri={Uri.EscapeDataString(callbackUrl)}&state={state}";
 
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = authUrl,
-                    UseShellExecute = true
-                });
+                // Robust open with fallbacks: a bare ShellExecute fails on machines with no
+                // default browser (Win32Exception 0x800401F5), silently breaking login — see
+                // ccp-bugs #373/#374/#378/#404. On total failure the helper copies the link to
+                // the clipboard and prompts the user; the callback listener keeps waiting.
+                Helpers.BrowserLauncher.OpenUrlOrPrompt(authUrl, "sign in with Discord");
 
                 // Wait for callback with timeout
                 var getContextTask = _callbackListener.GetContextAsync();

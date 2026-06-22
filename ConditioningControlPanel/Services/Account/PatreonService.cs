@@ -217,11 +217,10 @@ namespace ConditioningControlPanel.Services
                 // Open browser to authorization URL
                 var authUrl = $"{ProxyBaseUrl}/patreon/authorize?redirect_uri={Uri.EscapeDataString(callbackUrl)}&state={state}";
 
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = authUrl,
-                    UseShellExecute = true
-                });
+                // Robust open with fallbacks; on total failure copies the link to the clipboard
+                // and prompts the user (machines with no default browser otherwise fail silently —
+                // see ccp-bugs #404). The callback listener keeps waiting in the meantime.
+                Helpers.BrowserLauncher.OpenUrlOrPrompt(authUrl, "sign in with Patreon");
 
                 // Wait for callback with timeout
                 var getContextTask = _callbackListener.GetContextAsync();
