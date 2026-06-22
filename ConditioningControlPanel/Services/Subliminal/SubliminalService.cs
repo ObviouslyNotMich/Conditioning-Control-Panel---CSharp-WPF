@@ -43,6 +43,10 @@ namespace ConditioningControlPanel.Services
         private AudioFileReader? _audioFile;
 
         private bool _isRunning;
+        // Wall-clock of the last timer-driven flash. Used to drop a stale tick that survived a
+        // Stop()/Start() cycle and would otherwise flash a second phrase right behind the fresh
+        // schedule (ccp-bugs: "subliminal flashes the previous and next message back-to-back").
+        private DateTime _lastTimerFlashUtc = DateTime.MinValue;
         private bool _oneShotActive; // Allow one-shot display when service not running (remote control)
         private bool _disposed;
         private int _subliminalCount;
@@ -123,10 +127,26 @@ namespace ConditioningControlPanel.Services
         private void Timer_Tick(object? sender, EventArgs e)
         {
             _timer.Stop();
-            
+
             if (!_isRunning || !App.Settings.Current.SubliminalEnabled)
                 return;
-            
+
+            // A Stop()/Start() cycle (e.g. a video segment pausing then resuming subliminals) can
+            // leave a tick already queued on the dispatcher. The guard above only checks the CURRENT
+            // running state, so that stale tick fires a flash right next to the fresh schedule's tick
+            // and the user sees the previous and next phrase back-to-back. The scheduler's own floor
+            // is 1s (see ScheduleNext), so anything closer is a duplicate — drop the flash but keep
+            // the cadence alive by rescheduling.
+            var nowUtc = DateTime.UtcNow;
+            if ((nowUtc - _lastTimerFlashUtc).TotalMilliseconds < 500)
+            {
+                App.Logger?.Warning("SubliminalService: dropped a duplicate timer flash {Ms}ms behind the last (stale-tick guard)",
+                    (int)(nowUtc - _lastTimerFlashUtc).TotalMilliseconds);
+                ScheduleNext();
+                return;
+            }
+            _lastTimerFlashUtc = nowUtc;
+
             FlashSubliminal();
             ScheduleNext();
         }
