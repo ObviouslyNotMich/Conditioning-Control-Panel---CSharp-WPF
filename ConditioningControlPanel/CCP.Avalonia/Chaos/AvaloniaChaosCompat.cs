@@ -161,7 +161,7 @@ public static class AvaloniaChaosSfx
     }
 }
 
-/// <summary>Static stub for ChaosArt. TODO: replace with IAssetLoader + image cache.</summary>
+/// <summary>Chaos art loader. Resolves images from the effective assets root and bundled resources.</summary>
 public static class AvaloniaChaosArt
 {
     private static string[] Roots()
