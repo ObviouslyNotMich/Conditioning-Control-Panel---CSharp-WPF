@@ -342,6 +342,7 @@
               VerticalAlignment="Top">
         <Canvas x:Name="WaveformCanvas"
                 ClipToBounds="True"
+                SizeChanged="WaveformCanvas_SizeChanged"
                 PointerPressed="WaveformCanvas_PointerPressed">
           <Path x:Name="WaveformPath"
                 Stroke="{DynamicResource DeeperAccentBrush}"

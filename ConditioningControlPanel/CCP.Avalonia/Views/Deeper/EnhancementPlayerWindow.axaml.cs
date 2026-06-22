@@ -31,15 +31,17 @@ namespace ConditioningControlPanel.Avalonia.Views.Deeper;
 ///
 /// This is the view-layer port only. The legacy WPF window depended on WPF-only
 /// services (EnhancementHostService, EnhancementAudioPlayer, BrowserVideoTimeSource,
-/// AudioWaveformCache, etc.) that have not yet been migrated to CCP.Core. This
-/// implementation preserves the UX and media playback behavior using LibVLCSharp,
-/// and stubs the engine/effect integration with clear TODO markers.
+/// etc.) that have not yet been migrated to CCP.Core. This implementation preserves
+/// the UX and media playback behavior using LibVLCSharp, and stubs the engine/effect
+/// integration with clear TODO markers.
 /// </summary>
 public partial class EnhancementPlayerWindow : Window
 {
     private readonly LibVLC _libVlc;
     private readonly MediaPlayer _mediaPlayer;
     private readonly IDialogService _dialogService;
+    private readonly AudioWaveformCache? _waveformCache;
+    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
     private Media? _currentMedia;
 
     private readonly DispatcherTimer _uiTimer;
@@ -73,6 +75,8 @@ public partial class EnhancementPlayerWindow : Window
         _libVlc = App.Services.GetRequiredService<LibVLC>();
         _dialogService = App.Services.GetRequiredService<IDialogService>();
         _host = App.Services.GetRequiredService<EnhancementHostService>();
+        _waveformCache = App.Services.GetService<AudioWaveformCache>();
+        _logger = App.Services.GetService<global::ConditioningControlPanel.IAppLogger>();
         _mediaPlayer = new MediaPlayer(_libVlc);
 
         _host.ActionLogged += OnHostActionLogged;
@@ -367,6 +371,7 @@ public partial class EnhancementPlayerWindow : Window
             TxtTotal.Text = FormatTime(_mediaPlayer.Length / 1000.0);
             BtnPlayPause.Content = "⏸";
             TxtStatus.Text = Loc.Get("deeper_player_status_playing");
+            _ = LoadWaveformAsync(path);
             BindEngineIfReady();
         }
         catch (Exception ex)
@@ -581,6 +586,30 @@ public partial class EnhancementPlayerWindow : Window
         var x = Math.Clamp(frac, 0, 1) * w;
         PlayheadLine.StartPoint = new global::Avalonia.Point(x, 0);
         PlayheadLine.EndPoint = new global::Avalonia.Point(x, h);
+    }
+
+    private void WaveformCanvas_SizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        RenderWaveform();
+    }
+
+    private async Task LoadWaveformAsync(string audioPath)
+    {
+        if (_waveformCache == null) return;
+        try
+        {
+            var result = await _waveformCache.LoadAsync(audioPath);
+            if (result?.Peaks == null || result.Peaks.Length == 0) return;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _peaks = result.Peaks;
+                RenderWaveform();
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Failed to load waveform for {AudioPath}", audioPath);
+        }
     }
 
     private void WaveformCanvas_PointerPressed(object? sender, PointerPressedEventArgs e)

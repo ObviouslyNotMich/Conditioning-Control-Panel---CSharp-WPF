@@ -22,4 +22,5 @@ Port `Views/Deeper/EnhancementPlayerWindow` from WPF/WebView2 to Avalonia/LibVLC
 - [x] Final verification and report
 
 ## Notes
-- The original WPF window depends on WPF-only services (`EnhancementHostService`, `EnhancementAudioPlayer`, `BrowserVideoTimeSource`, `EnhancementAudioPlayerTimeSource`, `EnhancementResolver`, `AudioWaveformCache`). These are not in `CCP.Core` and cannot be referenced from `CCP.Avalonia`. This port focuses on the view + media playback; engine/effect integration is stubbed with `TODO` markers for when those services are migrated to Core.
+- The original WPF window depends on WPF-only services (`EnhancementHostService`, `EnhancementAudioPlayer`, `BrowserVideoTimeSource`, `EnhancementAudioPlayerTimeSource`, `EnhancementResolver`). These are not in `CCP.Core` and cannot be referenced from `CCP.Avalonia`. This port focuses on the view + media playback; engine/effect integration is stubbed with `TODO` markers for when those services are migrated to Core.
+- `AudioWaveformCache` has been migrated to `CCP.Core` and is now wired into the player so audio waveforms render.
