@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.AnnouncementPopup"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.AnnouncementPopup" x:DataType="x:Object"
         Title="{loc:Str window_announcement_announcement_title}"
         Width="440"
         Height="600"
@@ -16,7 +16,6 @@
 
     <Border x:Name="OuterBorder" Background="#F0151530" CornerRadius="12" BorderBrush="{StaticResource PinkBrush}" BorderThickness="2"
             Margin="10">
-        <Border.BoxShadow>0 0 20 0 #80FF69B4</Border.BoxShadow>
 
         <Grid>
             <!-- Close Button -->
@@ -33,7 +32,7 @@
                         <Setter Property="Foreground" Value="#888888" />
                     </Style>
                     <Style Selector="Button:pointerover">
-                        <Setter Property="Foreground" Value="White" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
                     </Style>
                 </Button.Styles>
             </Button>

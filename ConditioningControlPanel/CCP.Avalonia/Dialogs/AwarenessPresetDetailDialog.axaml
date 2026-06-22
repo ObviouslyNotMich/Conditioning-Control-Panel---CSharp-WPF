@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AwarenessPresetDetailDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AwarenessPresetDetailDialog" x:DataType="x:Object"
         Title="{loc:Str dialog_awareness_preset_detail_preset_title}"
         Height="720" Width="680"
         WindowStartupLocation="CenterOwner"
@@ -44,7 +44,7 @@
                       Click="BtnPolicyRead_Click"/>
               <Button x:Name="BtnPolicyGotIt"
                       Content="{loc:Str dialog_awareness_preset_detail_got_content}"
-                      Background="#A98E3A" Foreground="White"
+                      Background="#A98E3A" Foreground="{DynamicResource TextLightBrush}"
                       BorderThickness="0" FontSize="11" Cursor="Hand"
                       Padding="12,4"
                       Click="BtnPolicyGotIt_Click"/>
@@ -124,7 +124,7 @@
                  Margin="0,0,0,8"/>
 
       <!-- Trigger list -->
-      <Border Grid.Row="5" Background="#1A1A2E" BorderBrush="#2E2E48" BorderThickness="1" CornerRadius="8">
+      <Border Grid.Row="5" Background="{DynamicResource PanelBgBrush}" BorderBrush="#2E2E48" BorderThickness="1" CornerRadius="8">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel x:Name="TriggerStack" Margin="10"/>
         </ScrollViewer>

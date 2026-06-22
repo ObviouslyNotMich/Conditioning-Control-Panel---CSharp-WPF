@@ -24,7 +24,7 @@
         </Border.Background>
         <Grid>
           <Border Opacity="0.12"
-                  Background="White"
+                  Background="{DynamicResource TextLightBrush}"
                   Width="300"
                   Height="300"
                   CornerRadius="150"
@@ -35,7 +35,7 @@
             <TextBlock Text="{loc:Str tab_profile_banner_title}"
                        FontSize="28"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{loc:Str tab_profile_banner_subtitle}"
                        FontSize="14"
                        Foreground="{DynamicResource TextMutedBrush}"
@@ -61,7 +61,7 @@
             <TextBlock Text="{Binding AvatarInitials}"
                        FontSize="28"
                        FontWeight="Bold"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center" />
           </Grid>
@@ -71,7 +71,7 @@
                        Foreground="{DynamicResource TextMutedBrush}"
                        FontSize="13" />
             <TextBlock Text="{Binding DisplayName}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="22"
                        FontWeight="Bold"
                        IsVisible="{Binding IsLoggedIn}" />
@@ -93,7 +93,7 @@
                   IsVisible="{Binding IsLoggedIn}"
                   HorizontalAlignment="Left"
                   Background="#E84A6B"
-                  Foreground="White"
+                  Foreground="{DynamicResource TextLightBrush}"
                   Padding="16,8"
                   CornerRadius="8" />
         </Grid>
@@ -183,7 +183,7 @@
               Padding="18">
         <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_profile_badges_title}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="16"
                      FontWeight="Bold" />
           <ItemsControl ItemsSource="{Binding Badges}">
@@ -217,7 +217,7 @@
               Padding="18">
         <StackPanel Spacing="12">
           <TextBlock Text="{Binding LinkedAccountsTitle}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="16"
                      FontWeight="Bold" />
 
@@ -255,7 +255,7 @@
               Padding="18">
         <StackPanel Spacing="12">
           <TextBlock Text="{loc:Str tab_profile_gallery_title}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="16"
                      FontWeight="Bold" />
           <TextBlock Text="{loc:Str tab_profile_gallery_placeholder}"

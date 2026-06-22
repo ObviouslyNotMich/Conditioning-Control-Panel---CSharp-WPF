@@ -161,6 +161,10 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         {
             InitializeComponent();
 
+            // Size the content before the window is shown so SizeToContent doesn't blow up
+            // to the unbounded Viewbox desired size.
+            CalculateScaleFactor();
+
             _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
             _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
             _audioPlayer = App.Services.GetService<IAudioPlayer>();
@@ -170,6 +174,8 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             if (_modService != null)
                 _modService.ActiveModChanged += OnModChanged;
 _parentWindow = parentWindow;
+            // Do not set Owner - it causes black-window/minimize artifacts.
+            // Z-order and visibility are managed manually via parent events and Win32 topmost toggles.
 
             _poseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _poseTimer.Tick += (_, _) => PoseTimer_Tick();
@@ -566,7 +572,7 @@ _parentWindow = parentWindow;
                 MenuItemEngine.ToggleType = MenuItemToggleType.CheckBox;
                 MenuItemEngine.IsChecked = engineRunning;
                 MenuItemEngine.Header = engineRunning ? Loc.Get("menu_stop_engine") : Loc.Get("menu_start_engine");
-                MenuItemEngine.Foreground = engineRunning ? new SolidColorBrush(Color.FromRgb(255, 99, 71)) : new SolidColorBrush(Color.FromRgb(144, 238, 144));
+                MenuItemEngine.Foreground = engineRunning ? AppBrush("DangerBrush", new SolidColorBrush(Color.FromRgb(255, 99, 71))) : new SolidColorBrush(Color.FromRgb(144, 238, 144));
             }
 
             // Bambi Takeover toggle
@@ -598,7 +604,7 @@ _parentWindow = parentWindow;
                 MenuItemMuteWhispers.ToggleType = MenuItemToggleType.CheckBox;
                 MenuItemMuteWhispers.IsChecked = whispersMuted;
                 MenuItemMuteWhispers.Header = whispersMuted ? Loc.Get("menu_mute_whispers_on") : Loc.Get("menu_mute_whispers_off");
-                MenuItemMuteWhispers.Foreground = whispersMuted ? new SolidColorBrush(Color.FromRgb(255, 99, 71)) : new SolidColorBrush(Colors.White);
+                MenuItemMuteWhispers.Foreground = whispersMuted ? AppBrush("DangerBrush", new SolidColorBrush(Color.FromRgb(255, 99, 71))) : AppBrush("TextLightBrush", Brushes.White);
             }
 
             // Pause browser audio toggle
@@ -614,7 +620,7 @@ _parentWindow = parentWindow;
                 MenuItemPauseBrowser.ToggleType = MenuItemToggleType.CheckBox;
                 MenuItemPauseBrowser.IsChecked = browserPaused;
                 MenuItemPauseBrowser.Header = browserPaused ? Loc.Get("menu_resume_browser") : Loc.Get("menu_pause_browser");
-                MenuItemPauseBrowser.Foreground = browserPaused ? new SolidColorBrush(Color.FromRgb(144, 238, 144)) : new SolidColorBrush(Colors.White);
+                MenuItemPauseBrowser.Foreground = browserPaused ? new SolidColorBrush(Color.FromRgb(144, 238, 144)) : AppBrush("TextLightBrush", Brushes.White);
             }
 
             UpdateContextMenuForState();
@@ -1052,7 +1058,7 @@ _parentWindow = parentWindow;
             if (TxtSpeech != null && TxtSpeech.Inlines != null)
             {
                 TxtSpeech.Inlines.Clear();
-                TxtSpeech.Inlines.Add(new Run("MUTED \U0001F509") { Foreground = new SolidColorBrush(Color.FromRgb(180, 180, 200)) });
+                TxtSpeech.Inlines.Add(new Run("MUTED \U0001F509") { Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(180, 180, 200))) });
                 TxtSpeech.FontSize = 20;
             }
             if (SpeechBubble != null) SpeechBubble.IsVisible = true;
@@ -1498,6 +1504,13 @@ _parentWindow = parentWindow;
         public void SetMuted(bool muted)
         {
             _isMuted = muted;
+        }
+
+        private static IBrush AppBrush(string key, IBrush fallback)
+        {
+            if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+                return b;
+            return fallback;
         }
 
         // ===== Commands =====

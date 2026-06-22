@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.HelpVideoWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.HelpVideoWindow" x:DataType="x:Object"
         Title="{loc:Str window_help_video_help_title}"
         Width="480"
         MinWidth="480"

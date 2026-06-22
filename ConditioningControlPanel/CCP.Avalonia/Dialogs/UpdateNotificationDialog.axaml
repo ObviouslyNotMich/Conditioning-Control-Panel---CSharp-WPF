@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.UpdateNotificationDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.UpdateNotificationDialog" x:DataType="x:Object"
         Title="{Binding [dialog_update_available], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="550"
         Width="520"

@@ -1,13 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.SubliminalFeatureControl"
-             Design.DataContext="{x:Null}">
+             Design.DataContext="{x:Null}"
+             x:DataType="{x:Type local:SubliminalFeatureControl}">
 
   <StackPanel>
     <!-- Enable -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -16,11 +18,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str label_enable_subliminals}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="14"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str desc_enable_subliminals}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
@@ -33,8 +35,8 @@
     </Border>
 
     <!-- Per minute -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -42,13 +44,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_per_minute}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtPerMin"
                      Text="5"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -58,7 +60,7 @@
                 Value="5"
                 ValueChanged="SliderPerMin_Changed" />
         <TextBlock Text="{loc:Str tooltip_subliminal_per_minute}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -66,8 +68,8 @@
     </Border>
 
     <!-- Frames -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -75,13 +77,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_frames}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtFrames"
                      Text="2"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -91,7 +93,7 @@
                 Value="2"
                 ValueChanged="SliderFrames_Changed" />
         <TextBlock Text="{loc:Str tooltip_display_duration_in_frames_lower_faster_flash}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -99,8 +101,8 @@
     </Border>
 
     <!-- Opacity -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -108,13 +110,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_opacity}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtOpacity"
                      Text="80%"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -124,7 +126,7 @@
                 Value="80"
                 ValueChanged="SliderOpacity_Changed" />
         <TextBlock Text="{loc:Str tooltip_text_visibility_lower_more_subtle}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -132,8 +134,8 @@
     </Border>
 
     <!-- Audio whispers -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -143,11 +145,11 @@
           <StackPanel Grid.Column="0"
                       VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_audio_whispers}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str desc_audio_whispers}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -159,13 +161,13 @@
         </Grid>
         <Grid Margin="0,12,0,0">
           <TextBlock Text="{loc:Str setting_volume}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="12"
                      VerticalAlignment="Center" />
           <TextBlock x:Name="TxtWhisperVol"
                      Text="50%"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="12"
                      FontWeight="SemiBold"
                      VerticalAlignment="Center" />

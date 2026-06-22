@@ -435,12 +435,12 @@ public partial class SettingsTabViewModel : TabItemViewModel
 
             var message = diagnostics.ToString();
             _logger?.Information("[AudioDiag] Test requested:\n{Result}", message);
-            await (_dialogService?.ShowMessageAsync("Audio Diagnostics", message) ?? Task.CompletedTask);
+            await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_diagnostics"), message) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
             _logger?.Error(ex, "Audio test failed");
-            await (_dialogService?.ShowMessageAsync("Audio Diagnostics", $"Playback FAILED: {ex.Message}") ?? Task.CompletedTask);
+            await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_diagnostics"), string.Format(Loc.Get("msg_playback_failed_fmt"), ex.Message)) ?? Task.CompletedTask);
         }
     }
 

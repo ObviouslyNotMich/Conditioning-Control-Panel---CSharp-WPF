@@ -18,6 +18,7 @@ public partial class FlashFeatureControl : UserControl
     private readonly IFlashService? _flash;
     private readonly ISessionService? _session;
     private readonly IAppLogger? _logger;
+    private readonly IUiDispatcher _dispatcher;
     private bool _isLoading = true;
 
     public FlashFeatureControl()
@@ -27,6 +28,7 @@ public partial class FlashFeatureControl : UserControl
         _flash = App.Services.GetService<IFlashService>();
         _session = App.Services.GetService<ISessionService>();
         _logger = App.Services.GetService<IAppLogger>();
+        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -64,7 +66,7 @@ public partial class FlashFeatureControl : UserControl
             ChkFlashGazePop.IsChecked = s.FlashGazePopEnabled;
             ChkFlashGazeLinger.IsChecked = s.FlashGazeLingerEnabled;
             SliderFlashLingerMs.Value = s.FlashGazeLingerExtensionMs;
-            TxtFlashLingerMs.Text = LocalizationManager.Instance.GetF("label_0_1_ms", s.FlashGazeLingerExtensionMs, " ");
+            TxtFlashLingerMs.Text = Loc.GetF("label_0_1_ms", s.FlashGazeLingerExtensionMs, " ");
         }
         finally { _isLoading = false; }
     }
@@ -84,7 +86,7 @@ public partial class FlashFeatureControl : UserControl
             e.PropertyName == nameof(AppSettings.FlashGazeLingerEnabled) ||
             e.PropertyName == nameof(AppSettings.FlashGazeLingerExtensionMs))
         {
-            global::Avalonia.Threading.Dispatcher.UIThread.Post(LoadFromSettings);
+            _dispatcher.Post(LoadFromSettings);
         }
     }
 
@@ -106,7 +108,7 @@ public partial class FlashFeatureControl : UserControl
     {
         if (_isLoading || _settings.Current == null) return;
         var v = (int)e.NewValue;
-        TxtFlashLingerMs.Text = LocalizationManager.Instance.GetF("label_0_1_ms", v, " ");
+        TxtFlashLingerMs.Text = Loc.GetF("label_0_1_ms", v, " ");
         _settings.Current.FlashGazeLingerExtensionMs = v;
         _settings.Save();
     }

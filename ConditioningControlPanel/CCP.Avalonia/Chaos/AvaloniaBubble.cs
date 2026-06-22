@@ -51,22 +51,24 @@ public sealed class AvaloniaBubble : Panel
         else
         {
             // Fallback circle when the bubble asset cannot be loaded.
+            var fallbackPink = AppColor("PinkColor", new Color(0xFF, 0xFF, 0x69, 0xB4));
             var circle = new Border
             {
                 Width = size,
                 Height = size,
                 CornerRadius = new CornerRadius(size / 2),
-                Background = new SolidColorBrush(Colors.HotPink)
+                Background = new SolidColorBrush(fallbackPink)
             };
             Children.Add(circle);
         }
 
+        var pink = AppColor("PinkColor", new Color(0xFF, 0xFF, 0x69, 0xB4));
         _tint = new Border
         {
             Width = size,
             Height = size,
             CornerRadius = new CornerRadius(size / 2),
-            Background = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0x69, 0xB4)),
+            Background = new SolidColorBrush(new Color(0x40, pink.R, pink.G, pink.B)),
             IsHitTestVisible = false
         };
         Children.Add(_tint);
@@ -260,5 +262,12 @@ public sealed class AvaloniaBubble : Panel
             e.Handled = true;
             BubblePointerReleased?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    private static Color AppColor(string key, Color fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c)
+            return c;
+        return fallback;
     }
 }

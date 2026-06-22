@@ -24,7 +24,7 @@
         </Border.Background>
         <Grid>
           <Border Opacity="0.10"
-                  Background="White"
+                  Background="{DynamicResource TextLightBrush}"
                   Width="260"
                   Height="260"
                   CornerRadius="130"
@@ -35,7 +35,7 @@
             <TextBlock Text="{loc:Str tab_deeper_hub_banner_title}"
                        FontSize="28"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{loc:Str tab_deeper_hub_banner_subtitle}"
                        FontSize="14"
                        Foreground="{DynamicResource TextMutedBrush}"

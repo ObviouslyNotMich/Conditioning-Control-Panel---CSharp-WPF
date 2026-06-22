@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.WelcomeDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.WelcomeDialog" x:DataType="x:Object"
         Title="{Binding [dialog_welcome], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="670"
         Width="520"
@@ -38,7 +38,7 @@
                      VerticalAlignment="Center"
                      Margin="0,0,12,0" />
           <TextBlock Text="{Binding [app_title], Source={x:Static loc:LocalizationManager.Instance}}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="22"
                      FontWeight="Bold"
                      VerticalAlignment="Center" />

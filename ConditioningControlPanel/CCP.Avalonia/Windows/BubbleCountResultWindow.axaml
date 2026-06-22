@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.BubbleCountResultWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.BubbleCountResultWindow" x:DataType="x:Object"
         Title="{Binding [dialog_how_many_bubbles], Source={x:Static loc:LocalizationManager.Instance}}"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -27,14 +27,14 @@
     <Rectangle Fill="#E0000000" />
 
     <!-- Content Card -->
-    <Border Background="#FF2D2D3A"
+    <Border x:Name="ContentCard"
+            Background="#FF2D2D3A"
             CornerRadius="20"
             Padding="50"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             MinWidth="500"
-            MaxWidth="600"
-            BoxShadow="0 0 30 0 #80FF69B4">
+            MaxWidth="600">
 
       <StackPanel>
         <!-- Title -->
@@ -56,7 +56,7 @@
         <TextBox x:Name="TxtAnswer"
                  FontSize="48"
                  FontWeight="Bold"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  Background="#40FFFFFF"
                  BorderBrush="{DynamicResource PinkBrush}"
                  BorderThickness="3"
@@ -108,7 +108,7 @@
         <TextBlock x:Name="TxtStrict"
                    Text="{Binding [label_strict_mode_must_answer_correctly], Source={x:Static loc:LocalizationManager.Instance}}"
                    FontSize="14"
-                   Foreground="#FF6B6B"
+                   Foreground="{DynamicResource DangerBrush}"
                    HorizontalAlignment="Center"
                    Margin="0,20,0,0"
                    IsVisible="False" />

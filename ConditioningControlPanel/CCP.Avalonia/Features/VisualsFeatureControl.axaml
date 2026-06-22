@@ -12,14 +12,14 @@
     <Border Theme="{StaticResource PlatformInfoBadge}"
             IsVisible="{Binding Capabilities.SupportsClickThrough, ElementName=Root, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
       <TextBlock Text="{loc:Str msg_overlay_click_through_degraded}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="11"
                  TextWrapping="Wrap" />
     </Border>
 
     <!-- Size -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -27,13 +27,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_size}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtSize"
                      Text="100%"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -43,7 +43,7 @@
                 Value="100"
                 ValueChanged="SliderSize_Changed" />
         <TextBlock Text="{loc:Str tooltip_visuals_size}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -51,8 +51,8 @@
     </Border>
 
     <!-- Opacity -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -60,13 +60,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_opacity}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtOpacity"
                      Text="100%"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -76,7 +76,7 @@
                 Value="100"
                 ValueChanged="SliderOpacity_Changed" />
         <TextBlock Text="{loc:Str tooltip_visuals_opacity}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -84,8 +84,8 @@
     </Border>
 
     <!-- Fade -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -93,13 +93,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_fade}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtFade"
                      Text="50%"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -109,7 +109,7 @@
                 Value="50"
                 ValueChanged="SliderFade_Changed" />
         <TextBlock Text="{loc:Str tooltip_visuals_fade}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -117,8 +117,8 @@
     </Border>
 
     <!-- Duration -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -126,13 +126,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_duration}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtDuration"
                      Text="5s"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -142,7 +142,7 @@
                 Value="5"
                 ValueChanged="SliderDuration_Changed" />
         <TextBlock Text="{loc:Str tooltip_visuals_duration}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -150,8 +150,8 @@
     </Border>
 
     <!-- Link to Audio -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12">
@@ -159,11 +159,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str label_visuals_link_to_audio}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str tooltip_visuals_link_to_audio}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />

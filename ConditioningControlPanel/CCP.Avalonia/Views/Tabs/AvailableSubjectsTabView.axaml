@@ -2,12 +2,35 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
              xmlns:models="using:ConditioningControlPanel.Models"
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.AvailableSubjectsTabView"
              x:Name="Root"
              x:DataType="vm:AvailableSubjectsTabViewModel">
 
   <Design.DataContext>
-    <vm:AvailableSubjectsTabViewModel />
+    <vm:AvailableSubjectsTabViewModel>
+      <vm:AvailableSubjectsTabViewModel.Entries>
+        <models:AvailableSubject UnifiedId="sample-1"
+                                 DisplayName="Bambi_Bubbles"
+                                 Level="12"
+                                 Tier="standard"
+                                 StatusText="Looking for a controller">
+          <models:AvailableSubject.Tags>
+            <x:String>bambi</x:String>
+            <x:String>standard</x:String>
+          </models:AvailableSubject.Tags>
+        </models:AvailableSubject>
+        <models:AvailableSubject UnifiedId="sample-2"
+                                 DisplayName="Airhead_Alice"
+                                 Level="7"
+                                 Tier="full"
+                                 Claimed="True">
+          <models:AvailableSubject.Tags>
+            <x:String>full</x:String>
+          </models:AvailableSubject.Tags>
+        </models:AvailableSubject>
+      </vm:AvailableSubjectsTabViewModel.Entries>
+    </vm:AvailableSubjectsTabViewModel>
   </Design.DataContext>
 
   <Grid Margin="36,28,36,28"
@@ -39,15 +62,11 @@
                   Margin="16,0,0,0">
         <Button Content="{Binding BecomeSubjectText}"
                 ToolTip.Tip="{Binding BecomeSubjectTooltip}"
-                Click="BtnBecomeASubject_Click"
+                Command="{Binding BecomeSubjectCommand}"
                 FontSize="13"
-                FontWeight="Bold"
                 Padding="16,9"
-                BorderThickness="0"
                 HorizontalAlignment="Right"
-                Background="{DynamicResource PinkBrush}"
-                Foreground="White"
-                CornerRadius="8" />
+                Theme="{StaticResource PinkButton}" />
         <TextBlock Text="{Binding BecomeSubjectLockedText}"
                    Foreground="{DynamicResource TextMutedBrush}"
                    FontSize="11"
@@ -78,7 +97,7 @@
     <!-- Error state -->
     <Border Grid.Row="1"
             Background="{DynamicResource SurfaceBgBrush}"
-            BorderBrush="#E84A6B"
+            BorderBrush="{DynamicResource DangerBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="24,18"
@@ -125,7 +144,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                   <StackPanel Grid.Column="0" Spacing="2">
                     <TextBlock Text="{Binding DisplayName}"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextLightBrush}"
                                FontSize="15"
                                FontWeight="Bold"
                                TextTrimming="CharacterEllipsis" />
@@ -173,25 +192,28 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <Button Content="{Binding ConnectButtonText}"
-                        Command="{Binding DataContext.ConnectCommand, ElementName=Root}"
-                        CommandParameter="{Binding}"
-                        IsEnabled="{Binding IsConnectEnabled}"
-                        FontSize="13"
-                        FontWeight="Bold"
-                        Padding="0,8"
-                        BorderThickness="0"
-                        HorizontalAlignment="Stretch"
-                        Background="{DynamicResource PinkBrush}"
-                        Foreground="White"
-                        CornerRadius="8">
-                  <Button.Styles>
-                    <Style Selector="Button:disabled /template/ ContentPresenter">
-                      <Setter Property="Background" Value="#3A2E5A" />
-                      <Setter Property="Foreground" Value="White" />
-                    </Style>
-                  </Button.Styles>
-                </Button>
+                <Grid>
+                  <Button Content="{loc:Str btn_connect}"
+                          Command="{Binding DataContext.ConnectCommand, ElementName=Root}"
+                          CommandParameter="{Binding}"
+                          IsVisible="{Binding !Claimed}"
+                          FontSize="13"
+                          FontWeight="Bold"
+                          Padding="0,8"
+                          HorizontalAlignment="Stretch"
+                          Theme="{StaticResource PinkButton}"
+                          CornerRadius="8" />
+                  <Button Content="{loc:Str btn_taken}"
+                          IsVisible="{Binding Claimed}"
+                          IsEnabled="False"
+                          FontSize="13"
+                          FontWeight="Bold"
+                          Padding="0,8"
+                          HorizontalAlignment="Stretch"
+                          Background="{DynamicResource PanelAccentBrush}"
+                          Foreground="{DynamicResource TextDimBrush}"
+                          CornerRadius="8" />
+                </Grid>
               </StackPanel>
             </Border>
           </DataTemplate>

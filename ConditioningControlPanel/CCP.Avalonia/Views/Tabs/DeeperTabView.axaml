@@ -244,12 +244,12 @@
                   Padding="22,10"
                   FontSize="13"
                   FontWeight="SemiBold"
-                  Foreground="White"
+                  Foreground="{DynamicResource TextLightBrush}"
                   Background="{DynamicResource DeeperAccentBrush}">
             <Button.Theme>
               <ControlTheme TargetType="Button">
                 <Setter Property="Background" Value="{DynamicResource DeeperAccentBrush}" />
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="CornerRadius" Value="8" />
                 <Setter Property="Template">
@@ -305,7 +305,7 @@
                       Padding="14,7"
                       FontWeight="SemiBold"
                       Background="{DynamicResource DeeperAccentBrush}"
-                      Foreground="White"
+                      Foreground="{DynamicResource TextLightBrush}"
                       BorderThickness="0" />
               <Button Content="{Binding [deeper_welcome_card_open_demo], Source={x:Static loc:LocalizationManager.Instance}}"
                       Command="{Binding WelcomeDemoCommand}"
@@ -432,7 +432,7 @@
                     FontSize="11"
                     FontWeight="SemiBold"
                     Background="{DynamicResource DeeperAccentBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextLightBrush}"
                     BorderBrush="{DynamicResource DeeperAccentBrush}"
                     BorderThickness="1">
               <StackPanel Orientation="Horizontal" Spacing="5">
@@ -452,7 +452,7 @@
             <ComboBox ItemsSource="{Binding SortOptions}"
                       SelectedIndex="{Binding SelectedSortIndex, Mode=TwoWay}"
                       ToolTip.Tip="{Binding [deeper_hub_tip_sort], Source={x:Static loc:LocalizationManager.Instance}}"
-                      Background="White"
+                      Background="{DynamicResource TextLightBrush}"
                       Foreground="Black"
                       MinWidth="100"
                       Padding="6,4" />
@@ -551,7 +551,7 @@
                           ItemsSource="{Binding WebcamDevices}"
                           SelectedItem="{Binding SelectedWebcamDevice, Mode=TwoWay}"
                           Foreground="Black"
-                          Background="White"
+                          Background="{DynamicResource TextLightBrush}"
                           FontSize="10" />
                 <Button Grid.Column="1"
                         Content="{Binding [blink_trainer_camera_refresh], Source={x:Static loc:LocalizationManager.Instance}}"
@@ -569,14 +569,14 @@
               <ComboBox ItemsSource="{Binding Monitors}"
                         SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}"
                         Foreground="Black"
-                        Background="White"
+                        Background="{DynamicResource TextLightBrush}"
                         FontSize="10"
                         ToolTip.Tip="{Binding [webcam_monitor_tooltip], Source={x:Static loc:LocalizationManager.Instance}}" />
 
               <CheckBox IsChecked="{Binding RestrictGazeToCalScreen, Mode=TwoWay}"
                         Content="{Binding [deeper_webcam_restrict_gaze_content], Source={x:Static loc:LocalizationManager.Instance}}"
                         ToolTip.Tip="{Binding [deeper_webcam_restrict_gaze_tooltip], Source={x:Static loc:LocalizationManager.Instance}}"
-                        Foreground="#AAAAAA"
+                        Foreground="{DynamicResource TextDimBrush}"
                         FontSize="10"
                         Margin="0,4,0,0" />
             </StackPanel>
@@ -590,7 +590,7 @@
                       BorderThickness="1">
                 <StackPanel Spacing="6">
                   <TextBlock Text="{Binding WebcamConsentStatusText}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontSize="11"
                              FontWeight="Medium" />
                   <StackPanel Orientation="Horizontal" Spacing="6">

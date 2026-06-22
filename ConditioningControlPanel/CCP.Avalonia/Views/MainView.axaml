@@ -21,19 +21,19 @@
 
     <!-- Mobile header -->
     <Grid Grid.Row="0"
-          Background="#1A1A2E"
+          Background="{DynamicResource PanelBgBrush}"
           ColumnDefinitions="*,Auto">
       <StackPanel Grid.Column="0"
                   Orientation="Horizontal"
                   VerticalAlignment="Center"
                   Margin="12,8">
         <TextBlock Text="💗"
-                   Foreground="#FF69B4"
+                   Foreground="{DynamicResource PinkBrush}"
                    FontSize="16"
                    Margin="0,0,8,0"
                    VerticalAlignment="Center" />
         <TextBlock Text="{Binding Title}"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="14"
                    FontWeight="SemiBold"
                    VerticalAlignment="Center" />
@@ -44,7 +44,7 @@
                   Margin="12,8"
                   Spacing="8">
         <TextBlock Text="{Binding LevelText}"
-                   Foreground="#FF69B4"
+                   Foreground="{DynamicResource PinkBrush}"
                    FontSize="12"
                    FontWeight="Bold"
                    VerticalAlignment="Center" />
@@ -54,7 +54,7 @@
     <!-- Mobile quick selectors -->
     <StackPanel Grid.Row="1"
                 Orientation="Horizontal"
-                Background="#1A1A2E"
+                Background="{DynamicResource PanelBgBrush}"
                 Margin="12,0,12,8"
                 Spacing="8">
       <ComboBox ItemsSource="{Binding AvailableMods}"
@@ -72,7 +72,7 @@
     <!-- Horizontally scrollable tab strip -->
     <Border Grid.Row="2"
             Background="#12121E"
-            BorderBrush="#FF69B4"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="0,0,0,1">
       <ScrollViewer HorizontalScrollBarVisibility="Auto"
                     VerticalScrollBarVisibility="Disabled">

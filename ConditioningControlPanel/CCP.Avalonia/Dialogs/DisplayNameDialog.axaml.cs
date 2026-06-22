@@ -48,18 +48,18 @@ public partial class DisplayNameDialog : Window
             _isDeleteMode = true;
             _maxLength = 6;
             TxtTitle.Text = Loc.Get("label_delete_your_profile");
-            TxtTitle.Foreground = new SolidColorBrush(Color.Parse("#FF4444"));
+            TxtTitle.Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!);
 
             // Red-tinted warning
             WarningPanel.IsVisible = true;
             TxtWarningLabel.Text = Loc.Get("label_warning_2");
-            TxtWarningLabel.Foreground = new SolidColorBrush(Color.Parse("#FF4444"));
+            TxtWarningLabel.Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!);
             TxtWarningText.Text = Loc.Get("label_this_will_permanently_delete_all_your_data_an");
-            TxtWarningText.Foreground = new SolidColorBrush(Color.Parse("#FF4444"));
+            TxtWarningText.Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!);
 
             TxtPrompt.Text = Loc.Get("label_type_delete_to_confirm");
             BtnConfirm.Content = Loc.Get("btn_delete");
-            BtnConfirm.Background = new SolidColorBrush(Color.Parse("#FF4444"));
+            BtnConfirm.Background = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!);
 
             TxtDisplayName.MaxLength = _maxLength;
             TxtDisplayName.Text = "";

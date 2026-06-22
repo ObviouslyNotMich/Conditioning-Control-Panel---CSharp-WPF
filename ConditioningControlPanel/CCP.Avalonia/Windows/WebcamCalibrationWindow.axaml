@@ -18,13 +18,13 @@
       <Ellipse x:Name="DotRingBg" Width="84" Height="84"
                Stroke="#33FFFFFF" StrokeThickness="3" />
       <Ellipse x:Name="DotRingFg" Width="84" Height="84"
-               Stroke="#FFFF69B4" StrokeThickness="4" />
+               Stroke="{DynamicResource PinkColor}" StrokeThickness="4" />
       <Ellipse x:Name="Dot" Width="44" Height="44">
         <Ellipse.Fill>
           <RadialGradientBrush>
-            <GradientStop Color="#FFFFB6E1" Offset="0" />
-            <GradientStop Color="#FFFF69B4" Offset="0.6" />
-            <GradientStop Color="#FFC71585" Offset="1" />
+            <GradientStop Color="{DynamicResource PinkButtonHovered}" Offset="0" />
+            <GradientStop Color="{DynamicResource PinkColor}" Offset="0.6" />
+            <GradientStop Color="{DynamicResource DarkPinkColor}" Offset="1" />
           </RadialGradientBrush>
         </Ellipse.Fill>
       </Ellipse>
@@ -32,7 +32,7 @@
 
     <Border x:Name="ShortcutHintBanner" IsVisible="False"
             VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,12,0,0"
-            Background="#22FF69B4" BorderBrush="#55FF69B4" BorderThickness="1"
+            Background="{DynamicResource TransparentPink20Brush}" BorderBrush="{DynamicResource TransparentPink50Brush}" BorderThickness="1"
             CornerRadius="10" Padding="16,7" ZIndex="100">
       <StackPanel Orientation="Horizontal">
         <TextBlock Text="👁" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -48,7 +48,7 @@
         <Button x:Name="BtnCalibrationHelp" Content="?" Click="BtnCalibrationHelp_Click"
                 Width="24" Height="24" Margin="12,0,0,0" VerticalAlignment="Center"
                 Foreground="White" Background="Transparent"
-                BorderBrush="#FF69B4" BorderThickness="1" FontWeight="Bold" FontSize="12"
+                BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" FontWeight="Bold" FontSize="12"
                 ToolTip.Tip="{loc:Str window_webcam_calibration_calibration_help_tooltip}">
           <Button.Theme>
             <ControlTheme TargetType="Button">
@@ -68,12 +68,12 @@
       </StackPanel>
       <TextBlock x:Name="TxtStatus" Text="{loc:Str window_webcam_calibration_look_pink_dot_press_esc_cancel_text}"
                  Foreground="#AAAAAA" FontSize="14" Margin="0,8,0,0" HorizontalAlignment="Center" />
-      <TextBlock x:Name="TxtProgress" Text="" Foreground="#FF69B4" FontSize="13"
+      <TextBlock x:Name="TxtProgress" Text="" Foreground="{DynamicResource PinkBrush}" FontSize="13"
                  Margin="0,4,0,0" HorizontalAlignment="Center" FontFamily="Consolas" />
     </StackPanel>
 
     <Border x:Name="IntroPanel" IsVisible="False"
-            Background="#181820" BorderBrush="#FF69B4" BorderThickness="2"
+            Background="#181820" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2"
             CornerRadius="14" Padding="36,28"
             HorizontalAlignment="Center" VerticalAlignment="Center"
             MaxWidth="640">
@@ -82,11 +82,11 @@
                    Foreground="#FFFFFF" FontSize="26" FontWeight="Bold"
                    HorizontalAlignment="Center" Margin="0,0,0,4" />
         <TextBlock Text="{loc:Str window_webcam_calibration_two_short_phases_about_a_minute_text}"
-                   Foreground="#FFB6E1" FontSize="14"
+                   Foreground="{DynamicResource PinkButtonHoveredBrush}" FontSize="14"
                    HorizontalAlignment="Center" Margin="0,0,0,22" />
 
         <Grid Margin="0,0,0,8" ColumnDefinitions="40,*">
-          <TextBlock Grid.Column="0" Text="1." Foreground="#FF69B4"
+          <TextBlock Grid.Column="0" Text="1." Foreground="{DynamicResource PinkBrush}"
                      FontSize="15" FontWeight="Bold" VerticalAlignment="Top" />
           <StackPanel Grid.Column="1">
             <TextBlock Text="{loc:Str window_webcam_calibration_dot_grid_16_dots_text}" Foreground="#FFFFFF"
@@ -97,7 +97,7 @@
         </Grid>
 
         <Grid Margin="0,0,0,18" ColumnDefinitions="40,*">
-          <TextBlock Grid.Column="0" Text="2." Foreground="#FF69B4"
+          <TextBlock Grid.Column="0" Text="2." Foreground="{DynamicResource PinkBrush}"
                      FontSize="15" FontWeight="Bold" VerticalAlignment="Top" />
           <StackPanel Grid.Column="1">
             <TextBlock Text="{loc:Str window_webcam_calibration_quick_checks_text}" Foreground="#FFFFFF"
@@ -113,7 +113,7 @@
                    TextWrapping="Wrap" Margin="0,0,0,18" />
 
         <Button x:Name="BtnIntroContinue" Content="{loc:Str window_webcam_calibration_continue_content}"
-                Padding="32,10" Background="#FF69B4" Foreground="Black"
+                Padding="32,10" Background="{DynamicResource PinkBrush}" Foreground="Black"
                 BorderThickness="0" FontWeight="Bold" FontSize="15"
                 HorizontalAlignment="Center"
                 Click="BtnIntroContinue_Click" />
@@ -122,14 +122,14 @@
 
     <Grid x:Name="ValidationPanel" IsVisible="False">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-        <TextBlock x:Name="TxtValidationCue" Text="" Foreground="#FF69B4"
+        <TextBlock x:Name="TxtValidationCue" Text="" Foreground="{DynamicResource PinkBrush}"
                    FontSize="160" FontWeight="Bold" HorizontalAlignment="Center"
                    Margin="0,0,0,20" />
         <TextBlock x:Name="TxtValidationPrompt" Text="" Foreground="White"
                    FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" />
         <TextBlock x:Name="TxtValidationDetail" Text="" Foreground="#AAAAAA"
                    FontSize="16" HorizontalAlignment="Center" Margin="0,12,0,0" />
-        <TextBlock x:Name="TxtValidationAttempt" Text="" Foreground="#FF69B4"
+        <TextBlock x:Name="TxtValidationAttempt" Text="" Foreground="{DynamicResource PinkBrush}"
                    FontSize="13" FontFamily="Consolas" HorizontalAlignment="Center"
                    Margin="0,16,0,0" />
       </StackPanel>
@@ -145,18 +145,18 @@
         <TextBlock x:Name="TxtErrorDetail" Text="" Foreground="White" FontSize="13"
                    Margin="0,12,0,16" TextWrapping="Wrap" HorizontalAlignment="Center" />
         <Button x:Name="BtnErrorClose" Content="{loc:Str window_webcam_calibration_close_content}" Padding="20,8"
-                Background="#FF69B4" Foreground="Black" BorderThickness="0"
+                Background="{DynamicResource PinkBrush}" Foreground="Black" BorderThickness="0"
                 FontWeight="Bold" Click="BtnErrorClose_Click"
                 HorizontalAlignment="Center" />
       </StackPanel>
     </Border>
 
     <Border x:Name="VerifyPanel" IsVisible="False"
-            Background="#1A1A2E" BorderBrush="#FF69B4" BorderThickness="2"
+            Background="#1A1A2E" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2"
             CornerRadius="10" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center"
             MaxWidth="560">
       <StackPanel>
-        <TextBlock Text="{loc:Str window_webcam_calibration_calibration_verified_text}" Foreground="#FF69B4" FontSize="22"
+        <TextBlock Text="{loc:Str window_webcam_calibration_calibration_verified_text}" Foreground="{DynamicResource PinkBrush}" FontSize="22"
                    FontWeight="Bold" HorizontalAlignment="Center" />
         <TextBlock Text="{loc:Str window_webcam_calibration_calibration_complete_blink_mouth_tracking_warmed_text}"
                    Foreground="#CCCCCC" FontSize="13" Margin="0,8,0,0"
@@ -167,14 +167,14 @@
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
           <Button x:Name="BtnVerifyAccuracy" Content="{loc:Str window_webcam_calibration_verify_accuracy_content}" Padding="20,10"
-                  Background="#33333A" Foreground="White" BorderBrush="#FF69B4"
+                  Background="#33333A" Foreground="White" BorderBrush="{DynamicResource PinkBrush}"
                   BorderThickness="1" FontWeight="SemiBold"
                   Margin="0,0,8,0" Click="BtnVerifyAccuracy_Click" />
           <Button x:Name="BtnVerifyRecalibrate" Content="{loc:Str window_webcam_calibration_recalibrate_content}" Padding="20,10"
                   Background="#33333A" Foreground="White" BorderThickness="0"
                   Margin="0,0,8,0" Click="BtnVerifyRecalibrate_Click" />
           <Button x:Name="BtnVerifyDone" Content="{loc:Str window_webcam_calibration_done_content}" Padding="20,10"
-                  Background="#FF69B4" Foreground="Black" BorderThickness="0"
+                  Background="{DynamicResource PinkBrush}" Foreground="Black" BorderThickness="0"
                   FontWeight="Bold" Click="BtnVerifyDone_Click" />
         </StackPanel>
       </StackPanel>

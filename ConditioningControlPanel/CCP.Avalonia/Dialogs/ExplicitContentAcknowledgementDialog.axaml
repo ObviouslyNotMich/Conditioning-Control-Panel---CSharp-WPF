@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
         xmlns:docs="using:Avalonia.Controls.Documents"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.ExplicitContentAcknowledgementDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.ExplicitContentAcknowledgementDialog" x:DataType="x:Object"
         Title="{Binding [explicit_ack_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="560"
         SizeToContent="Height"

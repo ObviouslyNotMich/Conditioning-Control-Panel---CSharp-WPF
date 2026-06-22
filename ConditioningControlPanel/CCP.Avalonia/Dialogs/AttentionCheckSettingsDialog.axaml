@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
         xmlns:features="using:ConditioningControlPanel.Avalonia.Features"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AttentionCheckSettingsDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AttentionCheckSettingsDialog" x:DataType="x:Object"
         Title="{loc:Str attention_check_settings}"
         Width="460"
         Height="640"
@@ -22,7 +22,7 @@
   <Grid Margin="16" RowDefinitions="Auto,*,Auto">
     <TextBlock Grid.Row="0"
                Text="{loc:Str attention_check_settings}"
-               Foreground="White"
+               Foreground="{DynamicResource TextLightBrush}"
                FontSize="18"
                FontWeight="Bold"
                Margin="0,0,0,12" />
@@ -37,7 +37,7 @@
               Padding="14,8"
               Background="#33333A"
               Foreground="White"
-              BorderBrush="#FF69B4"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="1"
               FontWeight="SemiBold"
               Cursor="Hand"

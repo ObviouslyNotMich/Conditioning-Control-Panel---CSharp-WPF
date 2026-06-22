@@ -48,6 +48,13 @@ public partial class QuizCategoryEditorWindow : Window
     private string _selectedColor = "#FF69B4";
     private bool _isPreviewRunning;
 
+    private static string GetThemeAccentHex()
+    {
+        if (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+        return "#FF69B4";
+    }
+
     private static readonly string[] PresetColors = new[]
     {
         "#FF69B4", "#9B59B6", "#E67E22", "#3498DB",
@@ -68,7 +75,8 @@ public partial class QuizCategoryEditorWindow : Window
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
         _dialogService = App.Services?.GetService<IDialogService>();
-BuildColorPicker();
+        _selectedColor = GetThemeAccentHex();
+        BuildColorPicker();
         BuildArchetypeRows();
         ApplyPolicyBannerState();
     }

@@ -239,8 +239,26 @@ public sealed class AvaloniaModService : IModService
     public string GetAccentColorHex()
         => ActiveManifest.Theme?.AccentColor ?? "#FF69B4";
 
+    public string GetAccentLightColorHex()
+        => ActiveManifest.Theme?.AccentLightColor ?? "#FF8FAF";
+
+    public string GetAccentDarkColorHex()
+        => ActiveManifest.Theme?.AccentDarkColor ?? "#FF1493";
+
     public string GetSecondaryColorHex()
         => ActiveManifest.Theme?.AccentDarkColor ?? "#9B59B6";
+
+    public string GetBackgroundColorHex()
+        => ActiveManifest.Theme?.BackgroundColor ?? "#1A1A2E";
+
+    public string GetPanelColorHex()
+        => ActiveManifest.Theme?.PanelColor ?? "#252542";
+
+    public string GetSurfaceColorHex()
+        => ActiveManifest.Theme?.SurfaceColor ?? "#1E1E3A";
+
+    public string GetFilterColorHex()
+        => ActiveManifest.Theme?.FilterColor ?? GetAccentColorHex();
 
     public string GetPinkRushName()
         => MakeModAware(ActiveManifest.EnhancementOverrides?.PinkRushName ?? "PINK RUSH!");

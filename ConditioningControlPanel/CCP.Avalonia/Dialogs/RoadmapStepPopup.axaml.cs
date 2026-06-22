@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel.Models;
@@ -31,6 +32,8 @@ public partial class RoadmapStepPopup : Window
     public RoadmapStepPopup()
     {
         InitializeComponent();
+
+        ApplyThemeShadow();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 _roadmap = App.Services.GetRequiredService<IRoadmapService>();
@@ -64,6 +67,19 @@ _roadmap = App.Services.GetRequiredService<IRoadmapService>();
             _logger?.Information("RoadmapStepPopup loaded, starting fade-in animation");
             _ = FadeAsync(0, 1, TimeSpan.FromMilliseconds(300));
         };
+    }
+
+    private void ApplyThemeShadow()
+    {
+        if (RootBorder == null) return;
+        var accent = (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            ? c
+            : Color.Parse("#FF69B4");
+        RootBorder.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            OffsetX = 0, OffsetY = 0, Blur = 20, Spread = 0,
+            Color = Color.FromArgb(0x80, accent.R, accent.G, accent.B)
+        });
     }
 
     /// <summary>

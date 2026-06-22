@@ -1,13 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.AttentionCheckFeatureControl"
-             Design.DataContext="{x:Null}">
+             Design.DataContext="{x:Null}"
+             x:DataType="{x:Type local:AttentionCheckFeatureControl}">
 
   <StackPanel>
     <!-- Master enable -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -16,11 +18,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str feature_attention_checks}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="14"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str desc_attention_checks}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
@@ -33,8 +35,8 @@
     </Border>
 
     <!-- Sliders -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -42,12 +44,12 @@
       <StackPanel>
         <Grid Margin="0,0,0,4">
           <TextBlock Text="{loc:Str label_attention_min_per_hour}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="12" />
           <TextBlock x:Name="TxtMin"
                      Text="{loc:Str label_attention_default_min}"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="12"
                      FontWeight="SemiBold" />
         </Grid>
@@ -62,12 +64,12 @@
 
         <Grid Margin="0,0,0,4">
           <TextBlock Text="{loc:Str label_attention_max_per_hour}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="12" />
           <TextBlock x:Name="TxtMax"
                      Text="{loc:Str label_attention_default_max}"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="12"
                      FontWeight="SemiBold" />
         </Grid>
@@ -82,12 +84,12 @@
 
         <Grid Margin="0,0,0,4">
           <TextBlock Text="{loc:Str label_attention_grace_window}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="12" />
           <TextBlock x:Name="TxtGrace"
                      Text="{loc:Str label_attention_default_grace}"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="12"
                      FontWeight="SemiBold" />
         </Grid>
@@ -103,8 +105,8 @@
     </Border>
 
     <!-- Fail mode / scope -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -112,7 +114,7 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_attention_on_miss}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="12"
                      FontWeight="SemiBold" />
         </Grid>
@@ -126,7 +128,7 @@
 
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_attention_when}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="12"
                      FontWeight="SemiBold" />
         </Grid>
@@ -138,7 +140,7 @@
         </ComboBox>
 
         <TextBlock Text="{loc:Str desc_attention_check_rewards}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    Margin="0,8,0,0"
                    TextWrapping="Wrap" />

@@ -50,6 +50,13 @@ public partial class WebcamCalibrationWindow : Window
     private DispatcherTimer? _ringPulseTimer;
     private DispatcherTimer? _verifyTimer;
 
+    private static IBrush ThemeBrush(string key, IBrush fallback)
+    {
+        if (Application.Current?.TryFindResource(key, out var res) == true && res is IBrush brush)
+            return brush;
+        return fallback;
+    }
+
     public WebcamCalibrationWindow()
     {
         InitializeComponent();
@@ -181,7 +188,7 @@ public partial class WebcamCalibrationWindow : Window
         TxtValidationCue.Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0xE0, 0x80));
         TxtValidationDetail.Text = Loc.Get("window_webcam_calibration_detected_status");
         await Task.Delay(700);
-        TxtValidationCue.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4));
+        TxtValidationCue.Foreground = ThemeBrush("PinkBrush", new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4)));
     }
 
     private async void BtnCalibrationHelp_Click(object? sender, RoutedEventArgs e)

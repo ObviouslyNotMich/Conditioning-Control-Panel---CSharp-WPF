@@ -3,6 +3,7 @@
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
         xmlns:local="using:ConditioningControlPanel.Avalonia.AvatarTube"
         x:Class="ConditioningControlPanel.Avalonia.AvatarTube.AvatarTubeWindow"
+        x:DataType="local:AvatarTubeWindow"
         x:CompileBindings="False"
         Title="{Binding [dialog_avatar_tube], Source={x:Static loc:LocalizationManager.Instance}}"
         WindowDecorations="None"
@@ -11,32 +12,27 @@
         ShowInTaskbar="False"
         CanResize="False"
         SizeToContent="WidthAndHeight"
+        WindowStartupLocation="Manual"
         UseLayoutRounding="True"
         FontFamily="Inter, Segoe UI"
         Loaded="OnLoaded"
         Opened="OnFirstContentRendered">
 
   <Window.Resources>
-    <!-- Theme tokens scoped to this window -->
-    <Color x:Key="PinkColor">#FFFF69B4</Color>
+    <!-- Brand colors local to this window (Patreon palette must stay fixed). -->
     <Color x:Key="PatreonPurple">#FF9B59B6</Color>
     <Color x:Key="PatreonDarkPurple">#FF8E44AD</Color>
-    <SolidColorBrush x:Key="PinkBrush" Color="{DynamicResource PinkColor}" />
-    <SolidColorBrush x:Key="DarkerBg" Color="#FF121220" />
-    <SolidColorBrush x:Key="DarkerBgBrush" Color="#FF121220" />
-    <SolidColorBrush x:Key="PanelBgBrush" Color="#FF1C1C35" />
-    <SolidColorBrush x:Key="SecondaryBrush" Color="{DynamicResource PatreonPurple}" />
 
     <local:BoolToBrushConverter x:Key="UserBubbleBgConverter"
-                                TrueBrush="#FF69B4"
-                                FalseBrush="#3D2A55" />
+                                TrueBrush="{StaticResource PinkBrush}"
+                                FalseBrush="{StaticResource PanelAccentBrush}" />
     <local:BoolToHorizontalAlignmentConverter x:Key="UserBubbleAlignConverter"
                                               TrueValue="Right"
                                               FalseValue="Left" />
 
     <LinearGradientBrush x:Key="BubbleGradient" StartPoint="0,0" EndPoint="1,1">
       <GradientStop Color="{DynamicResource PatreonDarkPurple}" Offset="0"/>
-      <GradientStop Color="#FF121220" Offset="1"/>
+      <GradientStop Color="{DynamicResource DarkerBg}" Offset="1"/>
     </LinearGradientBrush>
   </Window.Resources>
 
@@ -46,7 +42,7 @@
 
         <!-- Tube frame -->
         <Image x:Name="ImgTubeFrame"
-               Source="/Resources/tube.png"
+               Source="avares://CCP.Avalonia/Assets/tube.png"
                Stretch="Uniform"
                HorizontalAlignment="Center"
                VerticalAlignment="Center"
@@ -95,7 +91,7 @@
                     ZIndex="20"
                     IsHitTestVisible="False">
               <TextBlock Text="{Binding [label_ai_badge], Source={x:Static loc:LocalizationManager.Instance}}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontSize="9"
                          FontWeight="Bold"
                          HorizontalAlignment="Center"
@@ -155,7 +151,7 @@
                 <Grid>
                   <TextBlock x:Name="TxtChatHistoryEmpty"
                              Text="{Binding [label_chat_history_empty], Source={x:Static loc:LocalizationManager.Instance}}"
-                             Foreground="#AAAAAA"
+                             Foreground="{DynamicResource TextDimBrush}"
                              FontSize="14"
                              FontStyle="Italic"
                              HorizontalAlignment="Center"
@@ -171,11 +167,11 @@
                           <StackPanel>
                             <TextBlock Tag="{Binding Text}"
                                        Loaded="ChatHistoryText_Loaded"
-                                       Foreground="White"
+                                       Foreground="{DynamicResource TextLightBrush}"
                                        FontSize="14"
                                        TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding TimeLabel}"
-                                       Foreground="#DDDDDD"
+                                       Foreground="{DynamicResource TextDimBrush}"
                                        FontSize="10"
                                        HorizontalAlignment="Right"
                                        Margin="0,2,0,0"/>
@@ -208,7 +204,7 @@
                      Height="30"
                      FontSize="14"
                      Background="{DynamicResource DarkerBgBrush}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      BorderBrush="{DynamicResource PinkBrush}"
                      BorderThickness="1"
                      Padding="5,3"
@@ -220,7 +216,7 @@
                     Height="30"
                     Margin="5,0,0,0"
                     Background="{DynamicResource PinkBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextLightBrush}"
                     FontWeight="Bold"
                     BorderThickness="0"
                     Cursor="Hand"
@@ -313,9 +309,9 @@
               </Ellipse.RenderTransform>
               <Ellipse.Fill>
                 <RadialGradientBrush GradientOrigin="0.5,0.45" Center="0.5,0.45" RadiusX="0.6" RadiusY="0.72">
-                  <GradientStop Color="#FFFF8FCF" Offset="0.0"/>
-                  <GradientStop Color="#66FF69B4" Offset="0.45"/>
-                  <GradientStop Color="#00FF69B4" Offset="1.0"/>
+                  <GradientStop Color="{DynamicResource PinkButtonHovered}" Offset="0.0"/>
+                  <GradientStop Color="{DynamicResource TransparentPink}" Offset="0.45"/>
+                  <GradientStop Color="{DynamicResource TransparentPink}" Offset="1.0"/>
                 </RadialGradientBrush>
               </Ellipse.Fill>
             </Ellipse>
@@ -351,7 +347,7 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
                 Margin="0,0,121,180"
-                Background="#CC1A1A2E"
+                Background="{DynamicResource PanelBgTransparentBrush}"
                 CornerRadius="12"
                 BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="2"
@@ -382,7 +378,7 @@
               <TextBlock x:Name="TxtAvatarLevel"
                          Text="{Binding [label_lv_1_2], Source={x:Static loc:LocalizationManager.Instance}}"
                          FontSize="13"
-                         Foreground="#B0B0B0"
+                         Foreground="{DynamicResource TextDimBrush}"
                          TextAlignment="Center"
                          HorizontalAlignment="Center"
                          Margin="0,-2,0,0"/>

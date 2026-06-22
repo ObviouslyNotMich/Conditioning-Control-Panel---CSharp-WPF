@@ -18,13 +18,13 @@
               ClipToBounds="True">
         <Border.Background>
           <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Offset="0" Color="#1A1A2E" />
+            <GradientStop Offset="0" Color="{DynamicResource PanelBg}" />
             <GradientStop Offset="1" Color="#4A2C6A" />
           </LinearGradientBrush>
         </Border.Background>
         <Grid>
           <Border Opacity="0.12"
-                  Background="White"
+                  Background="{DynamicResource TextLightBrush}"
                   Width="260"
                   Height="260"
                   CornerRadius="130"
@@ -35,7 +35,7 @@
             <TextBlock Text="{loc:Str tab_marquee_banner_title}"
                        FontSize="28"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{loc:Str tab_marquee_banner_subtitle}"
                        FontSize="14"
                        Foreground="{DynamicResource TextMutedBrush}"
@@ -55,7 +55,7 @@
           <TextBlock Text="{loc:Str tab_marquee_message_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <TextBox Text="{Binding MarqueeMessage, Mode=TwoWay}"
                    PlaceholderText="{loc:Str tab_marquee_marquee_message_placeholder}" />
           <StackPanel Orientation="Horizontal" Spacing="12">
@@ -81,7 +81,7 @@
           <TextBlock Text="{loc:Str tab_marquee_welcome_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <TextBlock Text="{Binding WelcomeText}"
                      Foreground="{DynamicResource TextMutedBrush}"
                      TextWrapping="Wrap" />
@@ -100,7 +100,7 @@
           <TextBlock Text="{loc:Str tab_marquee_update_banner_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <TextBlock Text="{Binding UpdateBannerText}"
                      Foreground="{DynamicResource TextMutedBrush}"
                      TextWrapping="Wrap" />

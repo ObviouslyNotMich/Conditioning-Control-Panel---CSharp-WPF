@@ -111,12 +111,12 @@ _defaults = CompanionPromptSettings.GetDefaults();
         {
             // TODO: CommunityPrompts service is not yet in CCP.Core.
             TxtActivePromptName.Text = Loc.Get("label_unknown_prompt");
-            TxtActivePromptName.Foreground = new SolidColorBrush(Color.Parse("#FF6B6B"));
+            TxtActivePromptName.Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!);
         }
         else if (_settings?.Current?.CompanionPrompt?.UseCustomPrompt == true)
         {
             TxtActivePromptName.Text = Loc.Get("label_custom");
-            TxtActivePromptName.Foreground = new SolidColorBrush(Color.Parse("#FF69B4"));
+            TxtActivePromptName.Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!);
         }
         else
         {

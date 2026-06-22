@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
         xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Windows;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.SessionEditorWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.SessionEditorWindow" x:DataType="x:Object"
         Title="{Binding [label_session_editor], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="765" Width="765"
         MinHeight="680" MinWidth="680"
@@ -33,7 +33,7 @@
 
           <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,4,8,4">
             <Button x:Name="BtnHelp" Content="?" Click="BtnHelp_Click" Width="24" Height="24"
-                    Background="{DynamicResource PinkBrush}" Foreground="White" FontSize="12" FontWeight="Bold"
+                    Background="{DynamicResource PinkBrush}" Foreground="{DynamicResource TextLightBrush}" FontSize="12" FontWeight="Bold"
                     BorderThickness="0" Cursor="Hand" ToolTip.Tip="{Binding [tooltip_how_to_use_the_session_editor], Source={x:Static loc:LocalizationManager.Instance}}">
               <Button.Theme>
                 <ControlTheme TargetType="Button">

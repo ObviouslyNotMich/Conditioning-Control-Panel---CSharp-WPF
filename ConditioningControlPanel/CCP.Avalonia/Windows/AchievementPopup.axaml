@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.AchievementPopup"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.AchievementPopup" x:DataType="x:Object"
         Title="{loc:Str window_achievement_achievement_unlocked_title}"
         Width="400" Height="200"
         WindowDecorations="None"
@@ -13,9 +13,8 @@
         WindowStartupLocation="Manual"
         PointerPressed="Window_PointerPressed">
 
-    <Border Background="#E0151530" CornerRadius="12" BorderBrush="{StaticResource PinkBrush}" BorderThickness="2"
+    <Border x:Name="RootBorder" Background="#E0151530" CornerRadius="12" BorderBrush="{StaticResource PinkBrush}" BorderThickness="2"
             Margin="10">
-        <Border.BoxShadow>0 0 20 0 #80FF69B4</Border.BoxShadow>
 
         <Grid Margin="15">
             <Grid.ColumnDefinitions>
@@ -45,7 +44,7 @@
 
                 <!-- Flavor Text -->
                 <TextBlock x:Name="TxtFlavor" Text="{loc:Str window_achievement_flavor_text_goes_here_text}"
-                           Foreground="#AAAAAA" FontSize="12"
+                           Foreground="{DynamicResource TextDimBrush}" FontSize="12"
                            TextWrapping="Wrap" FontStyle="Italic"/>
             </StackPanel>
 
@@ -62,7 +61,7 @@
                         <Setter Property="Foreground" Value="#888888" />
                     </Style>
                     <Style Selector="Button:pointerover">
-                        <Setter Property="Foreground" Value="White" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
                     </Style>
                 </Button.Styles>
             </Button>

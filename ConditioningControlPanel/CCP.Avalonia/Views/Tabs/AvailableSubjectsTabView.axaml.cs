@@ -42,14 +42,6 @@ namespace ConditioningControlPanel.Avalonia.Views.Tabs
             e.Handled = true;
         }
 
-        private void BtnBecomeASubject_Click(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
-        {
-            if (DataContext is AvailableSubjectsTabViewModel vm)
-            {
-                vm.BecomeSubjectCommand.Execute(null);
-            }
-        }
-
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnDetachedFromVisualTree(e);

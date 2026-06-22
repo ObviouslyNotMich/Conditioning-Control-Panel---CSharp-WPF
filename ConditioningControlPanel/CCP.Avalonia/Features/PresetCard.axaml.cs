@@ -146,13 +146,13 @@ public partial class PresetCard : UserControl
         if (IsDefault)
         {
             TxtBadge.Text = Loc.Get("preset_badge_default");
-            BadgeBorder.Background = new SolidColorBrush(Color.Parse("#3D3D60"));
+            BadgeBorder.Background = (IBrush?)Application.Current?.Resources["PanelAccentBrush"];
             BadgeBorder.IsVisible = true;
         }
         else if (IsCustom)
         {
             TxtBadge.Text = Loc.Get("preset_badge_custom");
-            BadgeBorder.Background = new SolidColorBrush(Color.Parse("#FF69B4"));
+            BadgeBorder.Background = (IBrush?)Application.Current?.Resources["PinkBrush"];
             BadgeBorder.IsVisible = true;
         }
         else

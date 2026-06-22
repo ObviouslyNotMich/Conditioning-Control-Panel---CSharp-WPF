@@ -466,7 +466,7 @@ Closed += (_, _) =>
     {
         TxtAccountToggle?.Inlines?.Clear();
         TxtAccountToggle?.Inlines?.Add(new Run(prefix + " ") { Foreground = new SolidColorBrush(Color.Parse("#B0B0B0")) });
-        TxtAccountToggle?.Inlines?.Add(new Run(action) { Foreground = new SolidColorBrush(Color.Parse("#FF69B4")), TextDecorations = TextDecorations.Underline });
+        TxtAccountToggle?.Inlines?.Add(new Run(action) { Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!), TextDecorations = TextDecorations.Underline });
     }
 
     private void TxtAccountToggle_Click(object? sender, PointerPressedEventArgs e)

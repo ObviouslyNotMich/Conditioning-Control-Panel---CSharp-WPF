@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Features;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Services.BouncingText;
@@ -24,17 +25,63 @@ namespace ConditioningControlPanel.Avalonia.Views.Tabs;
 public partial class SettingsTabView : UserControl
 {
     private FeaturePopupWindow? _activePopup;
+    private DispatcherTimer? _marqueeTimer;
+    private double _marqueeSegmentWidth;
+    private double _marqueeOffset;
 
     public SettingsTabView()
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         AddHandler(FeatureCard.ToggleRequestedEvent, OnFeatureCardToggleRequested);
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
         LoadLogo();
+        InitializeMarquee();
+    }
+
+    private void OnUnloaded(object? sender, RoutedEventArgs e)
+    {
+        _marqueeTimer?.Stop();
+        _marqueeTimer = null;
+    }
+
+    private void InitializeMarquee()
+    {
+        if (MarqueeText1 == null || MarqueeContent == null) return;
+
+        // Wait for the first layout pass so we know the width of one text segment.
+        MarqueeText1.LayoutUpdated += OnMarqueeLayoutUpdated;
+    }
+
+    private void OnMarqueeLayoutUpdated(object? sender, EventArgs e)
+    {
+        if (MarqueeText1 == null) return;
+        MarqueeText1.LayoutUpdated -= OnMarqueeLayoutUpdated;
+
+        _marqueeSegmentWidth = MarqueeText1.Bounds.Width;
+        if (_marqueeSegmentWidth <= 0 || MarqueeCanvas == null) return;
+
+        Canvas.SetLeft(MarqueeContent, 0);
+        _marqueeOffset = 0;
+
+        _marqueeTimer?.Stop();
+        _marqueeTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, OnMarqueeTick);
+        _marqueeTimer.Start();
+    }
+
+    private void OnMarqueeTick(object? sender, EventArgs e)
+    {
+        if (MarqueeContent == null) return;
+
+        _marqueeOffset += 1.5;
+        if (_marqueeOffset >= _marqueeSegmentWidth)
+            _marqueeOffset = 0;
+
+        Canvas.SetLeft(MarqueeContent, -_marqueeOffset);
     }
 
     private void LoadLogo()
@@ -296,7 +343,7 @@ public partial class SettingsTabView : UserControl
 
     private void VelvetBtnSchedulerRamp_Click(object? sender, RoutedEventArgs e)
     {
-        ShowFeaturePopup(new SchedulerRampFeatureControl(), LocalizationManager.Instance.Get("btn_scheduler_intensity_ramp"), sender, glyph: "📈");
+        ShowFeaturePopup(new SchedulerRampFeatureControl(), LocalizationManager.Instance.Get("btn_scheduler_intensity_ramp"), sender, glyph: "📅");
     }
 
     private void VelvetBtnCatalogue_Click(object? sender, RoutedEventArgs e)

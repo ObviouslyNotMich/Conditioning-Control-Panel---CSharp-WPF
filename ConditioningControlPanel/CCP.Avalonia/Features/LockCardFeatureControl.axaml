@@ -12,14 +12,14 @@
     <Border Theme="{StaticResource PlatformInfoBadge}"
             IsVisible="{Binding Capabilities.SupportsInputHooks, ElementName=Root, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
       <TextBlock Text="{loc:Str msg_lock_card_platform_unavailable}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="11"
                  TextWrapping="Wrap" />
     </Border>
 
     <!-- Enable -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -28,11 +28,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str label_lock_card_enable}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="14"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str label_lock_card_enable_desc}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
@@ -45,8 +45,8 @@
     </Border>
 
     <!-- Per hour -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -54,13 +54,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_per_hour}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtFreq"
                      Text="2"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -72,7 +72,7 @@
                 IsSnapToTickEnabled="True"
                 ValueChanged="SliderFreq_Changed" />
         <TextBlock Text="{loc:Str label_lock_card_per_hour_desc}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -80,8 +80,8 @@
     </Border>
 
     <!-- Repeats -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -89,13 +89,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_repeats}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtRepeats"
                      Text="3x"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -107,7 +107,7 @@
                 IsSnapToTickEnabled="True"
                 ValueChanged="SliderRepeats_Changed" />
         <TextBlock Text="{loc:Str label_lock_card_repeats_desc}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -115,8 +115,8 @@
     </Border>
 
     <!-- Strict lock -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -125,11 +125,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str label_lock_card_strict}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str label_lock_card_strict_desc}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
@@ -148,18 +148,18 @@
       <Button Grid.Column="0"
               Content="{loc:Str btn_lock_card_manage_phrases}"
               Click="BtnManagePhrases_Click"
-              Background="#1A1A2E"
-              Foreground="White"
-              BorderBrush="#FF69B4"
+              Background="{DynamicResource PanelBgBrush}"
+              Foreground="{DynamicResource TextLightBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="1"
               CornerRadius="6"
               Padding="12,6" />
       <Button Grid.Column="2"
               Content="{loc:Str btn_test}"
               Click="BtnTest_Click"
-              Background="#1A1A2E"
-              Foreground="White"
-              BorderBrush="#FF69B4"
+              Background="{DynamicResource PanelBgBrush}"
+              Foreground="{DynamicResource TextLightBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="1"
               CornerRadius="6"
               Padding="12,6" />
@@ -167,9 +167,9 @@
               Content="{loc:Str btn_lock_card_settings}"
               Width="44"
               Click="BtnColorSettings_Click"
-              Background="#1A1A2E"
-              Foreground="White"
-              BorderBrush="#FF69B4"
+              Background="{DynamicResource PanelBgBrush}"
+              Foreground="{DynamicResource TextLightBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="1"
               CornerRadius="6"
               Padding="12,6" />

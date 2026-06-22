@@ -1,6 +1,7 @@
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using ConditioningControlPanel.Avalonia.ViewModels.Tabs;
@@ -30,6 +31,30 @@ public partial class PresetsTabView : UserControl
         if (sender is Control { DataContext: Session session })
         {
             ViewModel?.SelectSessionCommand.Execute(session);
+        }
+    }
+
+    private void PresetCard_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: Preset preset })
+        {
+            ViewModel?.SelectPresetCommand.Execute(preset);
+        }
+    }
+
+    private void EditSessionButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { Tag: Session session })
+        {
+            ViewModel?.EditSessionCommand.Execute(session);
+        }
+    }
+
+    private void ExportSessionButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { Tag: Session session })
+        {
+            ViewModel?.ExportSessionCommand.Execute(session);
         }
     }
 

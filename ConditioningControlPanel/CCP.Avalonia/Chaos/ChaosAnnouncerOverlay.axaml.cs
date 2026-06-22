@@ -260,19 +260,19 @@ WindowDecorations = WindowDecorations.None;
 
     private static (IBrush fill, IBrush stroke) Palette(ChaosAnnounceKind kind)
     {
-        Color c = kind switch
+        IBrush fill = kind switch
         {
-            ChaosAnnounceKind.Mantra => Color.FromRgb(0xFF, 0xD2, 0x7A),
-            ChaosAnnounceKind.Temptation => Color.FromRgb(0xFF, 0x6B, 0x6B),
-            ChaosAnnounceKind.Willpower => Color.FromRgb(0x7A, 0xE0, 0xFF),
-            ChaosAnnounceKind.Depth => Color.FromRgb(0xFF, 0xFF, 0xFF),
-            ChaosAnnounceKind.Streak => Color.FromRgb(0xFF, 0xC8, 0x3C),
-            ChaosAnnounceKind.Item => Color.FromRgb(0x7A, 0xFF, 0xD2),
-            ChaosAnnounceKind.PowerUp => Color.FromRgb(0x9C, 0xE8, 0xA0),
-            ChaosAnnounceKind.Narrator => Color.FromRgb(0xE6, 0x9A, 0xFF),
-            _ => Colors.White,
+            ChaosAnnounceKind.Mantra => AppBrush("PinkButtonHoveredBrush", new SolidColorBrush(Color.FromRgb(0xFF, 0xD2, 0x7A))),
+            ChaosAnnounceKind.Temptation => AppBrush("DangerBrush", new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x6B))),
+            ChaosAnnounceKind.Willpower => new SolidColorBrush(Color.FromRgb(0x7A, 0xE0, 0xFF)),
+            ChaosAnnounceKind.Depth => AppBrush("TextLightBrush", Brushes.White),
+            ChaosAnnounceKind.Streak => new SolidColorBrush(Color.FromRgb(0xFF, 0xC8, 0x3C)),
+            ChaosAnnounceKind.Item => new SolidColorBrush(Color.FromRgb(0x7A, 0xFF, 0xD2)),
+            ChaosAnnounceKind.PowerUp => new SolidColorBrush(Color.FromRgb(0x9C, 0xE8, 0xA0)),
+            ChaosAnnounceKind.Narrator => new SolidColorBrush(Color.FromRgb(0xE6, 0x9A, 0xFF)),
+            _ => AppBrush("TextLightBrush", Brushes.White),
         };
-        return (new SolidColorBrush(c), new SolidColorBrush(Color.FromRgb(0x0B, 0x08, 0x12)));
+        return (fill, new SolidColorBrush(Color.FromRgb(0x0B, 0x08, 0x12)));
     }
 
     private void ApplyExStyles()
@@ -296,6 +296,13 @@ WindowDecorations = WindowDecorations.None;
         double minX = double.MaxValue;
         foreach (var s in screens!.All) minX = Math.Min(minX, s.Bounds.X);
         return minX;
+    }
+
+    private static IBrush AppBrush(string key, IBrush fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+            return b;
+        return fallback;
     }
 
     private static double VirtualTop()

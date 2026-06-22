@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.RoadmapConfirmDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.RoadmapConfirmDialog" x:DataType="x:Object"
         Title="{Binding [dialog_confirm_photo], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="450"
         Height="280"
@@ -55,7 +55,7 @@
                 CornerRadius="8"
                 Padding="12">
           <TextBlock x:Name="TxtRequirement"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="13"
                      TextWrapping="Wrap" />
         </Border>

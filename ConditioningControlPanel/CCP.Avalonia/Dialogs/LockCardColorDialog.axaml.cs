@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
@@ -48,7 +49,8 @@ LoadCurrentSettings();
 
     private static Color ParseAccentOrFallback()
     {
-        // TODO: IModService does not yet expose accent color; fall back to pink.
+        if (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color color)
+            return color;
         return Color.Parse("#FF69B4");
     }
 

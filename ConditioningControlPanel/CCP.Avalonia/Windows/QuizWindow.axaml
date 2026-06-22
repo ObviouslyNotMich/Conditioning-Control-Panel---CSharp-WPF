@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.QuizWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.QuizWindow" x:DataType="x:Object"
         Title="{loc:Str dialog_quiz}"
         Width="900" Height="750"
         MinWidth="600" MinHeight="500"
@@ -79,9 +79,8 @@
       <Grid x:Name="CategorySelectPanel" IsVisible="True">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="500">
           <!-- Title -->
-          <Border HorizontalAlignment="Center" Margin="0,0,0,8"
-                  BoxShadow="0 0 30 0 #60FF69B4">
-            <TextBlock Text="{loc:Str label_sissy_quiz}" FontSize="58" FontWeight="Bold" Foreground="White"
+          <Border x:Name="TitleBorder" HorizontalAlignment="Center" Margin="0,0,0,8">
+            <TextBlock Text="{loc:Str label_sissy_quiz}" FontSize="58" FontWeight="Bold" Foreground="{DynamicResource TextLightBrush}"
                        HorizontalAlignment="Center" />
           </Border>
           <TextBlock Text="{loc:Str label_ai_generated_personality_quiz}" Foreground="#808090" FontSize="19"
@@ -222,8 +221,8 @@
                     BorderThickness="1">
               <Border.BorderBrush>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                  <GradientStop Color="#40FF69B4" Offset="0" />
-                  <GradientStop Color="#409B59B6" Offset="1" />
+                  <GradientStop Color="{DynamicResource TransparentPink40}" Offset="0" />
+                  <GradientStop Color="{DynamicResource TransparentPink40}" Offset="1" />
                 </LinearGradientBrush>
               </Border.BorderBrush>
               <TextBlock x:Name="TxtProfileText" FontSize="22" Foreground="#C0C0D8"
@@ -233,7 +232,7 @@
             <!-- Quiz Session -->
             <Border x:Name="BtnTrySession" Cursor="Hand" CornerRadius="10" Padding="20,16"
                     Margin="0,0,0,20" IsHitTestVisible="False" Opacity="0.5"
-                    Background="#209B59B6" BorderBrush="#409B59B6" BorderThickness="1.5"
+                    Background="{DynamicResource TransparentPink40Brush}" BorderBrush="{DynamicResource TransparentPink60Brush}" BorderThickness="1.5"
                     PointerPressed="BtnTrySession_Click"
                     PointerEntered="BtnTrySession_PointerEntered" PointerExited="BtnTrySession_PointerExited">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -282,7 +281,7 @@
       <!-- ERROR PANEL -->
       <Grid x:Name="ErrorPanel" IsVisible="False">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="400">
-          <TextBlock Text="{loc:Str label_oops}" FontSize="34" FontWeight="Bold" Foreground="#FF6B6B"
+          <TextBlock Text="{loc:Str label_oops}" FontSize="34" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}"
                      HorizontalAlignment="Center" Margin="0,0,0,12" />
           <TextBlock x:Name="TxtError" FontSize="17" Foreground="#808090"
                      TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,24" />

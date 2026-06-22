@@ -11,8 +11,8 @@
         x:Name="Root"
         x:DataType="vm:MainWindowViewModel"
         Title="{Binding Title}"
-        Width="1280"
-        Height="900"
+        Width="1405"
+        Height="1000"
         MinWidth="600"
         MinHeight="450"
         WindowDecorations="None"
@@ -30,15 +30,6 @@
   </Window.Resources>
 
   <Window.Styles>
-    <Style Selector="TabControl">
-      <Setter Property="Template">
-        <ControlTemplate>
-          <ContentPresenter Content="{TemplateBinding SelectedContent}"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch" />
-        </ControlTemplate>
-      </Setter>
-    </Style>
   </Window.Styles>
 
   <!-- 5-px resize-grip shell around the scaled UI. -->
@@ -127,11 +118,11 @@
                       Margin="12,0">
             <TextBlock Text="💗"
                        FontSize="16"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        Margin="0,0,8,0"
                        VerticalAlignment="Center" />
             <TextBlock Text="{Binding Title}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center" />
@@ -155,7 +146,7 @@
                          Fill="{Binding DirectoryStatusDotColor}"
                          VerticalAlignment="Center" />
                 <TextBlock Text="{Binding DirectoryStatusText}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="11"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center" />
@@ -172,10 +163,10 @@
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <Ellipse Width="8"
                          Height="8"
-                         Fill="#FF4444"
+                         Fill="{DynamicResource DangerBrush}"
                          VerticalAlignment="Center" />
                 <TextBlock Text="{Binding WebcamActiveText}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="11"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center" />
@@ -222,7 +213,7 @@
                         VerticalAlignment="Center"
                         FontSize="11"
                         Background="{DynamicResource PanelBgBrush}"
-                        Foreground="White"
+                        Foreground="{DynamicResource TextLightBrush}"
                         BorderBrush="{DynamicResource PanelAccentBrush}"
                         CornerRadius="6">
                 <ComboBox.ItemTemplate>
@@ -233,7 +224,7 @@
                                Fill="{Binding AccentBrush}"
                                VerticalAlignment="Center" />
                       <TextBlock Text="{Binding Name}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  VerticalAlignment="Center"
                                  FontSize="11" />
                     </StackPanel>
@@ -253,9 +244,9 @@
                       ToolTip.Tip="{loc:Str tooltip_manage_mods}" />
             </StackPanel>
 
-            <!-- Player title with pink drop shadow -->
-            <Border Background="Transparent"
-                    BoxShadow="0 0 8 0 #99FF69B4"
+            <!-- Player title with accent drop shadow -->
+            <Border x:Name="PlayerTitleShadowBorder"
+                    Background="Transparent"
                     CornerRadius="0"
                     Padding="0"
                     Margin="0,0,12,0">
@@ -273,7 +264,7 @@
                     Padding="10,4">
               <TextBlock x:Name="TxtLevel"
                          Text="{Binding LevelText}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontWeight="Bold"
                          FontSize="12" />
             </Border>
@@ -327,55 +318,55 @@
                       Orientation="Horizontal"
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"
-                      Spacing="6">
+                      Spacing="4">
             <ToggleButton Theme="{StaticResource TabButtonActivePrimary}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="settings"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=settings}"
-                          Padding="10,6">
-              <TextBlock><Run Text="📊"/><Run Text="{loc:Str tab_dashboard}"/></TextBlock>
+                          Padding="7,4">
+              <TextBlock FontSize="11"><Run Text="📊"/><Run Text="{loc:Str tab_dashboard}"/></TextBlock>
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="presets"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=presets}"
-                          Padding="10,6">
-              <TextBlock><Run Text="📋"/><Run Text="{loc:Str tab_presets}"/></TextBlock>
+                          Padding="7,4">
+              <TextBlock FontSize="11"><Run Text="📋"/><Run Text="{loc:Str tab_presets}"/></TextBlock>
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="quests"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=quests}"
-                          Padding="10,6">
-              <TextBlock><Run Text="📜"/><Run Text="{loc:Str tab_quests}"/></TextBlock>
+                          Padding="7,4">
+              <TextBlock FontSize="11"><Run Text="📜"/><Run Text="{loc:Str tab_quests}"/></TextBlock>
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="enhancements"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=enhancements}"
-                          Padding="10,6">
-              <TextBlock><Run Text="✨"/><Run Text="{loc:Str tab_enhancements}"/></TextBlock>
+                          Padding="7,4">
+              <TextBlock FontSize="11"><Run Text="✨"/><Run Text="{loc:Str tab_enhancements}"/></TextBlock>
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButtonDeeper}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="deeper"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=deeper}"
-                          Padding="10,6">
-              <TextBlock><Run Text="🌊"/><Run Text="{loc:Str tab_deeper}"/></TextBlock>
+                          Padding="7,4">
+              <TextBlock FontSize="11"><Run Text="🌊"/><Run Text="{loc:Str tab_deeper}"/></TextBlock>
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButtonNeon}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="availablesubjects"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=availablesubjects}"
-                          Padding="10,6">
-              <TextBlock><Run Text="🛰️"/><Run Text="{loc:Str tab_available_subjects}"/></TextBlock>
+                          Padding="7,4">
+              <TextBlock FontSize="11"><Run Text="🛰️"/><Run Text="{loc:Str tab_available_subjects}"/></TextBlock>
             </ToggleButton>
             <ToggleButton Theme="{StaticResource TabButton}"
                           Command="{Binding SelectTabCommand}"
                           CommandParameter="assets"
                           IsChecked="{Binding SelectedTab.Key, Mode=OneWay, Converter={StaticResource StringEqualsConverter}, ConverterParameter=assets}"
-                          Padding="10,6">
-              <TextBlock><Run Text="📁"/><Run Text="{loc:Str tab_assets}"/></TextBlock>
+                          Padding="7,4">
+              <TextBlock FontSize="11"><Run Text="📁"/><Run Text="{loc:Str tab_assets}"/></TextBlock>
             </ToggleButton>
           </StackPanel>
 
@@ -391,13 +382,13 @@
                       SelectedItem="{Binding SelectedPreset}"
                       Width="160"
                       Background="{DynamicResource PanelBgBrush}"
-                      Foreground="White"
+                      Foreground="{DynamicResource TextLightBrush}"
                       BorderBrush="{DynamicResource PinkBrush}"
                       CornerRadius="6">
               <ComboBox.ItemTemplate>
                 <DataTemplate x:DataType="models:PresetItem">
                   <TextBlock Text="{Binding Name}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontSize="11"
                              VerticalAlignment="Center" />
                 </DataTemplate>
@@ -410,13 +401,13 @@
                       SelectedItem="{Binding SelectedLanguage}"
                       Width="90"
                       Background="{DynamicResource PanelBgBrush}"
-                      Foreground="White"
+                      Foreground="{DynamicResource TextLightBrush}"
                       BorderBrush="{DynamicResource PanelAccentBrush}"
                       CornerRadius="6">
               <ComboBox.ItemTemplate>
                 <DataTemplate x:DataType="models:LanguageItem">
                   <TextBlock Text="{Binding ShortName}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontSize="12" />
                 </DataTemplate>
               </ComboBox.ItemTemplate>
@@ -434,24 +425,24 @@
                     CornerRadius="6">
               <Button.Styles>
                 <Style Selector="Button.updatePill">
-                  <Setter Property="Background" Value="#3D1A3D" />
-                  <Setter Property="Foreground" Value="#FF69B4" />
-                  <Setter Property="BorderBrush" Value="#3D3D60" />
+                  <Setter Property="Background" Value="{DynamicResource PinkBrush}" />
+                  <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource DarkPinkBrush}" />
                   <Setter Property="BorderThickness" Value="1" />
                   <Setter Property="MinWidth" Value="110" />
                   <Setter Property="Height" Value="32" />
                 </Style>
                 <Style Selector="Button.updatePill[Tag=UpdateAvailable]">
                   <Setter Property="Background" Value="#8B1A4F" />
-                  <Setter Property="Foreground" Value="White" />
-                  <Setter Property="BorderBrush" Value="#FF69B4" />
+                  <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
                   <Setter Property="BorderThickness" Value="2" />
                   <Setter Property="FontSize" Value="13" />
                 </Style>
                 <Style Selector="Button.updatePill[Tag=UrgentUpdate]">
                   <Setter Property="Background" Value="#DC143C" />
-                  <Setter Property="Foreground" Value="White" />
-                  <Setter Property="BorderBrush" Value="#FF4444" />
+                  <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
                   <Setter Property="BorderThickness" Value="3" />
                   <Setter Property="FontSize" Value="12" />
                   <Setter Property="FontWeight" Value="ExtraBold" />
@@ -514,14 +505,14 @@
                       Command="{Binding OpenBannerLinkCommand}"
                       CommandParameter="{Binding BannerTertiaryUrl}"
                       Background="Transparent"
-                      Foreground="{DynamicResource PinkBrush}"
+                      Foreground="{DynamicResource BannerTertiaryBrush}"
                       BorderThickness="0"
                       Padding="0"
                       Cursor="Hand"
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center">
                 <TextBlock Text="{Binding BannerTertiaryText}"
-                           Foreground="{DynamicResource PinkBrush}"
+                           Foreground="{DynamicResource BannerTertiaryBrush}"
                            FontSize="14"
                            FontStyle="Italic"
                            FontWeight="Bold"
@@ -605,7 +596,7 @@
                         <TextBlock Text="{loc:Str tab_blink_trainer}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                        <TextBlock Text="✨" FontSize="9" Foreground="White" />
+                        <TextBlock Text="✨" FontSize="9" Foreground="{DynamicResource TextLightBrush}" />
                       </Border>
                     </Grid>
                   </Button>
@@ -619,7 +610,7 @@
                         <TextBlock Text="{loc:Str tab_remote_control}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                        <TextBlock Text="✨" FontSize="9" Foreground="White" />
+                        <TextBlock Text="✨" FontSize="9" Foreground="{DynamicResource TextLightBrush}" />
                       </Border>
                     </Grid>
                   </Button>
@@ -633,7 +624,7 @@
                         <TextBlock Text="{loc:Str tab_takeover}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                        <TextBlock Text="✨" FontSize="9" Foreground="White" />
+                        <TextBlock Text="✨" FontSize="9" Foreground="{DynamicResource TextLightBrush}" />
                       </Border>
                     </Grid>
                   </Button>
@@ -647,7 +638,7 @@
                         <TextBlock Text="{loc:Str tab_haptics}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                        <TextBlock Text="✨" FontSize="9" Foreground="White" />
+                        <TextBlock Text="✨" FontSize="9" Foreground="{DynamicResource TextLightBrush}" />
                       </Border>
                     </Grid>
                   </Button>
@@ -661,7 +652,7 @@
                         <TextBlock Text="{loc:Str tab_awareness}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                        <TextBlock Text="✨" FontSize="9" Foreground="White" />
+                        <TextBlock Text="✨" FontSize="9" Foreground="{DynamicResource TextLightBrush}" />
                       </Border>
                     </Grid>
                   </Button>
@@ -675,7 +666,7 @@
                         <TextBlock Text="{loc:Str tab_lockdown}" VerticalAlignment="Center" />
                       </StackPanel>
                       <Border Grid.Column="1" Background="{DynamicResource PinkBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                        <TextBlock Text="✨" FontSize="9" Foreground="White" />
+                        <TextBlock Text="✨" FontSize="9" Foreground="{DynamicResource TextLightBrush}" />
                       </Border>
                     </Grid>
                   </Button>
@@ -687,7 +678,7 @@
                     Width="26"
                     Height="26"
                     Background="{DynamicResource PinkBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextLightBrush}"
                     FontWeight="Bold"
                     FontSize="16"
                     CornerRadius="13"
@@ -700,7 +691,7 @@
                     Width="26"
                     Height="26"
                     Background="{DynamicResource PanelAccentBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextLightBrush}"
                     FontSize="12"
                     CornerRadius="13"
                     Padding="0"
@@ -747,8 +738,7 @@
                           Width="{Binding XpPercent,
                                           Converter={StaticResource PercentToWidthConverter},
                                           ConverterParameter=200}"
-                          Opacity="{Binding XpFlashOpacity}"
-                          BoxShadow="0 0 8 0 #FF69B4" />
+                          Opacity="{Binding XpFlashOpacity}" />
                 </Grid>
               </Border>
               <TextBlock Grid.Column="2"
@@ -792,13 +782,26 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
 
+              <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                      BorderBrush="{DynamicResource PanelAccentBrush}"
+                      BorderThickness="1"
+                      CornerRadius="8"
+                      Padding="6,2"
+                      VerticalAlignment="Center">
+                <TextBlock Text="VIP Bonus"
+                           Foreground="{DynamicResource TextDimBrush}"
+                           FontSize="10"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+              </Border>
+
               <Border IsVisible="{Binding ConditioningTimeVisible}"
                       Background="{DynamicResource ElevatedSurfaceBrush}"
                       CornerRadius="10"
                       Padding="8,4"
                       VerticalAlignment="Center">
                 <TextBlock Text="{Binding ConditioningTimeText}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="11"
                            VerticalAlignment="Center" />
               </Border>
@@ -808,7 +811,7 @@
                       Padding="8,4"
                       VerticalAlignment="Center">
                 <TextBlock Text="{Binding OnlineUsersText}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="11"
                            VerticalAlignment="Center" />
               </Border>
@@ -818,7 +821,7 @@
                       Padding="8,4"
                       VerticalAlignment="Center">
                 <TextBlock Text="{Binding RankPercentileText}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="11"
                            VerticalAlignment="Center" />
               </Border>
@@ -843,166 +846,152 @@
         </Grid>
 
         <!-- Tab shell -->
-        <TabControl Grid.Row="4"
-                    ItemsSource="{Binding Tabs}"
-                    SelectedItem="{Binding SelectedTab}"
-                    Margin="8"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch">
-          <TabControl.ItemTemplate>
-            <DataTemplate x:DataType="tabs:TabItemViewModel">
-              <StackPanel Orientation="Horizontal" Spacing="4">
-                <TextBlock Text="{Binding Icon}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Header}"
-                           VerticalAlignment="Center" />
-              </StackPanel>
+        <ContentControl Grid.Row="4"
+                        Content="{Binding SelectedTab}"
+                        Margin="8"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch">
+          <ContentControl.DataTemplates>
+            <DataTemplate DataType="tabs:AppInfoTabViewModel">
+              <tabViews:AppInfoTabView />
             </DataTemplate>
-          </TabControl.ItemTemplate>
-          <TabControl.ContentTemplate>
-            <DataTemplate x:DataType="tabs:TabItemViewModel">
-              <ContentControl Content="{Binding}">
-                <ContentControl.DataTemplates>
-                  <DataTemplate DataType="tabs:AppInfoTabViewModel">
-                    <tabViews:AppInfoTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:SettingsTabViewModel">
-                    <tabViews:SettingsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:PresetsTabViewModel">
-                    <tabViews:PresetsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:PresetIOTabViewModel">
-                    <tabViews:PresetIOTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:QuestsTabViewModel">
-                    <tabViews:QuestsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:LevelFeaturesTabViewModel">
-                    <tabViews:LevelFeaturesTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:PatreonTabViewModel">
-                    <tabViews:PatreonTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:AttentionCheckTabViewModel">
-                    <features:AttentionCheckFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:BouncingTextTabViewModel">
-                    <features:BouncingTextFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:BubbleCountTabViewModel">
-                    <features:BubbleCountFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:BubblePopTabViewModel">
-                    <features:BubblePopFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:FlashTabViewModel">
-                    <features:FlashFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:PinkFilterTabViewModel">
-                    <features:PinkFilterFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:IntensityRampTabViewModel">
-                    <features:IntensityRampFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:LockCardTabViewModel">
-                    <features:LockCardFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:MindWipeTabViewModel">
-                    <features:MindWipeFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:SchedulerTabViewModel">
-                    <features:SchedulerFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:VisualsTabViewModel">
-                    <features:VisualsFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:SubliminalTabViewModel">
-                    <features:SubliminalFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:SystemTabViewModel">
-                    <features:SystemFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:SpiralTabViewModel">
-                    <features:SpiralFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:SchedulerRampTabViewModel">
-                    <features:SchedulerRampFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:VideoTabViewModel">
-                    <features:VideoFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:WebcamTabViewModel">
-                    <features:WebcamFeatureControl />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:DeeperTabViewModel">
-                    <tabViews:DeeperTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:DeeperHubTabViewModel">
-                    <tabViews:DeeperHubTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:EnhancementsTabViewModel">
-                    <tabViews:EnhancementsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:AssetsTabViewModel">
-                    <tabViews:AssetsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:CatalogueSubmissionsTabViewModel">
-                    <tabViews:CatalogueSubmissionsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:AchievementsTabViewModel">
-                    <tabViews:AchievementsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:LeaderboardTabViewModel">
-                    <tabViews:LeaderboardTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:MarqueeTabViewModel">
-                    <tabViews:MarqueeTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:AnimationsTabViewModel">
-                    <tabViews:AnimationsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:DeeperSubmissionsTabViewModel">
-                    <tabViews:DeeperSubmissionsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:CompanionHubTabViewModel">
-                    <tabViews:CompanionHubTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:CompanionTabViewModel">
-                    <tabViews:CompanionTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:BambiTakeoverTabViewModel">
-                    <tabViews:BambiTakeoverTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:HapticsTabViewModel">
-                    <tabViews:HapticsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:AwarenessTabViewModel">
-                    <tabViews:AwarenessTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:LabTabViewModel">
-                    <tabViews:LabTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:BlinkTrainerTabViewModel">
-                    <tabViews:BlinkTrainerTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:RemoteControlTabViewModel">
-                    <tabViews:RemoteControlTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:AvailableSubjectsTabViewModel">
-                    <tabViews:AvailableSubjectsTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:ProfileTabViewModel">
-                    <tabViews:ProfileTabView />
-                  </DataTemplate>
-                  <DataTemplate DataType="tabs:TabItemViewModel">
-                    <tabViews:PlaceholderTabView />
-                  </DataTemplate>
-                </ContentControl.DataTemplates>
-              </ContentControl>
+            <DataTemplate DataType="tabs:SettingsTabViewModel">
+              <tabViews:SettingsTabView />
             </DataTemplate>
-          </TabControl.ContentTemplate>
-        </TabControl>
+            <DataTemplate DataType="tabs:PresetsTabViewModel">
+              <tabViews:PresetsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:PresetIOTabViewModel">
+              <tabViews:PresetIOTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:QuestsTabViewModel">
+              <tabViews:QuestsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:LevelFeaturesTabViewModel">
+              <tabViews:LevelFeaturesTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:PatreonTabViewModel">
+              <tabViews:PatreonTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:AttentionCheckTabViewModel">
+              <features:AttentionCheckFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:BouncingTextTabViewModel">
+              <features:BouncingTextFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:BubbleCountTabViewModel">
+              <features:BubbleCountFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:BubblePopTabViewModel">
+              <features:BubblePopFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:FlashTabViewModel">
+              <features:FlashFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:PinkFilterTabViewModel">
+              <features:PinkFilterFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:IntensityRampTabViewModel">
+              <features:IntensityRampFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:LockCardTabViewModel">
+              <features:LockCardFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:MindWipeTabViewModel">
+              <features:MindWipeFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:SchedulerTabViewModel">
+              <features:SchedulerFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:VisualsTabViewModel">
+              <features:VisualsFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:SubliminalTabViewModel">
+              <features:SubliminalFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:SystemTabViewModel">
+              <features:SystemFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:SpiralTabViewModel">
+              <features:SpiralFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:SchedulerRampTabViewModel">
+              <features:SchedulerRampFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:VideoTabViewModel">
+              <features:VideoFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:WebcamTabViewModel">
+              <features:WebcamFeatureControl />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:DeeperTabViewModel">
+              <tabViews:DeeperTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:DeeperHubTabViewModel">
+              <tabViews:DeeperHubTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:EnhancementsTabViewModel">
+              <tabViews:EnhancementsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:AssetsTabViewModel">
+              <tabViews:AssetsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:CatalogueSubmissionsTabViewModel">
+              <tabViews:CatalogueSubmissionsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:AchievementsTabViewModel">
+              <tabViews:AchievementsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:LeaderboardTabViewModel">
+              <tabViews:LeaderboardTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:MarqueeTabViewModel">
+              <tabViews:MarqueeTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:AnimationsTabViewModel">
+              <tabViews:AnimationsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:DeeperSubmissionsTabViewModel">
+              <tabViews:DeeperSubmissionsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:CompanionHubTabViewModel">
+              <tabViews:CompanionHubTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:CompanionTabViewModel">
+              <tabViews:CompanionTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:BambiTakeoverTabViewModel">
+              <tabViews:BambiTakeoverTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:HapticsTabViewModel">
+              <tabViews:HapticsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:AwarenessTabViewModel">
+              <tabViews:AwarenessTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:LabTabViewModel">
+              <tabViews:LabTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:BlinkTrainerTabViewModel">
+              <tabViews:BlinkTrainerTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:RemoteControlTabViewModel">
+              <tabViews:RemoteControlTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:AvailableSubjectsTabViewModel">
+              <tabViews:AvailableSubjectsTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:ProfileTabViewModel">
+              <tabViews:ProfileTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:LockdownTabViewModel">
+              <tabViews:LockdownTabView />
+            </DataTemplate>
+            <DataTemplate DataType="tabs:TabItemViewModel">
+              <tabViews:PlaceholderTabView />
+            </DataTemplate>
+          </ContentControl.DataTemplates>
+        </ContentControl>
 
         <!-- Global bottom bar: status text + Start/Pause | Save | Exit -->
         <Grid Grid.Row="5"
@@ -1053,7 +1042,7 @@
                       Height="50"
                       Margin="5,0,0,0"
                       Background="#FFA500"
-                      Foreground="White"
+                      Foreground="{DynamicResource TextLightBrush}"
                       FontSize="20"
                       FontWeight="Bold"
                       CornerRadius="6"
@@ -1097,7 +1086,7 @@
                        Text="🎮"
                        FontSize="64"
                        HorizontalAlignment="Center"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        Margin="0,0,0,12" />
             <StackPanel Grid.Row="1"
                         Spacing="12"
@@ -1105,7 +1094,7 @@
               <TextBlock Text="{loc:Str label_remote_controlled_title}"
                          FontSize="28"
                          FontWeight="Bold"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          HorizontalAlignment="Center" />
               <TextBlock Text="{Binding RemoteControlSessionCodeDisplay}"
                          FontSize="14"
@@ -1122,7 +1111,7 @@
                              Foreground="{DynamicResource PinkBrush}" />
                   <TextBlock Text="{Binding RemoteControllerSessionNameDisplay}"
                              FontSize="13"
-                             Foreground="White" />
+                             Foreground="{DynamicResource TextLightBrush}" />
                   <TextBlock Text="{Binding RemoteControlStatusDisplay}"
                              FontSize="13"
                              Foreground="{DynamicResource TextMutedBrush}" />
@@ -1180,11 +1169,11 @@
               <TextBlock Text="📁"
                          FontSize="64"
                          HorizontalAlignment="Center"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <TextBlock Text="{loc:Str label_drop_to_import_title}"
                          FontSize="24"
                          FontWeight="Bold"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          HorizontalAlignment="Center" />
               <TextBlock Text="{loc:Str label_drop_zone_hint}"
                          FontSize="13"
@@ -1214,13 +1203,13 @@
                          Text="{loc:Str label_choose_a_guide}"
                          FontSize="22"
                          FontWeight="Bold"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          VerticalAlignment="Center" />
               <Button Grid.Column="1"
                       Content="✕"
                       Command="{Binding ToggleTutorialOverlayCommand}"
                       Background="Transparent"
-                      Foreground="White"
+                      Foreground="{DynamicResource TextLightBrush}"
                       FontSize="18"
                       Padding="8,4"
                       BorderThickness="0" />
@@ -1242,7 +1231,7 @@
                       <TextBlock Text="{loc:Str label_getting_started}"
                                  FontSize="16"
                                  FontWeight="Bold"
-                                 Foreground="White" />
+                                 Foreground="{DynamicResource TextLightBrush}" />
                       <TextBlock Text="{loc:Str msg_getting_started_desc}"
                                  FontSize="12"
                                  Foreground="{DynamicResource TextMutedBrush}"
@@ -1270,7 +1259,7 @@
                       <TextBlock Text="{loc:Str tab_presets}"
                                  FontSize="16"
                                  FontWeight="Bold"
-                                 Foreground="White" />
+                                 Foreground="{DynamicResource TextLightBrush}" />
                       <TextBlock Text="{loc:Str msg_presets_desc}"
                                  FontSize="12"
                                  Foreground="{DynamicResource TextMutedBrush}"
@@ -1298,7 +1287,7 @@
                       <TextBlock Text="{loc:Str tab_lockdown}"
                                  FontSize="16"
                                  FontWeight="Bold"
-                                 Foreground="White" />
+                                 Foreground="{DynamicResource TextLightBrush}" />
                       <TextBlock Text="{loc:Str msg_lockdown_desc}"
                                  FontSize="12"
                                  Foreground="{DynamicResource TextMutedBrush}"
@@ -1330,7 +1319,7 @@
               <Button Content="{loc:Str btn_done}"
                       Command="{Binding ToggleTutorialOverlayCommand}"
                       Background="{DynamicResource PinkBrush}"
-                      Foreground="White"
+                      Foreground="{DynamicResource TextLightBrush}"
                       Padding="12,6"
                       CornerRadius="6" />
             </StackPanel>
@@ -1378,7 +1367,7 @@
               <TextBlock Text="{Binding Title}"
                          FontSize="13"
                          FontWeight="Bold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <TextBlock Text="{Binding Message}"
                          FontSize="12"
                          Foreground="{DynamicResource TextMutedBrush}"

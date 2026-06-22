@@ -213,9 +213,9 @@ public partial class ModManagerDialog : Window
 
     private static IBrush BrushFromHex(string? hex)
     {
-        if (string.IsNullOrWhiteSpace(hex)) return new SolidColorBrush(Colors.White);
+        if (string.IsNullOrWhiteSpace(hex)) return (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
         try { return Brush.Parse(hex); }
-        catch { return new SolidColorBrush(Colors.White); }
+        catch { return (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!; }
     }
 
     private async Task ShowMessageAsync(string message)

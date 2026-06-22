@@ -36,11 +36,11 @@
                      Margin="0,0,14,0" />
           <StackPanel Grid.Column="1" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str tab_awareness_engine_title}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="22"
                        FontWeight="Bold" />
             <TextBlock Text="{loc:Str tab_awareness_engine_subtitle}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="12"
                        Margin="0,2,0,0"
                        TextWrapping="Wrap" />
@@ -56,7 +56,7 @@
                     Padding="12,7"
                     BorderThickness="0"
                     Background="{DynamicResource PinkBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextLightBrush}"
                     CornerRadius="8" />
             <Ellipse Width="8"
                      Height="8"
@@ -86,7 +86,7 @@
                          VerticalAlignment="Center" />
             </Grid>
             <TextBlock Text="{loc:Str tab_awareness_pulse_empty}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="12"
                        FontStyle="Italic"
                        TextAlignment="Center"
@@ -115,7 +115,7 @@
                   CornerRadius="10"
                   Padding="18,16">
             <TextBlock Text="{loc:Str tab_awareness_presets_placeholder}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="12"
                        FontStyle="Italic"
                        TextAlignment="Center" />
@@ -123,8 +123,8 @@
         </StackPanel>
 
         <!-- Timing -->
-        <Border Background="#1A1A2E"
-                BorderBrush="#FF69B4"
+        <Border Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="16">
@@ -132,17 +132,17 @@
             <TextBlock Text="{loc:Str tab_awareness_timing_text}"
                        FontSize="14"
                        FontWeight="SemiBold"
-                       Foreground="#FF69B4" />
+                       Foreground="{DynamicResource PinkBrush}" />
 
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{loc:Str tab_awareness_buffer_timeout_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding BufferTimeoutText}"
-                           Foreground="#FF69B4"
+                           Foreground="{DynamicResource PinkBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
               </Grid>
@@ -156,12 +156,12 @@
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{loc:Str tab_awareness_global_cooldown_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding GlobalCooldownText}"
-                           Foreground="#FF69B4"
+                           Foreground="{DynamicResource PinkBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
               </Grid>
@@ -175,12 +175,12 @@
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{loc:Str tab_awareness_same_word_cooldown_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding SameWordCooldownText}"
-                           Foreground="#FF69B4"
+                           Foreground="{DynamicResource PinkBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
               </Grid>
@@ -194,12 +194,12 @@
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{loc:Str tab_awareness_session_multiplier_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding SessionMultiplierText}"
-                           Foreground="#FF69B4"
+                           Foreground="{DynamicResource PinkBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
               </Grid>
@@ -239,11 +239,11 @@
                              VerticalAlignment="Center" />
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="{loc:Str tab_awareness_screen_ocr_title}"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextLightBrush}"
                                FontSize="12"
                                FontWeight="SemiBold" />
                     <TextBlock Text="{loc:Str tab_awareness_screen_ocr_desc}"
-                               Foreground="#AAAAAA"
+                               Foreground="{DynamicResource TextDimBrush}"
                                FontSize="10" />
                   </StackPanel>
                 </StackPanel>
@@ -262,11 +262,11 @@
                              VerticalAlignment="Center" />
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="{loc:Str tab_awareness_keyboard_title}"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextLightBrush}"
                                FontSize="12"
                                FontWeight="SemiBold" />
                     <TextBlock Text="{loc:Str tab_awareness_keyboard_desc}"
-                               Foreground="#AAAAAA"
+                               Foreground="{DynamicResource TextDimBrush}"
                                FontSize="10" />
                   </StackPanel>
                 </StackPanel>
@@ -299,33 +299,33 @@
 
               <CheckBox Content="{loc:Str tab_awareness_ignore_own_ui}"
                         IsChecked="{Binding IgnoreOwnUi, Mode=TwoWay}"
-                        Foreground="White"
+                        Foreground="{DynamicResource TextLightBrush}"
                         FontSize="12"
                         Margin="0,4,0,2" />
               <TextBlock Text="{loc:Str tab_awareness_ignore_own_ui_desc}"
-                         Foreground="#AAAAAA"
+                         Foreground="{DynamicResource TextDimBrush}"
                          FontSize="10"
                          TextWrapping="Wrap"
                          Margin="22,0,0,10" />
 
               <CheckBox Content="{loc:Str tab_awareness_loop_protection}"
                         IsChecked="{Binding LoopProtectionEnabled, Mode=TwoWay}"
-                        Foreground="White"
+                        Foreground="{DynamicResource TextLightBrush}"
                         FontSize="12"
                         Margin="0,4,0,2" />
               <TextBlock Text="{loc:Str tab_awareness_loop_protection_desc}"
-                         Foreground="#AAAAAA"
+                         Foreground="{DynamicResource TextDimBrush}"
                          FontSize="10"
                          TextWrapping="Wrap"
                          Margin="22,0,0,10" />
 
               <CheckBox Content="{loc:Str tab_awareness_highlight_matched_words}"
                         IsChecked="{Binding KeywordHighlightEnabled, Mode=TwoWay}"
-                        Foreground="White"
+                        Foreground="{DynamicResource TextLightBrush}"
                         FontSize="12"
                         Margin="0,4,0,2" />
               <TextBlock Text="{loc:Str tab_awareness_highlight_matched_words_desc}"
-                         Foreground="#AAAAAA"
+                         Foreground="{DynamicResource TextDimBrush}"
                          FontSize="10"
                          TextWrapping="Wrap"
                          Margin="22,0,0,6" />
@@ -338,11 +338,12 @@
                 <Button Width="22"
                         Height="22"
                         CornerRadius="3"
-                        Background="#FF69B4"
+                        Background="{DynamicResource PinkBrush}"
                         BorderBrush="#3A3A5A"
                         BorderThickness="1"
                         Command="{Binding SetHighlightColorCommand}"
-                        CommandParameter="#FF69B4" />
+                        CommandParameter="#FF69B4">
+                      </Button>
                 <Button Width="22"
                         Height="22"
                         CornerRadius="3"
@@ -387,7 +388,7 @@
                          Width="74"
                          FontSize="10"
                          Background="#1E1E32"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          BorderBrush="#3A3A5A"
                          Padding="4,3"
                          VerticalAlignment="Center" />
@@ -403,8 +404,8 @@
         </Grid>
 
         <!-- OCR settings -->
-        <Border Background="#1A1A2E"
-                BorderBrush="#FF69B4"
+        <Border Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="16">
@@ -412,17 +413,17 @@
             <TextBlock Text="{loc:Str tab_awareness_ocr_settings_text}"
                        FontSize="14"
                        FontWeight="SemiBold"
-                       Foreground="#FF69B4" />
+                       Foreground="{DynamicResource PinkBrush}" />
 
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{loc:Str tab_awareness_scan_interval_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding ScreenOcrIntervalText}"
-                           Foreground="#FF69B4"
+                           Foreground="{DynamicResource PinkBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
               </Grid>
@@ -438,7 +439,7 @@
                 <TextBlock Text="{loc:Str tab_awareness_keyword_highlight_text}"
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
               </StackPanel>
               <ToggleSwitch Grid.Column="1"
                             VerticalAlignment="Center"
@@ -448,12 +449,12 @@
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{loc:Str tab_awareness_highlight_duration_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding KeywordHighlightDurationText}"
-                           Foreground="#FF69B4"
+                           Foreground="{DynamicResource PinkBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
               </Grid>
@@ -467,7 +468,7 @@
             <Grid ColumnDefinitions="*,*">
               <StackPanel Spacing="6" Margin="0,0,6,0">
                 <TextBlock Text="{loc:Str tab_awareness_highlight_mode_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <ComboBox ItemsSource="{Binding OcrHighlightModeOptions}"
@@ -476,7 +477,7 @@
               </StackPanel>
               <StackPanel Spacing="6" Margin="6,0,0,0">
                 <TextBlock Text="{loc:Str tab_awareness_confirmation_scans_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <ComboBox ItemsSource="{Binding OcrConfirmationOptions}"
@@ -488,8 +489,8 @@
         </Border>
 
         <!-- Triggers editor -->
-        <Border Background="#1A1A2E"
-                BorderBrush="#FF69B4"
+        <Border Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="16">
@@ -497,7 +498,7 @@
             <TextBlock Text="{loc:Str tab_awareness_triggers_text}"
                        FontSize="14"
                        FontWeight="SemiBold"
-                       Foreground="#FF69B4" />
+                       Foreground="{DynamicResource PinkBrush}" />
             <StackPanel Orientation="Horizontal" Spacing="8">
               <Button Content="{loc:Str tab_awareness_add_trigger_content}"
                       Command="{Binding AddTriggerCommand}" />
@@ -508,8 +509,8 @@
                      Background="Transparent">
               <ListBox.ItemTemplate>
                 <DataTemplate DataType="vm:KeywordTriggerViewModel">
-                  <Border Background="#252540"
-                          BorderBrush="#FF69B4"
+                  <Border Background="{DynamicResource ElevatedSurfaceBrush}"
+                          BorderBrush="{DynamicResource PinkBrush}"
                           BorderThickness="1"
                           CornerRadius="8"
                           Padding="12"
@@ -534,7 +535,7 @@
                       <Grid ColumnDefinitions="*,*">
                         <StackPanel Spacing="6" Margin="0,0,6,0">
                           <TextBlock Text="{loc:Str tab_awareness_visual_effect_text}"
-                                     Foreground="White"
+                                     Foreground="{DynamicResource TextLightBrush}"
                                      FontSize="12"
                                      FontWeight="SemiBold" />
                           <ComboBox ItemsSource="{Binding $parent[ListBox].((vm:AwarenessTabViewModel)DataContext).VisualEffectOptions}"
@@ -543,7 +544,7 @@
                         </StackPanel>
                         <StackPanel Spacing="6" Margin="6,0,0,0">
                           <TextBlock Text="{loc:Str tab_awareness_cooldown_s_text}"
-                                     Foreground="White"
+                                     Foreground="{DynamicResource TextLightBrush}"
                                      FontSize="12"
                                      FontWeight="SemiBold" />
                           <Slider Minimum="1"
@@ -557,7 +558,7 @@
                       <Grid ColumnDefinitions="*,*">
                         <StackPanel Spacing="6" Margin="0,0,6,0">
                           <TextBlock Text="{loc:Str tab_awareness_audio_volume_text}"
-                                     Foreground="White"
+                                     Foreground="{DynamicResource TextLightBrush}"
                                      FontSize="12"
                                      FontWeight="SemiBold" />
                           <Slider Minimum="0"
@@ -568,7 +569,7 @@
                         </StackPanel>
                         <StackPanel Spacing="6" Margin="6,0,0,0">
                           <TextBlock Text="{loc:Str tab_awareness_audio_file_text}"
-                                     Foreground="White"
+                                     Foreground="{DynamicResource TextLightBrush}"
                                      FontSize="12"
                                      FontWeight="SemiBold" />
                           <TextBlock Text="{Binding AudioFileName}"
@@ -611,7 +612,7 @@
     <!-- Premium gate overlay -->
     <Border IsVisible="{Binding IsPremiumLocked}"
             Background="#99000010"
-            BorderBrush="#FF69B4"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="2"
             CornerRadius="10"
             IsHitTestVisible="True"
@@ -626,17 +627,17 @@
         <TextBlock Text="{loc:Str gate_premium_locked}"
                    FontSize="22"
                    FontWeight="Bold"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    HorizontalAlignment="Center" />
         <TextBlock Text="{loc:Str gate_premium_subtitle}"
-                   Foreground="#CCCCCC"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="14"
                    HorizontalAlignment="Center" />
         <Button Content="{loc:Str gate_unlock_with_patreon}"
                 Command="{Binding UnlockCommand}"
                 Padding="20,8"
-                Background="#FF69B4"
-                Foreground="White"
+                Background="{DynamicResource PinkBrush}"
+                Foreground="{DynamicResource TextLightBrush}"
                 FontWeight="Bold"
                 HorizontalAlignment="Center" />
       </StackPanel>

@@ -41,7 +41,7 @@ public partial class MantraWindow : Window
     private Color _highlightColor = Color.FromRgb(0x99, 0x88, 0xDD);
     private static readonly Color DimColor = Color.FromRgb(0x35, 0x35, 0x50);
     private static readonly Color ErrorColor = Color.FromRgb(0xFF, 0x44, 0x44);
-    private static readonly Color FlashColor = Colors.White;
+    private static readonly Color FlashColor = (Color)global::Avalonia.Application.Current!.Resources["TextLight"]!;
 
     public MantraWindow()
     {

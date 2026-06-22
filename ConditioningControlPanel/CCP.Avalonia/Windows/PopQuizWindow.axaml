@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.PopQuizWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.PopQuizWindow" x:DataType="x:Object"
         Title="{loc:Str window_pop_quiz_pop_quiz_title}"
         Width="500" Height="420"
         WindowStartupLocation="CenterScreen"
@@ -19,8 +19,8 @@
           BoxShadow="0 0 20 0 #80000000">
     <Border.BorderBrush>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#60FF69B4" Offset="0" />
-        <GradientStop Color="#609B59B6" Offset="1" />
+        <GradientStop Color="{DynamicResource TransparentPink60}" Offset="0" />
+        <GradientStop Color="{DynamicResource TransparentPink40}" Offset="1" />
       </LinearGradientBrush>
     </Border.BorderBrush>
 
@@ -29,7 +29,7 @@
       <StackPanel x:Name="QuestionPanel" VerticalAlignment="Center">
         <TextBlock x:Name="TxtQuestion"
                    FontSize="24" FontWeight="Bold"
-                   Foreground="White" TextWrapping="Wrap" TextAlignment="Center"
+                   Foreground="{DynamicResource TextLightBrush}" TextWrapping="Wrap" TextAlignment="Center"
                    Margin="0,0,0,24" />
 
         <StackPanel x:Name="AnswersPanel">

@@ -1,7 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="ConditioningControlPanel.Avalonia.Chaos.ChaosHubWindow"
         xmlns:sys="using:System"
+        xmlns:chaos="clr-namespace:ConditioningControlPanel.Avalonia.Chaos;assembly=CCP.Avalonia"
+        x:Class="ConditioningControlPanel.Avalonia.Chaos.ChaosHubWindow"
+        x:DataType="chaos:ChaosHubWindow"
         x:CompileBindings="False"
         Title="the Dollhouse"
         WindowDecorations="None"
@@ -11,37 +13,23 @@
         WindowStartupLocation="CenterScreen"
         Width="860" Height="780"
         FontFamily="Segoe UI">
-    <Window.Resources>
-        <SolidColorBrush x:Key="Pink" Color="#FFE84393"/>
-        <SolidColorBrush x:Key="Purple" Color="#FF8B5CF6"/>
-        <SolidColorBrush x:Key="Bg" Color="#FF14122A"/>
-        <SolidColorBrush x:Key="Card" Color="#FF1C1A36"/>
-        <SolidColorBrush x:Key="Card2" Color="#FF221F40"/>
-        <SolidColorBrush x:Key="Border1" Color="#44E84393"/>
-        <SolidColorBrush x:Key="TextDim" Color="#AAB8B8D0"/>
-        <SolidColorBrush x:Key="TextMut" Color="#88A0A0C0"/>
-        <LinearGradientBrush x:Key="Brand" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#FFE84393" Offset="0"/>
-            <GradientStop Color="#FF8B5CF6" Offset="1"/>
-        </LinearGradientBrush>
-    </Window.Resources>
     <Window.Styles>
         <Style Selector="TextBlock.SectionHdr">
-            <Setter Property="Foreground" Value="{StaticResource Pink}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PinkBrush}"/>
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,0,0,10"/>
         </Style>
         <Style Selector="TextBlock.Lbl">
-            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Width" Value="92"/>
         </Style>
         <Style Selector="Border.CardStyle">
-            <Setter Property="Background" Value="{StaticResource Card}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Border1}"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TransparentPink40Brush}"/>
             <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="16"/>
@@ -50,18 +38,18 @@
         <Style Selector="ToggleButton.Seg">
             <Setter Property="Margin" Value="0,0,6,0"/>
             <Setter Property="Padding" Value="12,5"/>
-            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#22FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource GlassBorderBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TransparentWhiteBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
         <Style Selector="ToggleButton.Seg:checked">
-            <Setter Property="Background" Value="{StaticResource Pink}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Pink}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}"/>
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <Style Selector="ToggleButton.Seg:disabled">
@@ -71,7 +59,7 @@
         <Style Selector="ToggleButton.Tab">
             <Setter Property="Margin" Value="0,0,8,0"/>
             <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -80,9 +68,9 @@
             <Setter Property="CornerRadius" Value="9"/>
         </Style>
         <Style Selector="ToggleButton.Tab:checked">
-            <Setter Property="Background" Value="#22E84393"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Pink}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource TransparentPink20Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}"/>
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <Style Selector="ToggleButton.Tab:disabled">
@@ -92,21 +80,21 @@
         <Style Selector="Button.Stepper">
             <Setter Property="Width" Value="26"/>
             <Setter Property="Height" Value="26"/>
-            <Setter Property="Background" Value="#22FFFFFF"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource GlassBorderBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
         <Style Selector="CheckBox.Chk">
-            <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,3"/>
         </Style>
     </Window.Styles>
 
-    <Border CornerRadius="16" Background="{StaticResource Bg}" BorderBrush="{StaticResource Pink}" BorderThickness="2">
+    <Border CornerRadius="16" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2">
         <Grid>
             <Grid Margin="22">
                 <Grid.RowDefinitions>
@@ -121,28 +109,28 @@
                            Opacity="0.30" IsVisible="False" MaxHeight="120"/>
                     <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🐇 DOWN THE RABBIT HOLE" Foreground="White" FontSize="22" FontWeight="Bold"/>
-                            <TextBlock Text="the dollhouse" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
+                            <TextBlock Text="🐇 DOWN THE RABBIT HOLE" Foreground="{DynamicResource TextLightBrush}" FontSize="22" FontWeight="Bold"/>
+                            <TextBlock Text="the dollhouse" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="2,10,0,0">
-                            <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
+                            <Border Background="{DynamicResource ElevatedSurfaceBrush}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="RANK" Foreground="{StaticResource TextMut}" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock x:Name="TxtRank" Text="Curious" Foreground="White" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                                    <TextBlock Text="RANK" Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="TxtRank" Text="Curious" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
-                            <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
+                            <Border Background="{DynamicResource ElevatedSurfaceBrush}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="✦" Foreground="{StaticResource Purple}" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock x:Name="TxtSparks" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                                    <TextBlock Text="drops" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
+                                    <TextBlock Text="✦" Foreground="{DynamicResource SecondaryBrush}" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="TxtSparks" Text="0" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="drops" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
                                 </StackPanel>
                             </Border>
-                            <Border Background="{StaticResource Card2}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
+                            <Border Background="{DynamicResource ElevatedSurfaceBrush}" CornerRadius="9" Padding="12,5" Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="🪙" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock x:Name="TxtGold" Text="0" Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                                    <TextBlock Text="gold" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
+                                    <TextBlock x:Name="TxtGold" Text="0" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="gold" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" VerticalAlignment="Bottom" Margin="5,0,0,1"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -150,11 +138,11 @@
                     <Button x:Name="BtnGuide" Content="?" Click="BtnGuide_Click"
                             ToolTip.Tip="How to play — the rules card"
                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,34,0"
-                            Width="28" Height="28" Background="#22FFFFFF" Foreground="White"
+                            Width="28" Height="28" Background="{DynamicResource GlassBorderBrush}" Foreground="{DynamicResource TextLightBrush}"
                             FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
                     <Button x:Name="BtnCloseX" Content="✕" Click="BtnClose_Click"
                             HorizontalAlignment="Right" VerticalAlignment="Top"
-                            Width="28" Height="28" Background="#22FFFFFF" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+                            Width="28" Height="28" Background="{DynamicResource GlassBorderBrush}" Foreground="{DynamicResource TextLightBrush}" BorderThickness="0" Cursor="Hand"/>
                 </Grid>
 
                 <WrapPanel Grid.Row="1" Margin="0,0,0,14">
@@ -176,7 +164,7 @@
                                 <StackPanel>
                                     <TextBlock Text="POCKETS" Classes="SectionHdr" Margin="0,0,0,2"/>
                                     <TextBlock x:Name="TxtPocketsSub" Text="what you take down with you. choose like it matters."
-                                               Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
+                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,0,0,10"/>
                                     <StackPanel x:Name="PocketSlotsHost" Orientation="Horizontal"/>
                                 </StackPanel>
                             </Border>
@@ -184,7 +172,7 @@
                                 <StackPanel>
                                     <Grid Margin="0,0,0,10">
                                         <TextBlock Text="ACCESSORIES" Classes="SectionHdr" Margin="0"/>
-                                        <TextBlock x:Name="TxtAccCount" Foreground="{StaticResource TextMut}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TxtAccCount" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                     </Grid>
                                     <WrapPanel x:Name="TilesAccessories"/>
                                 </StackPanel>
@@ -193,7 +181,7 @@
                                 <StackPanel>
                                     <Grid Margin="0,0,0,10">
                                         <TextBlock Text="TOYS" Classes="SectionHdr" Margin="0"/>
-                                        <TextBlock x:Name="TxtSkillCount" Foreground="{StaticResource TextMut}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TxtSkillCount" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                     </Grid>
                                     <WrapPanel x:Name="TilesSkills"/>
                                 </StackPanel>
@@ -202,10 +190,10 @@
                                 <StackPanel>
                                     <Grid Margin="0,0,0,2">
                                         <TextBlock Text="HABITS" Classes="SectionHdr" Margin="0"/>
-                                        <TextBlock x:Name="TxtHabitCount" Foreground="{StaticResource TextMut}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TxtHabitCount" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                     </Grid>
                                     <TextBlock Text="trained habits follow you down. tap one to switch it on or off."
-                                               Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
+                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,0,0,10"/>
                                     <WrapPanel x:Name="TilesHabits"/>
                                 </StackPanel>
                             </Border>
@@ -216,34 +204,34 @@
                         <StackPanel>
                             <TextBlock Text="the Toybox" Classes="SectionHdr" FontSize="20" Margin="2,0,0,2"/>
                             <TextBlock Text="everything ordered here comes in an anonymous sealed package ;)"
-                                       Foreground="{StaticResource TextMut}" FontSize="11" Margin="2,0,0,14"/>
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="2,0,0,14"/>
                             <Border x:Name="HerCornerCard" Classes="CardStyle" IsVisible="False">
                                 <StackPanel>
                                     <TextBlock Text="her corner" Classes="SectionHdr" Margin="0,0,0,2"/>
                                     <TextBlock Text="a little table by the door. she takes gold."
-                                               Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
+                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,0,0,10"/>
                                     <StackPanel x:Name="HerCornerHost"/>
                                 </StackPanel>
                             </Border>
                             <TextBlock x:Name="HdrToys" Text="Toys" Classes="SectionHdr" FontSize="20" Margin="2,0,0,10"/>
                             <StackPanel x:Name="BoonHostSkills"/>
                             <Border x:Name="StubToys" IsVisible="False"
-                                    Background="{StaticResource Card2}" BorderThickness="1" CornerRadius="8"
-                                    Padding="10" Margin="0,0,0,6" Opacity="0.55">
-                                <Border.BorderBrush><SolidColorBrush Color="#1EE84393"/></Border.BorderBrush>
-                                <TextBlock Text="???" Foreground="{StaticResource TextMut}" FontSize="12" FontWeight="SemiBold"/>
+                                    Background="{DynamicResource ElevatedSurfaceBrush}" BorderThickness="1" CornerRadius="8"
+                                    Padding="10" Margin="0,0,0,6" Opacity="0.55"
+                                    BorderBrush="{DynamicResource TransparentPink20Brush}">
+                                <TextBlock Text="???" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" FontWeight="SemiBold"/>
                             </Border>
                             <TextBlock x:Name="HdrAccessories" Text="Accessories" Classes="SectionHdr" FontSize="20" Margin="2,14,0,10"/>
                             <StackPanel x:Name="BoonHostAccessories"/>
                             <Border x:Name="StubAccessories" IsVisible="False"
-                                    Background="{StaticResource Card2}" BorderThickness="1" CornerRadius="8"
-                                    Padding="10" Margin="0,8,0,6" Opacity="0.55">
-                                <Border.BorderBrush><SolidColorBrush Color="#1EE84393"/></Border.BorderBrush>
-                                <TextBlock Text="???" Foreground="{StaticResource TextMut}" FontSize="12" FontWeight="SemiBold"/>
+                                    Background="{DynamicResource ElevatedSurfaceBrush}" BorderThickness="1" CornerRadius="8"
+                                    Padding="10" Margin="0,8,0,6" Opacity="0.55"
+                                    BorderBrush="{DynamicResource TransparentPink20Brush}">
+                                <TextBlock Text="???" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" FontWeight="SemiBold"/>
                             </Border>
                             <TextBlock Text="Habits" Classes="SectionHdr" FontSize="20" Margin="2,14,0,2"/>
                             <TextBlock Text="spend your drops. once trained they're yours for good. switch them on or off between descents."
-                                       Foreground="{StaticResource TextMut}" FontSize="11" Margin="2,0,0,10"/>
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="2,0,0,10"/>
                             <StackPanel x:Name="HabitsHost"/>
                         </StackPanel>
                     </ScrollViewer>
@@ -254,7 +242,7 @@
                                 <Border Classes="CardStyle">
                                     <StackPanel>
                                         <TextBlock Text="THE DESCENT" Classes="SectionHdr" Margin="0,0,0,2"/>
-                                        <TextBlock Text="dress it up however you like. it ends the same way." Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
+                                        <TextBlock Text="dress it up however you like. it ends the same way." Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,0,0,10"/>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                             <TextBlock Text="Difficulty" Classes="Lbl"/>
                                             <StackPanel x:Name="GrpDifficulty" Orientation="Horizontal">
@@ -290,7 +278,7 @@
                                         <CheckBox x:Name="ChkShake" Classes="Chk" Content="Screen shake"/>
                                         <Slider x:Name="SldShake" Minimum="0" Maximum="1" Margin="0,0,0,6"/>
                                         <CheckBox x:Name="ChkFlashes" Classes="Chk" Content="Color flashes"/>
-                                        <TextBlock Text="Effect intensity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
+                                        <TextBlock Text="Effect intensity" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,6,0,0"/>
                                         <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
                                         <CheckBox x:Name="ChkAnnouncer" Classes="Chk" Content="Announcements" Margin="0,8,0,0"/>
                                         <TextBlock Text="THE MADAM" Classes="SectionHdr" Margin="0,12,0,0"/>
@@ -298,7 +286,7 @@
                                                   ToolTip.Tip="A reactive narrator speaks voiced + text lines during a descent."/>
                                         <CheckBox x:Name="ChkBackdrop" Classes="Chk" Content="Zone backdrops" Margin="0,4,0,0"
                                                   ToolTip.Tip="Per-zone backdrop plates under the bubbles. Off = classic Chaos over your live desktop."/>
-                                        <TextBlock Text="Backdrop opacity" Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,6,0,0"/>
+                                        <TextBlock Text="Backdrop opacity" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,6,0,0"/>
                                         <Slider x:Name="SldBackdropOpacity" Minimum="0" Maximum="1"/>
                                     </StackPanel>
                                 </Border>
@@ -307,12 +295,12 @@
                                     <StackPanel>
                                         <TextBlock Text="KEYBINDS" Classes="SectionHdr" Margin="0,0,0,2"/>
                                         <TextBlock x:Name="TxtKeybindsSub" Text="your equipped toy fires on this, mid-descent. the second pocket isn't sewn yet."
-                                                   Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
-                                        <StackPanel x:Name="RowToyKey1" Orientation="Horizontal" Margin="0,0,0,8">
+                                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,0,0,10"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                             <TextBlock Text="Toy 1" Classes="Lbl"/>
                                             <ComboBox x:Name="CmbAccKey1" Width="70" SelectionChanged="AccKey_Changed"/>
                                         </StackPanel>
-                                        <StackPanel x:Name="RowToyKey2" Orientation="Horizontal">
+                                        <StackPanel Orientation="Horizontal" x:Name="RowToyKey2">
                                             <TextBlock Text="Toy 2" Classes="Lbl"/>
                                             <ComboBox x:Name="CmbAccKey2" Width="70" SelectionChanged="AccKey_Changed"/>
                                         </StackPanel>
@@ -336,7 +324,7 @@
                                                 <ToggleButton Classes="Seg Tab" Tag="htlink" Content="Gif Rain" Margin="0,0,6,6"/>
                                             </WrapPanel>
                                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                <TextBlock Text="presets:" Foreground="{StaticResource TextMut}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="presets:" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                 <Button Content="Balanced" Tag="Balanced" Click="Preset_Click" Classes="Stepper" Width="{x:Static sys:Double.NaN}" Padding="10,4" Margin="0,0,6,0"/>
                                                 <Button Content="Tease" Tag="Tease" Click="Preset_Click" Classes="Stepper" Width="{x:Static sys:Double.NaN}" Padding="10,4" Margin="0,0,6,0"/>
                                                 <Button Content="Flash-only" Tag="Flash-only" Click="Preset_Click" Classes="Stepper" Width="{x:Static sys:Double.NaN}" Padding="10,4"/>
@@ -351,9 +339,9 @@
                                             <CheckBox x:Name="ChkBoonDraft" Classes="Chk" Content="Mantra draft between loops"/>
                                             <CheckBox x:Name="ChkCurses" Classes="Chk" Content="Allow sins"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                <TextBlock Text="Loops" Foreground="{StaticResource TextDim}" FontSize="12" VerticalAlignment="Center" Width="50"/>
+                                                <TextBlock Text="Loops" Foreground="{DynamicResource TextDimBrush}" FontSize="12" VerticalAlignment="Center" Width="50"/>
                                                 <Button Classes="Stepper" Content="−" Tag="waves-" Click="Stepper_Click"/>
-                                                <TextBlock x:Name="TxtWaves" Foreground="White" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="TxtWaves" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="14" Width="34" TextAlignment="Center" VerticalAlignment="Center"/>
                                                 <Button Classes="Stepper" Content="+" Tag="waves+" Click="Stepper_Click"/>
                                             </StackPanel>
                                         </StackPanel>
@@ -377,7 +365,7 @@
                             <StackPanel>
                                 <TextBlock Text="the seamstress's bench" Classes="SectionHdr" Margin="0,0,0,2"/>
                                 <TextBlock Text="permanent alterations to the dollhouse itself. extra pockets, deeper doors."
-                                           Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,10"/>
+                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,0,0,10"/>
                                 <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
                                     <StackPanel x:Name="ImprovementsHost"/>
                                 </ScrollViewer>
@@ -397,7 +385,7 @@
                                     </Grid.RowDefinitions>
                                     <TextBlock Grid.Row="0" Text="MANTRAS" Classes="SectionHdr" Margin="0,0,0,2"/>
                                     <TextBlock Grid.Row="1" Text="click one to whisper it on the way down. click again for silence."
-                                               Foreground="{StaticResource TextMut}" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
                                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                                         <StackPanel x:Name="MantrasHost"/>
                                     </ScrollViewer>
@@ -420,20 +408,20 @@
                                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Drops" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4" Width="175"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="StSparks" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Descents completed" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="StRuns" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Time under" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="StTimeUnder" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Best score" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="StBestScore" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Best streak" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="StBestCombo" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Total snapped" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="StDefused" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Time holding on" Foreground="{StaticResource TextDim}" FontSize="15" Margin="0,4"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="StTimeHeld" Foreground="White" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Drops" Foreground="{DynamicResource TextDimBrush}" FontSize="15" Margin="0,4" Width="175"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="StSparks" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Descents completed" Foreground="{DynamicResource TextDimBrush}" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="StRuns" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Time under" Foreground="{DynamicResource TextDimBrush}" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="StTimeUnder" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Best score" Foreground="{DynamicResource TextDimBrush}" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="StBestScore" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Best streak" Foreground="{DynamicResource TextDimBrush}" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="StBestCombo" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Total snapped" Foreground="{DynamicResource TextDimBrush}" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="StDefused" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Time holding on" Foreground="{DynamicResource TextDimBrush}" FontSize="15" Margin="0,4"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="StTimeHeld" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="15" Margin="0,4"/>
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -444,7 +432,7 @@
                         <Border Classes="CardStyle">
                             <StackPanel>
                                 <TextBlock x:Name="HdrDiary" Text="DIARY · what you've met down there · click to pop out ⤢"
-                                           Cursor="Hand" PointerPressed="Diary_PopOut" Foreground="{StaticResource Pink}"
+                                           Cursor="Hand" PointerPressed="Diary_PopOut" Foreground="{DynamicResource PinkBrush}"
                                            FontFamily="Consolas" FontWeight="Bold" FontSize="12" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="DiaryHost"/>
                             </StackPanel>
@@ -453,16 +441,16 @@
                 </Grid>
 
                 <Grid Grid.Row="3" Margin="0,12,0,0">
-                    <TextBlock x:Name="TxtHint" Foreground="{StaticResource TextMut}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="TxtHint" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="BtnBeginDesktop" Content="🖥 FREE DESKTOP" Tag="FreeDesktop" Click="BtnBegin_Click"
                                 IsVisible="False"
                                 ToolTip.Tip="Pop bubbles over your real desktop — no story or backdrop, and other windows can stay in front."
-                                Background="#332A2A4A" Foreground="{StaticResource TextMut}" FontWeight="SemiBold" FontSize="14"
-                                BorderBrush="#55E84393" BorderThickness="1" Padding="22,12" Margin="0,0,12,0" Cursor="Hand"/>
+                                Background="{DynamicResource ElevatedSurfaceBrush}" Foreground="{DynamicResource TextMutedBrush}" FontWeight="SemiBold" FontSize="14"
+                                BorderBrush="{DynamicResource TransparentPink50Brush}" BorderThickness="1" Padding="22,12" Margin="0,0,12,0" Cursor="Hand"/>
                         <Button x:Name="BtnBegin" Content="▶ FALL IN" Click="BtnBegin_Click"
                                 ToolTip.Tip="Begin the descent."
-                                Background="{StaticResource Brand}" Foreground="White" FontWeight="Bold" FontSize="16" BorderThickness="0" Padding="32,13" Cursor="Hand">
+                                Background="{DynamicResource AccentGradientBrush}" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="16" BorderThickness="0" Padding="32,13" Cursor="Hand">
                         </Button>
                     </StackPanel>
                 </Grid>

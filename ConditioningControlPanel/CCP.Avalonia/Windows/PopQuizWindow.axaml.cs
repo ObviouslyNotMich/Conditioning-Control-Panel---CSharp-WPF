@@ -162,8 +162,9 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
 
         var answerIndex = (int)border.Tag;
 
-        border.Background = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0x69, 0xB4));
-        border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x60, 0xFF, 0x69, 0xB4));
+        var accent = GetAccentColor();
+        border.Background = new SolidColorBrush(Color.FromArgb(0x40, accent.R, accent.G, accent.B));
+        border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x60, accent.R, accent.G, accent.B));
 
         PlayChime();
 
@@ -186,6 +187,13 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
 
         await Task.Delay(1500);
         CleanupAndClose();
+    }
+
+    private static Color GetAccentColor()
+    {
+        if (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            return c;
+        return Color.Parse("#FF69B4");
     }
 
     private void CleanupAndClose()
@@ -236,8 +244,9 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
     {
         if (_answered || sender is not Border border) return;
 
+        var accent = GetAccentColor();
         border.Background = new SolidColorBrush(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF));
-        border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0x69, 0xB4));
+        border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, accent.R, accent.G, accent.B));
     }
 
     private void Answer_PointerExited(object? sender, PointerEventArgs e)

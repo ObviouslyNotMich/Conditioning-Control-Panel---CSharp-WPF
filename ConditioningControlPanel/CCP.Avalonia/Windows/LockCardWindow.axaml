@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.LockCardWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.LockCardWindow" x:DataType="x:Object"
         Title="{Binding [dialog_lock_card], Source={x:Static loc:LocalizationManager.Instance}}"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -32,8 +32,7 @@
             Padding="50,40"
             MinWidth="500"
             MaxWidth="700"
-            Background="{DynamicResource DarkerBgBrush}"
-            BoxShadow="0 0 30 0 #80FF69B4">
+            Background="{DynamicResource DarkerBgBrush}">
 
       <StackPanel>
         <!-- Lock icon and title -->
@@ -62,7 +61,7 @@
                    Background="Transparent"
                    BorderThickness="0"
                    FontSize="20"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    TextAlignment="Center"
                    TextChanged="TxtInput_TextChanged"
                    MaxLength="200">
@@ -86,7 +85,7 @@
 
           <TextBlock x:Name="TxtStrict" Grid.Column="2" Text=""
                      FontSize="11" VerticalAlignment="Center" Margin="15,0,0,0"
-                     Foreground="#FF6B6B" />
+                     Foreground="{DynamicResource DangerBrush}" />
         </Grid>
 
         <!-- Hint text -->

@@ -6,6 +6,7 @@ using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models.Deeper;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Avalonia.Views.Deeper;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -146,22 +147,54 @@ public partial class DeeperHubTabViewModel : TabItemViewModel
     private async Task OpenEntryAsync(DeeperLibraryRowViewModel? row)
     {
         if (row == null) return;
+        var entry = row.Entry;
+        if (entry == null)
+        {
+            _logger?.Warning("Open Deeper entry has no backing model: {Path}", row.FilePath);
+            return;
+        }
+
         _logger?.Information("Open Deeper entry: {Path}", row.FilePath);
-        // TODO: wire to IDeeperEnhancementLibrary.Open() and Deeper editor window.
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_deeper_editor_not_yet_ported")) ?? Task.CompletedTask);
+        try
+        {
+            var editor = new DeeperEditorWindow(entry, row.FilePath);
+            editor.Show();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Open Deeper editor failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                ex.Message,
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
     }
 
     [RelayCommand]
     private async Task PlayEntryAsync(DeeperLibraryRowViewModel? row)
     {
         if (row == null) return;
+        var entry = row.Entry;
+        if (entry == null)
+        {
+            _logger?.Warning("Play Deeper entry has no backing model: {Path}", row.FilePath);
+            return;
+        }
+
         _logger?.Information("Play Deeper entry: {Path}", row.FilePath);
-        // TODO: wire to IDeeperPlayerHost.LoadEnhancementFile() once ported.
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_deeper_player_not_yet_ported")) ?? Task.CompletedTask);
+        try
+        {
+            var player = new EnhancementPlayerWindow(entry, "hub");
+            player.Show();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Open Deeper player failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                ex.Message,
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
     }
 
     [RelayCommand]
@@ -409,18 +442,52 @@ public partial class DeeperLibraryRowViewModel : ObservableObject
     private async Task OpenAsync()
     {
         _logger?.Information("Open Deeper row: {Name}", Name);
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            string.Format(Loc.Get("msg_not_implemented_body_fmt"), Loc.Get("deeper_hub_tip_row_open"))) ?? Task.CompletedTask);
+        var entry = Entry;
+        if (entry == null)
+        {
+            _logger?.Warning("Open Deeper row has no backing model: {Name}", Name);
+            return;
+        }
+
+        try
+        {
+            var editor = new DeeperEditorWindow(entry, FilePath);
+            editor.Show();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Open Deeper editor failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                ex.Message,
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
     }
 
     [RelayCommand]
     private async Task PlayAsync()
     {
         _logger?.Information("Play Deeper row: {Name}", Name);
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            string.Format(Loc.Get("msg_not_implemented_body_fmt"), Loc.Get("deeper_hub_tip_row_play"))) ?? Task.CompletedTask);
+        var entry = Entry;
+        if (entry == null)
+        {
+            _logger?.Warning("Play Deeper row has no backing model: {Name}", Name);
+            return;
+        }
+
+        try
+        {
+            var player = new EnhancementPlayerWindow(entry, "hub");
+            player.Show();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Open Deeper player failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                ex.Message,
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
     }
 
     [RelayCommand]

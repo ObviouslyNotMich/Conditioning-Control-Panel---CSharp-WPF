@@ -77,7 +77,7 @@ UpdateUiForStep();
 
     private IBrush StepDotBrush(Step s)
     {
-        if (_step == s) return new SolidColorBrush(Color.Parse("#FF69B4"));
+        if (_step == s) return new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!);
         return (int)_step > (int)s
             ? new SolidColorBrush(Color.FromRgb(0x8A, 0x4A, 0x6F))
             : new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x52));

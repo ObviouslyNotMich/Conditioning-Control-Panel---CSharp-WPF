@@ -1,7 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-             x:Class="ConditioningControlPanel.Avalonia.Features.QuestCard">
+             x:Class="ConditioningControlPanel.Avalonia.Features.QuestCard"
+             x:DataType="{x:Type local:QuestCard}">
 
   <Border x:Name="RootBorder"
           Background="{DynamicResource PanelBgBrush}"
@@ -16,7 +18,7 @@
             ColumnDefinitions="Auto,*">
         <TextBlock x:Name="TxtGlyph"
                    FontSize="22"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    VerticalAlignment="Center"
                    Margin="0,0,8,0" />
         <TextBlock x:Name="TxtTitle"
@@ -24,7 +26,7 @@
                    Text="{loc:Str quest_default_title}"
                    FontSize="16"
                    FontWeight="Bold"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    VerticalAlignment="Center"
                    TextWrapping="Wrap" />
       </Grid>
@@ -39,7 +41,7 @@
           <TextBlock x:Name="TxtDescription"
                      Text=""
                      FontSize="12"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      TextWrapping="Wrap" />
 
           <ProgressBar x:Name="ProgressBar"
@@ -53,10 +55,10 @@
                      Text="{loc:Str quest_progress_default}"
                      FontSize="12"
                      FontWeight="Bold"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      Margin="0,5,0,0" />
 
-          <Border Background="#3D3D60"
+          <Border Background="{DynamicResource PanelAccentBrush}"
                   CornerRadius="5"
                   Padding="10,5"
                   Margin="0,10,0,0"

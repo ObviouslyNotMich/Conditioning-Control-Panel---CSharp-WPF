@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.LocalAiSetupWizard"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.LocalAiSetupWizard" x:DataType="x:Object"
         Title="{Binding [dialog_local_ai_setup_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="560" Height="540"
         WindowStartupLocation="CenterOwner"
@@ -16,7 +16,7 @@
 
       <ControlTheme x:Key="WizardButton" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource PanelAccentBrush}" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="18,8" />
         <Setter Property="FontSize" Value="13" />
@@ -235,7 +235,7 @@
 
       <!-- Step: Error -->
       <StackPanel x:Name="PanelError" IsVisible="False">
-        <TextBlock Foreground="#FF6B6B" FontSize="32" HorizontalAlignment="Center"
+        <TextBlock Foreground="{DynamicResource DangerBrush}" FontSize="32" HorizontalAlignment="Center"
                    Text="!" FontWeight="Bold" />
         <TextBlock Foreground="#E0E0E0" FontSize="13" TextWrapping="Wrap"
                    HorizontalAlignment="Center" Margin="0,8,0,0" FontWeight="SemiBold"

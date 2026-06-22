@@ -1,14 +1,16 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Core.Localization;assembly=CCP.Core"
              x:Class="ConditioningControlPanel.Avalonia.Features.SkillNodeCard"
              Cursor="Hand"
              Width="160"
-             Height="200">
+             Height="200"
+             x:DataType="{x:Type local:SkillNodeCard}">
 
   <Border x:Name="RootBorder"
-          Background="#1A1A2E"
-          BorderBrush="#FF69B4"
+          Background="{DynamicResource PanelBgBrush}"
+          BorderBrush="{DynamicResource PinkBrush}"
           BorderThickness="2"
           CornerRadius="12"
           ClipToBounds="True"
@@ -37,7 +39,7 @@
                      HorizontalAlignment="Center"
                      TextAlignment="Center"
                      TextWrapping="Wrap"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="Bold" />
           <TextBlock x:Name="TxtStatus"
@@ -45,7 +47,7 @@
                      Grid.Row="1"
                      HorizontalAlignment="Center"
                      TextAlignment="Center"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="11"
                      Margin="0,4,0,0" />
         </Grid>
@@ -63,8 +65,8 @@
                 FontSize="10"
                 FontWeight="Bold"
                 Background="#D0FF69B4"
-                Foreground="White"
-                BorderBrush="#FF69B4"
+                Foreground="{DynamicResource TextLightBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 Content="{Binding [label_skill_purchase], Source={x:Static loc:LocalizationManager.Instance}}" />
@@ -73,8 +75,8 @@
                 FontSize="10"
                 FontWeight="Bold"
                 Background="#80000000"
-                Foreground="White"
-                BorderBrush="#FF69B4"
+                Foreground="{DynamicResource TextLightBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 Content="{Binding [label_skill_details], Source={x:Static loc:LocalizationManager.Instance}}" />
@@ -97,7 +99,7 @@
                      Margin="0,4,0,0"
                      HorizontalAlignment="Center"
                      TextAlignment="Center"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="11"
                      FontWeight="SemiBold"
                      TextWrapping="Wrap" />

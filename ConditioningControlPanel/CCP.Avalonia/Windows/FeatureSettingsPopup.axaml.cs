@@ -223,7 +223,7 @@ public partial class FeatureSettingsPopup : UserControl
         var valueText = new TextBlock
         {
             Text = value.ToString(),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             FontSize = 12,
             FontWeight = FontWeight.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
@@ -337,7 +337,7 @@ public partial class FeatureSettingsPopup : UserControl
         {
             Text = value,
             Background = FindBrush("PanelBgBrush", new Color(255, 37, 37, 66)),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderBrush = new SolidColorBrush(Color.FromRgb(53, 53, 85)),
             Padding = new Thickness(8, 5, 8, 5),
             FontSize = 11,
@@ -502,7 +502,7 @@ public partial class FeatureSettingsPopup : UserControl
         {
             Content = LocalizationManager.Instance["feature_settings_phrase_add"],
             Background = new SolidColorBrush(Color.FromRgb(76, 175, 80)),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(8, 4, 8, 4),
             Margin = new Thickness(0, 0, 4, 0)
@@ -515,7 +515,7 @@ public partial class FeatureSettingsPopup : UserControl
         {
             Content = LocalizationManager.Instance["feature_settings_phrase_remove"],
             Background = new SolidColorBrush(Color.FromRgb(244, 67, 54)),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(8, 4, 8, 4),
             Margin = new Thickness(2, 0, 2, 0)
@@ -528,7 +528,7 @@ public partial class FeatureSettingsPopup : UserControl
         {
             Content = LocalizationManager.Instance["feature_settings_phrase_clear"],
             Background = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(8, 4, 8, 4),
             Margin = new Thickness(4, 0, 0, 0)
@@ -543,7 +543,7 @@ public partial class FeatureSettingsPopup : UserControl
         {
             Content = LocalizationManager.Instance["feature_settings_phrase_import_global"],
             Background = new SolidColorBrush(Color.FromRgb(53, 53, 85)),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(8, 6, 8, 6),
             Margin = new Thickness(0, 8, 0, 0),
@@ -662,7 +662,7 @@ public partial class FeatureSettingsPopup : UserControl
         var accentHex = CoreApp.Mods?.GetAccentColorHex() ?? "#FF69B4";
         if (Color.TryParse(accentHex, out var color))
             return new SolidColorBrush(color);
-        return new SolidColorBrush(Color.Parse("#FF69B4"));
+        return new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!);
     }
 
     private IBrush FindBrush(string resourceKey, Color fallback)

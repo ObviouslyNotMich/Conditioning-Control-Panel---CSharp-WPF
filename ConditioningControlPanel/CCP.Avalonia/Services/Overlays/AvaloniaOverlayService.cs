@@ -482,7 +482,15 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
     private static Color GetFilterColor(int opacityPercent)
     {
         var alpha = (byte)Math.Clamp(opacityPercent / 100.0 * 255, 0, 255);
-        return new Color(alpha, 255, 105, 180); // hot pink
+        var accent = AppColor("PinkColor", new Color(0xFF, 0xFF, 0x69, 0xB4));
+        return new Color(alpha, accent.R, accent.G, accent.B);
+    }
+
+    private static Color AppColor(string key, Color fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c)
+            return c;
+        return fallback;
     }
 
     private string GetSpiralPath()

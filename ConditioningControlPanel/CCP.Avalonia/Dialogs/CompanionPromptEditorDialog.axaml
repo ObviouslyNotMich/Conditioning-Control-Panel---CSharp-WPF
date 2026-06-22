@@ -21,7 +21,7 @@
 
       <ControlTheme x:Key="ResetButton" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource PanelAccentBrush}" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="8,4" />
         <Setter Property="FontSize" Value="10" />
@@ -57,7 +57,7 @@
                        FontSize="20"
                        FontWeight="Bold"
                        VerticalAlignment="Center" />
-            <Border Background="#FF6B6B" CornerRadius="3" Padding="6,2" VerticalAlignment="Center">
+            <Border Background="{DynamicResource DangerBrush}" CornerRadius="3" Padding="6,2" VerticalAlignment="Center">
               <TextBlock Text="{loc:Str label_beta}" Foreground="White" FontSize="10" FontWeight="Bold" />
             </Border>
           </StackPanel>

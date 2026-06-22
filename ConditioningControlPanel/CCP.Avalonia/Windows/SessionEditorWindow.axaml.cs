@@ -176,7 +176,7 @@ public partial class SessionEditorWindow : Window
     {
         var border = new Border
         {
-            Background = (SolidColorBrush?)Resources["PanelBgBrush"] ?? new SolidColorBrush(Color.Parse("#252540")),
+            Background = (SolidColorBrush?)Resources["PanelBgBrush"] ?? new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["ElevatedSurface"]!),
             CornerRadius = new CornerRadius(7),
             Width = 68,
             Height = 68,

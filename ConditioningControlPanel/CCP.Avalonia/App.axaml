@@ -22,17 +22,29 @@
     <!-- Core theme colors -->
     <Color x:Key="PinkColor">#FFFF69B4</Color>
     <Color x:Key="DarkPinkColor">#FFFF1493</Color>
+    <Color x:Key="DarkPink">#FFFF1493</Color>
+    <Color x:Key="PinkButtonHovered">#FFFF8FAF</Color>
+    <Color x:Key="AccentPressed">#FFFF3F9F</Color>
     <Color x:Key="DarkerBg">#FF08080C</Color>
     <Color x:Key="PanelBg">#FF1A1A2E</Color>
     <Color x:Key="SurfaceBg">#FF181830</Color>
     <Color x:Key="ElevatedSurface">#FF252540</Color>
     <Color x:Key="PanelAccent">#FF3D3D60</Color>
     <Color x:Key="PanelAccentHover">#FF4A4A70</Color>
+    <Color x:Key="PreviewBg">#FF06060A</Color>
+    <Color x:Key="PanelBgTransparent">#B01A1A2E</Color>
     <Color x:Key="GlassBorder">#20FFFFFF</Color>
     <Color x:Key="TextMuted">#FF6E6E88</Color>
     <Color x:Key="TransparentPink">#30FF69B4</Color>
     <Color x:Key="TransparentPink20">#20FF69B4</Color>
+    <Color x:Key="TransparentPink40">#40FF69B4</Color>
+    <Color x:Key="TransparentPink50">#50FF69B4</Color>
+    <Color x:Key="TransparentPink60">#60FF69B4</Color>
     <Color x:Key="TransparentWhite">#40FFFFFF</Color>
+    <Color x:Key="AccentTintedBg">#FF1F1F33</Color>
+    <Color x:Key="AccentTintedBgHover">#FF222238</Color>
+    <Color x:Key="AccentMidGradient">#FF121226</Color>
+    <Color x:Key="PatreonPurple">#FF9B59B6</Color>
     <Color x:Key="PatreonLightPurple">#FFFF424D</Color>
     <Color x:Key="PatreonDarkPurple">#FFE8363F</Color>
     <Color x:Key="NeonPurple">#FFB47BFF</Color>
@@ -44,21 +56,41 @@
     <Color x:Key="DiscordBlue">#FF5865F2</Color>
     <Color x:Key="DiscordBlueDark">#FF4752C4</Color>
     <Color x:Key="Danger">#FFE53935</Color>
+    <Color x:Key="Success">#FF00C853</Color>
+    <Color x:Key="TextDim">#FFAAAAAA</Color>
 
     <!-- Core theme brushes -->
     <SolidColorBrush x:Key="PinkBrush" Color="{DynamicResource PinkColor}" />
     <SolidColorBrush x:Key="DarkPinkBrush" Color="{DynamicResource DarkPinkColor}" />
+    <SolidColorBrush x:Key="PinkButtonHoveredBrush" Color="{DynamicResource PinkButtonHovered}" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="{DynamicResource AccentPressed}" />
     <SolidColorBrush x:Key="DarkerBgBrush" Color="{DynamicResource DarkerBg}" />
     <SolidColorBrush x:Key="PanelBgBrush" Color="{DynamicResource PanelBg}" />
     <SolidColorBrush x:Key="SurfaceBgBrush" Color="{DynamicResource SurfaceBg}" />
     <SolidColorBrush x:Key="ElevatedSurfaceBrush" Color="{DynamicResource ElevatedSurface}" />
     <SolidColorBrush x:Key="PanelAccentBrush" Color="{DynamicResource PanelAccent}" />
     <SolidColorBrush x:Key="PanelAccentHoverBrush" Color="{DynamicResource PanelAccentHover}" />
+    <SolidColorBrush x:Key="PreviewBgBrush" Color="{DynamicResource PreviewBg}" />
+    <SolidColorBrush x:Key="PanelBgTransparentBrush" Color="{DynamicResource PanelBgTransparent}" />
     <SolidColorBrush x:Key="GlassBorderBrush" Color="{DynamicResource GlassBorder}" />
     <SolidColorBrush x:Key="TextMutedBrush" Color="{DynamicResource TextMuted}" />
     <SolidColorBrush x:Key="TransparentPinkBrush" Color="{DynamicResource TransparentPink}" />
     <SolidColorBrush x:Key="TransparentPink20Brush" Color="{DynamicResource TransparentPink20}" />
+    <SolidColorBrush x:Key="TransparentPink40Brush" Color="{DynamicResource TransparentPink40}" />
+    <SolidColorBrush x:Key="TransparentPink50Brush" Color="{DynamicResource TransparentPink50}" />
+    <SolidColorBrush x:Key="TransparentPink60Brush" Color="{DynamicResource TransparentPink60}" />
     <SolidColorBrush x:Key="TransparentWhiteBrush" Color="{DynamicResource TransparentWhite}" />
+    <SolidColorBrush x:Key="AccentTintedBgBrush" Color="{DynamicResource AccentTintedBg}" />
+    <SolidColorBrush x:Key="AccentTintedBgHoverBrush" Color="{DynamicResource AccentTintedBgHover}" />
+    <SolidColorBrush x:Key="AccentMidGradientBrush" Color="{DynamicResource AccentMidGradient}" />
+    <SolidColorBrush x:Key="PatreonPurpleBrush" Color="{DynamicResource PatreonPurple}" />
+    <SolidColorBrush x:Key="SecondaryBrush" Color="{DynamicResource PatreonPurple}" />
+
+    <!-- Brand gradient used only for CCP Default; other mods replace AccentGradientBrush with a solid accent. -->
+    <LinearGradientBrush x:Key="BrandGradient" StartPoint="0,0" EndPoint="1,1">
+      <GradientStop Color="#FFFF69B4" Offset="0" />
+      <GradientStop Color="#FF8B5CF6" Offset="1" />
+    </LinearGradientBrush>
     <SolidColorBrush x:Key="PatreonLightPurpleBrush" Color="{DynamicResource PatreonLightPurple}" />
     <SolidColorBrush x:Key="PatreonDarkPurpleBrush" Color="{DynamicResource PatreonDarkPurple}" />
     <SolidColorBrush x:Key="NeonPurpleBrush" Color="{DynamicResource NeonPurple}" />
@@ -70,13 +102,15 @@
     <SolidColorBrush x:Key="DeeperAccentTransparent40Brush" Color="#667B5CFF" />
     <SolidColorBrush x:Key="TextLightBrush" Color="#FFFFFFFF" />
     <SolidColorBrush x:Key="TextDimBrush" Color="#FFAAAAAA" />
+    <SolidColorBrush x:Key="BannerTertiaryBrush" Color="{DynamicResource RecapFoilCyan}" />
     <SolidColorBrush x:Key="DiscordBlueBrush" Color="{DynamicResource DiscordBlue}" />
     <SolidColorBrush x:Key="DiscordBlueDarkBrush" Color="{DynamicResource DiscordBlueDark}" />
     <SolidColorBrush x:Key="DangerBrush" Color="{DynamicResource Danger}" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="{DynamicResource Success}" />
 
-    <!-- Accent gradient for primary CTAs -->
+    <!-- Accent gradient for primary CTAs. Replaced at runtime per active mod. -->
     <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
-      <GradientStop Color="#FFFF69B4" Offset="0" />
+      <GradientStop Color="{DynamicResource PinkColor}" Offset="0" />
       <GradientStop Color="#FF8B5CF6" Offset="1" />
     </LinearGradientBrush>
 
@@ -150,7 +184,7 @@
 
     <!-- Header tab buttons: dark when unselected, pink filled when checked -->
     <ControlTheme x:Key="TabButton" TargetType="ToggleButton">
-      <Setter Property="Background" Value="#FF3D1A3D" />
+      <Setter Property="Background" Value="{DynamicResource AccentTintedBgBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource PinkBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
       <Setter Property="BorderThickness" Value="1" />

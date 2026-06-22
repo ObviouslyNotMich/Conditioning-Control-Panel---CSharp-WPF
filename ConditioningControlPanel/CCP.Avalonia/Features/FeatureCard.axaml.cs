@@ -295,8 +295,8 @@ public partial class FeatureCard : UserControl
         var showActive = IsActive && !IsLocked;
         ActiveBorder.IsVisible = showActive;
         RootBorder.BoxShadow = showActive
-            ? new BoxShadows(new BoxShadow { Blur = 18, Color = Color.Parse("#8CFF69B4") })
-            : new BoxShadows(new BoxShadow { Blur = 18, Color = Color.Parse("#00000000") });
+            ? new BoxShadows(new BoxShadow { Blur = 18, Color = Application.Current?.Resources["TransparentPink50"] is Color c ? c : Colors.Transparent })
+            : new BoxShadows(new BoxShadow { Blur = 18, Color = Colors.Transparent });
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)

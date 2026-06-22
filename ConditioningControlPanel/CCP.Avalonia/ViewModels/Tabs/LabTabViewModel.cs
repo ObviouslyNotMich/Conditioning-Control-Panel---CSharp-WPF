@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -144,7 +145,7 @@ public partial class LabTabViewModel : TabItemViewModel
     private string _trackerStatusText = "";
 
     [ObservableProperty]
-    private IBrush _trackerStatusColor = new SolidColorBrush(Color.Parse("#FFFF69B4"));
+    private IBrush _trackerStatusColor = GetThemeBrush("PinkBrush", "#FFFF69B4");
 
     [ObservableProperty]
     private bool _debugCursorEnabled;
@@ -166,7 +167,7 @@ public partial class LabTabViewModel : TabItemViewModel
     private string _focusGazeStatusText = "";
 
     [ObservableProperty]
-    private IBrush _focusGazeStatusColor = new SolidColorBrush(Color.Parse("#FF888888"));
+    private IBrush _focusGazeStatusColor = GetThemeBrush("TextMutedBrush", "#FF888888");
 
     #endregion
 
@@ -264,21 +265,23 @@ public partial class LabTabViewModel : TabItemViewModel
     {
         TrackerButtonText = value ? Loc.Get("btn_stop") : Loc.Get("lab_start_tracking");
         TrackerStatusText = value ? Loc.Get("lab_tracker_status_running") : Loc.Get("lab_tracker_status_stopped");
-        var color = value ? "#FF00C853" : "#FFFF69B4";
-        TrackerStatusColor = new SolidColorBrush(Color.Parse(color));
-        AppendLog(value ? "Tracking started (visual shell only)." : "Tracking stopped.");
+        TrackerStatusColor = value
+            ? GetThemeBrush("SuccessBrush", "#FF00C853")
+            : GetThemeBrush("PinkBrush", "#FFFF69B4");
+        AppendLog(value ? Loc.Get("lab_log_tracking_started") : Loc.Get("lab_log_tracking_stopped"));
     }
 
     partial void OnDebugCursorEnabledChanged(bool value)
     {
-        AppendLog(value ? "Debug cursor enabled." : "Debug cursor hidden.");
+        AppendLog(value ? Loc.Get("lab_log_debug_cursor_enabled") : Loc.Get("lab_log_debug_cursor_hidden"));
     }
 
     partial void OnFocusGazeEnabledChanged(bool value)
     {
         FocusGazeStatusText = value ? Loc.Get("lab_tracker_status_running") : Loc.Get("lab_focus_gaze_hint");
-        var color = value ? "#FF00C853" : "#FF888888";
-        FocusGazeStatusColor = new SolidColorBrush(Color.Parse(color));
+        FocusGazeStatusColor = value
+            ? GetThemeBrush("SuccessBrush", "#FF00C853")
+            : GetThemeBrush("TextMutedBrush", "#FF888888");
         _logger?.Information("Focus Gaze toggled: {Active}", value);
     }
 
@@ -286,10 +289,8 @@ public partial class LabTabViewModel : TabItemViewModel
     private async Task ActivateLockdownAsync()
     {
         var confirmed = await (_dialogService?.ShowConfirmationAsync(
-            "Lockdown Mode",
-            $"You will be LOCKED IN for {SelectedLockdownDuration} minutes.\n" +
-            "Strict Lock will be FORCED ON. Panic Key will be DISABLED.\n" +
-            "Continue?") ?? Task.FromResult(false));
+            Loc.Get("lab_lockdown_title"),
+            string.Format(Loc.Get("lab_lockdown_message_fmt"), SelectedLockdownDuration)) ?? Task.FromResult(false));
         if (!confirmed) return;
 
         IsLockdownActive = true;
@@ -310,8 +311,8 @@ public partial class LabTabViewModel : TabItemViewModel
     {
         _logger?.Information("Chaos mode requested");
         await (_dialogService?.ShowMessageAsync(
-            "Down the Rabbit Hole",
-            "Chaos mode is not yet available in the Avalonia head.") ?? Task.CompletedTask);
+            Loc.Get("lab_chaos_title"),
+            Loc.Get("lab_chaos_not_available")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
@@ -352,13 +353,13 @@ public partial class LabTabViewModel : TabItemViewModel
     private async Task ForgetEverythingAsync()
     {
         var confirmed = await (_dialogService?.ShowConfirmationAsync(
-            "Forget everything",
-            "This wipes all saved AI chat memory. Continue?") ?? Task.FromResult(false));
+            Loc.Get("lab_forget_title"),
+            Loc.Get("lab_forget_message")) ?? Task.FromResult(false));
         if (!confirmed) return;
 
         AiMemoryEnabled = false;
         _logger?.Information("AI memory cleared (stub)");
-        AppendLog("AI memory cleared.");
+        AppendLog(Loc.Get("lab_log_ai_memory_cleared"));
     }
 
     [RelayCommand]
@@ -368,7 +369,7 @@ public partial class LabTabViewModel : TabItemViewModel
         WebcamDevices.Clear();
         WebcamDevices.Add(new WebcamDeviceOption(0, Loc.Get("blink_trainer_default_camera")));
         SelectedWebcamDevice = WebcamDevices[0];
-        AppendLog("Camera list refreshed.");
+        AppendLog(Loc.Get("lab_log_camera_list_refreshed"));
     }
 
     [RelayCommand]
@@ -377,7 +378,7 @@ public partial class LabTabViewModel : TabItemViewModel
         Monitors.Clear();
         Monitors.Add(new MonitorOption("Primary", Loc.Get("webcam_monitor_primary")));
         SelectedMonitor = Monitors[0];
-        AppendLog("Monitor list refreshed.");
+        AppendLog(Loc.Get("lab_log_monitor_list_refreshed"));
     }
 
     [RelayCommand]
@@ -399,51 +400,51 @@ public partial class LabTabViewModel : TabItemViewModel
     private async Task CalibrateAsync()
     {
         _webcam?.Calibrate();
-        AppendLog("Calibration requested.");
+        AppendLog(Loc.Get("lab_log_calibration_requested"));
         await (_dialogService?.ShowMessageAsync(
-            "Calibration",
-            "Calibration is not yet available in the Avalonia head.") ?? Task.CompletedTask);
+            Loc.Get("lab_calibration_title"),
+            Loc.Get("lab_calibration_not_available")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
     private async Task QuickRecalAsync()
     {
         _webcam?.Calibrate();
-        AppendLog("Quick recal requested.");
+        AppendLog(Loc.Get("lab_log_quick_recal_requested"));
         await (_dialogService?.ShowMessageAsync(
-            "Quick Recalibrate",
-            "Quick recalibration is not yet available in the Avalonia head.") ?? Task.CompletedTask);
+            Loc.Get("lab_quick_recal_title"),
+            Loc.Get("lab_quick_recal_not_available")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
     private async Task TrackerTestAsync()
     {
         _webcam?.TestTracker();
-        AppendLog("Tracker test requested.");
+        AppendLog(Loc.Get("lab_log_tracker_test_requested"));
         await (_dialogService?.ShowMessageAsync(
-            "Tracker Test",
-            "Tracker test is not yet available in the Avalonia head.") ?? Task.CompletedTask);
+            Loc.Get("lab_tracker_test_title"),
+            Loc.Get("lab_tracker_test_not_available")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
     private async Task RevokeConsentAsync()
     {
         var confirmed = await (_dialogService?.ShowConfirmationAsync(
-            "Revoke consent",
-            "This disables webcam tracking. Continue?") ?? Task.FromResult(false));
+            Loc.Get("lab_revoke_consent_title"),
+            Loc.Get("lab_revoke_consent_message")) ?? Task.FromResult(false));
         if (!confirmed) return;
 
         _webcam?.RevokeConsent();
         IsTracking = false;
         DebugCursorEnabled = false;
-        AppendLog("Consent revoked.");
+        AppendLog(Loc.Get("lab_log_consent_revoked"));
     }
 
     [RelayCommand]
     private void OpenGazeMinigame()
     {
         _logger?.Information("Gaze minigame requested");
-        AppendLog("Gaze minigame opened (visual shell only).");
+        AppendLog(Loc.Get("lab_log_gaze_minigame_opened"));
     }
 
     [RelayCommand]
@@ -451,8 +452,8 @@ public partial class LabTabViewModel : TabItemViewModel
     {
         _logger?.Information("Navigate to Blink Trainer requested");
         await (_dialogService?.ShowMessageAsync(
-            "Blink Trainer",
-            "Switch to the Blink Trainer tab to manage tracking and sessions.") ?? Task.CompletedTask);
+            Loc.Get("lab_blink_trainer_title"),
+            Loc.Get("lab_blink_trainer_message")) ?? Task.CompletedTask);
     }
 
     private void LoadFromSettings()
@@ -490,6 +491,19 @@ public partial class LabTabViewModel : TabItemViewModel
         var stamp = DateTime.Now.ToString("HH:mm:ss");
         DebugLog.Add($"[{stamp}] {line}");
         while (DebugLog.Count > 12) DebugLog.RemoveAt(0);
+    }
+
+    private static IBrush GetThemeBrush(string key, string fallbackHex)
+    {
+        var app = Application.Current;
+        if (app != null &&
+            app.Resources.TryGetResource(key, app.ActualThemeVariant, out var value) &&
+            value is IBrush brush)
+        {
+            return brush;
+        }
+
+        return new SolidColorBrush(Color.Parse(fallbackHex));
     }
 }
 

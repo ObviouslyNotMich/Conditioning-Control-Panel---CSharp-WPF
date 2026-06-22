@@ -18,13 +18,13 @@
               ClipToBounds="True">
         <Border.Background>
           <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Offset="0" Color="#1A1A2E" />
+            <GradientStop Offset="0" Color="{DynamicResource PanelBg}" />
             <GradientStop Offset="1" Color="#2A4A6A" />
           </LinearGradientBrush>
         </Border.Background>
         <Grid>
           <Border Opacity="0.12"
-                  Background="White"
+                  Background="{DynamicResource TextLightBrush}"
                   Width="260"
                   Height="260"
                   CornerRadius="130"
@@ -35,7 +35,7 @@
             <TextBlock Text="{loc:Str tab_app_info_banner_title}"
                        FontSize="28"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{loc:Str tab_app_info_banner_subtitle}"
                        FontSize="14"
                        Foreground="{DynamicResource TextMutedBrush}"
@@ -62,7 +62,7 @@
                      FontWeight="Bold"
                      HorizontalAlignment="Center" />
           <TextBlock Text="{Binding VersionText}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="16"
                      HorizontalAlignment="Center" />
           <TextBlock Text="Conditioning Control Panel"
@@ -92,7 +92,7 @@
           <TextBlock Text="{loc:Str section_account}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <StackPanel Orientation="Horizontal" Spacing="12">
             <Button Content="{Binding PatreonButtonText}"
                     Command="{Binding QuickPatreonLoginCommand}"
@@ -121,7 +121,7 @@
           <TextBlock Text="{loc:Str label_language}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <ComboBox ItemsSource="{Binding LanguageOptions}"
                     SelectedItem="{Binding SelectedLanguage}"
                     Width="240">
@@ -145,7 +145,7 @@
           <TextBlock Text="{loc:Str section_cloud_backup}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <TextBlock Text="{Binding BackupStatusText}"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource TextMutedBrush}" />
@@ -173,7 +173,7 @@
           <TextBlock Text="{loc:Str section_legal_and_support}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <Button Content="{loc:Str btn_privacy_policy}"
                   Command="{Binding OpenPrivacyPolicyCommand}" />
         </StackPanel>
@@ -189,7 +189,7 @@
           <TextBlock Text="{loc:Str section_smoke_tests}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <StackPanel Orientation="Horizontal" Spacing="12">
             <Button Content="{loc:Str btn_test_audio}"
                     Command="{Binding SmokeTestAudioCommand}"

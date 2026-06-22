@@ -1243,30 +1243,31 @@ These `main` changes landed in the WPF head but are **not yet** reflected in Cor
 
 ### 19.4 Strategic fix — collapse the duplication (highest-leverage move)
 
-**The original project, measured.** The WPF head (`ConditioningControlPanel.csproj`) deliberately *excludes*
-the cross-platform tree (`<DefaultItemExcludes>…;CCP.Core\**;CCP.Avalonia\**;…</DefaultItemExcludes>`) and
-compiles **its own copy of every model**. Concretely: all **70** `Models/*.cs` files have an identical-named
-copy in `CCP.Core/Models/` (0 WPF-only), and the copies have already silently drifted — `AppSettings.cs` *and*
-`Session.cs` both differ between the two trees today. This is two hand-synced codebases, and it is the single
-biggest recurring tax in the whole migration.
+**Status: completed 2026-06-22.** The WPF head (`ConditioningControlPanel.csproj`) now references `CCP.Core`
+directly and the WPF `Models/` duplicate folder has been deleted. `CCP.Core/Models/` is the single source of
+truth for all model/DTO types.
 
-**Namespace alignment is done; project-reference collapse is blocked.** WPF models are `namespace ConditioningControlPanel.Models`; the Core copies were `namespace ConditioningControlPanel.Core.Models`. The mismatch was fixed by standardizing Core model namespace to `ConditioningControlPanel.Models` and sweeping Avalonia/tests.
+**What changed:**
 
-**Why a direct `ProjectReference` from WPF to `CCP.Core` does not yet work:** `CCP.Core/App.cs` defines a static `ConditioningControlPanel.App` service-locator stub that collides with the WPF `App` class, and Core carries its own generated assembly attributes that conflict with the WPF head's `Properties/AssemblyInfo.cs`. Referencing Core therefore produces `CS0102`/`CS0260`/`CS0579` errors. Do not attempt the §19.4 project-reference collapse until `CCP.Core/App.cs` is removed or renamed and the assembly-info story is reconciled.
+1. ✅ Added `ProjectReference` from WPF to `CCP.Core/CCP.Core.csproj`.
+2. ✅ Pinned `Microsoft.WindowsAppSDK` in WPF with `ExcludeAssets="all" PrivateAssets="all"` and added
+   `NoWarn="NU1605"` to resolve the transitive downgrade warning introduced by referencing Core's `LibVLCSharp`
+   dependency.
+3. ✅ Deleted the WPF `Models/` folder (47 duplicate `.cs` files).
+4. ✅ Removed duplicate type definitions that had been kept in WPF service files and redirected them to Core:
+   - `ConditioningControlPanel.Services.CatalogueEntry` → `ConditioningControlPanel.Models.CatalogueEntry`
+   - `ConditioningControlPanel.Services.Haptics.HapticProviderType` → `ConditioningControlPanel.Models.HapticProviderType`
+   - `ConditioningControlPanel.Services.XPSource` → `ConditioningControlPanel.Models.XPSource`
+   - `ConditioningControlPanel.Services.Content.PackFileEntry` → `ConditioningControlPanel.Models.PackFileEntry`
+5. ✅ Made `AppSettings.MigrateFromContentModeToMod()` `public` (was `internal`) so WPF's `SettingsService` can call it from another assembly.
+6. ✅ Qualified `LibVLCSharp.Shared.Core.Initialize(...)` in WPF video services so the unqualified `Core` name does not resolve to `ConditioningControlPanel.Core`.
 
-**Current bounded fix (applied 2026-06-21):**
+**Validation:** `dotnet build ConditioningControlPanel.sln -clp:ErrorsOnly` → 0 errors, 0 warnings;
+`dotnet test tests/CCP.Core.Tests/CCP.Core.Tests.csproj` → 95/95 passed; Avalonia Windows head `--smoke-test` →
+44 tabs, 0 first-chance exceptions, 0 findings.
 
-1. ✅ Standardize Core model namespace to **`ConditioningControlPanel.Models`** (drop the `.Core` segment for
-   `CCP.Core/Models/` only; keep `…Core.Services` etc. as-is).
-2. ✅ Mechanical sweep of Avalonia/tests: replaced `ConditioningControlPanel.Core.Models` → `ConditioningControlPanel.Models`.
-3. ⛔ **Deferred:** direct WPF `ProjectReference` to Core. Instead, keep WPF `Models/` as a synced copy and diff it on every merge (§19.2).
-4. ✅ Bumped `CCP.Core` `<Version>` from `6.1.4` → `6.1.6` to match `main`.
-
-**Prerequisite before retrying the collapse:**
-- Remove or rename `CCP.Core/App.cs` (and update all `App.X` call sites in Core models/services to use DI or a `CoreApp` helper).
-- Reconcile assembly attributes (either suppress Core's generated attributes when referenced from WPF, or share a single `AssemblyInfo`).
-
-Until then, treat `Models/` as a known liability and `diff` it on every merge (§19.2).
+**Ongoing maintenance:** With WPF `Models/` gone, the §19.2 merge triage no longer needs to diff `Models/`. Any
+future model changes should be made in `CCP.Core/Models/` and will be picked up by both WPF and Avalonia.
 
 ---
 

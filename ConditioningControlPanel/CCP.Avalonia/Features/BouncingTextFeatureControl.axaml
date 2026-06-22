@@ -1,13 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.BouncingTextFeatureControl"
-             Design.DataContext="{x:Null}">
+             Design.DataContext="{x:Null}"
+             x:DataType="{x:Type local:BouncingTextFeatureControl}">
 
   <StackPanel>
     <!-- Enable -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -15,7 +17,7 @@
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0"
                    Text="{loc:Str btn_enable}"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="14"
                    FontWeight="SemiBold"
                    VerticalAlignment="Center" />
@@ -27,8 +29,8 @@
     </Border>
 
     <!-- Speed -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -36,13 +38,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_speed}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtSpeed"
                      Text="5"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -54,7 +56,7 @@
                 IsSnapToTickEnabled="True"
                 ValueChanged="SliderSpeed_Changed" />
         <TextBlock Text="{loc:Str tooltip_bounce_speed_1_slow_10_fast}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -62,8 +64,8 @@
     </Border>
 
     <!-- Size -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -71,13 +73,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_size}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtSize"
                      Text="100%"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -89,7 +91,7 @@
                 IsSnapToTickEnabled="True"
                 ValueChanged="SliderSize_Changed" />
         <TextBlock Text="{loc:Str tooltip_text_size_50_small_100_normal_300_huge}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -97,8 +99,8 @@
     </Border>
 
     <!-- Always on top -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -107,11 +109,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str setting_show_over_videos}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str tooltip_keep_bouncing_text_visible_on_top_of_fullscre}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
@@ -131,9 +133,9 @@
 
     <Button Content="{loc:Str btn_edit_phrases}"
             Click="BtnEditPhrases_Click"
-            Background="#1A1A2E"
-            Foreground="White"
-            BorderBrush="#FF69B4"
+            Background="{DynamicResource PanelBgBrush}"
+            Foreground="{DynamicResource TextLightBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="6"
             Padding="12,8"

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using ConditioningControlPanel.Avalonia.Services.MindWipe;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
@@ -18,6 +19,7 @@ public partial class MindWipeFeatureControl : UserControl
     private readonly IMindWipeService? _mindWipe;
     private readonly ISessionService? _session;
     private readonly IAppLogger? _logger;
+    private readonly IUiDispatcher _dispatcher;
     private bool _isLoading = true;
 
     public MindWipeFeatureControl()
@@ -27,6 +29,7 @@ public partial class MindWipeFeatureControl : UserControl
         _mindWipe = App.Services.GetService<IMindWipeService>();
         _session = App.Services.GetService<ISessionService>();
         _logger = App.Services.GetService<IAppLogger>();
+        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -71,7 +74,7 @@ public partial class MindWipeFeatureControl : UserControl
         var path = s.MindWipeAudioPath;
         TxtAudioFile.Text = !string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path)
             ? System.IO.Path.GetFileName(path)
-            : LocalizationManager.Instance["label_mind_wipe_default_audio"];
+            : Loc.Get("label_mind_wipe_default_audio");
     }
 
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -82,7 +85,7 @@ public partial class MindWipeFeatureControl : UserControl
             or nameof(AppSettings.MindWipeLoop)
             or nameof(AppSettings.MindWipeAudioPath))
         {
-            global::Avalonia.Threading.Dispatcher.UIThread.Post(LoadFromSettings);
+            _dispatcher.Post(LoadFromSettings);
         }
     }
 
@@ -185,11 +188,11 @@ public partial class MindWipeFeatureControl : UserControl
         {
             var dialog = App.Services.GetRequiredService<IDialogService>();
             var result = await dialog.ShowOpenFileDialogAsync(
-                LocalizationManager.Instance["title_select_mind_wipe_audio"],
+                Loc.Get("title_select_mind_wipe_audio"),
                 new FileFilter[]
                 {
-                    new(LocalizationManager.Instance["label_audio_files"], new[] { "mp3", "wav", "ogg", "flac", "m4a" }),
-                    new(LocalizationManager.Instance["label_all_files"], new[] { "*" })
+                    new(Loc.Get("label_audio_files"), new[] { "mp3", "wav", "ogg", "flac", "m4a" }),
+                    new(Loc.Get("label_all_files"), new[] { "*" })
                 });
 
             if (result.Count == 0) return;
@@ -200,8 +203,7 @@ public partial class MindWipeFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            // TODO: App.Logger?.Warning(ex, "MindWipe audio select failed");
-            Console.WriteLine($"[MindWipeFeatureControl] Select failed: {ex.Message}");
+            _logger?.Warning(ex, "MindWipe audio select failed");
         }
     }
 
@@ -219,16 +221,18 @@ public partial class MindWipeFeatureControl : UserControl
     {
         UpdateAudioFileLabel(s);
 
-        // TODO: reload mind-wipe audio once App.MindWipe is available in Avalonia.
-        // try
-        // {
-        //     App.MindWipe?.ReloadAudioFiles();
-        //     if (s.MindWipeLoop && (App.MindWipe?.IsLooping ?? false))
-        //     {
-        //         App.MindWipe?.StopLoop();
-        //         App.MindWipe?.StartLoop(s.MindWipeVolume / 100.0);
-        //     }
-        // }
-        // catch (Exception ex) { App.Logger?.Warning(ex, "MindWipe audio change failed"); }
+        try
+        {
+            if (_mindWipe is AvaloniaMindWipeService svc)
+            {
+                svc.ReloadAudioFiles();
+                if (s.MindWipeLoop && svc.IsLooping)
+                {
+                    svc.StopLoop();
+                    svc.StartLoop(s.MindWipeVolume / 100.0);
+                }
+            }
+        }
+        catch (Exception ex) { _logger?.Warning(ex, "MindWipe audio change failed"); }
     }
 }

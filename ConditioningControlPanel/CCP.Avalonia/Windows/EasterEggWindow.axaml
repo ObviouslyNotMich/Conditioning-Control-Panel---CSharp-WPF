@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.EasterEggWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.EasterEggWindow" x:DataType="x:Object"
         Title="..."
         Height="650" Width="550"
         WindowStartupLocation="CenterOwner"
@@ -19,9 +19,8 @@
     </ResourceDictionary>
   </Window.Resources>
 
-  <Border Background="{DynamicResource DarkerBgBrush}" CornerRadius="12"
-          BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2"
-          BoxShadow="0 0 30 0 #80FF69B4">
+  <Border x:Name="RootBorder" Background="{DynamicResource DarkerBgBrush}" CornerRadius="12"
+          BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2">
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
@@ -43,7 +42,7 @@
                      TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" LineHeight="20" />
           <TextBlock x:Name="TxtReaderCount"
                      FontFamily="Consolas" FontSize="11"
-                     Foreground="#FF4444"
+                     Foreground="{DynamicResource DangerBrush}"
                      Margin="0,15,0,5"
                      HorizontalAlignment="Center"
                      IsVisible="False"/>
@@ -57,7 +56,7 @@
                 Cursor="Hand"
                 HorizontalAlignment="Center"
                 Background="{DynamicResource PinkBrush}"
-                Foreground="White"
+                Foreground="{DynamicResource TextLightBrush}"
                 FontWeight="Bold"
                 FontSize="13"
                 Padding="30,10"

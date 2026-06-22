@@ -103,7 +103,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
     private string _devicesText = Loc.Get("label_no_devices");
 
     [ObservableProperty]
-    private string _connectButtonText = "Connect";
+    private string _connectButtonText = Loc.Get("btn_connect");
 
     [ObservableProperty]
     private ObservableCollection<string> _providerOptions;
@@ -334,7 +334,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
             _logger?.Warning("Haptic connect requested but no haptics service is available");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
-                "Haptics service is not available.") ?? Task.CompletedTask);
+                Loc.Get("msg_haptic_service_unavailable")) ?? Task.CompletedTask);
             return;
         }
 
@@ -352,7 +352,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
         {
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
-                "Failed to connect to the haptic provider.") ?? Task.CompletedTask);
+                Loc.Get("msg_haptic_connect_failed")) ?? Task.CompletedTask);
         }
     }
 
@@ -364,7 +364,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
             _logger?.Warning("Haptic test requested but no haptics service is available");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
-                "Haptics service is not available.") ?? Task.CompletedTask);
+                Loc.Get("msg_haptic_service_unavailable")) ?? Task.CompletedTask);
             return;
         }
 
@@ -375,13 +375,13 @@ public partial class HapticsTabViewModel : TabItemViewModel
         {
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_success"),
-                $"Haptic test pulse sent at {GlobalIntensity}% intensity for 2 seconds.") ?? Task.CompletedTask);
+                Loc.GetF("msg_haptic_test_success_fmt", GlobalIntensity, 2)) ?? Task.CompletedTask);
         }
         else
         {
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
-                "Haptic test failed. Make sure a provider is connected.") ?? Task.CompletedTask);
+                Loc.Get("msg_haptic_test_failed")) ?? Task.CompletedTask);
         }
     }
 
@@ -390,9 +390,8 @@ public partial class HapticsTabViewModel : TabItemViewModel
     {
         _logger?.Information("Haptics help requested");
         await (_dialogService?.ShowMessageAsync(
-            "Help",
-            "Select a provider and press Connect. Use Test to send a short vibration pulse. " +
-            "For the Avalonia stub, only the Mock provider is functional.") ?? Task.CompletedTask);
+            Loc.Get("haptics_help_title"),
+            Loc.Get("haptics_help_body")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
@@ -401,8 +400,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
         _logger?.Information("Video haptic sync help requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("label_video_haptic_sync"),
-            "Video Haptic Sync maps the audio track of playing videos to haptic output. " +
-            "Use Delay to nudge timing and Power to scale intensity.") ?? Task.CompletedTask);
+            Loc.Get("haptics_video_sync_help_body")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]

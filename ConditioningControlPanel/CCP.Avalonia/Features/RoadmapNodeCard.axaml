@@ -1,9 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.RoadmapNodeCard"
              Width="150"
-             Height="220">
+             Height="220"
+             x:DataType="{x:Type local:RoadmapNodeCard}">
 
   <Border x:Name="RootBorder"
           Background="{DynamicResource PanelBgBrush}"
@@ -25,7 +27,7 @@
                  Text="{loc:Str label_title}"
                  FontSize="12"
                  FontWeight="SemiBold"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  TextAlignment="Center"
                  TextWrapping="Wrap"
                  Margin="0,4,0,0" />
@@ -52,7 +54,7 @@
         <TextBlock x:Name="TxtRequirement"
                    Text="{loc:Str roadmap_node_requirement_default}"
                    FontSize="10"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    TextWrapping="Wrap"
                    TextAlignment="Center" />
 
@@ -78,7 +80,7 @@
           <TextBlock Text="{loc:Str label_locked}"
                      FontSize="11"
                      FontWeight="SemiBold"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      Margin="0,4,0,0" />
         </StackPanel>
       </Border>

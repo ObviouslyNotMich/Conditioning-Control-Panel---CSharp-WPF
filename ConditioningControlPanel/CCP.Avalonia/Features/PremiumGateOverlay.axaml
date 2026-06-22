@@ -1,8 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.PremiumGateOverlay"
-             x:CompileBindings="False">
+             x:CompileBindings="False"
+             x:DataType="{x:Type local:PremiumGateOverlay}">
 
   <!-- Full-parent translucent overlay. Shown when IsLocked is true. -->
   <Grid x:Name="RootGrid"
@@ -12,7 +14,7 @@
     <Border VerticalAlignment="Center"
             HorizontalAlignment="Center"
             Background="{DynamicResource SurfaceBgBrush}"
-            BorderBrush="#FF69B4"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="2"
             CornerRadius="16"
             Padding="32,28"
@@ -27,7 +29,7 @@
         <TextBlock Text="{Binding Header, RelativeSource={RelativeSource AncestorType=UserControl}}"
                    FontSize="22"
                    FontWeight="Bold"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    HorizontalAlignment="Center"
                    TextWrapping="Wrap"
                    TextAlignment="Center" />

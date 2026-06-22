@@ -1,13 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.BubblePopFeatureControl"
-             Design.DataContext="{x:Null}">
+             Design.DataContext="{x:Null}"
+             x:DataType="{x:Type local:BubblePopFeatureControl}">
 
   <StackPanel>
     <!-- Enable toggle -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -16,11 +18,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str feature_bubble_pop}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="14"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str desc_bubble_pop}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
@@ -33,8 +35,8 @@
     </Border>
 
     <!-- Spawn frequency -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -42,13 +44,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_bubbles_per_minute}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtFreq"
                      Text="5"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -60,7 +62,7 @@
                 IsSnapToTickEnabled="True"
                 ValueChanged="SliderFreq_Changed" />
         <TextBlock Text="{loc:Str tooltip_bubbles_per_minute}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />
@@ -68,21 +70,21 @@
     </Border>
 
     <!-- Pop volume -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14">
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_pop_volume}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtVolume"
                      Text="50%"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -94,7 +96,7 @@
                 IsSnapToTickEnabled="True"
                 ValueChanged="SliderVolume_Changed" />
         <TextBlock Text="{loc:Str tooltip_pop_volume}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="10"
                    TextWrapping="Wrap"
                    Margin="0,4,0,0" />

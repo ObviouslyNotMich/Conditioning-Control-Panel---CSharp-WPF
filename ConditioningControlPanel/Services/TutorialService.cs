@@ -12,9 +12,9 @@ namespace ConditioningControlPanel.Services
     // PrepareTargetWindowAction; safe no-op for non-editor windows.
     internal static class DeeperTutorialPrep
     {
-        public static readonly Action<Window> ExpandMetadataDrawer = w =>
+        public static readonly Action<object> ExpandMetadataDrawer = o =>
         {
-            try { (w as DeeperEditorWindow)?.ExpandMetadataDrawer(); } catch { }
+            try { (o as DeeperEditorWindow)?.ExpandMetadataDrawer(); } catch { }
         };
     }
     /// <summary>

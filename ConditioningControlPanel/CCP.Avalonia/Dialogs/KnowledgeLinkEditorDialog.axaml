@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.KnowledgeLinkEditorDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.KnowledgeLinkEditorDialog" x:DataType="x:Object"
         Title="{Binding [dialog_add_knowledge_link], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="450"
         SizeToContent="Height"
@@ -31,7 +31,7 @@
                    FontWeight="Bold" />
         <TextBox x:Name="TxtUrl"
                  Background="{DynamicResource PanelBgBrush}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  BorderBrush="{DynamicResource PanelAccentBrush}"
                  BorderThickness="1"
                  Padding="8"

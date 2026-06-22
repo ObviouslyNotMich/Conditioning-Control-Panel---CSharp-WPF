@@ -203,8 +203,8 @@ public partial class PatreonTabViewModel : TabItemViewModel
         if (settings?.HasLinkedPatreon == true)
         {
             await (_dialogService?.ShowMessageAsync(
-                "Patreon",
-                "Patreon is already linked.") ?? Task.CompletedTask);
+                Loc.Get("tab_patreon_patreon_text"),
+                Loc.Get("msg_patreon_already_linked")) ?? Task.CompletedTask);
             return;
         }
 
@@ -218,8 +218,8 @@ public partial class PatreonTabViewModel : TabItemViewModel
         if (settings?.HasLinkedDiscord == true)
         {
             await (_dialogService?.ShowMessageAsync(
-                "Discord",
-                "Discord is already linked.") ?? Task.CompletedTask);
+                Loc.Get("tab_patreon_discord_text"),
+                Loc.Get("msg_discord_already_linked")) ?? Task.CompletedTask);
             return;
         }
 
@@ -597,7 +597,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
                 _ => Loc.Get("label_patreon_tier_connected")
             };
             PatreonExpiryText = settings?.PatreonPremiumValidUntil.HasValue == true
-                ? $"Premium expires: {settings.PatreonPremiumValidUntil.Value:g}"
+                ? string.Format(Loc.Get("msg_premium_expires_fmt"), settings.PatreonPremiumValidUntil.Value)
                 : string.Empty;
             PatreonButtonText = Loc.Get("btn_logout");
         }
@@ -617,7 +617,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
             DiscordStatusText = !string.IsNullOrEmpty(discordProvider?.DisplayName)
                 ? string.Format(Loc.Get("label_connected_as_0"), discordProvider.DisplayName)
                 : Loc.Get("label_connected");
-            DiscordInfoText = "Discord account linked.";
+            DiscordInfoText = Loc.Get("msg_discord_already_linked");
             DiscordButtonText = Loc.Get("btn_logout");
         }
         else
@@ -634,7 +634,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
             SubscribeStarStatusText = !string.IsNullOrEmpty(subscribeStarProvider.DisplayName)
                 ? string.Format(Loc.Get("label_connected_as_0"), subscribeStarProvider.DisplayName)
                 : Loc.Get("label_connected");
-            SubscribeStarTierText = "SubscribeStar account linked.";
+            SubscribeStarTierText = Loc.Get("msg_subscribestar_linked");
             SubscribeStarButtonText = Loc.Get("btn_logout");
         }
         else

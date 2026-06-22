@@ -139,7 +139,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         var imagesFolder = Path.Combine(assetsPath, "images");
         if (Directory.Exists(imagesFolder))
         {
-            var imagesNode = BuildFolderTree(imagesFolder, "images");
+            var imagesNode = BuildFolderTree(imagesFolder, Loc.Get("asset_folder_images"));
             imagesNode.IsExpanded = true;
             AssetTree.Add(imagesNode);
         }
@@ -147,7 +147,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         var videosFolder = Path.Combine(assetsPath, "videos");
         if (Directory.Exists(videosFolder))
         {
-            var videosNode = BuildFolderTree(videosFolder, "videos");
+            var videosNode = BuildFolderTree(videosFolder, Loc.Get("asset_folder_videos"));
             videosNode.IsExpanded = true;
             AssetTree.Add(videosNode);
         }
@@ -348,10 +348,10 @@ public partial class AssetsTabViewModel : TabItemViewModel
 
             var disabledCount = _settingsService?.Current?.DisabledAssetPaths.Count ?? 0;
             var message = disabledCount > 0
-                ? $"Selection saved!\n\n{disabledCount} assets are disabled.\n\nThe changes will take effect on the next flash/video."
-                : "Selection saved!\n\nAll assets are active.\n\nThe changes will take effect on the next flash/video.";
+                ? string.Format(Loc.Get("msg_selection_saved_disabled_fmt"), disabledCount)
+                : Loc.Get("msg_selection_saved_active");
 
-            await (_dialogService?.ShowMessageAsync("Selection Saved", message) ?? Task.CompletedTask);
+            await (_dialogService?.ShowMessageAsync(Loc.Get("title_selection_saved"), message) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
@@ -940,7 +940,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
 
         var treeRoot = new AssetTreeItem
         {
-            Name = "images",
+            Name = Loc.Get("asset_folder_images"),
             FullPath = "/assets/images",
             FileCount = 12,
             CheckedFileCount = 10,
@@ -957,7 +957,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
 
         AssetTree.Add(new AssetTreeItem
         {
-            Name = "videos",
+            Name = Loc.Get("asset_folder_videos"),
             FullPath = "/assets/videos",
             FileCount = 4,
             CheckedFileCount = 4

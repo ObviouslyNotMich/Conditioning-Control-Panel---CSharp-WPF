@@ -60,7 +60,7 @@ LoadCurrentSettings();
         if (ChkBgTransparent.IsChecked == true)
         {
             PreviewBorder.Background = Application.Current?.Resources["DarkerBgBrush"] as IBrush
-                ?? new SolidColorBrush(Color.Parse("#1A1A2E"));
+                ?? new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PanelBg"]!);
         }
         else
         {

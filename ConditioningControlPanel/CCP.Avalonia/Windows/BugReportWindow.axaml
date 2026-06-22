@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.BugReportWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.BugReportWindow" x:DataType="x:Object"
         Title="{Binding [bug_report_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="760" Height="780"
         WindowStartupLocation="CenterOwner"
@@ -24,9 +24,9 @@
       </ControlTheme>
 
       <ControlTheme x:Key="FormBox" TargetType="TextBox">
-        <Setter Property="Background" Value="#1A1A2E" />
+        <Setter Property="Background" Value="{DynamicResource PanelBgBrush}" />
         <Setter Property="Foreground" Value="#E0E0E0" />
-        <Setter Property="BorderBrush" Value="#3D3D60" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PanelAccentBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="8,6" />
         <Setter Property="FontSize" Value="12" />
@@ -99,7 +99,7 @@
               BorderThickness="1" Padding="18,8" Margin="0,0,10,0" />
       <Button x:Name="BtnSend" Grid.Column="2"
               Content="{Binding [bug_report_send], Source={x:Static loc:LocalizationManager.Instance}}" Click="BtnSend_Click"
-              Background="{DynamicResource PinkBrush}" Foreground="White"
+              Background="{DynamicResource PinkBrush}" Foreground="{DynamicResource TextLightBrush}"
               BorderThickness="0" Padding="22,8"
               FontWeight="SemiBold" IsEnabled="False" />
     </Grid>

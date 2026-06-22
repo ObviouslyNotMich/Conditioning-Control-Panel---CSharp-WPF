@@ -180,12 +180,12 @@ Current = this;
         row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
         row.Children.Add(new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)),
+            Background = AppBrush("PinkBrush", Brushes.HotPink),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(6, 1, 6, 1),
             Margin = new Thickness(7, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock { Text = count.ToString(), Foreground = Brushes.White, FontSize = 10.5, FontWeight = FontWeight.Bold },
+            Child = new TextBlock { Text = count.ToString(), Foreground = AppBrush("TextLightBrush", _whiteFallback), FontSize = 10.5, FontWeight = FontWeight.Bold },
         });
         tab.Content = row;
         ToolTip.SetTip(tab, count == 1 ? "1 thing you can afford right now" : $"{count} things you can afford right now");
@@ -434,6 +434,22 @@ new ChaosIntroWindow();
     {
         foreach (var t in grp.Children.OfType<ToggleButton>())
             t.IsChecked = (t.Tag?.ToString() == tag);
+    }
+
+    private static IBrush AppBrush(string key, IBrush fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+            return b;
+        return fallback;
+    }
+
+    private static readonly IBrush _whiteFallback = new SolidColorBrush(Colors.White);
+
+    private static Color AppColor(string key, Color fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c)
+            return c;
+        return fallback;
     }
 
     #endregion

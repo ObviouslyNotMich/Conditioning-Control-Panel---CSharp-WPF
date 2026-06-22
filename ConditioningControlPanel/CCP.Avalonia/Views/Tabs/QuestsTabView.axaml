@@ -32,7 +32,7 @@
                   CornerRadius="12"
                   Padding="20,14"
                   BorderThickness="1"
-                  BorderBrush="#3D3D60">
+                  BorderBrush="{DynamicResource PanelAccentBrush}">
             <TextBlock Text="{Binding SeasonTitle}"
                        FontSize="28"
                        FontWeight="ExtraBold"
@@ -77,7 +77,7 @@
                              FontWeight="Bold"
                              Foreground="#FFD700"
                              VerticalAlignment="Center" />
-                  <Border Background="#3D3D60" CornerRadius="8" Padding="6,2" VerticalAlignment="Center">
+                  <Border Background="{DynamicResource PanelAccentBrush}" CornerRadius="8" Padding="6,2" VerticalAlignment="Center">
                     <TextBlock Text="{Binding DailyCounterText}" FontSize="11" FontWeight="Bold" Foreground="#FFD700" />
                   </Border>
                 </StackPanel>
@@ -198,7 +198,7 @@
                            Text="{Binding [label_quest_streak], Source={x:Static loc:LocalizationManager.Instance}}"
                            FontSize="14"
                            FontWeight="Bold"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding StreakText}"
@@ -259,7 +259,7 @@
               <TextBlock Text="{Binding [label_quest_statistics], Source={x:Static loc:LocalizationManager.Instance}}"
                          FontSize="14"
                          FontWeight="Bold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <Grid ColumnDefinitions="*,*,*">
                 <StackPanel HorizontalAlignment="Center">
                   <TextBlock Text="{Binding TotalDailyCompletedText}"
@@ -371,7 +371,7 @@
                            Foreground="{DynamicResource TextMutedBrush}" />
                 <TextBlock Text="{Binding TrackProgressText}"
                            FontSize="12"
-                           Foreground="#AAAAAA"
+                           Foreground="{DynamicResource TextDimBrush}"
                            Margin="0,5,0,0" />
               </StackPanel>
               <StackPanel Orientation="Horizontal"
@@ -398,7 +398,7 @@
               <TextBlock Text="🔒" FontSize="52" HorizontalAlignment="Center" />
               <TextBlock Text="{Binding LockReason}"
                          FontSize="16"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          HorizontalAlignment="Center"
                          TextAlignment="Center" />
             </StackPanel>
@@ -440,7 +440,7 @@
               <TextBlock Text="{Binding [label_transformation_progress], Source={x:Static loc:LocalizationManager.Instance}}"
                          FontSize="14"
                          FontWeight="Bold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <Grid ColumnDefinitions="*,*,*">
                 <StackPanel HorizontalAlignment="Center">
                   <TextBlock Text="{Binding TotalStepsText}"

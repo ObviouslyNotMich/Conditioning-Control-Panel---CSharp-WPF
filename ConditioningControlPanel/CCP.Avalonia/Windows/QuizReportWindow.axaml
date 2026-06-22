@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.QuizReportWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.QuizReportWindow" x:DataType="x:Object"
         Title="{Binding [dialog_quiz_report], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="700" Height="750"
         WindowStartupLocation="CenterScreen"
@@ -35,7 +35,7 @@
     <Grid Margin="30,20,30,20" RowDefinitions="Auto,*,Auto">
       <!-- Header -->
       <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,16">
-        <TextBlock Text="{Binding [label_quiz_report], Source={x:Static loc:LocalizationManager.Instance}}" FontSize="28" FontWeight="Bold" Foreground="White"
+        <TextBlock Text="{Binding [label_quiz_report], Source={x:Static loc:LocalizationManager.Instance}}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextLightBrush}"
                    HorizontalAlignment="Center" Margin="0,0,0,4" />
         <TextBlock x:Name="TxtSubtitle" Foreground="#808090" FontSize="13"
                    HorizontalAlignment="Center" Margin="0,0,0,6" />

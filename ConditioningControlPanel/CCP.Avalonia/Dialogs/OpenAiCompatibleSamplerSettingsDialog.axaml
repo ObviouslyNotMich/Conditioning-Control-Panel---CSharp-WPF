@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.OpenAiCompatibleSamplerSettingsDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.OpenAiCompatibleSamplerSettingsDialog" x:DataType="x:Object"
         Title="{Binding [dialog_openai_sampler_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="440"
         Height="540"
@@ -21,7 +21,7 @@
   <Grid Margin="20,16" RowDefinitions="Auto,Auto,*,Auto,Auto">
     <TextBlock Grid.Row="0"
                Text="{Binding [dialog_openai_sampler_title], Source={x:Static loc:LocalizationManager.Instance}}"
-               Foreground="White"
+               Foreground="{DynamicResource TextLightBrush}"
                FontSize="16"
                FontWeight="Bold"
                Margin="0,0,0,8" />
@@ -90,7 +90,7 @@
 
     <TextBlock x:Name="TxtError"
                Grid.Row="3"
-               Foreground="#FFFF6B6B"
+               Foreground="{DynamicResource DangerBrush}"
                FontSize="11"
                TextWrapping="Wrap"
                Margin="0,8,0,0"

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.SplashScreen"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.SplashScreen" x:DataType="x:Object"
         Title="{loc:Str window_splash_screen_loading_title}"
         Height="200" Width="400"
         WindowDecorations="None"
@@ -42,7 +42,7 @@
                  Grid.Row="1"
                  Text="{loc:Str window_splash_screen_starting_up_text}"
                  FontSize="12"
-                 Foreground="#AAAAAA"
+                 Foreground="{DynamicResource TextDimBrush}"
                  HorizontalAlignment="Center"
                  Margin="0,10,0,15" />
 

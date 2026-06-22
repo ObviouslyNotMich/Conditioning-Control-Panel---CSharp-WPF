@@ -646,7 +646,10 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 Content = new TextBlock
                 {
                     Text = text,
-                    Foreground = new SolidColorBrush(Colors.Magenta),
+                    Foreground = new SolidColorBrush(
+                        global::Avalonia.Application.Current?.TryGetResource("PinkColor", global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c
+                            ? c
+                            : new Color(0xFF, 0xFF, 0x00, 0xFF)),
                     FontSize = 64,
                     FontWeight = FontWeight.Bold,
                     FontFamily = new FontFamily("Impact, Arial"),
@@ -963,10 +966,10 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             }
             catch
             {
-                color1 = Color.FromRgb(255, 20, 147);
-                color2 = Color.FromRgb(255, 105, 180);
-                textColor = Color.FromRgb(255, 20, 147);
-                borderColor = Color.FromRgb(255, 20, 147);
+                color1 = AppColor("DarkPinkColor", Color.FromRgb(255, 20, 147));
+                color2 = AppColor("PinkColor", Color.FromRgb(255, 105, 180));
+                textColor = AppColor("TextLight", Color.FromRgb(255, 20, 147));
+                borderColor = AppColor("DarkPinkColor", Color.FromRgb(255, 20, 147));
             }
 
             var isFloating = settings.AttentionFloatingText;
@@ -1184,6 +1187,13 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 return $"{string.Join(" ", words.Take(mid))}\n{string.Join(" ", words.Skip(mid))}";
             }
             return text;
+        }
+
+        private static Color AppColor(string key, Color fallback)
+        {
+            if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c)
+                return c;
+            return fallback;
         }
 
         private static void ApplyToolWindowStyle(Window window)

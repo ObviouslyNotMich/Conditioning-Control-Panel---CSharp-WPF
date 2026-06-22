@@ -304,7 +304,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             if (!File.Exists(path))
             {
                 _logger?.Warning("Smoke-test audio sample not found: {Path}", path);
-                await (_dialogService?.ShowMessageAsync("Audio smoke test", "Sample not found.", DialogSeverity.Warning) ?? Task.CompletedTask);
+                await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_smoke_test"), Loc.Get("msg_sample_not_found"), DialogSeverity.Warning) ?? Task.CompletedTask);
                 return;
             }
 
@@ -312,12 +312,12 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             await Task.Delay(1200);
             _audioPlayer?.Stop();
             _logger?.Information("Audio smoke-test completed");
-            await (_dialogService?.ShowMessageAsync("Audio smoke test", "Played sample successfully.") ?? Task.CompletedTask);
+            await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_smoke_test"), Loc.Get("msg_played_sample_successfully")) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
             _logger?.Error(ex, "Audio smoke-test failed");
-            await (_dialogService?.ShowMessageAsync("Audio smoke test", $"Failed: {ex.Message}", DialogSeverity.Error) ?? Task.CompletedTask);
+            await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_smoke_test"), string.Format(Loc.Get("msg_smoke_test_failed_fmt"), ex.Message), DialogSeverity.Error) ?? Task.CompletedTask);
         }
     }
 
@@ -330,7 +330,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             if (!File.Exists(path))
             {
                 _logger?.Warning("Smoke-test video sample not found: {Path}", path);
-                await (_dialogService?.ShowMessageAsync("Video smoke test", "Sample not found.", DialogSeverity.Warning) ?? Task.CompletedTask);
+                await (_dialogService?.ShowMessageAsync(Loc.Get("title_video_smoke_test"), Loc.Get("msg_sample_not_found"), DialogSeverity.Warning) ?? Task.CompletedTask);
                 return;
             }
 
@@ -338,12 +338,12 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             await Task.Delay(3000);
             _videoService?.Stop();
             _logger?.Information("Video smoke-test completed");
-            await (_dialogService?.ShowMessageAsync("Video smoke test", "Played sample successfully.") ?? Task.CompletedTask);
+            await (_dialogService?.ShowMessageAsync(Loc.Get("title_video_smoke_test"), Loc.Get("msg_played_sample_successfully")) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
             _logger?.Error(ex, "Video smoke-test failed");
-            await (_dialogService?.ShowMessageAsync("Video smoke test", $"Failed: {ex.Message}", DialogSeverity.Error) ?? Task.CompletedTask);
+            await (_dialogService?.ShowMessageAsync(Loc.Get("title_video_smoke_test"), string.Format(Loc.Get("msg_smoke_test_failed_fmt"), ex.Message), DialogSeverity.Error) ?? Task.CompletedTask);
         }
     }
 

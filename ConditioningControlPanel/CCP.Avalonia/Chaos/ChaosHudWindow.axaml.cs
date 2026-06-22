@@ -212,8 +212,8 @@ Panel.RenderTransform = _panelSlide;
 
     private static void StyleSwitch(Border leftBtn, Border rightBtn, TextBlock leftGlyph, TextBlock rightGlyph, bool onRight)
     {
-        var pink = new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4));
-        var dim = new SolidColorBrush(Color.FromArgb(0xAA, 0xB8, 0xB8, 0xD0));
+        var pink = AppBrush("PinkBrush", new SolidColorBrush(Colors.HotPink));
+        var dim = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromArgb(0xAA, 0xB8, 0xB8, 0xD0)));
         leftBtn.Background = onRight ? Brushes.Transparent : pink;
         rightBtn.Background = onRight ? pink : Brushes.Transparent;
         leftGlyph.Foreground = onRight ? dim : Brushes.Black;
@@ -281,7 +281,7 @@ Panel.RenderTransform = _panelSlide;
             bool rush = _clockVisible && _state.ElapsedSec > 0 && remaining <= 10;
             if (rush == _endRushOn) return;
             _endRushOn = rush;
-            var red = Color.FromRgb(0xFF, 0x5A, 0x5A);
+            var red = AppColor("Danger", Color.FromRgb(0xFF, 0x5A, 0x5A));
             if (rush)
             {
                 TxtStripClock.Foreground = new SolidColorBrush(red);
@@ -293,9 +293,9 @@ Panel.RenderTransform = _panelSlide;
             {
                 _blinkTimer?.Stop();
                 TxtStripClock.Opacity = TxtRunTime.Opacity = 1.0;
-                TxtStripClock.Foreground = Brushes.White;
-                TxtRunTime.Foreground = new SolidColorBrush(Color.FromRgb(0xB8, 0xB8, 0xD0));
-                BarRunProgress.Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x7D, 0xBD));
+                TxtStripClock.Foreground = AppBrush("TextLightBrush", _whiteFallback);
+                TxtRunTime.Foreground = new SolidColorBrush(AppColor("TextMuted", Color.FromRgb(0xB8, 0xB8, 0xD0)));
+                BarRunProgress.Foreground = new SolidColorBrush(AppColor("PatreonPurple", Color.FromRgb(0x8A, 0x7D, 0xBD)));
             }
         }
         catch { }
@@ -489,7 +489,7 @@ Panel.RenderTransform = _panelSlide;
             TxtStreakNum.Foreground = brush;
             TxtStreakLbl.Foreground = _streakTier >= 2
                 ? new SolidColorBrush(Color.FromArgb(0xCC, tierColor.R, tierColor.G, tierColor.B))
-                : new SolidColorBrush(Color.FromArgb(0xAA, 0xB8, 0xB8, 0xD0));
+                : AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromArgb(0xAA, 0xB8, 0xB8, 0xD0)));
             // TODO: replace DropShadowEffect with BoxShadow or Avalonia v12 effect API.
 
             if (gained)
@@ -513,7 +513,7 @@ Panel.RenderTransform = _panelSlide;
                 colorTimer.Tick += (_, _) =>
                 {
                     double t = Math.Min(1, (Environment.TickCount64 - cStart) / 650.0);
-                    var from = Color.FromRgb(0xFF, 0x38, 0x38);
+                    var from = AppColor("Danger", Color.FromRgb(0xFF, 0x38, 0x38));
                     ((SolidColorBrush)TxtStreakNum.Foreground!).Color = Blend(from, tierColor, Math.Max(0, t - 0.12));
                     if (t >= 1) colorTimer.Stop();
                 };
@@ -560,7 +560,7 @@ Panel.RenderTransform = _panelSlide;
     {
         try
         {
-            var hot = gain ? Color.FromRgb(0x5A, 0xC8, 0xFA) : Color.FromRgb(0xFF, 0x38, 0x38);
+            var hot = gain ? Color.FromRgb(0x5A, 0xC8, 0xFA) : AppColor("Danger", Color.FromRgb(0xFF, 0x38, 0x38));
             var brush = new SolidColorBrush(hot);
             TxtShields.Foreground = brush;
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -568,7 +568,7 @@ Panel.RenderTransform = _panelSlide;
             timer.Tick += (_, _) =>
             {
                 double t = Math.Min(1, (Environment.TickCount64 - startMs) / 650.0);
-                ((SolidColorBrush)TxtShields.Foreground!).Color = Blend(hot, Color.FromRgb(0xFF, 0x6E, 0xC7), Math.Max(0, t - 0.16));
+                ((SolidColorBrush)TxtShields.Foreground!).Color = Blend(hot, AppColor("PinkColor", Colors.HotPink), Math.Max(0, t - 0.16));
                 if (t >= 1) timer.Stop();
             };
             timer.Start();
@@ -662,5 +662,21 @@ t * (xs.Length - 1) - i;
             (byte)(a.R + (b.R - a.R) * t),
             (byte)(a.G + (b.G - a.G) * t),
             (byte)(a.B + (b.B - a.B) * t));
+    }
+
+    private static readonly IBrush _whiteFallback = new SolidColorBrush(Colors.White);
+
+    private static IBrush AppBrush(string key, IBrush fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+            return b;
+        return fallback;
+    }
+
+    private static Color AppColor(string key, Color fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c)
+            return c;
+        return fallback;
     }
 }

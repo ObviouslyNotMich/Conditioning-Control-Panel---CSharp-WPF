@@ -6,6 +6,7 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -34,6 +35,7 @@ public partial class PinkRushPopup : Window
     public PinkRushPopup()
     {
         InitializeComponent();
+        ApplyDropShadow();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 // Apply mod overrides to text if a mod service is available.
@@ -62,6 +64,24 @@ public partial class PinkRushPopup : Window
         {
             await RunFadeAnimation(0, 1, TimeSpan.FromMilliseconds(300));
         };
+    }
+
+    private void ApplyDropShadow()
+    {
+        if (PopupBorder == null) return;
+
+        var accent = (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            ? c
+            : Color.Parse("#FF1493");
+
+        PopupBorder.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            OffsetX = 0,
+            OffsetY = 0,
+            Blur = 20,
+            Spread = 0,
+            Color = Color.FromArgb(0x80, accent.R, accent.G, accent.B)
+        });
     }
 
     private void LoadSkillImage()

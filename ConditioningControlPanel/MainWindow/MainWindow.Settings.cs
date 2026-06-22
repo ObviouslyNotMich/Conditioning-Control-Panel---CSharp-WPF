@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -242,16 +242,16 @@ namespace ConditioningControlPanel
             // Then set URL based on provider
             HapticsTab.TxtHapticUrl.Text = s.Haptics.Provider switch
             {
-                Services.Haptics.HapticProviderType.Lovense => s.Haptics.LovenseUrl,
-                Services.Haptics.HapticProviderType.Buttplug => s.Haptics.ButtplugUrl,
+                HapticProviderType.Lovense => s.Haptics.LovenseUrl,
+                HapticProviderType.Buttplug => s.Haptics.ButtplugUrl,
                 _ => s.Haptics.LovenseUrl
             };
 
             // Set hint text based on provider
             HapticsTab.TxtHapticUrlHint.Text = s.Haptics.Provider switch
             {
-                Services.Haptics.HapticProviderType.Lovense => "Lovense: Enter IP from Lovense Remote → Settings → Game Mode (http://IP:30010)",
-                Services.Haptics.HapticProviderType.Buttplug => "Buttplug: Start Intiface Central, use default ws://localhost:12345",
+                HapticProviderType.Lovense => "Lovense: Enter IP from Lovense Remote → Settings → Game Mode (http://IP:30010)",
+                HapticProviderType.Buttplug => "Buttplug: Start Intiface Central, use default ws://localhost:12345",
                 _ => "Lovense: Enter IP from Lovense Remote → Settings → Game Mode (http://IP:30010)"
             };
 

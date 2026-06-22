@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.SessionLogHistoryWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.SessionLogHistoryWindow" x:DataType="x:Object"
         Title="{Binding [dialog_session_history], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="560" Height="640"
         WindowStartupLocation="CenterOwner"
@@ -21,10 +21,10 @@
       </ResourceDictionary.MergedDictionaries>
 
       <ControlTheme x:Key="HistoryRowButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="#252540" />
+        <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}" />
         <Setter Property="BorderBrush" Value="#3A3A58" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
         <Setter Property="Padding" Value="14,10" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />

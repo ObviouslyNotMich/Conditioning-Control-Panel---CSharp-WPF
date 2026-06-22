@@ -302,9 +302,9 @@ _dialogService = App.Services?.GetService<IDialogService>();
             if (k == key)
             {
                 btn.Background = new SolidColorBrush(Color.Parse("#353560"));
-                btn.Foreground = Brushes.White;
+                btn.Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
                 btn.FontWeight = FontWeight.SemiBold;
-                btn.BorderBrush = new SolidColorBrush(Color.Parse("#FF69B4"));
+                btn.BorderBrush = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!);
                 btn.BorderThickness = new Thickness(3, 0, 0, 0);
             }
             else
@@ -358,7 +358,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         return new TextBlock
         {
             Text = text,
-            Foreground = new SolidColorBrush(Color.Parse("#FF69B4")),
+            Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!),
             FontSize = 16,
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 0, 0, 12),
@@ -436,7 +436,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         if (sender is TextBox tb && tb.Tag is string ph && tb.Text == ph)
         {
             tb.Text = "";
-            tb.Foreground = Brushes.White;
+            tb.Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
         }
     }
 
@@ -474,7 +474,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         else
         {
             tb.Text = value;
-            tb.Foreground = Brushes.White;
+            tb.Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
         }
     }
 
@@ -503,7 +503,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         _txtVersion = CreateDarkTextBox();
         _txtVersion.Width = 120;
         _txtVersion.Text = "1.0.0";
-        _txtVersion.Foreground = Brushes.White;
+        _txtVersion.Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
         stack.Children.Add(_txtVersion);
 
         stack.Children.Add(CreateFieldLabel("Description"));
@@ -715,7 +715,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
             {
                 Content = $"Set {setNum}: {setLabel}",
                 IsChecked = true,
-                Foreground = Brushes.White,
+                Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
                 Margin = new Thickness(0, 0, 16, 4),
                 FontSize = 11,
                 VerticalContentAlignment = VerticalAlignment.Center
@@ -971,7 +971,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         {
             Content = "Browse",
             Background = new SolidColorBrush(Color.FromRgb(50, 50, 80)),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderThickness = new Thickness(0),
             Cursor = new Cursor(StandardCursorType.Hand),
             FontSize = 10,
@@ -1015,7 +1015,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         {
             label.Text = Path.GetFileName(filePath);
             label.FontStyle = FontStyle.Normal;
-            label.Foreground = Brushes.White;
+            label.Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
         }
 
         var grid = label?.GetVisualParent() as Grid;
@@ -1088,7 +1088,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         row.Children.Add(new TextBlock
         {
             Text = Path.GetFileNameWithoutExtension(filePath),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(6, 0, 0, 0)
@@ -1194,7 +1194,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         {
             Content = "Show BambiCloud option in browser menu",
             IsChecked = true,
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             Margin = new Thickness(0, 8, 0, 12),
             FontSize = 12
         };
@@ -1359,7 +1359,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
 
             var expander = new Expander
             {
-                Foreground = Brushes.White,
+                Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Margin = new Thickness(0, 0, 0, 4),
@@ -1431,7 +1431,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         var delBtn = new Button
         {
             Content = "\u00D7",
-            Foreground = new SolidColorBrush(Color.Parse("#FF6B6B")),
+            Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!),
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             FontSize = 16,
@@ -1550,7 +1550,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         var delBtn = new Button
         {
             Content = "\u00D7",
-            Foreground = new SolidColorBrush(Color.Parse("#FF6B6B")),
+            Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!),
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             FontSize = 16,
@@ -1626,7 +1626,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         var clearBtn = new Button
         {
             Content = "\u00D7",
-            Foreground = new SolidColorBrush(Color.Parse("#FF6B6B")),
+            Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!),
             Background = new SolidColorBrush(Color.FromArgb(180, 30, 30, 50)),
             BorderThickness = new Thickness(0),
             FontSize = 12,
@@ -2279,7 +2279,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
 
         SetTextBoxValue(_txtModName, "");
         SetTextBoxValue(_txtAuthor, "");
-        if (_txtVersion != null) { _txtVersion.Text = "1.0.0"; _txtVersion.Foreground = Brushes.White; }
+        if (_txtVersion != null) { _txtVersion.Text = "1.0.0"; _txtVersion.Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!; }
         SetTextBoxValue(_txtDescription, "");
 
         if (_txtAccentHex != null) _txtAccentHex.Text = "#FF69B4";
@@ -2347,7 +2347,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
 
     private static bool TryParseHex(string hex, out Color color)
     {
-        color = Colors.HotPink;
+        color = (Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!;
         try
         {
             if (!hex.StartsWith("#")) hex = "#" + hex;
@@ -2361,7 +2361,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
     {
         if (TryParseHex(hex, out var c))
             return new SolidColorBrush(c);
-        return new SolidColorBrush(Colors.HotPink);
+        return (SolidColorBrush)global::Avalonia.Application.Current!.Resources["PinkBrush"]!;
     }
 
     private void CleanupTempDir()

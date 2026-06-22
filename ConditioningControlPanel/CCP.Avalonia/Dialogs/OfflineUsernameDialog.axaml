@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.OfflineUsernameDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.OfflineUsernameDialog" x:DataType="x:Object"
         Title="{loc:Str dialog_offline_username_choose_offline_username_title}"
         Height="300"
         Width="450"
@@ -54,7 +54,7 @@
       <!-- Prompt -->
       <TextBlock Grid.Row="2"
                  Text="{loc:Str label_enter_the_name_you_d_like_to_use}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="13"
                  Margin="0,0,0,8" />
 

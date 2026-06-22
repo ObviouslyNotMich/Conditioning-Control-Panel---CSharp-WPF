@@ -26,13 +26,13 @@
                    Text="{loc:Str tab_takeover}"
                    FontSize="26"
                    FontWeight="Bold"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    VerticalAlignment="Center" />
       </Grid>
 
       <!-- Description card -->
-      <Border Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+      <Border Background="{DynamicResource PanelBgBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="1"
               CornerRadius="12"
               Padding="24,20">
@@ -42,7 +42,7 @@
                   Height="160"
                   CornerRadius="12"
                   ClipToBounds="True"
-                  BorderBrush="#FF69B4"
+                  BorderBrush="{DynamicResource PinkBrush}"
                   BorderThickness="2"
                   VerticalAlignment="Top">
             <Image Source="avares://CCP.Avalonia/Assets/features/bambi takeover.png"
@@ -50,18 +50,18 @@
           </Border>
           <StackPanel Grid.Column="2" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_what_is_this}"
-                       Foreground="#FF69B4"
+                       Foreground="{DynamicResource PinkBrush}"
                        FontSize="11"
                        FontWeight="Bold"
                        Margin="0,0,0,4" />
             <TextBlock Text="{loc:Str desc_takeover}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="15"
                        TextWrapping="Wrap"
                        Margin="0,0,0,12"
                        LineHeight="22" />
             <TextBlock Text="{loc:Str desc_takeover_bullets}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="13"
                        TextWrapping="Wrap"
                        LineHeight="20" />
@@ -77,8 +77,8 @@
           <StackPanel Spacing="14">
 
             <!-- Autonomy toggle -->
-            <Border Background="#1A1A2E"
-                    BorderBrush="#FF69B4"
+            <Border Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="16">
@@ -88,9 +88,9 @@
                     <TextBlock Text="{loc:Str tab_bambi_takeover_autonomy_mode_text}"
                                FontSize="14"
                                FontWeight="SemiBold"
-                               Foreground="White" />
+                               Foreground="{DynamicResource TextLightBrush}" />
                     <TextBlock Text="{loc:Str tab_bambi_takeover_let_companion_trigger_effects_on_own_text}"
-                               Foreground="#AAAAAA"
+                               Foreground="{DynamicResource TextDimBrush}"
                                FontSize="11"
                                TextWrapping="Wrap" />
                   </StackPanel>
@@ -111,8 +111,8 @@
             </Border>
 
             <!-- Cadence sliders -->
-            <Border Background="#1A1A2E"
-                    BorderBrush="#FF69B4"
+            <Border Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="16">
@@ -120,12 +120,12 @@
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{loc:Str tab_bambi_takeover_intensity_text}"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextLightBrush}"
                                FontSize="13"
                                FontWeight="SemiBold" />
                     <TextBlock Grid.Column="1"
                                Text="{Binding AutonomyIntensity, StringFormat='{}{0}%'}"
-                               Foreground="#FF69B4"
+                               Foreground="{DynamicResource PinkBrush}"
                                FontSize="13"
                                FontWeight="SemiBold" />
                   </Grid>
@@ -139,12 +139,12 @@
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{loc:Str tab_bambi_takeover_cooldown_text}"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextLightBrush}"
                                FontSize="13"
                                FontWeight="SemiBold" />
                     <TextBlock Grid.Column="1"
                                Text="{Binding AutonomyCooldown, StringFormat='{}{0}s'}"
-                               Foreground="#FF69B4"
+                               Foreground="{DynamicResource PinkBrush}"
                                FontSize="13"
                                FontWeight="SemiBold" />
                   </Grid>
@@ -158,12 +158,12 @@
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{loc:Str tab_bambi_takeover_random_interval_text}"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextLightBrush}"
                                FontSize="13"
                                FontWeight="SemiBold" />
                     <TextBlock Grid.Column="1"
                                Text="{Binding AutonomyInterval, StringFormat='{}{0}s'}"
-                               Foreground="#FF69B4"
+                               Foreground="{DynamicResource PinkBrush}"
                                FontSize="13"
                                FontWeight="SemiBold" />
                   </Grid>
@@ -177,8 +177,8 @@
             </Border>
 
             <!-- Trigger conditions -->
-            <Border Background="#1A1A2E"
-                    BorderBrush="#FF69B4"
+            <Border Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="16">
@@ -186,7 +186,7 @@
                 <TextBlock Text="{loc:Str tab_bambi_takeover_trigger_conditions_text}"
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="#FF69B4" />
+                           Foreground="{DynamicResource PinkBrush}" />
                 <WrapPanel Orientation="Horizontal">
                   <CheckBox Content="{loc:Str tab_bambi_takeover_idle_trigger_content}"
                             IsChecked="{Binding AutonomyIdleTrigger, Mode=TwoWay}"
@@ -202,8 +202,8 @@
             </Border>
 
             <!-- Allowed behaviours -->
-            <Border Background="#1A1A2E"
-                    BorderBrush="#FF69B4"
+            <Border Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="16">
@@ -211,7 +211,7 @@
                 <TextBlock Text="{loc:Str tab_bambi_takeover_allowed_behaviours_text}"
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="#FF69B4" />
+                           Foreground="{DynamicResource PinkBrush}" />
                 <WrapPanel Orientation="Horizontal">
                   <CheckBox Content="{loc:Str tab_bambi_takeover_flash_content}" IsChecked="{Binding CanTriggerFlash, Mode=TwoWay}" Margin="0,0,16,8" />
                   <CheckBox Content="{loc:Str tab_bambi_takeover_video_content}" IsChecked="{Binding CanTriggerVideo, Mode=TwoWay}" Margin="0,0,16,8" />
@@ -230,20 +230,20 @@
             </Border>
 
             <!-- Announcement chance -->
-            <Border Background="#1A1A2E"
-                    BorderBrush="#FF69B4"
+            <Border Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="16">
               <StackPanel Spacing="6">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="{loc:Str tab_bambi_takeover_announcement_chance_text}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontSize="13"
                              FontWeight="SemiBold" />
                   <TextBlock Grid.Column="1"
                              Text="{Binding AnnouncementChance, StringFormat='{}{0}%'}"
-                             Foreground="#FF69B4"
+                             Foreground="{DynamicResource PinkBrush}"
                              FontSize="13"
                              FontWeight="SemiBold" />
                 </Grid>
@@ -256,8 +256,8 @@
             </Border>
 
             <!-- Start / Stop / Test controls -->
-            <Border Background="#1A1A2E"
-                    BorderBrush="#FF69B4"
+            <Border Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="16">
@@ -279,8 +279,8 @@
                 <Button Grid.Column="2"
                         Content="{loc:Str btn_test}"
                         Command="{Binding TestAutonomyCommand}"
-                        Background="#FF69B4"
-                        Foreground="White"
+                        Background="{DynamicResource PinkBrush}"
+                        Foreground="{DynamicResource TextLightBrush}"
                         FontWeight="Bold"
                         FontSize="14"
                         Padding="14,8">
@@ -295,7 +295,7 @@
           <!-- Premium gate overlay -->
           <Border IsVisible="{Binding IsPremiumLocked}"
                   Background="#99000010"
-                  BorderBrush="#FF69B4"
+                  BorderBrush="{DynamicResource PinkBrush}"
                   BorderThickness="2"
                   CornerRadius="10"
                   IsHitTestVisible="True"
@@ -310,17 +310,17 @@
               <TextBlock Text="{loc:Str gate_premium_locked}"
                          FontSize="22"
                          FontWeight="Bold"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          HorizontalAlignment="Center" />
               <TextBlock Text="{loc:Str gate_premium_subtitle}"
-                         Foreground="#CCCCCC"
+                         Foreground="{DynamicResource TextDimBrush}"
                          FontSize="14"
                          HorizontalAlignment="Center" />
               <Button Content="{loc:Str gate_unlock_with_patreon}"
                       Command="{Binding UnlockCommand}"
                       Padding="20,8"
-                      Background="#FF69B4"
-                      Foreground="White"
+                      Background="{DynamicResource PinkBrush}"
+                      Foreground="{DynamicResource TextLightBrush}"
                       FontWeight="Bold"
                       HorizontalAlignment="Center" />
             </StackPanel>
@@ -330,8 +330,8 @@
         <!-- Guide sidebar -->
         <Border Grid.Column="2"
                 VerticalAlignment="Top"
-                Background="#1A1A2E"
-                BorderBrush="#FF69B4"
+                Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="18,16">
@@ -342,43 +342,43 @@
                          VerticalAlignment="Center"
                          Margin="0,0,8,0" />
               <TextBlock Text="{loc:Str guide_takeover_title}"
-                         Foreground="#FF69B4"
+                         Foreground="{DynamicResource PinkBrush}"
                          FontSize="15"
                          FontWeight="Bold"
                          VerticalAlignment="Center" />
             </StackPanel>
 
             <TextBlock Text="{loc:Str guide_takeover_step1_title}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="Bold"
                        Margin="0,0,0,2" />
             <TextBlock Text="{loc:Str guide_takeover_step1_body}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="12"
                        TextWrapping="Wrap"
                        LineHeight="17"
                        Margin="0,0,0,12" />
 
             <TextBlock Text="{loc:Str guide_takeover_step2_title}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="Bold"
                        Margin="0,0,0,2" />
             <TextBlock Text="{loc:Str guide_takeover_step2_body}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="12"
                        TextWrapping="Wrap"
                        LineHeight="17"
                        Margin="0,0,0,12" />
 
             <TextBlock Text="{loc:Str guide_takeover_step3_title}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="Bold"
                        Margin="0,0,0,2" />
             <TextBlock Text="{loc:Str guide_takeover_step3_body}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="12"
                        TextWrapping="Wrap"
                        LineHeight="17"
@@ -387,12 +387,12 @@
             <Border Height="1" Background="#2E2E48" Margin="0,8,0,12" />
 
             <TextBlock Text="{loc:Str guide_takeover_settings_title}"
-                       Foreground="#FF69B4"
+                       Foreground="{DynamicResource PinkBrush}"
                        FontSize="12"
                        FontWeight="Bold"
                        Margin="0,0,0,6" />
             <TextBlock Text="{loc:Str guide_takeover_settings_body}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="12"
                        TextWrapping="Wrap"
                        LineHeight="18"
@@ -403,14 +403,14 @@
                     Padding="10,8"
                     Margin="0,0,0,10">
               <TextBlock Text="{loc:Str guide_takeover_tip}"
-                         Foreground="#FF69B4"
+                         Foreground="{DynamicResource PinkBrush}"
                          FontSize="12"
                          TextWrapping="Wrap"
                          LineHeight="17" />
             </Border>
 
             <TextBlock Text="{loc:Str guide_takeover_patreon}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        LineHeight="16"

@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using Avalonia;
+using Avalonia.Logging;
 using ConditioningControlPanel.Avalonia;
 using ConditioningControlPanel.Avalonia.Desktop;
 using ConditioningControlPanel.Avalonia.Desktop.Platform;
@@ -21,6 +23,18 @@ class Program
         {
             singleInstance.SignalFirstInstance(args);
             return;
+        }
+
+        var smokeTest = args.Contains("--smoke-test");
+        var smokeScreenshots = args.Contains("--smoke-screenshots");
+        SmokeTestLogSink? smokeSink = null;
+        SmokeTestRunner? smokeRunner = null;
+        if (smokeTest)
+        {
+            smokeSink = new SmokeTestLogSink(LogEventLevel.Warning);
+            Logger.Sink = smokeSink;
+            smokeRunner = new SmokeTestRunner(smokeSink, captureScreenshots: smokeScreenshots);
+            smokeRunner.Attach();
         }
 
         App.ConfigurePlatformServices = services =>
@@ -46,8 +60,15 @@ class Program
             services.AddDesktopLibVLC();
         };
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        var builder = BuildAvaloniaApp();
+        if (smokeRunner != null)
+        {
+            // ProgramShared.BuildAvaloniaApp replaces the log sink; restore our capturing sink.
+            Logger.Sink = smokeSink;
+            builder.AfterSetup(_ => smokeRunner.ScheduleRun());
+        }
+
+        builder.StartWithClassicDesktopLifetime(args);
     }
 
     public static AppBuilder BuildAvaloniaApp()

@@ -69,7 +69,7 @@
                      Background="Transparent"
                      BorderThickness="0"
                      SelectionChanged="ModList_SelectionChanged"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="models:ModPackage">
@@ -156,7 +156,7 @@
                 <Button x:Name="BtnUninstall"
                         Content="{loc:Str btn_uninstall}"
                         Background="{DynamicResource PanelAccentBrush}"
-                        Foreground="#FF6B6B"
+                        Foreground="{DynamicResource DangerBrush}"
                         FontWeight="SemiBold"
                         Padding="16,8"
                         BorderThickness="0"

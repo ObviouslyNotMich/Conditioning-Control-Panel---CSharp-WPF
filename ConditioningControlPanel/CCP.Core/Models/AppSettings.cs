@@ -1217,7 +1217,7 @@ namespace ConditioningControlPanel.Models
         /// Migrate legacy ContentMode-based settings to mod-based settings.
         /// Called once after deserialization when ActiveModId hasn't been set yet.
         /// </summary>
-        internal void MigrateFromContentModeToMod()
+        public void MigrateFromContentModeToMod()
         {
             // Primary gate: a v6-saved JSON is already past this migration. Without this guard,
             // a v6 user who deliberately picks CCP Default via the dropdown gets bumped to Bambi

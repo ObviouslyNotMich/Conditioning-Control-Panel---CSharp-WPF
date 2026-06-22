@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.InputDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.InputDialog" x:DataType="x:Object"
         Title="{loc:Str dialog_input}"
         Height="220"
         Width="420"
@@ -35,7 +35,7 @@
       <TextBlock x:Name="TxtPrompt"
                  Grid.Row="1"
                  Text="{loc:Str label_enter_value}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="13"
                  Margin="0,0,0,10" />
 

@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vlc="using:LibVLCSharp.Avalonia"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.MiniPlayerWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.MiniPlayerWindow" x:DataType="x:Object"
         Title="{Binding [section_preview], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="350" Width="450"
         MinHeight="200" MinWidth="300"

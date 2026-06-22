@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -39,6 +39,8 @@ public partial class AnnouncementPopup : Window
     {
         InitializeComponent();
 
+        ApplyDefaultShadow();
+
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 _announcementId = id;
         _linkUrl = linkUrl;
@@ -73,6 +75,8 @@ _announcementId = id;
     public AnnouncementPopup()
     {
         InitializeComponent();
+
+        ApplyDefaultShadow();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 _announcementId = "";
@@ -114,6 +118,19 @@ _announcementId = "";
         BtnDismiss.Foreground = Brushes.Black;
 
         // TODO: full matrix hover/pressed styling via ControlTheme once the app has a shared theme dictionary.
+    }
+
+    private void ApplyDefaultShadow()
+    {
+        if (OuterBorder == null) return;
+        var accent = (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            ? c
+            : Color.Parse("#FF69B4");
+        OuterBorder.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            OffsetX = 0, OffsetY = 0, Blur = 20, Spread = 0,
+            Color = Color.FromArgb(0x80, accent.R, accent.G, accent.B)
+        });
     }
 
     private async Task LoadImageAsync(string imageUrl)

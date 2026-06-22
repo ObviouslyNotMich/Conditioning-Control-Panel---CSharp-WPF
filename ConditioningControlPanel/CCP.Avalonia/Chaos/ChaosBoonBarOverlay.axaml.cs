@@ -41,8 +41,8 @@ WindowDecorations = WindowDecorations.None;
         _row = new StackPanel { Orientation = Orientation.Horizontal };
         _pill = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(150, 0x12, 0x0E, 0x1E)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(140, 0xE8, 0x43, 0x93)),
+            Background = AppBrush("PanelBgTransparentBrush", new SolidColorBrush(Color.FromArgb(150, 0x12, 0x0E, 0x1E))),
+            BorderBrush = AppBrush("TransparentPink50Brush", new SolidColorBrush(Color.FromArgb(140, 0xE8, 0x43, 0x93))),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(14),
             Padding = new Thickness(10, 6, 10, 6),
@@ -180,20 +180,20 @@ WindowDecorations = WindowDecorations.None;
             panel.Children.Add(new TextBlock
             {
                 Text = b.Desc, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0),
-                Foreground = new SolidColorBrush(Color.FromRgb(0xDD, 0xE0, 0xF0)),
+                Foreground = AppBrush("TextLightBrush", new SolidColorBrush(Color.FromRgb(0xDD, 0xE0, 0xF0))),
             });
         if (!string.IsNullOrEmpty(b.Flavor))
             panel.Children.Add(new TextBlock
             {
                 Text = b.Flavor, FontStyle = FontStyle.Italic, FontSize = 11, TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 2, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xC8)),
+                Margin = new Thickness(0, 2, 0, 0), Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xC8))),
             });
         return new ToolTip
         {
             Content = panel,
-            Background = new SolidColorBrush(Color.FromArgb(0xF2, 0x15, 0x12, 0x26)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0x69, 0xB4)),
-            Foreground = Brushes.White,
+            Background = AppBrush("PanelBgTransparentBrush", new SolidColorBrush(Color.FromArgb(0xF2, 0x15, 0x12, 0x26))),
+            BorderBrush = AppBrush("TransparentPink40Brush", new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0x69, 0xB4))),
+            Foreground = AppBrush("TextLightBrush", Brushes.White),
             Padding = new Thickness(10, 8, 10, 8),
         };
     }
@@ -217,5 +217,12 @@ WindowDecorations = WindowDecorations.None;
         var wa =
 primary.WorkingArea;
         return new Rect(wa.X, wa.Y, wa.Width, wa.Height);
+    }
+
+    private static IBrush AppBrush(string key, IBrush fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+            return b;
+        return fallback;
     }
 }

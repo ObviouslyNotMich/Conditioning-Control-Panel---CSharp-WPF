@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using global::Avalonia;
 using global::Avalonia.Controls;
@@ -141,7 +141,7 @@ WindowDecorations = WindowDecorations.None;
         var hint = new TextBlock
         {
             Text = "click to continue",
-            Foreground = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF)),
+            Foreground = AppBrush("TextLightBrush", new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF))),
             FontSize = 12,
             HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
             Margin = new Thickness(0, 14, 0, 0),
@@ -252,6 +252,13 @@ WindowDecorations = WindowDecorations.None;
         double minX = double.MaxValue;
         foreach (var s in screens!.All) minX = Math.Min(minX, s.Bounds.X);
         return minX;
+    }
+
+    private static IBrush AppBrush(string key, IBrush fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+            return b;
+        return fallback;
     }
 
     private static double VirtualTop()

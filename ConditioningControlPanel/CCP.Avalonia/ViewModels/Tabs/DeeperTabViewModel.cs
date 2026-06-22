@@ -12,6 +12,7 @@ using ConditioningControlPanel.Avalonia.Views.Deeper;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models.Deeper;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Deeper;
 using ConditioningControlPanel.Core.Services.Settings;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
@@ -89,6 +90,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
 
         WelcomeCardVisible = !(_settingsService.Current?.HasSeenDeeperWelcome ?? true);
         RefreshWebcamUi();
+        _ = ScanLibraryAsync();
     }
 
     #region Header / Welcome
@@ -261,7 +263,66 @@ public partial class DeeperTabViewModel : TabItemViewModel
 
         if (files.Count == 0) return;
 
-        await ShowNotImplementedAsync(Loc.Get("deeper_hub_import_tooltip"));
+        foreach (var file in files)
+        {
+            try
+            {
+                if (!File.Exists(file)) continue;
+                var enh = EnhancementSerializer.LoadFromFile(file);
+                var issues = EnhancementValidator.Validate(enh);
+                if (issues.Any(i => i.Severity == ValidationSeverity.Error))
+                {
+                    _logger?.Warning("Skipping invalid enhancement {File}: {Issues}", file,
+                        string.Join(", ", issues.Where(i => i.Severity == ValidationSeverity.Error).Select(i => i.Message)));
+                    continue;
+                }
+                _allEntries.Add(CreateRow(enh, "", false, File.GetLastWriteTime(file), file));
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning(ex, "Import enhancement failed: {File}", file);
+            }
+        }
+
+        ApplyFilterAndSort();
+    }
+
+    private async Task ScanLibraryAsync()
+    {
+        var folder = _settingsService?.Current?.DeeperLastDirectory;
+        if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return;
+
+        try
+        {
+            _logger?.Information("Scanning Deeper library folder: {Folder}", folder);
+            var files = Directory.EnumerateFiles(folder, "*.ccpenh.json", SearchOption.TopDirectoryOnly);
+            foreach (var file in files)
+            {
+                try
+                {
+                    var enh = EnhancementSerializer.LoadFromFile(file);
+                    var issues = EnhancementValidator.Validate(enh);
+                    if (issues.Any(i => i.Severity == ValidationSeverity.Error))
+                    {
+                        _logger?.Warning("Skipping invalid enhancement {File}: {Issues}", file,
+                            string.Join(", ", issues.Where(i => i.Severity == ValidationSeverity.Error).Select(i => i.Message)));
+                        continue;
+                    }
+                    _allEntries.Add(CreateRow(enh, "", false, File.GetLastWriteTime(file), file));
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warning(ex, "Failed to scan enhancement {File}", file);
+                }
+            }
+            ApplyFilterAndSort();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warning(ex, "Scan Deeper library failed");
+        }
+
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -596,12 +657,12 @@ public partial class DeeperTabViewModel : TabItemViewModel
         ApplyFilterAndSort();
     }
 
-    private DeeperLibraryRowViewModel CreateRow(Enhancement entry, string submissionStatus, bool isCatalogueEligible, DateTime lastModified)
+    private DeeperLibraryRowViewModel CreateRow(Enhancement entry, string submissionStatus, bool isCatalogueEligible, DateTime lastModified, string? filePath = null)
     {
         var row = new DeeperLibraryRowViewModel(_dialogService, _logger)
         {
             Entry = entry,
-            FilePath = entry.MediaSource,
+            FilePath = filePath ?? entry.MediaSource,
             Name = entry.Metadata.Name,
             Creator = entry.Metadata.Creator,
             MediaType = entry.MediaType,

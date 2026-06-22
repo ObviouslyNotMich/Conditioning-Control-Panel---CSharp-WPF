@@ -40,7 +40,7 @@ public partial class QuizReportWindow : Window
             var qHeader = new TextBlock
             {
                 Text = $"Q{answer.QuestionNumber}. {answer.QuestionText}",
-                Foreground = Brushes.White,
+                Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
                 FontWeight = FontWeight.Bold,
                 FontSize = 15,
                 TextWrapping = TextWrapping.Wrap,

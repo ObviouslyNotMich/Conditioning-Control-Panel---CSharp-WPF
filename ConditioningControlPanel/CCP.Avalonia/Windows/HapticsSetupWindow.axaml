@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.HapticsSetupWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.HapticsSetupWindow" x:DataType="x:Object"
         Title="{loc:Str dialog_haptics_setup_guide}"
         Height="700" Width="450"
         WindowStartupLocation="CenterOwner"
@@ -15,7 +15,7 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://CCP.Avalonia/Dialogs/DialogResources.axaml" />
       </ResourceDictionary.MergedDictionaries>
-      <SolidColorBrush x:Key="SecondaryBrush" Color="#9B59B6" />
+      <SolidColorBrush x:Key="SecondaryBrush" Color="{DynamicResource PatreonPurple}" />
     </ResourceDictionary>
   </Window.Resources>
 
@@ -51,7 +51,7 @@
         <Grid x:Name="ProviderSelectionGrid" IsVisible="True">
           <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             <TextBlock Text="{loc:Str label_select_your_device_type}"
-                       Foreground="White" FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,30"/>
+                       Foreground="{DynamicResource TextLightBrush}" FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,30"/>
 
             <Button x:Name="BtnSelectLovense" Width="280" Height="80"
                     Background="#2D2D4A" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2"

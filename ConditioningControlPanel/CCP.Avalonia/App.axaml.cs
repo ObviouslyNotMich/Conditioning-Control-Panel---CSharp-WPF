@@ -15,6 +15,7 @@ using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Roadmap;
 using ConditioningControlPanel.Avalonia.Chaos;
+using ConditioningControlPanel.Avalonia.Services.Theme;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,11 @@ public partial class App : Application
     /// <see cref="OnFrameworkInitializationCompleted"/> before any window is created.
     /// </summary>
     public static IServiceProvider Services { get; private set; } = null!;
+
+    /// <summary>
+    /// Global tutorial service used by interactive Deeper editor walkthroughs.
+    /// </summary>
+    public static Avalonia.Services.Tutorial.AvaloniaTutorialService Tutorial { get; private set; } = null!;
 
     /// <summary>
     /// Optional head-specific DI tweak. Set before starting the app.
@@ -53,7 +59,7 @@ public partial class App : Application
             try
             {
                 var dialog = Services?.GetService<IDialogService>();
-                _ = dialog?.ShowMessageAsync("Error", $"An unexpected error occurred:\n{e.Exception?.Message}");
+                _ = dialog?.ShowMessageAsync(Loc.Get("title_error"), string.Format(Loc.Get("msg_unexpected_error_fmt"), e.Exception?.Message));
             }
             catch { }
         };
@@ -75,6 +81,7 @@ public partial class App : Application
             serviceCollection.ConfigureCoreServices();
             ConfigurePlatformServices?.Invoke(serviceCollection);
             Services = serviceCollection.BuildServiceProvider();
+            Tutorial = new Avalonia.Services.Tutorial.AvaloniaTutorialService();
 
             // Wire the static Core App stub so copied model code can reach settings.
             CoreApp.Settings = Services.GetRequiredService<ISettingsService>();
@@ -104,13 +111,26 @@ public partial class App : Application
             Services.GetRequiredService<ChaosCrashSentinel>().ConsumeAndReport();
 
             // Initialize the mod service (loads built-ins + user mods, restores active mod)
-            // off the UI thread so startup stays responsive.
+            // off the UI thread so startup stays responsive. Apply the active mod's theme
+            // on the UI thread once initialization completes.
             var modService = Services.GetRequiredService<IModService>();
+            var themeService = Services.GetRequiredService<AvaloniaThemeService>();
             _ = Task.Run(() =>
             {
                 try
                 {
                     modService.Initialize(CoreApp.Settings.Current.ActiveModId);
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            themeService.ApplyCurrentTheme();
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Logger?.Error(ex, "Failed to apply current theme");
+                        }
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -178,7 +198,7 @@ public partial class App : Application
             try
             {
                 var dialog = Services?.GetService<IDialogService>();
-                _ = dialog?.ShowMessageAsync("Error", $"Startup failed:\n{ex.Message}");
+                _ = dialog?.ShowMessageAsync(Loc.Get("title_error"), string.Format(Loc.Get("msg_startup_failed_fmt"), ex.Message));
             }
             catch { }
         }

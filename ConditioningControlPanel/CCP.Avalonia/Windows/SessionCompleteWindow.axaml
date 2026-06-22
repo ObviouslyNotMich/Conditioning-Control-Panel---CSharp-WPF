@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.SessionCompleteWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.SessionCompleteWindow" x:DataType="x:Object"
         Title="{Binding [dialog_session_complete], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="540" Height="700"
         WindowStartupLocation="CenterScreen"
@@ -22,7 +22,7 @@
         <Setter Property="Background" Value="#2A2A48" />
         <Setter Property="BorderBrush" Value="#3A3A58" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
         <Setter Property="Padding" Value="10,8" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -48,7 +48,7 @@
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
       <!-- Card Image -->
       <Border Grid.Row="0" CornerRadius="12" Margin="0,0,0,15" HorizontalAlignment="Center"
-              Background="#252540" Padding="5" x:Name="CardBorder">
+              Background="{DynamicResource ElevatedSurfaceBrush}" Padding="5" x:Name="CardBorder">
         <Image x:Name="ImgCard" Width="200" Height="140" Stretch="UniformToFill"
                RenderOptions.BitmapInterpolationMode="HighQuality">
           <Image.Clip>

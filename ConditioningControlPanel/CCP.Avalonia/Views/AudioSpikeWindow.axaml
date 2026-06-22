@@ -18,7 +18,7 @@
 
       <TextBlock x:Name="StatusText"
                  Text="Initializing..."
-                 Foreground="#CCCCCC"
+                 Foreground="{DynamicResource TextDimBrush}"
                  HorizontalAlignment="Center"
                  TextWrapping="Wrap" />
 

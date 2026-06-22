@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AssetSubmitDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AssetSubmitDialog" x:DataType="x:Object"
         Title="{Binding [dialog_catalogue_submit_title], Source={x:Static loc:LocalizationManager.Instance}}"
         SizeToContent="Height"
         MinHeight="480"

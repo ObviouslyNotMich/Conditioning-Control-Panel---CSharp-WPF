@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.ModCreatorWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.ModCreatorWindow" x:DataType="x:Object"
         Title="{loc:Str dialog_mod_creator}"
         Height="750" Width="1100"
         MinHeight="600" MinWidth="900"
@@ -21,7 +21,7 @@
       <!-- Dark TextBox -->
       <ControlTheme x:Key="DarkTextBox" TargetType="TextBox">
         <Setter Property="Background" Value="#252542" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
         <Setter Property="BorderBrush" Value="#505070" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="8,5" />
@@ -32,7 +32,7 @@
     </ResourceDictionary>
   </Window.Resources>
 
-  <Border Background="#1A1A2E" CornerRadius="12"
+  <Border Background="{DynamicResource PanelBgBrush}" CornerRadius="12"
           BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2"
           BoxShadow="0 0 30 0 #80000000">
     <Grid>

@@ -124,7 +124,7 @@ CountdownText.RenderTransform = _countdownScale;
     {
         AvaloniaChaosSfx.Play(text == "SINK" ? "sink" : "countdown_tick", text == "SINK" ? 0.6f : 0.45f);
         CountdownText.Text = text;
-        CountdownText.Foreground = text == "SINK" ? new SolidColorBrush(Color.FromRgb(120, 255, 160)) : Brushes.White;
+        CountdownText.Foreground = text == "SINK" ? new SolidColorBrush(Color.FromRgb(120, 255, 160)) : AppBrush("TextLightBrush", _whiteFallback);
         _countdownScale.ScaleX = _countdownScale.ScaleY = 1.5;
         Opacity = 1;
         AnimateTransform(_countdownScale, 1.5, 1.0, 350, EaseOutBack);
@@ -289,7 +289,7 @@ CountdownText.RenderTransform = _countdownScale;
 
     private DraftCard BuildBoonCard(ChaosBoon boon)
     {
-        var accent = boon.IsCurse ? Color.FromRgb(255, 120, 120)
+        var accent = boon.IsCurse ? AppColor("Danger", Color.FromRgb(255, 120, 120))
                    : boon.RequiresAny != null || boon.RequiresAll != null ? Color.FromRgb(255, 215, 0)
                    : Color.FromRgb(156, 232, 160);
         var accentBrush = new SolidColorBrush(accent);
@@ -326,20 +326,20 @@ CountdownText.RenderTransform = _countdownScale;
         });
         panel.Children.Add(new TextBlock
         {
-            Text = boon.Desc, Foreground = Brushes.White, FontSize = 12,
+            Text = boon.Desc, Foreground = AppBrush("TextLightBrush", _whiteFallback), FontSize = 12,
             TextWrapping = TextWrapping.Wrap, MinHeight = 50, Margin = new Thickness(0, 0, 0, 8)
         });
         if (!string.IsNullOrEmpty(boon.Flavor))
             panel.Children.Add(new TextBlock
             {
                 Text = boon.Flavor, FontStyle = FontStyle.Italic, FontSize = 10.5,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8)),
+                Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromArgb(0xCC, 0xB0, 0xB0, 0xC8))),
                 TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 8)
             });
         panel.Children.Add(new TextBlock
         {
             Text = $"{RarityDots(boon.Rarity)} {boon.Rarity}",
-            Foreground = new SolidColorBrush(Color.FromRgb(180, 180, 208)), FontSize = 11,
+            Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(180, 180, 208))), FontSize = 11,
             Margin = new Thickness(0, 0, 0, 10)
         });
         var pickScale = new ScaleTransform(1, 1);
@@ -356,7 +356,7 @@ CountdownText.RenderTransform = _countdownScale;
         var scale = new ScaleTransform(1, 1);
         var card = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+            Background = AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
             BorderBrush = accentBrush, BorderThickness = new Thickness(1.5),
             CornerRadius = new CornerRadius(12), Padding = new Thickness(16),
             Margin = new Thickness(8), Child = panel,
@@ -475,9 +475,9 @@ CountdownText.RenderTransform = _countdownScale;
             pbTimer.Start();
         }
 
-        var dim = new SolidColorBrush(Color.FromRgb(170, 170, 200));
+        var dim = new SolidColorBrush(AppColor("TextMuted", Color.FromRgb(170, 170, 200)));
         var gold = new SolidColorBrush(Color.FromRgb(255, 215, 90));
-        var pink = new SolidColorBrush(Color.FromRgb(255, 105, 180));
+        var pink = new SolidColorBrush(AppColor("PinkColor", Colors.HotPink));
 
         ResultsBody.Children.Clear();
 
@@ -494,9 +494,9 @@ CountdownText.RenderTransform = _countdownScale;
             Margin = new Thickness(0, 3, 0, 3), TextWrapping = TextWrapping.Wrap
         });
 
-        ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
+        ResultsBody.Children.Add(new Border { Height = 1, Background = AppBrush("TransparentPink40Brush", new SolidColorBrush(Color.FromArgb(70, 255, 105, 180))), Margin = new Thickness(0, 10, 0, 10) });
 
-        var scoreLine = AddResultLine("score 0", 24, Brushes.White, FontWeight.Bold);
+        var scoreLine = AddResultLine("score 0", 24, AppBrush("TextLightBrush", _whiteFallback), FontWeight.Bold);
         AnimateScoreTally(scoreLine, score);
         var verdict = isPb
             ? AddResultLine($"★ NEW BEST  (+{pbDelta:N0} over {previousBest:N0})", 14, gold, FontWeight.Bold)
@@ -506,7 +506,7 @@ CountdownText.RenderTransform = _countdownScale;
         verdictTimer.Tick += (_, _) => { verdictTimer.Stop(); new OpacityFade(verdict, 0, 1, 300); };
         verdictTimer.Start();
 
-        ResultsBody.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(70, 255, 105, 180)), Margin = new Thickness(0, 10, 0, 10) });
+        ResultsBody.Children.Add(new Border { Height = 1, Background = AppBrush("TransparentPink40Brush", new SolidColorBrush(Color.FromArgb(70, 255, 105, 180))), Margin = new Thickness(0, 10, 0, 10) });
 
         var takeHome = ChipRow(
             StatChip("XP", $"{ChaosGlyphs.Xp} {finalXp:N0}", pink, $"base {baseXp:N0} x{skillMult:0.0}"),
@@ -570,12 +570,12 @@ CountdownText.RenderTransform = _countdownScale;
         var card = new StackPanel { Margin = new Thickness(0, 16, 0, 0), Opacity = 0 };
         card.Children.Add(new TextBlock
         {
-            Text = ChaosRanks.NameLower(rank), FontSize = 46, FontWeight = FontWeight.Bold, Foreground = Brushes.White,
+            Text = ChaosRanks.NameLower(rank), FontSize = 46, FontWeight = FontWeight.Bold, Foreground = AppBrush("TextLightBrush", _whiteFallback),
             HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center,
         });
         card.Children.Add(new TextBlock
         {
-            Text = ChaosRanks.Line(rank), FontSize = 12, Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 200)),
+            Text = ChaosRanks.Line(rank), FontSize = 12, Foreground = new SolidColorBrush(AppColor("TextMuted", Color.FromRgb(170, 170, 200))),
             HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0),
         });
@@ -696,7 +696,7 @@ CountdownText.RenderTransform = _countdownScale;
         stack.Children.Add(new TextBlock
         {
             Text = value, FontSize = 19, FontWeight = FontWeight.Bold,
-            Foreground = valueBrush ?? Brushes.White,
+            Foreground = valueBrush ?? AppBrush("TextLightBrush", _whiteFallback),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 1, 0, 0),
         });
@@ -989,4 +989,20 @@ Math.Min(1, (Environment.TickCount64 - startMs) / ms);
     }
 
     #endregion
+
+    private static readonly IBrush _whiteFallback = new SolidColorBrush(Colors.White);
+
+    private static IBrush AppBrush(string key, IBrush fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+            return b;
+        return fallback;
+    }
+
+    private static Color AppColor(string key, Color fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c)
+            return c;
+        return fallback;
+    }
 }

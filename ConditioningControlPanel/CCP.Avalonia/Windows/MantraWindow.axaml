@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.MantraWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.MantraWindow" x:DataType="x:Object"
         Title="{Binding [dialog_mantra_lab], Source={x:Static loc:LocalizationManager.Instance}}"
         WindowState="Maximized"
         WindowDecorations="None"
@@ -47,7 +47,7 @@
     <Border x:Name="GlowOverlay" Opacity="0">
       <Border.Background>
         <RadialGradientBrush Center="50%,60%" RadiusX="40%" RadiusY="40%">
-          <GradientStop Color="{DynamicResource Pink}" Offset="0"/>
+          <GradientStop Color="{DynamicResource PinkColor}" Offset="0"/>
           <GradientStop Color="Transparent" Offset="1"/>
         </RadialGradientBrush>
       </Border.Background>
@@ -77,7 +77,7 @@
           <TextBlock Text="{Binding [label_reps], Source={x:Static loc:LocalizationManager.Instance}}"
                      Foreground="#606080" FontSize="11" HorizontalAlignment="Center" FontWeight="Bold"/>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-            <TextBlock x:Name="TxtCompletions" Text="0" Foreground="White" FontSize="36" FontWeight="Bold"/>
+            <TextBlock x:Name="TxtCompletions" Text="0" Foreground="{DynamicResource TextLightBrush}" FontSize="36" FontWeight="Bold"/>
             <TextBlock x:Name="TxtTarget" Text="/10" Foreground="#606080" FontSize="24" VerticalAlignment="Bottom" Margin="2,0,0,4"/>
           </StackPanel>
         </StackPanel>
@@ -110,17 +110,17 @@
               BorderThickness="1.5"
               x:Name="InputBorderHost">
         <Border.BorderBrush>
-          <SolidColorBrush Color="#40FF69B4"/>
+          <SolidColorBrush Color="{DynamicResource TransparentPink40}"/>
         </Border.BorderBrush>
         <Grid ColumnDefinitions="*,Auto">
           <TextBox x:Name="TxtInput" Grid.Column="0"
-                   Background="Transparent" Foreground="White" FontSize="22"
+                   Background="Transparent" Foreground="{DynamicResource TextLightBrush}" FontSize="22"
                    BorderThickness="0"
                    VerticalAlignment="Center"
                    TextChanged="TxtInput_TextChanged"
                    KeyDown="TxtInput_KeyDown">
             <TextBox.CaretBrush>
-              <SolidColorBrush Color="{DynamicResource Pink}" />
+              <SolidColorBrush Color="{DynamicResource PinkColor}" />
             </TextBox.CaretBrush>
           </TextBox>
           <TextBlock Grid.Column="1" Text="{Binding [label_esc_to_exit], Source={x:Static loc:LocalizationManager.Instance}}"

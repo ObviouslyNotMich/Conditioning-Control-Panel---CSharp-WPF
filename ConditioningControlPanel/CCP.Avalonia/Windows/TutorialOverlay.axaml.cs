@@ -19,6 +19,7 @@ using Avalonia.VisualTree;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Avalonia.Services.Tutorial;
 
 using Animation = global::Avalonia.Animation.Animation;
 using KeyFrame = global::Avalonia.Animation.KeyFrame;
@@ -68,6 +69,8 @@ public partial class TutorialOverlay : Window
         catch { }
 
         AttachToTarget(_targetWindow);
+
+        try { TutorialEventBus.Event += OnBusEvent; } catch { }
 
         Opacity = 0;
         Loaded += async (s, e) =>
@@ -232,6 +235,22 @@ public partial class TutorialOverlay : Window
     private void OnStepChanged(object? sender, TutorialStep step)
     {
         UpdateStep(step);
+    }
+
+    private void OnBusEvent(object? sender, string eventName)
+    {
+        try
+        {
+            // Advance OnEvent steps when the editor emits the matching event.
+            if (_thisOverlayCompleted) return;
+            if (_subscribedStep is not { } step) return;
+            if (step.AdvanceTrigger != TutorialAdvanceTrigger.OnEvent) return;
+            if (string.IsNullOrEmpty(step.AdvanceEventName)) return;
+            if (!string.Equals(step.AdvanceEventName, eventName, StringComparison.OrdinalIgnoreCase)) return;
+
+            AdvanceSync();
+        }
+        catch { }
     }
 
     private void OnTutorialCompleted(object? sender, EventArgs e)
@@ -710,6 +729,19 @@ public partial class TutorialOverlay : Window
         {
             return matchByTag ? cbi.Tag?.ToString() : cbi.Content?.ToString();
         }
+
+        if (matchByTag && selected != null)
+        {
+            // NamedOption and similar key/value wrappers expose their identifier
+            // via a Key or Tag property. Falling back to ToString() would return
+            // the localized label and break MatchByTag comparisons.
+            var keyProp = selected.GetType().GetProperty("Key") ?? selected.GetType().GetProperty("Tag");
+            if (keyProp != null && keyProp.PropertyType == typeof(string))
+            {
+                return keyProp.GetValue(selected)?.ToString();
+            }
+        }
+
         return selected?.ToString();
     }
 
@@ -837,6 +869,7 @@ public partial class TutorialOverlay : Window
         try { _spotlightDelayTimer?.Stop(); } catch { }
         _spotlightDelayTimer = null;
         UnsubscribeAdvanceTrigger();
+        try { TutorialEventBus.Event -= OnBusEvent; } catch { }
         DetachFromTarget(_targetWindow);
     }
 

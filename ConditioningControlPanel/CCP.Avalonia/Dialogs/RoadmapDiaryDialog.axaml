@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.RoadmapDiaryDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.RoadmapDiaryDialog" x:DataType="x:Object"
         Title="{loc:Str dialog_transformation_diary}"
         Width="500"
         Height="700"
@@ -89,7 +89,7 @@
                      FontSize="11"
                      Margin="0,0,0,4" />
           <TextBlock x:Name="TxtObjective"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      TextWrapping="Wrap" />
         </StackPanel>

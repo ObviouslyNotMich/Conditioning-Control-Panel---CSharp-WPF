@@ -420,7 +420,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
             Width = 480,
             Height = 280,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#1A1A2E")),
+            Background = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PanelBg"]!),
             CanResize = false,
         };
 
@@ -428,14 +428,14 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         stack.Children.Add(new TextBlock
         {
             Text = "Enter phrase text:",
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             FontSize = 13
         });
 
         var inputBox = new TextBox
         {
             Background = new SolidColorBrush(Color.Parse("#252542")),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderBrush = new SolidColorBrush(Color.Parse("#505070")),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(8, 6),
@@ -446,14 +446,14 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         stack.Children.Add(new TextBlock
         {
             Text = "Category:",
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             FontSize = 13
         });
 
         var categoryCombo = new ComboBox
         {
             Background = new SolidColorBrush(Color.Parse("#252542")),
-            Foreground = Brushes.White,
+            Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             BorderBrush = new SolidColorBrush(Color.Parse("#505070")),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(8, 5),

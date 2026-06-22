@@ -1,6 +1,9 @@
 using System;
 using Avalonia;
 using Avalonia.Logging;
+#if DEBUG
+using AvaloniaUI.DiagnosticsSupport;
+#endif
 using ConditioningControlPanel.Avalonia;
 using ConditioningControlPanel.Avalonia.Desktop.Platform;
 using ConditioningControlPanel.Core.Platform;
@@ -31,7 +34,11 @@ public static class ProgramShared
 
         return AppBuilder.Configure<ConditioningControlPanel.Avalonia.App>()
             .UsePlatformDetect()
-            .WithInterFont();
+            .WithInterFont()
+#if DEBUG
+            .WithDeveloperTools()
+#endif
+            ;
     }
 }
 

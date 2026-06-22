@@ -8,9 +8,12 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using ConditioningControlPanel.Avalonia.AvatarTube;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Services.Theme;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Windows;
+using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
@@ -46,6 +49,11 @@ public partial class MainWindow : Window
         _logger = App.Services?.GetService<IAppLogger>();
         _lockdownService = App.Services?.GetService<ILockdownService>();
 
+        var themeService = App.Services?.GetService<AvaloniaThemeService>();
+        ApplyPlayerTitleShadow();
+        if (themeService != null)
+            themeService.ThemeChanged += (_, _) => ApplyPlayerTitleShadow();
+
         // Remove the native title bar and extend the client area on all platforms.
         App.Services?.GetService<IWindowChrome>()?.ExtendClientArea(this, true);
 
@@ -65,6 +73,24 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DropEvent, MainWindow_Drop);
 
         WirePanicKey();
+    }
+
+    private void ApplyPlayerTitleShadow()
+    {
+        if (PlayerTitleShadowBorder == null) return;
+
+        var color = (Application.Current?.TryFindResource("TransparentPink60", out var res) == true && res is Color c)
+            ? c
+            : Color.Parse("#99FF69B4");
+
+        PlayerTitleShadowBorder.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            OffsetX = 0,
+            OffsetY = 0,
+            Blur = 8,
+            Spread = 0,
+            Color = color
+        });
     }
 
     private void WirePanicKey()
@@ -179,6 +205,7 @@ public partial class MainWindow : Window
             {
                 try { _audioPlayer?.Stop(); } catch { /* best effort */ }
                 _sessionService?.StopSession(completed: false);
+                try { _avatarTubeWindow?.Close(); } catch { /* best effort */ }
                 desktop.Shutdown();
             }
         }
@@ -192,6 +219,7 @@ public partial class MainWindow : Window
             if (WindowState == WindowState.Minimized)
                 WindowState = WindowState.Normal;
             Activate();
+            ShowAvatarTube();
         }
         catch
         {
@@ -294,7 +322,10 @@ public partial class MainWindow : Window
         {
             e.Cancel = true;
             WindowState = WindowState.Minimized;
+            return;
         }
+
+        try { _avatarTubeWindow?.Close(); } catch { /* best effort */ }
     }
 
     private async void BugReport_Click(object? sender, RoutedEventArgs e)
@@ -447,6 +478,9 @@ public partial class MainWindow : Window
             var logger = App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>();
             logger?.Warning(ex, "Failed to present startup dialogs");
         }
+
+        InitializeAvatarTube();
+        EnsureAvatarTubeFitsOnScreen();
     }
 
     private async Task TryShowWelcomeDialogAsync()

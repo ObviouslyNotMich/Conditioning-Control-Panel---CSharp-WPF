@@ -227,7 +227,7 @@ public partial class SpiralFeatureControl : UserControl
         stack.Children.Add(new TextBlock
         {
             Text = display,
-            Foreground = Brushes.White,
+            Foreground = (IBrush?)Application.Current?.Resources["TextLightBrush"],
             FontWeight = FontWeight.SemiBold,
             FontSize = 11,
             TextTrimming = TextTrimming.CharacterEllipsis,

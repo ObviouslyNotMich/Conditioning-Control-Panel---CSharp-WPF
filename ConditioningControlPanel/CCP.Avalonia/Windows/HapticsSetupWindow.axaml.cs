@@ -173,7 +173,7 @@ _mods = App.Services.GetRequiredService<IModService>();
             BtnDone.IsVisible = false;
         }
 
-        var activeColor = Dot1.Tag as IBrush ?? Brushes.White;
+        var activeColor = Dot1.Tag as IBrush ?? (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
         var inactiveColor = this.FindResource("PanelAccentBrush") as IBrush ?? Brushes.Gray;
 
         Dot1.Fill = _currentSlide >= 1 ? activeColor : inactiveColor;

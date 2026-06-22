@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.WarningDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.WarningDialog" x:DataType="x:Object"
         Title="{loc:Str dialog_warning_warning_title}"
         Height="340"
         MinHeight="340"

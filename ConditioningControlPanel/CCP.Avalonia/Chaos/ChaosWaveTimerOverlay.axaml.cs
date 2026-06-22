@@ -48,7 +48,7 @@ WindowDecorations = WindowDecorations.None;
 
         _wave = new TextBlock
         {
-            Foreground = new SolidColorBrush(Color.FromRgb(0xE8, 0x9B, 0xC8)),
+            Foreground = AppBrush("PinkButtonHoveredBrush", new SolidColorBrush(Color.FromRgb(0xE8, 0x9B, 0xC8))),
             FontSize = 13,
             FontWeight = FontWeight.Bold,
             VerticalAlignment = VerticalAlignment.Center,
@@ -56,7 +56,7 @@ WindowDecorations = WindowDecorations.None;
         };
         _clock = new TextBlock
         {
-            Foreground = Brushes.White,
+            Foreground = AppBrush("TextLightBrush", Brushes.White),
             FontSize = 17,
             FontWeight = FontWeight.Bold,
             VerticalAlignment = VerticalAlignment.Center,
@@ -79,8 +79,8 @@ WindowDecorations = WindowDecorations.None;
 
         _pill = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(170, 0x12, 0x0E, 0x1E)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(160, 0xE8, 0x43, 0x93)),
+            Background = AppBrush("PanelBgTransparentBrush", new SolidColorBrush(Color.FromArgb(170, 0x12, 0x0E, 0x1E))),
+            BorderBrush = AppBrush("TransparentPink50Brush", new SolidColorBrush(Color.FromArgb(160, 0xE8, 0x43, 0x93))),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(14, 5, 14, 5),
@@ -192,7 +192,7 @@ WindowDecorations = WindowDecorations.None;
         {
             _urgent = urgent;
             _clock.Foreground = urgent
-                ? new SolidColorBrush(Color.FromRgb(0xFF, 0x5A, 0x5A))
+                ? AppBrush("DangerBrush", new SolidColorBrush(Color.FromRgb(0xFF, 0x5A, 0x5A)))
                 : Brushes.White;
         }
 
@@ -229,5 +229,12 @@ WindowDecorations = WindowDecorations.None;
         var wa =
 primary.WorkingArea;
         return new Rect(wa.X, wa.Y, wa.Width, wa.Height);
+    }
+
+    private static IBrush AppBrush(string key, IBrush fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(key, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is IBrush b)
+            return b;
+        return fallback;
     }
 }

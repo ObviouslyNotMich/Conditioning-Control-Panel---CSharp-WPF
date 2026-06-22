@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.UsernamePickerDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.UsernamePickerDialog" x:DataType="x:Object"
         Title="{Binding [dialog_choose_your_display_name], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="350"
         Width="450"
@@ -58,7 +58,7 @@
                      HorizontalAlignment="Center" />
           <TextBlock Text="{Binding [label_you_ve_been_recognized_as_a_season_0_og_your], Source={x:Static loc:LocalizationManager.Instance}}"
                      FontSize="11"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      TextWrapping="Wrap"
                      HorizontalAlignment="Center"
                      Margin="0,5,0,0" />

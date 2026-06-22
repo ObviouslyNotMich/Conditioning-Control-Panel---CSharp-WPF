@@ -90,7 +90,13 @@ public interface IModService
     string GetModeDisplayName();
     string MakeModAware(string text);
     string GetAccentColorHex();
+    string GetAccentLightColorHex();
+    string GetAccentDarkColorHex();
     string GetSecondaryColorHex();
+    string GetBackgroundColorHex();
+    string GetPanelColorHex();
+    string GetSurfaceColorHex();
+    string GetFilterColorHex();
     string[] GetPhrases(string category);
     string GetPinkRushName();
     string GetPinkRushDescription();

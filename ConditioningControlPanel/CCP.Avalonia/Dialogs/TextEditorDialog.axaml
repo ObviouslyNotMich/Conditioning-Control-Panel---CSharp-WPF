@@ -27,7 +27,7 @@
 
       <dialogs:BoolToBrushConverter x:Key="SelectedBorderConverter">
         <dialogs:BoolToBrushConverter.TrueBrush>
-          <SolidColorBrush Color="{DynamicResource Pink}" />
+          <SolidColorBrush Color="{DynamicResource PinkColor}" />
         </dialogs:BoolToBrushConverter.TrueBrush>
         <dialogs:BoolToBrushConverter.FalseBrush>
           <SolidColorBrush Color="Transparent" />
@@ -63,7 +63,7 @@
       <TextBox x:Name="TxtNewItem"
                Grid.Column="0"
                Background="{DynamicResource SurfaceBgBrush}"
-               Foreground="White"
+               Foreground="{DynamicResource TextLightBrush}"
                BorderBrush="{DynamicResource PinkBrush}"
                BorderThickness="1"
                Padding="10,8"

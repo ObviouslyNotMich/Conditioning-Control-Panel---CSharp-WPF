@@ -1,3 +1,4 @@
+using System.IO;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using ConditioningControlPanel.Core.Platform;
@@ -56,7 +57,8 @@ public sealed class AvaloniaDialogService : IDialogService
     public async Task<IReadOnlyList<string>> ShowOpenFileDialogAsync(
         string title,
         IReadOnlyList<FileFilter> filters,
-        bool allowMultiple = false)
+        bool allowMultiple = false,
+        string? initialDirectory = null)
     {
         var top = _getTopLevel();
         if (top is null) return Array.Empty<string>();
@@ -67,6 +69,19 @@ public sealed class AvaloniaDialogService : IDialogService
             AllowMultiple = allowMultiple,
             FileTypeFilter = MapFilters(filters)
         };
+
+        if (!string.IsNullOrEmpty(initialDirectory) && Directory.Exists(initialDirectory))
+        {
+            try
+            {
+                var startFolder = await top.StorageProvider.TryGetFolderFromPathAsync(initialDirectory).ConfigureAwait(false);
+                if (startFolder != null)
+                {
+                    options.SuggestedStartLocation = startFolder;
+                }
+            }
+            catch { /* best effort */ }
+        }
 
         var result = await top.StorageProvider.OpenFilePickerAsync(options);
         return result.Select(r => r.Path.LocalPath).ToList();

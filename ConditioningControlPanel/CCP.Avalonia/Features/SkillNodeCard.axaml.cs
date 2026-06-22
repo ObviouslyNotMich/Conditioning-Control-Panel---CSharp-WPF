@@ -238,8 +238,8 @@ public partial class SkillNodeCard : UserControl
         }
         else if (CanPurchase)
         {
-            RootBorder.BorderBrush = new SolidColorBrush(Color.Parse("#FF69B4"));
-            RootBorder.BoxShadow = new BoxShadows(new BoxShadow { Blur = 18, Color = Color.Parse("#8CFF69B4") });
+            RootBorder.BorderBrush = (IBrush?)Application.Current?.Resources["PinkBrush"];
+            RootBorder.BoxShadow = new BoxShadows(new BoxShadow { Blur = 18, Color = Application.Current?.Resources["TransparentPink50"] is Color c ? c : Colors.Transparent });
             ContentRoot.Opacity = 1.0;
             LockedOverlay.IsVisible = false;
             BtnPurchase.IsVisible = true;

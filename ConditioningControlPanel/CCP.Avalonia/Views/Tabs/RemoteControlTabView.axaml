@@ -41,7 +41,7 @@
                      Text="{loc:Str tab_remote_control}"
                      FontSize="20"
                      FontWeight="Bold"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      VerticalAlignment="Center" />
           <Button Grid.Column="2"
                   Content="{loc:Str btn_help}"
@@ -87,7 +87,7 @@
                          FontWeight="Bold"
                          Margin="0,0,0,4" />
               <TextBlock Text="{loc:Str desc_remote_control}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontSize="15"
                          TextWrapping="Wrap"
                          Margin="0,0,0,12"
@@ -109,7 +109,7 @@
                 Padding="16">
           <StackPanel Spacing="12">
             <TextBlock Text="{loc:Str tab_remote_control_tier_text}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="14"
                        FontWeight="SemiBold" />
             <Grid ColumnDefinitions="*,*,*"
@@ -228,7 +228,7 @@
               <TextBlock Text="{Binding ConnectPin}"
                          FontSize="18"
                          FontWeight="Bold"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontFamily="Consolas, Monospace" />
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="{loc:Str tab_remote_control_copy_code}"
@@ -285,7 +285,7 @@
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{loc:Str tab_remote_control_directory_text}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="14"
                            FontWeight="SemiBold" />
                 <TextBlock Text="{loc:Str desc_optin_directory_consent}"
@@ -324,7 +324,7 @@
                       <ToggleButton.Styles>
                         <Style Selector="ToggleButton:checked">
                           <Setter Property="Background" Value="{DynamicResource PinkBrush}" />
-                          <Setter Property="Foreground" Value="White" />
+                          <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
                         </Style>
                         <Style Selector="ToggleButton:not(:checked)">
                           <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}" />
@@ -376,7 +376,7 @@
                            FontSize="11"
                            FontWeight="Bold" />
                 <TextBlock Text="{Binding StatusMessage}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13" />
               </StackPanel>
             </Border>
@@ -407,7 +407,7 @@
                 Padding="18">
           <StackPanel Spacing="12">
             <TextBlock Text="{loc:Str label_remote_emotes}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="14"
                        FontWeight="SemiBold" />
             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -420,7 +420,7 @@
                       FontSize="20"
                       Padding="0"
                       Background="{DynamicResource ElevatedSurfaceBrush}"
-                      Foreground="White" />
+                      Foreground="{DynamicResource TextLightBrush}" />
               <Button Content="😊"
                       Command="{Binding SendEmoteCommand}"
                       CommandParameter="😊"
@@ -430,7 +430,7 @@
                       FontSize="20"
                       Padding="0"
                       Background="{DynamicResource ElevatedSurfaceBrush}"
-                      Foreground="White" />
+                      Foreground="{DynamicResource TextLightBrush}" />
               <Button Content="👍"
                       Command="{Binding SendEmoteCommand}"
                       CommandParameter="👍"
@@ -440,7 +440,7 @@
                       FontSize="20"
                       Padding="0"
                       Background="{DynamicResource ElevatedSurfaceBrush}"
-                      Foreground="White" />
+                      Foreground="{DynamicResource TextLightBrush}" />
               <Button Content="🥰"
                       Command="{Binding SendEmoteCommand}"
                       CommandParameter="🥰"
@@ -450,7 +450,7 @@
                       FontSize="20"
                       Padding="0"
                       Background="{DynamicResource ElevatedSurfaceBrush}"
-                      Foreground="White" />
+                      Foreground="{DynamicResource TextLightBrush}" />
               <Button Content="😵‍💫"
                       Command="{Binding SendEmoteCommand}"
                       CommandParameter="😵‍💫"
@@ -460,7 +460,7 @@
                       FontSize="20"
                       Padding="0"
                       Background="{DynamicResource ElevatedSurfaceBrush}"
-                      Foreground="White" />
+                      Foreground="{DynamicResource TextLightBrush}" />
             </StackPanel>
             <Grid ColumnDefinitions="*,Auto">
               <TextBox Grid.Column="0"
@@ -487,7 +487,7 @@
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{loc:Str label_remote_stop_on_disconnect}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Text="{loc:Str desc_remote_stop_on_disconnect}"
@@ -502,7 +502,7 @@
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="{loc:Str label_remote_share_avatar}"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            FontSize="13"
                            FontWeight="SemiBold" />
                 <TextBlock Text="{loc:Str desc_remote_share_avatar}"

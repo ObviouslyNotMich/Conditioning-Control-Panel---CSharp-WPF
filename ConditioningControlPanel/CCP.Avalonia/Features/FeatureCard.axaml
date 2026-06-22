@@ -1,12 +1,14 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.FeatureCard"
-             Cursor="Hand">
+             Cursor="Hand"
+             x:DataType="{x:Type local:FeatureCard}">
 
   <Border x:Name="RootBorder"
-          Background="#1A1A2E"
-          BorderBrush="#FF69B4"
+          Background="{DynamicResource PanelBgBrush}"
+          BorderBrush="{DynamicResource PinkBrush}"
           BorderThickness="1"
           CornerRadius="12"
           ClipToBounds="True"
@@ -23,7 +25,7 @@
               Width="68"
               Height="68"
               CornerRadius="34"
-              Background="#33FF69B4"
+              Background="{DynamicResource TransparentPinkBrush}"
               HorizontalAlignment="Center"
               VerticalAlignment="Center"
               IsVisible="False">
@@ -31,7 +33,7 @@
                    FontSize="32"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
-                   Foreground="#FF69B4" />
+                   Foreground="{DynamicResource PinkBrush}" />
       </Border>
 
       <!-- Bottom gradient + title overlay -->
@@ -50,14 +52,14 @@
                    HorizontalAlignment="Center"
                    TextAlignment="Center"
                    TextWrapping="Wrap"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="12"
                    FontWeight="SemiBold" />
       </Border>
 
       <!-- Active overlay: pink ring when the underlying feature is enabled -->
       <Border x:Name="ActiveBorder"
-              BorderBrush="#FF69B4"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="3.5"
               CornerRadius="12"
               IsHitTestVisible="False"
@@ -77,7 +79,7 @@
                      Text="{loc:Str feature_card_lock_level_placeholder}"
                      Margin="0,4,0,0"
                      HorizontalAlignment="Center"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="11"
                      FontWeight="SemiBold" />
         </StackPanel>
@@ -90,9 +92,9 @@
               HorizontalAlignment="Right"
               VerticalAlignment="Top"
               Margin="0,8,8,0"
-              Background="#33FF69B4"
-              Foreground="White"
-              BorderBrush="#FF69B4"
+              Background="{DynamicResource TransparentPinkBrush}"
+              Foreground="{DynamicResource TextLightBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="1"
               CornerRadius="11"
               Padding="0"

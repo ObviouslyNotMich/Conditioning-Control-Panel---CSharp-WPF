@@ -4,12 +4,13 @@ using System.Diagnostics;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
-using ConditioningControlPanel.Models;
+using ConditioningControlPanel;
+using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Models;
 using Microsoft.Extensions.DependencyInjection;
-using ConditioningControlPanel.Core.Localization;
 namespace ConditioningControlPanel.Avalonia.Features;
 
 public partial class SystemFeatureControl : UserControl
@@ -17,8 +18,13 @@ public partial class SystemFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly IStartupRegistration _startup;
     private readonly IInputHook? _inputHook;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly IScheduler _scheduler;
+    private readonly IDialogService _dialogService;
+    private readonly IAppLogger? _logger;
     private bool _isLoading = true;
     private bool _capturingPanicKey;
+    private IDisposable? _panicKeyConfirmationTimer;
 
     public IPlatformCapabilities Capabilities { get; }
 
@@ -29,6 +35,10 @@ public partial class SystemFeatureControl : UserControl
         _startup = App.Services.GetRequiredService<IStartupRegistration>();
         _inputHook = App.Services.GetService<IInputHook>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
+        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
+        _scheduler = App.Services.GetRequiredService<IScheduler>();
+        _dialogService = App.Services.GetRequiredService<IDialogService>();
+        _logger = App.Services.GetService<IAppLogger>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -42,6 +52,7 @@ public partial class SystemFeatureControl : UserControl
 
     private void OnUnloaded(object? sender, RoutedEventArgs e)
     {
+        _panicKeyConfirmationTimer?.Dispose();
         if (_settings.Current is INotifyPropertyChanged inpc)
             inpc.PropertyChanged -= OnSettingsPropertyChanged;
     }
@@ -62,7 +73,7 @@ public partial class SystemFeatureControl : UserControl
             ChkOfflineMode.IsChecked = s.OfflineMode;
 
             TxtStartupVideo.Text = string.IsNullOrEmpty(s.StartupVideoPath)
-                ? LocalizationManager.Instance.Get("label_random")
+                ? Loc.Get("label_random")
                 : Path.GetFileName(s.StartupVideoPath);
 
             // Skip overwriting the button while we're showing the "Press any key..."
@@ -87,7 +98,7 @@ public partial class SystemFeatureControl : UserControl
             or nameof(AppSettings.StartupVideoPath)
             or nameof(AppSettings.RunOnStartup))
         {
-            Dispatcher.UIThread.Post(LoadFromSettings);
+            _dispatcher.Post(LoadFromSettings);
         }
     }
 
@@ -138,14 +149,14 @@ public partial class SystemFeatureControl : UserControl
         try { _startup.SetRegistered(enable); }
         catch (Exception ex)
         {
-            App.Services?.GetService<IAppLogger>()?.Warning(ex, "Failed to update startup registration");
+            _logger?.Warning(ex, "Failed to update startup registration");
         }
 
         _settings.Current.RunOnStartup = enable;
         _settings.Save();
     }
 
-    private void ChkNoPanic_Changed(object? sender, RoutedEventArgs e)
+    private async void ChkNoPanic_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
         var s = _settings.Current;
@@ -154,16 +165,24 @@ public partial class SystemFeatureControl : UserControl
 
         if (disablePanic)
         {
-            // TODO: Panic-key disable confirmation dialog (WarningDialog)
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            var confirmed = owner != null && await WarningDialog.ShowDoubleWarning(
+                owner,
+                Loc.Get("setting_no_panic"),
+                Loc.Get("msg_disable_panic_key_consequences"));
+
+            if (!confirmed)
+            {
+                ChkNoPanic.IsChecked = false;
+                return;
+            }
         }
 
         s.PanicKeyEnabled = !disablePanic;
         _settings.Save();
-
-        // TODO: MainWindow sync helper (SyncNoPanicState)
     }
 
-    private void ChkOfflineMode_Changed(object? sender, RoutedEventArgs e)
+    private async void ChkOfflineMode_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
         var s = _settings.Current;
@@ -172,20 +191,35 @@ public partial class SystemFeatureControl : UserControl
 
         if (enable && string.IsNullOrWhiteSpace(s.OfflineUsername))
         {
-            // TODO: Offline-mode username dialog (OfflineUsernameDialog)
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner != null)
+            {
+                var dialog = new OfflineUsernameDialog
+                {
+                    Title = Loc.Get("dialog_offline_username_choose_offline_username_title")
+                };
+                var result = await dialog.ShowDialog<bool?>(owner);
+                if (result == true && !string.IsNullOrWhiteSpace(dialog.Username))
+                {
+                    s.OfflineUsername = dialog.Username;
+                }
+                else
+                {
+                    ChkOfflineMode.IsChecked = false;
+                    return;
+                }
+            }
         }
 
         s.OfflineMode = enable;
         _settings.Save();
-
-        // TODO: MainWindow sync helper (SyncOfflineModeState)
     }
 
     private void BtnPanicKey_Click(object? sender, RoutedEventArgs e)
     {
         if (_capturingPanicKey || _inputHook == null) return;
         _capturingPanicKey = true;
-        BtnPanicKey.Content = LocalizationManager.Instance.Get("msg_press_any_key_to_set_as_the_new_panic_key");
+        BtnPanicKey.Content = Loc.Get("msg_press_any_key_to_set_as_the_new_panic_key");
         BtnPanicKey.IsEnabled = false;
 
         EventHandler<KeyboardHookEventArgs>? handler = null;
@@ -201,7 +235,7 @@ public partial class SystemFeatureControl : UserControl
                 _settings.Save();
             }
 
-            Dispatcher.UIThread.Post(() =>
+            _dispatcher.Post(() =>
             {
                 var newKey = _settings.Current?.PanicKey ?? "?";
                 _capturingPanicKey = false;
@@ -209,16 +243,11 @@ public partial class SystemFeatureControl : UserControl
 
                 // Brief confirmation, then settle into normal label.
                 BtnPanicKey.Content = $"✓ {newKey}";
-                var t = new DispatcherTimer
+                _panicKeyConfirmationTimer?.Dispose();
+                _panicKeyConfirmationTimer = _scheduler.StartOneShotTimer(TimeSpan.FromMilliseconds(1200), () =>
                 {
-                    Interval = TimeSpan.FromMilliseconds(1200)
-                };
-                t.Tick += (_, __) =>
-                {
-                    t.Stop();
-                    BtnPanicKey.Content = $"🔑 {newKey}";
-                };
-                t.Start();
+                    _dispatcher.Post(() => BtnPanicKey.Content = $"🔑 {newKey}");
+                });
             });
         };
 
@@ -290,7 +319,7 @@ public partial class SystemFeatureControl : UserControl
                 ? current
                 : DefaultAssetsPath;
 
-            var selected = await dialog.ShowOpenFolderDialogAsync(LocalizationManager.Instance.Get("title_select_custom_assets_folder"));
+            var selected = await dialog.ShowOpenFolderDialogAsync(Loc.Get("title_select_custom_assets_folder"));
             if (string.IsNullOrWhiteSpace(selected)) return;
 
             _settings.Current.CustomAssetsPath = selected;
@@ -305,16 +334,14 @@ public partial class SystemFeatureControl : UserControl
             }
             catch (Exception ex)
             {
-                // TODO: CoreApp.Logger?.Warning(ex, "Could not create custom assets subdirectories");
-                Console.WriteLine($"[SystemFeatureControl] Create subdirs failed: {ex.Message}");
+                _logger?.Warning(ex, "Could not create custom assets subdirectories");
             }
 
             _settings.Save();
         }
         catch (Exception ex)
         {
-            // TODO: CoreApp.Logger?.Warning(ex, "Pick assets folder failed");
-            Console.WriteLine($"[SystemFeatureControl] Pick assets folder failed: {ex.Message}");
+            _logger?.Warning(ex, "Pick assets folder failed");
         }
     }
 
@@ -336,8 +363,7 @@ public partial class SystemFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            // TODO: CoreApp.Logger?.Warning(ex, "Open assets folder failed");
-            Console.WriteLine($"[SystemFeatureControl] Open assets folder failed: {ex.Message}");
+            _logger?.Warning(ex, "Open assets folder failed");
         }
     }
 
@@ -348,11 +374,11 @@ public partial class SystemFeatureControl : UserControl
         {
             var dialog = App.Services.GetRequiredService<IDialogService>();
             var result = await dialog.ShowOpenFileDialogAsync(
-                LocalizationManager.Instance.Get("title_select_startup_video"),
+                Loc.Get("title_select_startup_video"),
                 new FileFilter[]
                 {
-                    new("Video Files", new[] { "mp4", "webm", "mov", "avi", "mkv" }),
-                    new("All Files", new[] { "*" })
+                    new(Loc.Get("label_video_files"), new[] { "mp4", "webm", "mov", "avi", "mkv" }),
+                    new(Loc.Get("label_all_files"), new[] { "*" })
                 });
 
             if (result.Count == 0) return;
@@ -364,8 +390,7 @@ public partial class SystemFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            // TODO: CoreApp.Logger?.Warning(ex, "Select startup video failed");
-            Console.WriteLine($"[SystemFeatureControl] Select startup video failed: {ex.Message}");
+            _logger?.Warning(ex, "Select startup video failed");
         }
     }
 
@@ -378,7 +403,7 @@ public partial class SystemFeatureControl : UserControl
     {
         if (_settings.Current is not { } s) return;
         s.StartupVideoPath = null;
-        TxtStartupVideo.Text = LocalizationManager.Instance.Get("label_random");
+        TxtStartupVideo.Text = Loc.Get("label_random");
         _settings.Save();
     }
 }

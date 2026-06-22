@@ -339,7 +339,7 @@ public partial class ContentPackCard : UserControl
 
     private void RefreshBadges()
     {
-        RootBorder.BorderBrush = IsExternal ? SolidColorBrush.Parse("#FFA500") : (IBrush?)Application.Current?.Resources["PanelAccentBrush"] ?? SolidColorBrush.Parse("#3D3D60");
+        RootBorder.BorderBrush = IsExternal ? SolidColorBrush.Parse("#FFA500") : (IBrush?)Application.Current?.Resources["PanelAccentBrush"];
         InstalledBadge.IsVisible = IsDownloaded;
         ManualDownloadBadge.IsVisible = IsExternal && !IsDownloaded;
         BtnActivate.IsVisible = IsDownloaded;

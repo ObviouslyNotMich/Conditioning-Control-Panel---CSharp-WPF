@@ -26,7 +26,7 @@
       <TextBlock Text="{Binding [tab_level_features], Source={x:Static loc:LocalizationManager.Instance}}"
                  FontSize="20"
                  FontWeight="Bold"
-                 Foreground="White" />
+                 Foreground="{DynamicResource TextLightBrush}" />
 
       <!-- 2×2 FeatureCard dashboard -->
       <Grid ColumnDefinitions="*,*" RowDefinitions="*,*">
@@ -94,7 +94,7 @@
               <TextBlock Text="{Binding [feature_bubble_count], Source={x:Static loc:LocalizationManager.Instance}}"
                          FontSize="14"
                          FontWeight="SemiBold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <TextBlock Text="{Binding BubbleCountUnlockText}"
                          FontSize="11"
                          Foreground="{DynamicResource TextMutedBrush}" />
@@ -107,7 +107,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding [setting_frequency], Source={x:Static loc:LocalizationManager.Instance}}"
                            VerticalAlignment="Center"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding BubbleCountFrequency}"
                            Foreground="{DynamicResource PinkBrush}"
@@ -124,7 +124,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding [setting_difficulty], Source={x:Static loc:LocalizationManager.Instance}}"
                            VerticalAlignment="Center"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding BubbleCountDifficulty}"
                            Foreground="{DynamicResource PinkBrush}"
@@ -175,7 +175,7 @@
               <TextBlock Text="{Binding [feature_bouncing_text], Source={x:Static loc:LocalizationManager.Instance}}"
                          FontSize="14"
                          FontWeight="SemiBold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <TextBlock Text="{Binding BouncingTextUnlockText}"
                          FontSize="11"
                          Foreground="{DynamicResource TextMutedBrush}" />
@@ -188,7 +188,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding [setting_speed], Source={x:Static loc:LocalizationManager.Instance}}"
                            VerticalAlignment="Center"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding BouncingTextSpeed}"
                            Foreground="{DynamicResource PinkBrush}"
@@ -205,7 +205,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding [setting_size], Source={x:Static loc:LocalizationManager.Instance}}"
                            VerticalAlignment="Center"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding BouncingTextSize}"
                            Foreground="{DynamicResource PinkBrush}"
@@ -250,7 +250,7 @@
               <TextBlock Text="{Binding [feature_mind_wipe], Source={x:Static loc:LocalizationManager.Instance}}"
                          FontSize="14"
                          FontWeight="SemiBold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <TextBlock Text="{Binding MindWipeUnlockText}"
                          FontSize="11"
                          Foreground="{DynamicResource TextMutedBrush}" />
@@ -263,7 +263,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding [setting_frequency], Source={x:Static loc:LocalizationManager.Instance}}"
                            VerticalAlignment="Center"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding MindWipeFrequency}"
                            Foreground="{DynamicResource PinkBrush}"
@@ -280,7 +280,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding [setting_volume], Source={x:Static loc:LocalizationManager.Instance}}"
                            VerticalAlignment="Center"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding MindWipeVolume}"
                            Foreground="{DynamicResource PinkBrush}"
@@ -325,7 +325,7 @@
               <TextBlock Text="{Binding [feature_brain_drain], Source={x:Static loc:LocalizationManager.Instance}}"
                          FontSize="14"
                          FontWeight="SemiBold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <TextBlock Text="{Binding BrainDrainUnlockText}"
                          FontSize="11"
                          Foreground="{DynamicResource TextMutedBrush}" />
@@ -338,7 +338,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding [setting_intensity], Source={x:Static loc:LocalizationManager.Instance}}"
                            VerticalAlignment="Center"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding BrainDrainIntensity}"
                            Foreground="{DynamicResource PinkBrush}"

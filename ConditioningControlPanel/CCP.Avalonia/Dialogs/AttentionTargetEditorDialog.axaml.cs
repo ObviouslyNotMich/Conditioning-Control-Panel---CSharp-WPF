@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -21,14 +21,21 @@ public partial class AttentionTargetEditorDialog : Window
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService? _settings;
 
 
-    private string _color1 = "#FF1493";
-    private string _color2 = "#FF69B4";
-    private string _textColor = "#FF1493";
-    private string _borderColor = "#FF1493";
+    private string _color1 = GetThemeHex("DarkPinkColor", "#FF1493");
+    private string _color2 = GetThemeHex("PinkColor", "#FF69B4");
+    private string _textColor = GetThemeHex("DarkPinkColor", "#FF1493");
+    private string _borderColor = GetThemeHex("DarkPinkColor", "#FF1493");
     private bool _showBorder;
     private bool _floatingText = true;
     private string _font = "Segoe UI";
     private readonly IModService _mods;
+
+    private static string GetThemeHex(string key, string fallback)
+    {
+        if (Application.Current?.TryFindResource(key, out var res) == true && res is Color c)
+            return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+        return fallback;
+    }
 
     public AttentionTargetEditorDialog()
     {

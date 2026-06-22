@@ -28,7 +28,7 @@
                 FontSize="12"
                 FontWeight="Bold"
                 Background="{DynamicResource TransparentPinkBrush}"
-                Foreground="White"
+                Foreground="{DynamicResource TextLightBrush}"
                 BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 VerticalAlignment="Center"
@@ -78,7 +78,7 @@
                     FontSize="12"
                     FontWeight="Bold"
                     Background="{DynamicResource TransparentPinkBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextLightBrush}"
                     BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     VerticalAlignment="Center"
@@ -175,7 +175,7 @@
                           Content="{Binding [label_join_discord], Source={x:Static loc:LocalizationManager.Instance}}"
                           Command="{Binding OpenCreatorDiscordCommand}"
                           Background="{DynamicResource DiscordBlueBrush}"
-                          Foreground="White"
+                          Foreground="{DynamicResource TextLightBrush}"
                           BorderThickness="0"
                           Padding="8,4"
                           FontSize="11"
@@ -221,7 +221,7 @@
                     FontSize="12"
                     FontWeight="Bold"
                     Background="{DynamicResource TransparentPinkBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextLightBrush}"
                     BorderBrush="{DynamicResource PinkBrush}"
                     BorderThickness="1"
                     VerticalAlignment="Center"
@@ -317,7 +317,7 @@
                   <Setter Property="Padding" Value="2" />
                 </Style>
                 <Style Selector="TreeViewItem:selected">
-                  <Setter Property="Foreground" Value="White" />
+                  <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
                 </Style>
               </TreeView.Styles>
               <TreeView.DataTemplates>

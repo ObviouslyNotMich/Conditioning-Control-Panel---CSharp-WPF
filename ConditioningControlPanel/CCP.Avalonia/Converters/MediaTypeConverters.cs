@@ -35,15 +35,22 @@ public sealed class MediaTypeToBrushConverter : IValueConverter
     {
         var color = (value?.ToString()?.ToLowerInvariant()) switch
         {
-            "video" => Color.Parse("#E84A6B"),
+            "video" => ResolveColor("Danger", Color.Parse("#E84A6B")),
             "audio" => Color.Parse("#5865F2"),
-            "haptics" => Color.Parse("#FF69B4"),
+            "haptics" => ResolveColor("PinkColor", Color.Parse("#FF69B4")),
             "webcam" => Color.Parse("#00D4AA"),
-            _ => Color.Parse("#FFAAAAAA")
+            _ => ResolveColor("TextDim", Color.Parse("#FFAAAAAA"))
         };
         return new SolidColorBrush(color);
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
+
+    private static Color ResolveColor(string resourceKey, Color fallback)
+    {
+        if (global::Avalonia.Application.Current?.TryGetResource(resourceKey, global::Avalonia.Styling.ThemeVariant.Default, out var v) == true && v is Color c)
+            return c;
+        return fallback;
+    }
 }

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.ChatShortcutCaptureDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.ChatShortcutCaptureDialog" x:DataType="x:Object"
         Title="{Binding [dialog_chat_shortcut_capture_title], Source={x:Static loc:LocalizationManager.Instance}}"
         Width="380"
         SizeToContent="Height"
@@ -26,7 +26,7 @@
           CornerRadius="8">
     <StackPanel Spacing="12">
       <TextBlock Text="{Binding [dialog_chat_shortcut_capture_prompt], Source={x:Static loc:LocalizationManager.Instance}}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="14"
                  TextWrapping="Wrap" />
 

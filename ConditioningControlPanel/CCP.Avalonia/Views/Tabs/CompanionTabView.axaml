@@ -24,7 +24,7 @@
         </Border.Background>
         <Grid>
           <Border Opacity="0.12"
-                  Background="White"
+                  Background="{DynamicResource TextLightBrush}"
                   Width="280"
                   Height="280"
                   CornerRadius="140"
@@ -35,7 +35,7 @@
             <TextBlock Text="{loc:Str tab_companion_banner_title}"
                        FontSize="28"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{loc:Str tab_companion_banner_subtitle}"
                        FontSize="14"
                        Foreground="{DynamicResource TextMutedBrush}"
@@ -61,7 +61,7 @@
             <TextBlock Text="{Binding ActiveCompanionName}"
                        FontSize="20"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{Binding ActiveCompanionLevelText}"
                        Foreground="{DynamicResource PinkBrush}"
                        FontSize="14"
@@ -90,7 +90,7 @@
           <TextBlock Text="{loc:Str tab_companion_settings_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <ToggleButton Content="{loc:Str tab_companion_avatar_enabled_content}"
                         IsChecked="{Binding AvatarEnabled, Mode=TwoWay}" />
           <ToggleButton Content="{loc:Str tab_companion_trigger_mode_content}"
@@ -132,7 +132,7 @@
           <TextBlock Text="{loc:Str tab_companion_active_prompt_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <TextBlock Text="{Binding ActivePromptName}"
                      Foreground="{DynamicResource PinkBrush}"
                      FontWeight="SemiBold" />
@@ -158,7 +158,7 @@
           <TextBlock Text="{loc:Str tab_companion_companions_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <ItemsControl ItemsSource="{Binding Companions}"
                         x:Name="CompanionsList">
             <ItemsControl.ItemsPanel>
@@ -179,7 +179,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <TextBlock Text="{Binding Name}"
                                  FontWeight="SemiBold"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  TextWrapping="Wrap" />
                       <Border Background="{DynamicResource TransparentPinkBrush}"
                               CornerRadius="8"
@@ -221,7 +221,7 @@
           <TextBlock Text="{loc:Str tab_companion_installed_prompts_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White" />
+                     Foreground="{DynamicResource TextLightBrush}" />
           <ItemsControl ItemsSource="{Binding InstalledPrompts}"
                         x:Name="PromptsList">
             <ItemsControl.ItemTemplate>
@@ -236,7 +236,7 @@
                     <StackPanel Spacing="4">
                       <TextBlock Text="{Binding Name}"
                                  FontWeight="SemiBold"
-                                 Foreground="White" />
+                                 Foreground="{DynamicResource TextLightBrush}" />
                       <TextBlock Text="{Binding Author}"
                                  Foreground="{DynamicResource TextMutedBrush}" />
                       <Border Background="{DynamicResource TransparentPinkBrush}"

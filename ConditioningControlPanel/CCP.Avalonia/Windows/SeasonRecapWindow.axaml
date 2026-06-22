@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ConditioningControlPanel.Avalonia.Controls;assembly=CCP.Avalonia"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.SeasonRecapWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.SeasonRecapWindow" x:DataType="x:Object"
         Title="{Binding [recap_window_title], Source={x:Static loc:LocalizationManager.Instance}, FallbackValue='Season Recap'}"
         SizeToContent="WidthAndHeight"
         CanResize="False"

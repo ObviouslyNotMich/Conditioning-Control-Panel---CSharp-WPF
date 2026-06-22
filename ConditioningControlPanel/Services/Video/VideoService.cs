@@ -17,6 +17,7 @@ using LibVLCSharp.Shared;
 using LibVLCSharp.WPF;
 using ConditioningControlPanel.Helpers;
 using ConditioningControlPanel.Localization;
+using ConditioningControlPanel.Models;
 using Application = System.Windows.Application;
 using Screen = System.Windows.Forms.Screen;
 
@@ -332,14 +333,14 @@ namespace ConditioningControlPanel.Services
                     if (libvlcPath != null)
                     {
                         // Initialize LibVLCSharp core with explicit path
-                        Core.Initialize(libvlcPath);
+                        LibVLCSharp.Shared.Core.Initialize(libvlcPath);
                         App.Logger?.Information("LibVLC core initialized from: {Path}", libvlcPath);
                     }
                     else
                     {
                         // Try default initialization (may find system-installed VLC)
                         App.Logger?.Information("libvlc.dll not found in expected locations, trying default initialization");
-                        Core.Initialize();
+                        LibVLCSharp.Shared.Core.Initialize();
                         App.Logger?.Information("LibVLC core initialized from default location");
                     }
 

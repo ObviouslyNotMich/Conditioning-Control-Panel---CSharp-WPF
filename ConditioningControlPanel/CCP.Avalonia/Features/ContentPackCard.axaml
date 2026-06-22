@@ -3,7 +3,8 @@
              xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.ContentPackCard"
-             x:Name="Self">
+             x:Name="Self"
+             x:DataType="{x:Type local:ContentPackCard}">
 
   <Border x:Name="RootBorder"
           Width="192"
@@ -43,7 +44,7 @@
             <TextBlock x:Name="TxtSize"
                        FontSize="11"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
           </Border>
 
           <!-- Installed badge -->
@@ -58,7 +59,7 @@
             <TextBlock Text="{loc:Str label_installed}"
                        FontSize="8"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
           </Border>
 
           <!-- Manual download badge -->
@@ -73,7 +74,7 @@
             <TextBlock Text="{loc:Str label_manual_download}"
                        FontSize="8"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
           </Border>
         </Grid>
       </Border>

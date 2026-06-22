@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.RoadmapStepPopup"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.RoadmapStepPopup" x:DataType="x:Object"
         Title="{loc:Str dialog_roadmap_step_step_complete_title}"
         Width="400"
         Height="180"
@@ -24,12 +24,12 @@
     </ResourceDictionary>
   </Window.Resources>
 
-  <Border Background="#E01A1A2E"
+  <Border x:Name="RootBorder"
+          Background="#E01A1A2E"
           CornerRadius="12"
           BorderBrush="{DynamicResource PinkBrush}"
           BorderThickness="2"
-          Margin="10"
-          BoxShadow="0 0 20 0 #80FF69B4">
+          Margin="10">
     <Grid Margin="15" ColumnDefinitions="Auto,*">
 
       <!-- Step Photo/Icon -->
@@ -85,7 +85,7 @@
         <!-- Track Name -->
         <TextBlock x:Name="TxtTrackName"
                    Text="{loc:Str dialog_roadmap_step_track_name_text}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="12"
                    TextWrapping="Wrap"
                    FontStyle="Italic" />
@@ -105,7 +105,7 @@
               Click="BtnClose_Click">
         <Button.Styles>
           <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
           </Style>
         </Button.Styles>
       </Button>

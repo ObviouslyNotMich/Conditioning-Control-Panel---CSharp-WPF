@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using NAudio.Wave;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Services
 {

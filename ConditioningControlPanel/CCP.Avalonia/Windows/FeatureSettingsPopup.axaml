@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-             x:Class="ConditioningControlPanel.Avalonia.Windows.FeatureSettingsPopup"
+             x:Class="ConditioningControlPanel.Avalonia.Windows.FeatureSettingsPopup" x:DataType="x:Object"
              Width="320">
   <Border Background="{DynamicResource SurfaceBgBrush}"
           BorderBrush="{DynamicResource PinkBrush}"
@@ -19,7 +19,7 @@
                    Text="⚡"
                    VerticalAlignment="Center"
                    Margin="0,0,10,0"
-                   Foreground="White" />
+                   Foreground="{DynamicResource TextLightBrush}" />
         <StackPanel>
           <TextBlock x:Name="TxtFeatureName"
                      Foreground="{DynamicResource PinkBrush}"

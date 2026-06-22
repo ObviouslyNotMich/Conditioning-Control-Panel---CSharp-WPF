@@ -3,6 +3,8 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Sessions;
@@ -17,6 +19,9 @@ public partial class VideoFeatureControl : UserControl
     private readonly IVideoService? _video;
     private readonly ISessionService? _session;
     private readonly IAppLogger? _logger;
+    private readonly IDialogService _dialogService;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly IInteractionQueueService? _interactionQueue;
     private bool _isLoading = true;
 
     public VideoFeatureControl()
@@ -26,6 +31,9 @@ public partial class VideoFeatureControl : UserControl
         _video = App.Services.GetService<IVideoService>();
         _session = App.Services.GetService<ISessionService>();
         _logger = App.Services.GetService<IAppLogger>();
+        _dialogService = App.Services.GetRequiredService<IDialogService>();
+        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
+        _interactionQueue = App.Services.GetService<IInteractionQueueService>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -93,7 +101,7 @@ public partial class VideoFeatureControl : UserControl
             e.PropertyName == nameof(AppSettings.AttentionSize) ||
             e.PropertyName == nameof(AppSettings.VideoGazeClickEnabled))
         {
-            global::Avalonia.Threading.Dispatcher.UIThread.Post(LoadFromSettings);
+            _dispatcher.Post(LoadFromSettings);
         }
     }
 
@@ -135,7 +143,7 @@ public partial class VideoFeatureControl : UserControl
         if (_isLoading || _settings.Current == null) return;
         var on = ChkStrict.IsChecked ?? false;
 
-        // TODO: Strict-lock confirmation dialog is Windows-specific and not ported yet.
+        // Strict-lock confirmation dialog is Windows-specific and not ported yet.
         // The setting is applied directly without UI blocking for the cross-platform build.
 
         _settings.Current.StrictLockEnabled = on;
@@ -226,56 +234,69 @@ public partial class VideoFeatureControl : UserControl
         _settings.Save();
     }
 
-    private void BtnManageAttention_Click(object? sender, RoutedEventArgs e)
+    private async void BtnManageAttention_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: Port TextEditorDialog for attention phrases from WPF.
-        // WPF used:
-        // var dialog = new TextEditorDialog("Attention Targets", _settings.Current.AttentionPool)
-        // {
-        //     Owner = Window.GetWindow(this) ?? Application.Current.MainWindow
-        // };
-        // if (dialog.ShowDialog() == true && dialog.ResultData != null)
-        // {
-        //     _settings.Current.AttentionPool = dialog.ResultData;
-        //     _settings.Save();
-        //     App.Logger?.Information("Attention pool updated: {Count} items", dialog.ResultData.Count);
-        // }
+        if (_settings.Current is not { } s) return;
+
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null) return;
+
+        var dialog = new TextEditorDialog(Loc.Get("label_attention_targets"), s.AttentionPool);
+        var result = await dialog.ShowDialog<bool?>(owner);
+        if (result == true && dialog.ResultData != null)
+        {
+            s.AttentionPool = dialog.ResultData;
+            _settings.Save();
+            _logger?.Information("Attention pool updated: {Count} items", dialog.ResultData.Count);
+        }
     }
 
-    private void BtnAttentionStyle_Click(object? sender, RoutedEventArgs e)
+    private async void BtnAttentionStyle_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: Port AttentionTargetEditorDialog from WPF.
-        // WPF used:
-        // var dialog = new AttentionTargetEditorDialog
-        // {
-        //     Owner = Window.GetWindow(this) ?? Application.Current.MainWindow
-        // };
-        // dialog.ShowDialog();
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null) return;
+
+        var dialog = new AttentionTargetEditorDialog();
+        await dialog.ShowDialog<bool?>(owner);
     }
 
-    private void BtnTestVideo_Click(object? sender, RoutedEventArgs e)
+    private async void BtnTestVideo_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: Port test-video logic from WPF.
-        // WPF used MessageBox.Show confirmations, App.Video start/stop/trigger,
-        // and App.InteractionQueue which are not available in Avalonia yet.
-        // try
-        // {
-        //     if (App.Video?.IsPlaying == true)
-        //     {
-        //         var result = MessageBox.Show("A video appears to be playing...", ...);
-        //         ...
-        //     }
-        //     if (App.InteractionQueue != null && !App.InteractionQueue.CanStart)
-        //     {
-        //         var result = MessageBox.Show($"Another interaction is in progress...", ...);
-        //         ...
-        //     }
-        //     App.Video?.TriggerVideo();
-        // }
-        // catch (Exception ex)
-        // {
-        //     App.Logger?.Error(ex, "Error in BtnTestVideo_Click");
-        //     MessageBox.Show($"Error triggering video: {ex.Message}", "Error", ...);
-        // }
+        try
+        {
+            if (_video?.IsRunning == true)
+            {
+                var proceed = await _dialogService.ShowConfirmationAsync(
+                    Loc.Get("title_confirm"),
+                    Loc.Get("msg_video_test_already_playing"));
+                if (!proceed) return;
+            }
+
+            if (_interactionQueue is { IsBusy: true })
+            {
+                var proceed = await _dialogService.ShowConfirmationAsync(
+                    Loc.Get("title_confirm"),
+                    Loc.Get("msg_video_test_queue_busy"));
+                if (!proceed) return;
+            }
+
+            if (_session?.State != SessionState.Running)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_info"),
+                    Loc.Get("msg_video_test_session_not_running"));
+                return;
+            }
+
+            _interactionQueue?.TryStart("VideoTest", () => _video?.Start(), queue: false);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Test video failed");
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.GetF("msg_video_test_error", ex.Message),
+                DialogSeverity.Error);
+        }
     }
 }

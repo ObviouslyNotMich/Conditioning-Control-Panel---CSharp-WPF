@@ -14,7 +14,7 @@
     <ScrollViewer>
       <StackPanel Spacing="12" Margin="16">
         <!-- Header -->
-        <Border Background="#1A1A2E"
+        <Border Background="{DynamicResource PanelBgBrush}"
                 BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
@@ -24,7 +24,7 @@
               <TextBlock Text="{Binding HeaderTitle}"
                          FontSize="20"
                          FontWeight="Bold"
-                         Foreground="White" />
+                         Foreground="{DynamicResource TextLightBrush}" />
               <TextBlock Text="{Binding HeaderSubtitle}"
                          FontSize="12"
                          Opacity="0.8"
@@ -40,7 +40,7 @@
                         CornerRadius="6"
                         Padding="8,4">
                   <TextBlock Text="{Binding SparklePointsText}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontWeight="SemiBold" />
                 </Border>
                 <Border Background="{DynamicResource ElevatedSurfaceBrush}"
@@ -58,7 +58,7 @@
                         CornerRadius="6"
                         Padding="8,4">
                   <TextBlock Text="{Binding ConditioningTimeText}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontWeight="SemiBold" />
                 </Border>
                 <Border Background="{DynamicResource TransparentPinkBrush}"
@@ -68,7 +68,7 @@
                         Padding="8,4"
                         IsVisible="{Binding PinkRushActive}">
                   <TextBlock Text="{Binding [label_xp_rush], Source={x:Static loc:LocalizationManager.Instance}}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontWeight="Bold" />
                 </Border>
               </StackPanel>
@@ -85,7 +85,7 @@
         </Border>
 
         <!-- Active Bonuses -->
-        <Border Background="#1A1A2E"
+        <Border Background="{DynamicResource PanelBgBrush}"
                 BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
@@ -110,7 +110,7 @@
                           Padding="8,4"
                           Margin="0,0,8,8">
                     <TextBlock Text="{Binding DisplayText}"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextLightBrush}"
                                FontSize="11" />
                   </Border>
                 </DataTemplate>
@@ -120,7 +120,7 @@
         </Border>
 
         <!-- Ditzy Data Stats -->
-        <Border Background="#1A1A2E"
+        <Border Background="{DynamicResource PanelBgBrush}"
                 BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"

@@ -14,18 +14,13 @@
         WindowStartupLocation="Manual"
         Width="300">
     <Window.Resources>
-        <SolidColorBrush x:Key="Pink" Color="#FF69B4"/>
-        <SolidColorBrush x:Key="StripBg" Color="#E6121026"/>
-        <SolidColorBrush x:Key="PanelBg" Color="#F2151226"/>
-        <SolidColorBrush x:Key="PanelBorder" Color="#55FF69B4"/>
-        <SolidColorBrush x:Key="TextDim" Color="#AAB8B8D0"/>
         <DataTemplate x:Key="BoonTipContent" DataType="chaos:ChaosSidebarBoon">
             <StackPanel MaxWidth="240">
                 <TextBlock Text="{Binding TipTitle}" FontWeight="Bold" FontSize="13" Foreground="{Binding AccentBrush}"/>
-                <TextBlock Text="{Binding Desc}" Foreground="#DDE0E0F0" FontSize="12" TextWrapping="Wrap"
+                <TextBlock Text="{Binding Desc}" Foreground="{DynamicResource TextLightBrush}" FontSize="12" TextWrapping="Wrap"
                            Margin="0,3,0,0" IsVisible="{Binding DescVisibility}"/>
                 <TextBlock Text="{Binding Flavor}" IsVisible="{Binding FlavorVisibility}" FontStyle="Italic" FontSize="11"
-                           Foreground="#CCB0B0C8" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                           Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                 <TextBlock Text="{Binding Extra}" Foreground="#FFD700" FontSize="12" TextWrapping="Wrap"
                            Margin="0,3,0,0" IsVisible="{Binding ExtraVisibility}"/>
             </StackPanel>
@@ -37,16 +32,16 @@
                 </ToolTip.Tip>
                 <Border CornerRadius="13" Background="{Binding TileBackBrush}" BorderThickness="0" ClipToBounds="True">
                     <Grid>
-                        <TextBlock Text="{Binding Glyph}" FontSize="30" Foreground="White"
+                        <TextBlock Text="{Binding Glyph}" FontSize="30" Foreground="{DynamicResource TextLightBrush}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
                         <Border CornerRadius="13" BorderBrush="{Binding AccentBrush}" BorderThickness="3.5" IsHitTestVisible="False"/>
                     </Grid>
                 </Border>
-                <Border Background="#DD121026" CornerRadius="6" Padding="4,0"
+                <Border Background="{DynamicResource PanelBgTransparentBrush}" CornerRadius="6" Padding="4,0"
                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"
                         IsVisible="{Binding LevelBadgeVisibility}">
-                    <TextBlock Text="{Binding LevelText}" Foreground="{StaticResource Pink}" FontSize="11" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource PinkBrush}" FontSize="11" FontWeight="Bold"/>
                 </Border>
             </Grid>
         </DataTemplate>
@@ -58,16 +53,16 @@
                 </ToolTip.Tip>
                 <Border CornerRadius="12" Background="{Binding TileBackBrush}" BorderThickness="0">
                     <Grid>
-                        <TextBlock Text="{Binding Glyph}" FontSize="26" Foreground="White"
+                        <TextBlock Text="{Binding Glyph}" FontSize="26" Foreground="{DynamicResource TextLightBrush}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
                         <Border CornerRadius="12" BorderBrush="{Binding AccentBrush}" BorderThickness="3.5" IsHitTestVisible="False"/>
                     </Grid>
                 </Border>
-                <Border Background="#DD121026" CornerRadius="6" Padding="4,0"
+                <Border Background="{DynamicResource PanelBgTransparentBrush}" CornerRadius="6" Padding="4,0"
                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"
                         IsVisible="{Binding LevelBadgeVisibility}">
-                    <TextBlock Text="{Binding LevelText}" Foreground="{StaticResource Pink}" FontSize="11" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource PinkBrush}" FontSize="11" FontWeight="Bold"/>
                 </Border>
             </Grid>
         </DataTemplate>
@@ -77,23 +72,23 @@
                 <ToolTip.Tip>
                     <ToolTip>
                         <StackPanel MaxWidth="220">
-                            <TextBlock Text="{Binding ButtonLabel}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource Pink}"/>
-                            <TextBlock Text="{Binding Desc}" Foreground="#DDE0E0F0" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                            <TextBlock Text="{Binding Flavor}" FontStyle="Italic" FontSize="11" Foreground="#CCB0B0C8" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            <TextBlock Text="{Binding ButtonLabel}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource PinkBrush}"/>
+                            <TextBlock Text="{Binding Desc}" Foreground="{DynamicResource TextLightBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                            <TextBlock Text="{Binding Flavor}" FontStyle="Italic" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                         </StackPanel>
                     </ToolTip>
                 </ToolTip.Tip>
-                <Border CornerRadius="13" Background="#33FF69B4" BorderThickness="2" BorderBrush="{StaticResource Pink}">
+                <Border CornerRadius="13" Background="{DynamicResource TransparentPink20Brush}" BorderThickness="2" BorderBrush="{DynamicResource PinkBrush}">
                     <Grid>
-                        <TextBlock Text="{Binding Glyph}" FontSize="30" Foreground="White"
+                        <TextBlock Text="{Binding Glyph}" FontSize="30" Foreground="{DynamicResource TextLightBrush}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,6"/>
-                        <Border Background="#DD121026" CornerRadius="6" Padding="4,0"
+                        <Border Background="{DynamicResource PanelBgTransparentBrush}" CornerRadius="6" Padding="4,0"
                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-2,-2">
-                            <TextBlock Text="{Binding KeyLabel}" Foreground="{StaticResource Pink}" FontSize="11" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding KeyLabel}" Foreground="{DynamicResource PinkBrush}" FontSize="11" FontWeight="Bold"/>
                         </Border>
                     </Grid>
                 </Border>
-                <TextBlock Text="{Binding StatusText}" Foreground="#E8A0D8" FontSize="10"
+                <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource PinkButtonHoveredBrush}" FontSize="10"
                            HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
             </Grid>
         </DataTemplate>
@@ -101,12 +96,12 @@
 
     <Grid>
         <Border x:Name="Strip" HorizontalAlignment="Left" Width="116"
-                Background="{StaticResource StripBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,8,8"
+                Background="{DynamicResource PanelBgTransparentBrush}" BorderBrush="{DynamicResource TransparentPink50Brush}" BorderThickness="0,0,8,8"
                 CornerRadius="0,0,18,0" PointerEntered="Hud_PointerEntered" PointerExited="Strip_PointerExited"
                 PointerPressed="Strip_Click">
             <StackPanel VerticalAlignment="Top" Margin="0,20,0,0" HorizontalAlignment="Center">
-                <TextBlock Text="🐇" Foreground="{StaticResource Pink}" FontSize="30" HorizontalAlignment="Center"/>
-                <TextBlock x:Name="TxtStripClock" Text="{Binding ClockText}" Foreground="White" FontFamily="Consolas" FontSize="17"
+                <TextBlock Text="🐇" Foreground="{DynamicResource PinkBrush}" FontSize="30" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="TxtStripClock" Text="{Binding ClockText}" Foreground="{DynamicResource TextLightBrush}" FontFamily="Consolas" FontSize="17"
                            HorizontalAlignment="Center" Margin="0,12,0,0"/>
 
                 <Border Margin="0,8,0,0" HorizontalAlignment="Center" Background="#33000000" CornerRadius="9" Padding="2">
@@ -123,16 +118,16 @@
                         </Border>
                     </StackPanel>
                 </Border>
-                <TextBlock x:Name="TxtStripScore" Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="16"
+                <TextBlock x:Name="TxtStripScore" Text="{Binding ScoreText}" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="16"
                            HorizontalAlignment="Center" TextAlignment="Center" Margin="0,14,0,0"/>
-                <TextBlock x:Name="TxtStripMult" Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="19"
+                <TextBlock x:Name="TxtStripMult" Text="{Binding TotalMultText}" Foreground="{DynamicResource PinkBrush}" FontWeight="Bold" FontSize="19"
                            FontFamily="{StaticResource FredokaFont}" HorizontalAlignment="Center" Margin="0,12,0,0"/>
 
                 <StackPanel x:Name="StreakBlock" Margin="0,12,0,0" HorizontalAlignment="Center"
                             RenderTransformOrigin="0.5,0.5">
-                    <TextBlock x:Name="TxtStreakLbl" Text="STREAK" Foreground="{StaticResource TextDim}"
+                    <TextBlock x:Name="TxtStreakLbl" Text="STREAK" Foreground="{DynamicResource TextDimBrush}"
                                FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="TxtStreakNum" Text="x0" Foreground="White" FontWeight="Bold"
+                    <TextBlock x:Name="TxtStreakNum" Text="x0" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold"
                                FontFamily="Consolas" FontSize="24" HorizontalAlignment="Center"/>
                 </StackPanel>
 
@@ -150,7 +145,7 @@
                             <Border Grid.Column="0" Width="1.5" HorizontalAlignment="Right" Background="#88FFFFFF"/>
                         </Grid>
                     </Grid>
-                    <TextBlock Text="{Binding FocusText}" Foreground="White" FontWeight="Bold" FontSize="13"
+                    <TextBlock Text="{Binding FocusText}" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="13"
                                HorizontalAlignment="Center" Margin="0,2,0,0"/>
                 </StackPanel>
 
@@ -163,7 +158,7 @@
 
                 <ItemsControl ItemsSource="{Binding ActiveSidebarToys}" Margin="0,18,0,0" HorizontalAlignment="Center"
                               ItemTemplate="{StaticResource StripBoonTile}"/>
-                <Border x:Name="Seam" Height="1" Width="48" Background="{StaticResource PanelBorder}" Margin="0,0,0,8"/>
+                <Border x:Name="Seam" Height="1" Width="48" Background="{DynamicResource TransparentPink50Brush}" Margin="0,0,0,8"/>
                 <ItemsControl ItemsSource="{Binding ActiveSidebarAccessories}" HorizontalAlignment="Center"
                               ItemTemplate="{StaticResource StripBoonTile}"/>
 
@@ -173,7 +168,7 @@
         </Border>
 
         <Border x:Name="Panel" HorizontalAlignment="Left" Width="300" IsVisible="False"
-                Background="{StaticResource PanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,8,8"
+                Background="{DynamicResource PanelBgTransparentBrush}" BorderBrush="{DynamicResource TransparentPink50Brush}" BorderThickness="0,0,8,8"
                 CornerRadius="0,0,18,0" PointerExited="Hud_PointerExited">
             <Grid Margin="20,18,20,18">
                 <Grid.RowDefinitions>
@@ -185,18 +180,18 @@
                 <StackPanel Grid.Row="0">
                     <StackPanel Orientation="Horizontal">
                         <Border x:Name="PortraitHost" Width="44" Height="44" Margin="0,0,10,0" CornerRadius="10" VerticalAlignment="Center"
-                                Background="#33FF69B4" BorderThickness="0">
+                                Background="{DynamicResource TransparentPink20Brush}" BorderThickness="0">
                             <Grid>
                                 <Image x:Name="Portrait" Stretch="UniformToFill"/>
-                                <Border CornerRadius="10" BorderBrush="{StaticResource PanelBorder}" BorderThickness="3" IsHitTestVisible="False"/>
+                                <Border CornerRadius="10" BorderBrush="{DynamicResource TransparentPink50Brush}" BorderThickness="3" IsHitTestVisible="False"/>
                             </Grid>
                         </Border>
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🐇 THE HOLE" Foreground="{StaticResource Pink}" FontWeight="Bold" FontSize="22"/>
-                                <TextBlock x:Name="TxtActWave" Text="{Binding ActWaveText}" Foreground="White" FontSize="13" VerticalAlignment="Bottom" Margin="8,0,0,3"/>
+                                <TextBlock Text="🐇 THE HOLE" Foreground="{DynamicResource PinkBrush}" FontWeight="Bold" FontSize="22"/>
+                                <TextBlock x:Name="TxtActWave" Text="{Binding ActWaveText}" Foreground="{DynamicResource TextLightBrush}" FontSize="13" VerticalAlignment="Bottom" Margin="8,0,0,3"/>
                             </StackPanel>
-                            <TextBlock x:Name="TxtRunTime" Text="{Binding RunTimeText}" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,2,0,0" IsVisible="False"/>
+                            <TextBlock x:Name="TxtRunTime" Text="{Binding RunTimeText}" Foreground="{DynamicResource TextDimBrush}" FontSize="13" Margin="0,2,0,0" IsVisible="False"/>
                         </StackPanel>
                     </StackPanel>
                     <Border HorizontalAlignment="Left" Margin="0,6,0,0" Background="#33000000" CornerRadius="9" Padding="2">
@@ -214,34 +209,34 @@
                         </StackPanel>
                     </Border>
                     <ProgressBar x:Name="BarRunProgress" Minimum="0" Maximum="1" Value="{Binding RunProgress}" Height="5" Margin="0,4,0,0"
-                                 Foreground="#FF8A7DBD" Background="#33000000" BorderThickness="0" IsVisible="False"/>
+                                 Foreground="{DynamicResource SecondaryBrush}" Background="#33000000" BorderThickness="0" IsVisible="False"/>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <TextBlock x:Name="TxtPanelScore" Text="{Binding ScoreText}" Foreground="White" FontWeight="Bold" FontSize="22" Margin="0,0,16,0"/>
-                        <TextBlock x:Name="TxtPanelMult" Text="{Binding TotalMultText}" Foreground="#FFD24DFF" FontWeight="Bold" FontSize="22"
+                        <TextBlock x:Name="TxtPanelScore" Text="{Binding ScoreText}" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="22" Margin="0,0,16,0"/>
+                        <TextBlock x:Name="TxtPanelMult" Text="{Binding TotalMultText}" Foreground="{DynamicResource PinkBrush}" FontWeight="Bold" FontSize="22"
                                    FontFamily="{StaticResource FredokaFont}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
 
                 <ScrollViewer Grid.Row="1" Margin="0,6,0,0" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <TextBlock x:Name="HdrStack" Text="MULTIPLIER STACK" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,0,0,6"/>
-                        <Grid x:Name="RowStreak" Margin="0,1"><TextBlock Text="{Binding Combo, StringFormat=streak x{0}}" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                        <Grid x:Name="RowDifficulty" Margin="0,1"><TextBlock Text="difficulty" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding DifficultyMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                        <Grid x:Name="RowLust" Margin="0,1"><TextBlock Text="lust" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
-                        <Grid x:Name="RowMantras" Margin="0,1"><TextBlock Text="mantras" Foreground="{StaticResource TextDim}" FontSize="13"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="White" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                        <TextBlock x:Name="HdrStack" Text="MULTIPLIER STACK" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,0,0,6"/>
+                        <Grid x:Name="RowStreak" Margin="0,1"><TextBlock Text="{Binding Combo, StringFormat=streak x{0}}" Foreground="{DynamicResource TextDimBrush}" FontSize="13"/><TextBlock Text="{Binding ComboMult, StringFormat=x{0:0.0}}" Foreground="{DynamicResource TextLightBrush}" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                        <Grid x:Name="RowDifficulty" Margin="0,1"><TextBlock Text="difficulty" Foreground="{DynamicResource TextDimBrush}" FontSize="13"/><TextBlock Text="{Binding DifficultyMult, StringFormat=x{0:0.0}}" Foreground="{DynamicResource TextLightBrush}" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                        <Grid x:Name="RowLust" Margin="0,1"><TextBlock Text="lust" Foreground="{DynamicResource TextDimBrush}" FontSize="13"/><TextBlock Text="{Binding HeatMult, StringFormat=x{0:0.0}}" Foreground="{DynamicResource TextLightBrush}" FontSize="13" HorizontalAlignment="Right"/></Grid>
+                        <Grid x:Name="RowMantras" Margin="0,1"><TextBlock Text="mantras" Foreground="{DynamicResource TextDimBrush}" FontSize="13"/><TextBlock Text="{Binding BoonMult, StringFormat=x{0:0.0}}" Foreground="{DynamicResource TextLightBrush}" FontSize="13" HorizontalAlignment="Right"/></Grid>
                         <ProgressBar x:Name="BarLust" Minimum="0" Maximum="1" Value="{Binding Heat}" Height="5" Margin="0,6,0,0"
                                      Foreground="#FFFF7A3D" Background="#33000000" BorderThickness="0"/>
 
-                        <TextBlock x:Name="HdrResistance" Text="RESISTANCE" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
-                        <TextBlock x:Name="TxtShields" Text="{Binding ShieldText}" Foreground="#FFFF6EC7" FontSize="22"
+                        <TextBlock x:Name="HdrResistance" Text="RESISTANCE" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
+                        <TextBlock x:Name="TxtShields" Text="{Binding ShieldText}" Foreground="{DynamicResource PinkBrush}" FontSize="22"
                                    RenderTransformOrigin="0,0.5">
                             <TextBlock.RenderTransform><ScaleTransform/></TextBlock.RenderTransform>
                         </TextBlock>
 
-                        <TextBlock x:Name="HdrFocus" Text="FOCUS" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
+                        <TextBlock x:Name="HdrFocus" Text="FOCUS" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
                         <StackPanel x:Name="FocusPanelBlock">
                             <Grid>
-                                <TextBlock Text="pops fill it · a hold spends it" Foreground="{StaticResource TextDim}" FontSize="12"/>
+                                <TextBlock Text="pops fill it · a hold spends it" Foreground="{DynamicResource TextDimBrush}" FontSize="12"/>
                                 <TextBlock Text="{Binding FocusText}" Foreground="#FF9CE8FF" FontWeight="Bold" FontSize="13" HorizontalAlignment="Right"/>
                             </Grid>
                             <Grid Height="8" Margin="0,4,0,0">
@@ -258,20 +253,20 @@
                             </Grid>
                         </StackPanel>
 
-                        <TextBlock x:Name="HdrPockets" Text="TOYS" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
+                        <TextBlock x:Name="HdrPockets" Text="TOYS" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
                         <ItemsControl ItemsSource="{Binding ActiveSidebarToys}" ItemTemplate="{StaticResource PocketTile}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
-                        <TextBlock x:Name="HdrAccessories" Text="ACCESSORIES" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
+                        <TextBlock x:Name="HdrAccessories" Text="ACCESSORIES" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
                         <ItemsControl ItemsSource="{Binding ActiveSidebarAccessories}" ItemTemplate="{StaticResource PocketTile}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
 
-                        <TextBlock x:Name="HdrConditioning" Text="CONDITIONING" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
+                        <TextBlock x:Name="HdrConditioning" Text="CONDITIONING" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
                         <ItemsControl ItemsSource="{Binding RunPickTiles}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="chaos:ChaosSidebarBoon">
@@ -295,7 +290,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock x:Name="HdrModifiers" Text="MODIFIERS" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
+                        <TextBlock x:Name="HdrModifiers" Text="MODIFIERS" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
                         <ItemsControl ItemsSource="{Binding RunModifiers}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -308,7 +303,7 @@
                                             <ToolTip Content="{Binding}" ContentTemplate="{StaticResource BoonTipContent}"/>
                                         </ToolTip.Tip>
                                         <Grid>
-                                            <TextBlock Text="{Binding Glyph}" FontSize="20" Foreground="White"
+                                            <TextBlock Text="{Binding Glyph}" FontSize="20" Foreground="{DynamicResource TextLightBrush}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
                                             <Border CornerRadius="10" BorderBrush="{Binding AccentBrush}" BorderThickness="3" IsHitTestVisible="False"/>
@@ -318,11 +313,11 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock x:Name="HdrFeed" Text="FEED" Foreground="{StaticResource Pink}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
+                        <TextBlock x:Name="HdrFeed" Text="FEED" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Margin="0,12,0,6"/>
                         <ItemsControl ItemsSource="{Binding RecentEvents}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
-                                    <TextBlock Text="{Binding}" Foreground="{StaticResource TextDim}" FontSize="13" Margin="0,1" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding}" Foreground="{DynamicResource TextDimBrush}" FontSize="13" Margin="0,1" TextTrimming="CharacterEllipsis"/>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -336,17 +331,11 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Button Grid.Column="0" x:Name="BtnHero" Content="⏸ PAUSE" Click="BtnHero_Click" FontSize="16" FontWeight="Bold"
-                                Foreground="White" BorderThickness="0" Padding="0,13" Cursor="Hand"
-                                HorizontalAlignment="Stretch">
-                            <Button.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="#FFE84393" Offset="0"/>
-                                    <GradientStop Color="#FF8B5CF6" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Button.Background>
-                        </Button>
+                                Foreground="{DynamicResource TextLightBrush}" BorderThickness="0" Padding="0,13" Cursor="Hand"
+                                HorizontalAlignment="Stretch"
+                                Background="{DynamicResource AccentGradientBrush}"/>
                         <Button Grid.Column="1" x:Name="BtnCloseMode" Content="✖" Click="BtnCloseMode_Click" FontSize="15" FontWeight="Bold"
-                                Width="46" Margin="8,0,0,0" Background="#66FF5050" Foreground="White" BorderThickness="0" Cursor="Hand"
+                                Width="46" Margin="8,0,0,0" Background="{DynamicResource DangerBrush}" Foreground="{DynamicResource TextLightBrush}" BorderThickness="0" Cursor="Hand"
                                 ToolTip.Tip="leave the rabbit hole" IsVisible="False">
                         </Button>
                     </Grid>
@@ -356,12 +345,12 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Button Grid.Column="0" Content="▶ continue" Click="BtnResume_Click" FontSize="14" FontWeight="Bold"
-                                Padding="0,12" Margin="0,0,5,0" Background="#449CE8A0" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+                                Padding="0,12" Margin="0,0,5,0" Background="#449CE8A0" Foreground="{DynamicResource TextLightBrush}" BorderThickness="0" Cursor="Hand"/>
                         <Button Grid.Column="1" Content="✖ wake up" Click="BtnExit_Click" FontSize="14" FontWeight="Bold"
-                                Padding="0,12" Margin="5,0,0,0" Background="#66FF5050" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+                                Padding="0,12" Margin="5,0,0,0" Background="{DynamicResource DangerBrush}" Foreground="{DynamicResource TextLightBrush}" BorderThickness="0" Cursor="Hand"/>
                     </Grid>
                     <TextBlock x:Name="TxtPauseHint" Text="⏸ HELD · your panic key again wakes you up"
-                               Foreground="{StaticResource TextDim}" FontSize="11" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextDimBrush}" FontSize="11" HorizontalAlignment="Center"
                                Margin="0,6,0,0" IsVisible="False"/>
                 </StackPanel>
             </Grid>

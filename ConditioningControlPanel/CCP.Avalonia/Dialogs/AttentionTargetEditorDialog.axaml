@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AttentionTargetEditorDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.AttentionTargetEditorDialog" x:DataType="x:Object"
         Title="{loc:Str dialog_attention_target_editor_attention_target_style_title}"
         Height="520"
         Width="480"
@@ -91,7 +91,7 @@
           <!-- Color 1 -->
           <Grid Margin="0,0,0,12" ColumnDefinitions="120,Auto,*">
             <TextBlock Text="{loc:Str label_primary_color}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        VerticalAlignment="Center" />
             <Button x:Name="BtnColor1"
                     Grid.Column="1"

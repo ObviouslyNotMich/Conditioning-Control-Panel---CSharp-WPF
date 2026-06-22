@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.WebcamLoadingSplash"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.WebcamLoadingSplash" x:DataType="x:Object"
         Title="{loc:Str window_webcam_loading_splash_starting_eye_tracking_title}"
         Width="420" Height="200"
         WindowDecorations="None"
@@ -50,7 +50,7 @@
           <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
               <GradientStop Color="{DynamicResource PinkColor}" Offset="0" />
-              <GradientStop Color="#DA70D6" Offset="1" />
+              <GradientStop Color="{DynamicResource PinkButtonHovered}" Offset="1" />
             </LinearGradientBrush>
           </Border.Background>
           <Border.RenderTransform>

@@ -132,6 +132,9 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     private bool _isMixMode;
 
     [ObservableProperty]
+    private bool _includeVideos;
+
+    [ObservableProperty]
     private string _previewLabel = "";
 
     [ObservableProperty]
@@ -208,6 +211,11 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         ConsentStatusText = value ? Loc.Get("blink_trainer_consent_granted") : Loc.Get("blink_trainer_consent_required");
     }
 
+    partial void OnIncludeVideosChanged(bool value)
+    {
+        _logger?.Information("Include videos toggled: {Value}", value);
+    }
+
     [RelayCommand]
     private async Task ToggleTrackingAsync()
     {
@@ -238,20 +246,29 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     private void ToggleSession()
     {
         IsSessionRunning = !IsSessionRunning;
-        AppendLog(IsSessionRunning ? "Session started (visual shell only)." : "Session stopped.");
+        AppendLog(IsSessionRunning ? Loc.Get("blink_trainer_log_session_started") : Loc.Get("blink_trainer_log_session_stopped"));
     }
 
     [RelayCommand]
     private void AddFolder()
     {
-        AppendLog("Add folder requested (visual shell only).");
+        AppendLog(Loc.Get("blink_trainer_log_add_folder_requested"));
     }
 
     [RelayCommand]
     private void GrantConsent()
     {
         ConsentGranted = true;
-        AppendLog("Consent granted (visual shell only).");
+        AppendLog(Loc.Get("blink_trainer_log_consent_granted"));
+    }
+
+    [RelayCommand]
+    private async Task UnlockAsync()
+    {
+        _logger?.Information("Premium unlock requested from blink trainer gate");
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("gate_premium_locked"),
+            Loc.Get("blink_trainer_gate_body")) ?? Task.CompletedTask);
     }
 
     [RelayCommand]

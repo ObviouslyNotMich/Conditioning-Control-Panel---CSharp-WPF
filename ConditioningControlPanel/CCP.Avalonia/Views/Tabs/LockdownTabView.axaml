@@ -41,9 +41,9 @@
             <TextBlock Text="{loc:Str tab_lockdown_lockdown_text}"
                        FontSize="26"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{loc:Str tab_lockdown_a_timed_strictlock_session_enter_secret_text}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="13"
                        TextWrapping="Wrap"
                        Margin="0,4,0,0" />
@@ -63,7 +63,7 @@
                   IsHitTestVisible="False">
             <Border.BorderBrush>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                <GradientStop Offset="0" Color="#FF69B4" />
+                <GradientStop Offset="0" Color="{DynamicResource PinkColor}" />
                 <GradientStop Offset="1" Color="#9370DB" />
               </LinearGradientBrush>
             </Border.BorderBrush>
@@ -80,7 +80,7 @@
             </Border.Background>
             <Border.BorderBrush>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                <GradientStop Offset="0" Color="#FF69B4" />
+                <GradientStop Offset="0" Color="{DynamicResource PinkColor}" />
                 <GradientStop Offset="1" Color="#9370DB" />
               </LinearGradientBrush>
             </Border.BorderBrush>
@@ -91,13 +91,10 @@
                       Height="220"
                       BorderThickness="2"
                       ClipToBounds="True"
-                      BoxShadow="0 0 14 0 #FF1493">
+                      BorderBrush="{DynamicResource DarkPinkBrush}">
                 <Border.Background>
                   <SolidColorBrush Color="#12FFFFFF" />
                 </Border.Background>
-                <Border.BorderBrush>
-                  <SolidColorBrush Color="#FF1493" />
-                </Border.BorderBrush>
                 <Image Source="avares://CCP.Avalonia/Assets/lockdown_icon.png"
                        Stretch="Uniform"
                        VerticalAlignment="Center"
@@ -109,7 +106,7 @@
                 <TextBlock Text="{loc:Str tab_lockdown_session_duration_text}"
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="White" />
+                           Foreground="{DynamicResource TextLightBrush}" />
 
                 <ComboBox ItemsSource="{Binding DurationOptions}"
                           DisplayMemberBinding="{Binding Label}"
@@ -119,14 +116,9 @@
                 <Button Content="{loc:Str tab_lockdown_activate_lockdown_content}"
                         Command="{Binding ActivateCommand}"
                         HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center">
-                  <Button.Background>
-                    <SolidColorBrush Color="#FF69B4" />
-                  </Button.Background>
-                  <Button.Foreground>
-                    <SolidColorBrush Color="White" />
-                  </Button.Foreground>
-                </Button>
+                        HorizontalContentAlignment="Center"
+                        Background="{DynamicResource PinkBrush}"
+                        Foreground="{DynamicResource TextLightBrush}" />
               </StackPanel>
 
               <!-- Active panel -->
@@ -150,7 +142,7 @@
 
                 <StackPanel Spacing="8" IsVisible="{Binding ExitInputVisible}">
                   <TextBlock Text="{loc:Str tab_lockdown_enter_secret_exit_phrase_text}"
-                             Foreground="#AAAAAA"
+                             Foreground="{DynamicResource TextDimBrush}"
                              FontSize="12" />
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBox Grid.Column="0"
@@ -168,14 +160,14 @@
                         Command="{Binding AbortCommand}"
                         HorizontalAlignment="Center"
                         Background="#DC143C"
-                        Foreground="White" />
+                        Foreground="{DynamicResource TextLightBrush}" />
               </StackPanel>
             </StackPanel>
           </Border>
         </Grid>
 
         <TextBlock Text="{Binding WarningText}"
-                   Foreground="#FF69B4"
+                   Foreground="{DynamicResource PinkBrush}"
                    FontSize="13"
                    TextWrapping="Wrap"
                    HorizontalAlignment="Center" />
@@ -197,10 +189,10 @@
         <TextBlock Text="{loc:Str tab_lockdown_premium_locked_text}"
                    FontSize="22"
                    FontWeight="Bold"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    HorizontalAlignment="Center" />
         <TextBlock Text="{loc:Str tab_lockdown_lockdown_a_premium_feature_link_patreon_text}"
-                   Foreground="#AAAAAA"
+                   Foreground="{DynamicResource TextDimBrush}"
                    FontSize="13"
                    TextWrapping="Wrap"
                    TextAlignment="Center"
@@ -208,8 +200,8 @@
         <Button Content="{loc:Str tab_lockdown_unlock_content}"
                 Command="{Binding UnlockCommand}"
                 HorizontalAlignment="Center"
-                Background="#FF69B4"
-                Foreground="White" />
+                Background="{DynamicResource PinkBrush}"
+                Foreground="{DynamicResource TextLightBrush}" />
       </StackPanel>
     </Border>
   </Grid>

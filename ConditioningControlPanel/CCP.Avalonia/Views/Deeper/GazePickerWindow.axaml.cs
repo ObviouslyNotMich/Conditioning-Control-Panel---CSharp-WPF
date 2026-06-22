@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
@@ -7,6 +8,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
+using LibVLCSharp.Shared;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Views.Deeper;
 
@@ -25,19 +28,63 @@ public partial class GazePickerWindow : Window
     private DragMode _drag = DragMode.None;
     private Point _dragStart;
     private readonly double[] _dragStartRect = new double[4];
+    private readonly string? _mediaSource;
+    private LibVLC? _libVlc;
+    private MediaPlayer? _mediaPlayer;
+    private Media? _currentMedia;
 
     public bool Committed { get; private set; }
     public double[] ResultRect => (double[])_rect.Clone();
 
-    public GazePickerWindow(double[]? initial)
+    public GazePickerWindow(double[]? initial, string? mediaSource = null)
     {
         InitializeComponent();
+        _mediaSource = mediaSource;
         if (initial != null && initial.Length >= 4)
             _rect = (double[])initial.Clone();
         ClampRect();
         TxtHint.Text = Loc.Get("deeper_editor_gaze_pick_hint");
-        Loaded += (_, _) => RenderRect();
+        Loaded += OnLoaded;
         KeyDown += Window_KeyDown;
+    }
+
+    private void OnLoaded(object? sender, EventArgs e)
+    {
+        RenderRect();
+        _ = InitializeVideoAsync();
+    }
+
+    private async System.Threading.Tasks.Task InitializeVideoAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_mediaSource)) return;
+
+        var source = _mediaSource.Trim();
+        var isRemote = source.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                    || source.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        if (!isRemote && !File.Exists(source)) return;
+
+        try
+        {
+            _libVlc = App.Services?.GetRequiredService<LibVLC>();
+            if (_libVlc == null) return;
+
+            _mediaPlayer = new MediaPlayer(_libVlc);
+            VideoView.MediaPlayer = _mediaPlayer;
+            VideoView.IsVisible = true;
+
+            _currentMedia = new Media(_libVlc, new Uri(source));
+            _mediaPlayer.Mute = true;
+            _ = _mediaPlayer.Play(_currentMedia);
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                App.Services?.GetService<ConditioningControlPanel.IAppLogger>()?.Warning(ex, "GazePickerWindow failed to load video preview");
+            }
+            catch { }
+            VideoView.IsVisible = false;
+        }
     }
 
     private enum DragMode
@@ -266,5 +313,20 @@ public partial class GazePickerWindow : Window
     {
         if (e.Key == Key.Escape) { Committed = false; Close(false); }
         else if (e.Key == Key.Enter) { Committed = true; Close(true); }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        try
+        {
+            _mediaPlayer?.Stop();
+            _mediaPlayer?.Dispose();
+            _currentMedia?.Dispose();
+            _mediaPlayer = null;
+            _currentMedia = null;
+            // _libVlc is owned by DI; do not dispose it here.
+        }
+        catch { }
     }
 }

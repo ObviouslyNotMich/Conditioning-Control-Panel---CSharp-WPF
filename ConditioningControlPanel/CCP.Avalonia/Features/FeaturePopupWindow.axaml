@@ -1,4 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
         x:Class="ConditioningControlPanel.Avalonia.Features.FeaturePopupWindow"
@@ -11,15 +12,16 @@
         WindowDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"
-        Background="#0F0F1A">
+        Background="#0F0F1A"
+             x:DataType="{x:Type local:FeaturePopupWindow}">
 
-  <Border BorderBrush="#FF69B4" BorderThickness="1">
+  <Border BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
     <Grid RowDefinitions="Auto,*">
 
       <!-- Title bar -->
       <Border Grid.Row="0"
-              Background="#1A1A2E"
-              BorderBrush="#FF69B4"
+              Background="{DynamicResource PanelBgBrush}"
+              BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="0,0,0,1"
               PointerPressed="TitleBar_PointerPressed">
         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -30,7 +32,7 @@
                   Height="28"
                   Margin="14,10,10,10"
                   CornerRadius="6"
-                  BorderBrush="#FF69B4"
+                  BorderBrush="{DynamicResource PinkBrush}"
                   BorderThickness="1"
                   Background="Transparent">
             <Grid>
@@ -42,7 +44,7 @@
                          FontSize="16"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center"
-                         Foreground="#FF69B4"
+                         Foreground="{DynamicResource PinkBrush}"
                          IsVisible="False" />
             </Grid>
           </Border>
@@ -52,7 +54,7 @@
                      x:Name="TxtTitle"
                      Text="{loc:Str title_feature_popup}"
                      VerticalAlignment="Center"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="15"
                      FontWeight="SemiBold" />
 
@@ -70,8 +72,8 @@
                 <Setter Property="Foreground" Value="#888888" />
               </Style>
               <Style Selector="Button:pointerover">
-                <Setter Property="Background" Value="#E84A6B" />
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
               </Style>
             </Button.Styles>
           </Button>

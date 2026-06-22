@@ -13,6 +13,8 @@ using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Deeper;
 using ConditioningControlPanel.Models.Deeper;
+using ConditioningControlPanel.Avalonia.Services.Tutorial;
+using ConditioningControlPanel.Avalonia.Windows;
 
 namespace ConditioningControlPanel.Avalonia.Views.Deeper;
 
@@ -35,6 +37,8 @@ public partial class DeeperEditorWindow : Window
     private readonly List<NamedOption> _mediaTypeOptions = new();
     private readonly List<string> _stockHapticPatterns = new();
     private const string CustomPatternLabel = "Custom…";
+
+    private TutorialOverlay? _activeTutorialOverlay;
 
     public string? LoadedFilePath => _filePath;
 
@@ -122,12 +126,44 @@ public partial class DeeperEditorWindow : Window
     {
         Closing += Window_Closing;
         Opened += DeeperEditorWindow_Opened;
+        Closed += DeeperEditorWindow_Closed;
     }
 
     private void DeeperEditorWindow_Opened(object? sender, EventArgs e)
     {
         InitializePreview();
+        _ = StartPendingTutorialPart2Async();
     }
+
+    private async Task StartPendingTutorialPart2Async()
+    {
+        try
+        {
+            if (TutorialEventBus.PendingPart2Tutorial is not { } pendingType) return;
+            TutorialEventBus.PendingPart2Tutorial = null;
+
+            await Task.Delay(800);
+
+            if (App.Tutorial == null) return;
+            if (!IsLoaded) return;
+
+            try { if (App.Tutorial.IsActive) App.Tutorial.Skip(); } catch { }
+            App.Tutorial.Start(pendingType);
+            _activeTutorialOverlay = new TutorialOverlay(this, App.Tutorial);
+            _activeTutorialOverlay.Show();
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetService<IAppLogger>()?.Warning(ex, "Failed to start interactive tutorial Part 2");
+        }
+    }
+
+    private void DeeperEditorWindow_Closed(object? sender, EventArgs e)
+    {
+        try { _activeTutorialOverlay?.Close(); } catch { }
+        _activeTutorialOverlay = null;
+    }
+
 
     private void LoadEnhancementIntoUi()
     {
@@ -140,6 +176,7 @@ public partial class DeeperEditorWindow : Window
             TxtMetaDescription.Text = meta.Description ?? "";
             TxtMetaMediaSource.Text = _enhancement.MediaSource ?? "";
             CmbMediaType.SelectedItem = _mediaTypeOptions.FirstOrDefault(o => o.Key == _enhancement.MediaType);
+            UpdateCreatorLockUi();
 
             RefreshAllLists();
             UpdateTitle();
@@ -241,6 +278,29 @@ public partial class DeeperEditorWindow : Window
             MarkDirty();
         }
     }
+
+    private bool _creatorLocked;
+
+    private void BtnCreatorLockToggle_Click(object? sender, RoutedEventArgs e)
+    {
+        _creatorLocked = BtnCreatorLockToggle.IsChecked == true;
+        UpdateCreatorLockUi();
+    }
+
+    private void UpdateCreatorLockUi()
+    {
+        if (BtnCreatorLockToggle == null || TxtMetaCreator == null) return;
+        BtnCreatorLockToggle.IsChecked = _creatorLocked;
+        BtnCreatorLockToggle.Content = _creatorLocked ? "🔒" : "🔓";
+        TxtMetaCreator.IsReadOnly = _creatorLocked;
+        TxtMetaCreator.Foreground = _creatorLocked
+            ? (IBrush?)this.FindResource("TextDimBrush")
+            : (IBrush?)this.FindResource("TextLightBrush");
+    }
+
+    public void SelectMetadataTab() => EditorTabControl.SelectedIndex = 2;
+    public void SelectRulesTab() => EditorTabControl.SelectedIndex = 4;
+    public void SelectHapticsTab() => EditorTabControl.SelectedIndex = 5;
 
     // ========================================================================
     // Regions
@@ -694,6 +754,7 @@ public partial class DeeperEditorWindow : Window
         MarkDirty();
         RefreshAllLists();
         LstRules.SelectedItem = rule;
+        TutorialEventBus.Emit("RuleAdded");
     }
 
     private void BtnDeleteRule_Click(object? sender, RoutedEventArgs e)
@@ -802,6 +863,7 @@ public partial class DeeperEditorWindow : Window
         MarkDirty();
         RefreshAllLists();
         LstHaptics.SelectedItem = ev;
+        TutorialEventBus.Emit("EffectAdded");
     }
 
     private void BtnDeleteHaptic_Click(object? sender, RoutedEventArgs e)
@@ -879,6 +941,8 @@ public partial class DeeperEditorWindow : Window
             _isDirty = false;
             UpdateTitle();
             RefreshValidationStatus();
+            TutorialEventBus.LastSavedEnhancementPath = path;
+            TutorialEventBus.Emit("FileSaved");
         }
         catch (Exception ex)
         {
@@ -1106,7 +1170,7 @@ public partial class DeeperEditorWindow : Window
     private async void BtnPickTriggerRect_Click(object? sender, RoutedEventArgs e)
     {
         var rect = ParseRect(TxtTriggerRect.Text);
-        var picker = new GazePickerWindow(rect)
+        var picker = new GazePickerWindow(rect, _enhancement.MediaSource)
         {
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Width = 800,

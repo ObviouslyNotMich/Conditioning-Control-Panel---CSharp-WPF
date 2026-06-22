@@ -1243,7 +1243,7 @@ namespace ConditioningControlPanel
             CatalogueLookup = new CatalogueLookupService();
 
             // Auto-connect haptics if enabled (runs in background)
-            if (Settings.Current.Haptics.AutoConnect && Settings.Current.Haptics.Provider != Services.Haptics.HapticProviderType.Mock)
+            if (Settings.Current.Haptics.AutoConnect && Settings.Current.Haptics.Provider != HapticProviderType.Mock)
             {
                 _ = AutoConnectHapticsAsync();
             }

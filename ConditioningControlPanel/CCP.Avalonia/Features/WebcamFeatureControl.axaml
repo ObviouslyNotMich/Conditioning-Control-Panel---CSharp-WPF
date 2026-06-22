@@ -10,7 +10,7 @@
 
   <StackPanel>
     <TextBlock Text="{loc:Str feature_webcam}"
-               Foreground="#FF69B4"
+               Foreground="{DynamicResource PinkBrush}"
                FontSize="16"
                FontWeight="Bold"
                Margin="0,0,0,10" />
@@ -19,7 +19,7 @@
     <Border Theme="{StaticResource PlatformInfoBadge}"
             IsVisible="{Binding Capabilities.SupportsScreenCapture, ElementName=Root, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
       <TextBlock Text="{loc:Str msg_webcam_unavailable_platform}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="11"
                  TextWrapping="Wrap" />
     </Border>

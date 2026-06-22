@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -161,10 +161,10 @@ namespace ConditioningControlPanel
 
             App.Settings.Current.Haptics.Provider = tag switch
             {
-                "Mock" => Services.Haptics.HapticProviderType.Mock,
-                "Lovense" => Services.Haptics.HapticProviderType.Lovense,
-                "Buttplug" => Services.Haptics.HapticProviderType.Buttplug,
-                _ => Services.Haptics.HapticProviderType.Mock
+                "Mock" => HapticProviderType.Mock,
+                "Lovense" => HapticProviderType.Lovense,
+                "Buttplug" => HapticProviderType.Buttplug,
+                _ => HapticProviderType.Mock
             };
 
             // Load the saved URL for the selected provider (or use default)
@@ -325,9 +325,9 @@ namespace ConditioningControlPanel
 
             // Save to the appropriate URL based on current provider
             var provider = App.Settings.Current.Haptics.Provider;
-            if (provider == Services.Haptics.HapticProviderType.Lovense)
+            if (provider == HapticProviderType.Lovense)
                 App.Settings.Current.Haptics.LovenseUrl = HapticsTab.TxtHapticUrl.Text;
-            else if (provider == Services.Haptics.HapticProviderType.Buttplug)
+            else if (provider == HapticProviderType.Buttplug)
                 App.Settings.Current.Haptics.ButtplugUrl = HapticsTab.TxtHapticUrl.Text;
         }
 

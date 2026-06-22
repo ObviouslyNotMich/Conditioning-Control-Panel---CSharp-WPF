@@ -292,7 +292,20 @@
             <TextBlock Theme="{StaticResource FormLabel}" Text="{Binding [deeper_editor_label_name], Source={x:Static loc:LocalizationManager.Instance}}" />
             <TextBox x:Name="TxtMetaName" TextChanged="Metadata_TextChanged" Watermark="Untitled" />
 
-            <TextBlock Theme="{StaticResource FormLabel}" Text="{Binding [deeper_editor_label_creator], Source={x:Static loc:LocalizationManager.Instance}}" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" VerticalAlignment="Center" Theme="{StaticResource FormLabel}" Text="{Binding [deeper_editor_label_creator], Source={x:Static loc:LocalizationManager.Instance}}" />
+              <ToggleButton x:Name="BtnCreatorLockToggle"
+                            Grid.Column="1"
+                            Content="🔓"
+                            Click="BtnCreatorLockToggle_Click"
+                            Padding="6,2"
+                            Margin="0,10,0,3"
+                            Background="Transparent"
+                            Foreground="{DynamicResource DeeperAccentSoftBrush}"
+                            BorderBrush="{DynamicResource DeeperAccentTransparent40Brush}"
+                            BorderThickness="1"
+                            CornerRadius="6" />
+            </Grid>
             <TextBox x:Name="TxtMetaCreator" TextChanged="Metadata_TextChanged" />
 
             <TextBlock Theme="{StaticResource FormLabel}" Text="{Binding [deeper_editor_label_description], Source={x:Static loc:LocalizationManager.Instance}}" />

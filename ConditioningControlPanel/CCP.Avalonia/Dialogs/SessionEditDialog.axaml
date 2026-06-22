@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.SessionEditDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.SessionEditDialog" x:DataType="x:Object"
         Title="{loc:Str dialog_session_edit_session_editor_title}"
         Height="560"
         Width="520"
@@ -39,7 +39,7 @@
           <!-- Name -->
           <StackPanel Spacing="4">
             <TextBlock Text="{loc:Str dialog_session_edit_name_text}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13" />
             <TextBox x:Name="TxtName"
                      Background="{DynamicResource SurfaceBgBrush}"

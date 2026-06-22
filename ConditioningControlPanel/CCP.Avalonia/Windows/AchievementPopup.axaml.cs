@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
@@ -6,6 +6,7 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
@@ -34,6 +35,8 @@ public partial class AchievementPopup : Window
     public AchievementPopup(Achievement achievement, string? headerIcon = null, string? headerText = null)
     {
         InitializeComponent();
+
+        ApplyThemeShadow();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 _logger?.Information("Creating AchievementPopup for: {Name}", achievement.Name);
@@ -70,8 +73,23 @@ _logger?.Information("Creating AchievementPopup for: {Name}", achievement.Name);
     {
         InitializeComponent();
 
+        ApplyThemeShadow();
+
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 _autoCloseTimer = new DispatcherTimer();
+    }
+
+    private void ApplyThemeShadow()
+    {
+        if (RootBorder == null) return;
+        var accent = (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            ? c
+            : Color.Parse("#FF69B4");
+        RootBorder.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            OffsetX = 0, OffsetY = 0, Blur = 20, Spread = 0,
+            Color = Color.FromArgb(0x80, accent.R, accent.G, accent.B)
+        });
     }
 
     private void PositionWindow()

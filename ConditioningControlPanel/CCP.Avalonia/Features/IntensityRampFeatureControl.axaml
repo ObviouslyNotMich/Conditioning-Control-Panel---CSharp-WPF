@@ -1,13 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.IntensityRampFeatureControl"
-             Design.DataContext="{x:Null}">
+             Design.DataContext="{x:Null}"
+             x:DataType="{x:Type local:IntensityRampFeatureControl}">
 
   <StackPanel>
     <!-- Enable -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -15,7 +17,7 @@
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0"
                    Text="{loc:Str btn_enable}"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="14"
                    FontWeight="SemiBold"
                    VerticalAlignment="Center" />
@@ -27,8 +29,8 @@
     </Border>
 
     <!-- Duration -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -36,13 +38,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_duration}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtDuration"
                      Text="60 min"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -55,8 +57,8 @@
     </Border>
 
     <!-- Multiplier -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -64,13 +66,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str setting_multiplier}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtMultiplier"
                      Text="1.5x"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -85,8 +87,8 @@
     </Border>
 
     <!-- End at ramp -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -94,7 +96,7 @@
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0"
                    Text="{loc:Str label_end_session_on_ramp_complete}"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="13"
                    FontWeight="SemiBold"
                    VerticalAlignment="Center" />
@@ -106,14 +108,14 @@
     </Border>
 
     <!-- Ramp links -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14">
       <StackPanel>
         <TextBlock Text="{loc:Str label_link_to_ramp}"
-                   Foreground="#FF69B4"
+                   Foreground="{DynamicResource PinkBrush}"
                    FontSize="13"
                    FontWeight="SemiBold"
                    Margin="0,0,0,10" />
@@ -122,7 +124,7 @@
             <ToggleSwitch x:Name="ChkLinkFlash"
                           IsCheckedChanged="Link_Changed" />
             <TextBlock Text="{loc:Str label_flash}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="12"
                        Margin="6,0,0,0"
                        VerticalAlignment="Center" />
@@ -131,7 +133,7 @@
             <ToggleSwitch x:Name="ChkLinkSpiral"
                           IsCheckedChanged="Link_Changed" />
             <TextBlock Text="{loc:Str label_spiral}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="12"
                        Margin="6,0,0,0"
                        VerticalAlignment="Center" />
@@ -140,7 +142,7 @@
             <ToggleSwitch x:Name="ChkLinkPink"
                           IsCheckedChanged="Link_Changed" />
             <TextBlock Text="{loc:Str label_pink}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="12"
                        Margin="6,0,0,0"
                        VerticalAlignment="Center" />
@@ -149,7 +151,7 @@
             <ToggleSwitch x:Name="ChkLinkMaster"
                           IsCheckedChanged="Link_Changed" />
             <TextBlock Text="{loc:Str setting_master}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="12"
                        Margin="6,0,0,0"
                        VerticalAlignment="Center" />
@@ -158,7 +160,7 @@
             <ToggleSwitch x:Name="ChkLinkSub"
                           IsCheckedChanged="Link_Changed" />
             <TextBlock Text="{loc:Str label_sub}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="12"
                        Margin="6,0,0,0"
                        VerticalAlignment="Center" />

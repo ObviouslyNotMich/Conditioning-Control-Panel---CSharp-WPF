@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -43,6 +43,8 @@ public partial class BubbleCountResultWindow : Window
     public BubbleCountResultWindow()
     {
         InitializeComponent();
+
+        ApplyThemeShadow();
 
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 _progression = App.Services.GetRequiredService<IProgressionService>();
@@ -118,6 +120,19 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
         var primaryWindow = new BubbleCountResultWindow(correctAnswer, strictMode, onComplete, primary, true);
         primaryWindow.Show();
         primaryWindow.Activate();
+    }
+
+    private void ApplyThemeShadow()
+    {
+        if (ContentCard == null) return;
+        var accent = (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            ? c
+            : Color.Parse("#FF69B4");
+        ContentCard.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            OffsetX = 0, OffsetY = 0, Blur = 30, Spread = 0,
+            Color = Color.FromArgb(0x80, accent.R, accent.G, accent.B)
+        });
     }
 
     private void PositionWindow()

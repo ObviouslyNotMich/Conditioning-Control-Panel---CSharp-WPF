@@ -1369,17 +1369,6 @@ namespace ConditioningControlPanel.Services
     }
 
     /// <summary>
-    /// Entry for a file in an installed pack.
-    /// </summary>
-    public class PackFileEntry
-    {
-        public string OriginalName { get; set; } = "";
-        public string ObfuscatedName { get; set; } = "";
-        public string FileType { get; set; } = ""; // "image" or "video"
-        public string Extension { get; set; } = "";
-    }
-
-    /// <summary>
     /// Response from POST /pack/download-url endpoint.
     /// </summary>
     internal class PackDownloadUrlResponse

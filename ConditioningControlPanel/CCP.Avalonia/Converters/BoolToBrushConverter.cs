@@ -10,8 +10,15 @@ namespace ConditioningControlPanel.Avalonia.Converters;
 /// </summary>
 public sealed class BoolToBrushConverter : IValueConverter
 {
-    public IBrush TrueBrush { get; set; } = new SolidColorBrush(Colors.White);
-    public IBrush FalseBrush { get; set; } = new SolidColorBrush(Colors.Gray);
+    public IBrush TrueBrush { get; set; } =
+        global::Avalonia.Application.Current?.TryGetResource("TextLightBrush", global::Avalonia.Styling.ThemeVariant.Default, out var light) == true && light is IBrush lb
+            ? lb
+            : new SolidColorBrush(Colors.White);
+
+    public IBrush FalseBrush { get; set; } =
+        global::Avalonia.Application.Current?.TryGetResource("TextDimBrush", global::Avalonia.Styling.ThemeVariant.Default, out var dim) == true && dim is IBrush db
+            ? db
+            : new SolidColorBrush(Colors.Gray);
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

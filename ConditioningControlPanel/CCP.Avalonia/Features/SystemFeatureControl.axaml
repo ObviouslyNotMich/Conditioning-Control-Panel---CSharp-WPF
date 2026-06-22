@@ -12,7 +12,7 @@
     <Border Theme="{StaticResource PlatformInfoBadge}"
             IsVisible="{Binding Capabilities.SupportsInputHooks, ElementName=Root, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
       <TextBlock Text="{loc:Str msg_panic_key_lockdown_unsupported}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="11"
                  TextWrapping="Wrap" />
     </Border>
@@ -20,14 +20,14 @@
     <Border Theme="{StaticResource PlatformInfoBadge}"
             IsVisible="{Binding Capabilities.IsWindows, ElementName=Root, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
       <TextBlock Text="{loc:Str msg_win_startup_windows_only}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="11"
                  TextWrapping="Wrap" />
     </Border>
 
     <!-- Toggle grid -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -36,11 +36,11 @@
         <Grid Margin="0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_multi_mon}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_show_content_on_all_connected_monitors_2_3_or}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -54,11 +54,11 @@
         <Grid Margin="16,4,0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_fill_all_monitors_video}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_fill_all_monitors_video}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -72,11 +72,11 @@
         <Grid Margin="0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_win_start}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_launch_automatically_when_windows_starts}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -92,11 +92,11 @@
         <Grid Margin="0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_vid_launch}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_play_a_mandatory_video_when_app_opens}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -110,11 +110,11 @@
         <Grid Margin="0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_auto_run}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_start_the_engine_automatically_on_launch}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -128,11 +128,11 @@
         <Grid Margin="0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_start_hidden}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_start_minimized_to_system_tray}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -148,11 +148,11 @@
         <Grid Margin="0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_no_panic}"
-                       Foreground="#FF6B6B"
+                       Foreground="{DynamicResource DangerBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_danger_completely_disables_panic_key_you_won}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -168,11 +168,11 @@
         <Grid Margin="0,4" ColumnDefinitions="*,Auto">
           <StackPanel Grid.Column="0" VerticalAlignment="Center">
             <TextBlock Text="{loc:Str setting_offline_mode}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_disable_all_network_features_updates_ai_leade}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -186,15 +186,15 @@
     </Border>
 
     <!-- Startup video picker -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
             Margin="0,0,0,10">
       <StackPanel>
         <TextBlock Text="{loc:Str label_startup_video}"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="13"
                    FontWeight="SemiBold"
                    Margin="0,0,0,6" />
@@ -202,7 +202,7 @@
           <TextBlock x:Name="TxtStartupVideo"
                      Grid.Column="0"
                      Text="{loc:Str label_random}"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="12"
                      VerticalAlignment="Center"
                      TextTrimming="CharacterEllipsis" />
@@ -227,8 +227,8 @@
     </Border>
 
     <!-- Assets folder -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -248,19 +248,19 @@
     </Border>
 
     <!-- Panic key -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12">
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Grid.Column="0" VerticalAlignment="Center">
           <TextBlock Text="{loc:Str btn_escape}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str tooltip_click_to_change_panic_key}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />

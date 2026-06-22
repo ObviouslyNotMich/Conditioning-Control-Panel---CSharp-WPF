@@ -18,7 +18,7 @@
         <Border MaxHeight="260"
                 CornerRadius="12"
                 ClipToBounds="True"
-                BorderBrush="#FF69B4"
+                BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="2">
           <Image Source="avares://CCP.Avalonia/Assets/features/blink_trainer.png"
                  Stretch="UniformToFill"
@@ -67,7 +67,7 @@
                 <TextBlock Text="{loc:Str tab_blink_trainer}"
                            FontSize="20"
                            FontWeight="Bold"
-                           Foreground="White"
+                           Foreground="{DynamicResource TextLightBrush}"
                            VerticalAlignment="Center" />
                 <Border Background="{DynamicResource TransparentPinkBrush}"
                         BorderBrush="{DynamicResource PinkBrush}"
@@ -83,7 +83,7 @@
               </StackPanel>
               <TextBlock Text="{loc:Str blink_trainer_tagline}"
                          FontSize="13"
-                         Foreground="#AAAAAA" />
+                         Foreground="{DynamicResource TextDimBrush}" />
             </StackPanel>
           </StackPanel>
 
@@ -117,8 +117,8 @@
                     HorizontalAlignment="Left">
               <Border.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                  <GradientStop Offset="0" Color="#FF69B4" />
-                  <GradientStop Offset="1" Color="#9370DB" />
+                  <GradientStop Offset="0" Color="{DynamicResource PinkColor}" />
+                  <GradientStop Offset="1" Color="{DynamicResource DeeperAccentSoft}" />
                 </LinearGradientBrush>
               </Border.Background>
               <Border Background="{DynamicResource SurfaceBgBrush}"
@@ -129,7 +129,7 @@
                          Stretch="UniformToFill"
                          Opacity="0.35" />
                   <TextBlock Text="{Binding PreviewLabel}"
-                             Foreground="#AAAAAA"
+                             Foreground="{DynamicResource TextDimBrush}"
                              FontSize="13"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center" />
@@ -150,7 +150,7 @@
                            Fill="{Binding StatusColor}"
                            VerticalAlignment="Center" />
                   <TextBlock Text="{loc:Str blink_trainer_session_status}"
-                             Foreground="#AAAAAA"
+                             Foreground="{DynamicResource TextDimBrush}"
                              FontSize="13"
                              VerticalAlignment="Center" />
                   <TextBlock Text="{Binding StatusText}"
@@ -204,12 +204,12 @@
                           <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0"
                                        Text="{Binding Name}"
-                                       Foreground="White"
+                                       Foreground="{DynamicResource TextLightBrush}"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1"
                                        Text="{Binding Status}"
-                                       Foreground="#888888"
+                                       Foreground="{DynamicResource TextMutedBrush}"
                                        FontSize="11"
                                        VerticalAlignment="Center" />
                           </Grid>
@@ -240,6 +240,7 @@
 
                   <ToggleSwitch Content="{loc:Str blink_trainer_include_videos}"
                                 OffContent="{loc:Str blink_trainer_include_videos}"
+                                IsChecked="{Binding IncludeVideos, Mode=TwoWay}"
                                 ToolTip.Tip="{loc:Str blink_trainer_include_videos_sub}" />
                 </StackPanel>
               </Border>
@@ -264,7 +265,7 @@
                     <StackPanel Spacing="6">
                       <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{loc:Str blink_trainer_duration_label}"
-                                   Foreground="White"
+                                   Foreground="{DynamicResource TextLightBrush}"
                                    FontSize="13"
                                    FontWeight="SemiBold" />
                         <TextBlock Grid.Column="1"
@@ -283,7 +284,7 @@
                     <StackPanel Spacing="6">
                       <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{loc:Str blink_trainer_opacity_label}"
-                                   Foreground="White"
+                                   Foreground="{DynamicResource TextLightBrush}"
                                    FontSize="13"
                                    FontWeight="SemiBold" />
                         <TextBlock Grid.Column="1"
@@ -300,7 +301,7 @@
 
                     <StackPanel Spacing="6">
                       <TextBlock Text="{loc:Str blink_trainer_tiling_label}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  FontSize="13"
                                  FontWeight="SemiBold" />
                       <StackPanel Orientation="Horizontal"
@@ -331,7 +332,7 @@
 
                     <StackPanel Spacing="6">
                       <TextBlock Text="{loc:Str blink_trainer_camera_device}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  FontSize="13"
                                  FontWeight="SemiBold" />
                       <Grid ColumnDefinitions="*,Auto">
@@ -349,7 +350,7 @@
 
                     <StackPanel Spacing="6">
                       <TextBlock Text="{loc:Str webcam_monitor_label}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  FontSize="13"
                                  FontWeight="SemiBold" />
                       <Grid ColumnDefinitions="*,Auto">
@@ -372,7 +373,7 @@
                       <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Spacing="2">
                           <TextBlock Text="{loc:Str blink_trainer_consent_manage}"
-                                     Foreground="White"
+                                     Foreground="{DynamicResource TextLightBrush}"
                                      FontSize="13"
                                      FontWeight="SemiBold" />
                           <TextBlock Text="{Binding ConsentStatusText}"
@@ -400,11 +401,11 @@
                         <Grid ColumnDefinitions="*,Auto">
                           <StackPanel Grid.Column="0" Spacing="2">
                             <TextBlock Text="{loc:Str blink_trainer_calibration_label}"
-                                       Foreground="White"
+                                       Foreground="{DynamicResource TextLightBrush}"
                                        FontSize="13"
                                        FontWeight="SemiBold" />
                             <TextBlock Text="{Binding CalibrationStatusText}"
-                                       Foreground="#888888"
+                                       Foreground="{DynamicResource TextMutedBrush}"
                                        FontSize="12" />
                           </StackPanel>
                           <StackPanel Grid.Column="1"
@@ -447,7 +448,8 @@
             <features:PremiumGateOverlay IsLocked="{Binding IsPremiumLocked}"
                                          Header="{loc:Str blink_trainer_gate_headline}"
                                          Body="{loc:Str blink_trainer_gate_body}"
-                                         ButtonText="{loc:Str blink_trainer_gate_cta}" />
+                                         ButtonText="{loc:Str blink_trainer_gate_cta}"
+                                         UnlockCommand="{Binding UnlockCommand}" />
           </Grid>
         </Grid>
       </StackPanel>

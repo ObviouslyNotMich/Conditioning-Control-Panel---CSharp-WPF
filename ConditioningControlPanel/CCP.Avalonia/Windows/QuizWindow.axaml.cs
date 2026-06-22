@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -84,6 +84,8 @@ public partial class QuizWindow : Window
     {
         InitializeComponent();
 
+        ApplyTitleShadow();
+
         _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
 _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _loadingDotsTimer.Tick += LoadingDotsTimer_Tick;
@@ -144,7 +146,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         var categories = QuizService.GetAllCategories();
         foreach (var cat in categories)
         {
-            var color = Colors.White;
+            var color = (Color)global::Avalonia.Application.Current!.Resources["TextLight"]!;
             try { color = Color.Parse(cat.Color); } catch { }
 
             var border = new Border
@@ -195,7 +197,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
                     Tag = cat
                 };
                 editBtn.PointerPressed += EditCategoryButton_Click;
-                editBtn.PointerEntered += (s, _) => { if (s is TextBlock t) t.Foreground = new SolidColorBrush(Colors.White); };
+                editBtn.PointerEntered += (s, _) => { if (s is TextBlock t) t.Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!; };
                 editBtn.PointerExited += (s, _) => { if (s is TextBlock t) t.Foreground = new SolidColorBrush(Color.FromRgb(0x60, 0x60, 0x80)); };
                 Grid.SetColumn(editBtn, 1);
                 grid.Children.Add(editBtn);
@@ -273,15 +275,16 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
 
     private void UpdateProgressDots(int currentQuestion)
     {
+        var accent = GetAccentColor();
         for (int i = 0; i < 10; i++)
         {
             if (i < currentQuestion - 1)
             {
-                _progressDots[i].Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0x69, 0xB4));
+                _progressDots[i].Fill = new SolidColorBrush(accent);
             }
             else if (i == currentQuestion - 1)
             {
-                _progressDots[i].Fill = new SolidColorBrush(Colors.White);
+                _progressDots[i].Fill = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!;
             }
             else
             {
@@ -514,8 +517,9 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
     {
         if (sender is Border b)
         {
-            b.Background = new SolidColorBrush(Color.FromArgb(0x40, 0x9B, 0x59, 0xB6));
-            b.BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0x9B, 0x59, 0xB6));
+            var accent = GetAccentColor();
+            b.Background = new SolidColorBrush(Color.FromArgb(0x40, accent.R, accent.G, accent.B));
+            b.BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, accent.R, accent.G, accent.B));
         }
     }
 
@@ -523,8 +527,9 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
     {
         if (sender is Border b)
         {
-            b.Background = new SolidColorBrush(Color.FromArgb(0x20, 0x9B, 0x59, 0xB6));
-            b.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0x9B, 0x59, 0xB6));
+            var accent = GetAccentColor();
+            b.Background = new SolidColorBrush(Color.FromArgb(0x20, accent.R, accent.G, accent.B));
+            b.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, accent.R, accent.G, accent.B));
         }
     }
 
@@ -813,8 +818,9 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
     {
         if (sender is Border border && border.IsHitTestVisible)
         {
+            var accent = GetAccentColor();
             border.Background = new SolidColorBrush(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF));
-            border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0x69, 0xB4));
+            border.BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, accent.R, accent.G, accent.B));
         }
     }
 
@@ -894,6 +900,24 @@ IOPath.Combine(soundsPath, "result.mp3");
     private static void TriggerRandomEffect()
     {
         // TODO: wire up Flash/Bubbles/Subliminal/MindWipe services once ported.
+    }
+
+    private static Color GetAccentColor()
+    {
+        if (Application.Current?.TryFindResource("PinkColor", out var res) == true && res is Color c)
+            return c;
+        return Color.Parse("#FF69B4");
+    }
+
+    private void ApplyTitleShadow()
+    {
+        if (TitleBorder == null) return;
+        var accent = GetAccentColor();
+        TitleBorder.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            OffsetX = 0, OffsetY = 0, Blur = 30, Spread = 0,
+            Color = Color.FromArgb(0x60, accent.R, accent.G, accent.B)
+        });
     }
 
     public static void ForceCloseAll()

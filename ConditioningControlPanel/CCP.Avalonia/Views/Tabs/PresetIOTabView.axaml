@@ -21,13 +21,13 @@
               Margin="0,0,0,16">
         <Border.Background>
           <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Offset="0" Color="#1A1A2E" />
+            <GradientStop Offset="0" Color="{DynamicResource PanelBg}" />
             <GradientStop Offset="1" Color="#4A2C6A" />
           </LinearGradientBrush>
         </Border.Background>
         <Grid>
           <Border Opacity="0.12"
-                  Background="White"
+                  Background="{DynamicResource TextLightBrush}"
                   Width="260"
                   Height="260"
                   CornerRadius="130"
@@ -38,7 +38,7 @@
             <TextBlock Text="{loc:Str tab_preset_i_o_banner_title}"
                        FontSize="28"
                        FontWeight="Bold"
-                       Foreground="White" />
+                       Foreground="{DynamicResource TextLightBrush}" />
             <TextBlock Text="{loc:Str tab_preset_i_o_banner_subtitle}"
                        FontSize="14"
                        Foreground="{DynamicResource TextMutedBrush}"
@@ -61,7 +61,7 @@
                      Text="{loc:Str tab_preset_i_o_presets_text}"
                      FontSize="16"
                      FontWeight="Bold"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      Margin="0,0,0,12" />
           <ListBox Grid.Row="1"
                    x:Name="PresetsListBox"
@@ -79,7 +79,7 @@
                   <StackPanel Spacing="4">
                     <TextBlock Text="{Binding Name}"
                                FontWeight="SemiBold"
-                               Foreground="White" />
+                               Foreground="{DynamicResource TextLightBrush}" />
                     <TextBlock Text="{Binding Description}"
                                Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap" />

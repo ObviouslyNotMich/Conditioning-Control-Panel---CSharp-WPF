@@ -1,13 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.FlashFeatureControl"
+             x:DataType="{x:Type local:FlashFeatureControl}"
              Design.DataContext="{x:Null}">
 
   <StackPanel>
     <!-- Master enable -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
@@ -16,11 +18,11 @@
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str feature_flash_images}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="14"
                      FontWeight="SemiBold" />
           <TextBlock Text="{loc:Str tooltip_feature_flash_images}"
-                     Foreground="#AAAAAA"
+                     Foreground="{DynamicResource TextDimBrush}"
                      FontSize="11"
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
@@ -33,8 +35,8 @@
     </Border>
 
     <!-- Frequency / per hour -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -42,13 +44,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_per_hour}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtFrequency"
                      Text="10"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -61,8 +63,8 @@
     </Border>
 
     <!-- Images per flash -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -70,13 +72,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_images_per_flash}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtImages"
                      Text="5"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -89,8 +91,8 @@
     </Border>
 
     <!-- Max on screen -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,14"
@@ -98,13 +100,13 @@
       <StackPanel>
         <Grid Margin="0,0,0,6">
           <TextBlock Text="{loc:Str label_max_on_screen}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
           <TextBlock x:Name="TxtMaxOnScreen"
                      Text="20"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="13"
                      FontWeight="SemiBold" />
         </Grid>
@@ -117,8 +119,8 @@
     </Border>
 
     <!-- Toggle grid -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12">
@@ -127,11 +129,11 @@
           <StackPanel Grid.Column="0"
                       VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_click_to_dismiss}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_click_to_dismiss}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -145,11 +147,11 @@
           <StackPanel Grid.Column="0"
                       VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_hydra_mode}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_hydra_mode}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -163,11 +165,11 @@
           <StackPanel Grid.Column="0"
                       VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_linked_hydra_timing}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_linked_hydra_timing}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -181,11 +183,11 @@
           <StackPanel Grid.Column="0"
                       VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_pink_glow}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_pink_glow}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -199,15 +201,15 @@
     </Border>
 
     <!-- Gaze interaction toggles (Phase 3) -->
-    <Border Background="#1A1A2E"
-            BorderBrush="#FF69B4"
+    <Border Background="{DynamicResource PanelBgBrush}"
+            BorderBrush="{DynamicResource PinkBrush}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="16,12"
             Margin="0,10,0,0">
       <StackPanel>
         <TextBlock Text="{loc:Str section_gaze_interaction}"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="13"
                    FontWeight="SemiBold"
                    Margin="0,0,0,8" />
@@ -216,11 +218,11 @@
           <StackPanel Grid.Column="0"
                       VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_stare_to_pop}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_stare_to_pop}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -235,11 +237,11 @@
           <StackPanel Grid.Column="0"
                       VerticalAlignment="Center">
             <TextBlock Text="{loc:Str label_stare_to_keep}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontSize="13"
                        FontWeight="SemiBold" />
             <TextBlock Text="{loc:Str tooltip_stare_to_keep}"
-                       Foreground="#AAAAAA"
+                       Foreground="{DynamicResource TextDimBrush}"
                        FontSize="11"
                        TextWrapping="Wrap"
                        Margin="0,2,0,0" />
@@ -252,12 +254,12 @@
 
         <Grid Margin="0,4,0,2">
           <TextBlock Text="{loc:Str label_linger_boost}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="12" />
           <TextBlock x:Name="TxtFlashLingerMs"
                      Text="1500 ms"
                      HorizontalAlignment="Right"
-                     Foreground="#FF69B4"
+                     Foreground="{DynamicResource PinkBrush}"
                      FontSize="12"
                      FontWeight="SemiBold" />
         </Grid>

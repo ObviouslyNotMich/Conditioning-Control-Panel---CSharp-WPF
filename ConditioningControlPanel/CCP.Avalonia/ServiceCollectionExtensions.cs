@@ -17,6 +17,7 @@ using ConditioningControlPanel.Avalonia.Services.Logging;
 using ConditioningControlPanel.Avalonia.Services.MindWipe;
 using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Avalonia.Services.Subliminal;
+using ConditioningControlPanel.Avalonia.Services.Theme;
 using ConditioningControlPanel.Avalonia.Services.Webcam;
 using ConditioningControlPanel.Avalonia.Services.Sessions;
 using ConditioningControlPanel.Avalonia.Services.Mod;
@@ -141,6 +142,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISkillTreeService, AvaloniaSkillTreeService>();
         services.AddSingleton<IProgressionService, AvaloniaProgressionService>();
         services.AddSingleton<IModService, AvaloniaModService>();
+        services.AddSingleton<AvaloniaThemeService>();
         services.AddSingleton<IInteractionQueueService, AvaloniaInteractionQueueService>();
         services.AddSingleton<IBubbleCountService, AvaloniaBubbleCountService>();
         services.AddSingleton<IFlashService, AvaloniaFlashService>();

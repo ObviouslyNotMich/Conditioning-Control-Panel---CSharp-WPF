@@ -195,7 +195,7 @@ public partial class ChaosHubWindow
     #region lessons
 
     private static readonly Color LessonTrack = Color.FromRgb(0x2A, 0x26, 0x4C);
-    private static readonly Color LessonFillA = Color.FromRgb(0xE8, 0x43, 0x93);
+    private static readonly Color LessonFillA = AppColor("PinkColor", Colors.HotPink);
     private static readonly Color LessonFillB = Color.FromRgb(0x8B, 0x5C, 0xF6);
     private const double LESSON_BAR_WIDTH = 120;
     private const double LESSON_BAR_HEIGHT = 7;
@@ -372,8 +372,8 @@ public partial class ChaosHubWindow
     private static TextBox DbgBox(string text, double width) => new()
     {
         Text = text, Width = width, FontSize = 11,
-        Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
-        Foreground = Brushes.White,
+        Background = new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
+        Foreground = AppBrush("TextLightBrush", AppBrush("TextLightBrush", _whiteFallback)),
         BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xE8, 0xB4, 0x43)),
         VerticalContentAlignment = VerticalAlignment.Center,
         Margin = new Thickness(0, 0, 4, 0), Padding = new Thickness(4, 2, 4, 2),
@@ -386,7 +386,7 @@ public partial class ChaosHubWindow
             Content = text, FontSize = 11,
             Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(0, 0, 8, 0),
             Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
-            Foreground = Brushes.White, BorderThickness = new Thickness(0),
+            Foreground = AppBrush("TextLightBrush", AppBrush("TextLightBrush", _whiteFallback)), BorderThickness = new Thickness(0),
             Cursor = new Cursor(StandardCursorType.Hand),
         };
         b.Click += onClick;
@@ -402,7 +402,7 @@ public partial class ChaosHubWindow
         ChaosBranch.Control => Color.FromRgb(0x49, 0xB6, 0xE8),
         ChaosBranch.Greed => Color.FromRgb(0xE8, 0xB4, 0x43),
         ChaosBranch.Depth => Color.FromRgb(0x8B, 0x5C, 0xF6),
-        _ => Color.FromRgb(0xE8, 0x43, 0x93)
+        _ => AppColor("PinkColor", Colors.HotPink)
     };
 
     private static string BranchLabel(ChaosBranch b) => b switch
@@ -449,17 +449,17 @@ public partial class ChaosHubWindow
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         mid.Children.Add(new TextBlock
         {
-            Text = u.Name, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeight.SemiBold,
+            Text = u.Name, Foreground = AppBrush("TextLightBrush", AppBrush("TextLightBrush", _whiteFallback)), FontSize = 12, FontWeight = FontWeight.SemiBold,
         });
         mid.Children.Add(new TextBlock
         {
-            Text = u.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)),
+            Text = u.Desc, Foreground = AppBrush("TextDimBrush", new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8))),
             FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
         });
         if (!string.IsNullOrEmpty(u.Flavor))
             mid.Children.Add(new TextBlock
             {
-                Text = u.Flavor, Foreground = new SolidColorBrush(Color.FromArgb(0xAA, 0xB0, 0xB0, 0xC8)),
+                Text = u.Flavor, Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromArgb(0xAA, 0xB0, 0xB0, 0xC8))),
                 FontSize = 10.5, FontStyle = FontStyle.Italic, TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 2, 0, 0),
             });
@@ -474,8 +474,8 @@ public partial class ChaosHubWindow
                 Content = on ? "on ✓" : "off",
                 Tag = u.Id,
                 Padding = new Thickness(12, 6, 12, 6),
-                Background = on ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                Foreground = on ? Brushes.Black : Brushes.White,
+                Background = on ? new SolidColorBrush(accent) : AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
+                Foreground = on ? Brushes.Black : AppBrush("TextLightBrush", _whiteFallback),
                 BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
                 Cursor = new Cursor(StandardCursorType.Hand),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -498,8 +498,8 @@ public partial class ChaosHubWindow
                 Content = $"train ✦{u.Cost:N0}",
                 Tag = u.Id,
                 Padding = new Thickness(12, 6, 12, 6),
-                Background = canBuy ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                Foreground = canBuy ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+                Background = canBuy ? new SolidColorBrush(accent) : AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
+                Foreground = canBuy ? Brushes.Black : AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0))),
                 BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
                 Cursor = canBuy ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
                 IsEnabled = canBuy, VerticalAlignment = VerticalAlignment.Center,
@@ -514,7 +514,7 @@ public partial class ChaosHubWindow
         var card = new Border
         {
             Child = grid,
-            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            Background = new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
             BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(owned ? 70 : 45), accent.R, accent.G, accent.B)),
             BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 6),
@@ -605,7 +605,7 @@ public partial class ChaosHubWindow
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
         titleRow.Children.Add(new TextBlock
         {
-            Text = b.Name, Foreground = Brushes.White, FontSize = 13, FontWeight = FontWeight.SemiBold,
+            Text = b.Name, Foreground = AppBrush("TextLightBrush", AppBrush("TextLightBrush", _whiteFallback)), FontSize = 13, FontWeight = FontWeight.SemiBold,
         });
         if (unlocked && b.MaxLevel > 1)
             titleRow.Children.Add(new TextBlock
@@ -616,13 +616,13 @@ public partial class ChaosHubWindow
         mid.Children.Add(titleRow);
         mid.Children.Add(new TextBlock
         {
-            Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)),
+            Text = b.Desc, Foreground = AppBrush("TextDimBrush", new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8))),
             FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
         });
         if (!string.IsNullOrEmpty(b.Flavor))
             mid.Children.Add(new TextBlock
             {
-                Text = b.Flavor, Foreground = new SolidColorBrush(Color.FromArgb(0xAA, 0xB0, 0xB0, 0xC8)),
+                Text = b.Flavor, Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromArgb(0xAA, 0xB0, 0xB0, 0xC8))),
                 FontSize = 10.5, FontStyle = FontStyle.Italic, TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 2, 0, 0),
             });
@@ -650,8 +650,8 @@ public partial class ChaosHubWindow
                 Content = $"unlock ✦{b.UnlockCost:N0}",
                 Tag = b.Id,
                 Padding = new Thickness(12, 6, 12, 6),
-                Background = canUnlock ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                Foreground = canUnlock ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+                Background = canUnlock ? new SolidColorBrush(accent) : AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
+                Foreground = canUnlock ? Brushes.Black : AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0))),
                 BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
                 Cursor = canUnlock ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
                 IsEnabled = canUnlock, VerticalAlignment = VerticalAlignment.Center,
@@ -667,8 +667,8 @@ public partial class ChaosHubWindow
                 Content = "deepen",
                 Tag = b.Id,
                 Padding = new Thickness(12, 6, 12, 6),
-                Background = canUpgrade ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                Foreground = canUpgrade ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+                Background = canUpgrade ? new SolidColorBrush(accent) : AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
+                Foreground = canUpgrade ? Brushes.Black : AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0))),
                 BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
                 Cursor = canUpgrade ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
                 IsEnabled = canUpgrade, VerticalAlignment = VerticalAlignment.Center,
@@ -685,8 +685,8 @@ public partial class ChaosHubWindow
                 Content = active ? "unequip" : "equip",
                 Tag = b.Id,
                 Padding = new Thickness(12, 6, 12, 6),
-                Background = active ? new SolidColorBrush(accent) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                Foreground = active ? Brushes.Black : Brushes.White,
+                Background = active ? new SolidColorBrush(accent) : AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
+                Foreground = active ? Brushes.Black : AppBrush("TextLightBrush", _whiteFallback),
                 BorderThickness = new Thickness(0), FontSize = 11, FontWeight = FontWeight.Bold,
                 Cursor = canEquip ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Arrow),
                 IsEnabled = canEquip, VerticalAlignment = VerticalAlignment.Center,
@@ -701,7 +701,7 @@ public partial class ChaosHubWindow
         var card = new Border
         {
             Child = grid,
-            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            Background = new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
             BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(unlocked ? 70 : 45), accent.R, accent.G, accent.B)),
             BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 6),
@@ -719,8 +719,8 @@ public partial class ChaosHubWindow
             Tag = id,
             Padding = new Thickness(20, 10, 20, 10),
             HorizontalAlignment = HorizontalAlignment.Right,
-            Background = afford ? new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-            Foreground = afford ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+            Background = afford ? new SolidColorBrush(AppColor("PinkColor", Colors.HotPink)) : AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
+            Foreground = afford ? AppBrush("TextLightBrush", _whiteFallback) : AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0))),
             BorderThickness = new Thickness(0),
             FontSize = 13,
             FontWeight = FontWeight.Bold,
@@ -873,7 +873,7 @@ public partial class ChaosHubWindow
             {
                 ChaosBoonCategory.Skill => Color.FromRgb(0x7A, 0xFF, 0xD2),
                 ChaosBoonCategory.Accessory => Color.FromRgb(0xFF, 0xD2, 0x7A),
-                _ => Color.FromRgb(0xE8, 0x43, 0x93),
+                _ => AppColor("PinkColor", Colors.HotPink),
             };
             Action? onClick = unlocked ? () => ToggleEquip(b.Id) : null;
             host.Children.Add(LoadoutTile(b.Glyph, b.Name, b.Desc, "", accent, state, onClick,
@@ -909,14 +909,14 @@ public partial class ChaosHubWindow
             {
                 TileState.Equipped => new SolidColorBrush(Color.FromArgb(80, accent.R, accent.G, accent.B)),
                 TileState.Owned => new SolidColorBrush(Color.FromArgb(45, accent.R, accent.G, accent.B)),
-                TileState.Locked => new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+                TileState.Locked => new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
                 _ => Brushes.Transparent,
             },
             Child = new TextBlock
             {
                 Text = glyph,
                 FontSize = size >= 114 ? 46 : 36,
-                Foreground = Brushes.White,
+                Foreground = AppBrush("TextLightBrush", AppBrush("TextLightBrush", _whiteFallback)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             }
@@ -933,7 +933,7 @@ public partial class ChaosHubWindow
         {
             Text = caption ?? (state is TileState.Locked or TileState.Empty ? "???" : title.Split(" · ")[0]),
             FontSize = 12,
-            Foreground = state == TileState.Equipped ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : Brushes.White,
+            Foreground = state == TileState.Equipped ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : AppBrush("TextLightBrush", _whiteFallback),
             TextAlignment = TextAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = size + 36,
@@ -975,11 +975,11 @@ public partial class ChaosHubWindow
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 280 };
         mid.Children.Add(new TextBlock
         {
-            Text = b.Name, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeight.SemiBold,
+            Text = b.Name, Foreground = AppBrush("TextLightBrush", AppBrush("TextLightBrush", _whiteFallback)), FontSize = 12, FontWeight = FontWeight.SemiBold,
         });
         mid.Children.Add(new TextBlock
         {
-            Text = b.Desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)),
+            Text = b.Desc, Foreground = AppBrush("TextDimBrush", new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8))),
             FontSize = 11, TextWrapping = TextWrapping.Wrap,
         });
         row.Children.Add(mid);
@@ -987,7 +987,7 @@ public partial class ChaosHubWindow
         var card = new Border
         {
             Child = row,
-            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            Background = new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
             BorderBrush = new SolidColorBrush(Color.FromArgb(45, accent.R, accent.G, accent.B)),
             BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 6),
@@ -1038,7 +1038,7 @@ public partial class ChaosHubWindow
         host.Children.Add(new TextBlock
         {
             Text = "DIARY · what you've met down there",
-            Foreground = new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)),
+            Foreground = new SolidColorBrush(AppColor("PinkColor", Colors.HotPink)),
             FontFamily = new FontFamily("Consolas"), FontWeight = FontWeight.Bold, FontSize = 13,
             Margin = new Thickness(0, 0, 0, 12)
         });
@@ -1081,7 +1081,7 @@ public partial class ChaosHubWindow
 
     private TextBlock SubHeader(string text) => new()
     {
-        Text = text, Foreground = new SolidColorBrush(Color.FromRgb(0xE8, 0x43, 0x93)),
+        Text = text, Foreground = new SolidColorBrush(AppColor("PinkColor", Colors.HotPink)),
         FontFamily = new FontFamily("Consolas"), FontWeight = FontWeight.Bold, FontSize = 11,
         Margin = new Thickness(0, 12, 0, 6)
     };
@@ -1099,13 +1099,13 @@ public partial class ChaosHubWindow
             Child = new TextBlock { Text = glyph, Foreground = new SolidColorBrush(accent), FontSize = 17, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
         });
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = maxWidth };
-        mid.Children.Add(new TextBlock { Text = name, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeight.SemiBold });
-        mid.Children.Add(new TextBlock { Text = desc, Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
+        mid.Children.Add(new TextBlock { Text = name, Foreground = AppBrush("TextLightBrush", AppBrush("TextLightBrush", _whiteFallback)), FontSize = 12, FontWeight = FontWeight.SemiBold });
+        mid.Children.Add(new TextBlock { Text = desc, Foreground = AppBrush("TextDimBrush", new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8))), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
         row.Children.Add(mid);
         return new Border
         {
             Child = row,
-            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            Background = new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
             BorderBrush = new SolidColorBrush(Color.FromArgb(55, accent.R, accent.G, accent.B)),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(8),
@@ -1135,14 +1135,14 @@ public partial class ChaosHubWindow
         row.Children.Add(icon);
 
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = maxWidth };
-        mid.Children.Add(new TextBlock { Text = seen ? name : "???", Foreground = seen ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90)), FontSize = 12, FontWeight = FontWeight.SemiBold });
-        mid.Children.Add(new TextBlock { Text = seen ? desc : "hazy. go back down and look closer.", Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8)), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
+        mid.Children.Add(new TextBlock { Text = seen ? name : "???", Foreground = seen ? AppBrush("TextLightBrush", _whiteFallback) : AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90))), FontSize = 12, FontWeight = FontWeight.SemiBold });
+        mid.Children.Add(new TextBlock { Text = seen ? desc : "hazy. go back down and look closer.", Foreground = AppBrush("TextDimBrush", new SolidColorBrush(Color.FromRgb(0xAA, 0xB8, 0xB8))), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) });
         row.Children.Add(mid);
 
         return new Border
         {
             Child = row,
-            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            Background = new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
             BorderBrush = new SolidColorBrush(Color.FromArgb(seen ? (byte)70 : (byte)25, accent.R, accent.G, accent.B)),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(8),
@@ -1254,13 +1254,13 @@ public partial class ChaosHubWindow
         mid.Children.Add(new TextBlock
         {
             Text = item.Label,
-            Foreground = owned ? Brushes.White : new SolidColorBrush(Color.FromRgb(0xC8, 0xC8, 0xE0)),
+            Foreground = owned ? AppBrush("TextLightBrush", _whiteFallback) : AppBrush("TextDimBrush", new SolidColorBrush(Color.FromRgb(0xC8, 0xC8, 0xE0))),
             FontSize = 12, FontWeight = FontWeight.SemiBold,
         });
         mid.Children.Add(new TextBlock
         {
             Text = item.Line,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x9A, 0x9A, 0xB8)),
+            Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x9A, 0x9A, 0xB8))),
             FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
         });
         Grid.SetColumn(mid, 1);
@@ -1294,8 +1294,8 @@ public partial class ChaosHubWindow
                 Content = $"buy  {ChaosGlyphs.Gold} {item.Cost:N0}",
                 Tag = item.Id,
                 Padding = new Thickness(14, 6, 14, 6),
-                Background = afford ? new SolidColorBrush(goldColor) : new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
-                Foreground = afford ? Brushes.Black : new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0)),
+                Background = afford ? new SolidColorBrush(goldColor) : AppBrush("TransparentWhiteBrush", new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))),
+                Foreground = afford ? Brushes.Black : AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x88, 0xA0, 0xA0))),
                 BorderThickness = new Thickness(0),
                 FontSize = 12, FontWeight = FontWeight.Bold,
                 Cursor = new Cursor(StandardCursorType.Hand),
@@ -1311,7 +1311,7 @@ public partial class ChaosHubWindow
         var card = new Border
         {
             Child = grid,
-            Background = new SolidColorBrush(Color.FromRgb(0x22, 0x1F, 0x40)),
+            Background = new SolidColorBrush(AppColor("ElevatedSurface", Color.FromRgb(0x22, 0x1F, 0x40))),
             BorderBrush = new SolidColorBrush(Color.FromArgb(owned ? (byte)70 : (byte)45, goldColor.R, goldColor.G, goldColor.B)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
@@ -1332,7 +1332,7 @@ public partial class ChaosHubWindow
         row.Children.Add(new TextBlock
         {
             Text = name,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90)),
+            Foreground = AppBrush("TextMutedBrush", new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x90))),
             FontSize = 12, VerticalAlignment = VerticalAlignment.Center,
         });
         var card = new Border

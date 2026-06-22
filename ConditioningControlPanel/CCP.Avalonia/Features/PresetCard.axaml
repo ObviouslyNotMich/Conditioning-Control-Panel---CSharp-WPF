@@ -1,13 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:local="clr-namespace:ConditioningControlPanel.Avalonia.Features;assembly=CCP.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
              x:Class="ConditioningControlPanel.Avalonia.Features.PresetCard"
              Cursor="Hand"
              Width="110"
-             Height="80">
+             Height="80"
+             x:DataType="{x:Type local:PresetCard}">
 
   <Border x:Name="RootBorder"
-          Background="#1A1A2E"
+          Background="{DynamicResource PanelBgBrush}"
           BorderBrush="{DynamicResource PanelAccentBrush}"
           BorderThickness="1"
           CornerRadius="8"
@@ -30,7 +32,7 @@
         <!-- Preset name -->
         <TextBlock x:Name="TxtTitle"
                    Text="{loc:Str label_preset}"
-                   Foreground="White"
+                   Foreground="{DynamicResource TextLightBrush}"
                    FontSize="11"
                    FontWeight="SemiBold"
                    TextWrapping="Wrap"
@@ -46,7 +48,7 @@
                 Background="{DynamicResource PanelAccentBrush}">
           <TextBlock x:Name="TxtBadge"
                      Text="{loc:Str preset_badge_default}"
-                     Foreground="White"
+                     Foreground="{DynamicResource TextLightBrush}"
                      FontSize="9"
                      FontWeight="Bold" />
         </Border>

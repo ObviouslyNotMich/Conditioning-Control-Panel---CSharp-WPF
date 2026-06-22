@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.DisplayNameDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.DisplayNameDialog" x:DataType="x:Object"
         Title="{Binding [dialog_choose_your_display_name], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="240"
         Width="450"
@@ -15,8 +15,8 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://CCP.Avalonia/Dialogs/DialogResources.axaml" />
       </ResourceDictionary.MergedDictionaries>
-      <SolidColorBrush x:Key="PinkBrush" Color="{DynamicResource Pink}" />
-      <SolidColorBrush x:Key="DarkPinkBrush" Color="#FF1493" />
+      <SolidColorBrush x:Key="PinkBrush" Color="{DynamicResource PinkColor}" />
+      <SolidColorBrush x:Key="DarkPinkBrush" Color="{DynamicResource DarkPinkColor}" />
       <SolidColorBrush x:Key="WarningBrush" Color="#FFB347" />
     </ResourceDictionary>
   </Window.Resources>
@@ -61,7 +61,7 @@
       <TextBlock x:Name="TxtPrompt"
                  Grid.Row="2"
                  Text="{Binding [label_enter_the_name_you_d_like_to_be_called], Source={x:Static loc:LocalizationManager.Instance}}"
-                 Foreground="White"
+                 Foreground="{DynamicResource TextLightBrush}"
                  FontSize="13"
                  Margin="0,0,0,8" />
 

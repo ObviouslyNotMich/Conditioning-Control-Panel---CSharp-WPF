@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
-        x:Class="ConditioningControlPanel.Avalonia.Windows.WebcamGazeTrackerWindow"
+        x:Class="ConditioningControlPanel.Avalonia.Windows.WebcamGazeTrackerWindow" x:DataType="x:Object"
         Title="{loc:Str window_webcam_gaze_tracker_gaze_tracker_test_title}"
         Background="Black"
         WindowDecorations="None"
@@ -27,10 +27,10 @@
     </Canvas>
 
     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,40,0,0">
-      <TextBlock Text="{loc:Str window_webcam_gaze_tracker_gaze_tracker_test_title}" Foreground="White"
+      <TextBlock Text="{loc:Str window_webcam_gaze_tracker_gaze_tracker_test_title}" Foreground="{DynamicResource TextLightBrush}"
                  FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" />
       <TextBlock Text="{loc:Str window_webcam_gaze_tracker_look_around_screen_cyan_dot_should_text}"
-                 Foreground="#AAAAAA" FontSize="13" Margin="0,8,0,0" HorizontalAlignment="Center" />
+                 Foreground="{DynamicResource TextDimBrush}" FontSize="13" Margin="0,8,0,0" HorizontalAlignment="Center" />
       <TextBlock x:Name="TxtCoords" Text="" Foreground="#00B0FF" FontSize="12"
                  Margin="0,4,0,0" HorizontalAlignment="Center" FontFamily="Consolas" />
     </StackPanel>

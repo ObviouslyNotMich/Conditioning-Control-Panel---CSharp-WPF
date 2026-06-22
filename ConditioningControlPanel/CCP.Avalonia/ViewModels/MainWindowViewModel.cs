@@ -309,7 +309,7 @@ public partial class MainWindowViewModel : ObservableObject
     private double _xpFlashOpacity;
 
     [ObservableProperty]
-    private ObservableCollection<string> _bonusChips = new() { "+10% XP", "+5% XP", "VIP Bonus" };
+    private ObservableCollection<string> _bonusChips = new() { "+10% XP", "+5% XP" };
 
     [ObservableProperty]
     private string _displayName = "";
@@ -452,7 +452,8 @@ public partial class MainWindowViewModel : ObservableObject
 
         var visibleTabs = allTabs.Where(t => t.RequiredCapabilities.IsSupported(_platformCapabilities)).ToList();
         Tabs = new ObservableCollection<TabItemViewModel>(visibleTabs);
-        SelectedTab = Tabs.FirstOrDefault();
+        // Default to the Settings/Dashboard tab on startup (WPF parity).
+        SelectedTab = Tabs.FirstOrDefault(t => t.Key == "settings") ?? Tabs.FirstOrDefault();
     }
 
     /// <summary>
@@ -518,7 +519,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         var currentVersion = UpdateService.GetCurrentVersion().ToString(3);
         HeaderVersionText = $"v{currentVersion}";
-        UpdateButtonText = $"v{currentVersion}";
+        UpdateButtonText = Loc.Get($"btn_v{currentVersion.Replace(".", "_")}_is_out") ?? $"v{currentVersion}";
         Title = $"Conditioning Control Panel v{currentVersion}";
 
         SubscribeUpdateEvents();
@@ -1349,7 +1350,8 @@ public partial class MainWindowViewModel : ObservableObject
             totalMinutes = settings?.TotalConditioningMinutes ?? 0;
         }
 
-        var totalSeconds = (int)(totalMinutes * 60);
+        totalMinutes = double.IsFinite(totalMinutes) ? Math.Max(0, totalMinutes) : 0;
+        var totalSeconds = (long)(totalMinutes * 60);
         var hours = totalSeconds / 3600;
         var minutes = (totalSeconds % 3600) / 60;
         var seconds = totalSeconds % 60;
@@ -1570,7 +1572,7 @@ public partial class MainWindowViewModel : ObservableObject
             var update = await _updateService.CheckForUpdatesAsync(forceCheck: true);
             if (update == null || !update.IsNewer)
             {
-                UpdateButtonText = $"v{UpdateService.GetCurrentVersion():3}";
+                UpdateButtonText = GetVersionOutText();
                 await (_dialogService?.ShowMessageAsync(
                     Loc.Get("title_up_to_date"),
                     Loc.Get("msg_you_are_on_the_latest_version")) ?? Task.CompletedTask);
@@ -1580,8 +1582,14 @@ public partial class MainWindowViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger?.Error(ex, "Update check failed");
-            UpdateButtonText = $"v{UpdateService.GetCurrentVersion():3}";
+            UpdateButtonText = GetVersionOutText();
         }
+    }
+
+    private static string GetVersionOutText()
+    {
+        var currentVersion = UpdateService.GetCurrentVersion().ToString(3);
+        return Loc.Get($"btn_v{currentVersion.Replace(".", "_")}_is_out") ?? $"v{currentVersion}";
     }
 
     #endregion

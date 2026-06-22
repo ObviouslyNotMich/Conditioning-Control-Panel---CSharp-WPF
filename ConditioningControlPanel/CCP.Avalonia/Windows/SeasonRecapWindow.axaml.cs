@@ -1,9 +1,12 @@
-﻿using System;
+using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Controls;
 using ConditioningControlPanel.Avalonia.ViewModels;
@@ -16,11 +19,9 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 
 /// <summary>
 /// Avalonia port of the season-rollover surface. Wraps the recap card plus share
-/// actions and a "continue to next season" button.
-///
-/// Rendering to PNG/clipboard is WPF-only today; the share actions are stubbed
-/// with clear TODOs and surface a status message until a cross-platform export
-/// service is available.
+/// actions and a "continue to next season" button. Copy and save render the card
+/// to a PNG via Avalonia's <see cref="RenderTargetBitmap"/> and use the cross-platform
+/// <see cref="IClipboard"/> extension for the clipboard path.
 /// </summary>
 public partial class SeasonRecapWindow : Window
 {
@@ -58,18 +59,53 @@ _dialogService = App.Services.GetService<IDialogService>();
     }
 
     // ---------- share actions ----------
-    private void OnCopy(object? sender, RoutedEventArgs e)
+    private async void OnCopy(object? sender, RoutedEventArgs e)
     {
-        // TODO: port CardExporter to Avalonia and copy the rendered PNG to the clipboard.
-        ShowStatus(Loc.Get("recap_toast_copied"));
-        _ = _dialogService?.ShowMessageAsync("Share", "Copy to clipboard is not yet implemented on Avalonia.");
+        using var bitmap = RenderCardToBitmap();
+        if (bitmap == null) return;
+
+        var clipboard = this.Clipboard;
+        if (clipboard != null)
+        {
+            await clipboard.SetBitmapAsync(bitmap);
+            ShowStatus(Loc.Get("recap_toast_copied"));
+        }
+        else
+        {
+            _ = _dialogService?.ShowMessageAsync(Loc.Get("recap_window_title"), Loc.Get("msg_clipboard_unavailable"));
+        }
     }
 
-    private void OnSave(object? sender, RoutedEventArgs e)
+    private async void OnSave(object? sender, RoutedEventArgs e)
     {
-        // TODO: port CardExporter to Avalonia and save the rendered PNG to disk.
-        ShowStatus(Loc.Get("recap_toast_saved"));
-        _ = _dialogService?.ShowMessageAsync("Share", "Save to pictures is not yet implemented on Avalonia.");
+        if (_dialogService == null) return;
+
+        var filters = new[]
+        {
+            new FileFilter("PNG Files", new[] { "png" })
+        };
+
+        var path = await _dialogService.ShowSaveFileDialogAsync(
+            Loc.Get("recap_toast_saved"),
+            filters,
+            "season-recap.png");
+
+        if (string.IsNullOrEmpty(path)) return;
+
+        using var bitmap = RenderCardToBitmap();
+        if (bitmap == null) return;
+
+        try
+        {
+            using var stream = File.Create(path);
+            bitmap.Save(stream);
+            ShowStatus(Loc.Get("recap_toast_saved"));
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "SeasonRecapWindow: failed to save PNG to {Path}", path);
+            _ = _dialogService.ShowMessageAsync(Loc.Get("recap_window_title"), string.Format(Loc.Get("msg_save_image_failed_fmt"), ex.Message));
+        }
     }
 
     private void OnShareX(object? sender, RoutedEventArgs e)
@@ -102,6 +138,21 @@ _dialogService = App.Services.GetService<IDialogService>();
             App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "SeasonRecapWindow: failed to open URL {Url}", url);
             return false;
 }
+    }
+
+    private RenderTargetBitmap? RenderCardToBitmap()
+    {
+        if (_card == null) return null;
+
+        _card.PrepareForStill();
+        const int width = 1040;
+        const int height = 585;
+        _card.Measure(new Size(width, height));
+        _card.Arrange(new Rect(0, 0, width, height));
+
+        var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
+        bitmap.Render(_card);
+        return bitmap;
     }
 
     private void ShowStatus(string message)

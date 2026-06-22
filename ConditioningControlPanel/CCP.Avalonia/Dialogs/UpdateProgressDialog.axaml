@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="using:ConditioningControlPanel.Core.Localization"
-        x:Class="ConditioningControlPanel.Avalonia.Dialogs.UpdateProgressDialog"
+        x:Class="ConditioningControlPanel.Avalonia.Dialogs.UpdateProgressDialog" x:DataType="x:Object"
         Title="{Binding [dialog_downloading_update], Source={x:Static loc:LocalizationManager.Instance}}"
         Height="150"
         Width="400"

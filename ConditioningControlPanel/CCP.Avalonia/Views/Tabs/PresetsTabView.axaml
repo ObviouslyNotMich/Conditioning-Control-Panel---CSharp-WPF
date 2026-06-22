@@ -114,8 +114,7 @@
                                          IsCustom="{Binding IsCustom}"
                                          IsSelected="{Binding IsSelected}"
                                          FeatureStats="{Binding Converter={StaticResource PresetToFeatureStatsConverter}}"
-                                         ClickCommand="{Binding DataContext.SelectPresetCommand, ElementName=Root}"
-                                         CommandParameter="{Binding}" />
+                                         Click="PresetCard_Click" />
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
@@ -186,7 +185,7 @@
                   <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Spacing="4">
                       <TextBlock Text="{Binding LocalizedName}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  FontWeight="SemiBold"
                                  FontSize="14" />
 
@@ -195,7 +194,7 @@
                                 CornerRadius="3"
                                 Padding="6,2">
                           <TextBlock Text="{Binding DurationText}"
-                                     Foreground="White"
+                                     Foreground="{DynamicResource TextLightBrush}"
                                      FontSize="9"
                                      FontWeight="Bold" />
                         </Border>
@@ -232,13 +231,13 @@
                       <Button Content="✏"
                               ToolTip.Tip="{Binding [tooltip_edit_session], Source={x:Static loc:LocalizationManager.Instance}}"
                               Theme="{StaticResource SessionActionButtonTheme}"
-                              Command="{Binding DataContext.EditSessionCommand, ElementName=Root}"
-                              CommandParameter="{Binding}" />
+                              Click="EditSessionButton_Click"
+                              Tag="{Binding}" />
                       <Button Content="📤"
                               ToolTip.Tip="{Binding [tooltip_export_session], Source={x:Static loc:LocalizationManager.Instance}}"
                               Theme="{StaticResource SessionActionButtonTheme}"
-                              Command="{Binding DataContext.ExportSessionCommand, ElementName=Root}"
-                              CommandParameter="{Binding}" />
+                              Click="ExportSessionButton_Click"
+                              Tag="{Binding}" />
                     </StackPanel>
                   </Grid>
                 </Border>
@@ -354,7 +353,7 @@
                       IsVisible="{Binding IsPresetDetailVisible}">
           <StackPanel Spacing="8">
             <TextBlock Text="{Binding [section_flash_images], Source={x:Static loc:LocalizationManager.Instance}}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontWeight="SemiBold"
                        FontSize="13" />
             <TextBlock Text="{Binding PresetDetailFlash}"
@@ -362,7 +361,7 @@
                        FontSize="11" />
 
             <TextBlock Text="{Binding [label_mandatory_videos], Source={x:Static loc:LocalizationManager.Instance}}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontWeight="SemiBold"
                        FontSize="13" />
             <TextBlock Text="{Binding PresetDetailVideo}"
@@ -370,7 +369,7 @@
                        FontSize="11" />
 
             <TextBlock Text="{Binding [section_subliminals_2], Source={x:Static loc:LocalizationManager.Instance}}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontWeight="SemiBold"
                        FontSize="13" />
             <TextBlock Text="{Binding PresetDetailSubliminal}"
@@ -378,7 +377,7 @@
                        FontSize="11" />
 
             <TextBlock Text="{Binding [section_audio], Source={x:Static loc:LocalizationManager.Instance}}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontWeight="SemiBold"
                        FontSize="13" />
             <TextBlock Text="{Binding PresetDetailAudio}"
@@ -386,7 +385,7 @@
                        FontSize="11" />
 
             <TextBlock Text="{Binding [label_overlays], Source={x:Static loc:LocalizationManager.Instance}}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontWeight="SemiBold"
                        FontSize="13" />
             <TextBlock Text="{Binding PresetDetailOverlays}"
@@ -394,7 +393,7 @@
                        FontSize="11" />
 
             <TextBlock Text="{Binding [label_advanced], Source={x:Static loc:LocalizationManager.Instance}}"
-                       Foreground="White"
+                       Foreground="{DynamicResource TextLightBrush}"
                        FontWeight="SemiBold"
                        FontSize="13" />
             <TextBlock Text="{Binding PresetDetailAdvanced}"
@@ -418,7 +417,7 @@
                              FontSize="10"
                              HorizontalAlignment="Center" />
                   <TextBlock Text="{Binding SessionDurationText}"
-                             Foreground="White"
+                             Foreground="{DynamicResource TextLightBrush}"
                              FontSize="14"
                              FontWeight="Bold"
                              HorizontalAlignment="Center"
@@ -456,7 +455,7 @@
                        LineHeight="20" />
 
             <!-- Corner GIF options -->
-            <Border Background="#252540"
+            <Border Background="{DynamicResource ElevatedSurfaceBrush}"
                     CornerRadius="6"
                     Padding="10"
                     IsVisible="{Binding SessionHasCornerGif}">
@@ -487,26 +486,26 @@
                              FontSize="10" />
                   <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
                     <RadioButton Content="{Binding [btn_top_left], Source={x:Static loc:LocalizationManager.Instance}}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  GroupName="CornerPos"
                                  FontSize="10"
                                  IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=TopLeft, Mode=TwoWay}" />
                     <RadioButton Grid.Column="1"
                                  Content="{Binding [btn_top_right], Source={x:Static loc:LocalizationManager.Instance}}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  GroupName="CornerPos"
                                  FontSize="10"
                                  IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=TopRight, Mode=TwoWay}" />
                     <RadioButton Grid.Row="1"
                                  Content="{Binding [btn_bottom_left], Source={x:Static loc:LocalizationManager.Instance}}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  GroupName="CornerPos"
                                  FontSize="10"
                                  IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=BottomLeft, Mode=TwoWay}" />
                     <RadioButton Grid.Row="1"
                                  Grid.Column="1"
                                  Content="{Binding [btn_bottom_right], Source={x:Static loc:LocalizationManager.Instance}}"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource TextLightBrush}"
                                  GroupName="CornerPos"
                                  FontSize="10"
                                  IsChecked="{Binding CornerGifPosition, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=BottomRight, Mode=TwoWay}" />
@@ -580,14 +579,14 @@
                       Padding="10"
                       Margin="0,0,0,12">
                 <TextBlock Text="{Binding [label_spoilers_below], Source={x:Static loc:LocalizationManager.Instance}}"
-                           Foreground="#FF6B6B"
+                           Foreground="{DynamicResource DangerBrush}"
                            FontSize="12"
                            FontWeight="Bold"
                            HorizontalAlignment="Center" />
               </Border>
 
               <TextBlock Text="{Binding [section_flash_images], Source={x:Static loc:LocalizationManager.Instance}}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontWeight="SemiBold"
                          FontSize="12"
                          Margin="0,0,0,3" />
@@ -598,7 +597,7 @@
                          Margin="0,0,0,10" />
 
               <TextBlock Text="{Binding [section_subliminals_2], Source={x:Static loc:LocalizationManager.Instance}}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontWeight="SemiBold"
                          FontSize="12"
                          Margin="0,0,0,3" />
@@ -608,7 +607,7 @@
                          Margin="0,0,0,10" />
 
               <TextBlock Text="{Binding [section_audio], Source={x:Static loc:LocalizationManager.Instance}}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontWeight="SemiBold"
                          FontSize="12"
                          Margin="0,0,0,3" />
@@ -618,7 +617,7 @@
                          Margin="0,0,0,10" />
 
               <TextBlock Text="{Binding [label_overlays], Source={x:Static loc:LocalizationManager.Instance}}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontWeight="SemiBold"
                          FontSize="12"
                          Margin="0,0,0,3" />
@@ -629,7 +628,7 @@
                          Margin="0,0,0,10" />
 
               <TextBlock Text="{Binding [label_extras], Source={x:Static loc:LocalizationManager.Instance}}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontWeight="SemiBold"
                          FontSize="12"
                          Margin="0,0,0,3" />
@@ -640,7 +639,7 @@
                          Margin="0,0,0,10" />
 
               <TextBlock Text="{Binding [label_timeline], Source={x:Static loc:LocalizationManager.Instance}}"
-                         Foreground="White"
+                         Foreground="{DynamicResource TextLightBrush}"
                          FontWeight="SemiBold"
                          FontSize="12"
                          Margin="0,0,0,3" />
