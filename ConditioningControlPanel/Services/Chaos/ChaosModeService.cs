@@ -31,7 +31,7 @@ public sealed class ChaosModeService
     /// story support was added. Flip to <c>true</c> once real story content exists to bring Story
     /// mode + the Madam back. (Reversible single switch — no other code needs to change.)
     /// static readonly (not const) so the guards don't fold to unreachable-code warnings.</summary>
-    public static readonly bool StoryModeEnabled = false;
+    public static readonly bool StoryModeEnabled = true;
 
     /// <summary>The play mode chosen on the Lab card. The pick moved here from the in-hub picker, so
     /// this is the single source of truth that <see cref="StartRun"/> reads. Defaults to Free Desktop
