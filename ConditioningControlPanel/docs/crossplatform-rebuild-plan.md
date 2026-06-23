@@ -46,6 +46,15 @@ remaining hard-coded dialogs) plus mobile polish — not scaffolding.
 > degradation is on Linux/macOS/Android where a feature is inherently platform-limited (global hooks, wallpaper,
 > etc.) — gate those per §6/§7; **never** degrade on the Windows parity target.
 
+> **Performance is the prime directive — lightweight & fast on the lowest-end systems.** The *biggest* reason for
+> this rebuild was to make CCP lighter and faster: Avalonia v12 + its Skia/LibVLC media stack was chosen
+> specifically so the app runs **smoothly on low-end / older machines**. So a low CPU/GPU/RAM footprint and zero lag
+> are a **hard requirement equal in weight to functional parity**, not a nice-to-have — optimize for the weakest
+> target machine, not the dev box. A port that is heavier, laggier, or needs more horsepower than WPF is a **defect
+> even if it "works."** Levers: §14.2 (Skia composition, async startup, off-UI-thread decode, surface/audio pooling,
+> gating concurrent effects), the §13.4 perf gate, and **§14.4 (actively hunt the web for faster solutions / adopt
+> faster libraries — a standing behavior, not just when stuck)**.
+
 > **Build principle — lazy senior dev / YAGNI ("ponytail"):** build the *simplest thing that works*. Framework and
 > stdlib first, no unrequested abstractions, delete over add, shortest working diff. **A platform seam earns its
 > place only when there's a real cross-platform divergence with a real implementation behind it — never a one-line
@@ -981,7 +990,9 @@ Every phase must end with a **build checkpoint** and a **test checkpoint**. The 
 - **Performance gate:** startup time, working-set memory, and effect/animation frame rates must **match or beat**
   the WPF baseline — never regress (the bar is 1:1-or-better, §1A). Capture the WPF baseline first (§13.3 Phase 0),
   then hold each ported feature to it; treat a regression as a defect, and prefer beating it via the §14.2 levers
-  (Skia composition, async startup, overlay/audio pooling, off-UI-thread decode).
+  (Skia composition, async startup, overlay/audio pooling, off-UI-thread decode) or §14.4 (actively research / adopt
+  a faster library — a default behavior, not just when a path is heavy). The bar is **low-end-machine smoothness**,
+  not just dev-box FPS.
 - **Accessibility gate:** keyboard navigation and screen-reader labels for every new view.
 
 ### 13.5 Visual Parity Verification (reference screenshots)
@@ -1119,6 +1130,27 @@ The rebuild is not just a port. It must leave the codebase faster, more stable, 
 - **Configuration:** move hard-coded paths and constants to `appsettings.json` + options pattern.
 - **Logging:** keep Serilog but add structured logging with correlation IDs across async operations.
 - **Feature flags:** gate experimental/Windows-only features so they can be toggled per platform or user.
+
+### 14.4 Research & Library Adoption (actively hunt for faster solutions)
+
+**Actively seeking the fastest/lightest approach is a standing behavior, not a last resort.** For *every* feature —
+even one that already works — ask "is there a faster or lighter way?" and **research the web** to find out *before*
+settling on a first cut, and again whenever a path feels laggy or heavy. The implementer is **not limited to prior
+knowledge**: default to checking the idiomatic, modern, performant Avalonia v12 way — Avalonia docs (§23 verified
+links), LibVLCSharp, SkiaSharp, GitHub issues/discussions, release notes, benchmarks, blog posts. Don't ship a slow
+hand-rolled path when a clean fast one is documented.
+
+**Actively look for, and adopt, new libraries that make the app faster or lighter** (lower CPU/GPU/RAM, less lag) or
+that replace a heavy/fragile hand-rolled path — this is encouraged and expected. It is consistent with the perf prime
+directive (§1A) and is not a ponytail violation: ponytail forbids *needless* abstraction, not *useful* dependencies.
+Guardrails:
+
+- The lib must **earn its weight** — adopt one to remove a slow/fragile path or measurably cut the footprint, not to
+  save a few lines (that stays stdlib/framework per §3.3).
+- Prefer **well-maintained, cross-platform, permissively-licensed, actively-released** packages; **pin** the version.
+- Keep the total dependency set lean; **never regress Windows behavior** or bloat startup/working-set.
+- Record each new/changed dependency **and the reason** (what it speeds up or replaces, with a before/after number
+  where measurable) in the task board, so the swarm doesn't add overlapping deps.
 
 ---
 

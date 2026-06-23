@@ -16,6 +16,7 @@ using ConditioningControlPanel.Core.Platform;
 using Microsoft.Extensions.DependencyInjection;
 using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Settings;
+using LibVLCSharp.Shared;
 
 namespace ConditioningControlPanel.Avalonia.Services.Overlays;
 
@@ -29,6 +30,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
     private readonly ISettingsService _settings;
     private readonly IScreenProvider _screens;
     private readonly IAppEnvironment _environment;
+    private readonly LibVLC _libVlc;
     private readonly ILogger<AvaloniaOverlayService>? _logger;
     private readonly object _sync = new();
     private readonly List<OverlayWindow> _pinkFilterWindows = new();
@@ -54,11 +56,13 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         ISettingsService settings,
         IScreenProvider screens,
         IAppEnvironment environment,
+        LibVLC libVlc,
         ILogger<AvaloniaOverlayService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
+        _libVlc = libVlc ?? throw new ArgumentNullException(nameof(libVlc));
         _logger = logger;
         _updateTimer.Tick += UpdateOverlays;
         _brainDrainPulseTimer.Tick += BrainDrainPulseTick;
@@ -528,7 +532,9 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         var screens = GetScreens();
         foreach (var screen in screens)
         {
-            var window = new SpiralOverlayWindow(screen, cache, opacityPercent);
+            var window = cache.Kind == SpiralCacheKind.Video
+                ? new SpiralOverlayWindow(screen, _libVlc, path, opacityPercent)
+                : new SpiralOverlayWindow(screen, cache, opacityPercent);
             window.Show();
             ApplyWindowStyles(window);
             lock (_sync) { _spiralWindows.Add(window); }
@@ -659,8 +665,10 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 
             if (IsVideoExtension(path))
             {
-                _logger?.LogDebug("AvaloniaOverlayService: video spirals are not yet supported ({Path}); skipping", path);
-                return null;
+                // Video spirals are created per-window in StartSpiral because a LibVLC player
+                // cannot be shared across multiple transparent overlay windows.
+                _spiralCache = new SpiralCache(path, SpiralCacheKind.Video, null, null, null);
+                return _spiralCache;
             }
 
             return null;
@@ -889,8 +897,9 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 
     private sealed class SpiralOverlayWindow : Window
     {
-        private readonly Image _image;
+        private readonly Image? _image;
         private readonly AvaloniaAnimatedGif? _animation;
+        private readonly AvaloniaInlineLoopVideo? _video;
 
         public SpiralOverlayWindow(ScreenInfo screen, SpiralCache cache, int opacityPercent)
         {
@@ -927,9 +936,31 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             Opened += OnOpened;
         }
 
+        public SpiralOverlayWindow(ScreenInfo screen, LibVLC libVlc, string videoPath, int opacityPercent)
+        {
+            WindowDecorations = WindowDecorations.None;
+            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
+            Background = Brushes.Transparent;
+            Topmost = true;
+            ShowInTaskbar = false;
+            CanResize = false;
+            ShowActivated = false;
+            Focusable = false;
+            IsHitTestVisible = false;
+
+            this.ConstrainToScreen(screen);
+            Opacity = Math.Clamp(opacityPercent / 100.0, 0.0, 1.0);
+
+            _video = new AvaloniaInlineLoopVideo(libVlc, videoPath, (uint)screen.Bounds.Width, (uint)screen.Bounds.Height);
+            Content = new Grid { Children = { _video.Surface } };
+
+            Opened += OnOpened;
+        }
+
         private void OnOpened(object? sender, EventArgs e)
         {
             _animation?.Start();
+            _video?.Resume();
         }
 
         public void UpdateOpacity(int opacityPercent)
@@ -939,6 +970,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 
         protected override void OnClosed(EventArgs e)
         {
+            _video?.Dispose();
             // Do not dispose the shared animation here; the service owns the cache.
             base.OnClosed(e);
         }

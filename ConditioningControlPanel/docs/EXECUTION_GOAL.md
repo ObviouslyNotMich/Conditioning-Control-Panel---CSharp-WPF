@@ -32,6 +32,16 @@ Work autonomously until the Definition of Done holds.
 - Only acceptable degradation: Linux/macOS/Android features that are inherently platform-limited (global hooks,
   wallpaper, etc.) — gate those; **never degrade on Windows**.
 
+## PERFORMANCE IS THE POINT — lightweight & fast on the lowest-end systems
+
+This is the **#1 reason the rebuild exists.** Moving to Avalonia v12 and its Skia/LibVLC media stack was chosen
+specifically to make CCP **lighter and faster** and to run **smoothly on low-end / older machines**. So treat a low
+CPU/GPU/RAM footprint and zero lag as a **hard requirement, equal in weight to functional parity** — not a
+nice-to-have. For every feature: minimize allocations and per-frame work, keep decode/IO off the UI thread, pool and
+reuse surfaces, gate concurrent heavy effects, and prefer the cheapest approach that still matches WPF behavior. If a
+port is heavier, laggier, or needs more horsepower than WPF, that is a **defect even if it "works."** Optimize for the
+weakest target machine, not your dev box.
+
 ## BUILD PRINCIPLE — lazy senior dev / YAGNI ("ponytail")
 
 Build the **simplest thing that works**. Framework/stdlib first, no unrequested abstractions, delete over add,
@@ -42,6 +52,23 @@ the `IUiDispatcher`/`IScheduler`/`IAppLogger`/`LibVLCNativeDiscovery`/frame-sour
 them; record is `docs/avalonia-ponytail-audit-queue.md`). **Keep pruning unneeded code as you go — it makes the app
 faster — but each prune is a refactor:** build, then re-exercise the affected features, since a removed wrapper may
 have been load-bearing.
+
+## ACTIVELY HUNT FOR FASTER SOLUTIONS — research the web, adopt better tools
+
+This is a **standing, proactive behavior, not a last resort.** For **every** feature you port — even one that
+already "works" — actively ask "is there a faster / lighter way to do this?" and **search the web** to find out
+(Avalonia docs, LibVLCSharp, SkiaSharp, GitHub issues/discussions, release notes, benchmarks, blog posts — verified
+doc links in plan §23). You are **not limited to what you already know**; default to checking for the idiomatic,
+modern, performant approach before settling on your first idea, and again whenever a path feels laggy or heavy. Don't
+ship a slow hand-rolled version when a clean, fast one is documented.
+
+**Actively look for, and adopt, new libraries that make the app faster or lighter** (lower CPU/GPU/RAM, less lag) or
+that replace a heavy hand-rolled path — this is **encouraged, expected, not a deviation**. Guardrails: prefer
+well-maintained, cross-platform, permissively-licensed, actively-released packages; pin the version; and keep the
+dependency set **lean** — a lib must *earn its weight* (same ponytail bar: don't pull a dependency to save a few
+lines, but do adopt one that removes a slow/fragile path or measurably cuts the footprint). Never regress Windows
+behavior. Record each new/changed dependency **and the reason** (what it speeds up or replaces, with a before/after
+number where measurable) in the task board.
 
 ## Files you work from
 

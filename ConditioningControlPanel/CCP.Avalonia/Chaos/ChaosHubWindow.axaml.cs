@@ -52,11 +52,10 @@ Current = this;
         {
             Current = null;
             DisposeMenuMusic();
+            MenuArtBox?.Stop();
             AvaloniaChaosApp.Chaos?.CloseLoadoutSidebar();
             if (!_fallingIn) AvaloniaChaosApp.Avatar?.SetChaosRunActive(false);
         };
-        AvaloniaChaosApp.Chaos?.ShowLoadoutSidebar();
-        AvaloniaChaosApp.Avatar?.SetChaosRunActive(true);
 
         LoadFromSettings();
         InitRevealMap();
@@ -73,7 +72,12 @@ Current = this;
         LoadBanner();
         BuildDebugStrip();
         ShowTab("loadout");
-        Opened += (_, _) => { OnHubOpenedReveals(); FireHubGreeting(); StartMenuMusic(); };
+        Opened += (_, _) =>
+        {
+            OnHubOpenedReveals();
+            FireHubGreeting();
+            ShowMenuView();
+        };
         _uiSoundsReady = true;
     }
 
@@ -158,6 +162,7 @@ Current = this;
     private void UpdateMuteIcon(bool muted)
     {
         if (BtnMenuMute != null) BtnMenuMute.Content = muted ? "🔇" : "🔊";
+        if (MenuMuteIcon != null) MenuMuteIcon.Text = muted ? "🔇" : "🔊";
     }
 
     private void BtnMenuMute_Click(object? sender, RoutedEventArgs e)
@@ -249,7 +254,10 @@ Current = this;
         _shownGold = ChaosMeta.State.Gold;
         TxtRank.Text = ChaosMeta.Rank;
         RefreshTabBadges();
+        OnRefreshTopBarPartial();
     }
+
+    partial void OnRefreshTopBarPartial();
 
     private void RefreshTabBadges()
     {
@@ -390,6 +398,9 @@ Current = this;
         ChkShake.IsChecked = s.ChaosScreenShakeEnabled;
         SldShake.Value = s.ChaosShakeIntensity;
         ChkFlashes.IsChecked = s.ChaosColorFlashesEnabled;
+        ChkSkiaFx.IsChecked = s.ChaosSkiaFxEnabled;
+        ChkPinTop.IsChecked = s.ChaosPinOnTop;
+        ChkSharedHost.IsChecked = s.ChaosBubbleSharedHost;
         SldEffect.Value = s.ChaosEffectIntensity;
         ChkBoonDraft.IsChecked = s.ChaosBoonDraftEnabled;
         ChkCurses.IsChecked = s.ChaosAllowCurses;
@@ -432,7 +443,9 @@ Current = this;
         _waves = 5; TxtWaves.Text = "5";
         foreach (var t in GrpPool.Children.OfType<ToggleButton>()) t.IsChecked = true;
         ChkShake.IsChecked = true; SldShake.Value = 0.8;
-        ChkFlashes.IsChecked = true; SldEffect.Value = 0.85;
+        ChkFlashes.IsChecked = true; ChkSkiaFx.IsChecked = true;
+        ChkPinTop.IsChecked = true; ChkSharedHost.IsChecked = false;
+        SldEffect.Value = 0.85;
         ChkBoonDraft.IsChecked = true; ChkCurses.IsChecked = true;
         ChkDarters.IsChecked = true;
         ChkAnnouncer.IsChecked = true;
@@ -459,6 +472,9 @@ Current = this;
         s.ChaosScreenShakeEnabled = ChkShake.IsChecked == true;
         s.ChaosShakeIntensity = SldShake.Value;
         s.ChaosColorFlashesEnabled = ChkFlashes.IsChecked == true;
+        s.ChaosSkiaFxEnabled = ChkSkiaFx.IsChecked == true;
+        s.ChaosPinOnTop = ChkPinTop.IsChecked == true;
+        s.ChaosBubbleSharedHost = ChkSharedHost.IsChecked == true;
         s.ChaosEffectIntensity = SldEffect.Value;
         s.ChaosBoonDraftEnabled = ChkBoonDraft.IsChecked == true;
         s.ChaosAllowCurses = ChkCurses.IsChecked == true;

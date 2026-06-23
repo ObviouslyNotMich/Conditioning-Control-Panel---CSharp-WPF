@@ -92,11 +92,33 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,3"/>
         </Style>
+        <Style Selector="Button.MenuBtn">
+            <Setter Property="Height" Value="58"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}"/>
+            <Setter Property="FontSize" Value="19"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="22,0"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TransparentPink40Brush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="Button.MenuBtn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ElevatedSurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+        </Style>
     </Window.Styles>
 
     <Border CornerRadius="16" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="2">
         <Grid>
-            <Grid Margin="22">
+            <!-- Full-width top drag strip (catches drags in transparent gaps, behind buttons). -->
+            <Border x:Name="DragBar" Height="46" VerticalAlignment="Top" Background="Transparent" PointerPressed="DragBar_PointerPressed"/>
+
+            <!-- THE DOLL HOUSE -->
+            <Grid x:Name="DollhouseView" Margin="22" IsVisible="False">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -108,8 +130,16 @@
                     <Image x:Name="BannerImage" Stretch="Uniform" HorizontalAlignment="Right"
                            Opacity="0.30" IsVisible="False" MaxHeight="120"/>
                     <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top">
+                        <Button x:Name="BtnBackToMenu" Content="‹ Menu" Click="Back_To_Menu_Click"
+                                HorizontalAlignment="Left" Margin="0,0,0,8" Padding="10,3"
+                                Background="{DynamicResource GlassBorderBrush}" Foreground="{DynamicResource TextDimBrush}" FontSize="12"
+                                BorderThickness="0" Cursor="Hand" CornerRadius="7"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🐇 DOWN THE RABBIT HOLE" Foreground="{DynamicResource TextLightBrush}" FontSize="22" FontWeight="Bold"/>
+                            <TextBlock Text="🐇 DOWN THE RABBIT HOLE" Foreground="{DynamicResource TextLightBrush}" FontSize="22" FontWeight="Bold">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="{DynamicResource PinkColor}" BlurRadius="20" OffsetX="0" OffsetY="0" Opacity="0.7"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
                             <TextBlock Text="the dollhouse" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="12" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="2,10,0,0">
@@ -283,6 +313,12 @@
                                         <CheckBox x:Name="ChkShake" Classes="Chk" Content="Screen shake"/>
                                         <Slider x:Name="SldShake" Minimum="0" Maximum="1" Margin="0,0,0,6"/>
                                         <CheckBox x:Name="ChkFlashes" Classes="Chk" Content="Color flashes"/>
+                                        <CheckBox x:Name="ChkSkiaFx" Classes="Chk" Content="Enhanced FX (bloom &amp; bursts)"
+                                                  ToolTip.Tip="Additive Skia-rendered glow: rabbit trail, cursor halo, lightning, bubble pop bursts &amp; glassy shine. Off = the classic effects."/>
+                                        <CheckBox x:Name="ChkPinTop" Classes="Chk" Content="Keep on top"
+                                                  ToolTip.Tip="Pins the chaos layer above other windows. Off = other apps can come forward over the descent."/>
+                                        <CheckBox x:Name="ChkSharedHost" Classes="Chk" Content="Smooth bubbles (experimental)"
+                                                  ToolTip.Tip="Renders all bubbles on one shared layer instead of a window each, so clicks stay responsive when the screen is busy. Experimental — turn off if bubbles misbehave."/>
                                         <TextBlock Text="Effect intensity" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,6,0,0"/>
                                         <Slider x:Name="SldEffect" Minimum="0.2" Maximum="1.5"/>
                                         <CheckBox x:Name="ChkAnnouncer" Classes="Chk" Content="Announcements" Margin="0,8,0,0"/>
@@ -460,7 +496,210 @@
                     </StackPanel>
                 </Grid>
             </Grid>
+
+            <!-- MAIN MENU (cinematic split: menu left, art right) -->
+            <Grid x:Name="MenuView" Margin="22" IsVisible="True">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- right: character / banner art with neon border + Skia FX/fog -->
+                <Border x:Name="MenuArtPanel" Grid.Column="1" CornerRadius="24" Margin="18,52,2,2"
+                        BorderThickness="3">
+                    <Border.BorderBrush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#FFFF5FB0" Offset="0"/>
+                            <GradientStop Color="#FFE84393" Offset="0.5"/>
+                            <GradientStop Color="#FF9B6CF6" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.BorderBrush>
+                    <Border.Effect>
+                        <DropShadowEffect Color="#FFE84393" OffsetX="0" OffsetY="0" BlurRadius="20" Opacity="0.7"/>
+                    </Border.Effect>
+                    <Grid x:Name="MenuArtClip" Background="Transparent" PointerPressed="MenuArt_Click">
+                        <Border CornerRadius="22" Background="{DynamicResource TransparentPink20Brush}"/>
+                        <chaos:MenuArtControl x:Name="MenuArtBox" IsHitTestVisible="False"/>
+                    </Grid>
+                </Border>
+
+                <!-- left: title + menu + chips -->
+                <Grid x:Name="MenuLeftCol" Grid.Column="0" Width="370">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" x:Name="MenuTitleBar" Background="Transparent" PointerPressed="MenuTitleBar_PointerPressed">
+                        <Image x:Name="MenuLogo" Stretch="Uniform" HorizontalAlignment="Center"
+                               MaxHeight="224" Margin="0,48,0,0"/>
+                        <TextBlock Text="· the dollhouse ·" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas"
+                                   FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,18,0,18">
+                        <StackPanel x:Name="MenuButtons">
+                            <Button x:Name="BtnMenuFallIn" Content="▶  FALL IN" Click="Menu_FallIn_Click"
+                                    Height="64" Margin="0,0,0,14" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextLightBrush}"
+                                    Background="{DynamicResource AccentGradientBrush}" BorderThickness="0" Cursor="Hand"
+                                    HorizontalContentAlignment="Left" Padding="22,0" CornerRadius="12">
+                                <Button.Effect>
+                                    <DropShadowEffect Color="{DynamicResource PinkColor}" OffsetX="0" OffsetY="0" BlurRadius="18" Opacity="0.6"/>
+                                </Button.Effect>
+                            </Button>
+                            <Button x:Name="BtnMenuHowTo" Content="📖  HOW TO PLAY" Click="Menu_HowTo_Click"
+                                    Classes="MenuBtn" ToolTip.Tip="new here? thirty seconds and you'll have it."/>
+                            <Button x:Name="BtnMenuDollhouse" Content="🏠  THE DOLL HOUSE" Click="Menu_Dollhouse_Click"
+                                    Classes="MenuBtn" ToolTip.Tip="pockets, toys, the bench — dress the fall."/>
+                            <Button x:Name="BtnMenuStory" Content="📖  STORY MODE  🔒" Click="Menu_Story_Click"
+                                    Classes="MenuBtn" ToolTip.Tip="the Madam's narrated descent — coming soon."/>
+                            <Button x:Name="BtnMenuOptions" Content="⚙  OPTIONS" Click="Menu_Options_Click" Classes="MenuBtn"/>
+                            <Button x:Name="BtnMenuExit" Content="✕  EXIT" Click="Menu_Exit_Click" Classes="MenuBtn"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                        <Border Background="{DynamicResource ElevatedSurfaceBrush}" CornerRadius="9" Padding="10,5" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="RANK" Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="MenuRank" Text="Curious" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{DynamicResource ElevatedSurfaceBrush}" CornerRadius="9" Padding="10,5" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="✦" Foreground="{DynamicResource SecondaryBrush}" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="MenuSparks" Text="0" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{DynamicResource ElevatedSurfaceBrush}" CornerRadius="9" Padding="10,5" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🪙" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="MenuGold" Text="0" Foreground="{DynamicResource TextLightBrush}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Button x:Name="BtnMenuMute2" Click="BtnMenuMute_Click" Cursor="Hand"
+                                ToolTip.Tip="Mute / unmute the menu music" Background="{DynamicResource ElevatedSurfaceBrush}"
+                                BorderThickness="0" Padding="10,5" Margin="8,0,0,0" CornerRadius="9">
+                            <TextBlock x:Name="MenuMuteIcon" Text="🔊" FontSize="15" VerticalAlignment="Center"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- OPTIONS: full-width sub-screen -->
+                <Border x:Name="MenuOptions" Grid.ColumnSpan="2" IsVisible="False"
+                        Background="{DynamicResource SurfaceBgBrush}" BorderBrush="{DynamicResource TransparentPink40Brush}" BorderThickness="2"
+                        CornerRadius="14" Padding="40,30">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="⚙  OPTIONS" Foreground="{DynamicResource PinkBrush}" FontFamily="Consolas" FontWeight="Bold" FontSize="28"/>
+                            <TextBlock Text="display &amp; comfort — these stick between descents." Foreground="{DynamicResource TextMutedBrush}" FontSize="13" Margin="2,6,0,0"/>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" Margin="0,12,0,0" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="6,0,0,0">
+                                <CheckBox x:Name="OptFullscreen" Content="Fullscreen" Click="OptFullscreen_Click"
+                                          FontSize="15" Margin="0,14"/>
+                                <CheckBox x:Name="OptKeepTop" Content="Keep on top"
+                                          FontSize="15" Margin="0,14"/>
+                                <CheckBox x:Name="OptSkiaFx" Content="Enhanced FX (bloom &amp; bursts)"
+                                          FontSize="15" Margin="0,14"/>
+                                <CheckBox x:Name="OptAnnounce" Content="Announcements"
+                                          FontSize="15" Margin="0,14"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,6,0">
+                                <TextBlock Text="EFFECT INTENSITY" Foreground="{DynamicResource TextMutedBrush}" FontFamily="Consolas" FontSize="13" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <Slider x:Name="OptSldEffect" Minimum="0.2" Maximum="1.5" Height="30"/>
+                                <TextBlock Text="lower = gentler bloom &amp; shake." Foreground="{DynamicResource TextMutedBrush}" FontSize="12" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Button Grid.Row="2" Content="‹ back" Click="Options_Back_Click" Classes="MenuBtn"
+                                HorizontalAlignment="Left" Width="170" Height="52" Margin="0,16,0,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- HOW TO PLAY: card overlay -->
+                <Border x:Name="MenuHowTo" Grid.ColumnSpan="2" IsVisible="False" Background="#D80B0B16"
+                        PointerPressed="HowTo_Backdrop_Click">
+                    <Border Width="660" MaxHeight="660" VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Background="{DynamicResource SurfaceBgBrush}" BorderBrush="{DynamicResource TransparentPink40Brush}" BorderThickness="2"
+                            CornerRadius="18" Margin="0,40,0,0">
+                        <Border.Effect>
+                            <DropShadowEffect Color="{DynamicResource PinkColor}" OffsetX="0" OffsetY="0" BlurRadius="34" Opacity="0.45"/>
+                        </Border.Effect>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="HowToImageBox" Grid.Row="0" Height="252" CornerRadius="16,16,0,0" ClipToBounds="True">
+                                <Grid>
+                                    <Image x:Name="HowToImage" Stretch="UniformToFill"/>
+                                    <Border CornerRadius="16,16,0,0">
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                <GradientStop Color="{DynamicResource SurfaceBg}" Offset="0"/>
+                                                <GradientStop Color="Transparent" Offset="0.85"/>
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Grid.Row="1" Margin="32,18,32,0">
+                                <TextBlock x:Name="HowToStep" Text="STEP 1 / 5" Foreground="{DynamicResource PinkBrush}"
+                                           FontFamily="Consolas" FontWeight="Bold" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="HowToTitle" Text="" Foreground="{DynamicResource TextLightBrush}" FontSize="22" FontWeight="Bold" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="32,12,32,8">
+                                <StackPanel x:Name="HowToBody"/>
+                            </ScrollViewer>
+
+                            <Grid Grid.Row="3" Margin="24,8,24,22">
+                                <Button x:Name="HowToBack" Content="‹  BACK" Click="HowTo_Back_Click" Classes="MenuBtn"
+                                        HorizontalAlignment="Left" Width="140" Height="46"/>
+                                <StackPanel x:Name="HowToDots" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Button x:Name="HowToNext" Content="NEXT  ›" Click="HowTo_Next_Click"
+                                        HorizontalAlignment="Right" Width="140" Height="46" FontWeight="Bold" FontSize="14"
+                                        Foreground="{DynamicResource TextLightBrush}" Background="{DynamicResource AccentGradientBrush}" BorderThickness="0" Cursor="Hand" CornerRadius="10"/>
+                            </Grid>
+
+                            <Button x:Name="HowToClose" Grid.Row="0" Content="✕" Click="HowTo_Close_Click"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,12,0"
+                                    Width="34" Height="34" FontSize="14" Foreground="{DynamicResource TextLightBrush}" Cursor="Hand"
+                                    Background="#66000000" BorderThickness="0" CornerRadius="17"/>
+                        </Grid>
+                    </Border>
+                </Border>
+            </Grid>
+
             <Grid x:Name="UnlockCardLayer" IsHitTestVisible="False"/>
+
+            <!-- shared window controls (top-right, above both views) -->
+            <StackPanel x:Name="WinChrome" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,10,12,0" ZIndex="50">
+                <Button x:Name="BtnMin" Theme="{StaticResource WindowControlButton}" Content="—" Click="BtnMin_Click" ToolTip.Tip="Minimize"/>
+                <Button x:Name="BtnFull" Theme="{StaticResource WindowControlButton}" Content="⛶" Click="BtnFull_Click" ToolTip.Tip="Fullscreen (maximize)"/>
+                <Button x:Name="BtnCloseWin" Theme="{StaticResource WindowCloseButton}" Content="✕" Click="BtnClose_Click" ToolTip.Tip="Close"/>
+            </StackPanel>
         </Grid>
     </Border>
 </Window>

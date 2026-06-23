@@ -40,7 +40,7 @@ task board → **Known Functional Gaps**.
 
 ## New in 6.1.7 (port from main, then verify — plan §19.3)
 
-- [ ] **Chaos "Down the Rabbit Hole" main menu** — neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade (`ChaosHubWindow` + `ChaosBackdropService` glint FX + ~70 assets/soundtrack)
+- [x] **Chaos "Down the Rabbit Hole" main menu** — `ChaosHubWindow.axaml` menu view ported with neon logo (`menu_logo.png`), How-to-Play tutorial overlay (`MenuHowTo` + 5-step cards), menu soundtrack fade/mute (`StartMenuMusic`/`DisposeMenuMusic`), pink fog + intro reveal + FX crossfade in Skia `MenuArtControl`, and options overlay mirroring the run settings. Smoke test now opens the hub, clicks How-to-Play, Options, The Doll House, Back to Menu, and Exit, capturing screenshots of each state with 0 first-chance exceptions and 0 findings.
 - [x] **Quest pool refresh** — 20 free + 20 patron quests with bundled art PNGs (`Quest` model + `QuestService` + `QuestDefinitionService`); Avalonia smoke test visited Quests tab with 0 exceptions/findings and quest art resolves from `CCP.Avalonia/Assets/quests`.
 - 🚧 **Auth graceful browser-launch fallback** — `BrowserLauncher` ported to Core; Discord/Patreon/SubscribeStar providers now use `IBrowserHost` with clipboard+dialog fallback; `CCP.Avalonia` builds. Runtime exercise blocked by concurrent Quest-lane build error (`QuestDefinitionsUpdated` mismatch in `QuestsTabViewModel`).
 - [ ] **Subliminal double-flash fix** — re-verify no prev-phrase flash / stale-timer double flash (changed in 6.1.7)

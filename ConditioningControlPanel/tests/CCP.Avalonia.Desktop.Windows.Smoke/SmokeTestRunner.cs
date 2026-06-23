@@ -20,6 +20,7 @@ using Avalonia.Interactivity;
 using AvaloniaDocuments = global::Avalonia.Controls.Documents;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.AvatarTube;
+using ConditioningControlPanel.Avalonia.Chaos;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Avalonia.Features;
 using ConditioningControlPanel.Avalonia.ViewModels;
@@ -201,6 +202,9 @@ internal sealed class SmokeTestRunner
 
                     // Exercise pink overlay: it must be a click-through, non-taskbar surface.
                     await ExerciseOverlayClickThroughAsync();
+
+                    // Exercise the Rabbit Hole main menu (Down the Rabbit Hole 6.1.7 port).
+                    await ExerciseChaosHubMenuAsync(mainWindow);
                 }
             }
 
@@ -700,6 +704,107 @@ internal sealed class SmokeTestRunner
         catch (Exception ex)
         {
             _findings.Add(new SmokeTestFinding("OverlayClickThrough", $"Unexpected exception exercising overlay: {ex.Message}", FindingSeverity.Error));
+        }
+    }
+
+    private async Task ExerciseChaosHubMenuAsync(Window mainWindow)
+    {
+        if (_cts.IsCancellationRequested) return;
+
+        ChaosHubWindow? hub = null;
+        try
+        {
+            Console.WriteLine("[SMOKE] ChaosHub -> opening main menu...");
+            hub = await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var w = new ChaosHubWindow();
+                w.Show(mainWindow);
+                return w;
+            });
+
+            await DelayAsync(1200); // let intro reveal + menu art render
+
+            if (_captureScreenshots)
+            {
+                var path = await RenderScreenshotAsync(hub, "smoke-chaos-hub-menu.png");
+                _screenshotPaths.Add(path);
+                Console.WriteLine($"[SMOKE] ChaosHub menu screenshot saved: {path}");
+            }
+
+            // Click through the primary menu surfaces.
+            await ClickHubButtonAsync(hub, "BtnMenuHowTo", "HowTo");
+            await DelayAsync(600);
+            if (_captureScreenshots)
+            {
+                var path = await RenderScreenshotAsync(hub, "smoke-chaos-hub-howto.png");
+                _screenshotPaths.Add(path);
+            }
+            await ClickHubButtonAsync(hub, "HowToClose", "HowToClose");
+            await DelayAsync(300);
+
+            await ClickHubButtonAsync(hub, "BtnMenuOptions", "Options");
+            await DelayAsync(600);
+            if (_captureScreenshots)
+            {
+                var path = await RenderScreenshotAsync(hub, "smoke-chaos-hub-options.png");
+                _screenshotPaths.Add(path);
+            }
+            // Find and click the options back button (no x:Name in the AXAML).
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var back = hub.GetVisualDescendants().OfType<Button>()
+                    .FirstOrDefault(b => b.Content is string s && s.Contains("back", StringComparison.OrdinalIgnoreCase));
+                back?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            });
+            await DelayAsync(300);
+
+            await ClickHubButtonAsync(hub, "BtnMenuDollhouse", "Dollhouse");
+            await DelayAsync(600);
+            if (_captureScreenshots)
+            {
+                var path = await RenderScreenshotAsync(hub, "smoke-chaos-hub-dollhouse.png");
+                _screenshotPaths.Add(path);
+            }
+            await ClickHubButtonAsync(hub, "BtnBackToMenu", "BackToMenu");
+            await DelayAsync(300);
+
+            // Exit closes the hub.
+            await ClickHubButtonAsync(hub, "BtnMenuExit", "Exit");
+            await DelayAsync(300);
+
+            if (ChaosHubWindow.Current != null)
+            {
+                _findings.Add(new SmokeTestFinding("ChaosHubMenu", "Hub window still current after exit click", FindingSeverity.Error));
+            }
+
+            Console.WriteLine("[SMOKE] ChaosHub menu exercised successfully.");
+        }
+        catch (Exception ex)
+        {
+            _findings.Add(new SmokeTestFinding("ChaosHubMenu", $"Failed to exercise menu: {ex.Message}", FindingSeverity.Error));
+            try { await Dispatcher.UIThread.InvokeAsync(() => hub?.Close()); } catch { }
+        }
+    }
+
+    private async Task ClickHubButtonAsync(ChaosHubWindow hub, string name, string context)
+    {
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var field = typeof(ChaosHubWindow).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance);
+                var ctrl = field?.GetValue(hub) as Control;
+                if (ctrl == null)
+                {
+                    _findings.Add(new SmokeTestFinding($"ChaosHubMenu:{context}", $"Named control '{name}' not found", FindingSeverity.Error));
+                    return;
+                }
+                ctrl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            });
+        }
+        catch (Exception ex)
+        {
+            _findings.Add(new SmokeTestFinding($"ChaosHubMenu:{context}", $"Click failed: {ex.Message}", FindingSeverity.Error));
         }
     }
 

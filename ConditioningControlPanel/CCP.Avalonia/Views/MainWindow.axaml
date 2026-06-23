@@ -719,26 +719,35 @@
                          VerticalAlignment="Center"
                          Margin="0,0,10,0" />
               <Border Grid.Column="1"
-                      Width="200"
+                      x:Name="XpBarContainer"
                       Background="{DynamicResource PanelAccentBrush}"
                       CornerRadius="4"
                       Height="8"
-                      Margin="0,0,10,0">
+                      Margin="0,0,10,0"
+                      ClipToBounds="True">
                 <Grid>
-                  <Border Background="{DynamicResource PinkBrush}"
+                  <Border HorizontalAlignment="Left"
+                          VerticalAlignment="Stretch"
+                          Width="{Binding #XpBarContainer.Bounds.Width}"
+                          Background="{DynamicResource PinkBrush}"
                           CornerRadius="4"
-                          HorizontalAlignment="Left"
-                          Width="{Binding XpPercent,
-                                          Converter={StaticResource PercentToWidthConverter},
-                                          ConverterParameter=200}" />
-                  <Border Background="{DynamicResource PinkBrush}"
+                          RenderTransformOrigin="0,0.5">
+                    <Border.RenderTransform>
+                      <ScaleTransform ScaleX="{Binding XpPercent, Converter={StaticResource PercentToWidthConverter}, ConverterParameter=1}" />
+                    </Border.RenderTransform>
+                  </Border>
+                  <Border HorizontalAlignment="Left"
+                          VerticalAlignment="Stretch"
+                          Width="{Binding #XpBarContainer.Bounds.Width}"
+                          Background="{DynamicResource PinkBrush}"
                           CornerRadius="4"
-                          HorizontalAlignment="Left"
                           IsHitTestVisible="False"
-                          Width="{Binding XpPercent,
-                                          Converter={StaticResource PercentToWidthConverter},
-                                          ConverterParameter=200}"
-                          Opacity="{Binding XpFlashOpacity}" />
+                          Opacity="{Binding XpFlashOpacity}"
+                          RenderTransformOrigin="0,0.5">
+                    <Border.RenderTransform>
+                      <ScaleTransform ScaleX="{Binding XpPercent, Converter={StaticResource PercentToWidthConverter}, ConverterParameter=1}" />
+                    </Border.RenderTransform>
+                  </Border>
                 </Grid>
               </Border>
               <TextBlock Grid.Column="2"
