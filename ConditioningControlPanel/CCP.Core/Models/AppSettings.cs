@@ -1443,10 +1443,12 @@ namespace ConditioningControlPanel.Models
             set { _marqueeMessage = value ?? ""; OnPropertyChanged(); }
         }
 
-        private bool _dualMonitorEnabled = true;
+        private bool _dualMonitorEnabled;
         /// <summary>
         /// When enabled, content displays on ALL connected monitors (2, 3, or more).
         /// When disabled, content only appears on the primary monitor.
+        /// Default off so new players see effects on their main screen only; the option
+        /// to span all monitors is exposed in Settings/Dashboard.
         /// Property name kept as "DualMonitor" for settings file backwards compatibility.
         /// </summary>
         public bool DualMonitorEnabled
