@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using ConditioningControlPanel.Core.Platform;
 using LibVLCSharp.Shared;
 
@@ -14,6 +16,8 @@ public sealed class AvaloniaAudioDeviceService : IAudioDeviceService
 {
     private readonly LibVLC _libVlc;
     private string? _preferredDeviceId;
+
+    public event EventHandler? PreferredDeviceChanged;
 
     public AvaloniaAudioDeviceService(LibVLC libVlc)
     {
@@ -76,17 +80,101 @@ public sealed class AvaloniaAudioDeviceService : IAudioDeviceService
 
     public string? GetDefaultOutputDeviceId()
     {
-        // LibVLC does not expose a reliable cross-platform default-device identifier.
-        // Returning the user-preferred device keeps the UI selection coherent.
-        // TODO: Detect the actual system default device where possible (e.g. via a
-        // platform-specific default-endpoint query on Windows).
-        return _preferredDeviceId;
+        // Prefer the user's explicit selection first.
+        if (!string.IsNullOrEmpty(_preferredDeviceId))
+            return _preferredDeviceId;
+
+        // The Windows head replaces this service with WindowsAudioDeviceService (NAudio),
+        // so the shared fallback is for Linux / macOS / mobile.
+        if (OperatingSystem.IsLinux())
+        {
+            var defaultSink = TryGetPulseAudioDefaultSink();
+            if (!string.IsNullOrEmpty(defaultSink))
+                return defaultSink;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            var defaultDevice = TryGetMacDefaultOutputDevice();
+            if (!string.IsNullOrEmpty(defaultDevice))
+                return defaultDevice;
+        }
+
+        // Last resort: use the first enumerated device so playback still targets
+        // a concrete endpoint instead of leaving the decision ambiguous.
+        try
+        {
+            return GetOutputDevices().FirstOrDefault(static d => !string.IsNullOrEmpty(d.Id)).Id;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGetPulseAudioDefaultSink()
+    {
+        try
+        {
+            using var proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = "pactl",
+                Arguments = "info",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            if (proc is null) return null;
+            string? line;
+            while ((line = proc.StandardOutput.ReadLine()) != null)
+            {
+                const string prefix = "Default Sink:";
+                if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var sink = line.Substring(prefix.Length).Trim();
+                    return string.IsNullOrEmpty(sink) ? null : sink;
+                }
+            }
+            proc.WaitForExit();
+        }
+        catch
+        {
+            // pactl may not be installed; fail open.
+        }
+        return null;
+    }
+
+    private static string? TryGetMacDefaultOutputDevice()
+    {
+        // SwitchAudioSource is commonly available on macOS via Homebrew.
+        // It returns the user-visible name, which is the best we can do without
+        // CoreAudio bindings; LibVLC may or may not accept it as an output device.
+        try
+        {
+            using var proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = "SwitchAudioSource",
+                Arguments = "-c",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            if (proc is null) return null;
+            var name = proc.StandardOutput.ReadLine()?.Trim();
+            proc.WaitForExit();
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public void SetPreferredDevice(string? deviceId)
     {
         _preferredDeviceId = deviceId;
-        // TODO: Propagate the preferred device to AvaloniaAudioPlayer so playback
-        // honors the user's choice (e.g. --aout-device <id> or MediaPlayer output).
+        PreferredDeviceChanged?.Invoke(this, EventArgs.Empty);
     }
 }

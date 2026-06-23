@@ -17,7 +17,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class AttentionTargetEditorDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<AttentionTargetEditorDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService? _settings;
 
 
@@ -41,7 +41,7 @@ public partial class AttentionTargetEditorDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AttentionTargetEditorDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 _mods = App.Services.GetRequiredService<IModService>();
 
@@ -170,15 +170,13 @@ _mods = App.Services.GetRequiredService<IModService>();
         }
     }
 
-    private string? PickColor(string currentColor)
-    {
-        // TODO: replace the Windows Forms color dialog with a cross-platform Avalonia color picker.
-        return null;
-    }
 
-    private void BtnColor1_Click(object? sender, RoutedEventArgs e)
+
+
+
+    private async void BtnColor1_Click(object? sender, RoutedEventArgs e)
     {
-        var color = PickColor(_color1);
+        var color = await PickColorAsync(_color1);
         if (!string.IsNullOrEmpty(color))
         {
             _color1 = color;
@@ -187,9 +185,9 @@ _mods = App.Services.GetRequiredService<IModService>();
         }
     }
 
-    private void BtnColor2_Click(object? sender, RoutedEventArgs e)
+    private async void BtnColor2_Click(object? sender, RoutedEventArgs e)
     {
-        var color = PickColor(_color2);
+        var color = await PickColorAsync(_color2);
         if (!string.IsNullOrEmpty(color))
         {
             _color2 = color;
@@ -198,9 +196,9 @@ _mods = App.Services.GetRequiredService<IModService>();
         }
     }
 
-    private void BtnTextColor_Click(object? sender, RoutedEventArgs e)
+    private async void BtnTextColor_Click(object? sender, RoutedEventArgs e)
     {
-        var color = PickColor(_textColor);
+        var color = await PickColorAsync(_textColor);
         if (!string.IsNullOrEmpty(color))
         {
             _textColor = color;
@@ -209,15 +207,22 @@ _mods = App.Services.GetRequiredService<IModService>();
         }
     }
 
-    private void BtnBorderColor_Click(object? sender, RoutedEventArgs e)
+    private async void BtnBorderColor_Click(object? sender, RoutedEventArgs e)
     {
-        var color = PickColor(_borderColor);
+        var color = await PickColorAsync(_borderColor);
         if (!string.IsNullOrEmpty(color))
         {
             _borderColor = color;
             UpdateColorButtons();
             UpdatePreview();
         }
+    }
+
+    private async Task<string?> PickColorAsync(string currentColor)
+    {
+        var dialog = new ColorPickerDialog(ParseColor(currentColor));
+        var result = await dialog.ShowDialog<Color?>(this);
+        return result.HasValue ? $"#{result.Value.R:X2}{result.Value.G:X2}{result.Value.B:X2}" : null;
     }
 
     private void ChkFloatingText_Changed(object? sender, RoutedEventArgs e)
@@ -308,42 +313,103 @@ _mods = App.Services.GetRequiredService<IModService>();
         if (settings is null)
             return;
 
-        var oldC1 = settings.AttentionColor1;
-        var oldC2 = settings.AttentionColor2;
-        var oldText = settings.AttentionTextColor;
-        var oldBorder = settings.AttentionBorderColor;
-        var oldShowBorder = settings.AttentionShowBorder;
-        var oldFloating = settings.AttentionFloatingText;
-        var oldFont = settings.AttentionFont;
-
-        try
-        {
-            settings.AttentionColor1 = _color1;
-            settings.AttentionColor2 = _color2;
-            settings.AttentionTextColor = _textColor;
-            settings.AttentionBorderColor = _borderColor;
-            settings.AttentionShowBorder = _showBorder;
-            settings.AttentionFloatingText = _floatingText;
-            settings.AttentionFont = _font;
-
-            var pool = settings.AttentionPool;
-            string text = pool.FirstOrDefault(kvp => kvp.Value).Key ?? "GOOD GIRL";
-
-            // TODO: spawn a cross-platform floating attention target preview.
-            // The legacy implementation used System.Windows.Forms.Screen and Services.FloatingText.
-            _logger?.Information("Test attention target requested for {Text}", text);
-        }
-        finally
-        {
-            settings.AttentionColor1 = oldC1;
-            settings.AttentionColor2 = oldC2;
-            settings.AttentionTextColor = oldText;
-            settings.AttentionBorderColor = oldBorder;
-            settings.AttentionShowBorder = oldShowBorder;
-            settings.AttentionFloatingText = oldFloating;
-            settings.AttentionFont = oldFont;
-        }
+        var pool = settings.AttentionPool;
+        string text = pool.FirstOrDefault(kvp => kvp.Value).Key ?? "GOOD GIRL";
+        ShowFloatingPreview(text);
+        _logger?.LogInformation("Test attention target requested for {Text}", text);
     }
+
+    private void ShowFloatingPreview(string text)
+    {
+        var screen = this.Screens?.Primary;
+        if (screen == null) return;
+
+        var color1 = ParseColor(_color1);
+        var color2 = ParseColor(_color2);
+        var textColor = ParseColor(_textColor);
+        var borderColor = ParseColor(_borderColor);
+
+        const double width = 420;
+        const double height = 140;
+        var scaledW = width * screen.Scaling;
+        var scaledH = height * screen.Scaling;
+        var x = screen.Bounds.X + (screen.Bounds.Width - scaledW) / 2;
+        var y = screen.Bounds.Y + (screen.Bounds.Height - scaledH) / 2;
+
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            FontSize = 36,
+            FontWeight = FontWeight.Bold,
+            FontFamily = string.IsNullOrWhiteSpace(_font) ? FontFamily.Default : new FontFamily(_font),
+            Foreground = new SolidColorBrush(textColor),
+            TextAlignment = TextAlignment.Center,
+            HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+        };
+
+        var border = new Border
+        {
+            Background = _floatingText ? null : new LinearGradientBrush
+            {
+                GradientStops = new GradientStops { new GradientStop(color1, 0), new GradientStop(color2, 1) }
+            },
+            CornerRadius = _floatingText ? new CornerRadius(0) : new CornerRadius(20),
+            BorderBrush = (_showBorder && !_floatingText) ? new SolidColorBrush(borderColor) : null,
+            BorderThickness = (_showBorder && !_floatingText) ? new Thickness(3) : new Thickness(0),
+            Padding = _floatingText ? new Thickness(0) : new Thickness(20, 10, 20, 10),
+            Child = textBlock
+        };
+
+        var preview = new Window
+        {
+            WindowDecorations = WindowDecorations.None,
+            Background = Brushes.Transparent,
+            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Focusable = false,
+            IsHitTestVisible = false,
+            CanResize = false,
+            Topmost = true,
+            Width = width,
+            Height = height,
+            Position = new PixelPoint((int)x, (int)y),
+            Content = new Panel { Children = { border } }
+        };
+
+        preview.Opened += (_, _) =>
+        {
+            if (preview.TryGetPlatformHandle() is { } handle && OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    const int gwlExStyle = -20;
+                    const uint wsExToolWindow = 0x00000080;
+                    const uint wsExNoActivate = 0x08000000;
+                    const uint wsExTransparent = 0x00000020;
+                    var ex = GetWindowLong(handle.Handle, gwlExStyle);
+                    ex |= wsExToolWindow | wsExNoActivate | wsExTransparent;
+                    SetWindowLong(handle.Handle, gwlExStyle, ex);
+                }
+                catch { }
+            }
+        };
+
+        preview.Show();
+
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            await System.Threading.Tasks.Task.Delay(3000);
+            await global::Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => preview.Close());
+        });
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowLong(System.IntPtr hWnd, int nIndex);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern int SetWindowLong(System.IntPtr hWnd, int nIndex, uint dwNewLong);
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e)
     {

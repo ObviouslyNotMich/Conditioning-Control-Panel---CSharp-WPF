@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using ConditioningControlPanel.Core.Services.Moderation;
 
@@ -40,5 +41,15 @@ namespace ConditioningControlPanel.Core.Services.AIService
         Task<string?> GetLockScreenReaction(string sentance, int mistakes, int amount, string? promptTemplate = null);
 
         Task<string?> GetVideoDoneReaction(string title, string? promptTemplate = null);
+
+        /// <summary>
+        /// One-shot, stateless multi-turn chat completion for features that maintain their
+        /// own conversation (e.g. the quiz). Returns raw assistant content, or <c>null</c>
+        /// on any failure/moderation block so callers can fall back. The default
+        /// implementation returns null; heads/providers that support local/raw inference
+        /// should override this.
+        /// </summary>
+        Task<string?> GetRawChatCompletionAsync(IEnumerable<(string role, string content)> messages, double temperature = 0.8)
+            => Task.FromResult<string?>(null);
     }
 }

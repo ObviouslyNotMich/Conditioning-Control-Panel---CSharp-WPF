@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using global::Avalonia;
@@ -17,7 +17,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosDvdOverlay : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosDvdOverlay> _logger;
 
 
     private const double BASE_FONT = 46;
@@ -59,7 +59,7 @@ public partial class ChaosDvdOverlay : Window
     public static void Launch(double durationSec, double speedMult, double scale, int count = 1,
                               string? text = null, bool splitOnRabbit = false, int splitBounces = 0)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosDvdOverlay>>();
         Dispatcher.UIThread.Post(() =>
         {
             try
@@ -70,7 +70,7 @@ public partial class ChaosDvdOverlay : Window
                     Acquire().Begin(durationSec, speedMult, scale, text, splitOnRabbit, null, null, null, null, splitBounces);
                 }
             }
-            catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosDvdOverlay.Launch: {E}", ex.Message); }
+            catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosDvdOverlay>>().LogInformation("ChaosDvdOverlay.Launch: {E}", ex.Message); }
         });
     }
 
@@ -109,7 +109,7 @@ public partial class ChaosDvdOverlay : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosDvdOverlay>>();
 WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
@@ -117,6 +117,7 @@ WindowDecorations = WindowDecorations.None;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
+        IsHitTestVisible = false;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.Manual;
         Opacity = 0;
@@ -128,7 +129,7 @@ WindowDecorations = WindowDecorations.None;
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
         };
-        _host = new Grid { Children = { _label } };
+        _host = new Grid { Children = { _label }, IsHitTestVisible = false };
         _host.PointerPressed += (_, e) =>
         {
             if (!_clickable) return;
@@ -154,6 +155,7 @@ WindowDecorations = WindowDecorations.None;
 
         _clickable = SpankerRedirect?.Invoke() == true;
         IsHitTestVisible = _clickable;
+        _host.IsHitTestVisible = _clickable;
         _host.Background = _clickable ? new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)) : null;
         _host.Cursor = _clickable ? new Cursor(StandardCursorType.Hand) : null;
 
@@ -273,7 +275,7 @@ WindowDecorations = WindowDecorations.None;
         }
         catch (Exception ex)
         {
-            _logger?.Information("ChaosDvdOverlay step: {E}", ex.Message);
+            _logger?.LogInformation("ChaosDvdOverlay step: {E}", ex.Message);
             CloseNow();
         }
     }
@@ -326,8 +328,5 @@ primary.WorkingArea;
         return new Rect(wa.X, wa.Y, wa.Width, wa.Height);
     }
 
-    private void ApplyExStyles(bool clickable)
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE (+/- WS_EX_TRANSPARENT) on Windows.
-    }
+    private void ApplyExStyles(bool clickable) => ChaosWin32Helper.ApplyOverlayExStyles(this, !clickable);
 }

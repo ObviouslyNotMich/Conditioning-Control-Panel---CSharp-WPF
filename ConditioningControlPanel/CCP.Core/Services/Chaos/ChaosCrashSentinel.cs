@@ -19,9 +19,9 @@ namespace ConditioningControlPanel.Core.Services.Chaos;
 public sealed class ChaosCrashSentinel
 {
     private readonly IAppEnvironment _appEnvironment;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<ChaosCrashSentinel>? _logger;
 
-    public ChaosCrashSentinel(IAppEnvironment appEnvironment, IAppLogger? logger = null)
+    public ChaosCrashSentinel(IAppEnvironment appEnvironment, ILogger<ChaosCrashSentinel>? logger = null)
     {
         _appEnvironment = appEnvironment ?? throw new ArgumentNullException(nameof(appEnvironment));
         _logger = logger;
@@ -67,7 +67,7 @@ public sealed class ChaosCrashSentinel
             string ctx = "";
             try { ctx = File.ReadAllText(path).Trim(); } catch { }
 
-            _logger?.Warning(
+            _logger?.LogWarning(
                 "[CHAOSCRASH] DETECTED: previous chaos session ended abnormally (no clean teardown — " +
                 "likely a native crash/OOM, which leaves nothing in crash.log). Last context: {Context}",
                 string.IsNullOrWhiteSpace(ctx) ? "(unavailable)" : ctx);

@@ -6,14 +6,20 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Avalonia.Views.Deeper;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Models.Deeper;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Catalogue;
 using ConditioningControlPanel.Core.Services.Deeper;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Webcam;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Models.Deeper;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -27,7 +33,10 @@ public partial class DeeperTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<DeeperTabViewModel>? _logger;
+    private readonly ILogger<DeeperLibraryRowViewModel>? _rowLogger;
+    private readonly IWebcamService? _webcamService;
+    private readonly ICatalogueService? _catalogueService;
 
     private readonly ObservableCollection<DeeperLibraryRowViewModel> _allEntries = new();
 
@@ -66,11 +75,17 @@ public partial class DeeperTabViewModel : TabItemViewModel
     public DeeperTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("deeper", "Deeper", "🌊")
+        ILogger<DeeperTabViewModel> logger,
+        IWebcamService webcamService,
+        ICatalogueService catalogueService,
+        ILogger<DeeperLibraryRowViewModel> rowLogger) : base("deeper", "Deeper", "🌊")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
+        _rowLogger = rowLogger;
+        _webcamService = webcamService;
+        _catalogueService = catalogueService;
 
         SortOptions = new ObservableCollection<string>
         {
@@ -234,7 +249,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task ShowTutorialAsync()
     {
-        _logger?.Information("Deeper tutorial requested");
+        _logger?.LogInformation("Deeper tutorial requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_tutorial"),
             Loc.Get("msg_feature_not_implemented")) ?? Task.CompletedTask);
@@ -243,14 +258,66 @@ public partial class DeeperTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task OpenPlayerAsync()
     {
-        _logger?.Information("Open Deeper player requested");
-        await ShowNotImplementedAsync(Loc.Get("deeper_tab_open_player"));
+        _logger?.LogInformation("Open Deeper player requested");
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var player = new EnhancementPlayerWindow();
+            player.Show();
+        });
+    }
+
+    [RelayCommand]
+    private async Task SubmitEntryAsync(DeeperLibraryRowViewModel? row)
+    {
+        if (row == null) return;
+        if (string.IsNullOrEmpty(_settingsService?.Current?.AuthToken))
+        {
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("catalogue_toast_auth_failed"),
+                Loc.Get("msg_catalogue_auth_required"),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+            return;
+        }
+
+        var label = string.IsNullOrEmpty(row.Name) ? Path.GetFileName(row.FilePath) : row.Name;
+        var mainWindow = GetMainWindow();
+        bool confirmed;
+        if (mainWindow != null)
+        {
+            var dialog = new CatalogueSubmitDialog(label);
+            confirmed = await dialog.ShowDialog<bool>(mainWindow);
+        }
+        else
+        {
+            confirmed = await (_dialogService?.ShowConfirmationAsync(
+                Loc.Get("dialog_submit_catalogue"),
+                string.Format(Loc.Get("msg_submit_catalogue_confirm_fmt"), row.Name)) ?? Task.FromResult(false));
+        }
+        if (!confirmed) return;
+
+        _logger?.LogInformation("Submit Deeper entry to catalogue: {Path}", row.FilePath);
+        try
+        {
+            var result = await (_catalogueService?.SubmitEnhancementAsync(row.FilePath, default)
+                ?? Task.FromResult<SubmissionResult>(new SubmissionResult.UnknownError(0, "service_unavailable")));
+            RecordDeeperSubmission(row.FilePath, result);
+            ApplyPendingSubmissionBadge(row);
+            await ShowCatalogueSubmissionResultAsync(result);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[Catalogue] Submit threw unexpectedly");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("catalogue_toast_unknown_error"),
+                DialogSeverity.Error) ?? Task.CompletedTask);
+        }
     }
 
     [RelayCommand]
     private async Task ImportEnhancementsAsync()
     {
-        _logger?.Information("Import enhancements requested");
+        _logger?.LogInformation("Import enhancements requested");
         var files = await (_dialogService?.ShowOpenFileDialogAsync(
             Loc.Get("title_import_enhancement"),
             new[]
@@ -272,15 +339,15 @@ public partial class DeeperTabViewModel : TabItemViewModel
                 var issues = EnhancementValidator.Validate(enh);
                 if (issues.Any(i => i.Severity == ValidationSeverity.Error))
                 {
-                    _logger?.Warning("Skipping invalid enhancement {File}: {Issues}", file,
+                    _logger?.LogWarning("Skipping invalid enhancement {File}: {Issues}", file,
                         string.Join(", ", issues.Where(i => i.Severity == ValidationSeverity.Error).Select(i => i.Message)));
                     continue;
                 }
-                _allEntries.Add(CreateRow(enh, "", false, File.GetLastWriteTime(file), file));
+                _allEntries.Add(CreateRow(enh, GetSubmissionStatus(file), IsCatalogueEligible(enh), File.GetLastWriteTime(file), file));
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Import enhancement failed: {File}", file);
+                _logger?.LogWarning(ex, "Import enhancement failed: {File}", file);
             }
         }
 
@@ -294,7 +361,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
 
         try
         {
-            _logger?.Information("Scanning Deeper library folder: {Folder}", folder);
+            _logger?.LogInformation("Scanning Deeper library folder: {Folder}", folder);
             var files = Directory.EnumerateFiles(folder, "*.ccpenh.json", SearchOption.TopDirectoryOnly);
             foreach (var file in files)
             {
@@ -304,22 +371,22 @@ public partial class DeeperTabViewModel : TabItemViewModel
                     var issues = EnhancementValidator.Validate(enh);
                     if (issues.Any(i => i.Severity == ValidationSeverity.Error))
                     {
-                        _logger?.Warning("Skipping invalid enhancement {File}: {Issues}", file,
+                        _logger?.LogWarning("Skipping invalid enhancement {File}: {Issues}", file,
                             string.Join(", ", issues.Where(i => i.Severity == ValidationSeverity.Error).Select(i => i.Message)));
                         continue;
                     }
-                    _allEntries.Add(CreateRow(enh, "", false, File.GetLastWriteTime(file), file));
+                    _allEntries.Add(CreateRow(enh, GetSubmissionStatus(file), IsCatalogueEligible(enh), File.GetLastWriteTime(file), file));
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning(ex, "Failed to scan enhancement {File}", file);
+                    _logger?.LogWarning(ex, "Failed to scan enhancement {File}", file);
                 }
             }
             ApplyFilterAndSort();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Scan Deeper library failed");
+            _logger?.LogWarning(ex, "Scan Deeper library failed");
         }
 
         await Task.CompletedTask;
@@ -328,7 +395,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task NewEnhancementAsync()
     {
-        _logger?.Information("New enhancement requested");
+        _logger?.LogInformation("New enhancement requested");
 
         var mainWindow = GetMainWindow();
         if (mainWindow is null) return;
@@ -337,7 +404,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
         var confirmed = await dialog.ShowDialog<bool>(mainWindow);
         if (!confirmed)
         {
-            _logger?.Information("New enhancement dialog cancelled");
+            _logger?.LogInformation("New enhancement dialog cancelled");
             return;
         }
 
@@ -362,11 +429,11 @@ public partial class DeeperTabViewModel : TabItemViewModel
                 FileName = url,
                 UseShellExecute = true
             });
-            _logger?.Information("Opened Deeper catalogue URL");
+            _logger?.LogInformation("Opened Deeper catalogue URL");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open Deeper catalogue URL");
+            _logger?.LogWarning(ex, "Failed to open Deeper catalogue URL");
         }
         await Task.CompletedTask;
     }
@@ -376,7 +443,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     {
         try
         {
-            _logger?.Information("Open Deeper library folder requested");
+            _logger?.LogInformation("Open Deeper library folder requested");
             var folder = _settingsService?.Current?.DeeperLastDirectory;
             if (!string.IsNullOrEmpty(folder))
             {
@@ -393,7 +460,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Open Deeper library folder failed");
+            _logger?.LogWarning(ex, "Open Deeper library folder failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -409,7 +476,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     private async Task DismissWelcomeAsync()
     {
         WelcomeCardVisible = false;
-        _logger?.Information("Deeper welcome card dismissed");
+        _logger?.LogInformation("Deeper welcome card dismissed");
         await Task.CompletedTask;
     }
 
@@ -417,7 +484,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     private async Task WelcomeTourAsync()
     {
         WelcomeCardVisible = false;
-        _logger?.Information("Deeper welcome tour requested");
+        _logger?.LogInformation("Deeper welcome tour requested");
         await ShowNotImplementedAsync(Loc.Get("deeper_welcome_card_take_tour"));
     }
 
@@ -425,7 +492,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     private async Task WelcomeDemoAsync()
     {
         WelcomeCardVisible = false;
-        _logger?.Information("Deeper welcome demo requested");
+        _logger?.LogInformation("Deeper welcome demo requested");
         await ShowNotImplementedAsync(Loc.Get("deeper_welcome_card_open_demo"));
     }
 
@@ -470,21 +537,30 @@ public partial class DeeperTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task RefreshWebcamDevicesAsync()
     {
-        _logger?.Information("Refresh Deeper webcam devices requested");
-        await ShowNotImplementedAsync(Loc.Get("blink_trainer_camera_refresh"));
+        _logger?.LogInformation("Refresh Deeper webcam devices requested");
+        try
+        {
+            _webcamService?.RefreshDevices();
+            RefreshWebcamUi();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Refresh Deeper webcam devices failed");
+        }
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
     private void ManageWebcamConsent()
     {
-        _logger?.Information("Manage Deeper webcam consent requested");
+        _logger?.LogInformation("Manage Deeper webcam consent requested");
         IsWebcamConsentGranted = true;
     }
 
     [RelayCommand]
     private void RevokeWebcamConsent()
     {
-        _logger?.Information("Revoke Deeper webcam consent requested");
+        _logger?.LogInformation("Revoke Deeper webcam consent requested");
         IsWebcamConsentGranted = false;
         IsTrackerRunning = false;
     }
@@ -492,7 +568,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task CalibrateWebcamAsync()
     {
-        _logger?.Information("Calibrate Deeper webcam requested");
+        _logger?.LogInformation("Calibrate Deeper webcam requested");
         if (!IsWebcamConsentGranted)
         {
             await (_dialogService?.ShowMessageAsync(
@@ -507,14 +583,14 @@ public partial class DeeperTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task QuickRecalWebcamAsync()
     {
-        _logger?.Information("Quick recal Deeper webcam requested");
+        _logger?.LogInformation("Quick recal Deeper webcam requested");
         await CalibrateWebcamAsync();
     }
 
     [RelayCommand]
     private async Task StartStopTrackerAsync()
     {
-        _logger?.Information("Deeper webcam tracker toggle requested");
+        _logger?.LogInformation("Deeper webcam tracker toggle requested");
         if (!IsWebcamConsentGranted)
         {
             await (_dialogService?.ShowMessageAsync(
@@ -563,7 +639,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning("ApplyDeeperFilterAndSort error: {Error}", ex.Message);
+            _logger?.LogWarning("ApplyDeeperFilterAndSort error: {Error}", ex.Message);
         }
     }
 
@@ -608,6 +684,183 @@ public partial class DeeperTabViewModel : TabItemViewModel
             return desktop.MainWindow;
         }
         return null;
+    }
+
+    private static bool IsCatalogueEligible(Enhancement entry)
+    {
+        if (entry == null) return false;
+        if (!string.Equals(entry.MediaType, MediaTypes.Video, StringComparison.OrdinalIgnoreCase)) return false;
+        return HtUrlHelper.IsEligibleHtUrl(entry.MediaSource);
+    }
+
+    private string GetSubmissionStatus(string filePath)
+    {
+        try
+        {
+            var settings = _settingsService?.Current;
+            if (settings?.DeeperSubmissions == null) return "";
+
+            var key = CanonicalSubmissionKey(filePath);
+            if (settings.DeeperSubmissions.TryGetValue(key, out var rec) && rec != null)
+                return rec.Status ?? "";
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning("GetSubmissionStatus failed: {Error}", ex.Message);
+        }
+        return "";
+    }
+
+    private static string CanonicalSubmissionKey(string filePath)
+    {
+        try { return Path.GetFullPath(filePath); }
+        catch { return filePath; }
+    }
+
+    private static bool IsAcceptedStatus(string? status) =>
+        string.Equals(status, "approved", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "published", StringComparison.OrdinalIgnoreCase);
+
+    private void RecordDeeperSubmission(string filePath, SubmissionResult result)
+    {
+        try
+        {
+            string id;
+            string status;
+            switch (result)
+            {
+                case SubmissionResult.Success s:
+                    id = s.Id;
+                    status = string.IsNullOrEmpty(s.Status) ? "pending" : s.Status;
+                    break;
+                case SubmissionResult.Duplicate d:
+                    id = d.ExistingId;
+                    status = string.IsNullOrEmpty(d.ExistingStatus) ? "pending" : d.ExistingStatus;
+                    break;
+                default:
+                    return;
+            }
+
+            if (string.IsNullOrEmpty(id)) return;
+            var settings = _settingsService?.Current;
+            if (settings == null) return;
+
+            var key = CanonicalSubmissionKey(filePath);
+            settings.DeeperSubmissions.TryGetValue(key, out var existing);
+            var rec = existing ?? new DeeperSubmissionRecord { SubmittedUtc = DateTime.UtcNow };
+            rec.CatalogueId = id;
+            rec.Status = status;
+            rec.LastCheckedUtc = DateTime.UtcNow;
+            if (IsAcceptedStatus(status)) rec.AcceptedNotified = true;
+
+            settings.DeeperSubmissions[key] = rec;
+            _settingsService?.Save();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning("[Catalogue] RecordDeeperSubmission failed: {Error}", ex.Message);
+        }
+    }
+
+    private static void ApplyPendingSubmissionBadge(DeeperLibraryRowViewModel row)
+    {
+        row.SubmissionStatus = "Pending";
+        row.ShowSubmissionBadge = true;
+        row.SubmissionBadgeGlyph = "⏳";
+        row.SubmissionBadgeLabel = Loc.Get("deeper_submission_badge_pending");
+        row.SubmissionBadgeTooltip = Loc.Get("deeper_submission_badge_pending_tip");
+        row.SubmissionBadgeBg = "#33FFD166";
+        row.SubmissionBadgeFg = "#FFFFFFFF";
+    }
+
+    private async Task ShowCatalogueSubmissionResultAsync(SubmissionResult result)
+    {
+        switch (result)
+        {
+            case SubmissionResult.Success:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_success"),
+                    Loc.Get("catalogue_toast_success"),
+                    DialogSeverity.Info) ?? Task.CompletedTask);
+                break;
+
+            case SubmissionResult.Duplicate d:
+            {
+                var key = d.ExistingStatus switch
+                {
+                    "approved" => "catalogue_toast_duplicate_approved",
+                    "rejected" => "catalogue_toast_duplicate_rejected",
+                    _ => "catalogue_toast_duplicate_pending"
+                };
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_info"),
+                    Loc.Get(key),
+                    DialogSeverity.Info) ?? Task.CompletedTask);
+                break;
+            }
+
+            case SubmissionResult.ValidationError v:
+            {
+                var key = v.ErrorCode switch
+                {
+                    "missing_title" => "catalogue_toast_error_missing_title",
+                    "missing_creator" => "catalogue_toast_error_missing_creator",
+                    "invalid_media_source" => "catalogue_toast_error_invalid_media_source",
+                    "invalid_schema" => "catalogue_toast_error_invalid_schema",
+                    "file_too_large" => "catalogue_toast_error_file_too_large",
+                    "stale_guidelines_version" => "catalogue_toast_error_stale_guidelines",
+                    _ => ""
+                };
+                var msg = !string.IsNullOrEmpty(key)
+                    ? Loc.Get(key)
+                    : Loc.GetF("catalogue_toast_error_generic_fmt", v.ErrorCode);
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_warning"),
+                    msg,
+                    DialogSeverity.Warning) ?? Task.CompletedTask);
+                break;
+            }
+
+            case SubmissionResult.AuthFailed:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("catalogue_toast_auth_failed"),
+                    Loc.Get("msg_catalogue_auth_required"),
+                    DialogSeverity.Warning) ?? Task.CompletedTask);
+                break;
+
+            case SubmissionResult.TooLarge:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_error"),
+                    Loc.Get("catalogue_toast_too_large"),
+                    DialogSeverity.Error) ?? Task.CompletedTask);
+                break;
+
+            case SubmissionResult.RateLimited r:
+            {
+                string msg;
+                if (r.RetryAfterSeconds.HasValue && r.RetryAfterSeconds.Value > 0)
+                {
+                    var minutes = Math.Max(1, (int)Math.Ceiling(r.RetryAfterSeconds.Value / 60.0));
+                    msg = Loc.GetF("catalogue_toast_rate_limited_minutes_fmt", minutes);
+                }
+                else
+                {
+                    msg = Loc.Get("catalogue_toast_rate_limited_unknown");
+                }
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_warning"),
+                    msg,
+                    DialogSeverity.Warning) ?? Task.CompletedTask);
+                break;
+            }
+
+            case SubmissionResult.UnknownError:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_error"),
+                    Loc.Get("catalogue_toast_unknown_error"),
+                    DialogSeverity.Error) ?? Task.CompletedTask);
+                break;
+        }
     }
 
     private void LoadDesignTimeData()
@@ -659,7 +912,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
 
     private DeeperLibraryRowViewModel CreateRow(Enhancement entry, string submissionStatus, bool isCatalogueEligible, DateTime lastModified, string? filePath = null)
     {
-        var row = new DeeperLibraryRowViewModel(_dialogService, _logger)
+        var row = new DeeperLibraryRowViewModel(_dialogService, _rowLogger)
         {
             Entry = entry,
             FilePath = filePath ?? entry.MediaSource,

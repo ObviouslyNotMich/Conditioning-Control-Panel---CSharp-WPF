@@ -28,7 +28,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class AwarenessPresetDetailDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<AwarenessPresetDetailDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -46,7 +46,7 @@ public partial class AwarenessPresetDetailDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AwarenessPresetDetailDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 _preset = new KeywordTriggerPreset();
         _promptValidator = App.Services.GetRequiredService<IPromptValidator>();
@@ -64,7 +64,7 @@ _preset = new KeywordTriggerPreset();
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AwarenessPresetDetailDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 _preset = preset;
         _promptValidator = App.Services.GetRequiredService<IPromptValidator>();
@@ -158,7 +158,7 @@ _preset = preset;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "AwarenessPresetDetailDialog: failed to open policy URL");
+            _logger?.LogWarning(ex, "AwarenessPresetDetailDialog: failed to open policy URL");
         }
     }
 
@@ -1202,7 +1202,7 @@ _preset = preset;
             "avatarPromptTemplate",
             result.MatchedPatterns.Count,
             "awareness_preset");
-        _logger?.Information(
+        _logger?.LogInformation(
             "PromptValidator flagged AwarenessPresetDetailDialog avatar prompt ({Count} matches)",
             result.MatchedPatterns.Count);
     }

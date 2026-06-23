@@ -17,7 +17,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class UsernamePickerDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<UsernamePickerDialog> _logger;
 
 
     private static readonly HttpClient _http = new();
@@ -34,7 +34,7 @@ public partial class UsernamePickerDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<UsernamePickerDialog>>();
 Closed += (_, _) =>
         {
             _checkCts?.Cancel();
@@ -140,7 +140,7 @@ Closed += (_, _) =>
         }
         catch (Exception ex)
         {
-            _logger?.Warning("Name availability check failed: {Error}", ex.Message);
+            _logger?.LogWarning("Name availability check failed: {Error}", ex.Message);
             return false;
 }
     }

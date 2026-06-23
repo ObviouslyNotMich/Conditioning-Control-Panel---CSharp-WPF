@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
@@ -8,19 +10,25 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Mantra;
+using ConditioningControlPanel.Core.Services.Settings;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 
 /// <summary>
 /// Avalonia port of the full-screen mantra typing lab.
 ///
-/// Audio (NAudio) and the real MantraService are WPF-only; this port uses local stubs
-/// with TODOs until cross-platform equivalents are available in CCP.Core.
+/// Audio uses the cross-platform <see cref="IAudioPlayer"/> seam: the drone is a short
+/// generated sine loop and the typing tones are generated WAV files played through LibVLC.
 /// </summary>
 public partial class MantraWindow : Window
 {
-    private readonly StubMantraService _service;
+    private readonly IMantraService _service;
+    private readonly IAudioPlayer? _audioPlayer;
     private DispatcherTimer? _floatTimer;
     private DispatcherTimer? _idleTimer;
     private DispatcherTimer? _pulseTimer;
@@ -43,10 +51,16 @@ public partial class MantraWindow : Window
     private static readonly Color ErrorColor = Color.FromRgb(0xFF, 0x44, 0x44);
     private static readonly Color FlashColor = (Color)global::Avalonia.Application.Current!.Resources["TextLight"]!;
 
+    private readonly List<string> _tempAudioFiles = new();
+    private string? _droneFile;
+
     public MantraWindow()
     {
         InitializeComponent();
-        _service = new StubMantraService();
+        _service = App.Services?.GetService<IMantraService>() ?? new MantraService(
+            App.Services?.GetRequiredService<ISettingsService>()
+            ?? throw new InvalidOperationException("Settings service is required for MantraWindow."));
+        _audioPlayer = App.Services?.GetService<IAudioPlayer>();
     }
 
     private void Window_Loaded(object? sender, RoutedEventArgs e)
@@ -85,11 +99,13 @@ public partial class MantraWindow : Window
         _service.MantraCompleted += OnMantraCompleted;
         _service.SessionComplete += OnSessionComplete;
 
+        _service.StartSession(10);
+
         BuildMantraRuns(_service.CurrentMantra ?? "");
         TxtTarget.Text = $"/{_service.TargetCount}";
-        TxtCompletions.Text = "0";
-        TxtStreak.Text = "0";
-        TxtBestStreak.Text = "0";
+        TxtCompletions.Text = _service.Completions.ToString();
+        TxtStreak.Text = _service.Streak.ToString();
+        TxtBestStreak.Text = _service.BestStreak.ToString();
 
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _floatTimer.Tick += FloatTimer_Tick;
@@ -406,23 +422,127 @@ public partial class MantraWindow : Window
         GlowOverlay.Opacity = (Math.Sin(_glowPhase) + 1) * 0.15;
     }
 
-    #region Audio stubs
+    #region Audio
 
     private void StartDrone()
     {
-        // TODO: replace NAudio WaveOut/SignalGenerator with cross-platform audio once available.
+        if (_audioPlayer == null) return;
+        try
+        {
+            _droneFile = Path.Combine(Path.GetTempPath(), $"ccp_mantra_drone_{Guid.NewGuid():N}.wav");
+            MantraToneGenerator.WriteSineWave(_droneFile, 44100, 2000,
+                new[] { (90.0, 0.05), (180.0, 0.02) });
+            _tempAudioFiles.Add(_droneFile);
+            _audioPlayer.SetVolume(0.5);
+            _audioPlayer.PlayLoopAsync(_droneFile);
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetRequiredService<ILogger<MantraWindow>>().LogWarning(ex, "Failed to start mantra drone audio");
+        }
     }
 
     private void StopDrone()
     {
-        // TODO: stop cross-platform drone audio.
+        try { _audioPlayer?.Stop(); }
+        catch { /* ignore */ }
     }
 
     private void PlayTone(double frequency, int durationMs)
     {
-        // TODO: replace NAudio beep with cross-platform tone playback.
-        _ = frequency;
-        _ = durationMs;
+        if (_audioPlayer == null) return;
+        try
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"ccp_mantra_tone_{frequency:0}_{durationMs}_{Guid.NewGuid():N}.wav");
+            MantraToneGenerator.WriteSineWave(path, 44100, durationMs, new[] { (frequency, 0.15) });
+            _tempAudioFiles.Add(path);
+            _audioPlayer.SetVolume(0.6);
+            _audioPlayer.PlayAsync(path);
+            _ = CleanupToneFileAsync(path, durationMs + 500);
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetRequiredService<ILogger<MantraWindow>>().LogWarning(ex, "Failed to play mantra tone");
+        }
+    }
+
+    private async Task CleanupToneFileAsync(string path, int delayMs)
+    {
+        try
+        {
+            await Task.Delay(delayMs);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                _tempAudioFiles.Remove(path);
+            }
+        }
+        catch
+        {
+            // If LibVLC still has the file locked it will be cleaned up on window close.
+        }
+    }
+
+    private void DeleteTempAudioFiles()
+    {
+        foreach (var path in _tempAudioFiles.ToArray())
+        {
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch { /* ignore locked files */ }
+        }
+        _tempAudioFiles.Clear();
+    }
+
+    /// <summary>
+    /// Generates simple 16-bit mono PCM WAV files from one or more sine waves.
+    /// </summary>
+    private static class MantraToneGenerator
+    {
+        public static void WriteSineWave(string path, int sampleRate, int durationMs, IEnumerable<(double Frequency, double Gain)> components)
+        {
+            var comps = components.ToList();
+            int totalSamples = sampleRate * durationMs / 1000;
+            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write);
+            using var writer = new BinaryWriter(stream);
+
+            // WAV header placeholders; actual sizes written after samples.
+            writer.Write("RIFF"u8);
+            writer.Write(0);
+            writer.Write("WAVE"u8);
+            writer.Write("fmt "u8);
+            writer.Write(16);
+            writer.Write((short)1); // PCM
+            writer.Write((short)1); // mono
+            writer.Write(sampleRate);
+            writer.Write(sampleRate * 2); // byte rate
+            writer.Write((short)2); // block align
+            writer.Write((short)16); // bits per sample
+            writer.Write("data"u8);
+            long dataSizePosition = stream.Position;
+            writer.Write(0);
+
+            int samplesWritten = 0;
+            for (int i = 0; i < totalSamples; i++)
+            {
+                double sample = 0.0;
+                foreach (var (freq, gain) in comps)
+                    sample += Math.Sin(2 * Math.PI * freq * i / sampleRate) * gain;
+                // Soft clamp to avoid clipping when mixing multiple components.
+                sample = Math.Tanh(sample);
+                short value = (short)(sample * 32767);
+                writer.Write(value);
+                samplesWritten++;
+            }
+
+            long fileLength = stream.Length;
+            stream.Position = 4;
+            writer.Write((int)(fileLength - 8));
+            stream.Position = dataSizePosition;
+            writer.Write(samplesWritten * 2);
+        }
     }
 
     #endregion
@@ -456,6 +576,7 @@ public partial class MantraWindow : Window
         _pulseTimer?.Stop();
         _animTimer?.Stop();
         StopDrone();
+        DeleteTempAudioFiles();
 
         _service.StreakChanged -= OnStreakChanged;
         _service.StreakBroken -= OnStreakBroken;
@@ -472,66 +593,4 @@ public partial class MantraWindow : Window
         base.OnClosed(e);
     }
 
-    /// <summary>
-    /// Minimal in-memory stand-in for the legacy WPF MantraService.
-    /// </summary>
-    private sealed class StubMantraService
-    {
-        private readonly List<string> _mantras = new()
-        {
-            "obey",
-            "good girls obey",
-            "bambi sleep",
-            "drop deeper"
-        };
-        private int _index;
-
-        public string? CurrentMantra => _mantras.ElementAtOrDefault(_index);
-        public int TargetCount { get; } = 10;
-        public int Completions { get; private set; }
-        public int Streak { get; private set; }
-        public int BestStreak { get; private set; }
-        public bool IsActive { get; private set; } = true;
-
-        public event Action<int>? StreakChanged;
-        public event Action? StreakBroken;
-        public event Action? MantraCompleted;
-        public event Action<int, int>? SessionComplete;
-
-        public bool TryCompleteMantra()
-        {
-            if (!IsActive) return false;
-
-            Completions++;
-            Streak++;
-            if (Streak > BestStreak) BestStreak = Streak;
-            StreakChanged?.Invoke(Streak);
-            MantraCompleted?.Invoke();
-
-            _index = (_index + 1) % _mantras.Count;
-
-            if (Completions >= TargetCount)
-            {
-                IsActive = false;
-                SessionComplete?.Invoke(Completions, BestStreak);
-            }
-
-            return true;
-        }
-
-        public void BreakStreak()
-        {
-            if (Streak > 0)
-            {
-                Streak = 0;
-                StreakChanged?.Invoke(Streak);
-                StreakBroken?.Invoke();
-            }
-        }
-
-        public void EndSession()
-        {
-            IsActive = false;
-        }
-    }
 }

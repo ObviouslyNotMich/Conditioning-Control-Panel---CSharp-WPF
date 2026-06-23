@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 using ConditioningControlPanel.Core.Platform;
 
@@ -6,26 +5,30 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 
 /// <summary>
 /// Low-level input hook implementation.
-/// On Windows it installs a WH_KEYBOARD_LL hook so the panic key works in the Avalonia head.
+/// On Windows it installs WH_KEYBOARD_LL and WH_MOUSE_LL hooks so panic keys, hotkeys
+/// and idle-detection mouse movement work in the Avalonia head.
 /// On Linux/macOS/mobile it degrades gracefully to a no-op because global hooks require
 /// platform-native interop that is not available in the shared Avalonia project.
 /// </summary>
 public sealed class AvaloniaInputHook : IInputHook
 {
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaInputHook>? _logger;
 
-    private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
-    private LowLevelKeyboardProc? _keyboardProc;
+    private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    private HookProc? _keyboardProc;
+    private HookProc? _mouseProc;
     private IntPtr _keyboardHook = IntPtr.Zero;
+    private IntPtr _mouseHook = IntPtr.Zero;
 
-    public AvaloniaInputHook(IAppLogger? logger = null)
+    public AvaloniaInputHook(ILogger<AvaloniaInputHook>? logger = null)
     {
         _logger = logger;
         Start();
     }
 
     public event EventHandler<KeyboardHookEventArgs>? KeyPressed;
-    public event EventHandler<MouseHookEventArgs>? MouseMoved { add { } remove { } }
+    public event EventHandler<MouseHookEventArgs>? MouseMoved;
 
     public bool CanSuppressKeys => false;
 
@@ -33,31 +36,33 @@ public sealed class AvaloniaInputHook : IInputHook
 
     public void Dispose()
     {
-        if (_keyboardHook != IntPtr.Zero && OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows())
         {
-            try
-            {
-                UnhookWindowsHookEx(_keyboardHook);
-            }
-            catch (Exception ex)
-            {
-                _logger?.Warning(ex, "Failed to uninstall low-level keyboard hook");
-            }
-            _keyboardHook = IntPtr.Zero;
+            Unhook(ref _keyboardHook, "keyboard");
+            Unhook(ref _mouseHook, "mouse");
         }
+
         _keyboardProc = null;
+        _mouseProc = null;
     }
 
     public AvaloniaInputHook Start()
     {
         if (!OperatingSystem.IsWindows())
         {
-            _logger?.Information("Low-level input hooks are only supported on Windows in the Avalonia head.");
+            _logger?.LogInformation("Low-level input hooks are only supported on Windows in the Avalonia head.");
             return this;
         }
 
+        InstallKeyboardHook();
+        InstallMouseHook();
+        return this;
+    }
+
+    private void InstallKeyboardHook()
+    {
         if (_keyboardHook != IntPtr.Zero)
-            return this;
+            return;
 
         try
         {
@@ -67,21 +72,64 @@ public sealed class AvaloniaInputHook : IInputHook
             if (_keyboardHook == IntPtr.Zero)
             {
                 var error = Marshal.GetLastWin32Error();
-                _logger?.Warning("SetWindowsHookEx(WH_KEYBOARD_LL) failed with error {Error}", error);
+                _logger?.LogWarning("SetWindowsHookEx(WH_KEYBOARD_LL) failed with error {Error}", error);
                 _keyboardProc = null;
             }
             else
             {
-                _logger?.Information("Low-level keyboard hook installed");
+                _logger?.LogDebug("Low-level keyboard hook installed");
             }
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to install low-level keyboard hook");
+            _logger?.LogWarning(ex, "Failed to install low-level keyboard hook");
             _keyboardProc = null;
         }
+    }
 
-        return this;
+    private void InstallMouseHook()
+    {
+        if (_mouseHook != IntPtr.Zero)
+            return;
+
+        try
+        {
+            _mouseProc = MouseHookCallback;
+            var moduleHandle = GetModuleHandle(null);
+            _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, moduleHandle, 0);
+            if (_mouseHook == IntPtr.Zero)
+            {
+                var error = Marshal.GetLastWin32Error();
+                _logger?.LogWarning("SetWindowsHookEx(WH_MOUSE_LL) failed with error {Error}", error);
+                _mouseProc = null;
+            }
+            else
+            {
+                _logger?.LogDebug("Low-level mouse hook installed");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to install low-level mouse hook");
+            _mouseProc = null;
+        }
+    }
+
+    private void Unhook(ref IntPtr hook, string name)
+    {
+        if (hook == IntPtr.Zero)
+            return;
+
+        try
+        {
+            UnhookWindowsHookEx(hook);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to uninstall low-level {Name} hook", name);
+        }
+
+        hook = IntPtr.Zero;
     }
 
     private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -96,7 +144,25 @@ public sealed class AvaloniaInputHook : IInputHook
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Exception in low-level keyboard hook handler");
+                _logger?.LogWarning(ex, "Exception in low-level keyboard hook handler");
+            }
+        }
+
+        return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+    }
+
+    private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && lParam != IntPtr.Zero && wParam.ToInt32() == WM_MOUSEMOVE)
+        {
+            var info = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+            try
+            {
+                MouseMoved?.Invoke(this, new MouseHookEventArgs(info.pt.x, info.pt.y));
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Exception in low-level mouse hook handler");
             }
         }
 
@@ -104,9 +170,11 @@ public sealed class AvaloniaInputHook : IInputHook
     }
 
     private const int WH_KEYBOARD_LL = 13;
+    private const int WH_MOUSE_LL = 14;
+    private const int WM_MOUSEMOVE = 0x0200;
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+    private static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -123,6 +191,23 @@ public sealed class AvaloniaInputHook : IInputHook
     {
         public uint vkCode;
         public uint scanCode;
+        public uint flags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int x;
+        public int y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MSLLHOOKSTRUCT
+    {
+        public POINT pt;
+        public uint mouseData;
         public uint flags;
         public uint time;
         public IntPtr dwExtraInfo;

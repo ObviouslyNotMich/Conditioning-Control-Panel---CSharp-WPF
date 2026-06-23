@@ -103,7 +103,7 @@ _dialogService = App.Services.GetService<IDialogService>();
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "SeasonRecapWindow: failed to save PNG to {Path}", path);
+            App.Services?.GetRequiredService<ILogger<SeasonRecapWindow>>().LogWarning(ex, "SeasonRecapWindow: failed to save PNG to {Path}", path);
             _ = _dialogService.ShowMessageAsync(Loc.Get("recap_window_title"), string.Format(Loc.Get("msg_save_image_failed_fmt"), ex.Message));
         }
     }
@@ -135,7 +135,7 @@ _dialogService = App.Services.GetService<IDialogService>();
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "SeasonRecapWindow: failed to open URL {Url}", url);
+            App.Services?.GetRequiredService<ILogger<SeasonRecapWindow>>().LogWarning(ex, "SeasonRecapWindow: failed to open URL {Url}", url);
             return false;
 }
     }

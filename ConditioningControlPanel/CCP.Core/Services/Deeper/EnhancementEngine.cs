@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Services.Webcam;
 using ConditioningControlPanel.Models.Deeper;
 
@@ -27,8 +27,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
         private readonly IPlaybackTimeSource _source;
         private readonly IActionDispatcher _dispatcher;
         private readonly IWebcamService? _webcam;
-        private readonly IUiDispatcher _uiDispatcher;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<EnhancementEngine>? _logger;
         private readonly Action<string>? _diag;
 
         private List<TimelineEntry> _timeline = new();
@@ -117,14 +116,12 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             IActionDispatcher dispatcher,
             IWebcamService? webcam = null,
             Action<string>? diag = null,
-            IUiDispatcher? uiDispatcher = null,
-            IAppLogger? logger = null)
+            ILogger<EnhancementEngine>? logger = null)
         {
             _enhancement = enhancement ?? throw new ArgumentNullException(nameof(enhancement));
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _webcam = webcam;
-            _uiDispatcher = uiDispatcher ?? throw new ArgumentNullException(nameof(uiDispatcher));
             _logger = logger;
             _diag = diag;
         }
@@ -407,7 +404,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
 
             _running = true;
-            _logger?.Information("EnhancementEngine started: {Name} ({Tl} timeline entries, {Rules} reactive rules)",
+            _logger?.LogInformation("EnhancementEngine started: {Name} ({Tl} timeline entries, {Rules} reactive rules)",
                 _enhancement.Metadata?.Name, _timeline.Count, _reactiveRules.Count);
 
             int blinkRules = _reactiveRules.Count(i => i.Trigger is BlinkDetectedTrigger);
@@ -447,7 +444,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                 {
                     _completedFired = true;
                     try { PlaybackCompleted?.Invoke(); }
-                    catch (Exception ex) { _logger?.Debug("EnhancementEngine fallback PlaybackCompleted error: {Error}", ex.Message); }
+                    catch (Exception ex) { _logger?.LogDebug("EnhancementEngine fallback PlaybackCompleted error: {Error}", ex.Message); }
                 }
             }
 
@@ -455,7 +452,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             // clearing _running, so the dispatcher's Stop actions are not
             // short-circuited by the running check.
             try { FlushActiveBands(_lastTickTime >= 0 ? _lastTickTime : 0); }
-            catch (Exception ex) { _logger?.Debug("EnhancementEngine FlushActiveBands: {Error}", ex.Message); }
+            catch (Exception ex) { _logger?.LogDebug("EnhancementEngine FlushActiveBands: {Error}", ex.Message); }
 
             // Flip _running first so any in-flight tick / dispatch short-circuits
             // before we start tearing down subscriptions.
@@ -476,7 +473,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             try { _runCts?.Dispose(); } catch { }
             _runCts = null;
 
-            _logger?.Information("EnhancementEngine stopped: {Name}", _enhancement.Metadata?.Name);
+            _logger?.LogInformation("EnhancementEngine stopped: {Name}", _enhancement.Metadata?.Name);
         }
 
         public void Dispose()
@@ -592,13 +589,13 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                     {
                         _completedFired = true;
                         try { PlaybackCompleted?.Invoke(); }
-                        catch (Exception ex) { _logger?.Debug("EnhancementEngine PlaybackCompleted subscriber error: {Error}", ex.Message); }
+                        catch (Exception ex) { _logger?.LogDebug("EnhancementEngine PlaybackCompleted subscriber error: {Error}", ex.Message); }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger?.Debug("EnhancementEngine tick error: {Error}", ex.Message);
+                _logger?.LogDebug("EnhancementEngine tick error: {Error}", ex.Message);
             }
         }
 
@@ -676,7 +673,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                 var band = FindBandById(id);
                 if (band == null) continue;
                 try { _ = _dispatcher.DispatchAsync(band.BuildStopAction(), ctx, CancellationToken.None); }
-                catch (Exception ex) { _logger?.Debug("FlushActiveBands dispatch: {Error}", ex.Message); }
+                catch (Exception ex) { _logger?.LogDebug("FlushActiveBands dispatch: {Error}", ex.Message); }
             }
             _activeBandIds.Clear();
         }
@@ -768,8 +765,8 @@ namespace ConditioningControlPanel.Core.Services.Deeper
 
         private void MarshalToUi(Action action)
         {
-            if (_uiDispatcher.CheckAccess()) { action(); return; }
-            try { _uiDispatcher.Post(action); } catch { /* dispatcher shutting down */ }
+            if (Dispatcher.UIThread.CheckAccess()) { action(); return; }
+            try { Dispatcher.UIThread.Post(action); } catch { /* dispatcher shutting down */ }
         }
 
         private void OnBlinkCore()
@@ -968,7 +965,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             catch (OperationCanceledException) { /* engine stopped mid-dispatch */ }
             catch (Exception ex)
             {
-                _logger?.Debug("EnhancementEngine dispatch error: {Error}", ex.Message);
+                _logger?.LogDebug("EnhancementEngine dispatch error: {Error}", ex.Message);
             }
         }
 

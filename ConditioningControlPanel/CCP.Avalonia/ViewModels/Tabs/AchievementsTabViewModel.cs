@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
@@ -22,7 +23,7 @@ public partial class AchievementsTabViewModel : TabItemViewModel
 {
     private readonly IAchievementService? _achievementService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AchievementsTabViewModel>? _logger;
     private readonly ISettingsService? _settingsService;
 
     public AchievementsTabViewModel() : base("achievements", "Achievements", "🏆")
@@ -35,8 +36,9 @@ public partial class AchievementsTabViewModel : TabItemViewModel
     public AchievementsTabViewModel(
         IAchievementService achievementService,
         IDialogService dialogService,
-        IAppLogger logger,
-        ISettingsService settingsService) : base("achievements", "Achievements", "🏆")
+        ILogger<AchievementsTabViewModel> logger,
+        ISettingsService settingsService,
+        IModService modService) : base("achievements", "Achievements", "🏆")
     {
         _achievementService = achievementService;
         _dialogService = dialogService;
@@ -46,6 +48,12 @@ public partial class AchievementsTabViewModel : TabItemViewModel
         _patronTiles = new ObservableCollection<AchievementTileViewModel>();
         PopulateTiles();
         UpdateCounts();
+
+        modService.ActiveModChanged += (_, _) =>
+        {
+            PopulateTiles();
+            UpdateCounts();
+        };
     }
 
     [ObservableProperty]
@@ -76,7 +84,7 @@ public partial class AchievementsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task ViewSeasonRecapAsync()
     {
-        _logger?.Information("Season recap re-view requested");
+        _logger?.LogInformation("Season recap re-view requested");
         try
         {
             var snapshot = SeasonRecapService.LoadLatest();
@@ -114,7 +122,7 @@ public partial class AchievementsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SeasonRecap: failed to open re-view");
+            _logger?.LogWarning(ex, "SeasonRecap: failed to open re-view");
         }
     }
 
@@ -168,7 +176,7 @@ public partial class AchievementsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SeasonRecap: failed to check snapshot availability");
+            _logger?.LogWarning(ex, "SeasonRecap: failed to check snapshot availability");
             HasSeasonRecap = false;
         }
     }

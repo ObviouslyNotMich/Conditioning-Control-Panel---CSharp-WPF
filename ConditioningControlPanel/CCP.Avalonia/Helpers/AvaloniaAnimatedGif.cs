@@ -62,6 +62,30 @@ public sealed class AvaloniaAnimatedGif : IDisposable
         }
     }
 
+    /// <summary>Attempt to create an animated GIF renderer from <paramref name="stream"/>.</summary>
+    /// <returns>The renderer, or <c>null</c> if the stream is empty, not a GIF, or has no animation.</returns>
+    public static AvaloniaAnimatedGif? TryCreate(Stream stream, bool playOnce = false)
+    {
+        try
+        {
+            if (stream == null || !stream.CanRead)
+                return null;
+
+            var codec = SKCodec.Create(stream);
+            if (codec == null || codec.FrameCount <= 1)
+            {
+                codec?.Dispose();
+                return null;
+            }
+
+            return new AvaloniaAnimatedGif(codec, playOnce);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private AvaloniaAnimatedGif(SKCodec codec, bool playOnce)
     {
         _codec = codec;

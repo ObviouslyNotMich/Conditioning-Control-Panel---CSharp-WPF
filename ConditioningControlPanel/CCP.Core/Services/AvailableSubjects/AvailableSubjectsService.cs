@@ -4,8 +4,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
+using Avalonia.Threading;
 using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -32,12 +33,10 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
 
         private readonly HttpClient _httpClient;
         private readonly ISettingsService _settingsService;
-        private readonly IAppLogger _logger;
-        private readonly IUiDispatcher _uiDispatcher;
-        private readonly IScheduler _scheduler;
+        private readonly ILogger<AvailableSubjectsService> _logger;
         private readonly IUpdateInstaller? _updateInstaller;
 
-        private IDisposable? _pollTimer;
+        private Timer? _pollTimer;
         private CancellationTokenSource? _inFlightCts;
         private bool _disposed;
 
@@ -73,15 +72,11 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
 
         public AvailableSubjectsService(
             ISettingsService settingsService,
-            IAppLogger logger,
-            IUiDispatcher uiDispatcher,
-            IScheduler scheduler,
+            ILogger<AvailableSubjectsService> logger,
             IUpdateInstaller? updateInstaller = null)
         {
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _uiDispatcher = uiDispatcher ?? throw new ArgumentNullException(nameof(uiDispatcher));
-            _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
             _updateInstaller = updateInstaller;
 
             var version = _updateInstaller?.GetInstalledVersion() ?? "6.1.4";
@@ -97,11 +92,8 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
             if (_pollTimer != null) return;
 
             _ = RefreshAsync();
-            _pollTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(PollIntervalSeconds), () =>
-            {
-                _ = RefreshAsync();
-            });
-            _logger.Information("[AvailableSubjects] polling started");
+            _pollTimer = new Timer(_ => _ = RefreshAsync(), null, TimeSpan.FromSeconds(PollIntervalSeconds), TimeSpan.FromSeconds(PollIntervalSeconds));
+            _logger.LogInformation("[AvailableSubjects] polling started");
         }
 
         /// <inheritdoc />
@@ -124,7 +116,7 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
             var token = _settingsService.Current?.AuthToken;
             if (string.IsNullOrEmpty(unifiedId) || string.IsNullOrEmpty(token))
             {
-                _uiDispatcher.Post(() =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     HasError = true;
                     IsEmpty = true;
@@ -136,7 +128,7 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
             _inFlightCts = new CancellationTokenSource();
             var ct = _inFlightCts.Token;
 
-            _uiDispatcher.Post(() => IsLoading = true);
+            Dispatcher.UIThread.Post(() => IsLoading = true);
 
             try
             {
@@ -149,8 +141,8 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.Warning("[AvailableSubjects] list failed: {Status}", response.StatusCode);
-                    _uiDispatcher.Post(() => HasError = true);
+                    _logger.LogWarning("[AvailableSubjects] list failed: {Status}", response.StatusCode);
+                    Dispatcher.UIThread.Post(() => HasError = true);
                     return;
                 }
 
@@ -161,7 +153,7 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
                 var arr = parsed["entries"] as JArray ?? new JArray();
                 var newEntries = arr.Select(ParseEntry).Where(e => e != null).Cast<AvailableSubject>().ToList();
 
-                _uiDispatcher.Post(() =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     ReconcileEntries(newEntries);
                     IsEmpty = Entries.Count == 0;
@@ -172,12 +164,12 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
             catch (OperationCanceledException) { /* expected on cancel */ }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "[AvailableSubjects] refresh error");
-                _uiDispatcher.Post(() => HasError = true);
+                _logger.LogWarning(ex, "[AvailableSubjects] refresh error");
+                Dispatcher.UIThread.Post(() => HasError = true);
             }
             finally
             {
-                _uiDispatcher.Post(() => IsLoading = false);
+                Dispatcher.UIThread.Post(() => IsLoading = false);
             }
         }
 
@@ -190,7 +182,7 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
             var token = _settingsService.Current?.AuthToken;
             if (string.IsNullOrEmpty(unifiedId) || string.IsNullOrEmpty(token))
             {
-                _logger.Warning("[AvailableSubjects] claim called without auth state");
+                _logger.LogWarning("[AvailableSubjects] claim called without auth state");
                 return null;
             }
             if (string.IsNullOrEmpty(subjectUnifiedId)) return null;
@@ -214,7 +206,7 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
                 }
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.Warning("[AvailableSubjects] claim failed: {Status}", response.StatusCode);
+                    _logger.LogWarning("[AvailableSubjects] claim failed: {Status}", response.StatusCode);
                     return null;
                 }
 
@@ -223,7 +215,7 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
                 var url = parsed["session_url"]?.ToString();
                 if (string.IsNullOrEmpty(url))
                 {
-                    _logger.Warning("[AvailableSubjects] claim 200 without session_url");
+                    _logger.LogWarning("[AvailableSubjects] claim 200 without session_url");
                     return null;
                 }
 
@@ -232,7 +224,7 @@ namespace ConditioningControlPanel.Core.Services.AvailableSubjects
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "[AvailableSubjects] claim error");
+                _logger.LogWarning(ex, "[AvailableSubjects] claim error");
                 return null;
             }
         }

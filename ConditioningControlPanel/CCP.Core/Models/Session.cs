@@ -103,6 +103,43 @@ namespace ConditioningControlPanel.Models
         }
 
         /// <summary>
+        /// Creates a quick-start session from the current app settings.
+        /// Used when the user presses START without having selected a preset session.
+        /// </summary>
+        public static Session QuickStartFromSettings(AppSettings settings)
+        {
+            return new Session
+            {
+                Id = "quick-start",
+                Name = string.IsNullOrWhiteSpace(settings.CurrentPresetName)
+                    ? "Quick Start"
+                    : $"{settings.CurrentPresetName} (Quick Start)",
+                Icon = "▶",
+                DurationMinutes = 30,
+                IsAvailable = true,
+                Difficulty = SessionDifficulty.Easy,
+                BonusXP = 0,
+                Source = SessionSource.BuiltIn,
+                Settings = new SessionSettings
+                {
+                    FlashEnabled = settings.FlashEnabled,
+                    MandatoryVideosEnabled = settings.MandatoryVideosEnabled,
+                    SubliminalEnabled = settings.SubliminalEnabled,
+                    BouncingTextEnabled = settings.BouncingTextEnabled,
+                    BubblesEnabled = settings.BubblesEnabled,
+                    BubbleCountEnabled = settings.BubbleCountEnabled,
+                    LockCardEnabled = settings.LockCardEnabled,
+                    MindWipeEnabled = settings.MindWipeEnabled,
+                    PinkFilterEnabled = settings.PinkFilterEnabled,
+                    SpiralEnabled = settings.SpiralEnabled,
+                    BrainDrainEnabled = settings.BrainDrainEnabled,
+                    PopQuizEnabled = settings.PopQuizEnabled,
+                },
+                Phases = new List<SessionPhase>()
+            };
+        }
+
+        /// <summary>
         /// Replaces Bambi-specific references with generic equivalents for SH mode.
         /// </summary>
 #pragma warning disable CS0618 // ContentMode is obsolete but still required for legacy mode-aware text conversion

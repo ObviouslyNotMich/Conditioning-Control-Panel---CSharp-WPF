@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Autonomy;
 using ConditioningControlPanel.Core.Services.Settings;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
@@ -11,14 +12,15 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 /// <summary>
 /// Avalonia port of the WPF MainWindow.Autonomy partial.
 /// Exposes autonomy mode toggles, intensity/cooldown sliders, behaviour checkboxes,
-/// and test/force commands. Full service integration is stubbed behind the dialog
-/// service until an IAutonomyService seam is extracted to Core.
+/// and test/force commands. Wired to <see cref="IAutonomyService"/> for start/stop,
+/// test trigger, and force-start.
 /// </summary>
 public partial class BambiTakeoverTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly IAutonomyService? _autonomyService;
+    private readonly ILogger<BambiTakeoverTabViewModel>? _logger;
 
     public BambiTakeoverTabViewModel() : base("bambitakeover", "Takeover", "🌀")
     {
@@ -30,10 +32,12 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
     public BambiTakeoverTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("bambitakeover", "Takeover", "🌀")
+        IAutonomyService autonomyService,
+        ILogger<BambiTakeoverTabViewModel> logger) : base("bambitakeover", "Takeover", "🌀")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
+        _autonomyService = autonomyService;
         _logger = logger;
         LoadFromSettings();
 
@@ -77,6 +81,9 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
 
     [ObservableProperty]
     private bool _canTriggerWebVideo;
+
+    [ObservableProperty]
+    private bool _canTriggerWallpaper;
 
     [ObservableProperty]
     private bool _canTriggerSubliminal;
@@ -132,7 +139,13 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
 
         _settingsService.Current.AutonomyModeEnabled = value;
         Save();
-        _logger?.Information("Autonomy Mode toggled: {Enabled}", value);
+
+        if (value)
+            _autonomyService?.Start();
+        else
+            _autonomyService?.Stop();
+
+        _logger?.LogInformation("Autonomy Mode toggled: {Enabled}", value);
     }
 
     partial void OnAutonomyIntensityChanged(int value)
@@ -187,6 +200,7 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
     partial void OnCanTriggerFlashChanged(bool value) => SaveBehavior(nameof(CanTriggerFlash), value, s => s.AutonomyCanTriggerFlash = value);
     partial void OnCanTriggerVideoChanged(bool value) => SaveBehavior(nameof(CanTriggerVideo), value, s => s.AutonomyCanTriggerVideo = value);
     partial void OnCanTriggerWebVideoChanged(bool value) => SaveBehavior(nameof(CanTriggerWebVideo), value, s => s.AutonomyCanTriggerWebVideo = value);
+    partial void OnCanTriggerWallpaperChanged(bool value) => SaveBehavior(nameof(CanTriggerWallpaper), value, s => s.AutonomyCanTriggerWallpaper = value);
     partial void OnCanTriggerSubliminalChanged(bool value) => SaveBehavior(nameof(CanTriggerSubliminal), value, s => s.AutonomyCanTriggerSubliminal = value);
     partial void OnCanTriggerBubblesChanged(bool value) => SaveBehavior(nameof(CanTriggerBubbles), value, s => s.AutonomyCanTriggerBubbles = value);
     partial void OnCanCommentChanged(bool value) => SaveBehavior(nameof(CanComment), value, s => s.AutonomyCanComment = value);
@@ -202,7 +216,7 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         apply(_settingsService.Current);
         Save();
-        _logger?.Information("Autonomy behavior {Name} = {Value}", name, value);
+        _logger?.LogInformation("Autonomy behavior {Name} = {Value}", name, value);
     }
 
     private async Task PromptForConsentAsync()
@@ -217,7 +231,7 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
             _settingsService.Current.AutonomyConsentGiven = true;
             _settingsService.Current.AutonomyModeEnabled = true;
             Save();
-            _logger?.Information("Autonomy consent granted and enabled");
+            _logger?.LogInformation("Autonomy consent granted and enabled");
         }
         else
         {
@@ -243,19 +257,21 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
         AutonomyEnabled = !AutonomyEnabled;
         _settingsService.Current.AutonomyModeEnabled = AutonomyEnabled;
         Save();
-        _logger?.Information("Autonomy Mode button toggled: {Enabled}", AutonomyEnabled);
+        _logger?.LogInformation("Autonomy Mode button toggled: {Enabled}", AutonomyEnabled);
     }
 
     [RelayCommand]
     private void TestAutonomy()
     {
-        _logger?.Information("Autonomy test trigger requested");
+        _logger?.LogInformation("Autonomy test trigger requested");
+        _autonomyService?.TestTrigger();
     }
 
     [RelayCommand]
     private void ForceStartAutonomy()
     {
-        _logger?.Information("Autonomy force start requested");
+        _logger?.LogInformation("Autonomy force start requested");
+        _autonomyService?.ForceStart();
     }
 
     [RelayCommand]
@@ -302,6 +318,7 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
         CanTriggerFlash = s.AutonomyCanTriggerFlash;
         CanTriggerVideo = s.AutonomyCanTriggerVideo;
         CanTriggerWebVideo = s.AutonomyCanTriggerWebVideo;
+        CanTriggerWallpaper = s.AutonomyCanTriggerWallpaper;
         CanTriggerSubliminal = s.AutonomyCanTriggerSubliminal;
         CanTriggerBubbles = s.AutonomyCanTriggerBubbles;
         CanTriggerMindWipe = s.AutonomyCanTriggerMindWipe;
@@ -316,6 +333,6 @@ public partial class BambiTakeoverTabViewModel : TabItemViewModel
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save autonomy settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save autonomy settings"); }
     }
 }

@@ -12,13 +12,14 @@ using Avalonia.Controls.Shapes;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Quiz;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Models.Quiz;
 
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 
-// TODO: move quiz models/service to CCP.Core once the quiz system is ported.
 public class PromptValidationResult
 {
     public bool Clean { get; set; }
@@ -40,9 +41,9 @@ public class ModerationLog
 /// </summary>
 public partial class QuizCategoryEditorWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<QuizCategoryEditorWindow> _logger;
     private readonly IDialogService? _dialogService;
-
+    private readonly IQuizService _quizService;
 
     private QuizCategoryDefinition? _existing;
     private string _selectedColor = "#FF69B4";
@@ -73,8 +74,9 @@ public partial class QuizCategoryEditorWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<QuizCategoryEditorWindow>>();
         _dialogService = App.Services?.GetService<IDialogService>();
+        _quizService = App.Services.GetRequiredService<IQuizService>();
         _selectedColor = GetThemeAccentHex();
         BuildColorPicker();
         BuildArchetypeRows();
@@ -268,7 +270,7 @@ public partial class QuizCategoryEditorWindow : Window
         var templateId = item.Tag?.ToString();
         if (string.IsNullOrEmpty(templateId)) return;
 
-        var builtIn = QuizService.GetBuiltInCategories()
+        var builtIn = _quizService.GetBuiltInCategories()
             .FirstOrDefault(c => c.Id == templateId);
         if (builtIn == null) return;
 
@@ -317,7 +319,7 @@ public partial class QuizCategoryEditorWindow : Window
 
         try
         {
-            using var svc = new QuizService();
+            using var svc = App.Services?.GetRequiredService<IQuizService>();
             var tempDef = new QuizCategoryDefinition
             {
                 Id = "preview_temp",
@@ -403,7 +405,7 @@ public partial class QuizCategoryEditorWindow : Window
             return;
         }
 
-        var builtInNames = QuizService.GetBuiltInCategories().Select(c => c.Name.ToLowerInvariant());
+        var builtInNames = _quizService.GetBuiltInCategories().Select(c => c.Name.ToLowerInvariant());
         if (builtInNames.Contains(name.ToLowerInvariant()) && _existing?.Name.ToLowerInvariant() != name.ToLowerInvariant())
         {
             if (_dialogService != null)
@@ -455,13 +457,13 @@ public partial class QuizCategoryEditorWindow : Window
                 result.MatchedPatterns.Count);
             ValidatorBanner.IsVisible = true;
 
-            _logger?.Information(
+            _logger?.LogInformation(
                 "PromptValidator flagged QuizCategoryEditorWindow system prompt ({Count} matches)",
                 result.MatchedPatterns.Count);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "QuizCategoryEditorWindow: prompt validation failed");
+            _logger?.LogWarning(ex, "QuizCategoryEditorWindow: prompt validation failed");
         }
     }
 
@@ -475,7 +477,7 @@ public partial class QuizCategoryEditorWindow : Window
 
         if (!confirmed) return;
 
-        QuizService.DeleteCustomCategory(_existing.Id);
+        _quizService.DeleteCustomCategory(_existing.Id);
         Result = null;
         DialogResult = true;
         Close(true);
@@ -566,7 +568,7 @@ settings?.CompanionPrompt;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "QuizCategoryEditorWindow: failed to open policy URL");
+            _logger?.LogWarning(ex, "QuizCategoryEditorWindow: failed to open policy URL");
         }
     }
 }

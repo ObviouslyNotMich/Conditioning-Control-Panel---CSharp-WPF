@@ -12,7 +12,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 
 public partial class ChaosHudWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosHudWindow> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService? _settings;
 
 
@@ -53,7 +53,7 @@ public partial class ChaosHudWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosHudWindow>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 Panel.RenderTransform = _panelSlide;
         StreakBlock.RenderTransform = new TransformGroup { Children = { _streakScale, _streakRot, _streakJitter } };
@@ -103,7 +103,52 @@ Panel.RenderTransform = _panelSlide;
 
     private void AttachHudTips()
     {
-        // TODO: wire Avalonia tooltips for HUD elements once a shared tip service is available.
+        try
+        {
+            const string TIP_CLOCK =
+                "how long you've been down this descent (minutes:seconds).";
+            const string TIP_SCORE =
+                "every pop and snap pays base points x the multiplier stack. at the recap the score banks into drops ✦.";
+            const string TIP_MULT =
+                "the whole stack multiplied out: streak x difficulty x lust x mantras (sins can stretch it further). every payout is scaled by this.";
+            const string TIP_STREAK =
+                "+1 per pop or snap. each point adds +0.08x to the stack, capped at x6.0. a treat left to rot HALVES it; an unblocked trigger ZEROES it. it heats up at 5 / 10 / 20 / 35.";
+            const string TIP_FOCUS =
+                "the defuse fuel. a hold costs 30 (15 per bound half). treats refill +10, rabbits and heavy drops +15, a denied tease +10. max 100, you fall in with 50. pressing a live bubble with less than 30 detonates it in your grip. snaps during a freeze are free.";
+            const string TIP_RESIST =
+                "each ♥ absorbs one trigger: the effect still washes past, but your streak and lust survive (some sins demand 2). with none left, a trigger zeroes both. you fall in with 0 — charms, hearts and mantras grant it.";
+            const string TIP_LUST =
+                "climbs while you perform (each snap +0.07) and pays up to x2.0 at full burn — the orange bar. an unblocked trigger cools it to zero.";
+            const string TIP_RIPPLE =
+                "the right-click wave. cast it near the bubbles: treats pop paid, trances snap clean, rabbits get flung. one charge, gathered back over time — READY means it's in your hand.";
+
+            ChaosTips.Attach(TxtStripClock, "the fall", TIP_CLOCK);
+            ChaosTips.Attach(TxtStripScore, "score", TIP_SCORE);
+            ChaosTips.Attach(TxtStripMult, "the multiplier", TIP_MULT);
+            ChaosTips.Attach(StreakBlock, "streak", TIP_STREAK);
+            ChaosTips.Attach(FocusStripBlock, "focus", TIP_FOCUS);
+            ChaosTips.Attach(RippleStripBlock, "the ripple", TIP_RIPPLE);
+
+            ChaosTips.Attach(TxtPanelScore, "score", TIP_SCORE);
+            ChaosTips.Attach(TxtPanelMult, "the multiplier", TIP_MULT);
+            ChaosTips.Attach(TxtActWave, "where you are", "the current act and loop of this descent. loops end with a draft; the last one ends the fall.");
+            ChaosTips.Attach(HdrStack, "the multiplier stack", TIP_MULT);
+            ChaosTips.Attach(RowStreak, "streak", TIP_STREAK);
+            ChaosTips.Attach(RowDifficulty, "difficulty", "set by the pill you picked: Gentle x1.0, Teasing x1.3, Relentless x1.7, Inescapable x2.2.");
+            ChaosTips.Attach(RowLust, "lust", TIP_LUST);
+            ChaosTips.Attach(BarLust, "lust", TIP_LUST);
+            ChaosTips.Attach(RowMantras, "mantras", "every x-multiplier mantra you took this run, multiplied together. the picks themselves are listed under CONDITIONING.");
+            ChaosTips.Attach(HdrResistance, "resistance", TIP_RESIST);
+            ChaosTips.Attach(TxtShields, "resistance", TIP_RESIST);
+            ChaosTips.Attach(HdrFocus, "focus", TIP_FOCUS);
+            ChaosTips.Attach(FocusPanelBlock, "focus", TIP_FOCUS);
+            ChaosTips.Attach(HdrPockets, "toys", "the active toys you took down — two pockets at most. hover a tile for its card; before the fall starts, clicking a tile takes it off.");
+            ChaosTips.Attach(HdrAccessories, "accessories", "the accessories you wore down — two at most. hover a tile for its card; before the fall starts, clicking a tile takes it off.");
+            ChaosTips.Attach(HdrConditioning, "conditioning", "the mantras and sins you accepted this run, in draft order. hover each for what it does.");
+            ChaosTips.Attach(HdrModifiers, "modifiers", "your trained habits — always on, every descent. switch them at the Dollhouse, not here.");
+            ChaosTips.Attach(HdrFeed, "the feed", "the last few things that happened down here, newest first.");
+        }
+        catch (Exception ex) { _logger.LogDebug("AttachHudTips: {E}", ex.Message); }
     }
 
     private void LoadPortrait()
@@ -248,7 +293,7 @@ Panel.RenderTransform = _panelSlide;
                 appSettings?.Save();
             }
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosHud side persist: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosHudWindow>>().LogInformation("ChaosHud side persist: {E}", ex.Message); }
     }
 
     public void SetPreRunExpanded(bool pinned)

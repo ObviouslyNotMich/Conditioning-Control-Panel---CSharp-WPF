@@ -13,7 +13,6 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using QRCoder;
 
@@ -30,8 +29,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
     private readonly IRemoteControlService? _remoteControlService;
-    private readonly IAppLogger? _logger;
-    private readonly IUiDispatcher? _uiDispatcher;
+    private readonly ILogger<RemoteControlTabViewModel>? _logger;
 
     public RemoteControlTabViewModel()
         : base("remotecontrol", "Remote Control", "🎮")
@@ -45,8 +43,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
         _settingsService = services.GetService<ISettingsService>();
         _dialogService = services.GetService<IDialogService>();
         _remoteControlService = services.GetService<IRemoteControlService>();
-        _logger = services.GetService<IAppLogger>();
-        _uiDispatcher = services.GetService<IUiDispatcher>();
+        _logger = services.GetRequiredService<ILogger<RemoteControlTabViewModel>>();
 
         InitializeDefaults();
 
@@ -217,7 +214,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to generate QR code for pairing URL");
+            _logger?.LogWarning(ex, "Failed to generate QR code for pairing URL");
             PairingQrImage = null;
         }
     }
@@ -252,7 +249,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
 
     public void RefreshStatus()
     {
-        _logger?.Information("Remote Control tab activated.");
+        _logger?.LogInformation("Remote Control tab activated.");
         SyncFromService();
     }
 
@@ -261,7 +258,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
     {
         if (_remoteControlService == null)
         {
-            _logger?.Warning("Start session requested but IRemoteControlService is not available.");
+            _logger?.LogWarning("Start session requested but IRemoteControlService is not available.");
             return;
         }
 
@@ -273,7 +270,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
     {
         if (_remoteControlService == null)
         {
-            _logger?.Warning("Stop session requested but IRemoteControlService is not available.");
+            _logger?.LogWarning("Stop session requested but IRemoteControlService is not available.");
             return;
         }
 
@@ -285,7 +282,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
     {
         if (_remoteControlService == null)
         {
-            _logger?.Warning("Directory opt-in requested but IRemoteControlService is not available.");
+            _logger?.LogWarning("Directory opt-in requested but IRemoteControlService is not available.");
             return;
         }
 
@@ -293,7 +290,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
         if (IsDirectoryOptedIn)
         {
             DirectoryStatusText = Loc.Get("label_listed");
-            _logger?.Information("Directory opt-in requested.");
+            _logger?.LogInformation("Directory opt-in requested.");
             var selectedLabels = OptInTags
                 .Where(t => t.IsSelected)
                 .Select(t => t.Label)
@@ -317,7 +314,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
             await clipboard.SetTextAsync(ConnectPin);
         }
 
-        _logger?.Information("Copy remote PIN requested: {Pin}", ConnectPin);
+        _logger?.LogInformation("Copy remote PIN requested: {Pin}", ConnectPin);
     }
 
     [RelayCommand]
@@ -331,7 +328,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
             await clipboard.SetTextAsync(SessionCode);
         }
 
-        _logger?.Information("Copy remote session code requested: {Code}", SessionCode);
+        _logger?.LogInformation("Copy remote session code requested: {Code}", SessionCode);
     }
 
     [RelayCommand]
@@ -345,14 +342,14 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
             await clipboard.SetTextAsync(PairingUrl);
         }
 
-        _logger?.Information("Copy remote pairing URL requested: {Url}", PairingUrl);
+        _logger?.LogInformation("Copy remote pairing URL requested: {Url}", PairingUrl);
     }
 
     [RelayCommand]
     private async Task SendEmoteAsync(string? emote)
     {
         if (string.IsNullOrWhiteSpace(emote)) return;
-        _logger?.Information("Send emote requested: {Emote}", emote);
+        _logger?.LogInformation("Send emote requested: {Emote}", emote);
         CommandLog.Add($"[{DateTime.Now:HH:mm:ss}] Emote: {emote}");
 
         if (_remoteControlService != null)
@@ -360,7 +357,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
             var (_, error, _) = await _remoteControlService.SendEmoteAsync(emote, "✨", "preset");
             if (!string.IsNullOrEmpty(error) && error != "debounced")
             {
-                _logger?.Warning("SendEmote failed: {Error}", error);
+                _logger?.LogWarning("SendEmote failed: {Error}", error);
             }
         }
     }
@@ -379,7 +376,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
 
         if (!tag.IsSelected && OptInTags.Count(t => t.IsSelected) >= 5)
         {
-            _logger?.Warning("Directory opt-in tag limit reached.");
+            _logger?.LogWarning("Directory opt-in tag limit reached.");
             return;
         }
 
@@ -413,7 +410,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
 
     private async Task StartRemoteSessionAsync()
     {
-        _logger?.Information("Remote session start requested (tier: {Tier}).", SelectedTier);
+        _logger?.LogInformation("Remote session start requested (tier: {Tier}).", SelectedTier);
 
         var settings = _settingsService?.Current;
         if (string.IsNullOrEmpty(settings?.UnifiedId))
@@ -441,7 +438,7 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
 
     private async Task StopRemoteSessionAsync()
     {
-        _logger?.Information("Remote session stop requested.");
+        _logger?.LogInformation("Remote session stop requested.");
 
         if (_remoteControlService != null)
         {
@@ -460,27 +457,27 @@ public partial class RemoteControlTabViewModel : TabItemViewModel
 
     private void OnServiceSessionStarted(object? sender, EventArgs e)
     {
-        _uiDispatcher?.Post(SyncFromService);
+        Dispatcher.UIThread.Post(SyncFromService);
     }
 
     private void OnServiceSessionEnded(object? sender, EventArgs e)
     {
-        _uiDispatcher?.Post(SyncFromService);
+        Dispatcher.UIThread.Post(SyncFromService);
     }
 
     private void OnControllerConnectedChanged(object? sender, EventArgs e)
     {
-        _uiDispatcher?.Post(SyncFromService);
+        Dispatcher.UIThread.Post(SyncFromService);
     }
 
     private void OnControllerIdleChanged(object? sender, EventArgs e)
     {
-        _uiDispatcher?.Post(SyncFromService);
+        Dispatcher.UIThread.Post(SyncFromService);
     }
 
     private void OnCommandReceived(object? sender, string action)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             CommandLog.Add($"[{DateTime.Now:HH:mm:ss}] {action}");
             OnPropertyChanged(nameof(HasCommands));

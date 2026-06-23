@@ -23,7 +23,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<BlinkTrainerTabViewModel>? _logger;
 
     public BlinkTrainerTabViewModel() : base("blinktrainer", "Blink Trainer", "💫")
     {
@@ -37,7 +37,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     public BlinkTrainerTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("blinktrainer", "Blink Trainer", "💫")
+        ILogger<BlinkTrainerTabViewModel> logger) : base("blinktrainer", "Blink Trainer", "💫")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
@@ -152,7 +152,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     partial void OnFocusGazeActiveChanged(bool value)
     {
         FocusGazeStatus = value ? Loc.Get("label_focus_gaze_active") : "";
-        _logger?.Information("Focus Gaze toggled: {Active}", value);
+        _logger?.LogInformation("Focus Gaze toggled: {Active}", value);
     }
 
     partial void OnBlinkRecalibrateShortcutEnabledChanged(bool value)
@@ -213,7 +213,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
 
     partial void OnIncludeVideosChanged(bool value)
     {
-        _logger?.Information("Include videos toggled: {Value}", value);
+        _logger?.LogInformation("Include videos toggled: {Value}", value);
     }
 
     [RelayCommand]
@@ -265,7 +265,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task UnlockAsync()
     {
-        _logger?.Information("Premium unlock requested from blink trainer gate");
+        _logger?.LogInformation("Premium unlock requested from blink trainer gate");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("gate_premium_locked"),
             Loc.Get("blink_trainer_gate_body")) ?? Task.CompletedTask);
@@ -356,7 +356,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     [RelayCommand]
     private void OpenGazeMinigame()
     {
-        _logger?.Information("Gaze minigame requested");
+        _logger?.LogInformation("Gaze minigame requested");
     }
 
     private void LoadFromSettings()
@@ -381,7 +381,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save blink trainer settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save blink trainer settings"); }
     }
 
     private void AppendLog(string line)

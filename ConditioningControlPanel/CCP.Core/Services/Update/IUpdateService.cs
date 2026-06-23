@@ -43,4 +43,9 @@ public interface IUpdateService
 
     /// <summary>Fetches release notes from GitHub for a specific version.</summary>
     Task<string?> FetchReleaseNotesFromGitHubAsync(string version, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Current client version string exposed to auth and leaderboard services.
+    /// </summary>
+    string CurrentVersion { get; }
 }

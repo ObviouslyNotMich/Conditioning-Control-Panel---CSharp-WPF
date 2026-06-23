@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Layout;
@@ -46,46 +46,120 @@ public static class ChaosUnlockCards
         _ => ("NEW CHARM UNLOCKED", CharmAccent),
     };
 
-    /// <summary>Stub: returns null because the WPF lifetime-boon catalogue is unavailable here.</summary>
+    /// <summary>A lifetime boon's level 1 just bought (call AFTER the unlock).</summary>
     public static ChaosUnlockCardData? ForBoonUnlock(string id)
     {
-        // TODO: wire Avalonia lifetime-boon catalogue once it moves to CCP.Core.
-        return null;
+        var b = ChaosLifetimeBoons.ById(id);
+        if (b == null) return null;
+        var (ribbon, accent) = ByCategory(b.Category);
+        string context =
+            b.Category == ChaosBoonCategory.Utility ? "switched on — it works every descent."
+            : ChaosMeta.IsBoonActive(id) ? "slipped straight into a pocket — it rides with you next descent."
+            : ChaosMeta.SlotsFor(b.Category) == 0 ? "no pocket to carry it yet — she sells one at her bench."
+            : "your pockets are full — swap it in from the BAG.";
+        return new ChaosUnlockCardData
+        {
+            Ribbon = ribbon,
+            Accent = accent,
+            Title = b.Name,
+            Desc = b.Desc,
+            Flavor = b.Flavor,
+            Context = context,
+            Glyph = b.Glyph,
+            Icon = AvaloniaChaosArt.Resolve("boons", id),
+        };
     }
 
-    /// <summary>Stub: returns null because the WPF lifetime-boon catalogue is unavailable here.</summary>
+    /// <summary>A boon just deepened to its final level.</summary>
     public static ChaosUnlockCardData? ForCapstone(string id)
     {
-        // TODO: wire Avalonia lifetime-boon catalogue once it moves to CCP.Core.
-        return null;
+        var b = ChaosLifetimeBoons.ById(id);
+        if (b == null || string.IsNullOrWhiteSpace(b.CapstoneDesc)) return null;
+        return new ChaosUnlockCardData
+        {
+            Ribbon = "CAPSTONE REACHED",
+            Accent = CapstoneAccent,
+            Title = b.Name,
+            Desc = b.CapstoneDesc,
+            Flavor = b.Flavor,
+            Context = "fully deepened — its final gift is yours.",
+            Glyph = b.Glyph,
+            Icon = AvaloniaChaosArt.Resolve("boons", id),
+        };
     }
 
-    /// <summary>Stub: returns null because the WPF habit catalogue is unavailable here.</summary>
+    /// <summary>A trained habit just bought.</summary>
     public static ChaosUnlockCardData? ForHabit(string id)
     {
-        // TODO: wire Avalonia habit catalogue once it moves to CCP.Core.
-        return null;
+        var u = ChaosUpgrades.ById(id);
+        if (u == null) return null;
+        return new ChaosUnlockCardData
+        {
+            Ribbon = "HABIT TRAINED",
+            Accent = HabitAccent,
+            Title = u.Name,
+            Desc = u.Desc,
+            Flavor = u.Flavor,
+            Context = "always on from your next descent — switch it off in the toybox anytime.",
+            Glyph = u.Glyph,
+            Icon = u.IconPath != null ? AvaloniaChaosArt.TryLoad(u.IconPath) : AvaloniaChaosArt.Resolve("upgrades", id),
+        };
     }
 
     /// <summary>Stub: returns a minimal pocket card.</summary>
     public static ChaosUnlockCardData ForPocket(bool isToy, string label, string line)
     {
+        int n = isToy ? ChaosMeta.State.ToyPockets : ChaosMeta.State.AccessoryPockets;
         string kind = isToy ? "toy" : "accessory";
+        string desc = n == 1
+            ? $"you can now carry one {kind} into the descent. unlocked {kind}s equip from the BAG."
+            : $"you can now carry {n} {kind}s into the descent at once. pick yours from the BAG.";
         return new ChaosUnlockCardData
         {
             Ribbon = "POCKET SEWN",
             Accent = PocketAccent,
             Title = label,
-            Desc = $"you can now carry one {kind} into the descent. pick yours from the BAG.",
+            Desc = desc,
             Flavor = line,
             Glyph = "👝",
         };
     }
 
-    /// <summary>Stub: returns null because the WPF catalogues are unavailable here.</summary>
+    /// <summary>A lesson just completed mid-run: the gated item is now buyable.</summary>
     public static ChaosUnlockCardData? ForLesson(string id)
     {
-        // TODO: wire Avalonia catalogues once they move to CCP.Core.
+        const string context = "now for sale in the toybox — drops will do the rest.";
+        var b = ChaosLifetimeBoons.ById(id);
+        if (b != null)
+        {
+            var (_, accent) = ByCategory(b.Category);
+            return new ChaosUnlockCardData
+            {
+                Ribbon = "LESSON LEARNED",
+                Accent = accent,
+                Title = b.Name,
+                Desc = b.Desc,
+                Flavor = b.Flavor,
+                Context = context,
+                Glyph = b.Glyph,
+                Icon = AvaloniaChaosArt.Resolve("boons", id),
+            };
+        }
+        var u = ChaosUpgrades.ById(id);
+        if (u != null)
+        {
+            return new ChaosUnlockCardData
+            {
+                Ribbon = "LESSON LEARNED",
+                Accent = HabitAccent,
+                Title = u.Name,
+                Desc = u.Desc,
+                Flavor = u.Flavor,
+                Context = context,
+                Glyph = u.Glyph,
+                Icon = u.IconPath != null ? AvaloniaChaosArt.TryLoad(u.IconPath) : AvaloniaChaosArt.Resolve("upgrades", id),
+            };
+        }
         return null;
     }
 
@@ -220,7 +294,7 @@ public static class ChaosUnlockCards
                 // TODO: Avalonia replacements for the accent-glow flare and icon pop animations.
                 // The card already has a static BoxShadow; animated scaling/pulsing is deferred.
             }
-            catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("Unlock card flair failed: {E}", ex.Message); }
+            catch (Exception ex) { App.Services?.GetRequiredService<ILogger<object>>().LogInformation("Unlock card flair failed: {E}", ex.Message); }
         };
         return border;
 }

@@ -22,6 +22,7 @@ using Avalonia.Threading;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Progression;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Services.AIService;
@@ -30,6 +31,7 @@ using ConditioningControlPanel.Core.Services.AvatarTube;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ModerationSource = ConditioningControlPanel.Core.Services.Moderation.ModerationSource;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Avalonia.Views;
 using CoreApp = ConditioningControlPanel.CoreApp;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,10 +44,11 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 {
     public partial class AvatarTubeWindow : Window
     {
-        private readonly global::ConditioningControlPanel.IAppLogger? _logger;
+        private readonly ILogger<AvatarTubeWindow>? _logger;
         private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService? _settings;
         private readonly IAudioPlayer? _audioPlayer;
         private readonly IProgressionService? _progression;
+        private readonly ISessionService? _sessionService;
         private readonly global::ConditioningControlPanel.IModService? _modService;
 
         private readonly Window? _parentWindow;
@@ -170,11 +173,15 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             // to the unbounded Viewbox desired size.
             CalculateScaleFactor();
 
-            _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+            _logger = App.Services.GetRequiredService<ILogger<AvatarTubeWindow>>();
             _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
             _audioPlayer = App.Services.GetService<IAudioPlayer>();
             _progression = App.Services.GetService<IProgressionService>();
+            _sessionService = App.Services.GetService<ISessionService>();
+            if (_sessionService != null)
+                _sessionService.SessionStopped += OnSessionStopped;
             _modService = App.Services.GetService<global::ConditioningControlPanel.IModService>();
+            _resourceResolver = App.Services.GetService<AvaloniaModResourceResolver>();
             _portraitService = App.Services.GetService<IAvatarPortraitService>();
             if (_modService != null)
                 _modService.ActiveModChanged += OnModChanged;
@@ -199,6 +206,19 @@ _parentWindow = parentWindow;
             _selectedAvatarSet = _settings?.Current?.SelectedAvatarSet ?? _maxUnlockedSet;
             _selectedAvatarSet = Math.Clamp(_selectedAvatarSet, 1, _maxUnlockedSet);
             _currentAvatarSet = _selectedAvatarSet;
+
+            // Fall back if the saved set isn't supported by the active mod.
+            var supportedSetsInit = GetUnlockedAvatarSets(playerLevel);
+            if (supportedSetsInit.Length > 0 && !supportedSetsInit.Contains(_currentAvatarSet))
+            {
+                _selectedAvatarSet = supportedSetsInit[supportedSetsInit.Length - 1];
+                _currentAvatarSet = _selectedAvatarSet;
+            }
+
+            // BambiSleep / SissyHypno ship a single animated emote set and hide the picker.
+            if (IsSingleEmoteAvatarMod(out int emoteOnlySetInit))
+                _currentAvatarSet = _selectedAvatarSet = emoteOnlySetInit;
+
             _useAnimatedAvatar = HasAnimatedAvatar(_currentAvatarSet);
             _avatarPoses = LoadAvatarPoses(_currentAvatarSet);
 
@@ -211,6 +231,12 @@ _parentWindow = parentWindow;
 
             if (UsePortraitSystem())
                 TryEnterPortraitMode();
+            else
+                TryUpdateCirceEmoteMode();
+
+            // Apply the active mod's tube art and layout offsets on startup.
+            SetTubeStyle(!_isAttached);
+            ApplyTubeLayoutOffsets();
 
             WireParentEvents();
 
@@ -232,7 +258,7 @@ _parentWindow = parentWindow;
             StartRandomBubbleTimer();
             WireModerationCounter();
 
-            _logger?.Information("AvatarTubeWindow initialized with avatar set {Set} for level {Level}", _currentAvatarSet, playerLevel);
+            _logger?.LogInformation("AvatarTubeWindow initialized with avatar set {Set} for level {Level}", _currentAvatarSet, playerLevel);
         }
 
         private void WireParentEvents()
@@ -700,7 +726,7 @@ _parentWindow = parentWindow;
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning("AvatarTube: focus chat input failed: {Error}", ex.Message);
+                    _logger?.LogWarning("AvatarTube: focus chat input failed: {Error}", ex.Message);
                 }
             }, DispatcherPriority.ContextIdle);
         }
@@ -753,7 +779,7 @@ _parentWindow = parentWindow;
             var counterState = counter?.GetState();
             if (counterState?.CooldownActive == true)
             {
-                _logger?.Information("AvatarTubeWindow: chat send swallowed (cooldown active)");
+                _logger?.LogInformation("AvatarTubeWindow: chat send swallowed (cooldown active)");
                 return;
             }
 
@@ -783,7 +809,7 @@ _parentWindow = parentWindow;
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning(ex, "Failed to get AI reply");
+                    _logger?.LogWarning(ex, "Failed to get AI reply");
                     AddToChatHistory(input, true);
                     GigglePriority(GetRandomBambiPhrase(), aiGenerated: false);
                 }
@@ -1279,7 +1305,7 @@ _parentWindow = parentWindow;
                     }
                     catch (Exception ex)
                     {
-                        _logger?.Warning("RandomBubble: failed to spawn - {Error}", ex.Message);
+                        _logger?.LogWarning("RandomBubble: failed to spawn - {Error}", ex.Message);
                     }
                 });
             });
@@ -1343,7 +1369,7 @@ _parentWindow = parentWindow;
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Audio playback failed for {Path}", path);
+                _logger?.LogWarning(ex, "Audio playback failed for {Path}", path);
             }
         }
 
@@ -1399,7 +1425,7 @@ _parentWindow = parentWindow;
 
         private void TriggerBambiCumAndCollapse()
         {
-            _logger?.Information("Bambi Cum and Collapse triggered! (50 clicks in 1 minute)");
+            _logger?.LogInformation("Bambi Cum and Collapse triggered! (50 clicks in 1 minute)");
 
             try
             {
@@ -1418,7 +1444,7 @@ _parentWindow = parentWindow;
             }
             catch (Exception ex)
             {
-                _logger?.Debug("Failed to play Bambi Cum and Collapse audio: {Error}", ex.Message);
+                _logger?.LogDebug("Failed to play Bambi Cum and Collapse audio: {Error}", ex.Message);
             }
 
             GigglePriority("BAMBI CUM AND COLLAPSE", aiGenerated: false);
@@ -1445,13 +1471,13 @@ _parentWindow = parentWindow;
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to wire moderation counter");
+                _logger?.LogWarning(ex, "Failed to wire moderation counter");
             }
         }
 
         private void OnWarningTriggered(ModerationCounterState state)
         {
-            _logger?.Warning("Moderation warning triggered (hits={Hits})", state.HitsInLastTenMinutes);
+            _logger?.LogWarning("Moderation warning triggered (hits={Hits})", state.HitsInLastTenMinutes);
             Dispatcher.UIThread.Post(async () =>
             {
                 try
@@ -1461,7 +1487,7 @@ _parentWindow = parentWindow;
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning(ex, "Failed to show content-policy warning dialog");
+                    _logger?.LogWarning(ex, "Failed to show content-policy warning dialog");
                 }
             });
         }
@@ -1510,6 +1536,10 @@ _parentWindow = parentWindow;
                     ShowGreeting();
                 }
                 if (SpeechBubble != null) SpeechBubble.Margin = new Thickness(0, 0, 125, 550);
+
+                // Re-apply mod tube layout offsets so the bubble/input/title align
+                // with the active mod's chamber position.
+                ApplyTubeLayoutOffsets();
             }, DispatcherPriority.Normal);
             StartFullscreenDetection();
         }
@@ -1535,6 +1565,8 @@ _parentWindow = parentWindow;
             _poseTimer?.Stop();
             _fullscreenCheckTimer?.Stop();
             StopFloatingAnimation();
+            _animatedAvatarGif?.Dispose();
+            _animatedAvatarGif = null;
             _speechTimer?.Stop();
             _speechDelayTimer?.Stop();
             _idleTimer?.Stop();
@@ -1562,6 +1594,10 @@ _parentWindow = parentWindow;
             if (_modService != null)
             {
                 _modService.ActiveModChanged -= OnModChanged;
+            }
+            if (_sessionService != null)
+            {
+                _sessionService.SessionStopped -= OnSessionStopped;
             }
             base.OnClosed(e);
         }

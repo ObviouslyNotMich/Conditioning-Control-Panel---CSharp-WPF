@@ -3,10 +3,10 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Services.MindWipe;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.MindWipe;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -18,8 +18,7 @@ public partial class MindWipeFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly IMindWipeService? _mindWipe;
     private readonly ISessionService? _session;
-    private readonly IAppLogger? _logger;
-    private readonly IUiDispatcher _dispatcher;
+    private readonly ILogger<MindWipeFeatureControl>? _logger;
     private bool _isLoading = true;
 
     public MindWipeFeatureControl()
@@ -28,8 +27,7 @@ public partial class MindWipeFeatureControl : UserControl
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _mindWipe = App.Services.GetService<IMindWipeService>();
         _session = App.Services.GetService<ISessionService>();
-        _logger = App.Services.GetService<IAppLogger>();
-        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
+        _logger = App.Services.GetRequiredService<ILogger<MindWipeFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -85,7 +83,7 @@ public partial class MindWipeFeatureControl : UserControl
             or nameof(AppSettings.MindWipeLoop)
             or nameof(AppSettings.MindWipeAudioPath))
         {
-            _dispatcher.Post(LoadFromSettings);
+            Dispatcher.UIThread.Post(LoadFromSettings);
         }
     }
 
@@ -106,14 +104,13 @@ public partial class MindWipeFeatureControl : UserControl
         _settings.Current.MindWipeFrequency = v;
         _settings.Save();
 
-        if (_mindWipe?.IsRunning == true && _session?.State == SessionState.Running)
+        if (_mindWipe?.IsRunning == true && _session?.State == SessionState.Running && !_settings.Current.MindWipeLoop)
         {
             try
             {
-                _mindWipe.Stop();
-                _mindWipe.Start(_settings.Current.MindWipeFrequency, _settings.Current.MindWipeVolume / 100.0);
+                _mindWipe.UpdateSettings(_settings.Current.MindWipeFrequency, _settings.Current.MindWipeVolume / 100.0);
             }
-            catch (Exception ex) { _logger?.Warning(ex, "MindWipe frequency change failed"); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "MindWipe frequency change failed"); }
         }
     }
 
@@ -125,10 +122,17 @@ public partial class MindWipeFeatureControl : UserControl
         _settings.Current.MindWipeVolume = v;
         _settings.Save();
 
-        if (_settings.Current.MindWipeLoop && _session?.State == SessionState.Running)
+        if (_session?.State != SessionState.Running || _mindWipe == null) return;
+
+        if (_settings.Current.MindWipeLoop)
         {
-            try { _mindWipe?.StartLoop(_settings.Current.MindWipeVolume / 100.0); }
-            catch (Exception ex) { _logger?.Warning(ex, "MindWipe volume/loop change failed"); }
+            try { _mindWipe.StartLoop(_settings.Current.MindWipeVolume / 100.0); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "MindWipe volume/loop change failed"); }
+        }
+        else if (_mindWipe.IsRunning)
+        {
+            try { _mindWipe.UpdateSettings(_settings.Current.MindWipeFrequency, _settings.Current.MindWipeVolume / 100.0); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "MindWipe volume change failed"); }
         }
     }
 
@@ -147,13 +151,13 @@ public partial class MindWipeFeatureControl : UserControl
             else
                 _mindWipe.StopLoop();
         }
-        catch (Exception ex) { _logger?.Warning(ex, "MindWipe loop toggle failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "MindWipe loop toggle failed"); }
     }
 
     private void BtnTest_Click(object? sender, RoutedEventArgs e)
     {
         try { _mindWipe?.TriggerOnce(); }
-        catch (Exception ex) { _logger?.Warning(ex, "MindWipe TriggerOnce failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "MindWipe TriggerOnce failed"); }
     }
 
     private void LiveApply(bool on)
@@ -176,7 +180,7 @@ public partial class MindWipeFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "MindWipe enable toggle: live apply failed");
+            _logger?.LogWarning(ex, "MindWipe enable toggle: live apply failed");
         }
     }
 
@@ -203,7 +207,7 @@ public partial class MindWipeFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "MindWipe audio select failed");
+            _logger?.LogWarning(ex, "MindWipe audio select failed");
         }
     }
 
@@ -233,6 +237,6 @@ public partial class MindWipeFeatureControl : UserControl
                 }
             }
         }
-        catch (Exception ex) { _logger?.Warning(ex, "MindWipe audio change failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "MindWipe audio change failed"); }
     }
 }

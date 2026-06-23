@@ -154,7 +154,7 @@ public partial class DeeperEditorWindow : Window
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<IAppLogger>()?.Warning(ex, "Failed to start interactive tutorial Part 2");
+            App.Services?.GetRequiredService<ILogger<DeeperEditorWindow>>().LogWarning(ex, "Failed to start interactive tutorial Part 2");
         }
     }
 

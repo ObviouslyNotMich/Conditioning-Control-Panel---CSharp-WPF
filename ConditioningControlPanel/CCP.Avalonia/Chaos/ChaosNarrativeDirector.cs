@@ -201,7 +201,7 @@ public static class ChaosNarrativeDirector
 
     private static void LogDebug(string message, params object?[] args)
     {
-        try { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Debug(message, args); } catch { }
+        try { App.Services?.GetRequiredService<ILogger<object>>().LogDebug(message, args); } catch { }
     }
 
     // ========================================================================

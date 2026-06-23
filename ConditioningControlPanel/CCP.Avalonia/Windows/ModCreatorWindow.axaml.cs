@@ -17,6 +17,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Services.Tutorial;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
@@ -35,7 +36,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class ModCreatorWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ModCreatorWindow> _logger;
 
 
     // ─── State ───────────────────────────────────────────────
@@ -80,9 +81,12 @@ public partial class ModCreatorWindow : Window
     private readonly Dictionary<string, Button> _sidebarButtons = new();
     private string? _loadedTempDir;
     private readonly bool _startWithTutorial;
+    private TutorialOverlay? _tutorialOverlay;
 
     private readonly IDialogService? _dialogService;
     private readonly IModService _mods;
+    private readonly IAudioPlayer? _audioPlayer;
+    private string? _previewingPath;
 
     private static readonly (string Key, string Name)[] AchievementSlots =
     {
@@ -216,9 +220,10 @@ public partial class ModCreatorWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-_dialogService = App.Services?.GetService<IDialogService>();
+        _logger = App.Services.GetRequiredService<ILogger<ModCreatorWindow>>();
+        _dialogService = App.Services?.GetService<IDialogService>();
         _mods = App.Services!.GetRequiredService<IModService>();
+        _audioPlayer = App.Services?.GetService<IAudioPlayer>();
         BuildSidebar();
         BuildAllSections();
         PopulateDefaults();
@@ -256,8 +261,26 @@ _dialogService = App.Services?.GetService<IDialogService>();
 
     private void LaunchTutorial()
     {
-        // TODO: wire the cross-platform tutorial engine once it is ported.
-        _logger?.Information("ModCreatorWindow: tutorial requested (stub)");
+        if (_tutorialOverlay != null) return;
+        if (App.Tutorial == null) return;
+
+        App.Tutorial.Start(TutorialType.Modding);
+
+        // Wire OnActivate callbacks: steps with RequiresTab="mod:xxx" navigate to that section.
+        foreach (var step in App.Tutorial.CurrentSteps)
+        {
+            if (step.RequiresTab != null && step.RequiresTab.StartsWith("mod:"))
+            {
+                var sectionKey = step.RequiresTab.Substring(4);
+                step.OnActivate = () => NavigateToSection(sectionKey);
+            }
+        }
+
+        App.Tutorial.CurrentStep?.OnActivate?.Invoke();
+
+        _tutorialOverlay = new TutorialOverlay(this, App.Tutorial);
+        _tutorialOverlay.Closed += (_, _) => _tutorialOverlay = null;
+        _tutorialOverlay.Show();
     }
 
     protected override void OnClosed(EventArgs e)
@@ -265,6 +288,13 @@ _dialogService = App.Services?.GetService<IDialogService>();
         base.OnClosed(e);
         StopAudioPreview();
         CleanupTempDir();
+
+        if (_tutorialOverlay != null)
+        {
+            App.Tutorial?.Skip();
+            _tutorialOverlay.Close();
+            _tutorialOverlay = null;
+        }
     }
 
     // ─── Sidebar ────────────────────────────────────────────
@@ -1130,13 +1160,57 @@ _dialogService = App.Services?.GetService<IDialogService>();
 
     private void ToggleAudioPreview(string keyOrPath, Button playBtn)
     {
-        // TODO: audio preview playback is stubbed until a cross-platform audio player is available.
-        _logger?.Information("ModCreatorWindow: audio preview requested for {Path}", keyOrPath);
-        _activePlayButton = playBtn;
+        // Resolve a resource-key slot to its actual file path; voice-line rows already pass a path.
+        var resolvedPath = _audioSlots.TryGetValue(keyOrPath, out var slotPath) && !string.IsNullOrEmpty(slotPath)
+            ? slotPath
+            : keyOrPath;
+
+        if (string.IsNullOrEmpty(resolvedPath) || !File.Exists(resolvedPath))
+        {
+            _logger?.LogWarning("ModCreatorWindow: no audio file to preview for {KeyOrPath}", keyOrPath);
+            return;
+        }
+
+        if (string.Equals(_previewingPath, resolvedPath, StringComparison.OrdinalIgnoreCase))
+        {
+            StopAudioPreview();
+            return;
+        }
+
+        StopAudioPreview();
+
+        try
+        {
+            _audioPlayer?.PlayAsync(resolvedPath);
+            _previewingPath = resolvedPath;
+            _activePlayButton = playBtn;
+            playBtn.Content = "■";
+            _logger?.LogInformation("ModCreatorWindow: playing audio preview {Path}", resolvedPath);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "ModCreatorWindow: failed to play audio preview {Path}", resolvedPath);
+            playBtn.Content = "▶";
+        }
     }
 
     private void StopAudioPreview()
     {
+        try
+        {
+            _audioPlayer?.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "ModCreatorWindow: failed to stop audio preview");
+        }
+
+        if (_activePlayButton != null)
+        {
+            _activePlayButton.Content = "▶";
+        }
+
+        _previewingPath = null;
         _activePlayButton = null;
     }
 
@@ -1780,11 +1854,21 @@ _dialogService = App.Services?.GetService<IDialogService>();
     }
 
     // ─── Color Picker ────────────────────────────────────────
-    private Task<string?> ShowColorPickerAsync(string currentHex)
+    private async Task<string?> ShowColorPickerAsync(string currentHex)
     {
-        // TODO: replace with a cross-platform color picker once available.
-        _logger?.Information("ModCreatorWindow: color picker requested (stub)");
-        return Task.FromResult<string?>(null);
+        if (!TryParseHex(currentHex, out var initialColor))
+            initialColor = (Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!;
+
+        var dialog = new ColorPickerDialog(initialColor);
+        var result = await dialog.ShowDialog<object?>(this);
+        if (result is Color chosen)
+        {
+            var hex = $"#{chosen.R:X2}{chosen.G:X2}{chosen.B:X2}";
+            _logger?.LogInformation("ModCreatorWindow: color picked {Hex}", hex);
+            return hex;
+        }
+
+        return null;
     }
 
     // ─── Populate Defaults ───────────────────────────────────
@@ -1828,7 +1912,7 @@ _dialogService = App.Services?.GetService<IDialogService>();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to auto-load active mod as preset");
+            _logger?.LogWarning(ex, "Failed to auto-load active mod as preset");
         }
     }
 

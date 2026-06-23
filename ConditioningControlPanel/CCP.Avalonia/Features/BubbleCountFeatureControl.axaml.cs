@@ -3,6 +3,8 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Sessions;
@@ -14,6 +16,7 @@ public partial class BubbleCountFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly IBubbleCountService _bubbleCount;
     private readonly ISessionService _sessionService;
+    private readonly IDialogService _dialogService;
     private bool _isLoading = true;
 
     public BubbleCountFeatureControl()
@@ -22,6 +25,7 @@ public partial class BubbleCountFeatureControl : UserControl
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
         _sessionService = App.Services.GetRequiredService<ISessionService>();
+        _dialogService = App.Services.GetRequiredService<IDialogService>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -118,7 +122,7 @@ public partial class BubbleCountFeatureControl : UserControl
         }
     }
 
-    private void ChkStrict_Changed(object? sender, RoutedEventArgs e)
+    private async void ChkStrict_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
         var s = _settings.Current;
@@ -126,18 +130,12 @@ public partial class BubbleCountFeatureControl : UserControl
 
         if (on)
         {
-            // TODO: Port WarningDialog.ShowDoubleWarning to Avalonia. WPF used the
-            // application main window as owner. For now, treat the warning as
-            // acknowledged so the control compiles and remains usable.
-            bool confirmed = ShowStrictWarningStub();
+            bool confirmed = await ShowStrictWarningAsync();
             if (!confirmed)
             {
-                global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    _isLoading = true;
-                    ChkStrict.IsChecked = false;
-                    _isLoading = false;
-                });
+                _isLoading = true;
+                ChkStrict.IsChecked = false;
+                _isLoading = false;
                 return;
             }
         }
@@ -146,10 +144,13 @@ public partial class BubbleCountFeatureControl : UserControl
         _settings.Save();
     }
 
-    private static bool ShowStrictWarningStub()
+    private async Task<bool> ShowStrictWarningAsync()
     {
-        // TODO: Replace with an Avalonia confirmation dialog.
-        return true;
+        return await _dialogService.ShowConfirmationAsync(
+            "Strict Bubble Count",
+            "Enabling strict mode can be very restrictive.\n\n" +
+            "• You must complete the required count before continuing.\n\n" +
+            "Are you sure?");
     }
 
     private void BtnTest_Click(object? sender, RoutedEventArgs e)

@@ -4,6 +4,8 @@ using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ConditioningControlPanel.Core.Services.Roadmap;
+using ConditioningControlPanel.Core.Services.Settings;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel;
 
@@ -14,13 +16,60 @@ namespace ConditioningControlPanel;
 /// </summary>
 public static class CoreApp
 {
-    public static IAppSettingsService? Settings { get; set; }
-    public static IAppLogger? Logger { get; set; }
-    public static ISkillTreeService? SkillTree { get; set; }
-    public static IModService? Mods { get; set; }
-    public static IProgressionService? Progression { get; set; }
-    public static IRoadmapService? Roadmap { get; set; }
+    /// <summary>
+    /// Global service provider. When set, typed properties resolve from DI first and fall
+    /// back to their explicit backing fields so legacy WPF setters keep working.
+    /// </summary>
+    public static IServiceProvider? Services { get; set; }
+
+    private static IAppSettingsService? _settings;
+    public static IAppSettingsService? Settings
+    {
+        get => Services?.GetService<ISettingsService>()
+            ?? Services?.GetService<IAppSettingsService>()
+            ?? _settings;
+        set => _settings = value;
+    }
+
+    private static ILogger? _logger;
+    public static ILogger? Logger
+    {
+        get => Services?.GetService<ILogger<CoreAppLogger>>() ?? _logger;
+        set => _logger = value;
+    }
+
+    private static ISkillTreeService? _skillTree;
+    public static ISkillTreeService? SkillTree
+    {
+        get => Services?.GetService<ISkillTreeService>() ?? _skillTree;
+        set => _skillTree = value;
+    }
+
+    private static IModService? _mods;
+    public static IModService? Mods
+    {
+        get => Services?.GetService<IModService>() ?? _mods;
+        set => _mods = value;
+    }
+
+    private static IProgressionService? _progression;
+    public static IProgressionService? Progression
+    {
+        get => Services?.GetService<IProgressionService>() ?? _progression;
+        set => _progression = value;
+    }
+
+    private static IRoadmapService? _roadmap;
+    public static IRoadmapService? Roadmap
+    {
+        get => Services?.GetService<IRoadmapService>() ?? _roadmap;
+        set => _roadmap = value;
+    }
+
     public static string? TutorialBaseUrl { get; set; }
+
+    /// <summary>Marker type used only to obtain a typed <see cref="ILogger"/> category.</summary>
+    private class CoreAppLogger { }
 
     // Service references used by ported Avalonia mini-game windows; typed as object/dynamic
     // because the concrete implementations currently live in the legacy WPF head.
@@ -47,11 +96,23 @@ public static class CoreApp
     public static object? Quests { get; set; }
     public static object? Haptics { get; set; }
 
+    private static IBubbleService? _bubbles;
+
     /// <summary>Ported bubble service. Assigned by cross-platform heads after DI is built.</summary>
-    public static IBubbleService? Bubbles { get; set; }
+    public static IBubbleService? Bubbles
+    {
+        get => Services?.GetService<IBubbleService>() ?? _bubbles;
+        set => _bubbles = value;
+    }
+
+    private static Core.Services.SessionLog.ISessionLogService? _sessionLog;
 
     /// <summary>Ported session log service. Assigned by cross-platform heads after DI is built.</summary>
-    public static Core.Services.SessionLog.ISessionLogService? SessionLog { get; set; }
+    public static Core.Services.SessionLog.ISessionLogService? SessionLog
+    {
+        get => Services?.GetService<Core.Services.SessionLog.ISessionLogService>() ?? _sessionLog;
+        set => _sessionLog = value;
+    }
 }
 
 public interface IAppSettingsService
@@ -60,17 +121,6 @@ public interface IAppSettingsService
     void Save();
 }
 
-public interface IAppLogger
-{
-    void Debug(string messageTemplate, params object?[] propertyValues);
-    void Debug(Exception exception, string messageTemplate, params object?[] propertyValues);
-    void Information(string messageTemplate, params object?[] propertyValues);
-    void Information(Exception exception, string messageTemplate, params object?[] propertyValues);
-    void Warning(string messageTemplate, params object?[] propertyValues);
-    void Warning(Exception exception, string messageTemplate, params object?[] propertyValues);
-    void Error(string messageTemplate, params object?[] propertyValues);
-    void Error(Exception exception, string messageTemplate, params object?[] propertyValues);
-}
 
 public interface ISkillTreeService
 {
@@ -130,6 +180,11 @@ public interface IModService
     event EventHandler<ModPackage>? ActiveModChanged;
 
     /// <summary>
+    /// Returns the active mod's video link catalog (name -> URL), or an empty dictionary if none.
+    /// </summary>
+    IReadOnlyDictionary<string, string> GetVideoLinks();
+
+    /// <summary>
     /// Loads built-in and user-installed mods and selects the persisted active mod.
     /// </summary>
     void Initialize(string? activeModId);
@@ -168,6 +223,42 @@ public interface IModService
     /// Returns the active mod's preferred affirmation term (e.g. "Subject").
     /// </summary>
     string GetAffirmation();
+
+    /// <summary>
+    /// Returns the active mod's tube-layout avatar scale multiplier.
+    /// </summary>
+    double GetAvatarScale();
+
+    /// <summary>
+    /// Returns the active mod's horizontal avatar offset in attached mode.
+    /// </summary>
+    int GetAvatarOffsetX();
+
+    /// <summary>
+    /// Returns the active mod's vertical avatar offset in attached mode.
+    /// </summary>
+    int GetAvatarOffsetY();
+
+    /// <summary>
+    /// Returns the active mod's horizontal avatar offset in detached mode.
+    /// </summary>
+    int GetAvatarDetachedOffsetX();
+
+    /// <summary>
+    /// Returns the active mod's vertical avatar offset in detached mode.
+    /// </summary>
+    int GetAvatarDetachedOffsetY();
+
+    /// <summary>
+    /// Returns whether the active mod supports the given legacy avatar set number.
+    /// A null <see cref="ModManifest.SupportedAvatarSets"/> means all sets are supported.
+    /// </summary>
+    bool IsAvatarSetSupported(int setNumber);
+
+    /// <summary>
+    /// Returns the active mod's custom avatar sets, if any.
+    /// </summary>
+    IReadOnlyList<ConditioningControlPanel.Models.CustomAvatarSet> GetCustomAvatarSets();
 }
 
 public interface IProgressionService
@@ -175,6 +266,8 @@ public interface IProgressionService
     void AddXP(int amount, XPSource source);
     double GetSessionXPMultiplier(int playerLevel);
     double GetXPForLevel(int level);
+    double GetTotalXP(int level, double currentXP);
+    double GetCurrentLevelXP(int level, double totalXP);
     event EventHandler<int>? LevelUp;
 }
 
@@ -257,6 +350,13 @@ public interface IAttentionCheckService
 public interface IModerationLog
 {
     void RecordEdit(string fieldName, int count, string source);
+
+    /// <summary>
+    /// Records a moderation hit for AI input/output. <paramref name="source"/> is one of
+    /// <c>input</c>, <c>output</c>, or <c>edit</c>; <paramref name="modelHint"/> identifies
+    /// the provider/model (e.g. <c>cloud-quiz</c> or <c>local:&lt;model&gt;</c>).
+    /// </summary>
+    void Record(ProhibitedCategory category, string source, string modelHint);
 }
 
 #region Typed service abstractions for cross-platform heads
@@ -271,11 +371,6 @@ public interface IAuthProvider
     void Logout();
     string? UnifiedUserId { get; set; }
     string? DisplayName { get; set; }
-}
-
-public interface IUnifiedUserService
-{
-    string? UnifiedUserId { get; set; }
 }
 
 public interface IChaosService

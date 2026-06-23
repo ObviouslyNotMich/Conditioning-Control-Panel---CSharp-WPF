@@ -1,6 +1,7 @@
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Platform;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
@@ -52,6 +53,28 @@ public sealed class AvaloniaDialogService : IDialogService
         };
 
         return result == ButtonResult.Yes;
+    }
+
+    public async Task<string?> ShowInputDialogAsync(string title, string message, string? defaultValue = null)
+    {
+        var top = _getTopLevel();
+        var dialog = new InputDialog(title, message, defaultValue ?? "");
+
+        if (top is Window window)
+        {
+            var accepted = await dialog.ShowDialog<bool>(window);
+            return accepted ? dialog.ResultText : null;
+        }
+
+        dialog.Show();
+        var tcs = new TaskCompletionSource<string?>();
+        dialog.Closed += (_, _) =>
+        {
+            // ResultText is set when the dialog is accepted; return it regardless of
+            // how the dialog closed so callers get the typed value if available.
+            tcs.TrySetResult(dialog.ResultText);
+        };
+        return await tcs.Task;
     }
 
     public async Task<IReadOnlyList<string>> ShowOpenFileDialogAsync(

@@ -8,6 +8,7 @@ using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.LockCard;
 using ConditioningControlPanel.Core.Services.MindWipe;
 using ConditioningControlPanel.Core.Services.Overlays;
+using ConditioningControlPanel.Core.Services.Quiz;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.SessionLog;
@@ -35,7 +36,8 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
     private readonly IBubbleService? _bubbles;
     private readonly IBubbleCountService? _bubbleCount;
     private readonly ISessionLogService? _sessionLog;
-    private readonly IAppLogger? _logger;
+    private readonly IPopQuizService? _popQuiz;
+    private readonly ILogger<AvaloniaSessionEffectOrchestrator>? _logger;
 
     public AvaloniaSessionEffectOrchestrator(
         ISettingsService settings,
@@ -49,7 +51,8 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         IBubbleService? bubbles = null,
         IBubbleCountService? bubbleCount = null,
         ISessionLogService? sessionLog = null,
-        IAppLogger? logger = null)
+        IPopQuizService? popQuiz = null,
+        ILogger<AvaloniaSessionEffectOrchestrator>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _flash = flash;
@@ -62,6 +65,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         _bubbles = bubbles;
         _bubbleCount = bubbleCount;
         _sessionLog = sessionLog;
+        _popQuiz = popQuiz;
         _logger = logger;
     }
 
@@ -70,7 +74,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         if (session?.Settings == null) return;
         var s = session.Settings;
 
-        _logger?.Information("Starting session effects for {SessionName}", session.Name);
+        _logger?.LogInformation("Starting session effects for {SessionName}", session.Name);
         TryRun("session log begin", () => _sessionLog?.BeginSession(session));
 
         TryRun("overlay", () => _overlay?.Start());
@@ -87,6 +91,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         if (s.BubblesEnabled) TryRun("bubbles", () => _bubbles?.Start());
         if (s.BubbleCountEnabled) TryRun("bubble count", () => _bubbleCount?.Start());
         if (s.LockCardEnabled) TryRun("lock card", () => _lockCard?.Start());
+        if (s.PopQuizEnabled) TryRun("pop quiz", () => _popQuiz?.Start());
 
         // Refresh overlays after individual effect services have started so that
         // pink/spiral/brain-drain windows reflect current settings.
@@ -95,7 +100,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
 
     public void StopEffects()
     {
-        _logger?.Information("Stopping all session effects");
+        _logger?.LogInformation("Stopping all session effects");
 
         // Note: session log end is handled by SessionService.SessionCompleted so we get
         // the real duration/XP/completed flag. Stopping effects alone does not end the log.
@@ -107,6 +112,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         TryRun("bubble count", () => _bubbleCount?.Stop());
         TryRun("lock card", () => _lockCard?.Stop());
         TryRun("bubbles", () => _bubbles?.Stop());
+        TryRun("pop quiz", () => _popQuiz?.Stop());
         TryRun("overlay", () => _overlay?.Stop());
     }
 
@@ -118,7 +124,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Session effect '{Effect}' start/stop failed", name);
+            _logger?.LogWarning(ex, "Session effect '{Effect}' start/stop failed", name);
         }
     }
 }

@@ -17,7 +17,8 @@ public interface IAppEnvironment
 
     /// <summary>
     /// Path for user-specific roaming/config data (session exports, custom packs).
-    /// On Windows this is ApplicationData; on Unix it typically equals <see cref="UserDataPath"/>.
+    /// Collapsed to <see cref="UserDataPath"/> on all platforms so the Avalonia head
+    /// shares the legacy WPF Local folder and avoids data-split bugs.
     /// </summary>
     string ApplicationDataPath { get; }
 

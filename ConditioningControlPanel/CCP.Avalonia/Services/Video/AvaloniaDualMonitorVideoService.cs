@@ -12,6 +12,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using LibVLCSharp.Shared;
 using VlcMediaPlayer = LibVLCSharp.Shared.MediaPlayer;
@@ -27,8 +28,7 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
 {
     private readonly LibVLC _libVlc;
     private readonly IScreenProvider _screenProvider;
-    private readonly IUiDispatcher _uiDispatcher;
-    private readonly IAppLogger _logger;
+    private readonly ILogger<AvaloniaDualMonitorVideoService> _logger;
 
     private VlcMediaPlayer? _mediaPlayer;
     private IntPtr _frameBuffer = IntPtr.Zero;
@@ -52,12 +52,10 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
     public AvaloniaDualMonitorVideoService(
         LibVLC libVlc,
         IScreenProvider screenProvider,
-        IUiDispatcher uiDispatcher,
-        IAppLogger logger)
+        ILogger<AvaloniaDualMonitorVideoService> logger)
     {
         _libVlc = libVlc;
         _screenProvider = screenProvider;
-        _uiDispatcher = uiDispatcher;
         _logger = logger;
 
         _renderTimer = new DispatcherTimer
@@ -100,19 +98,19 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
             _mediaPlayer.EndReached += OnEndReached;
             _mediaPlayer.EncounteredError += OnError;
 
-            _uiDispatcher.Invoke(CreateWindows);
-            _uiDispatcher.Invoke(() => _renderTimer.Start());
+            Dispatcher.UIThread.Invoke(CreateWindows);
+            Dispatcher.UIThread.Invoke(() => _renderTimer.Start());
 
             using var media = new Media(_libVlc, videoUrl, FromType.FromLocation);
             _mediaPlayer.Play(media);
             _isPlaying = true;
 
-            _logger.Information("AvaloniaDualMonitorVideo: Started playback of {Url} on {Count} monitors",
+            _logger.LogInformation("AvaloniaDualMonitorVideo: Started playback of {Url} on {Count} monitors",
                 videoUrl, _windowData.Count);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "AvaloniaDualMonitorVideo: Failed to start playback");
+            _logger.LogError(ex, "AvaloniaDualMonitorVideo: Failed to start playback");
             PlaybackError?.Invoke(this, ex.Message);
             Stop();
         }
@@ -142,7 +140,7 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
         _isPlaying = false;
         _frameReady = false;
 
-        _uiDispatcher.Invoke(() => _renderTimer.Stop());
+        Dispatcher.UIThread.Invoke(() => _renderTimer.Stop());
 
         try
         {
@@ -150,14 +148,14 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Information("AvaloniaDualMonitorVideo: Error stopping media player: {Error}", ex.Message);
+            _logger.LogInformation("AvaloniaDualMonitorVideo: Error stopping media player: {Error}", ex.Message);
         }
 
         // Wait a bit for LibVLC to fully stop rendering while pumping the UI thread,
         // preventing deadlocks when LibVLC threads need to marshal to the UI thread.
         WaitWithMessagePump(150);
 
-        _uiDispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             foreach (var (window, _, _) in _windowData.ToArray())
             {
@@ -167,7 +165,7 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.Information("AvaloniaDualMonitorVideo: Error closing window: {Error}", ex.Message);
+                    _logger.LogInformation("AvaloniaDualMonitorVideo: Error closing window: {Error}", ex.Message);
                 }
             }
             _windowData.Clear();
@@ -191,7 +189,7 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.Information("AvaloniaDualMonitorVideo: Error disposing media player: {Error}", ex.Message);
+                    _logger.LogInformation("AvaloniaDualMonitorVideo: Error disposing media player: {Error}", ex.Message);
                 }
             });
         }
@@ -214,12 +212,12 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.Information("AvaloniaDualMonitorVideo: Error freeing frame buffer: {Error}", ex.Message);
+                    _logger.LogInformation("AvaloniaDualMonitorVideo: Error freeing frame buffer: {Error}", ex.Message);
                 }
             });
         }
 
-        _logger.Information("AvaloniaDualMonitorVideo: Playback stopped");
+        _logger.LogInformation("AvaloniaDualMonitorVideo: Playback stopped");
     }
 
     /// <summary>
@@ -280,11 +278,11 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
 
         if (screens.Count == 0)
         {
-            _logger.Warning("AvaloniaDualMonitorVideo: No screens found");
+            _logger.LogWarning("AvaloniaDualMonitorVideo: No screens found");
             return;
         }
 
-        _logger.Information("AvaloniaDualMonitorVideo: Creating windows for {Count} screens: {Names}",
+        _logger.LogInformation("AvaloniaDualMonitorVideo: Creating windows for {Count} screens: {Names}",
             screens.Count, string.Join(", ", screens.Select(s => s.Name)));
 
         foreach (var screen in screens)
@@ -301,16 +299,16 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
                 window.Show();
                 _windowData.Add((window, bitmap, imageControl));
 
-                _logger.Information("AvaloniaDualMonitorVideo: Created window on {Screen} at {Bounds}",
+                _logger.LogInformation("AvaloniaDualMonitorVideo: Created window on {Screen} at {Bounds}",
                     screen.Name, screen.Bounds);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "AvaloniaDualMonitorVideo: Failed to create window on {Screen}", screen.Name);
+                _logger.LogError(ex, "AvaloniaDualMonitorVideo: Failed to create window on {Screen}", screen.Name);
             }
         }
 
-        _logger.Information("AvaloniaDualMonitorVideo: Successfully created {Count} windows", _windowData.Count);
+        _logger.LogInformation("AvaloniaDualMonitorVideo: Successfully created {Count} windows", _windowData.Count);
     }
 
     private (Window Window, Image ImageControl) CreateFullscreenWindow(ScreenInfo screen, WriteableBitmap bitmap)
@@ -337,11 +335,9 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
             Topmost = true,
             ShowInTaskbar = false,
             Background = Brushes.Black,
-            Content = grid,
-            Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y),
-            Width = screen.Bounds.Width,
-            Height = screen.Bounds.Height
+            Content = grid
         };
+        window.ConstrainToScreen(screen);
 
         window.KeyDown += (s, e) =>
         {
@@ -428,13 +424,13 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.Information("AvaloniaDualMonitorVideo: Frame copy error for one window: {Error}", ex.Message);
+                    _logger.LogInformation("AvaloniaDualMonitorVideo: Frame copy error for one window: {Error}", ex.Message);
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.Information("AvaloniaDualMonitorVideo: Frame copy error: {Error}", ex.Message);
+            _logger.LogInformation("AvaloniaDualMonitorVideo: Frame copy error: {Error}", ex.Message);
         }
         finally
         {
@@ -451,7 +447,7 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
 
     private void OnPlaying(object? sender, EventArgs e)
     {
-        _uiDispatcher.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             PlaybackStarted?.Invoke(this, EventArgs.Empty);
         });
@@ -459,7 +455,7 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
 
     private void OnEndReached(object? sender, EventArgs e)
     {
-        _uiDispatcher.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             PlaybackEnded?.Invoke(this, EventArgs.Empty);
             Stop();
@@ -468,7 +464,7 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
 
     private void OnError(object? sender, EventArgs e)
     {
-        _uiDispatcher.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             PlaybackError?.Invoke(this, "LibVLC encountered an error during playback");
             Stop();
@@ -490,17 +486,17 @@ public sealed class AvaloniaDualMonitorVideoService : IDisposable
             {
                 if (!_playerDisposeTask.Wait(2000))
                 {
-                    _logger.Warning("AvaloniaDualMonitorVideo: Player dispose task did not complete within timeout");
+                    _logger.LogWarning("AvaloniaDualMonitorVideo: Player dispose task did not complete within timeout");
                 }
             }
             catch (Exception ex)
             {
-                _logger.Information("AvaloniaDualMonitorVideo: Error waiting for player dispose: {Error}", ex.Message);
+                _logger.LogInformation("AvaloniaDualMonitorVideo: Error waiting for player dispose: {Error}", ex.Message);
             }
         }
 
         _renderTimer.Tick -= OnRenderTick;
 
-        _logger.Information("AvaloniaDualMonitorVideoService disposed");
+        _logger.LogInformation("AvaloniaDualMonitorVideoService disposed");
     }
 }

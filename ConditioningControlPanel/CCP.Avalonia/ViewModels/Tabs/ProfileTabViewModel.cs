@@ -15,7 +15,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
     public sealed partial class ProfileTabViewModel : TabItemViewModel
     {
         private readonly ISettingsService _settingsService;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<ProfileTabViewModel>? _logger;
 
         [ObservableProperty]
         private string _displayName = "";
@@ -69,7 +69,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
             Badges = new ObservableCollection<string> { "Member", "Conditioned" };
         }
 
-        public ProfileTabViewModel(ISettingsService settingsService, IAppLogger? logger = null)
+        public ProfileTabViewModel(ISettingsService settingsService, ILogger<ProfileTabViewModel>? logger = null)
             : base("discord", "Profile", "👤")
         {
             _settingsService = settingsService;
@@ -150,7 +150,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
             settings.TotalConditioningMinutes = 0;
             _settingsService?.Save();
 
-            _logger?.Information("User logged out from profile tab.");
+            _logger?.LogInformation("User logged out from profile tab.");
             RefreshState();
         }
 

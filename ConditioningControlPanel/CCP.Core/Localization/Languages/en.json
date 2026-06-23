@@ -430,6 +430,8 @@
   "deeper_player_tip_clear": "Clear the event log.",
   "deeper_player_tip_collapse": "Collapse / expand the event log body.",
   "deeper_player_tip_event_open": "Jump to this rule in the editor.",
+  "deeper_player_diag_pip_stub": "Picture-in-picture is stubbed for LibVLC.",
+  "deeper_player_diag_eye_tracking_stub": "Eye tracking is stubbed pending Avalonia webcam integration.",
   "browser_enhance_label": "Enhance if possible",
   "browser_enhance_tooltip": "When enabled, navigating to a video page that matches a saved enhancement plays its effects on top.",
   "browser_enhance_match_none": "No saved enhancement for this page.",

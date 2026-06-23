@@ -2,12 +2,17 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using ConditioningControlPanel.Avalonia.AvatarTube;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.Views;
 
 public partial class MainWindow
 {
     private AvatarTubeWindow? _avatarTubeWindow;
+
+    /// <summary>Exposes the initialized avatar tube window so the shared <see cref="IAvatarWindowService"/>
+    /// can reuse it instead of creating a duplicate.</summary>
+    public AvatarTubeWindow? AvatarTube => _avatarTubeWindow;
 
     private void InitializeAvatarTube()
     {
@@ -31,12 +36,12 @@ public partial class MainWindow
                 win.StartPoseAnimation();
             }
 
-            _logger?.Information("Avatar Tube Window initialized (visible={Visible}, pos={Pos}, size={Size})",
+            _logger?.LogInformation("Avatar Tube Window initialized (visible={Visible}, pos={Pos}, size={Size})",
                 win.IsVisible, win.Position, win.ClientSize);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to initialize Avatar Tube Window");
+            _logger?.LogError(ex, "Failed to initialize Avatar Tube Window");
         }
     }
 
@@ -77,6 +82,23 @@ public partial class MainWindow
         }
     }
 
+    private void WireAvatarEnabledChange()
+    {
+        if (_settingsService?.Current is not { } settings) return;
+        settings.PropertyChanged -= OnAvatarSettingsPropertyChanged;
+        settings.PropertyChanged += OnAvatarSettingsPropertyChanged;
+    }
+
+    private void OnAvatarSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(AppSettings.AvatarEnabled)) return;
+
+        if (_settingsService?.Current?.AvatarEnabled == true)
+            ShowAvatarTube();
+        else
+            HideAvatarTube();
+    }
+
     /// <summary>
     /// Shift the main window right enough that the attached avatar tube is not clipped
     /// by the left edge of the working area. Keeps the dashboard + companion pair fully
@@ -107,7 +129,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to ensure avatar tube fits on screen");
+            _logger?.LogWarning(ex, "Failed to ensure avatar tube fits on screen");
         }
     }
 }

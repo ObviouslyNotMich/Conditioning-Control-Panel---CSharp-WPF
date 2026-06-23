@@ -11,8 +11,8 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Avalonia.Models;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
@@ -30,7 +30,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class PopQuizWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<PopQuizWindow> _logger;
 
 
     public static bool IsOpen { get; private set; }
@@ -47,7 +47,7 @@ public partial class PopQuizWindow : Window
 
     public PopQuizWindow(PopQuizQuestion question, bool isTest = false)
     {
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<PopQuizWindow>>();
 
 IsOpen = true;
         _progression = App.Services.GetRequiredService<IProgressionService>();
@@ -119,7 +119,7 @@ IsOpen = true;
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<PopQuizWindow>>();
 _progression = App.Services.GetRequiredService<IProgressionService>();
         _interactionQueue = App.Services.GetRequiredService<IInteractionQueueService>();
         _avatarWindowService = App.Services.GetService<IAvatarWindowService>();
@@ -176,7 +176,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "PopQuiz XP award failed");
+                _logger?.LogWarning(ex, "PopQuiz XP award failed");
             }
         }
 
@@ -211,7 +211,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
 
     private static void PlayChime()
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<PopQuizWindow>>();
         try
         {
             var env = App.Services?.GetService<IAppEnvironment>();
@@ -236,7 +236,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "PopQuiz chime failed");
+            App.Services?.GetRequiredService<ILogger<PopQuizWindow>>().LogWarning(ex, "PopQuiz chime failed");
         }
     }
 

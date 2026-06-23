@@ -25,4 +25,10 @@ public interface IMindWipeService
 
     /// <summary>Triggers a single mind-wipe phrase immediately.</summary>
     void TriggerOnce();
+
+    /// <summary>Updates the active frequency and volume without restarting.</summary>
+    void UpdateSettings(double frequencyPerHour, double volume);
+
+    /// <summary>Number of loaded audio phrases available for playback.</summary>
+    int AudioFileCount { get; }
 }

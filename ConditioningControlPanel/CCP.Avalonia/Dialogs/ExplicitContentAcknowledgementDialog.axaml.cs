@@ -14,7 +14,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class ExplicitContentAcknowledgementDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ExplicitContentAcknowledgementDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -24,7 +24,7 @@ public partial class ExplicitContentAcknowledgementDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ExplicitContentAcknowledgementDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 }
 
@@ -55,7 +55,7 @@ _settings?.Current?.CompanionPrompt;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "ExplicitContentAcknowledgementDialog: failed to capture ack timestamp/locale");
+            _logger?.LogWarning(ex, "ExplicitContentAcknowledgementDialog: failed to capture ack timestamp/locale");
         }
 
         Close(true);
@@ -74,7 +74,7 @@ _settings?.Current?.CompanionPrompt;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "ExplicitContentAcknowledgementDialog: failed to open policy URL {Url}", PolicyUrl);
+            _logger?.LogWarning(ex, "ExplicitContentAcknowledgementDialog: failed to open policy URL {Url}", PolicyUrl);
         }
     }
 }

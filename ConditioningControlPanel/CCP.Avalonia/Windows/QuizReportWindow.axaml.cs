@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Models.Quiz;
 using AvaloniaLayout = global::Avalonia.Layout;
 
 namespace ConditioningControlPanel.Avalonia.Windows;

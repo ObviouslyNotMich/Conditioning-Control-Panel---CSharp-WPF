@@ -31,7 +31,7 @@ public partial class MainWindow : Window
     private readonly ISessionService? _sessionService;
     private readonly ISessionManager? _sessionManager;
     private readonly IAudioPlayer? _audioPlayer;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<MainWindow>? _logger;
     private readonly ILockdownService? _lockdownService;
 
     private DateTime _lastPanicPress = DateTime.MinValue;
@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         _sessionService = App.Services?.GetService<ISessionService>();
         _sessionManager = App.Services?.GetService<ISessionManager>();
         _audioPlayer = App.Services?.GetService<IAudioPlayer>();
-        _logger = App.Services?.GetService<IAppLogger>();
+        _logger = App.Services?.GetRequiredService<ILogger<MainWindow>>();
         _lockdownService = App.Services?.GetService<ILockdownService>();
 
         var themeService = App.Services?.GetService<AvaloniaThemeService>();
@@ -55,7 +55,11 @@ public partial class MainWindow : Window
             themeService.ThemeChanged += (_, _) => ApplyPlayerTitleShadow();
 
         // Remove the native title bar and extend the client area on all platforms.
-        App.Services?.GetService<IWindowChrome>()?.ExtendClientArea(this, true);
+        var chrome = App.Services?.GetService<IWindowChrome>();
+        chrome?.ExtendClientArea(this, true);
+        if (themeService != null)
+            themeService.ThemeChanged += (_, _) => ApplyWindowChrome();
+        ApplyWindowChrome();
 
         // Window chrome: drag from the custom title bar and double-click to maximize.
         if (TitleBarGrid != null)
@@ -73,6 +77,17 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DropEvent, MainWindow_Drop);
 
         WirePanicKey();
+        WireAvatarEnabledChange();
+    }
+
+    private void ApplyWindowChrome()
+    {
+        var chrome = App.Services?.GetService<IWindowChrome>();
+        if (chrome == null) return;
+
+        var handle = this.TryGetPlatformHandle()?.Handle;
+        var dark = Application.Current?.ActualThemeVariant == global::Avalonia.Styling.ThemeVariant.Dark;
+        chrome.SetDarkTitleBar(handle, dark);
     }
 
     private void ApplyPlayerTitleShadow()
@@ -109,7 +124,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning(ex, "Panic-key handler failed");
+                    _logger?.LogWarning(ex, "Panic-key handler failed");
                 }
             });
         };
@@ -180,7 +195,7 @@ public partial class MainWindow : Window
         // Lockdown mode owns all key handling; panic key is intentionally disabled.
         if (_lockdownService?.IsActive == true) return;
 
-        _logger?.Information("Panic key pressed");
+        _logger?.LogInformation("Panic key pressed");
 
         var now = DateTime.Now;
         if ((now - _lastPanicPress).TotalMilliseconds > 2000)
@@ -200,7 +215,7 @@ public partial class MainWindow : Window
         // Second press while stopped: exit the application.
         if (_panicPressCount >= 2)
         {
-            _logger?.Information("Double panic: exiting application");
+            _logger?.LogInformation("Double panic: exiting application");
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 try { _audioPlayer?.Stop(); } catch { /* best effort */ }
@@ -337,8 +352,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            var logger = App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>();
-            logger?.Error(ex, "Failed to open bug report window");
+            var logger = App.Services?.GetRequiredService<ILogger<MainWindow>>();
+            logger?.LogError(ex, "Failed to open bug report window");
         }
     }
 
@@ -412,12 +427,12 @@ public partial class MainWindow : Window
                     if (success && session != null)
                     {
                         imported++;
-                        _logger?.Information("Drag-drop imported session: {Name}", session.Name);
+                        _logger?.LogInformation("Drag-drop imported session: {Name}", session.Name);
                     }
                     else
                     {
                         failed++;
-                        _logger?.Warning("Drag-drop session import failed: {Message}", message);
+                        _logger?.LogWarning("Drag-drop session import failed: {Message}", message);
                     }
                 }
                 else if (path.EndsWith(".preset.json", StringComparison.OrdinalIgnoreCase))
@@ -431,7 +446,7 @@ public partial class MainWindow : Window
                         _settingsService.Current.UserPresets.Add(preset);
                         _settingsService.Save();
                         imported++;
-                        _logger?.Information("Drag-drop imported preset: {Name}", preset.Name);
+                        _logger?.LogInformation("Drag-drop imported preset: {Name}", preset.Name);
                     }
                     else
                     {
@@ -441,13 +456,13 @@ public partial class MainWindow : Window
                 else
                 {
                     failed++;
-                    _logger?.Debug("Drag-drop ignored unsupported file: {Path}", path);
+                    _logger?.LogDebug("Drag-drop ignored unsupported file: {Path}", path);
                 }
             }
             catch (Exception ex)
             {
                 failed++;
-                _logger?.Warning(ex, "Drag-drop import failed for {Path}", path);
+                _logger?.LogWarning(ex, "Drag-drop import failed for {Path}", path);
             }
         }
 
@@ -475,12 +490,13 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            var logger = App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>();
-            logger?.Warning(ex, "Failed to present startup dialogs");
+            var logger = App.Services?.GetRequiredService<ILogger<MainWindow>>();
+            logger?.LogWarning(ex, "Failed to present startup dialogs");
         }
 
         InitializeAvatarTube();
         EnsureAvatarTubeFitsOnScreen();
+        ApplyWindowChrome();
     }
 
     private async Task TryShowWelcomeDialogAsync()

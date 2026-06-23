@@ -18,7 +18,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
     {
         private readonly IAvailableSubjectsService _service;
         private readonly ISettingsService _settingsService;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<AvailableSubjectsTabViewModel>? _logger;
 
         [ObservableProperty]
         private ObservableCollection<AvailableSubject> _entries = new();
@@ -46,7 +46,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
         public AvailableSubjectsTabViewModel(
             IAvailableSubjectsService service,
             ISettingsService settingsService,
-            IAppLogger? logger = null)
+            ILogger<AvailableSubjectsTabViewModel>? logger = null)
             : base("availablesubjects", "Available Subjects", "🛰️")
         {
             _service = service;
@@ -114,7 +114,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
         {
             if (subject == null || string.IsNullOrEmpty(subject.UnifiedId)) return;
 
-            _logger?.Information("[AvailableSubjects] claiming subject {DisplayName}", subject.DisplayName);
+            _logger?.LogInformation("[AvailableSubjects] claiming subject {DisplayName}", subject.DisplayName);
             var url = await _service.TryClaimAsync(subject.UnifiedId);
             if (string.IsNullOrEmpty(url)) return;
 
@@ -124,7 +124,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[AvailableSubjects] failed to open pairing URL");
+                _logger?.LogError(ex, "[AvailableSubjects] failed to open pairing URL");
             }
         }
 

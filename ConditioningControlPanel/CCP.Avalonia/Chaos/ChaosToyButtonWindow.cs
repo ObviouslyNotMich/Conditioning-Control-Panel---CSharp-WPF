@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Input;
@@ -47,6 +47,7 @@ public sealed class ChaosToyButtonWindow : Window
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
+        IsHitTestVisible = true;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.Manual;
         Width = DISC + PAD * 2;
@@ -222,8 +223,5 @@ public sealed class ChaosToyButtonWindow : Window
         return b;
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, false);
 }

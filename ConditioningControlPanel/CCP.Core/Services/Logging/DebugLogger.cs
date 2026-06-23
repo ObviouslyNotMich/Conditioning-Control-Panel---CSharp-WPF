@@ -1,47 +1,36 @@
-using System.Diagnostics;
+using System;
 
 namespace ConditioningControlPanel;
 
 /// <summary>
-/// Simple <see cref="IAppLogger"/> implementation that writes to <see cref="Debug"/>.
-/// This is the fallback logger for the Avalonia head until a richer logger is wired.
+/// Simple <see cref="ILogger{TCategoryName}"/> implementation that writes to <see cref="Debug"/>.
+/// This is the fallback logger for tests and the Avalonia head until a richer logger is wired.
 /// </summary>
-public sealed class DebugLogger : IAppLogger
+public sealed class DebugLogger<TCategoryName> : ILogger<TCategoryName>
 {
-    public void Debug(string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[DEBUG] " + Format(messageTemplate, propertyValues));
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
 
-    public void Debug(Exception exception, string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[DEBUG] " + Format(messageTemplate, propertyValues) + "\n" + exception);
+    public bool IsEnabled(LogLevel logLevel) => true;
 
-    public void Information(string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[INFO] " + Format(messageTemplate, propertyValues));
-
-    public void Information(Exception exception, string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[INFO] " + Format(messageTemplate, propertyValues) + "\n" + exception);
-
-    public void Warning(string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[WARN] " + Format(messageTemplate, propertyValues));
-
-    public void Warning(Exception exception, string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[WARN] " + Format(messageTemplate, propertyValues) + "\n" + exception);
-
-    public void Error(string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[ERROR] " + Format(messageTemplate, propertyValues));
-
-    public void Error(Exception exception, string messageTemplate, params object?[] propertyValues)
-        => System.Diagnostics.Debug.WriteLine("[ERROR] " + Format(messageTemplate, propertyValues) + "\n" + exception);
-
-    private static string Format(string template, object?[] args)
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
-        if (args == null || args.Length == 0) return template;
-        try
+        var message = formatter(state, exception);
+        var prefix = logLevel switch
         {
-            return string.Format(template, args);
-        }
-        catch (FormatException)
-        {
-            return template;
-        }
+            LogLevel.Trace => "[TRACE]",
+            LogLevel.Debug => "[DEBUG]",
+            LogLevel.Information => "[INFO]",
+            LogLevel.Warning => "[WARN]",
+            LogLevel.Error => "[ERROR]",
+            LogLevel.Critical => "[CRITICAL]",
+            _ => "[LOG]"
+        };
+        System.Diagnostics.Debug.WriteLine($"{prefix} {message}" + (exception is null ? "" : "\n" + exception));
+    }
+
+    private sealed class NullScope : IDisposable
+    {
+        public static readonly NullScope Instance = new();
+        public void Dispose() { }
     }
 }

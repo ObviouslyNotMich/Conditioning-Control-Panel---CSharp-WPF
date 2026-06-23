@@ -4,13 +4,16 @@ using System.IO;
 using Avalonia.Data.Converters;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using ConditioningControlPanel.Avalonia.Services.Mod;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Converters;
 
 /// <summary>
 /// Converts a pack:// or file:// URI string into an Avalonia <see cref="Bitmap"/>.
 /// Used by the Season Recap card badge grid and other ported WPF surfaces that
-/// bind Image.Source to legacy resource URIs.
+/// bind Image.Source to legacy resource URIs. Mod overrides in the active mod's
+/// resources/ folder take precedence over the embedded defaults.
 /// </summary>
 public sealed class PackUriToBitmapConverter : IValueConverter
 {
@@ -18,6 +21,13 @@ public sealed class PackUriToBitmapConverter : IValueConverter
     {
         var s = value as string;
         if (string.IsNullOrWhiteSpace(s)) return null;
+
+        var resolver = App.Services?.GetService<AvaloniaModResourceResolver>();
+        if (resolver != null)
+        {
+            var resolved = resolver.LoadFromUriOrPath(s);
+            if (resolved != null) return resolved;
+        }
 
         try
         {

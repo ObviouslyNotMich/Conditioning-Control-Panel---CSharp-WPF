@@ -3,9 +3,9 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -17,8 +17,7 @@ public partial class FlashFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly IFlashService? _flash;
     private readonly ISessionService? _session;
-    private readonly IAppLogger? _logger;
-    private readonly IUiDispatcher _dispatcher;
+    private readonly ILogger<FlashFeatureControl>? _logger;
     private bool _isLoading = true;
 
     public FlashFeatureControl()
@@ -27,8 +26,7 @@ public partial class FlashFeatureControl : UserControl
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _flash = App.Services.GetService<IFlashService>();
         _session = App.Services.GetService<ISessionService>();
-        _logger = App.Services.GetService<IAppLogger>();
-        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
+        _logger = App.Services.GetRequiredService<ILogger<FlashFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -86,7 +84,7 @@ public partial class FlashFeatureControl : UserControl
             e.PropertyName == nameof(AppSettings.FlashGazeLingerEnabled) ||
             e.PropertyName == nameof(AppSettings.FlashGazeLingerExtensionMs))
         {
-            _dispatcher.Post(LoadFromSettings);
+            Dispatcher.UIThread.Post(LoadFromSettings);
         }
     }
 
@@ -132,7 +130,7 @@ public partial class FlashFeatureControl : UserControl
         _settings.Save();
 
         try { _flash?.RefreshSchedule(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Flash frequency change: RefreshSchedule failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Flash frequency change: RefreshSchedule failed"); }
     }
 
     private void LiveApply(bool on)
@@ -146,7 +144,7 @@ public partial class FlashFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Flash enable toggle: live apply failed");
+            _logger?.LogWarning(ex, "Flash enable toggle: live apply failed");
         }
     }
 

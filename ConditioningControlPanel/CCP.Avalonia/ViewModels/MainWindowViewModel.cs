@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -17,10 +18,12 @@ using ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Companion;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Core.Services.Update;
+using ConditioningControlPanel.Core.Services.Webcam;
 using Session = ConditioningControlPanel.Models.Session;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -34,9 +37,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly ISessionManager? _sessionManager;
     private readonly IDialogService? _dialogService;
     private readonly IUpdateService? _updateService;
-    private readonly IAppLogger? _logger;
-    private readonly IUiDispatcher? _uiDispatcher;
-    private readonly IScheduler? _scheduler;
+    private readonly ILogger<MainWindowViewModel>? _logger;
     private readonly IInputHook? _inputHook;
     private readonly IHotkeyProvider? _hotkeyProvider;
     private readonly ITrayIcon? _trayIcon;
@@ -51,13 +52,16 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly IRemoteControlService? _remoteControlService;
     private readonly ISessionEffectOrchestrator? _effectOrchestrator;
     private readonly ISessionLogService? _sessionLog;
+    private readonly IWebcamService? _webcamService;
+    private readonly ICompanionService? _companionService;
+    private readonly IAudioPlayer? _audioPlayer;
 
-    private IDisposable? _clockTimer;
-    private IDisposable? _sessionProgressTimer;
-    private IDisposable? _conditioningTimeTimer;
-    private IDisposable? _statPillTimer;
-    private IDisposable? _bannerTimer;
-    private IDisposable? _xpFlashTimer;
+    private DispatcherTimer? _clockTimer;
+    private DispatcherTimer? _sessionProgressTimer;
+    private DispatcherTimer? _conditioningTimeTimer;
+    private DispatcherTimer? _statPillTimer;
+    private DispatcherTimer? _bannerTimer;
+    private DispatcherTimer? _xpFlashTimer;
     private double _previousXpPercent;
     private DateTime _conditioningStartTime;
     private double _conditioningBaselineMinutes;
@@ -85,9 +89,7 @@ public partial class MainWindowViewModel : ObservableObject
         _sessionManager = services.GetService<ISessionManager>();
         _dialogService = services.GetService<IDialogService>();
         _updateService = services.GetService<IUpdateService>();
-        _logger = services.GetService<IAppLogger>();
-        _uiDispatcher = services.GetService<IUiDispatcher>();
-        _scheduler = services.GetService<IScheduler>();
+        _logger = services.GetRequiredService<ILogger<MainWindowViewModel>>();
         _inputHook = services.GetService<IInputHook>();
         _hotkeyProvider = services.GetService<IHotkeyProvider>();
         _trayIcon = services.GetService<ITrayIcon>();
@@ -102,6 +104,9 @@ public partial class MainWindowViewModel : ObservableObject
         _remoteControlService = services.GetService<IRemoteControlService>();
         _effectOrchestrator = services.GetService<ISessionEffectOrchestrator>();
         _sessionLog = services.GetService<ISessionLogService>();
+        _webcamService = services.GetService<IWebcamService>();
+        _companionService = services.GetService<ICompanionService>();
+        _audioPlayer = services.GetService<IAudioPlayer>();
 
         InitializeTabs();
         UpdateHeaderFromSettings();
@@ -111,6 +116,7 @@ public partial class MainWindowViewModel : ObservableObject
         RegisterGlobalHotkeys();
         HookInput();
         SubscribeProgressionEvents();
+        SubscribeCompanionEvents();
         SubscribeRemoteControlEvents();
         SubscribeBrowserHostEvents();
         HookLocalizationRefresh();
@@ -322,26 +328,22 @@ public partial class MainWindowViewModel : ObservableObject
         var increased = value > _previousXpPercent;
         _previousXpPercent = value;
 
-        if (!increased)
+        if (increased)
         {
-            return;
+            FlashXpBar();
         }
+    }
 
+    private void FlashXpBar()
+    {
         XpFlashOpacity = 0.8;
-        _xpFlashTimer?.Dispose();
+        _xpFlashTimer?.Stop();
         _xpFlashTimer = null;
 
-        if (_scheduler != null && _uiDispatcher != null)
+        _xpFlashTimer = StartOneShotTimer(TimeSpan.FromMilliseconds(500), () =>
         {
-            _xpFlashTimer = _scheduler.StartOneShotTimer(TimeSpan.FromMilliseconds(500), () =>
-            {
-                _uiDispatcher.Post(() => XpFlashOpacity = 0);
-            });
-        }
-        else
-        {
-            XpFlashOpacity = 0;
-        }
+            Dispatcher.UIThread.Post(() => XpFlashOpacity = 0);
+        });
     }
 
     partial void OnIsLoggedInChanged(bool value)
@@ -628,7 +630,7 @@ public partial class MainWindowViewModel : ObservableObject
                     SelectedMod = current;
                 return;
             }
-            _logger?.Information("Active mod changed to {ModId} from header selector", value.Id);
+            _logger?.LogInformation("Active mod changed to {ModId} from header selector", value.Id);
             return;
         }
 
@@ -638,7 +640,7 @@ public partial class MainWindowViewModel : ObservableObject
         settings.ActiveModId = value.Id;
         _settingsService.Save();
         OnPropertyChanged(nameof(SelectedModId));
-        _logger?.Information("Active mod changed to {ModId} from header selector", value.Id);
+        _logger?.LogInformation("Active mod changed to {ModId} from header selector", value.Id);
     }
 
     partial void OnSelectedLanguageChanged(LanguageItem? value)
@@ -653,7 +655,7 @@ public partial class MainWindowViewModel : ObservableObject
             _settingsService.Save();
         }
 
-        _logger?.Information("Language changed to {LanguageCode} from header selector", value.Code);
+        _logger?.LogInformation("Language changed to {LanguageCode} from header selector", value.Code);
     }
 
     partial void OnSelectedPresetChanged(PresetItem? value)
@@ -663,7 +665,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         value.Source.ApplyTo(settings);
         _settingsService.Save(suppressCloudBackup: false);
-        _logger?.Information("Applied preset from header selector: {PresetName}", value.Name);
+        _logger?.LogInformation("Applied preset from header selector: {PresetName}", value.Name);
     }
 
     private void SubscribeProgressionEvents()
@@ -673,6 +675,74 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (_skillTreeService != null)
             _skillTreeService.SkillUnlocked += OnSkillUnlocked;
+    }
+
+    private void SubscribeCompanionEvents()
+    {
+        if (_companionService == null) return;
+
+        _companionService.XPDrained += OnCompanionXpDrained;
+        _companionService.LevelUp += OnCompanionLevelUp;
+    }
+
+    private void OnCompanionXpDrained(object? sender, double amount)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            UpdateHeaderFromSettings();
+            FlashXpBar();
+        });
+    }
+
+    private void OnCompanionLevelUp(object? sender, (CompanionId Companion, int NewLevel) args)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var rawCompanionName = CompanionDefinition.GetById(args.Companion).Name;
+            var companionName = _modService?.MakeModAware(rawCompanionName) ?? rawCompanionName;
+
+            if (args.NewLevel == CompanionProgress.MaxLevel)
+            {
+                AddNotification(Loc.Get("title_companion_max_level"),
+                    string.Format(Loc.Get("msg_companion_max_level_fmt"), companionName));
+            }
+            else if (args.NewLevel % 10 == 0)
+            {
+                AddNotification(Loc.Get("title_companion_level_up"),
+                    string.Format(Loc.Get("msg_companion_level_up_fmt"), companionName, args.NewLevel));
+            }
+
+            if (args.NewLevel % 10 == 0 || args.NewLevel == CompanionProgress.MaxLevel)
+            {
+                _ = PlayLevelUpSoundAsync();
+            }
+        });
+    }
+
+    private async Task PlayLevelUpSoundAsync()
+    {
+        try
+        {
+            var soundPaths = new[]
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "lvup.mp3"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "lvlup.mp3"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "sounds", "lvlup.mp3"),
+            };
+
+            var soundPath = soundPaths.FirstOrDefault(File.Exists);
+            if (soundPath == null)
+            {
+                _logger?.LogDebug("Level up sound not found in any of: {Paths}", string.Join(", ", soundPaths));
+                return;
+            }
+
+            await (_audioPlayer?.PlayAsync(soundPath) ?? Task.CompletedTask);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to play companion level-up sound");
+        }
     }
 
     private void SubscribeRemoteControlEvents()
@@ -690,7 +760,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         _browserHost.FullscreenChanged += (_, isFullscreen) =>
         {
-            _uiDispatcher?.Post(() => BrowserFullscreenOverlayVisible = isFullscreen);
+            Dispatcher.UIThread.Post(() => BrowserFullscreenOverlayVisible = isFullscreen);
         };
     }
 
@@ -700,11 +770,11 @@ public partial class MainWindowViewModel : ObservableObject
 
         _updateService.UpdateAvailable += (_, update) =>
         {
-            _uiDispatcher?.Post(() => _ = ShowUpdateNotificationAsync(update));
+            Dispatcher.UIThread.Post(() => _ = ShowUpdateNotificationAsync(update));
         };
         _updateService.UpdateFailed += (_, ex) =>
         {
-            _logger?.Warning(ex, "Update check failed");
+            _logger?.LogWarning(ex, "Update check failed");
         };
 
         // Background check on startup (fire-and-forget; skip on mobile/dev runs).
@@ -717,7 +787,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Background update check failed");
+                _logger?.LogWarning(ex, "Background update check failed");
             }
         });
     }
@@ -759,7 +829,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to show update notification");
+            _logger?.LogError(ex, "Failed to show update notification");
         }
     }
 
@@ -772,7 +842,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnRemoteControllerConnectedChanged(object? sender, EventArgs e)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             RemoteControlConnected = _remoteControlService?.ControllerConnected ?? false;
             RemoteControlOverlayVisible = RemoteControlConnected;
@@ -783,7 +853,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnRemoteSessionStarted(object? sender, EventArgs e)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             RemoteControlStatus = Loc.Get("label_remote_session_started");
             UpdateRemoteControlOverlayInfo();
@@ -792,7 +862,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnRemoteSessionEnded(object? sender, EventArgs e)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             RemoteControlConnected = false;
             RemoteControlOverlayVisible = false;
@@ -826,7 +896,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnLevelUp(object? sender, int level)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             PlayerLevel = level;
             LevelText = $"Lv.{level}";
@@ -836,9 +906,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnSkillUnlocked(object? sender, string skillId)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
-            _logger?.Information("Skill unlocked: {SkillId}", skillId);
+            _logger?.LogInformation("Skill unlocked: {SkillId}", skillId);
             RefreshProgressionHeader();
         });
     }
@@ -849,7 +919,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         _sessionService.SessionStarted += (_, _) =>
         {
-            _uiDispatcher?.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 IsEngineRunning = true;
                 UpdateStartButton();
@@ -861,7 +931,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         _sessionService.SessionStopped += (_, _) =>
         {
-            _uiDispatcher?.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 IsEngineRunning = false;
                 UpdateStartButton();
@@ -873,7 +943,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         _sessionService.SessionCompleted += (_, e) =>
         {
-            _uiDispatcher?.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 IsEngineRunning = false;
                 UpdateStartButton();
@@ -881,7 +951,7 @@ public partial class MainWindowViewModel : ObservableObject
                 _effectOrchestrator?.StopEffects();
                 _progressionService?.AddXP(e.XPEarned, XPSource.Session);
                 RefreshProgressionHeader();
-                _logger?.Information("Session completed: {Name}, XP: {XP}", e.Session.Name, e.XPEarned);
+                _logger?.LogInformation("Session completed: {Name}, XP: {XP}", e.Session.Name, e.XPEarned);
 
                 _sessionLog?.EndSession(completed: true, e.Duration, e.XPEarned);
 
@@ -892,14 +962,14 @@ public partial class MainWindowViewModel : ObservableObject
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning(ex, "Failed to show session complete window");
+                    _logger?.LogWarning(ex, "Failed to show session complete window");
                 }
             });
         };
 
         _sessionService.ProgressUpdated += (_, e) =>
         {
-            _uiDispatcher?.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 SessionStatusText = $"{e.Elapsed:mm\\:ss} / {e.Elapsed + e.Remaining:mm\\:ss} ({e.ProgressPercent:F0}%)";
             });
@@ -908,26 +978,24 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void StartUiTimers()
     {
-        if (_scheduler == null) return;
-
-        _clockTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(1), () =>
+        _clockTimer = StartPeriodicTimer(TimeSpan.FromSeconds(1), () =>
         {
-            _uiDispatcher?.Post(() => CurrentTimeText = DateTime.Now.ToString("HH:mm"));
+            Dispatcher.UIThread.Post(() => CurrentTimeText = DateTime.Now.ToString("HH:mm"));
         });
 
-        _sessionProgressTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(1), () =>
+        _sessionProgressTimer = StartPeriodicTimer(TimeSpan.FromSeconds(1), () =>
         {
-            _uiDispatcher?.Post(UpdateSessionStatus);
+            Dispatcher.UIThread.Post(UpdateSessionStatus);
         });
 
-        _statPillTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(30), () =>
+        _statPillTimer = StartPeriodicTimer(TimeSpan.FromSeconds(30), () =>
         {
-            _uiDispatcher?.Post(UpdateConditioningTimeDisplay);
+            Dispatcher.UIThread.Post(UpdateConditioningTimeDisplay);
         });
 
-        _bannerTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(7), () =>
+        _bannerTimer = StartPeriodicTimer(TimeSpan.FromSeconds(7), () =>
         {
-            _uiDispatcher?.Post(() => CurrentBannerIndex = (CurrentBannerIndex + 1) % 3);
+            Dispatcher.UIThread.Post(() => CurrentBannerIndex = (CurrentBannerIndex + 1) % 3);
         });
     }
 
@@ -986,17 +1054,10 @@ public partial class MainWindowViewModel : ObservableObject
     {
         StartButtonFlashOpacity = 0.5;
 
-        if (_scheduler != null && _uiDispatcher != null)
+        _ = StartOneShotTimer(TimeSpan.FromMilliseconds(400), () =>
         {
-            _ = _scheduler.StartOneShotTimer(TimeSpan.FromMilliseconds(400), () =>
-            {
-                _uiDispatcher.Post(() => StartButtonFlashOpacity = 1.0);
-            });
-        }
-        else
-        {
-            StartButtonFlashOpacity = 1.0;
-        }
+            Dispatcher.UIThread.Post(() => StartButtonFlashOpacity = 1.0);
+        });
     }
 
     #region Tab Navigation
@@ -1086,7 +1147,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void MinimizeWindow()
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
                 && desktop.MainWindow is { } window)
@@ -1099,7 +1160,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void MaximizeWindow()
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
                 && desktop.MainWindow is { } window)
@@ -1127,13 +1188,13 @@ public partial class MainWindowViewModel : ObservableObject
             overlay.ShowCountdown(() =>
             {
                 try { overlay.Close(); }
-                catch (Exception ex) { _logger?.Warning(ex, "Chaos overlay smoke-test close failed"); }
+                catch (Exception ex) { _logger?.LogWarning(ex, "Chaos overlay smoke-test close failed"); }
             }, shortFlash: true);
-            _logger?.Information("Chaos overlay smoke-test displayed");
+            _logger?.LogInformation("Chaos overlay smoke-test displayed");
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to show Chaos overlay smoke-test");
+            _logger?.LogError(ex, "Failed to show Chaos overlay smoke-test");
         }
     }
 
@@ -1144,8 +1205,8 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void StopWebcam()
     {
-        _logger?.Information("Stop webcam requested from title bar pill");
-        // TODO: wire to a real IWebcamTrackingService once it is extracted to CCP.Core.
+        _logger?.LogInformation("Stop webcam requested from title bar pill");
+        _webcamService?.StopTracking();
     }
 
     #endregion
@@ -1161,11 +1222,11 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 await _browserHost.NavigateAsync(new Uri("https://www.patreon.com/codebambi"));
             }
-            _logger?.Information("Support link opened");
+            _logger?.LogInformation("Support link opened");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open support link");
+            _logger?.LogWarning(ex, "Failed to open support link");
         }
     }
 
@@ -1180,11 +1241,11 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 await _browserHost.NavigateAsync(new Uri(url));
             }
-            _logger?.Information("Banner link opened: {Url}", url);
+            _logger?.LogInformation("Banner link opened: {Url}", url);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open banner link");
+            _logger?.LogWarning(ex, "Failed to open banner link");
         }
     }
 
@@ -1197,11 +1258,11 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 await _browserHost.NavigateAsync(new Uri("https://cclabs.app/help"));
             }
-            _logger?.Information("Help link opened");
+            _logger?.LogInformation("Help link opened");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open help link");
+            _logger?.LogWarning(ex, "Failed to open help link");
         }
     }
 
@@ -1214,7 +1275,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_sessionService == null)
         {
-            _logger?.Information("Start session requested but ISessionService is not available.");
+            _logger?.LogInformation("Start session requested but ISessionService is not available.");
             return;
         }
 
@@ -1255,7 +1316,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to start session");
+            _logger?.LogError(ex, "Failed to start session");
         }
     }
 
@@ -1271,7 +1332,7 @@ public partial class MainWindowViewModel : ObservableObject
             if (sessionService.State == SessionState.Paused)
             {
                 sessionService.ResumeSession();
-                _logger?.Information("Session resumed");
+                _logger?.LogInformation("Session resumed");
             }
             else
             {
@@ -1283,13 +1344,13 @@ public partial class MainWindowViewModel : ObservableObject
                 if (!confirmed) return;
 
                 sessionService.PauseSession();
-                _logger?.Information("Session paused (penalty: {Penalty} XP)", penalty);
+                _logger?.LogInformation("Session paused (penalty: {Penalty} XP)", penalty);
             }
             UpdatePauseButton();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to toggle session pause");
+            _logger?.LogError(ex, "Failed to toggle session pause");
         }
     }
 
@@ -1303,10 +1364,10 @@ public partial class MainWindowViewModel : ObservableObject
         _conditioningBaselineMinutes = _settingsService?.Current?.TotalConditioningMinutes ?? 0;
         _conditioningSecondsCounter = 0;
 
-        _conditioningTimeTimer?.Dispose();
-        _conditioningTimeTimer = _scheduler?.StartPeriodicTimer(TimeSpan.FromSeconds(1), () =>
+        _conditioningTimeTimer?.Stop();
+        _conditioningTimeTimer = StartPeriodicTimer(TimeSpan.FromSeconds(1), () =>
         {
-            _uiDispatcher?.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 _conditioningSecondsCounter++;
                 UpdateConditioningTimeDisplay();
@@ -1327,7 +1388,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void StopConditioningTimeTracker()
     {
-        _conditioningTimeTimer?.Dispose();
+        _conditioningTimeTimer?.Stop();
         _conditioningTimeTimer = null;
 
         var elapsed = DateTime.Now - _conditioningStartTime;
@@ -1377,18 +1438,18 @@ public partial class MainWindowViewModel : ObservableObject
         var mainWindow = GetMainWindow();
         if (mainWindow is null)
         {
-            _logger?.Information("Login dialog requested but no main window is available.");
+            _logger?.LogInformation("Login dialog requested but no main window is available.");
             return;
         }
 
-        _logger?.Information("Unified login dialog requested.");
+        _logger?.LogInformation("Unified login dialog requested.");
         var loginDialog = new global::ConditioningControlPanel.Avalonia.Dialogs.LoginDialog();
         var confirmed = await loginDialog.ShowDialog<bool>(mainWindow);
         var result = loginDialog.Result;
 
         if (!confirmed || result?.Success != true || result.UnifiedId is null)
         {
-            _logger?.Information("Login dialog dismissed or failed.");
+            _logger?.LogInformation("Login dialog dismissed or failed.");
             return;
         }
 
@@ -1405,7 +1466,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         UpdateHeaderFromSettings();
-        _logger?.Information("User logged in via {Provider}: {DisplayName} ({UnifiedId})", result.Provider, result.DisplayName, result.UnifiedId);
+        _logger?.LogInformation("User logged in via {Provider}: {DisplayName} ({UnifiedId})", result.Provider, result.DisplayName, result.UnifiedId);
     }
 
     [RelayCommand]
@@ -1430,7 +1491,7 @@ public partial class MainWindowViewModel : ObservableObject
         DisplayName = "";
         UpdateHeaderFromSettings();
 
-        _logger?.Information("User logged out.");
+        _logger?.LogInformation("User logged out.");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_logged_out"),
             Loc.Get("msg_logged_out")) ?? Task.CompletedTask);
@@ -1451,18 +1512,18 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_remoteControlService == null)
         {
-            _logger?.Information("Stop remote session requested but IRemoteControlService is not available.");
+            _logger?.LogInformation("Stop remote session requested but IRemoteControlService is not available.");
             return;
         }
 
         try
         {
             await _remoteControlService.StopSessionAsync();
-            _logger?.Information("Remote control session stopped from overlay.");
+            _logger?.LogInformation("Remote control session stopped from overlay.");
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to stop remote control session");
+            _logger?.LogError(ex, "Failed to stop remote control session");
         }
     }
 
@@ -1486,7 +1547,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void AddNotification(string title, string message)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             Notifications.Add(new Models.NotificationItem(title, message));
         });
@@ -1498,11 +1559,11 @@ public partial class MainWindowViewModel : ObservableObject
         var mainWindow = GetMainWindow();
         if (mainWindow is null)
         {
-            _logger?.Information("Mod manager requested but no main window is available.");
+            _logger?.LogInformation("Mod manager requested but no main window is available.");
             return;
         }
 
-        _logger?.Information("Mod manager dialog requested.");
+        _logger?.LogInformation("Mod manager dialog requested.");
         var dialog = new global::ConditioningControlPanel.Avalonia.Dialogs.ModManagerDialog();
         await dialog.ShowDialog<bool>(mainWindow);
 
@@ -1530,11 +1591,11 @@ public partial class MainWindowViewModel : ObservableObject
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_success"),
                 Loc.Get("msg_settings_saved")) ?? Task.CompletedTask);
-            _logger?.Information("Settings saved from main window");
+            _logger?.LogInformation("Settings saved from main window");
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to save settings");
+            _logger?.LogError(ex, "Failed to save settings");
         }
     }
 
@@ -1560,7 +1621,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to save settings during exit");
+            _logger?.LogWarning(ex, "Failed to save settings during exit");
         }
 
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -1577,7 +1638,7 @@ public partial class MainWindowViewModel : ObservableObject
         UpdateButtonText = Loc.Get("btn_checking");
         try
         {
-            _logger?.Information("Manual update check requested");
+            _logger?.LogInformation("Manual update check requested");
             var update = await _updateService.CheckForUpdatesAsync(forceCheck: true);
             if (update == null || !update.IsNewer)
             {
@@ -1590,7 +1651,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Update check failed");
+            _logger?.LogError(ex, "Update check failed");
             UpdateButtonText = GetVersionOutText();
         }
     }
@@ -1616,7 +1677,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to register global hotkeys");
+            _logger?.LogWarning(ex, "Failed to register global hotkeys");
         }
     }
 
@@ -1635,9 +1696,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnGlobalHotkeyPressed(object? sender, string id)
     {
-        _uiDispatcher?.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
-            _logger?.Information("Global hotkey pressed: {Id}", id);
+            _logger?.LogInformation("Global hotkey pressed: {Id}", id);
 
             if (id == "chat")
             {
@@ -1656,7 +1717,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to hook input");
+            _logger?.LogWarning(ex, "Failed to hook input");
         }
     }
 
@@ -1668,7 +1729,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to release input hook");
+            _logger?.LogWarning(ex, "Failed to release input hook");
         }
     }
 
@@ -1682,7 +1743,7 @@ public partial class MainWindowViewModel : ObservableObject
             var panicKeyString = settings.PanicKey;
             if (int.TryParse(panicKeyString, out var panicVk) && panicVk == e.VirtualKeyCode)
             {
-                _uiDispatcher?.Post(HandlePanicKeyPress);
+                Dispatcher.UIThread.Post(HandlePanicKeyPress);
             }
         }
     }
@@ -1691,7 +1752,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_sessionService?.State == SessionState.Running)
         {
-            _logger?.Information("Panic key pressed while session running.");
+            _logger?.LogInformation("Panic key pressed while session running.");
             _sessionService.PauseSession();
             _sessionService.StopSession(completed: false);
             IsEngineRunning = false;
@@ -1700,23 +1761,46 @@ public partial class MainWindowViewModel : ObservableObject
         }
         else
         {
-            _logger?.Information("Panic key pressed while idle; exiting application.");
+            _logger?.LogInformation("Panic key pressed while idle; exiting application.");
             await ExitApplicationAsync();
         }
     }
 
     #endregion
 
+    private static DispatcherTimer StartPeriodicTimer(TimeSpan interval, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = interval };
+        timer.Tick += (_, _) => callback();
+        timer.Start();
+        return timer;
+    }
+
+    private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = dueTime };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            timer.Stop();
+            timer.Tick -= handler;
+            callback();
+        };
+        timer.Tick += handler;
+        timer.Start();
+        return timer;
+    }
+
     #region Cleanup
 
     private void StopUiTimers()
     {
-        _clockTimer?.Dispose();
-        _sessionProgressTimer?.Dispose();
-        _conditioningTimeTimer?.Dispose();
-        _statPillTimer?.Dispose();
-        _bannerTimer?.Dispose();
-        _xpFlashTimer?.Dispose();
+        _clockTimer?.Stop();
+        _sessionProgressTimer?.Stop();
+        _conditioningTimeTimer?.Stop();
+        _statPillTimer?.Stop();
+        _bannerTimer?.Stop();
+        _xpFlashTimer?.Stop();
         _clockTimer = null;
         _sessionProgressTimer = null;
         _conditioningTimeTimer = null;
@@ -1747,6 +1831,12 @@ public partial class MainWindowViewModel : ObservableObject
         if (_progressionService != null)
         {
             _progressionService.LevelUp -= OnLevelUp;
+        }
+
+        if (_companionService != null)
+        {
+            _companionService.XPDrained -= OnCompanionXpDrained;
+            _companionService.LevelUp -= OnCompanionLevelUp;
         }
 
         if (_skillTreeService != null)

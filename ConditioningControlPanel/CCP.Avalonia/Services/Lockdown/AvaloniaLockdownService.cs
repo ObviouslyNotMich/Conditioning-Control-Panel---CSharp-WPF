@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Avalonia.Threading;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -16,8 +17,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
 {
     private readonly ISettingsService _settingsService;
     private readonly IAppEnvironment _appEnvironment;
-    private readonly IScheduler _scheduler;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaLockdownService>? _logger;
     private readonly object _sync = new();
 
     private bool _isActive;
@@ -27,7 +27,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
     private TimeSpan _lastActiveDuration;
     private bool _previousStrictLockEnabled;
     private bool _previousPanicKeyEnabled;
-    private IDisposable? _timer;
+    private DispatcherTimer? _timer;
     private bool _isDisposed;
 
     private const string RecoveryFileName = "lockdown_recovery.json";
@@ -36,12 +36,10 @@ public sealed class AvaloniaLockdownService : ILockdownService
     public AvaloniaLockdownService(
         ISettingsService settingsService,
         IAppEnvironment appEnvironment,
-        IScheduler scheduler,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaLockdownService>? logger = null)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _appEnvironment = appEnvironment ?? throw new ArgumentNullException(nameof(appEnvironment));
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
         _logger = logger;
     }
 
@@ -99,11 +97,11 @@ public sealed class AvaloniaLockdownService : ILockdownService
 
             _settingsService.SaveImmediate();
 
-            _timer?.Dispose();
-            _timer = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(1), OnTick);
+            _timer?.Stop();
+            _timer = StartPeriodicTimer(TimeSpan.FromSeconds(1), OnTick);
         }
 
-        _logger?.Information("Lockdown activated for {Duration:mm\\:ss}", duration);
+        _logger?.LogInformation("Lockdown activated for {Duration:mm\\:ss}", duration);
         LockdownActivated?.Invoke();
         CountdownTick?.Invoke(Remaining);
     }
@@ -119,7 +117,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
             if (!wasActive) return;
 
             _isActive = false;
-            _timer?.Dispose();
+            _timer?.Stop();
             _timer = null;
 
             elapsed = _requestedDuration - _remaining;
@@ -135,7 +133,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
             _settingsService.SaveImmediate();
         }
 
-        _logger?.Information("Lockdown deactivated after {Elapsed:mm\\:ss}", elapsed);
+        _logger?.LogInformation("Lockdown deactivated after {Elapsed:mm\\:ss}", elapsed);
         LockdownDeactivated?.Invoke();
     }
 
@@ -146,7 +144,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
 
         if (!string.Equals(phrase.Trim(), ExitPhrase, StringComparison.OrdinalIgnoreCase))
         {
-            _logger?.Information("Lockdown exit phrase attempted but did not match");
+            _logger?.LogInformation("Lockdown exit phrase attempted but did not match");
             return false;
         }
 
@@ -174,7 +172,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
             var remaining = state.Duration - (now - state.ActivationTimeUtc);
             if (remaining <= TimeSpan.Zero)
             {
-                _logger?.Information("Lockdown recovery file found but session already expired");
+                _logger?.LogInformation("Lockdown recovery file found but session already expired");
                 DeleteRecoveryFile();
                 return;
             }
@@ -195,17 +193,17 @@ public sealed class AvaloniaLockdownService : ILockdownService
                 settings.StrictLockEnabled = true;
                 settings.PanicKeyEnabled = false;
 
-                _timer?.Dispose();
-                _timer = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(1), OnTick);
+                _timer?.Stop();
+                _timer = StartPeriodicTimer(TimeSpan.FromSeconds(1), OnTick);
             }
 
-            _logger?.Information("Lockdown recovered with {Remaining:mm\\:ss} remaining", remaining);
+            _logger?.LogInformation("Lockdown recovered with {Remaining:mm\\:ss} remaining", remaining);
             LockdownActivated?.Invoke();
             CountdownTick?.Invoke(Remaining);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to recover lockdown session");
+            _logger?.LogWarning(ex, "Failed to recover lockdown session");
             DeleteRecoveryFile();
         }
     }
@@ -216,7 +214,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
         {
             if (_isDisposed) return;
             _isDisposed = true;
-            _timer?.Dispose();
+            _timer?.Stop();
             _timer = null;
         }
     }
@@ -259,7 +257,7 @@ public sealed class AvaloniaLockdownService : ILockdownService
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to write lockdown recovery file");
+            _logger?.LogWarning(ex, "Failed to write lockdown recovery file");
         }
     }
 
@@ -273,8 +271,31 @@ public sealed class AvaloniaLockdownService : ILockdownService
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to delete lockdown recovery file");
+            _logger?.LogWarning(ex, "Failed to delete lockdown recovery file");
         }
+    }
+
+    private static DispatcherTimer StartPeriodicTimer(TimeSpan interval, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = interval };
+        timer.Tick += (_, _) => callback();
+        timer.Start();
+        return timer;
+    }
+
+    private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = dueTime };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            timer.Stop();
+            timer.Tick -= handler;
+            callback();
+        };
+        timer.Tick += handler;
+        timer.Start();
+        return timer;
     }
 
     private sealed class LockdownRecoveryState

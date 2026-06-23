@@ -17,7 +17,51 @@ public sealed class AvaloniaScreenProvider : IScreenProvider
         _getTopLevel = getTopLevel;
     }
 
-    public event EventHandler? ScreensChanged { add { } remove { } }
+    private EventHandler? _screensChanged;
+
+    public event EventHandler? ScreensChanged
+    {
+        add
+        {
+            var hadSubscribers = _screensChanged != null;
+            _screensChanged += value;
+            if (!hadSubscribers && _screensChanged != null)
+            {
+                AttachToScreens();
+            }
+        }
+        remove
+        {
+            _screensChanged -= value;
+            if (_screensChanged == null)
+            {
+                DetachFromScreens();
+            }
+        }
+    }
+
+    private Screens? _attachedScreens;
+
+    private void AttachToScreens()
+    {
+        DetachFromScreens();
+        var screens = GetScreens();
+        if (screens == null) return;
+        _attachedScreens = screens;
+        _attachedScreens.Changed += OnScreensChanged;
+    }
+
+    private void DetachFromScreens()
+    {
+        if (_attachedScreens == null) return;
+        _attachedScreens.Changed -= OnScreensChanged;
+        _attachedScreens = null;
+    }
+
+    private void OnScreensChanged(object? sender, EventArgs e)
+    {
+        _screensChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     private Screens? GetScreens()
     {

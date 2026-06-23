@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,7 +19,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosGifCascadeOverlay : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosGifCascadeOverlay> _logger;
 
 
     private static readonly string[] Extensions =
@@ -59,7 +59,7 @@ public partial class ChaosGifCascadeOverlay : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosGifCascadeOverlay>>();
 WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
@@ -93,7 +93,7 @@ WindowDecorations = WindowDecorations.None;
 
     public static void Show(double spawnRatePerSec, double durationSec, double gifSize, double fallSpeed, double opacity, double startScale = 1.0)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<Faller>>();
         try
         {
             var files = PickFiles();
@@ -107,10 +107,10 @@ WindowDecorations = WindowDecorations.None;
                     AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
                     _active.Restart(files, spawnRatePerSec, durationSec, gifSize, fallSpeed, opacity, startScale);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosGifCascadeOverlay.Show: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<Faller>>().LogInformation("ChaosGifCascadeOverlay.Show: {E}", ex.Message); }
             });
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosGifCascadeOverlay.Show: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<Faller>>().LogInformation("ChaosGifCascadeOverlay.Show: {E}", ex.Message); }
     }
 
     public static void RaiseActive() => AvaloniaChaosWindowZ.RaiseTopmost(_active);
@@ -205,10 +205,10 @@ WindowDecorations = WindowDecorations.None;
 var bmp = new Bitmap(stream);
                     Dispatcher.UIThread.Post(() => { try { img.Source = bmp; } catch { } });
                 }
-                catch (Exception ex) { _logger?.Information("GifCascade decode: {E}", ex.Message); }
+                catch (Exception ex) { _logger?.LogInformation("GifCascade decode: {E}", ex.Message); }
             });
         }
-        catch (Exception ex) { _logger?.Information("GifCascade spawn: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("GifCascade spawn: {E}", ex.Message); }
     }
 
     private void StepTick(object? sender, EventArgs e)
@@ -246,7 +246,7 @@ var bmp = new Bitmap(stream);
                 try { Hide(); } catch { }
             }
         }
-        catch (Exception ex) { _logger?.Information("GifCascade step: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("GifCascade step: {E}", ex.Message); }
     }
 
     private double ScaleAt(double y)
@@ -297,8 +297,5 @@ Path.Combine(AvaloniaChaosEnv.EffectiveAssetsPath ?? "", "images");
         catch { return new List<string>(); }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

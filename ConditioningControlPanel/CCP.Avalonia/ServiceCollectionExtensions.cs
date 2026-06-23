@@ -13,9 +13,12 @@ using ConditioningControlPanel.Avalonia.Services.InteractionQueue;
 using ConditioningControlPanel.Avalonia.Services.KeywordTriggers;
 using ConditioningControlPanel.Avalonia.Services.LockCard;
 using ConditioningControlPanel.Avalonia.Services.Lockdown;
-using ConditioningControlPanel.Avalonia.Services.Logging;
+
 using ConditioningControlPanel.Avalonia.Services.MindWipe;
 using ConditioningControlPanel.Avalonia.Services.Overlays;
+using ConditioningControlPanel.Avalonia.Services.Progression;
+using ConditioningControlPanel.Avalonia.Services.Quiz;
+using ConditioningControlPanel.Avalonia.Services.Autonomy;
 using ConditioningControlPanel.Avalonia.Services.Subliminal;
 using ConditioningControlPanel.Avalonia.Services.Theme;
 using ConditioningControlPanel.Avalonia.Services.Webcam;
@@ -26,8 +29,9 @@ using ConditioningControlPanel.Core.Services.BugReport;
 using ConditioningControlPanel.Avalonia.Services.Moderation;
 using ConditioningControlPanel.Avalonia.Services.Avatar;
 using ConditioningControlPanel.Avalonia.Services.Auth;
-using ConditioningControlPanel.Avalonia.Services.Content;
 using ConditioningControlPanel.Core.Services.Avatar;
+using ConditioningControlPanel.Core.Services.Auth;
+using ConditioningControlPanel.Avalonia.Services.Content;
 using ConditioningControlPanel.Core.Services.Content;
 using ConditioningControlPanel.Core.Services.RemoteControl;
 using ConditioningControlPanel.Avalonia.Services.RemoteControl;
@@ -44,10 +48,13 @@ using ConditioningControlPanel.Core.Services.AIService.Enrichment;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Quests;
+using ConditioningControlPanel.Core.Services.Quiz;
+using ConditioningControlPanel.Core.Services.Autonomy;
 using ConditioningControlPanel.Core.Services.Roadmap;
 using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.LockCard;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Mantra;
 using ConditioningControlPanel.Core.Services.MindWipe;
 using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Sessions;
@@ -56,6 +63,7 @@ using ConditioningControlPanel.Core.Services.Video;
 using ConditioningControlPanel.Core.Services.Webcam;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Update;
+using ConditioningControlPanel.Core.Services.Catalogue;
 using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Companion;
 using ConditioningControlPanel.Core.Services.Deeper;
@@ -76,8 +84,6 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection ConfigureCoreServices(this IServiceCollection services)
     {
-        var isMobile = OperatingSystem.IsAndroid();
-
         // Platform seams - singletons unless they own per-control or per-window state.
         services.AddSingleton<IAppEnvironment, AvaloniaAppEnvironment>();
         services.AddSingleton<LibVLC>(_ =>
@@ -85,8 +91,6 @@ public static class ServiceCollectionExtensions
             LibVLCSharp.Shared.Core.Initialize();
             return new LibVLC();
         });
-        services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
-        services.AddSingleton<IScheduler, AvaloniaScheduler>();
         services.AddSingleton<IScreenProvider, AvaloniaScreenProvider>();
         services.AddSingleton<IAssetLoader, AvaloniaAssetLoader>();
         services.AddSingleton<IPointerState, AvaloniaPointerState>();
@@ -98,32 +102,17 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISingleInstanceService, AvaloniaSingleInstanceService>();
         services.AddSingleton<IUpdateInstaller, AvaloniaUpdateInstaller>();
         services.AddSingleton<IWallpaperProvider, AvaloniaWallpaperProvider>();
-        services.AddSingleton<IFrameSource, AvaloniaFrameSource>();
         services.AddSingleton<ISystemAudioDucker, AvaloniaSystemAudioDucker>();
         services.AddSingleton<IAudioDeviceService, AvaloniaAudioDeviceService>();
         services.AddSingleton<IAudioPlayer, AvaloniaAudioPlayer>();
         services.AddSingleton<IHapticsService, AvaloniaHapticsService>();
 
-        if (isMobile)
-        {
-            // Android/iOS cannot use the desktop tray icon, window chrome, or global input hooks.
-            services.AddSingleton<IInputHook, MobileInputHook>();
-            services.AddSingleton<IHotkeyProvider, MobileHotkeyProvider>();
-            services.AddSingleton<IWindowChrome, MobileWindowChrome>();
-            services.AddSingleton<ITrayIcon, MobileTrayIcon>();
-            services.AddSingleton<IBrowserHost, MobileBrowserHost>();
-            services.AddSingleton<IFilePickerService, MobileFilePicker>();
-            services.AddSingleton<IPlatformCapabilities, MobilePlatformCapabilities>();
-        }
-        else
-        {
-            services.AddSingleton<IInputHook, AvaloniaInputHook>();
-            services.AddSingleton<IHotkeyProvider, AvaloniaHotkeyProvider>();
-            services.AddSingleton<IWindowChrome, AvaloniaWindowChrome>();
-            services.AddSingleton<ITrayIcon, AvaloniaTrayIcon>();
-            services.AddSingleton<IFilePickerService, DesktopFilePickerService>();
-            services.AddSingleton<IPlatformCapabilities, AvaloniaPlatformCapabilities>();
-        }
+        services.AddSingleton<IInputHook, AvaloniaInputHook>();
+        services.AddSingleton<IHotkeyProvider, AvaloniaHotkeyProvider>();
+        services.AddSingleton<IWindowChrome, AvaloniaWindowChrome>();
+        services.AddSingleton<ITrayIcon, AvaloniaTrayIcon>();
+        services.AddSingleton<IFilePickerService, DesktopFilePickerService>();
+        services.AddSingleton<IPlatformCapabilities, AvaloniaPlatformCapabilities>();
 
         // Dialog service needs a way to reach the current TopLevel at call time.
         services.AddSingleton<IDialogService>(_ => new AvaloniaDialogService(() => GetCurrentTopLevel()));
@@ -140,9 +129,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPromptValidator, PromptValidator>();
         services.AddSingleton<IModerationGuard, ModerationGuard>();
         services.AddSingleton<IOllamaSetupService, OllamaSetupService>();
-        services.AddSingleton<ILogger>(_ => Log.Logger);
-        services.AddSingleton<IAppLogger, SerilogAppLogger>();
+        services.AddLogging(builder => builder.AddSerilog());
+        
         services.AddSingleton<AvaloniaDualMonitorVideoService>();
+        services.AddSingleton<IAiService, AvaloniaQuizAiService>();
+        services.AddTransient<IQuizService, QuizService>();
 
         // Settings, session and achievement services (extracted to Core).
         services.AddSingleton<ISettingsBackupProvider, AvaloniaSettingsBackupProvider>();
@@ -151,6 +142,27 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProgressionService, AvaloniaProgressionService>();
         services.AddSingleton<IModService, AvaloniaModService>();
         services.AddSingleton<AvaloniaModResourceResolver>();
+        services.AddSingleton<IUserIdentityProvider, AvaloniaUserIdentityProvider>();
+        services.AddSingleton<ISeasonRecapService, AvaloniaSeasonRecapService>();
+        services.AddSingleton<ILeaderboardService>(sp =>
+        {
+            var version = UpdateService.GetCurrentVersion().ToString();
+            return new Core.Services.Progression.LeaderboardService(
+                sp.GetRequiredService<ISettingsService>(),
+                sp.GetRequiredService<IUserIdentityProvider>(),
+                version,
+                sp.GetRequiredService<ILogger<LeaderboardService>>(),
+                sp.GetService<ISeasonRecapService>());
+        });
+        services.AddSingleton<ICatalogueService>(sp =>
+        {
+            var version = UpdateService.GetCurrentVersion().ToString();
+            return new Core.Services.Catalogue.CatalogueService(
+                sp.GetRequiredService<ISettingsService>(),
+                sp.GetRequiredService<IUserIdentityProvider>(),
+                version,
+                sp.GetRequiredService<ILogger<CatalogueService>>());
+        });
         services.AddSingleton<AvaloniaThemeService>();
         services.AddSingleton<IInteractionQueueService, AvaloniaInteractionQueueService>();
         services.AddSingleton<IBubbleCountService, AvaloniaBubbleCountService>();
@@ -162,6 +174,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IBouncingTextService, AvaloniaBouncingTextService>();
         services.AddSingleton<IOverlayService, AvaloniaOverlayService>();
         services.AddSingleton<IWebcamService, AvaloniaWebcamService>();
+        services.AddSingleton<IPopQuizService, AvaloniaPopQuizService>();
         services.AddSingleton<IAttentionCheckService, AvaloniaAttentionCheckService>();
         services.AddSingleton<IModerationCounter, ModerationCounter>();
         services.AddSingleton<IModerationLog, AvaloniaModerationLog>();
@@ -171,10 +184,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<IRoadmapService, AvaloniaRoadmapService>();
         services.AddSingleton<IQuestService, QuestService>();
+        services.AddSingleton<IMantraService, MantraService>();
         services.AddSingleton<IAchievementService, AchievementService>();
 
         // Auth, Chaos, avatar, bark, video and session-log stubs for the Avalonia head.
-        services.AddSingleton<IUnifiedUserService, AvaloniaUnifiedUserService>();
+        services.AddSingleton<IV2AuthService, AvaloniaV2AuthService>();
+        services.AddSingleton<IV2DeviceCodeService, AvaloniaV2DeviceCodeService>();
         services.AddSingleton<AvaloniaPatreonProvider>();
         services.AddSingleton<AvaloniaDiscordProvider>();
         services.AddSingleton<AvaloniaSubscribeStarProvider>();
@@ -200,6 +215,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRemoteStatusProvider, AvaloniaRemoteStatusProvider>();
         services.AddSingleton<IRemoteControlService, RemoteControlService>();
         services.AddSingleton<ILockdownService, AvaloniaLockdownService>();
+        services.AddSingleton<IAutonomyService, AvaloniaAutonomyService>();
         services.AddSingleton<ISessionEffectOrchestrator, AvaloniaSessionEffectOrchestrator>();
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<IStartupRegistration, AvaloniaStartupRegistration>();

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Threading;
 
 namespace ConditioningControlPanel.Avalonia.Services.InteractionQueue;
 
@@ -11,22 +11,18 @@ namespace ConditioningControlPanel.Avalonia.Services.InteractionQueue;
 /// </summary>
 public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
 {
-    private readonly IUiDispatcher _dispatcher;
-    private readonly IScheduler _scheduler;
-    private readonly IAppLogger _logger;
+    private readonly ILogger<AvaloniaInteractionQueueService> _logger;
     private readonly object _sync = new();
     private readonly Queue<(string Type, Action Trigger)> _queue = new();
 
     private string? _currentInteraction;
     private DateTime _interactionStartTime;
-    private IDisposable? _stuckTimer;
+    private DispatcherTimer? _stuckTimer;
 
     private const int DefaultMaxInteractionMinutes = 5;
 
-    public AvaloniaInteractionQueueService(IUiDispatcher dispatcher, IScheduler scheduler, IAppLogger logger)
+    public AvaloniaInteractionQueueService(ILogger<AvaloniaInteractionQueueService> logger)
     {
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -47,13 +43,13 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
                 _currentInteraction = interactionType;
                 _interactionStartTime = DateTime.Now;
                 StartStuckDetectionTimer();
-                _logger.Information("InteractionQueue: Starting {Type}", interactionType);
+                _logger.LogInformation("InteractionQueue: Starting {Type}", interactionType);
                 triggerAction();
                 return true;
             }
 
             var activeDuration = DateTime.Now - _interactionStartTime;
-            _logger.Debug("InteractionQueue: {Type} blocked by {Current} (active for {Duration:F1}s, queue: {Count})",
+            _logger.LogDebug("InteractionQueue: {Type} blocked by {Current} (active for {Duration:F1}s, queue: {Count})",
                 interactionType, _currentInteraction, activeDuration.TotalSeconds, _queue.Count);
 
             if (queue)
@@ -62,17 +58,17 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
                 {
                     if (item.Type == interactionType)
                     {
-                        _logger.Debug("InteractionQueue: {Type} already queued, skipping duplicate", interactionType);
+                        _logger.LogDebug("InteractionQueue: {Type} already queued, skipping duplicate", interactionType);
                         return false;
                     }
                 }
 
                 _queue.Enqueue((interactionType, triggerAction));
-                _logger.Information("InteractionQueue: Queued {Type} (queue size: {Count})", interactionType, _queue.Count);
+                _logger.LogInformation("InteractionQueue: Queued {Type} (queue size: {Count})", interactionType, _queue.Count);
             }
             else
             {
-                _logger.Debug("InteractionQueue: Discarded {Type} (busy with {Current})", interactionType, _currentInteraction);
+                _logger.LogDebug("InteractionQueue: Discarded {Type} (busy with {Current})", interactionType, _currentInteraction);
             }
 
             return false;
@@ -89,16 +85,16 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
             {
                 if (_currentInteraction == null)
                 {
-                    _logger.Debug("InteractionQueue: Complete({Type}) called but queue already clear", interactionType);
+                    _logger.LogDebug("InteractionQueue: Complete({Type}) called but queue already clear", interactionType);
                     return;
                 }
 
                 var activeDuration = DateTime.Now - _interactionStartTime;
-                _logger.Warning("InteractionQueue: Complete called for {Type} but current is {Current} (active {Duration:F1}s). Clearing anyway to prevent stuck state.",
+                _logger.LogWarning("InteractionQueue: Complete called for {Type} but current is {Current} (active {Duration:F1}s). Clearing anyway to prevent stuck state.",
                     interactionType, _currentInteraction, activeDuration.TotalSeconds);
             }
 
-            _logger.Information("InteractionQueue: Completed {Type}", interactionType);
+            _logger.LogInformation("InteractionQueue: Completed {Type}", interactionType);
             _currentInteraction = null;
 
             if (_queue.Count > 0)
@@ -107,14 +103,14 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
                 _currentInteraction = next.Type;
                 _interactionStartTime = DateTime.Now;
                 StartStuckDetectionTimer();
-                _logger.Information("InteractionQueue: Starting queued {Type} (remaining: {Count})", next.Type, _queue.Count);
+                _logger.LogInformation("InteractionQueue: Starting queued {Type} (remaining: {Count})", next.Type, _queue.Count);
 
-                _dispatcher.Post(() =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     try { next.Trigger(); }
                     catch (Exception ex)
                     {
-                        _logger.Warning(ex, "InteractionQueue: queued {Type} trigger failed", next.Type);
+                        _logger.LogWarning(ex, "InteractionQueue: queued {Type} trigger failed", next.Type);
                         Complete(next.Type);
                     }
                 });
@@ -131,7 +127,7 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
             _currentInteraction = null;
             _queue.Clear();
             if (was != null)
-                _logger.Information("InteractionQueue: Force reset (was {Type})", was);
+                _logger.LogInformation("InteractionQueue: Force reset (was {Type})", was);
         }
     }
 
@@ -142,18 +138,18 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
             if (_currentInteraction == null) return;
             StopStuckDetectionTimer();
             _interactionStartTime = DateTime.Now;
-            _stuckTimer = _scheduler.StartOneShotTimer(duration, () =>
+            _stuckTimer = StartOneShotTimer(duration, () =>
             {
                 lock (_sync)
                 {
                     if (_currentInteraction == null) return;
                     var activeDuration = DateTime.Now - _interactionStartTime;
-                    _logger.Warning("InteractionQueue: {Type} appears stuck (active {Duration:F1}s). Force-completing.",
+                    _logger.LogWarning("InteractionQueue: {Type} appears stuck (active {Duration:F1}s). Force-completing.",
                         _currentInteraction, activeDuration.TotalSeconds);
                     Complete(_currentInteraction);
                 }
             });
-            _logger.Debug("InteractionQueue: Extended stuck-detection timeout to {Duration:F0}s for {Type}",
+            _logger.LogDebug("InteractionQueue: Extended stuck-detection timeout to {Duration:F0}s for {Type}",
                 duration.TotalSeconds, _currentInteraction);
         }
     }
@@ -161,13 +157,13 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
     private void StartStuckDetectionTimer()
     {
         StopStuckDetectionTimer();
-        _stuckTimer = _scheduler.StartOneShotTimer(TimeSpan.FromMinutes(DefaultMaxInteractionMinutes), () =>
+        _stuckTimer = StartOneShotTimer(TimeSpan.FromMinutes(DefaultMaxInteractionMinutes), () =>
         {
             lock (_sync)
             {
                 if (_currentInteraction == null) return;
                 var activeDuration = DateTime.Now - _interactionStartTime;
-                _logger.Warning("InteractionQueue: {Type} appears stuck (active {Duration:F1}s). Force-completing.",
+                _logger.LogWarning("InteractionQueue: {Type} appears stuck (active {Duration:F1}s). Force-completing.",
                     _currentInteraction, activeDuration.TotalSeconds);
                 Complete(_currentInteraction);
             }
@@ -176,7 +172,22 @@ public sealed class AvaloniaInteractionQueueService : IInteractionQueueService
 
     private void StopStuckDetectionTimer()
     {
-        _stuckTimer?.Dispose();
+        _stuckTimer?.Stop();
         _stuckTimer = null;
+    }
+
+    private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = dueTime };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            timer.Stop();
+            timer.Tick -= handler;
+            callback();
+        };
+        timer.Tick += handler;
+        timer.Start();
+        return timer;
     }
 }

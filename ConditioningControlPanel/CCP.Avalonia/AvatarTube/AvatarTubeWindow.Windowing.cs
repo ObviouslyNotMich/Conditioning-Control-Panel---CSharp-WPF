@@ -192,7 +192,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                     string procName = "?";
                     try { procName = Process.GetProcessById((int)offPid).ProcessName; } catch { }
                     _diagLastFullscreenWindow = $"class={windowClass} proc={procName}(pid {offPid}) rect=[{windowRect.Left},{windowRect.Top},{windowRect.Right},{windowRect.Bottom}]";
-                    _logger?.Debug("Exclusive fullscreen detected: {Win}", _diagLastFullscreenWindow);
+                    _logger?.LogDebug("Exclusive fullscreen detected: {Win}", _diagLastFullscreenWindow);
                 }
 
                 return coversFullScreen;
@@ -208,7 +208,25 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
         private void CalculateScaleFactor()
         {
-            _scaleFactor = 0.7;
+            try
+            {
+                var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+                if (screen != null)
+                {
+                    double maxHeightScale = (screen.WorkingArea.Height * 0.85) / DesignHeight;
+                    double maxWidthScale = (screen.WorkingArea.Width * 0.3) / DesignWidth;
+                    _scaleFactor = Math.Max(0.4, Math.Min(1.0, Math.Min(maxHeightScale, maxWidthScale)));
+                }
+                else
+                {
+                    _scaleFactor = 0.7;
+                }
+            }
+            catch
+            {
+                _scaleFactor = 0.7;
+            }
+
             if (ContentViewbox != null)
             {
                 ContentViewbox.Width = DesignWidth * _scaleFactor;
@@ -289,10 +307,21 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             _floatTimer = null;
         }
 
+        public void SetDetached(bool detached)
+        {
+            if (detached) Detach();
+            else Attach();
+        }
+
         private void Attach()
         {
             _isAttached = true;
             Topmost = false;
+
+            // Switch back to original tube image and attached layout.
+            SetTubeStyle(false);
+            ApplyTubeLayoutOffsets();
+
             Show();
             UpdatePosition();
             BringAttachedPairToFront(true);
@@ -302,6 +331,17 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         {
             _isAttached = false;
             Topmost = true;
+
+            // Switch to alternative tube image and detached layout.
+            SetTubeStyle(true);
+            ApplyTubeLayoutOffsets();
+
+            // Speech bubble stays at same position in both modes (right side of tube, clearly visible).
+            if (SpeechBubble?.IsVisible == true && !string.IsNullOrEmpty(TxtSpeech?.Text))
+            {
+                AdjustBubbleSize(TxtSpeech.Text);
+            }
+
             Show();
             ReassertTopmost();
             ReassertCirceEmoteVisuals();

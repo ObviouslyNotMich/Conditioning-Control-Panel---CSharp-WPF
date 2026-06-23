@@ -139,7 +139,8 @@
                     IsEnabled="{Binding SubmitEnabled}"
                     ToolTip.Tip="{Binding SubmitTooltip}"
                     Theme="{StaticResource DeeperRowActionBtnStyle}"
-                    Command="{Binding SubmitCommand}" />
+                    Command="{Binding $parent[ItemsControl].((vm:DeeperTabViewModel)DataContext).SubmitEntryCommand}"
+                    CommandParameter="{Binding}" />
             <Button Content="▶"
                     ToolTip.Tip="{Binding [deeper_hub_tip_row_play], Source={x:Static loc:LocalizationManager.Instance}}"
                     Theme="{StaticResource DeeperRowActionBtnStyle}"

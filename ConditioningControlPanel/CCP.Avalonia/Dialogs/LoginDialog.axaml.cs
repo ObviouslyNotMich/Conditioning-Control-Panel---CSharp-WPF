@@ -11,6 +11,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Auth;
 using ConditioningControlPanel.Core.Services.Settings;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,12 +22,9 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class LoginDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<LoginDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
     private readonly IEnumerable<IAuthProvider> _authProviders;
-    private readonly IUnifiedUserService _unifiedUser;
-
-
     private static readonly HttpClient _http = new();
     private readonly string _serverUrl = "https://codebambi-proxy.vercel.app";
     private CancellationTokenSource? _checkCts;
@@ -42,6 +40,8 @@ public partial class LoginDialog : Window
     private string? _deviceCode;
     private DateTimeOffset _deviceCodeExpiresAt;
     private readonly IDialogService? _dialogService;
+    private readonly IV2AuthService _v2Auth;
+    private readonly IV2DeviceCodeService _v2DeviceCode;
 
     /// <summary>
     /// Result of the login process.
@@ -60,15 +60,33 @@ public partial class LoginDialog : Window
     }
 
     public LoginDialog()
+        : this(
+            App.Services.GetRequiredService<ILogger<LoginDialog>>(),
+            App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>(),
+            App.Services.GetRequiredService<IEnumerable<IAuthProvider>>(),
+            App.Services.GetService<IDialogService>(),
+            App.Services.GetRequiredService<IV2AuthService>(),
+            App.Services.GetRequiredService<IV2DeviceCodeService>())
+    {
+    }
+
+    public LoginDialog(ILogger<LoginDialog> logger,
+        global::ConditioningControlPanel.Core.Services.Settings.ISettingsService settings,
+        IEnumerable<IAuthProvider> authProviders,
+        IDialogService? dialogService,
+        IV2AuthService v2Auth,
+        IV2DeviceCodeService v2DeviceCode)
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-        _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
-        _authProviders = App.Services.GetRequiredService<IEnumerable<IAuthProvider>>();
-        _unifiedUser = App.Services.GetRequiredService<IUnifiedUserService>();
-        _dialogService = App.Services?.GetService<IDialogService>();
-Closed += (_, _) =>
+        _logger = logger;
+        _settings = settings;
+        _authProviders = authProviders;
+        _dialogService = dialogService;
+        _v2Auth = v2Auth;
+        _v2DeviceCode = v2DeviceCode;
+
+        Closed += (_, _) =>
         {
             _deviceCts?.Cancel();
             _deviceCts?.Dispose();
@@ -151,41 +169,32 @@ Closed += (_, _) =>
 
             ShowLoading(Loc.Get("login_checking_account"));
 
-            // V2 auth service currently lives in the legacy WPF head; resolve dynamically.
-            dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
-            if (v2Auth == null)
+            var authResponse = provider switch
             {
-                await ShowErrorAsync(Loc.Get("dialog_login_auth_service_not_available"));
-                return;
-            }
-
-            dynamic authResponse = provider switch
-            {
-                "discord" => await v2Auth.AuthenticateWithDiscordAsync(accessToken),
-                "substar" => await v2Auth.AuthenticateWithSubstarAsync(accessToken),
-                _ => await v2Auth.AuthenticateWithPatreonAsync(accessToken),
+                "discord" => await _v2Auth.AuthenticateWithDiscordAsync(accessToken),
+                "substar" => await _v2Auth.AuthenticateWithSubstarAsync(accessToken),
+                _ => await _v2Auth.AuthenticateWithPatreonAsync(accessToken),
             };
 
             if (!authResponse.Success)
             {
-                await ShowErrorAsync(SanitizeError((string?)authResponse.Error));
+                await ShowErrorAsync(SanitizeError(authResponse.Error));
                 return;
             }
 
-            if (authResponse.User != null && !(bool)authResponse.NeedsRegistration)
+            if (authResponse.User != null && !authResponse.NeedsRegistration)
             {
-                v2Auth.ApplyUserDataToSettings(authResponse.User, authResponse.AuthToken);
-                _unifiedUser.UnifiedUserId = (string?)authResponse.User.UnifiedId;
+                _v2Auth.ApplyUserDataToSettings(authResponse.User, authResponse.AuthToken);
 
-                UpdateServiceProperties(provider, (string?)authResponse.User.UnifiedId, (string?)authResponse.User.DisplayName);
+                UpdateServiceProperties(provider, authResponse.User.UnifiedId, authResponse.User.DisplayName);
 
                 Result = new LoginResult
                 {
                     Success = true,
-                    IsLegacyUser = (bool)authResponse.User.IsSeason0Og,
-                    ShouldShowOgWelcome = (bool)authResponse.User.IsSeason0Og && _settings?.Current?.HasShownOgWelcome != true,
-                    UnifiedId = (string?)authResponse.User.UnifiedId,
-                    DisplayName = (string?)authResponse.User.DisplayName,
+                    IsLegacyUser = authResponse.User.IsSeason0Og,
+                    ShouldShowOgWelcome = authResponse.User.IsSeason0Og && _settings?.Current?.HasShownOgWelcome != true,
+                    UnifiedId = authResponse.User.UnifiedId,
+                    DisplayName = authResponse.User.DisplayName,
                     Provider = provider
                 };
 
@@ -203,7 +212,7 @@ Closed += (_, _) =>
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Login failed for {Provider}", provider);
+            _logger?.LogError(ex, "Login failed for {Provider}", provider);
             await ShowErrorAsync(Loc.Get("login_failed_please_try_again"));
         }
     }
@@ -277,7 +286,7 @@ Closed += (_, _) =>
         catch (Exception ex)
         {
             SetAvailabilityStatus(Loc.Get("login_error_checking_name"), Brushes.Orange, false);
-            _logger?.Warning(ex, "Name availability check failed");
+            _logger?.LogWarning(ex, "Name availability check failed");
         }
     }
 
@@ -324,7 +333,7 @@ Closed += (_, _) =>
         }
         catch (Exception ex)
         {
-            _logger?.Warning("Name availability check failed: {Error}", ex.Message);
+            _logger?.LogWarning("Name availability check failed: {Error}", ex.Message);
             return false;
         }
     }
@@ -341,14 +350,7 @@ Closed += (_, _) =>
 
         try
         {
-            dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
-            if (v2Auth == null)
-            {
-                await ShowErrorAsync(Loc.Get("dialog_login_auth_service_not_available"));
-                return;
-            }
-
-            dynamic authResponse;
+            V2AuthResponse authResponse;
             if (_firstProvider == "invite")
             {
                 if (string.IsNullOrEmpty(_pendingInviteCode) || string.IsNullOrEmpty(_pendingPassword))
@@ -357,37 +359,36 @@ Closed += (_, _) =>
                     await ShowErrorAsync(Loc.Get("login_session_expired"));
                     return;
                 }
-                authResponse = await v2Auth.RegisterAsync(_pendingInviteCode, displayName, _pendingPassword);
+                authResponse = await _v2Auth.RegisterAsync(_pendingInviteCode, displayName, _pendingPassword);
                 ClearSensitiveData();
             }
             else if (_firstProvider == "discord")
             {
-                authResponse = await v2Auth.AuthenticateWithDiscordAsync(_firstProviderToken!, displayName);
+                authResponse = await _v2Auth.AuthenticateWithDiscordAsync(_firstProviderToken!, displayName);
             }
             else if (_firstProvider == "substar")
             {
-                authResponse = await v2Auth.AuthenticateWithSubstarAsync(_firstProviderToken!, displayName);
+                authResponse = await _v2Auth.AuthenticateWithSubstarAsync(_firstProviderToken!, displayName);
             }
             else
             {
-                authResponse = await v2Auth.AuthenticateWithPatreonAsync(_firstProviderToken!, displayName);
+                authResponse = await _v2Auth.AuthenticateWithPatreonAsync(_firstProviderToken!, displayName);
             }
 
             if (authResponse.Success && authResponse.User != null)
             {
-                v2Auth.ApplyUserDataToSettings(authResponse.User, authResponse.AuthToken);
-                _unifiedUser.UnifiedUserId = (string?)authResponse.User.UnifiedId;
+                _v2Auth.ApplyUserDataToSettings(authResponse.User, authResponse.AuthToken);
 
                 if (_firstProvider != "invite")
-                    UpdateServiceProperties(_firstProvider!, (string?)authResponse.User.UnifiedId, (string?)authResponse.User.DisplayName);
+                    UpdateServiceProperties(_firstProvider!, authResponse.User.UnifiedId, authResponse.User.DisplayName);
 
                 Result = new LoginResult
                 {
                     Success = true,
                     IsLegacyUser = false,
                     ShouldShowOgWelcome = false,
-                    UnifiedId = (string?)authResponse.User.UnifiedId,
-                    DisplayName = (string?)authResponse.User.DisplayName,
+                    UnifiedId = authResponse.User.UnifiedId,
+                    DisplayName = authResponse.User.DisplayName,
                     Provider = _firstProvider
                 };
 
@@ -396,13 +397,13 @@ Closed += (_, _) =>
             else
             {
                 ClearSensitiveData();
-                await ShowErrorAsync(SanitizeError((string?)authResponse.Error));
+                await ShowErrorAsync(SanitizeError(authResponse.Error));
             }
         }
         catch (Exception ex)
         {
             ClearSensitiveData();
-            _logger?.Error(ex, "Failed to create account");
+            _logger?.LogError(ex, "Failed to create account");
             await ShowErrorAsync(Loc.Get("login_failed_to_create_account"));
         }
     }
@@ -536,36 +537,28 @@ Closed += (_, _) =>
 
         try
         {
-            dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
-            if (v2Auth == null)
-            {
-                await ShowErrorAsync(Loc.Get("dialog_login_auth_service_not_available"));
-                return;
-            }
-
-            dynamic authResponse = await v2Auth.LoginAsync(displayName, password);
+            var authResponse = await _v2Auth.LoginAsync(displayName, password);
             ClearSensitiveData();
 
             if (!authResponse.Success)
             {
                 ShowAccountPanel(_isAccountRegisterMode);
                 TxtLoginDisplayName.Text = displayName;
-                TxtAccountError.Text = SanitizeError((string?)authResponse.Error);
+                TxtAccountError.Text = SanitizeError(authResponse.Error);
                 return;
             }
 
             if (authResponse.User != null)
             {
-                v2Auth.ApplyUserDataToSettings(authResponse.User, authResponse.AuthToken);
-                _unifiedUser.UnifiedUserId = (string?)authResponse.User.UnifiedId;
+                _v2Auth.ApplyUserDataToSettings(authResponse.User, authResponse.AuthToken);
 
                 Result = new LoginResult
                 {
                     Success = true,
                     IsLegacyUser = false,
                     ShouldShowOgWelcome = false,
-                    UnifiedId = (string?)authResponse.User.UnifiedId,
-                    DisplayName = (string?)authResponse.User.DisplayName,
+                    UnifiedId = authResponse.User.UnifiedId,
+                    DisplayName = authResponse.User.DisplayName,
                     Provider = "account"
                 };
 
@@ -581,7 +574,7 @@ Closed += (_, _) =>
         catch (Exception ex)
         {
             ClearSensitiveData();
-            _logger?.Error(ex, "Account login failed");
+            _logger?.LogError(ex, "Account login failed");
             ShowAccountPanel(_isAccountRegisterMode);
             TxtLoginDisplayName.Text = displayName;
             TxtAccountError.Text = Loc.Get("label_login_failed_please_try_again");
@@ -654,7 +647,7 @@ Closed += (_, _) =>
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "Logout failed");
+            App.Services?.GetRequiredService<ILogger<LoginResult>>().LogWarning(ex, "Logout failed");
         }
     }
 
@@ -678,23 +671,16 @@ Closed += (_, _) =>
 
         try
         {
-            dynamic? svc = CreateLegacyService("ConditioningControlPanel.Services.V2DeviceCodeService");
-            if (svc == null)
+            var resp = await _v2DeviceCode.InitiateAsync();
+
+            if (!resp.Success || string.IsNullOrEmpty(resp.Code))
             {
-                await ShowErrorAsync(Loc.Get("dialog_login_device_code_not_available"));
+                await ShowErrorAsync(SanitizeError(resp.Error));
                 return;
             }
 
-            dynamic resp = await svc.InitiateAsync();
-
-            if (!resp.Success || string.IsNullOrEmpty((string?)resp.Code))
-            {
-                await ShowErrorAsync(SanitizeError((string?)resp.Error));
-                return;
-            }
-
-            _deviceCode = (string?)resp.Code;
-            _deviceCodeExpiresAt = (DateTimeOffset)resp.ExpiresAt;
+            _deviceCode = resp.Code;
+            _deviceCodeExpiresAt = resp.ExpiresAt;
 
             ShowDeviceCodePanel(_deviceCode!);
             OpenVerificationUrl();
@@ -706,7 +692,7 @@ Closed += (_, _) =>
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "[DeviceCode] Initiate exception");
+            _logger?.LogError(ex, "[DeviceCode] Initiate exception");
             await ShowErrorAsync(Loc.Get("login_failed_please_try_again"));
         }
     }
@@ -726,20 +712,13 @@ Closed += (_, _) =>
         TxtDeviceStatus.Text = Loc.Get("dialog_login_waiting_browser_confirmation");
     }
 
-    private static string GetVerificationUrl()
+    private string GetVerificationUrl()
     {
-        try
-        {
-            dynamic? svc = CreateLegacyService("ConditioningControlPanel.Services.V2DeviceCodeService");
-            if (svc != null) return (string?)svc.VerificationUrl ?? "https://codebambi.app/verify";
-        }
-        catch { }
-        return "https://codebambi.app/verify";
+        return _v2DeviceCode?.VerificationUrl ?? "https://codebambi.app/verify";
     }
 
-    private static void OpenVerificationUrl()
+    private void OpenVerificationUrl()
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
         try
         {
             Process.Start(new ProcessStartInfo
@@ -750,16 +729,13 @@ Closed += (_, _) =>
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "[DeviceCode] Failed to open browser");
+            _logger?.LogWarning(ex, "[DeviceCode] Failed to open browser");
         }
     }
 
     private async Task PollDeviceCodeLoopAsync(CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_deviceCode)) return;
-
-        dynamic? svc = CreateLegacyService("ConditioningControlPanel.Services.V2DeviceCodeService");
-        if (svc == null) return;
 
         int intervalMs = 3000;
         int consecutiveUnknown = 0;
@@ -776,36 +752,36 @@ Closed += (_, _) =>
                     return;
                 }
 
-                dynamic result = await svc.PollAsync(_deviceCode!, ct);
+                var result = await _v2DeviceCode.PollAsync(_deviceCode!, ct);
                 if (ct.IsCancellationRequested) return;
 
-                var status = (int)result.Status;
-                switch (status)
+                switch (result.Status)
                 {
-                    case 0: // Confirmed
+                    case PollStatus.Confirmed:
                         HandleDeviceCodeConfirmed(result);
                         return;
-                    case 1: // Pending
+                    case PollStatus.Pending:
                         intervalMs = 3000;
                         consecutiveUnknown = 0;
                         TxtDeviceStatus.Text = Loc.Get("dialog_login_waiting_browser_confirmation");
                         break;
-                    case 2: // Expired
+                    case PollStatus.Expired:
                         await HandleDeviceCodeExpiredAsync();
                         return;
-                    case 3: // NotFound
+                    case PollStatus.NotFound:
                         await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_code_not_recognized"));
                         return;
-                    case 4: // RateLimited
-                    case 5: // ServiceUnavailable
+                    case PollStatus.RateLimited:
+                    case PollStatus.ServiceUnavailable:
                         intervalMs = Math.Min(intervalMs * 2, 30000);
                         TxtDeviceStatus.Text = Loc.Get("dialog_login_connection_busy_retrying");
                         break;
-                    case 6: // BadRequest
-                    case 7: // Unauthorized
+                    case PollStatus.BadRequest:
+                    case PollStatus.Unauthorized:
                         await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_sign_in_failed"));
                         return;
-                    default: // Unknown
+                    case PollStatus.Unknown:
+                    default:
                         consecutiveUnknown++;
                         if (consecutiveUnknown >= 5)
                         {
@@ -823,14 +799,14 @@ Closed += (_, _) =>
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "[DeviceCode] Poll loop crashed");
+            _logger?.LogError(ex, "[DeviceCode] Poll loop crashed");
             await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_unexpected_error"));
         }
     }
 
-    private async void HandleDeviceCodeConfirmed(dynamic result)
+    private async void HandleDeviceCodeConfirmed(PollResponse result)
     {
-        if (string.IsNullOrEmpty((string?)result.AuthToken) || string.IsNullOrEmpty((string?)result.UnifiedId))
+        if (string.IsNullOrEmpty(result.AuthToken) || string.IsNullOrEmpty(result.UnifiedId))
         {
             await HandleDeviceCodeErrorAsync(Loc.Get("dialog_login_incomplete_response"));
             return;
@@ -838,23 +814,20 @@ Closed += (_, _) =>
 
         if (result.User != null)
         {
-            dynamic? v2Auth = CreateLegacyService("ConditioningControlPanel.Services.V2AuthService");
-            v2Auth?.ApplyUserDataToSettings(result.User, result.AuthToken);
+            _v2Auth.ApplyUserDataToSettings(result.User, result.AuthToken);
         }
         else if (_settings?.Current != null)
         {
-            _settings.Current.AuthToken = (string?)result.AuthToken;
-            _settings.Current.UnifiedId = (string?)result.UnifiedId;
-            (_settings as ISettingsService)?.Save();
+            _settings.Current.AuthToken = result.AuthToken;
+            _settings.Current.UnifiedId = result.UnifiedId;
+            _settings.Save();
         }
-        _unifiedUser.UnifiedUserId = (string?)result.UnifiedId;
-
         Result = new LoginResult
         {
             Success = true,
             IsLegacyUser = false,
             ShouldShowOgWelcome = false,
-            UnifiedId = (string?)result.UnifiedId,
+            UnifiedId = result.UnifiedId,
             DisplayName = _settings?.Current?.UserDisplayName,
             Provider = "device_code"
         };
@@ -912,7 +885,7 @@ Closed += (_, _) =>
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[DeviceCode] Clipboard copy failed");
+            _logger?.LogWarning(ex, "[DeviceCode] Clipboard copy failed");
         }
     }
 
@@ -930,33 +903,12 @@ Closed += (_, _) =>
 
     #endregion
 
-    private static dynamic? CreateLegacyService(string typeName)
-    {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-        try
-        {
-            var type = Type.GetType(typeName);
-            if (type == null)
-            {
-                // The legacy WPF head is not referenced by the Avalonia build.
-                return null;
-            }
-            return Activator.CreateInstance(type);
-        }
-        catch (Exception ex)
-        {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "Failed to create legacy service {Type}", typeName);
-            return null;
-        }
-    }
-
     private void TxtInviteCode_TextChanged(object? sender, TextChangedEventArgs e)
     {
         var box = (TextBox?)sender;
         if (box == null) return;
         var text = box.Text ?? "";
-        var upper =
-text.ToUpperInvariant();
+        var upper = text.ToUpperInvariant();
         if (text != upper)
         {
             box.Text = upper;

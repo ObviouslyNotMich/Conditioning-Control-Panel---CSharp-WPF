@@ -20,7 +20,7 @@ public partial class LockdownTabViewModel : TabItemViewModel
     private readonly ILockdownService? _lockdownService;
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<LockdownTabViewModel>? _logger;
 
     /// <summary>
     /// Design-time constructor.
@@ -48,7 +48,7 @@ public partial class LockdownTabViewModel : TabItemViewModel
         ILockdownService lockdownService,
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger)
+        ILogger<LockdownTabViewModel> logger)
         : base("lockdown", "Lockdown", "🔒", TabCapabilityRequirements.Desktop)
     {
         _lockdownService = lockdownService;

@@ -1,20 +1,50 @@
-using ConditioningControlPanel.Models;
+using System;
+using System.IO;
+using System.Text.Json;
+using Avalonia.Threading;
+using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Services.Roadmap;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.Platform;
 
 /// <summary>
-/// In-memory roadmap service for the Avalonia head until server-side sync is ported.
-/// Persists progress in memory only for the current process.
+/// Avalonia roadmap service. Mirrors the WPF <c>RoadmapService</c> behavior:
+/// loads/saves <c>roadmap.json</c> under LocalApplicationData, auto-saves every
+/// 30 seconds when dirty, and persists immediately on note updates.
 /// </summary>
-public sealed class AvaloniaRoadmapService : IRoadmapService
+public sealed class AvaloniaRoadmapService : IRoadmapService, IDisposable
 {
-    private readonly RoadmapProgress _progress = new();
+    private readonly string _progressPath;
+    private readonly ILogger<AvaloniaRoadmapService>? _logger;
+    private readonly DispatcherTimer? _saveTimer;
+    private bool _isDirty;
+    private bool _disposed;
+
+    private RoadmapProgress _progress;
 
     public RoadmapProgress Progress => _progress;
 
     public event EventHandler<RoadmapStepCompletedEventArgs>? StepCompleted;
     public event EventHandler<RoadmapTrack>? TrackUnlocked;
+
+    public AvaloniaRoadmapService(ILogger<AvaloniaRoadmapService>? logger = null)
+    {
+        _logger = logger;
+        _progressPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ConditioningControlPanel",
+            "roadmap.json");
+
+        _progress = LoadProgress();
+
+        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _saveTimer.Tick += (_, _) => SaveIfDirty();
+        _saveTimer.Start();
+
+        _logger?.LogInformation("AvaloniaRoadmapService initialized. Track1: {T1}, Track2: {T2}, Track3: {T3}",
+            _progress.Track1Unlocked, _progress.Track2Unlocked, _progress.Track3Unlocked);
+    }
 
     public bool IsTrackUnlocked(RoadmapTrack track) => _progress.IsTrackUnlocked(track);
 
@@ -63,6 +93,9 @@ public sealed class AvaloniaRoadmapService : IRoadmapService
         {
             progress.StartedAt = DateTime.UtcNow;
         }
+
+        if (_progress.JourneyStartedAt == null) _progress.JourneyStartedAt = DateTime.UtcNow;
+        _isDirty = true;
     }
 
     public void SubmitPhoto(string stepId, string photoPath, string? note)
@@ -114,5 +147,69 @@ public sealed class AvaloniaRoadmapService : IRoadmapService
         if (earnedBadge) _progress.HasCertifiedBlowdollBadge = true;
 
         StepCompleted?.Invoke(this, new RoadmapStepCompletedEventArgs(step, progress, unlockedNewTrack, earnedBadge));
+        _isDirty = true;
+        Save();
+    }
+
+    public void UpdateStepNote(string stepId, string? note)
+    {
+        if (_progress.CompletedSteps.TryGetValue(stepId, out var progress))
+        {
+            progress.UserNote = note;
+            _isDirty = true;
+            Save();
+            _logger?.LogInformation("Roadmap note updated for step {StepId}", stepId);
+        }
+    }
+
+    private RoadmapProgress LoadProgress()
+    {
+        try
+        {
+            if (File.Exists(_progressPath))
+            {
+                var json = File.ReadAllText(_progressPath);
+                return JsonSerializer.Deserialize<RoadmapProgress>(json) ?? new RoadmapProgress();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to load roadmap progress");
+        }
+
+        return new RoadmapProgress();
+    }
+
+    public void Save()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_progressPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            var json = JsonSerializer.Serialize(_progress, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(_progressPath, json);
+            _isDirty = false;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to save roadmap progress");
+        }
+    }
+
+    private void SaveIfDirty()
+    {
+        if (_isDirty) Save();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        try { _saveTimer?.Stop(); } catch { }
+        SaveIfDirty();
+        _logger?.LogInformation("AvaloniaRoadmapService disposed");
     }
 }

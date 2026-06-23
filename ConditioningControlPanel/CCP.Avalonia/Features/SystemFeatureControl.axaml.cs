@@ -4,10 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,13 +18,11 @@ public partial class SystemFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly IStartupRegistration _startup;
     private readonly IInputHook? _inputHook;
-    private readonly IUiDispatcher _dispatcher;
-    private readonly IScheduler _scheduler;
     private readonly IDialogService _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<SystemFeatureControl>? _logger;
     private bool _isLoading = true;
     private bool _capturingPanicKey;
-    private IDisposable? _panicKeyConfirmationTimer;
+    private DispatcherTimer? _panicKeyConfirmationTimer;
 
     public IPlatformCapabilities Capabilities { get; }
 
@@ -35,10 +33,8 @@ public partial class SystemFeatureControl : UserControl
         _startup = App.Services.GetRequiredService<IStartupRegistration>();
         _inputHook = App.Services.GetService<IInputHook>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
-        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
-        _scheduler = App.Services.GetRequiredService<IScheduler>();
         _dialogService = App.Services.GetRequiredService<IDialogService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SystemFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -52,7 +48,8 @@ public partial class SystemFeatureControl : UserControl
 
     private void OnUnloaded(object? sender, RoutedEventArgs e)
     {
-        _panicKeyConfirmationTimer?.Dispose();
+        _panicKeyConfirmationTimer?.Stop();
+        _panicKeyConfirmationTimer = null;
         if (_settings.Current is INotifyPropertyChanged inpc)
             inpc.PropertyChanged -= OnSettingsPropertyChanged;
     }
@@ -98,7 +95,7 @@ public partial class SystemFeatureControl : UserControl
             or nameof(AppSettings.StartupVideoPath)
             or nameof(AppSettings.RunOnStartup))
         {
-            _dispatcher.Post(LoadFromSettings);
+            Dispatcher.UIThread.Post(LoadFromSettings);
         }
     }
 
@@ -141,16 +138,51 @@ public partial class SystemFeatureControl : UserControl
 
     // ---- Complex toggles delegated to platform-specific helpers ----
 
-    private void ChkWinStart_Changed(object? sender, RoutedEventArgs e)
+    private async void ChkWinStart_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
         var enable = ChkWinStart.IsChecked ?? false;
 
-        try { _startup.SetRegistered(enable); }
+        if (enable && (_settings.Current.StartMinimized || ChkStartHidden.IsChecked == true))
+        {
+            var confirmed = await _dialogService.ShowConfirmationAsync(
+                Loc.Get("title_startup_warning"),
+                Loc.Get("msg_startup_hidden_warning"));
+            if (!confirmed)
+            {
+                _isLoading = true;
+                ChkWinStart.IsChecked = false;
+                _isLoading = false;
+                return;
+            }
+        }
+
+        try
+        {
+            _startup.SetRegistered(enable);
+            var actual = _startup.IsRegistered;
+            if (actual != enable)
+            {
+                await _dialogService.ShowMessageAsync(
+                    Loc.Get("title_startup_error"),
+                    Loc.Get("msg_failed_to_update_startup"),
+                    DialogSeverity.Warning);
+            }
+            enable = actual;
+        }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to update startup registration");
+            _logger?.LogWarning(ex, "Failed to update startup registration");
+            await _dialogService.ShowMessageAsync(
+                Loc.Get("title_startup_error"),
+                Loc.Get("msg_failed_to_update_startup"),
+                DialogSeverity.Warning);
+            enable = _startup.IsRegistered;
         }
+
+        _isLoading = true;
+        ChkWinStart.IsChecked = enable;
+        _isLoading = false;
 
         _settings.Current.RunOnStartup = enable;
         _settings.Save();
@@ -235,7 +267,7 @@ public partial class SystemFeatureControl : UserControl
                 _settings.Save();
             }
 
-            _dispatcher.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 var newKey = _settings.Current?.PanicKey ?? "?";
                 _capturingPanicKey = false;
@@ -243,11 +275,18 @@ public partial class SystemFeatureControl : UserControl
 
                 // Brief confirmation, then settle into normal label.
                 BtnPanicKey.Content = $"✓ {newKey}";
-                _panicKeyConfirmationTimer?.Dispose();
-                _panicKeyConfirmationTimer = _scheduler.StartOneShotTimer(TimeSpan.FromMilliseconds(1200), () =>
+                _panicKeyConfirmationTimer?.Stop();
+                var confirmationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+                EventHandler? confirmationHandler = null;
+                confirmationHandler = (_, _) =>
                 {
-                    _dispatcher.Post(() => BtnPanicKey.Content = $"🔑 {newKey}");
-                });
+                    confirmationTimer.Stop();
+                    confirmationTimer.Tick -= confirmationHandler;
+                    Dispatcher.UIThread.Post(() => BtnPanicKey.Content = $"🔑 {newKey}");
+                };
+                confirmationTimer.Tick += confirmationHandler;
+                confirmationTimer.Start();
+                _panicKeyConfirmationTimer = confirmationTimer;
             });
         };
 
@@ -334,14 +373,14 @@ public partial class SystemFeatureControl : UserControl
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Could not create custom assets subdirectories");
+                _logger?.LogWarning(ex, "Could not create custom assets subdirectories");
             }
 
             _settings.Save();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Pick assets folder failed");
+            _logger?.LogWarning(ex, "Pick assets folder failed");
         }
     }
 
@@ -363,7 +402,7 @@ public partial class SystemFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Open assets folder failed");
+            _logger?.LogWarning(ex, "Open assets folder failed");
         }
     }
 
@@ -390,7 +429,7 @@ public partial class SystemFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Select startup video failed");
+            _logger?.LogWarning(ex, "Select startup video failed");
         }
     }
 

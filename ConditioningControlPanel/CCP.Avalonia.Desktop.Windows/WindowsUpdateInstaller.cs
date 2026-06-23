@@ -20,9 +20,9 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
     public sealed class WindowsUpdateInstaller : AvaloniaUpdateInstaller
     {
         private readonly ISettingsService _settingsService;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<WindowsUpdateInstaller>? _logger;
 
-        public WindowsUpdateInstaller(ISettingsService settingsService, IAppLogger? logger = null)
+        public WindowsUpdateInstaller(ISettingsService settingsService, ILogger<WindowsUpdateInstaller>? logger = null)
         {
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _logger = logger;
@@ -45,7 +45,7 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
             var installPath = GetInstalledPath()
                 ?? Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName);
 
-            _logger?.Information("Launching installer for silent update: {Path}, InstallDir: {Dir}", installerPath, installPath);
+            _logger?.LogInformation("Launching installer for silent update: {Path}, InstallDir: {Dir}", installerPath, installPath);
 
             try
             {
@@ -53,7 +53,7 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to save settings before update");
+                _logger?.LogWarning(ex, "Failed to save settings before update");
             }
 
             CleanupBeforeUpdate();
@@ -62,7 +62,7 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
             if (!string.IsNullOrEmpty(installPath))
                 args += $" /DIR=\"{installPath}\"";
 
-            _logger?.Information("Installer arguments: {Args}", args);
+            _logger?.LogInformation("Installer arguments: {Args}", args);
 
             Process.Start(new ProcessStartInfo
             {
@@ -71,7 +71,7 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
                 UseShellExecute = true
             });
 
-            _logger?.Information("Exiting application for silent update...");
+            _logger?.LogInformation("Exiting application for silent update...");
 
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -100,7 +100,7 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
         {
             try
             {
-                _logger?.Information("Cleaning up before update...");
+                _logger?.LogInformation("Cleaning up before update...");
 
                 var exePath = Process.GetCurrentProcess().MainModule?.FileName;
                 if (string.IsNullOrEmpty(exePath)) return;
@@ -118,7 +118,7 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Cleanup before update failed");
+                _logger?.LogWarning(ex, "Cleanup before update failed");
             }
         }
 
@@ -173,7 +173,7 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to kill WebView2 processes");
+                _logger?.LogWarning(ex, "Failed to kill WebView2 processes");
             }
         }
     }

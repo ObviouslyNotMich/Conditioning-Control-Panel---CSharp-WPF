@@ -17,7 +17,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class HapticsSetupWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<HapticsSetupWindow> _logger;
 
 
     private enum Provider { None, Lovense, Buttplug }
@@ -29,7 +29,7 @@ public partial class HapticsSetupWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<HapticsSetupWindow>>();
 _mods = App.Services.GetRequiredService<IModService>();
         LoadGuideImages();
     }
@@ -48,7 +48,7 @@ _mods = App.Services.GetRequiredService<IModService>();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "HapticsSetupWindow: failed to load guide images");
+            _logger?.LogWarning(ex, "HapticsSetupWindow: failed to load guide images");
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using Avalonia;
+using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -13,7 +14,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class ColorEditorDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ColorEditorDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -25,7 +26,7 @@ public partial class ColorEditorDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ColorEditorDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 LoadCurrentSettings();
         UpdatePreview();
@@ -81,9 +82,9 @@ LoadCurrentSettings();
             });
     }
 
-    private void BtnBgColor_Click(object? sender, RoutedEventArgs e)
+    private async void BtnBgColor_Click(object? sender, RoutedEventArgs e)
     {
-        var color = ShowColorPicker(_bgColor);
+        var color = await ShowColorPickerAsync(_bgColor);
         if (color.HasValue)
         {
             _bgColor = color.Value;
@@ -92,9 +93,9 @@ LoadCurrentSettings();
         }
     }
 
-    private void BtnTextColor_Click(object? sender, RoutedEventArgs e)
+    private async void BtnTextColor_Click(object? sender, RoutedEventArgs e)
     {
-        var color = ShowColorPicker(_textColor);
+        var color = await ShowColorPickerAsync(_textColor);
         if (color.HasValue)
         {
             _textColor = color.Value;
@@ -103,9 +104,9 @@ LoadCurrentSettings();
         }
     }
 
-    private void BtnBorderColor_Click(object? sender, RoutedEventArgs e)
+    private async void BtnBorderColor_Click(object? sender, RoutedEventArgs e)
     {
-        var color = ShowColorPicker(_borderColor);
+        var color = await ShowColorPickerAsync(_borderColor);
         if (color.HasValue)
         {
             _borderColor = color.Value;
@@ -124,10 +125,10 @@ LoadCurrentSettings();
         // No live preview effect for this toggle.
     }
 
-    private Color? ShowColorPicker(Color currentColor)
+    private async Task<Color?> ShowColorPickerAsync(Color currentColor)
     {
-        // TODO: replace the Windows Forms color dialog with a cross-platform Avalonia color picker.
-        return null;
+        var dialog = new ColorPickerDialog(currentColor);
+        return await dialog.ShowDialog<Color?>(this);
     }
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e)
@@ -151,7 +152,7 @@ LoadCurrentSettings();
         settings.SubTextTransparent = ChkTextTransparent.IsChecked ?? false;
         settings.SubliminalStealsFocus = ChkStealsFocus.IsChecked ?? false;
 
-        _logger?.Information("Subliminal settings updated");
+        _logger?.LogInformation("Subliminal settings updated");
 
         Close(true);
     }

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -12,7 +13,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class LockCardColorDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<LockCardColorDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -26,7 +27,7 @@ public partial class LockCardColorDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<LockCardColorDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 LoadCurrentSettings();
         UpdatePreview();
@@ -76,27 +77,36 @@ LoadCurrentSettings();
         PreviewProgressBar.Background = new SolidColorBrush(_accentColor);
     }
 
-    private void BtnBgColor_Click(object? sender, RoutedEventArgs e) => PickColor(ref _bgColor);
-    private void BtnTextColor_Click(object? sender, RoutedEventArgs e) => PickColor(ref _textColor);
-    private void BtnInputBgColor_Click(object? sender, RoutedEventArgs e) => PickColor(ref _inputBgColor);
-    private void BtnInputTextColor_Click(object? sender, RoutedEventArgs e) => PickColor(ref _inputTextColor);
-    private void BtnAccentColor_Click(object? sender, RoutedEventArgs e) => PickColor(ref _accentColor);
-
-    private void PickColor(ref Color target)
+    private async void BtnBgColor_Click(object? sender, RoutedEventArgs e)
     {
-        var color = ShowColorPicker(target);
-        if (color.HasValue)
-        {
-            target = color.Value;
-            UpdateColorButtons();
-            UpdatePreview();
-        }
+        var color = await ShowColorPickerAsync(_bgColor);
+        if (color.HasValue) { _bgColor = color.Value; UpdateColorButtons(); UpdatePreview(); }
+    }
+    private async void BtnTextColor_Click(object? sender, RoutedEventArgs e)
+    {
+        var color = await ShowColorPickerAsync(_textColor);
+        if (color.HasValue) { _textColor = color.Value; UpdateColorButtons(); UpdatePreview(); }
+    }
+    private async void BtnInputBgColor_Click(object? sender, RoutedEventArgs e)
+    {
+        var color = await ShowColorPickerAsync(_inputBgColor);
+        if (color.HasValue) { _inputBgColor = color.Value; UpdateColorButtons(); UpdatePreview(); }
+    }
+    private async void BtnInputTextColor_Click(object? sender, RoutedEventArgs e)
+    {
+        var color = await ShowColorPickerAsync(_inputTextColor);
+        if (color.HasValue) { _inputTextColor = color.Value; UpdateColorButtons(); UpdatePreview(); }
+    }
+    private async void BtnAccentColor_Click(object? sender, RoutedEventArgs e)
+    {
+        var color = await ShowColorPickerAsync(_accentColor);
+        if (color.HasValue) { _accentColor = color.Value; UpdateColorButtons(); UpdatePreview(); }
     }
 
-    private Color? ShowColorPicker(Color currentColor)
+    private async Task<Color?> ShowColorPickerAsync(Color currentColor)
     {
-        // TODO: replace the Windows Forms color dialog with a cross-platform Avalonia color picker.
-        return null;
+        var dialog = new ColorPickerDialog(currentColor);
+        return await dialog.ShowDialog<Color?>(this);
     }
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e)
@@ -119,7 +129,7 @@ LoadCurrentSettings();
         settings.LockCardInputTextColor = ColorToHex(_inputTextColor);
         settings.LockCardAccentColor = ColorToHex(_accentColor);
 
-        _logger?.Information("Lock card colors updated");
+        _logger?.LogInformation("Lock card colors updated");
 
         Close(true);
     }

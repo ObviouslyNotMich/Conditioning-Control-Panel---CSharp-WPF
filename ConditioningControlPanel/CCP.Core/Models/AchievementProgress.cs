@@ -233,7 +233,7 @@ public class AchievementProgress
         // which then risks being synced UP over the real cloud value (#344, #345, #331).
         if (lastDate == default)
         {
-            CoreApp.Logger?.Information("Login streak: no local launch history (fresh/reset install) — deferring to cloud restore, not breaking streak");
+            CoreApp.Logger?.LogInformation("Login streak: no local launch history (fresh/reset install) — deferring to cloud restore, not breaking streak");
             if (ConsecutiveDays < 1) ConsecutiveDays = 1;
             LastLaunchDate = today;
             SyncCurrentStreak();
@@ -255,7 +255,7 @@ public class AchievementProgress
         else
         {
             var daysMissed = (today - lastDate).Days;
-            CoreApp.Logger?.Information("Login streak gap detected: {Days} day(s) missed (last launch: {LastDate}, today: {Today}, streak was: {Streak})",
+            CoreApp.Logger?.LogInformation("Login streak gap detected: {Days} day(s) missed (last launch: {LastDate}, today: {Today}, streak was: {Streak})",
                 daysMissed, lastDate.ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"), ConsecutiveDays);
 
             // Streak would break - try streak shield first
@@ -263,7 +263,7 @@ public class AchievementProgress
             {
                 // Shield saved the streak! Increment as normal
                 ConsecutiveDays++;
-                CoreApp.Logger?.Information("Streak shield protected streak! Now at {Days} days", ConsecutiveDays);
+                CoreApp.Logger?.LogInformation("Streak shield protected streak! Now at {Days} days", ConsecutiveDays);
                 PendingStreakBonus = true;
 
                 // Record the missed day(s) that were shielded
@@ -280,12 +280,12 @@ public class AchievementProgress
             else if (CoreApp.SkillTree?.UseOopsieInsurance() == true)
             {
                 // Insurance saved the streak at cost of 500 XP! Keep current streak
-                CoreApp.Logger?.Information("Oopsie Insurance saved streak at {Days} days for 500 XP", ConsecutiveDays);
+                CoreApp.Logger?.LogInformation("Oopsie Insurance saved streak at {Days} days for 500 XP", ConsecutiveDays);
             }
             else
             {
                 // Streak broken, reset to 1
-                CoreApp.Logger?.Warning("Login streak RESET from {OldStreak} to 1 — gap of {Days} day(s), no shield/insurance available (last launch: {LastDate})",
+                CoreApp.Logger?.LogWarning("Login streak RESET from {OldStreak} to 1 — gap of {Days} day(s), no shield/insurance available (last launch: {LastDate})",
                     ConsecutiveDays, daysMissed, lastDate.ToString("yyyy-MM-dd"));
                 ConsecutiveDays = 1;
             }
@@ -314,7 +314,7 @@ public class AchievementProgress
         if (streakXP > 0)
         {
             CoreApp.Progression?.AddXP(streakXP, XPSource.Other);
-            CoreApp.Logger?.Information("Daily streak bonus! {Days} days - awarded {XP} XP", ConsecutiveDays, streakXP);
+            CoreApp.Logger?.LogInformation("Daily streak bonus! {Days} days - awarded {XP} XP", ConsecutiveDays, streakXP);
         }
     }
 

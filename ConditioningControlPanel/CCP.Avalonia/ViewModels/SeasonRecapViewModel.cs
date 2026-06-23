@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels;
 
@@ -36,7 +39,7 @@ public class SeasonRecapViewModel
     }
 
     /// <summary>Mode-sensitive backdrop art for the card.</summary>
-    public string BackgroundImagePath => RecapBackgrounds.ForMod(null); // TODO: mod-aware background once IModService exposes ActiveModId.
+    public string BackgroundImagePath => RecapBackgrounds.ForMod(App.Services?.GetService<IModService>()?.ActiveMod?.Id);
 
     // ---------- header ----------
     public int SeasonNumber => SeasonNumbering.ToSeasonNumber(_s.SeasonKey);
@@ -188,14 +191,18 @@ public class SeasonRecapViewModel
     }
 
     /// <summary>
-    /// Resolves a relative Resources/ path to a URI Avalonia can load.
-    /// Pack URIs are left as-is for a converter to handle; mod overrides are
-    /// not yet available cross-platform.
+    /// Resolves a relative Resources/ path to a URI Avalonia can load,
+    /// preferring the active mod's resources override when present.
     /// </summary>
-    private static string ResolveAssetUri(string resourcePath)
+    private string ResolveAssetUri(string resourcePath)
     {
         if (string.IsNullOrEmpty(resourcePath)) return "";
-        // TODO: wire mod override resolution once IModService exposes installed paths.
+
+        var resolver = App.Services?.GetService<AvaloniaModResourceResolver>();
+        var resolved = resolver?.ResolveUri(resourcePath);
+        if (!string.IsNullOrEmpty(resolved))
+            return resolved;
+
         return $"pack://application:,,,/Resources/{resourcePath.Replace('\\', '/')}";
     }
 }

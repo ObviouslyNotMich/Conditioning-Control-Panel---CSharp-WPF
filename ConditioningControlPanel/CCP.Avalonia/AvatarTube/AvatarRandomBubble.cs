@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -122,14 +123,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         {
             try
             {
-                const string uri = "avares://CCP.Avalonia/Assets/bubble.png";
-                if (loader != null)
-                {
-                    using var stream = loader.Open(new Uri(uri, UriKind.Absolute));
-                    return new Bitmap(stream);
-                }
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "bubble.png");
-                return File.Exists(path) ? new Bitmap(path) : null;
+                return AvaloniaBitmapHelper.LoadResource("bubble.png");
             }
             catch
             {

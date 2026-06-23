@@ -21,7 +21,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class RoadmapStepPopup : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
+    private readonly ILogger<RoadmapStepPopup>? _logger;
 
 
     private readonly DispatcherTimer _autoCloseTimer;
@@ -35,7 +35,7 @@ public partial class RoadmapStepPopup : Window
 
         ApplyThemeShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<RoadmapStepPopup>>();
 _roadmap = App.Services.GetRequiredService<IRoadmapService>();
         _autoCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         _autoCloseTimer.Tick += (s, e) =>
@@ -47,7 +47,7 @@ _roadmap = App.Services.GetRequiredService<IRoadmapService>();
 
     public RoadmapStepPopup(RoadmapStepDefinition stepDef, RoadmapStepProgress progress) : this()
     {
-        _logger?.Information("Creating RoadmapStepPopup for: {Title}", stepDef.Title);
+        _logger?.LogInformation("Creating RoadmapStepPopup for: {Title}", stepDef.Title);
 
         TxtStepTitle.Text = stepDef.Title;
 
@@ -64,7 +64,7 @@ _roadmap = App.Services.GetRequiredService<IRoadmapService>();
         Opacity = 0;
         Loaded += (s, e) =>
         {
-            _logger?.Information("RoadmapStepPopup loaded, starting fade-in animation");
+            _logger?.LogInformation("RoadmapStepPopup loaded, starting fade-in animation");
             _ = FadeAsync(0, 1, TimeSpan.FromMilliseconds(300));
         };
     }
@@ -109,11 +109,11 @@ _roadmap = App.Services.GetRequiredService<IRoadmapService>();
                 WindowStartupLocation = WindowStartupLocation.CenterScreen;
             }
 
-            _logger?.Information("Positioned popup at {Position}", Position);
+            _logger?.LogInformation("Positioned popup at {Position}", Position);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to position roadmap popup, using defaults");
+            _logger?.LogError(ex, "Failed to position roadmap popup, using defaults");
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
     }
@@ -127,18 +127,18 @@ _roadmap = App.Services.GetRequiredService<IRoadmapService>();
             var fullPath = _roadmap.GetFullPhotoPath(progress.PhotoPath);
             if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath)) return;
 
-            _logger?.Information("Loading step photo thumbnail: {Path}", fullPath);
+            _logger?.LogInformation("Loading step photo thumbnail: {Path}", fullPath);
 
             using var stream = File.OpenRead(fullPath);
             ImgPhoto.Source = new Bitmap(stream);
             ImgPhoto.IsVisible = true;
             CheckmarkIcon.IsVisible = false;
 
-            _logger?.Information("Photo thumbnail loaded successfully");
+            _logger?.LogInformation("Photo thumbnail loaded successfully");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to load step photo thumbnail");
+            _logger?.LogWarning(ex, "Failed to load step photo thumbnail");
             // Keep showing checkmark icon.
         }
     }
@@ -195,7 +195,7 @@ Math.Clamp(elapsed.TotalMilliseconds / duration.TotalMilliseconds, 0, 1);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Error during fade out, closing directly");
+            _logger?.LogError(ex, "Error during fade out, closing directly");
             try { Close(); } catch { }
         }
     }
@@ -220,6 +220,6 @@ Math.Clamp(elapsed.TotalMilliseconds / duration.TotalMilliseconds, 0, 1);
         _fadeTimer.Stop();
         _cts.Cancel();
         base.OnClosed(e);
-        _logger?.Information("RoadmapStepPopup closed");
+        _logger?.LogInformation("RoadmapStepPopup closed");
     }
 }

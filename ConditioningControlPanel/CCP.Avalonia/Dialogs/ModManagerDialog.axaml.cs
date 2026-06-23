@@ -11,6 +11,7 @@ using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Avalonia.Windows;
 using AvaloniaApp = global::ConditioningControlPanel.Avalonia.App;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,7 +30,7 @@ public partial class ModManagerDialog : Window
 
     private readonly IDialogService? _dialogService;
     private readonly IModService? _modService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<ModManagerDialog>? _logger;
     private readonly ObservableCollection<ModPackage> _mods = new();
 
     public ModManagerDialog()
@@ -38,7 +39,7 @@ public partial class ModManagerDialog : Window
 
         _dialogService = AvaloniaApp.Services?.GetService<IDialogService>();
         _modService = AvaloniaApp.Services?.GetService<IModService>();
-        _logger = AvaloniaApp.Services?.GetService<IAppLogger>();
+        _logger = AvaloniaApp.Services?.GetRequiredService<ILogger<ModManagerDialog>>();
 
         ModList.ItemsSource = _mods;
         RefreshModList();
@@ -144,11 +145,14 @@ public partial class ModManagerDialog : Window
 
     private async void BtnExport_Click(object? sender, RoutedEventArgs e)
     {
+        if (_modService == null) return;
+
         var filters = new[]
         {
             new FileFilter("CCP Mod Files", new[] { "ccpmod" })
         };
 
+        var defaultName = $"{_modService.ActiveMod.Name.Replace(" ", "-").ToLowerInvariant()}-export.ccpmod";
         string? path = null;
         if (_dialogService != null)
         {
@@ -158,7 +162,7 @@ public partial class ModManagerDialog : Window
                 path = await _dialogService.ShowSaveFileDialogAsync(
                     Loc.Get("title_export_config_as_mod"),
                     filters,
-                    "export.ccpmod");
+                    defaultName);
             }
             finally
             {
@@ -166,14 +170,38 @@ public partial class ModManagerDialog : Window
             }
         }
 
-        await ShowTodoAsync(path != null
-            ? $"mod export to '{path}'"
-            : "mod export");
+        if (string.IsNullOrEmpty(path)) return;
+
+        BtnExport.IsEnabled = false;
+        try
+        {
+            await _modService.ExportCurrentAsModAsync(
+                path,
+                _modService.ActiveMod.Name + " Export",
+                _modService.ActiveMod.Manifest.Author);
+
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_export_complete"),
+                Loc.GetF("msg_mod_exported_to", path)) ?? Task.CompletedTask);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to export mod to {Path}", path);
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_export_error"),
+                Loc.GetF("msg_export_failed", ex.Message),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+        }
+        finally
+        {
+            BtnExport.IsEnabled = true;
+        }
     }
 
     private async void BtnCreate_Click(object? sender, RoutedEventArgs e)
     {
-        await ShowTodoAsync("mod creation");
+        var creator = new ModCreatorWindow();
+        await creator.ShowDialog(this);
     }
 
     private void RefreshModList()

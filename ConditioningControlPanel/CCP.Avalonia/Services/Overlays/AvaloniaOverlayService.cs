@@ -11,7 +11,9 @@ using Avalonia.Threading;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Controls;
 using ConditioningControlPanel.Avalonia.Helpers;
+using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Platform;
+using Microsoft.Extensions.DependencyInjection;
 using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Settings;
 
@@ -26,9 +28,8 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 {
     private readonly ISettingsService _settings;
     private readonly IScreenProvider _screens;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IAppEnvironment _environment;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaOverlayService>? _logger;
     private readonly object _sync = new();
     private readonly List<OverlayWindow> _pinkFilterWindows = new();
     private readonly List<SpiralOverlayWindow> _spiralWindows = new();
@@ -52,17 +53,16 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
     public AvaloniaOverlayService(
         ISettingsService settings,
         IScreenProvider screens,
-        IUiDispatcher dispatcher,
         IAppEnvironment environment,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaOverlayService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _logger = logger;
         _updateTimer.Tick += UpdateOverlays;
         _brainDrainPulseTimer.Tick += BrainDrainPulseTick;
+        _screens.ScreensChanged += (_, _) => RefreshForDualMonitorChange();
     }
 
     public bool IsRunning => _isRunning;
@@ -73,14 +73,14 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         if (_isRunning || _isDisposed) return;
         if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS())
         {
-            _logger?.Debug("AvaloniaOverlayService: overlays are not supported on mobile; Start is a no-op");
+            _logger?.LogDebug("AvaloniaOverlayService: overlays are not supported on mobile; Start is a no-op");
             return;
         }
 
         _isRunning = true;
-        _dispatcher.Invoke(RefreshOverlays);
+        Dispatcher.UIThread.Invoke(RefreshOverlays);
         _updateTimer.Start();
-        _logger?.Information("AvaloniaOverlayService started");
+        _logger?.LogInformation("AvaloniaOverlayService started");
     }
 
     public void Stop()
@@ -88,20 +88,20 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         if (!_isRunning) return;
         _isRunning = false;
         _updateTimer.Stop();
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             StopPinkFilter();
             StopSpiral();
             StopBrainDrain();
             StopAllSustainedOverlays();
         });
-        _logger?.Information("AvaloniaOverlayService stopped");
+        _logger?.LogInformation("AvaloniaOverlayService stopped");
     }
 
     public void RefreshOverlays()
     {
         if (!_isRunning) return;
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             var settings = _settings.Current;
             if (settings == null) return;
@@ -152,7 +152,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
     public void PulseOverlays()
     {
         if (!_isRunning) return;
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             var settings = _settings.Current;
             if (settings == null || !_pinkFilterWindows.Any() && !_spiralWindows.Any() && !_brainDrainWindows.Any()) return;
@@ -190,7 +190,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             _ = Task.Run(async () =>
             {
                 await Task.Delay(1000);
-                _dispatcher.Invoke(() =>
+                Dispatcher.UIThread.Invoke(() =>
                 {
                     if (hasPink) UpdatePinkFilterOpacity();
                     if (hasSpiral) UpdateSpiralOpacity();
@@ -203,7 +203,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
     public void RefreshForDualMonitorChange()
     {
         if (!_isRunning) return;
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             var settings = _settings.Current;
             if (settings == null) return;
@@ -231,14 +231,14 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         var normalizedKind = NormalizeOverlayKind(kind);
         if (normalizedKind == null)
         {
-            _logger?.Debug("AvaloniaOverlayService.ShowOverlayTimed: unsupported kind {Kind}", kind);
+            _logger?.LogDebug("AvaloniaOverlayService.ShowOverlayTimed: unsupported kind {Kind}", kind);
             return;
         }
 
         var safeDurationMs = Math.Max(50, durationMs);
         var clampedOpacity = Math.Clamp(opacity, 0.0, 1.0);
 
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             if (!_isRunning && normalizedKind != "braindrain") return; // ad-hoc brain-drain can work while service stopped
 
@@ -258,7 +258,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             timer.Tick += (_, _) =>
             {
                 timer.Stop();
-                _dispatcher.Invoke(() => HideOverlaySustained(normalizedKind));
+                Dispatcher.UIThread.Invoke(() => HideOverlaySustained(normalizedKind));
             };
             timer.Start();
         });
@@ -271,13 +271,13 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         var normalizedKind = NormalizeOverlayKind(kind);
         if (normalizedKind == null)
         {
-            _logger?.Debug("AvaloniaOverlayService.ShowOverlaySustained: unsupported kind {Kind}", kind);
+            _logger?.LogDebug("AvaloniaOverlayService.ShowOverlaySustained: unsupported kind {Kind}", kind);
             return;
         }
 
         var clampedOpacity = Math.Clamp(opacity, 0.0, 1.0);
 
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             if (!_isRunning && normalizedKind != "braindrain") return;
 
@@ -296,7 +296,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         var normalizedKind = NormalizeOverlayKind(kind);
         if (normalizedKind == null) return;
 
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             if (_sustainedOverlays.TryGetValue(normalizedKind, out var state))
             {
@@ -331,7 +331,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 
         var clampedOpacity = Math.Clamp(opacity, 0.0, 1.0);
 
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             switch (normalizedKind)
             {
@@ -396,7 +396,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
                 var spiralPath = GetSpiralPath();
                 if (string.IsNullOrEmpty(spiralPath))
                 {
-                    _logger?.Debug("AvaloniaOverlayService.ShowOverlaySustained: no spiral path configured");
+                    _logger?.LogDebug("AvaloniaOverlayService.ShowOverlaySustained: no spiral path configured");
                     return;
                 }
                 if (_spiralWindows.Count == 0 || !string.Equals(spiralPath, _lastSpiralCacheKey, StringComparison.OrdinalIgnoreCase))
@@ -500,6 +500,15 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 
         if (!string.IsNullOrEmpty(settings.SpiralPath) && File.Exists(settings.SpiralPath))
             return settings.SpiralPath;
+
+        // Prefer an active-mod override, then the shipped Spirals folder, then the assets folder.
+        var resolver = App.Services?.GetService<AvaloniaModResourceResolver>();
+        var modUri = resolver?.ResolveUri("spiral.gif");
+        if (!string.IsNullOrEmpty(modUri) && modUri.StartsWith("file://", StringComparison.Ordinal))
+        {
+            var modPath = modUri.Substring(7);
+            if (File.Exists(modPath)) return modPath;
+        }
 
         var fallback = Path.Combine(_environment.BaseDirectory, "Spirals", "spiral.gif");
         if (File.Exists(fallback)) return fallback;
@@ -650,7 +659,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 
             if (IsVideoExtension(path))
             {
-                _logger?.Debug("AvaloniaOverlayService: video spirals are not yet supported ({Path}); skipping", path);
+                _logger?.LogDebug("AvaloniaOverlayService: video spirals are not yet supported ({Path}); skipping", path);
                 return null;
             }
 
@@ -658,7 +667,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "AvaloniaOverlayService: failed to load spiral cache for {Path}", path);
+            _logger?.LogWarning(ex, "AvaloniaOverlayService: failed to load spiral cache for {Path}", path);
             return null;
         }
     }
@@ -700,7 +709,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaOverlayService: could not enumerate screens: {Error}", ex.Message);
+            _logger?.LogDebug("AvaloniaOverlayService: could not enumerate screens: {Error}", ex.Message);
             return new[] { new ScreenInfo("fallback", new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), 1.0) };
         }
     }
@@ -774,10 +783,9 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             CanResize = false;
             ShowActivated = false;
             Focusable = false;
+            IsHitTestVisible = false;
 
-            Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y);
-            Width = screen.Bounds.Width;
-            Height = screen.Bounds.Height;
+            this.ConstrainToScreen(screen);
             Opacity = 1;
 
             _border = new Border
@@ -813,9 +821,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             Focusable = false;
             IsHitTestVisible = false;
 
-            Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y);
-            Width = screen.Bounds.Width;
-            Height = screen.Bounds.Height;
+            this.ConstrainToScreen(screen);
             Opacity = 1;
 
             _baseIntensity = intensity;
@@ -898,9 +904,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             Focusable = false;
             IsHitTestVisible = false;
 
-            Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y);
-            Width = screen.Bounds.Width;
-            Height = screen.Bounds.Height;
+            this.ConstrainToScreen(screen);
             Opacity = Math.Clamp(opacityPercent / 100.0, 0.0, 1.0);
 
             _image = new Image

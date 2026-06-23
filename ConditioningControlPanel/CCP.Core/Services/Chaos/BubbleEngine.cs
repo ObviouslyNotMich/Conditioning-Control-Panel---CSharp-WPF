@@ -1,4 +1,4 @@
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Services.Settings;
 
 namespace ConditioningControlPanel.Core.Services.Chaos;
@@ -31,12 +31,11 @@ public sealed class BubbleEngine
     private readonly IScreenProvider _screenProvider;
     private readonly ISettingsService _settings;
     private readonly IBubbleRenderer _renderer;
-    private readonly IScheduler _scheduler;
     private readonly IPointerState _pointerState;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<BubbleEngine>? _logger;
 
-    private IDisposable? _spawnTimer;
-    private IDisposable? _animTimer;
+    private DispatcherTimer? _spawnTimer;
+    private DispatcherTimer? _animTimer;
     private bool _isRunning;
     private bool _isPaused;
 
@@ -82,14 +81,12 @@ public sealed class BubbleEngine
         IScreenProvider screenProvider,
         ISettingsService settings,
         IBubbleRenderer renderer,
-        IScheduler scheduler,
         IPointerState pointerState,
-        IAppLogger? logger = null)
+        ILogger<BubbleEngine>? logger = null)
     {
         _screenProvider = screenProvider;
         _settings = settings;
         _renderer = renderer;
-        _scheduler = scheduler;
         _pointerState = pointerState;
         _logger = logger;
     }
@@ -131,7 +128,9 @@ public sealed class BubbleEngine
         RefreshFrequency();
         SpawnBubble();
 
-        _animTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromMilliseconds(32), Tick);
+        _animTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(32) };
+        _animTimer.Tick += (_, _) => Tick();
+        _animTimer.Start();
     }
 
     public void Stop()
@@ -140,9 +139,9 @@ public sealed class BubbleEngine
         _isRunning = false;
         _isPaused = false;
 
-        _spawnTimer?.Dispose();
+        _spawnTimer?.Stop();
         _spawnTimer = null;
-        _animTimer?.Dispose();
+        _animTimer?.Stop();
         _animTimer = null;
 
         foreach (var bubble in _bubbles.ToList())
@@ -180,16 +179,18 @@ public sealed class BubbleEngine
 
     public void RefreshFrequency()
     {
-        _spawnTimer?.Dispose();
+        _spawnTimer?.Stop();
         if (!_isRunning) return;
 
         var frequency = Math.Max(1, _settings.Current.BubblesFrequency);
         var interval = TimeSpan.FromMilliseconds(60000.0 / frequency);
-        _spawnTimer = _scheduler.StartPeriodicTimer(interval, () =>
+        _spawnTimer = new DispatcherTimer { Interval = interval };
+        _spawnTimer.Tick += (_, _) =>
         {
             if (_isRunning && !_isPaused && _bubbles.Count < MaxAmbientBubbles)
                 SpawnBubble();
-        });
+        };
+        _spawnTimer.Start();
     }
 
     public void SpawnOnce()
@@ -369,7 +370,11 @@ public sealed class BubbleEngine
         if (!_isRunning)
             Start();
         else if (_animTimer == null)
-            _animTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromMilliseconds(32), Tick);
+        {
+            _animTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(32) };
+            _animTimer.Tick += (_, _) => Tick();
+            _animTimer.Start();
+        }
     }
 
     public void EndChaosMode()
@@ -547,6 +552,16 @@ public sealed class BubbleEngine
         var reason = elapsedMs < ChaosTuning.CLICK_THRESHOLD_MS ? "click" : "release";
         _onChannelBroken?.Invoke(spec, reason);
         DetonateBubble(bubble, spec);
+    }
+
+    /// <summary>
+    /// Ends whichever live bubble channel is currently active, regardless of which
+    /// bubble initiated it. Used by shared-host mouse-hook release events.
+    /// </summary>
+    public void EndActiveChaosChannel()
+    {
+        if (!_chaosActive || !_channelBubbleId.HasValue) return;
+        EndChaosChannel(_channelBubbleId.Value);
     }
 
     private void DetonateBubble(BubbleState bubble, ChaosBubbleSpec spec)

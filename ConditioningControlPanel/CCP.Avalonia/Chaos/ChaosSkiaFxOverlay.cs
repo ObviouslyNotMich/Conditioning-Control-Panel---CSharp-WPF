@@ -7,6 +7,7 @@ using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Avalonia.Threading;
+using Point = Avalonia.Point;
 using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
 
@@ -579,10 +580,7 @@ public sealed class ChaosSkiaFxOverlay : Window
         return new Point(p.X - Position.X, p.Y - Position.Y);
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 
     /// <summary>Custom Avalonia control that renders the particle field via Skia.</summary>
     private sealed class SkiaFxControl : Control

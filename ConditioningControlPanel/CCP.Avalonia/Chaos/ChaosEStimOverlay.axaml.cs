@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using global::Avalonia;
 using global::Avalonia.Controls;
@@ -6,6 +6,7 @@ using global::Avalonia.Controls.Shapes;
 using global::Avalonia.Layout;
 using global::Avalonia.Media;
 using global::Avalonia.Threading;
+using Point = global::Avalonia.Point;
 
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Chaos;
@@ -16,7 +17,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosEStimOverlay : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosEStimOverlay> _logger;
 
 
     private const int FLICKER_MS = 40;
@@ -47,7 +48,7 @@ public partial class ChaosEStimOverlay : Window
 
     public static void EnsureCreated()
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosEStimOverlay>>();
         ChaosEStimGlowOverlay.EnsureCreated();
         try
         {
@@ -62,7 +63,7 @@ public partial class ChaosEStimOverlay : Window
                         _active.Hide();
                     }
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosEStim.EnsureCreated: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosEStimOverlay>>().LogInformation("ChaosEStim.EnsureCreated: {E}", ex.Message); }
             });
         }
         catch { }
@@ -70,7 +71,7 @@ public partial class ChaosEStimOverlay : Window
 
     public static void Strike(IReadOnlyList<(Point From, Point To)> boltsPx)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosEStimOverlay>>();
         if (boltsPx == null || boltsPx.Count == 0) return;
         try
         {
@@ -87,7 +88,7 @@ public partial class ChaosEStimOverlay : Window
                     AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
                     _active.BeginStrike(boltsPx);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosEStim.Strike: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosEStimOverlay>>().LogInformation("ChaosEStim.Strike: {E}", ex.Message); }
             });
         }
         catch { }
@@ -122,7 +123,7 @@ public partial class ChaosEStimOverlay : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosEStimOverlay>>();
 WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
@@ -245,11 +246,8 @@ WindowDecorations = WindowDecorations.None;
             if (_elapsedMs >= HOT_MS) { _tick.Stop(); return; }
             JitterBolts();
         }
-        catch (Exception ex) { _logger?.Information("ChaosEStim tick: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("ChaosEStim tick: {E}", ex.Message); }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

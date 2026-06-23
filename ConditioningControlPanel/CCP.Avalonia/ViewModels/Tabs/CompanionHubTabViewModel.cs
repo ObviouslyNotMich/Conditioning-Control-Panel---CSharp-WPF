@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
@@ -16,7 +16,8 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly IAvatarWindowService? _avatarWindowService;
+    private readonly ILogger<CompanionHubTabViewModel>? _logger;
 
     public CompanionHubTabViewModel() : base("companionhub", "Companion Hub", "🤖")
     {
@@ -25,10 +26,12 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
     public CompanionHubTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("companionhub", "Companion Hub", "🤖")
+        IAvatarWindowService avatarWindowService,
+        ILogger<CompanionHubTabViewModel> logger) : base("companionhub", "Companion Hub", "🤖")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
+        _avatarWindowService = avatarWindowService;
         _logger = logger;
     }
 
@@ -47,11 +50,10 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task InitializeAvatarAsync()
     {
-        _logger?.Information("Initialize Avatar Tube requested");
-        // TODO: port AvatarTubeWindow to Avalonia and wire to IAvatarTubeWindowService.
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_avatar_tube_not_yet_ported")) ?? Task.CompletedTask);
+        _logger?.LogInformation("Initialize Avatar Tube requested");
+        _avatarWindowService?.ShowTube();
+        AvatarVisible = _avatarWindowService?.IsVisible ?? false;
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -66,11 +68,9 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
         }
 
         AvatarVisible = true;
-        _logger?.Information("Show Avatar Tube requested");
-        // TODO: wire to IAvatarTubeWindowService.ShowTube().
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_avatar_tube_not_yet_ported")) ?? Task.CompletedTask);
+        _logger?.LogInformation("Show Avatar Tube requested");
+        _avatarWindowService?.ShowTube();
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -83,22 +83,22 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
         }
 
         AvatarVisible = false;
-        _logger?.Information("Hide Avatar Tube requested");
-        // TODO: wire to IAvatarTubeWindowService.HideTube().
+        _logger?.LogInformation("Hide Avatar Tube requested");
+        _avatarWindowService?.HideTube();
         await Task.CompletedTask;
     }
 
     [RelayCommand]
     private async Task WakeBambiAsync()
     {
-        _logger?.Information("Wake Bambi requested");
+        _logger?.LogInformation("Wake Bambi requested");
         AvatarVisible = true;
         AvatarDetached = true;
         AvatarStatusText = Loc.Get("label_avatar_floating");
-        // TODO: wire to IAvatarTubeWindowService.Detach() and Giggle().
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_avatar_wake_not_yet_ported")) ?? Task.CompletedTask);
+        _avatarWindowService?.ShowTube();
+        _avatarWindowService?.SetDetached(true);
+        _avatarWindowService?.Giggle("Bambi is awake~");
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -106,8 +106,8 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
     {
         AvatarDetached = !AvatarDetached;
         AvatarStatusText = AvatarDetached ? Loc.Get("label_avatar_floating") : Loc.Get("label_avatar_anchored");
-        _logger?.Information("Avatar detach toggled: {Detached}", AvatarDetached);
-        // TODO: wire to IAvatarTubeWindowService.Attach()/Detach().
+        _logger?.LogInformation("Avatar detach toggled: {Detached}", AvatarDetached);
+        _avatarWindowService?.SetDetached(AvatarDetached);
         await Task.CompletedTask;
     }
 
@@ -115,8 +115,8 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
     private async Task SetPoseAsync(int poseNumber)
     {
         CurrentPose = poseNumber;
-        _logger?.Information("Set avatar pose: {Pose}", poseNumber);
-        // TODO: wire to IAvatarTubeWindowService.SetPose().
+        _logger?.LogInformation("Set avatar pose: {Pose}", poseNumber);
+        _avatarWindowService?.SetPose(poseNumber);
         await Task.CompletedTask;
     }
 
@@ -128,40 +128,19 @@ public partial class CompanionHubTabViewModel : TabItemViewModel
             s.AvatarMuted = muted;
             _settingsService.Save();
         }
-        _logger?.Information("Avatar mute set to {Muted}", muted);
-        // TODO: wire to IAvatarTubeWindowService.SetMuteAvatar().
+        _logger?.LogInformation("Avatar mute set to {Muted}", muted);
+        _avatarWindowService?.SetMuteAvatar(muted);
         await Task.CompletedTask;
     }
 
     [RelayCommand]
     private async Task OpenAvatarSettingsAsync()
     {
-        _logger?.Information("Open avatar settings requested");
-        // TODO: wire to IAvatarSettingsDialog once ported.
+        _logger?.LogInformation("Open avatar settings requested");
+        // The dedicated avatar settings dialog is not yet ported; explain to the user.
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_not_implemented"),
             Loc.Get("msg_avatar_settings_not_yet_ported")) ?? Task.CompletedTask);
     }
 
-    /// <summary>
-    /// Handles XP drain events from the companion system.
-    /// </summary>
-    [RelayCommand]
-    private async Task OnXpDrainAsync(double amount)
-    {
-        _logger?.Information("Companion XP drain: {Amount}", amount);
-        // TODO: wire to overlay/flash animation service once ported.
-        await Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Handles companion level-up events.
-    /// </summary>
-    [RelayCommand]
-    private async Task OnLevelUpAsync((int Companion, int NewLevel) args)
-    {
-        _logger?.Information("Companion level up: {Companion} -> {Level}", args.Companion, args.NewLevel);
-        // TODO: wire to notification sound + tray toast once ported.
-        await Task.CompletedTask;
-    }
 }

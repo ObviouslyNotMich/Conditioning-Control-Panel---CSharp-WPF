@@ -22,7 +22,7 @@ public class UpdateService : IUpdateService, IDisposable
 
     private readonly IUpdateInstaller _installer;
     private readonly ISettingsService _settingsService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<UpdateService>? _logger;
     private readonly HttpClient _httpClient;
     private bool _disposed;
 
@@ -34,7 +34,10 @@ public class UpdateService : IUpdateService, IDisposable
     public UpdateInfo? LatestUpdate { get; private set; }
     public bool IsDownloading { get; private set; }
 
-    public UpdateService(IUpdateInstaller installer, ISettingsService settingsService, IAppLogger? logger = null)
+    /// <inheritdoc />
+    public string CurrentVersion => "6.1.6";
+
+    public UpdateService(IUpdateInstaller installer, ISettingsService settingsService, ILogger<UpdateService>? logger = null)
     {
         _installer = installer ?? throw new ArgumentNullException(nameof(installer));
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
@@ -72,12 +75,12 @@ public class UpdateService : IUpdateService, IDisposable
         {
             if (_settingsService.Current.OfflineMode)
             {
-                _logger?.Information("Offline mode enabled, skipping update check");
+                _logger?.LogInformation("Offline mode enabled, skipping update check");
                 return null;
             }
 
             var installedVersion = _installer.GetInstalledVersion();
-            _logger?.Information("Checking for updates... (current: {Version}, force: {Force}, installed: {Installed})",
+            _logger?.LogInformation("Checking for updates... (current: {Version}, force: {Force}, installed: {Installed})",
                 GetCurrentVersion(), forceCheck, installedVersion ?? "n/a");
 
             // Loop-prevention: if a recent update attempt didn't take, suppress the
@@ -88,13 +91,13 @@ public class UpdateService : IUpdateService, IDisposable
                 var skipAge = DateTime.Now - GetSkippedUpdateTime();
                 if (forceCheck)
                 {
-                    _logger?.Information("Force check requested, clearing skip marker for {Version}", skippedVersion);
+                    _logger?.LogInformation("Force check requested, clearing skip marker for {Version}", skippedVersion);
                     ClearSkippedUpdateVersion();
                     skippedVersion = null;
                 }
                 else if (skipAge.TotalMinutes > 5)
                 {
-                    _logger?.Information("Skip marker for {Version} is {Minutes:F1} minutes old, clearing it",
+                    _logger?.LogInformation("Skip marker for {Version} is {Minutes:F1} minutes old, clearing it",
                         skippedVersion, skipAge.TotalMinutes);
                     ClearSkippedUpdateVersion();
                     skippedVersion = null;
@@ -104,7 +107,7 @@ public class UpdateService : IUpdateService, IDisposable
             var githubUpdate = await CheckGitHubReleasesAsync(cancellationToken).ConfigureAwait(false);
             if (githubUpdate == null)
             {
-                _logger?.Information("No updates available from GitHub API");
+                _logger?.LogInformation("No updates available from GitHub API");
                 LatestUpdate = null;
                 ClearSkippedUpdateVersion();
                 return null;
@@ -115,7 +118,7 @@ public class UpdateService : IUpdateService, IDisposable
                 var hoursSinceSkip = (DateTime.Now - GetSkippedUpdateTime()).TotalHours;
                 if (hoursSinceSkip < 24)
                 {
-                    _logger?.Warning("Skipping update to {Version} — attempted {Hours:F1}h ago but app still on old version. Retry after 24h.",
+                    _logger?.LogWarning("Skipping update to {Version} — attempted {Hours:F1}h ago but app still on old version. Retry after 24h.",
                         githubUpdate.Version, hoursSinceSkip);
                     githubUpdate.IsNewer = false;
                 }
@@ -128,19 +131,19 @@ public class UpdateService : IUpdateService, IDisposable
             LatestUpdate = githubUpdate;
             if (LatestUpdate.IsNewer)
             {
-                _logger?.Information("Update available: {Version}", LatestUpdate.Version);
+                _logger?.LogInformation("Update available: {Version}", LatestUpdate.Version);
                 UpdateAvailable?.Invoke(this, LatestUpdate);
             }
             else
             {
-                _logger?.Information("Already on latest version: {Version}", GetCurrentVersion());
+                _logger?.LogInformation("Already on latest version: {Version}", GetCurrentVersion());
             }
 
             return LatestUpdate;
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to check for updates");
+            _logger?.LogError(ex, "Failed to check for updates");
             UpdateFailed?.Invoke(this, ex);
             return null;
         }
@@ -154,12 +157,12 @@ public class UpdateService : IUpdateService, IDisposable
         try
         {
             IsDownloading = true;
-            _logger?.Information("Downloading update, version {Version}...", LatestUpdate.Version);
+            _logger?.LogInformation("Downloading update, version {Version}...", LatestUpdate.Version);
 
             var downloadUri = await ResolveInstallerDownloadUriAsync(LatestUpdate.Version, cancellationToken).ConfigureAwait(false);
             if (downloadUri == null)
             {
-                _logger?.Warning("Could not find installer asset for version {Version}", LatestUpdate.Version);
+                _logger?.LogWarning("Could not find installer asset for version {Version}", LatestUpdate.Version);
                 return false;
             }
 
@@ -173,7 +176,7 @@ public class UpdateService : IUpdateService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to download update");
+            _logger?.LogError(ex, "Failed to download update");
             UpdateFailed?.Invoke(this, ex);
             return false;
         }
@@ -191,7 +194,7 @@ public class UpdateService : IUpdateService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to save settings before update");
+            _logger?.LogWarning(ex, "Failed to save settings before update");
         }
 
         await _installer.InstallUpdateAsync().ConfigureAwait(false);
@@ -212,7 +215,7 @@ public class UpdateService : IUpdateService, IDisposable
                     var body = json["body"]?.ToString();
                     if (!string.IsNullOrWhiteSpace(body) && body != "null")
                     {
-                        _logger?.Debug("Fetched release notes from GitHub for {Tag}", tag);
+                        _logger?.LogDebug("Fetched release notes from GitHub for {Tag}", tag);
                         return body;
                     }
                 }
@@ -222,12 +225,12 @@ public class UpdateService : IUpdateService, IDisposable
                 }
             }
 
-            _logger?.Debug("No release notes found on GitHub for version {Version}", version);
+            _logger?.LogDebug("No release notes found on GitHub for version {Version}", version);
             return null;
         }
         catch (Exception ex)
         {
-            _logger?.Debug("Failed to fetch release notes from GitHub: {Error}", ex.Message);
+            _logger?.LogDebug("Failed to fetch release notes from GitHub: {Error}", ex.Message);
             return null;
         }
     }
@@ -237,7 +240,7 @@ public class UpdateService : IUpdateService, IDisposable
         try
         {
             var url = $"https://api.github.com/repos/{GitHubOwner}/{GitHubRepo}/releases/latest";
-            _logger?.Debug("Checking GitHub releases API: {Url}", url);
+            _logger?.LogDebug("Checking GitHub releases API: {Url}", url);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(15));
@@ -246,23 +249,23 @@ public class UpdateService : IUpdateService, IDisposable
             var tagMatch = Regex.Match(response, "\"tag_name\"\\s*:\\s*\"v?([^\"]+)\"");
             if (!tagMatch.Success)
             {
-                _logger?.Debug("Could not parse tag_name from GitHub response");
+                _logger?.LogDebug("Could not parse tag_name from GitHub response");
                 return null;
             }
 
             var latestVersionString = tagMatch.Groups[1].Value;
-            _logger?.Information("GitHub API reports latest version: {Version}", latestVersionString);
+            _logger?.LogInformation("GitHub API reports latest version: {Version}", latestVersionString);
 
             if (!Version.TryParse(latestVersionString, out var latestVersion))
             {
-                _logger?.Warning("Could not parse version from tag: {Tag}", latestVersionString);
+                _logger?.LogWarning("Could not parse version from tag: {Tag}", latestVersionString);
                 return null;
             }
 
             var currentVersion = GetCurrentVersion();
             var isNewer = latestVersion > currentVersion;
 
-            _logger?.Information("GitHub version comparison: latest={Latest}, current={Current}, isNewer={IsNewer}",
+            _logger?.LogInformation("GitHub version comparison: latest={Latest}, current={Current}, isNewer={IsNewer}",
                 latestVersion, currentVersion, isNewer);
 
             if (!isNewer)
@@ -282,7 +285,7 @@ public class UpdateService : IUpdateService, IDisposable
                         if (name.EndsWith("Setup.exe", StringComparison.OrdinalIgnoreCase))
                         {
                             fileSizeBytes = (long)(asset["size"] ?? 0);
-                            _logger?.Debug("Parsed installer size from GitHub: {Size} bytes", fileSizeBytes);
+                            _logger?.LogDebug("Parsed installer size from GitHub: {Size} bytes", fileSizeBytes);
                             break;
                         }
                     }
@@ -290,7 +293,7 @@ public class UpdateService : IUpdateService, IDisposable
             }
             catch (Exception parseEx)
             {
-                _logger?.Debug("Could not parse assets from GitHub response: {Error}", parseEx.Message);
+                _logger?.LogDebug("Could not parse assets from GitHub response: {Error}", parseEx.Message);
             }
 
             return new UpdateInfo
@@ -305,7 +308,7 @@ public class UpdateService : IUpdateService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "GitHub releases API check failed");
+            _logger?.LogWarning(ex, "GitHub releases API check failed");
             return null;
         }
     }
@@ -338,7 +341,7 @@ public class UpdateService : IUpdateService, IDisposable
                     if (assetMatch.Success)
                     {
                         var downloadUrl = assetMatch.Groups[1].Value;
-                        _logger?.Information("Found installer asset: {Asset}", Path.GetFileName(new Uri(downloadUrl).LocalPath));
+                        _logger?.LogInformation("Found installer asset: {Asset}", Path.GetFileName(new Uri(downloadUrl).LocalPath));
                         return new Uri(downloadUrl);
                     }
                 }

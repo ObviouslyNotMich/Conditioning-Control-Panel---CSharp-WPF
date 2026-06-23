@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Windows;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.LockCard;
 using ConditioningControlPanel.Core.Services.Settings;
 
@@ -18,9 +17,8 @@ namespace ConditioningControlPanel.Avalonia.Services.LockCard;
 public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
 {
     private readonly ISettingsService _settings;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IInteractionQueueService _interactionQueue;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaLockCardService>? _logger;
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer = new();
 
@@ -30,12 +28,10 @@ public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
 
     public AvaloniaLockCardService(
         ISettingsService settings,
-        IUiDispatcher dispatcher,
         IInteractionQueueService interactionQueue,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaLockCardService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _interactionQueue = interactionQueue ?? throw new ArgumentNullException(nameof(interactionQueue));
         _logger = logger;
 
@@ -53,7 +49,7 @@ public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
         var settings = _settings.Current;
         if (settings == null || !settings.LockCardEnabled)
         {
-            _logger?.Information("AvaloniaLockCardService: disabled in settings");
+            _logger?.LogInformation("AvaloniaLockCardService: disabled in settings");
             return;
         }
 
@@ -61,7 +57,7 @@ public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
         _timer.Interval = CalculateNextInterval(settings.LockCardFrequency);
         _timer.Start();
 
-        _logger?.Information("AvaloniaLockCardService started - approximately {PerHour}/hour", settings.LockCardFrequency);
+        _logger?.LogInformation("AvaloniaLockCardService started - approximately {PerHour}/hour", settings.LockCardFrequency);
     }
 
     public void Stop()
@@ -70,23 +66,23 @@ public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
         _isRunning = false;
 
         _timer.Stop();
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             try { LockCardWindow.ForceCloseAll(); } catch { }
         });
 
-        _logger?.Information("AvaloniaLockCardService stopped");
+        _logger?.LogInformation("AvaloniaLockCardService stopped");
     }
 
     public void ShowLockCard(string? customPhrase = null, int customRepeats = -1, bool customStrict = false, bool isTest = false)
     {
-        _dispatcher.Invoke(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             try
             {
                 if (LockCardWindow.IsAnyOpen())
                 {
-                    _logger?.Information("AvaloniaLockCardService: a lock card is already open; skipping");
+                    _logger?.LogInformation("AvaloniaLockCardService: a lock card is already open; skipping");
                     return;
                 }
 
@@ -108,7 +104,7 @@ public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
 
                         if (enabledPhrases.Count == 0 && string.IsNullOrEmpty(customPhrase))
                         {
-                            _logger?.Warning("AvaloniaLockCardService: no phrases enabled");
+                            _logger?.LogWarning("AvaloniaLockCardService: no phrases enabled");
                             _interactionQueue.Complete("LockCard");
                             return;
                         }
@@ -123,19 +119,19 @@ public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
                         LockCardWindow.ShowOnAllMonitors(phrase, repeats, strict, isTest);
                         _lastShown = DateTime.Now;
 
-                        _logger?.Information("AvaloniaLockCardService: lock card shown - Phrase: {Phrase}, Repeats: {Repeats}, Strict: {Strict}, Test: {IsTest}",
+                        _logger?.LogInformation("AvaloniaLockCardService: lock card shown - Phrase: {Phrase}, Repeats: {Repeats}, Strict: {Strict}, Test: {IsTest}",
                             phrase, repeats, strict, isTest);
                     }
                     catch (Exception ex)
                     {
-                        _logger?.Error(ex, "AvaloniaLockCardService: failed to show lock card");
+                        _logger?.LogError(ex, "AvaloniaLockCardService: failed to show lock card");
                         _interactionQueue.Complete("LockCard");
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "AvaloniaLockCardService: failed to show lock card");
+                _logger?.LogError(ex, "AvaloniaLockCardService: failed to show lock card");
             }
         });
     }
@@ -147,7 +143,7 @@ public sealed class AvaloniaLockCardService : ILockCardService, IDisposable
 
     public void NotifyCompleted(string phrase, int totalErrors, int requiredRepeats)
     {
-        _logger?.Information(
+        _logger?.LogInformation(
             "AvaloniaLockCardService.NotifyCompleted: {Phrase} ({Errors} errors, {Repeats} repeats)",
             phrase, totalErrors, requiredRepeats);
 

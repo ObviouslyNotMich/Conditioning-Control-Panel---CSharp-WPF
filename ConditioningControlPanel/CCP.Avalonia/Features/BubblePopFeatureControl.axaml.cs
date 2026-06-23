@@ -86,7 +86,7 @@ public partial class BubblePopFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            global::ConditioningControlPanel.Avalonia.App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "BubblePopFeatureControl start/stop failed");
+            global::ConditioningControlPanel.Avalonia.App.Services?.GetRequiredService<ILogger<BubblePopFeatureControl>>().LogWarning(ex, "BubblePopFeatureControl start/stop failed");
         }
     }
 
@@ -100,7 +100,7 @@ public partial class BubblePopFeatureControl : UserControl
         try { _bubbles?.RefreshFrequency(); }
         catch (Exception ex)
         {
-            global::ConditioningControlPanel.Avalonia.App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "Bubbles RefreshFrequency failed");
+            global::ConditioningControlPanel.Avalonia.App.Services?.GetRequiredService<ILogger<BubblePopFeatureControl>>().LogWarning(ex, "Bubbles RefreshFrequency failed");
         }
 
         _settings.Save();

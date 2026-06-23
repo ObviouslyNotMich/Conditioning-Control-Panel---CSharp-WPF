@@ -37,6 +37,33 @@ The recommended strategy is **engine-first extraction**:
 The dominant remaining cost is **UI parity** (Phase 4: AvatarTube depth, Chaos overlay animations/z-order/boons,
 remaining hard-coded dialogs) plus mobile polish — not scaffolding.
 
+> **The bar for "done": every feature ports 1:1 — identical behavior to the WPF app — and should be *smoother and
+> faster*.** The WPF baseline is the **floor, not the ceiling**: every function should feel at least as snappy on
+> Avalonia/Skia, and the expectation is *better* — never slower, never janky. No permanent stubs, no "good enough"
+> approximations, no degraded behavior on Windows. If WPF does X, the Avalonia port does X, at least as fast.
+> "Better" means *faster/smoother*, not *changed* — match the WPF behavior, then beat its performance with
+> Avalonia/Skia composition, async startup, pooling, and off-UI-thread work (§14.2). The only acceptable
+> degradation is on Linux/macOS/Android where a feature is inherently platform-limited (global hooks, wallpaper,
+> etc.) — gate those per §6/§7; **never** degrade on the Windows parity target.
+
+> **Build principle — lazy senior dev / YAGNI ("ponytail"):** build the *simplest thing that works*. Framework and
+> stdlib first, no unrequested abstractions, delete over add, shortest working diff. **A platform seam earns its
+> place only when there's a real cross-platform divergence with a real implementation behind it — never a one-line
+> wrapper over a framework API.** This is not in tension with the bar above: 1:1-or-better behavior is the *what*;
+> ponytail is the *how* — fewer moving parts is faster and more maintainable. The ponytail-audit
+> (`docs/avalonia-ponytail-audit-queue.md`) already applied this and **removed needless wrappers/stubs** —
+> `IUiDispatcher`, `IScheduler`, custom `IAppLogger`, hand-rolled `LibVLCNativeDiscovery`, the `AvaloniaFrameSource`
+> throw-stub, mobile stubs — in favor of using `Dispatcher.UIThread`, `DispatcherTimer`, `ILogger<T>`, LibVLCSharp's
+> own discovery, and `AssetLoader` directly. Hold new work to that bar; before adding a seam/abstraction, check it
+> against this principle and §3.3.
+>
+> **Pruning is ongoing (keep doing it — it makes the app faster), but each prune is a refactor.** Deleting an
+> abstraction can break whatever quietly leaned on it, so treat every cut like a code change: build, then
+> **re-exercise the affected features end-to-end (§13.6)** — don't assume "removed wrapper, still works." Because
+> of this, **`docs/avalonia-ui-parity-matrix.md` was reset (2026-06-23) to all-unverified** — every item is
+> re-checked from scratch by exercising it; prune unneeded code during that pass. Trust the running app, not old
+> marks.
+
 > **Execution model:** the remaining work is highly parallel and is meant to be run as a **multi-agent
 > swarm**. Before assigning or starting work, read **§20 — Multi-Agent Swarm Execution & Context Discipline**
 > for lane partitioning, the claim→work→integrate protocol, conflict-avoidance rules, and **when to compact
@@ -49,7 +76,7 @@ remaining hard-coded dialogs) plus mobile polish — not scaffolding.
 | 1 — Carve out `CCP.Core` | ✅ substantially done | 156 `.cs` files: 53 models, the full platform-seam interface set (26 interface files in `CCP.Core/Platform/`), plus services for Sessions, Moderation, Deeper, Bark, Chaos, AIService, Progression, Quests, Settings, Content, Commands. Core builds clean on `net8.0`. |
 | 2 — Prove Core off-Windows | 🚧 partial | CI (`.github/workflows/build.yml`) builds Core + heads on `ubuntu-latest`/`macos-latest` and runs `CCP.Core.Tests`. Needs ongoing "no Windows leaks" auditing as Core grows. |
 | 3 — Avalonia solution | ✅ done | All heads exist and build (see §3.1, **updated**). |
-| 4 — XAML/UI migration | 🚧 largest remaining effort | 149 `.axaml` + 279 `.cs` in `CCP.Avalonia`: Dialogs (67), Windows (59), Views/Tabs (58) + 33 tab ViewModels, Features (52), Chaos (46), AvatarTube (10), Converters/Controls. `MainWindow` shell, chrome, drag-drop/resize grips, XP bar, and banner are present. Remaining: AvatarTube runtime behavior (in progress under agent1), Chaos overlay animations/z-order/boon logic, hard-coded onboarding/privacy dialogs and webcam windows, accessibility labels. Tracked in `docs/avalonia-migration-task-board.md` and `docs/avalonia-ui-parity-matrix.md`. |
+| 4 — XAML/UI migration | 🚧 renders, but **functionally incomplete** | 149 `.axaml` + 279 `.cs` ported (Dialogs 67, Windows 59, Views/Tabs 58 + 33 VMs, Features 52, Chaos 46, AvatarTube 10); the shell, chrome, drag-drop/resize, XP bar, and banner render. **But** a 2026-06-22 audit + maintainer testing found many features **don't actually work** (login dead, START/avatar/overlays/Chaos/content-packs/feature-card-editors stubbed). **The parity matrix's ✅ means "renders," not "works"** — the authoritative not-done list is `docs/avalonia-migration-task-board.md` → **Known Functional Gaps** (reported #1–#5 + audit A–K). `docs/avalonia-ui-parity-matrix.md` tracks per-screen rendering. |
 | 5 — Media & audio | 🚧 partial | `AvaloniaVideoSurface`, `AvaloniaAudioPlayer`, `AvaloniaDualMonitorVideoService`, and `LibVLCNativeDiscovery` exist. Mandatory-video attention checks, strict mode, post-play penalty/mercy loop, and dual-monitor secondary windows are ported. Windows system-audio ducking is implemented via `WindowsSystemAudioDucker`; Linux/macOS use best-effort `pactl`/`osascript`. Remaining: mobile `IVideoSurface`, GIF/SVG finalize. |
 | 6 — OS-shell features | ✅ structurally done | Per-head implementations exist for tray, hotkeys, input hook, wallpaper, browser host (WebView2 / WebKitGTK / WebKit), window chrome, frame source, audio device + ducker. Wired via `App.ConfigurePlatformServices` overrides per head. |
 | 7 — Build & publish | 🚧 desktop done | RIDs defined per head; CI publishes single-file desktop artifacts for win/linux/macOS. The Android job currently only `dotnet build`s the head — **AAB packaging is not yet wired**. Remaining: Android AAB publish, code signing/notarization, Android keystore. |
@@ -210,8 +237,14 @@ Introduce these interfaces in `CCP.Core` and implement per platform:
 >
 > Interfaces added during implementation that aren't in this table: `IAppEnvironment`, `IDialogService`,
 > `IFilePickerService`, `IHapticsService`, `ILockdownService`, `IPlatformCapabilities`, `IRemoteControlService`.
-> When you genuinely need a new seam, add the interface + a safe shared fallback in `ConfigureCoreServices`
-> first (see §21), then implement it per head.
+>
+> **Removed as needless wrappers (ponytail-audit, §1A build principle):** `IUiDispatcher` and `IScheduler` were
+> one-line wrappers over `Dispatcher.UIThread` / `DispatcherTimer` — deleted; call the framework APIs directly.
+> Likewise the custom `IAppLogger` (→ `ILogger<T>`), `LibVLCNativeDiscovery` (→ LibVLCSharp's own discovery), and
+> the `AvaloniaFrameSource` throw-stub (register `IFrameSource` only where it's actually implemented). Don't
+> recreate these. **A seam earns its place only with a real cross-platform divergence + a real implementation —
+> not indirection for its own sake.** When you genuinely need one, add the interface + a safe shared fallback in
+> `ConfigureCoreServices` first (see §21), then implement it per head.
 
 ---
 
@@ -574,6 +607,34 @@ Target:
 - Click-through/input passthrough requires platform-specific code on Linux/macOS.
 - DWM tinting is Windows-only; use Avalonia client-side decorations for cross-platform chrome.
 
+**Overlays are PURE PASSIVE LAYERS (REQUIRED — a reported bug).** Color/effect overlays — **pink fill, spiral**,
+subliminal, flash, brain-drain — are *paint-only*: a coloured layer drawn on top of the screen and **nothing
+else**. Think **tinted glass over the monitor** — you *see* it (rendered smoothly), but you can click, type, and
+use your whole PC completely normally underneath it. It must not affect, in any way, the CCP window **or any other
+app/software behind it**. Concretely the overlay window must:
+- **not capture input** — mouse and keyboard pass straight through to whatever is underneath (the app's own
+  buttons *and* other applications);
+- **not steal focus or activate** — the focused window stays focused; the overlay never becomes foreground;
+- **not appear in Alt-Tab / the task switcher**, and not show in the taskbar;
+- **not interfere with the behavior or performance** of apps behind it (no input grabs, no global hooks tied to the
+  overlay, minimal GPU/CPU cost — see the perf bar in §1A);
+- **render its own visual smoothly** — animated overlays (e.g. the spiral) spin/pulse at a fluid frame rate while
+  still being fully click-through. "See it smoothly, use your PC normally" is the whole requirement.
+
+This needs input-transparency at **both** levels, and the reported bug is shipping only one:
+1. **Avalonia level:** the overlay's content/root must be `IsHitTestVisible="false"` so clicks fall through to the
+   app's own controls beneath it.
+2. **OS window level:** the overlay's top-level window must be made click-through so clicks reach *other apps*. On
+   Windows that is `WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE` on the window handle, applied **after the
+   handle exists** (e.g. on `Opened`/`HandleCreated`) — exactly what `IOverlaySurface`'s Windows implementation
+   (`WindowsOverlaySurface` / `AvaloniaOverlayService`) already does. **Every** color/effect overlay must route
+   through that path; the reported failure is that some (pink fill, spiral) bypass it or apply it to the wrong
+   window/too early.
+- Linux/macOS: input passthrough is compositor/native-specific — gate as desktop-only and degrade gracefully
+  (don't ship an overlay that traps input).
+- **Verify** by clicking the app's buttons *through* an active overlay, and by clicking a second app placed behind
+  the overlay. See §13.6.
+
 ### 7.5 Screen / Monitor APIs
 
 Current: `System.Windows.Forms.Screen.AllScreens`, `SystemParameters.WorkArea`, `GetDpiForMonitor`, `SetDisplayConfig`.
@@ -581,6 +642,30 @@ Current: `System.Windows.Forms.Screen.AllScreens`, `SystemParameters.WorkArea`, 
 Target: Avalonia `Window.Screens` / `TopLevel.GetTopLevel(this).Screens`. Abstract `IScreenProvider` for headless Core.
 
 Display mirroring (`SetDisplayConfig`) has no cross-platform API; gate as Windows-only.
+
+**Multi-monitor (N screens) — REQUIRED, not "dual".** Treat "dual monitor" as a special case of **arbitrary N
+monitors**. Every screen-spanning feature — mandatory video, flash, subliminal, spiral, pink fill, brain-drain,
+bouncing text, bubbles, Chaos overlays, mind-wipe, etc. — must render correctly across **all** monitors at once,
+**unless that feature is configured to a single display** (respect the per-feature display setting — don't span
+when the user picked one screen).
+
+Rules (the data is already on `AvaloniaScreenProvider`: per-monitor `Bounds`, `WorkingArea`, `Scaling`):
+- **Iterate `Screens.All`, never `[0]`/`[1]`.** No assumption of exactly two monitors and no hard-coded
+  primary+secondary. The `AvaloniaDualMonitorVideoService` name is a tell — generalize it to N (one surface per
+  target monitor).
+- **Size each surface to *its own* monitor.** A window/overlay on monitor M uses `M.Bounds` (position `M.Bounds.X/Y`,
+  size from `M.Bounds`), so it fills exactly that screen. Because `Bounds` already encodes orientation, a **portrait**
+  monitor (Height > Width) and a **landscape** monitor each get the right aspect automatically — a 3-monitor mix of
+  1 landscape + 2 portrait (or vice-versa) must each look correct.
+- **Scale per-monitor.** Use **each** monitor's own `Scaling` (DPI) for sizing/positioning math — never the primary's
+  scale for a secondary. Video frame buffers/`WriteableBitmap`s are allocated per target surface; letterbox/scale
+  the video to each monitor's aspect rather than stretching.
+- **Optimize:** spawn a surface **only** on monitors the feature targets (all, or the chosen single display); pool
+  and reuse surfaces across runs instead of create/dispose per effect; one decoder where the same frame is mirrored,
+  blitted per surface. Don't allocate full-screen layered windows you don't need (ties to the GDI/heap exhaustion
+  risk in §14.1).
+- **React to display changes at runtime.** Handle monitor hotplug, resolution, and orientation changes
+  (`Screens.Changed`) — re-layout/re-create surfaces; don't leave a window stranded on a removed monitor.
 
 ### 7.6 Desktop Wallpaper
 
@@ -887,7 +972,10 @@ Every phase must end with a **build checkpoint** and a **test checkpoint**. The 
 - **Build gate:** every PR must build all heads on Windows, Linux, and macOS.
 - **Test gate:** Core unit/integration tests must pass on all three desktop OSs.
 - **Static analysis gate:** enable nullable reference types in Core; enable `CA1416` again and prove no cross-platform leaks.
-- **Performance gate:** startup time and working-set memory must not regress vs. WPF baseline.
+- **Performance gate:** startup time, working-set memory, and effect/animation frame rates must **match or beat**
+  the WPF baseline — never regress (the bar is 1:1-or-better, §1A). Capture the WPF baseline first (§13.3 Phase 0),
+  then hold each ported feature to it; treat a regression as a defect, and prefer beating it via the §14.2 levers
+  (Skia composition, async startup, overlay/audio pooling, off-UI-thread decode).
 - **Accessibility gate:** keyboard navigation and screen-reader labels for every new view.
 
 ### 13.5 Visual Parity Verification (reference screenshots)
@@ -907,12 +995,13 @@ reference for the **matching active theme**:
 |---|---|---|
 | `default good view.jpg` | **CCP Default** | Target look for the default theme. |
 | `good view.png` | **Sissy Hypno** (pink) | Target look for the Sissy theme. |
-| _(missing)_ | **Bambi, Droneification, Circe Lock** | No reference yet — capture from the running WPF app per theme (or have the maintainer add them). Each has its own palette/avatar. |
+| `bambi sleep good view.jpg` | **Bambi Sleep** | Target look for the Bambi theme. |
+| `drone good view.jpg` | **Droneification** | Target look for the Drone theme. |
+| `circe lock good view.jpg` | **Circe Lock** | Target look for the Circe Lock theme. |
 | `bad view.jpg`, `bad view2.png` | — | Known-wrong examples — treat their defects as an explicit "do NOT ship" checklist (raw loc keys, empty/missing card grid, unstyled wrapped tab list, broken layout). |
 | `avalonia_screenshot_*.png` | — | Captures of the current Avalonia state for before/after comparison. |
 
-> **Suggested naming** (if you add more): `good-view-<theme>.(png|jpg)` e.g. `good-view-default`, `good-view-sissy`,
-> `good-view-bambi`, `good-view-drone`, `good-view-circe`. The current two files are the maintainer's originals.
+> All **five** theme references now exist (maintainer-supplied). Filenames have spaces — quote them.
 
 > **Prerequisite:** the `img state/` folder is currently **untracked** in git — commit it so worktree-isolated
 > swarm agents (§20.3) actually have the references. The folder name contains a space, so **quote the path**
@@ -921,9 +1010,10 @@ reference for the **matching active theme**:
 
 **Procedure per tab/screen:**
 1. Run the **Avalonia Windows head** and screenshot the tab you ported.
-2. Compare against (a) the reference image **for the active theme** (`default good view.jpg` for CCP Default,
-   `good view.png` for Sissy Hypno; for Bambi/Droneification/Circe Lock capture from the WPF app), and (b) a
-   screenshot of the **same tab in the same theme in the running WPF app** — the WPF app is the visual + behavioral
+2. Compare against (a) the reference image **for the active theme** — all five exist now: `default good view.jpg`
+   (CCP Default), `good view.png` (Sissy Hypno), `bambi sleep good view.jpg` (Bambi), `drone good view.jpg`
+   (Droneification), `circe lock good view.jpg` (Circe Lock) — and (b) a screenshot of the **same tab in the same
+   theme in the running WPF app** — the WPF app is the visual + behavioral
    source of truth. Launch it and capture, or drop OG captures into `img state/` and reuse them.
 3. Check the recurring failure modes specifically:
    - **No raw `{loc:Str}` keys leaking as text** — every label localized (§17.2); tab headers translated.
@@ -947,11 +1037,44 @@ truth, so capture whatever you need:
   Droneification / Circe Lock), open the tab/dialog/popup in question (in whatever state you're unsure about —
   hover, expanded, error, populated vs. empty), and **screenshot it**. This is the answer to "how should this look?"
   for any view, not only the dashboard.
-- Treat that capture as the reference, and save the ones worth keeping into `img state/` (e.g. `good-view-bambi.png`)
-  so the rest of the swarm and later runs reuse them — this is exactly how to fill the missing
-  Bambi/Droneification/Circe Lock references.
+- Treat that capture as the reference (the 5 dashboard theme references already exist in `img state/`; this is for
+  *other* views/states you're unsure about). Save keepers into `img state/` so the swarm and later runs reuse them.
 - This is a **local Windows** step (needs a desktop session + screenshot tooling); it isn't available in headless
   CI, so it's part of per-lane local verification, not the build gate.
+
+### 13.6 Functional / Behavioral Parity (exercise it — don't just render it)
+
+**A tab that *looks* right can still *do* nothing — "builds + looks right" is NOT done.** Real defects from the
+first port: the **START button doesn't launch the mode**, the **left avatar is inert**, "Down the Rabbit Hole"
+progression doesn't run, and color **overlays (pink fill, spiral) block input** instead of being click-through.
+These pass a build and a screenshot but fail the user. Every interactive element must actually work, verified by
+*using* it.
+
+**The standard is 1:1-or-better (§1A):** the ported feature must do *exactly* what the WPF feature does — same
+inputs, same outputs, same edge cases — at **equal-or-better performance**. Not a simplified or approximate
+version. When in doubt about expected behavior, run the WPF app and match it (§13.5 self-serve). A stub that
+"renders but no-ops" is a defect, not a milestone.
+
+Per lane, before ✅:
+- **Drive the primary action end-to-end** in the running Avalonia head and confirm it does what the WPF app does:
+  START actually launches the mode (flashes/video/overlays/avatar begin), Save/Exit work, every feature card
+  toggles **and activates its service**, the avatar reacts, dialogs commit and persist.
+- **Confirm commands are really wired** — controls bound to live `ICommand`s on the ViewModel that call the Core/
+  platform service, not empty stubs or `TODO`s. A fully-styled button bound to a missing/no-op command is the
+  single most common failure here; grep the lane for stub commands and `NotImplemented`.
+- **Compare behavior side-by-side** with the WPF app (§13.5 self-serve), not just pixels.
+- **Overlays must be input-transparent** (pink fill, spiral, subliminal, flash, brain-drain): they are *visual
+  only* and must never capture input — not the app's own buttons, and **not other applications behind them**. See
+  the hardened spec in §7.4 and the gotcha in §21.
+- Anything inert / input-blocking → a parity-matrix row (or task-board item), fixed before closing the lane.
+
+> The maintainer reported a batch of these (START, avatar, progression, overlay click-through, "and a few more"),
+> and a code-audit sweep found many more that the code itself marks as stubbed — including **account login being
+> entirely no-op (so all premium/Patreon-gated features are locked)**, the Chaos/"Rabbit Hole" run economy being
+> largely placeholder, content-pack management, several feature-card editors, and webcam tracking. The full,
+> grouped list is `docs/avalonia-migration-task-board.md` → **Known Functional Gaps** (treat as P0). Find more with
+> `grep -rinE "TODO|stub|not ported|not wired|placeholder|NotImplemented|No-?op" CCP.Avalonia --include=*.cs`, and
+> by actually exercising every feature — the markers are a floor, not a ceiling.
 
 ---
 
@@ -1033,6 +1156,12 @@ Target:
 - Version settings schema; provide migration classes (`ISettingsMigration`).
 - Preserve user data path across updates; do not move files unnecessarily.
 - Back up old settings before migration.
+- **One user-data folder, matching legacy.** All user data must resolve to the legacy WPF location
+  `%LOCALAPPDATA%\ConditioningControlPanel` (Local), not a new one — the assembly rename
+  (`ConditioningControlPanel` → `CCP.Desktop.*`) must **not** move it. ⚠️ **Known bug (task board #L):**
+  `AvaloniaAppEnvironment.ApplicationDataPath` resolves to **Roaming** (`%APPDATA%`) while `UserDataPath` and
+  legacy use **Local** — so session logs / custom sessions / moderation counter land in the wrong folder and look
+  lost. Collapse to one Local path (ponytail: don't keep two path properties that point at two folders).
 
 ### 15.4 Logging, Crash Reporting, and Telemetry
 
@@ -1452,6 +1581,13 @@ Concrete things hit during implementation that the original draft did not antici
 - **`Avalonia.Diagnostics` is recommended (§4.1) but not yet referenced** by any head. Add it as a
   `Debug`-conditional package and call `AttachDeveloperTools()` (F12 DevTools) — it materially speeds up the
   Phase-4 binding/parity work. Low effort, high leverage for the swarm.
+- **"Builds + looks right" ≠ works.** The first port shipped inert UI: START didn't launch the mode, the avatar
+  did nothing, overlays blocked input. Wire every control to a live `ICommand` → Core/platform service, and
+  **exercise each feature in the running app** before calling it done (§13.6). Grep ported lanes for stub/no-op
+  commands and `NotImplementedException`.
+- **Overlays must be click-through at BOTH the Avalonia and OS-window level** (`IsHitTestVisible=false` *and*
+  `WS_EX_TRANSPARENT|WS_EX_LAYERED|WS_EX_NOACTIVATE` applied after the handle exists). They must not block the app's
+  own buttons or other apps behind them. Shipping only one level is the pink-fill/spiral bug — see §7.4.
 - **Accent colors are theme-driven — never hard-code them.** The top-left mod switcher re-skins the whole app
   (Sissy = pink, Drone = green, …). Bind to the accent **resource keys via `DynamicResource`**, not literal hex,
   and port the per-mod re-skin path. The current `App.axaml` hard-codes the palette with no re-skin path — see

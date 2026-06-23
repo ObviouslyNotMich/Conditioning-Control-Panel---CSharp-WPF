@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using Avalonia.Threading;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.MindWipe;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -23,10 +22,9 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
     private readonly ISettingsService _settings;
     private readonly IAppEnvironment _environment;
     private readonly LibVLC _libVlc;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IAchievementService _achievements;
     private readonly IDialogService _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaMindWipeService>? _logger;
     private readonly Random _random = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(10) };
 
@@ -45,15 +43,13 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         ISettingsService settings,
         IAppEnvironment environment,
         LibVLC libVlc,
-        IUiDispatcher dispatcher,
         IAchievementService achievements,
         IDialogService dialogService,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaMindWipeService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _libVlc = libVlc ?? throw new ArgumentNullException(nameof(libVlc));
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _achievements = achievements ?? throw new ArgumentNullException(nameof(achievements));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger;
@@ -87,7 +83,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         _isRunning = true;
 
         _timer.Start();
-        _logger?.Information("AvaloniaMindWipeService started (frequency: {Freq}/hour, volume: {Vol}%, files: {Count})",
+        _logger?.LogInformation("AvaloniaMindWipeService started (frequency: {Freq}/hour, volume: {Vol}%, files: {Count})",
             frequencyPerHour, _volume * 100, _audioFiles.Length);
     }
 
@@ -98,7 +94,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         _loopMode = false;
         _timer.Stop();
         StopCurrentAudio();
-        _logger?.Information("AvaloniaMindWipeService stopped");
+        _logger?.LogInformation("AvaloniaMindWipeService stopped");
     }
 
     public void StartLoop(double volume)
@@ -107,7 +103,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         LoadAudioFiles();
         if (_audioFiles.Length == 0)
         {
-            _logger?.Warning("AvaloniaMindWipeService: no audio files available for loop");
+            _logger?.LogWarning("AvaloniaMindWipeService: no audio files available for loop");
             return;
         }
 
@@ -119,7 +115,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
 
         var file = _audioFiles[_random.Next(_audioFiles.Length)];
         PlayFile(file, _volume, loop: true);
-        _logger?.Information("AvaloniaMindWipeService loop started with {File}", Path.GetFileName(file));
+        _logger?.LogInformation("AvaloniaMindWipeService loop started with {File}", Path.GetFileName(file));
     }
 
     public void StopLoop()
@@ -138,7 +134,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
 
         _loopMode = false;
         StopCurrentAudio();
-        _logger?.Information("AvaloniaMindWipeService loop stopped");
+        _logger?.LogInformation("AvaloniaMindWipeService loop stopped");
     }
 
     public void TriggerOnce()
@@ -146,7 +142,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         LoadAudioFiles();
         if (_audioFiles.Length == 0)
         {
-            _logger?.Warning("AvaloniaMindWipeService: no audio files available");
+            _logger?.LogWarning("AvaloniaMindWipeService: no audio files available");
             _ = _dialogService.ShowMessageAsync(
                 "Mind Wipe",
                 "No audio files found in assets/mindwipe/.");
@@ -182,7 +178,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
             if (!string.IsNullOrWhiteSpace(customPath) && File.Exists(customPath))
             {
                 _audioFiles = new[] { customPath };
-                _logger?.Information("AvaloniaMindWipeService: using custom audio file {Path}", customPath);
+                _logger?.LogInformation("AvaloniaMindWipeService: using custom audio file {Path}", customPath);
                 return;
             }
 
@@ -191,7 +187,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
             {
                 try { Directory.CreateDirectory(audioFolderPath); } catch { }
                 _audioFiles = Array.Empty<string>();
-                _logger?.Warning("AvaloniaMindWipeService: created empty folder at {Path}", audioFolderPath);
+                _logger?.LogWarning("AvaloniaMindWipeService: created empty folder at {Path}", audioFolderPath);
                 return;
             }
 
@@ -201,7 +197,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "AvaloniaMindWipeService: failed to load audio files");
+            _logger?.LogError(ex, "AvaloniaMindWipeService: failed to load audio files");
             _audioFiles = Array.Empty<string>();
         }
     }
@@ -211,7 +207,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         if (_loopMode || !_isRunning) return;
         if (_audioFiles.Length == 0)
         {
-            _logger?.Warning("AvaloniaMindWipeService: timer ticked but no audio files loaded");
+            _logger?.LogWarning("AvaloniaMindWipeService: timer ticked but no audio files loaded");
             return;
         }
 
@@ -219,7 +215,7 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         var roll = _random.NextDouble();
         if (roll < probability)
         {
-            _logger?.Information("AvaloniaMindWipeService: triggering audio (roll {Roll:F2} < prob {Prob:F2})", roll, probability);
+            _logger?.LogInformation("AvaloniaMindWipeService: triggering audio (roll {Roll:F2} < prob {Prob:F2})", roll, probability);
             PlayAudioNow();
         }
     }
@@ -246,11 +242,11 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
             _mediaPlayer.Volume = (int)(volume * 100);
             _mediaPlayer.Play(_currentMedia);
 
-            _logger?.Debug("AvaloniaMindWipeService: playing {File} (loop={Loop})", Path.GetFileName(filePath), loop);
+            _logger?.LogDebug("AvaloniaMindWipeService: playing {File} (loop={Loop})", Path.GetFileName(filePath), loop);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "AvaloniaMindWipeService: failed to play {File}", filePath);
+            _logger?.LogError(ex, "AvaloniaMindWipeService: failed to play {File}", filePath);
         }
     }
 
@@ -264,14 +260,14 @@ public sealed class AvaloniaMindWipeService : IMindWipeService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaMindWipeService: error stopping audio: {Error}", ex.Message);
+            _logger?.LogDebug("AvaloniaMindWipeService: error stopping audio: {Error}", ex.Message);
         }
     }
 
     private void OnMediaPlayerEndReached(object? sender, EventArgs e)
     {
         // LibVLC fires this on its own thread; dispatch cleanup to the UI thread.
-        _dispatcher.Post(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             if (_loopMode) return; // looping uses input-repeat, so EndReached is not expected
             try

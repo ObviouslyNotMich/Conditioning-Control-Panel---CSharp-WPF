@@ -23,7 +23,7 @@ namespace ConditioningControlPanel.Core.Services.AIService
         private const string DefaultHost = "http://localhost:11434/";
         private const string OllamaInstallerUrl = "https://ollama.com/download/OllamaSetup.exe";
 
-        private readonly IAppLogger _logger;
+        private readonly ILogger<OllamaSetupService> _logger;
 
         // Tracks a headless `ollama serve` process this app spawned, so it can
         // be terminated on app exit instead of leaving the server orphaned.
@@ -32,7 +32,7 @@ namespace ConditioningControlPanel.Core.Services.AIService
         private Process? _spawnedServer;
         private readonly object _spawnedServerLock = new();
 
-        public OllamaSetupService(IAppLogger logger)
+        public OllamaSetupService(ILogger<OllamaSetupService> logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -285,7 +285,7 @@ namespace ConditioningControlPanel.Core.Services.AIService
 
             if (proc.ExitCode != 0)
             {
-                _logger.Warning("OllamaSetup.exe exited with code {Code}", proc.ExitCode);
+                _logger.LogWarning("OllamaSetup.exe exited with code {Code}", proc.ExitCode);
                 return false;
             }
 
@@ -347,7 +347,7 @@ namespace ConditioningControlPanel.Core.Services.AIService
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "Failed to spawn `ollama serve`");
+                _logger.LogWarning(ex, "Failed to spawn `ollama serve`");
                 return false;
             }
 
@@ -405,7 +405,7 @@ namespace ConditioningControlPanel.Core.Services.AIService
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "Failed to stop spawned `ollama serve`");
+                _logger.LogWarning(ex, "Failed to stop spawned `ollama serve`");
             }
             finally
             {
@@ -530,7 +530,7 @@ namespace ConditioningControlPanel.Core.Services.AIService
             catch (Exception ex)
             {
                 sw.Stop();
-                _logger.Warning(ex, "Smoke test failed (model={Model})", model);
+                _logger.LogWarning(ex, "Smoke test failed (model={Model})", model);
                 return (false, sw.Elapsed, "");
             }
         }

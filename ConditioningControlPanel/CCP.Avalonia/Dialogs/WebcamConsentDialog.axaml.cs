@@ -14,7 +14,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class WebcamConsentDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<WebcamConsentDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -36,7 +36,7 @@ public partial class WebcamConsentDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<WebcamConsentDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 UpdateUiForStep();
     }
@@ -144,7 +144,7 @@ _settings?.Current;
             _settings?.Save();
         }
 
-        _logger?.Information("Webcam consent granted at {Time}, version {Version}",
+        _logger?.LogInformation("Webcam consent granted at {Time}, version {Version}",
             DateTime.UtcNow, ConsentVersion);
 
         ConsentGiven = true;
@@ -172,7 +172,7 @@ _settings?.Current;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "WebcamConsentDialog: failed to open source URL");
+            _logger?.LogWarning(ex, "WebcamConsentDialog: failed to open source URL");
         }
     }
 }

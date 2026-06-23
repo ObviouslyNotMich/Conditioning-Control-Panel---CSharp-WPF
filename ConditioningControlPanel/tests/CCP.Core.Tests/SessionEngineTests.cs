@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
-using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Headless.XUnit;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Models;
 using Xunit;
 
 namespace ConditioningControlPanel.Core.Tests;
@@ -30,24 +29,9 @@ public class SessionEngineTests
         public void AddXP(int amount, XPSource source) { }
         public double GetSessionXPMultiplier(int playerLevel) => 1.0 + playerLevel * 0.02;
         public double GetXPForLevel(int level) => 100.0;
+        public double GetTotalXP(int level, double currentXP) => (level - 1) * 100.0 + currentXP;
+        public double GetCurrentLevelXP(int level, double totalXP) => totalXP - (level - 1) * 100.0;
         public event EventHandler<int>? LevelUp { add { } remove { } }
-    }
-
-    private class FakeScheduler : IScheduler, IDisposable
-    {
-        private Action? _periodicCallback;
-
-        public IDisposable StartPeriodicTimer(TimeSpan interval, Action callback)
-        {
-            _periodicCallback = callback;
-            return this;
-        }
-
-        public IDisposable StartOneShotTimer(TimeSpan dueTime, Action callback) => this;
-
-        public void Tick() => _periodicCallback?.Invoke();
-
-        public void Dispose() => _periodicCallback = null;
     }
 
     private static Session CreateSession(int durationMinutes = 10, int bonusXP = 400)
@@ -68,11 +52,16 @@ public class SessionEngineTests
         };
     }
 
-    [Fact]
+    private static void Tick(SessionService service)
+    {
+        var method = typeof(SessionService).GetMethod("OnTick", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(service, null);
+    }
+
+    [AvaloniaFact]
     public async Task StartSession_SetsRunningAndRaisesStarted()
     {
-        var scheduler = new FakeScheduler();
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), scheduler);
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
 
         bool started = false;
         service.SessionStarted += (_, _) => started = true;
@@ -85,11 +74,10 @@ public class SessionEngineTests
         Assert.Equal(0, service.CurrentPhaseIndex);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StartSession_RaisesPhaseChanged_WhenPhasesExist()
     {
-        var scheduler = new FakeScheduler();
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), scheduler);
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
 
         SessionPhase? phase = null;
         service.PhaseChanged += (_, e) => phase = e.Phase;
@@ -100,19 +88,19 @@ public class SessionEngineTests
         Assert.Equal("Start", phase!.Name);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StartSession_AlreadyRunning_Throws()
     {
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
         await service.StartSessionAsync(CreateSession());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartSessionAsync(CreateSession()));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StopSession_NotCompleted_DoesNotRaiseCompleted()
     {
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
         await service.StartSessionAsync(CreateSession());
 
         bool completed = false;
@@ -124,12 +112,12 @@ public class SessionEngineTests
         Assert.False(completed);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StopSession_Completed_RaisesCompletedWithExpectedXP()
     {
         var settings = new FakeSettingsService();
         settings.Current.PlayerLevel = 1;
-        var service = new SessionService(settings, new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(settings, new FakeProgressionService());
 
         var session = CreateSession(bonusXP: 400);
         await service.StartSessionAsync(session);
@@ -146,10 +134,10 @@ public class SessionEngineTests
         Assert.Equal(0, args.PauseCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task PauseSession_IncrementsPauseCountAndAppliesPenalty()
     {
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
         await service.StartSessionAsync(CreateSession());
 
         service.PauseSession();
@@ -159,11 +147,10 @@ public class SessionEngineTests
         Assert.Equal(100, service.XPPenalty);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ResumeSession_ReturnsToRunning()
     {
-        var scheduler = new FakeScheduler();
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), scheduler);
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
         await service.StartSessionAsync(CreateSession());
         service.PauseSession();
 
@@ -171,17 +158,17 @@ public class SessionEngineTests
 
         Assert.Equal(SessionState.Running, service.State);
 
-        // Ensure the scheduler is wired up again.
-        scheduler.Tick();
+        // Ensure the timer tick path is wired up again.
+        Tick(service);
         Assert.Equal(SessionState.Running, service.State);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StopSession_AfterPause_AppliesXPPenalty()
     {
         var settings = new FakeSettingsService();
         settings.Current.PlayerLevel = 1;
-        var service = new SessionService(settings, new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(settings, new FakeProgressionService());
 
         var session = CreateSession(bonusXP: 400);
         await service.StartSessionAsync(session);
@@ -197,12 +184,12 @@ public class SessionEngineTests
         Assert.Equal(1, args.PauseCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task CompletedXP_IncludesDurationBonus()
     {
         var settings = new FakeSettingsService();
         settings.Current.PlayerLevel = 1;
-        var service = new SessionService(settings, new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(settings, new FakeProgressionService());
 
         var session = CreateSession(durationMinutes: 10, bonusXP: 400);
         await service.StartSessionAsync(session);
@@ -222,10 +209,10 @@ public class SessionEngineTests
         Assert.Equal(1, args.PauseCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task PhaseTransition_AdvancesCurrentPhase()
     {
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
         await service.StartSessionAsync(CreateSession());
 
         var phaseChanges = new List<string>();
@@ -238,10 +225,10 @@ public class SessionEngineTests
         Assert.Equal("Middle", phaseChanges[^1]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ProgressPercent_ComputesCorrectly()
     {
-        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService(), new FakeScheduler());
+        var service = new SessionService(new FakeSettingsService(), new FakeProgressionService());
         await service.StartSessionAsync(CreateSession(durationMinutes: 10));
         service.PauseSession();
 

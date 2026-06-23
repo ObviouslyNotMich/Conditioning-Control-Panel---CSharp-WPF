@@ -2,6 +2,8 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Sessions;
@@ -15,7 +17,7 @@ public partial class SubliminalFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly ISubliminalService? _subliminal;
     private readonly ISessionService? _session;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<SubliminalFeatureControl>? _logger;
     private bool _isLoading = true;
 
     public SubliminalFeatureControl()
@@ -24,7 +26,7 @@ public partial class SubliminalFeatureControl : UserControl
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _subliminal = App.Services.GetService<ISubliminalService>();
         _session = App.Services.GetService<ISessionService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SubliminalFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -95,7 +97,7 @@ public partial class SubliminalFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Subliminal enable toggle: live apply failed");
+            _logger?.LogWarning(ex, "Subliminal enable toggle: live apply failed");
         }
     }
 
@@ -142,26 +144,31 @@ public partial class SubliminalFeatureControl : UserControl
         _settings.Save();
     }
 
-    private void BtnManageMessages_Click(object? sender, RoutedEventArgs e)
+    private async void BtnManageMessages_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: port TextEditorDialog to Avalonia so users can edit the subliminal pool.
-        // var s = _settings.Current;
-        // var oldKeys = new HashSet<string>(s.SubliminalPool.Keys);
-        // var dialog = new TextEditorDialog("Subliminal Messages", s.SubliminalPool);
-        // if (dialog.ShowDialog() == true && dialog.ResultData != null)
-        // {
-        //     var newKeys = new HashSet<string>(dialog.ResultData.Keys);
-        //     foreach (var key in newKeys)
-        //         if (!oldKeys.Contains(key)) s.UserAddedSubliminals.Add(key);
-        //     foreach (var key in oldKeys)
-        //         if (!newKeys.Contains(key)) s.UserAddedSubliminals.Remove(key);
-        //     s.SubliminalPool = dialog.ResultData;
-        //     _settings.Save();
-        // }
+        if (_settings.Current is not { } s) return;
+
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var dialog = new TextEditorDialog(Loc.Get("section_subliminals"), s.SubliminalPool);
+        var result = await dialog.ShowDialog<bool?>(owner);
+        if (result == true && dialog.ResultData != null)
+        {
+            var oldKeys = new HashSet<string>(s.SubliminalPool.Keys);
+            var newKeys = new HashSet<string>(dialog.ResultData.Keys);
+            foreach (var key in newKeys)
+                if (!oldKeys.Contains(key)) s.UserAddedSubliminals.Add(key);
+            foreach (var key in oldKeys)
+                if (!newKeys.Contains(key)) s.UserAddedSubliminals.Remove(key);
+            s.SubliminalPool = dialog.ResultData;
+            _settings.Save();
+            _logger?.LogInformation("Subliminal phrase pool updated: {Count} items", dialog.ResultData.Count);
+        }
     }
 
-    private void BtnAdvanced_Click(object? sender, RoutedEventArgs e)
+    private async void BtnAdvanced_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: port ColorEditorDialog to Avalonia for advanced subliminal visual settings.
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var dialog = new ColorEditorDialog();
+        await dialog.ShowDialog<bool?>(owner);
     }
 }

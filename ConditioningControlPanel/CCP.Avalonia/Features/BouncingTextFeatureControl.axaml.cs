@@ -3,6 +3,8 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.BouncingText;
@@ -16,7 +18,7 @@ public partial class BouncingTextFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly IBouncingTextService? _bouncingText;
     private readonly ISessionService? _session;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<BouncingTextFeatureControl>? _logger;
     private bool _isLoading = true;
 
     public BouncingTextFeatureControl()
@@ -25,7 +27,7 @@ public partial class BouncingTextFeatureControl : UserControl
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _bouncingText = App.Services.GetService<IBouncingTextService>();
         _session = App.Services.GetService<ISessionService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<BouncingTextFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -89,7 +91,7 @@ public partial class BouncingTextFeatureControl : UserControl
         _settings.Save();
 
         try { _bouncingText?.Refresh(); }
-        catch (Exception ex) { _logger?.Warning(ex, "BouncingText speed change: Refresh failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "BouncingText speed change: Refresh failed"); }
     }
 
     private void SliderSize_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -101,7 +103,7 @@ public partial class BouncingTextFeatureControl : UserControl
         _settings.Save();
 
         try { _bouncingText?.Refresh(); }
-        catch (Exception ex) { _logger?.Warning(ex, "BouncingText size change: Refresh failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "BouncingText size change: Refresh failed"); }
     }
 
     private void LiveApply(bool on)
@@ -115,7 +117,7 @@ public partial class BouncingTextFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "BouncingText enable toggle: live apply failed");
+            _logger?.LogWarning(ex, "BouncingText enable toggle: live apply failed");
         }
     }
 
@@ -126,19 +128,18 @@ public partial class BouncingTextFeatureControl : UserControl
         _settings.Save();
     }
 
-    private void BtnEditPhrases_Click(object? sender, RoutedEventArgs e)
+    private async void BtnEditPhrases_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: Port TextEditorDialog to Avalonia and wire phrase editing.
-        // var s = _settings.Current;
-        // var editor = new TextEditorDialog("Bouncing Text Phrases", s.BouncingTextPool)
-        // {
-        //     Owner = TopLevel.GetTopLevel(this) as Window
-        // };
-        // if (editor.ShowDialog() == true && editor.ResultData != null)
-        // {
-        //     s.BouncingTextPool = editor.ResultData;
-        //     _settings.Save();
-        //     ConditioningControlPanel.CoreApp.Logger?.Information("Bouncing text phrases updated: {Count} items", editor.ResultData.Count);
-        // }
+        if (_settings.Current is not { } s) return;
+
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var editor = new TextEditorDialog(Loc.Get("label_bouncing_text"), s.BouncingTextPool);
+        var result = await editor.ShowDialog<bool?>(owner);
+        if (result == true && editor.ResultData != null)
+        {
+            s.BouncingTextPool = editor.ResultData;
+            _settings.Save();
+            _logger?.LogInformation("Bouncing text phrases updated: {Count} items", editor.ResultData.Count);
+        }
     }
 }

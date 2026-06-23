@@ -18,6 +18,7 @@ using ConditioningControlPanel.Core.Services.Moderation;
 using ConditioningControlPanel.Avalonia.Chaos;
 using ConditioningControlPanel.Avalonia.Services.Theme;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Avalonia.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -80,24 +81,26 @@ public partial class App : Application
         {
             var serviceCollection = new ServiceCollection();
             serviceCollection.ConfigureCoreServices();
+            serviceCollection.AddSingleton<IChaosEnvironment, ChaosEnvironment>();
+            serviceCollection.AddSingleton<IChaosModeState, ChaosModeState>();
+            serviceCollection.AddSingleton<IChaosMetaService, ChaosMetaService>();
+            serviceCollection.AddSingleton<IRevealService, RevealServiceImpl>();
             ConfigurePlatformServices?.Invoke(serviceCollection);
             Services = serviceCollection.BuildServiceProvider();
             Tutorial = new Avalonia.Services.Tutorial.AvaloniaTutorialService();
 
+            // Fix P0 data-path split: migrate any Avalonia data written to Roaming
+            // into the legacy Local folder before Core services read/write it.
+            AvaloniaAppEnvironment.MigrateFromLegacyRoamingPath();
+
             // Wire the static Core App stub so copied model code can reach settings.
-            CoreApp.Settings = Services.GetRequiredService<ISettingsService>();
-            CoreApp.Roadmap = Services.GetRequiredService<IRoadmapService>();
-            CoreApp.Logger = Services.GetRequiredService<IAppLogger>();
-            CoreApp.SkillTree = Services.GetRequiredService<ISkillTreeService>();
+            CoreApp.Services = Services;
             CoreApp.SkillTree.Start();
 
             // Initialize localization before any UI is created so {loc:Str} bindings resolve.
             LocalizationManager.Instance.Initialize(CoreApp.Settings.Current?.Language ?? "en");
 
-            // Wire the ported bubble, overlay, and session-log services into the legacy static facade.
-            CoreApp.Bubbles = Services.GetRequiredService<IBubbleService>();
-            CoreApp.Overlay = Services.GetRequiredService<IOverlayService>();
-            CoreApp.SessionLog = Services.GetRequiredService<Core.Services.SessionLog.ISessionLogService>();
+            // Wire the Avalonia bubble service into the legacy static facade.
             AvaloniaChaosEnv.Bubbles = (IAvaloniaBubbleService)CoreApp.Bubbles;
 
             // Load persistent Chaos Mode meta-progression once at startup.
@@ -274,7 +277,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Error(ex, "Failed to show achievement popup");
+            App.Services?.GetRequiredService<ILogger<App>>().LogError(ex, "Failed to show achievement popup");
         }
     }
 }

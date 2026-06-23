@@ -52,6 +52,7 @@ WindowDecorations = WindowDecorations.None;
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
+            IsHitTestVisible = false,
         };
         Content = _row;
 
@@ -68,7 +69,7 @@ WindowDecorations = WindowDecorations.None;
                 {
                     if (_active == null) { _active = new ChaosEffectBannerOverlay(); ((global::Avalonia.Controls.Window)_active).Show(); }
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosEffectBanner.EnsureCreated: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosEffectBannerOverlay>>().LogInformation("ChaosEffectBanner.EnsureCreated: {E}", ex.Message); }
             });
         }
         catch { }
@@ -76,7 +77,7 @@ WindowDecorations = WindowDecorations.None;
 
     public static void Show(string id, string text, Color accent, string? artKey = null)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosEffectBannerOverlay>>();
         try
         {
             Dispatcher.UIThread.Post(() =>
@@ -87,7 +88,7 @@ WindowDecorations = WindowDecorations.None;
                     _active.AddEntry(id, text, accent, artKey);
                     AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosEffectBanner.Show: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosEffectBannerOverlay>>().LogInformation("ChaosEffectBanner.Show: {E}", ex.Message); }
             });
         }
         catch { }
@@ -182,10 +183,7 @@ WindowDecorations = WindowDecorations.None;
         try { Close(); } catch { }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 
     private static Rect GetWorkArea()
     {

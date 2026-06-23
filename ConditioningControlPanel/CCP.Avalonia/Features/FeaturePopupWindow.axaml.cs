@@ -1,7 +1,11 @@
+using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using ConditioningControlPanel.Avalonia.Dialogs;
 
 namespace ConditioningControlPanel.Avalonia.Features;
 
@@ -50,13 +54,21 @@ public partial class FeaturePopupWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            // TODO: reintroduce the panic-key capture check once the Avalonia main window
-            // exposes an equivalent of MainWindow.IsCapturingPanicKey. Without that check,
-            // pressing Escape will close this popup even while a panic-key picker is waiting
-            // for a key, so capture should be restored when the port reaches that feature.
+            // Don't steal Escape while a panic-key picker is open.
+            if (IsCapturingPanicKey())
+                return;
+
             Close();
             e.Handled = true;
         }
+    }
+
+    private static bool IsCapturingPanicKey()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+            return false;
+
+        return desktop.Windows.OfType<ChatShortcutCaptureDialog>().Any(w => w.IsVisible);
     }
 
     private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)

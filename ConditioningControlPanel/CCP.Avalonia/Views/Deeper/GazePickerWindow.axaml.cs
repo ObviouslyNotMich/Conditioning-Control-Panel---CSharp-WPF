@@ -7,6 +7,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Point = Avalonia.Point;
 using ConditioningControlPanel.Core.Localization;
 using LibVLCSharp.Shared;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,7 +81,7 @@ public partial class GazePickerWindow : Window
         {
             try
             {
-                App.Services?.GetService<ConditioningControlPanel.IAppLogger>()?.Warning(ex, "GazePickerWindow failed to load video preview");
+                App.Services?.GetRequiredService<ILogger<GazePickerWindow>>().LogWarning(ex, "GazePickerWindow failed to load video preview");
             }
             catch { }
             VideoView.IsVisible = false;

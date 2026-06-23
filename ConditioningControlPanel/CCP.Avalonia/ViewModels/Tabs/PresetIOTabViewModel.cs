@@ -3,13 +3,19 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
-using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Catalogue;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -21,7 +27,8 @@ public partial class PresetIOTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<PresetIOTabViewModel>? _logger;
+    private readonly ICatalogueService? _catalogueService;
 
     public PresetIOTabViewModel() : base("presetio", "Preset IO", "🗂️")
     {
@@ -31,11 +38,13 @@ public partial class PresetIOTabViewModel : TabItemViewModel
     public PresetIOTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("presetio", "Preset IO", "🗂️")
+        ILogger<PresetIOTabViewModel> logger,
+        ICatalogueService catalogueService) : base("presetio", "Preset IO", "🗂️")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
+        _catalogueService = catalogueService;
         Presets = new ObservableCollection<Preset>();
         RefreshPresetsList();
     }
@@ -59,7 +68,7 @@ public partial class PresetIOTabViewModel : TabItemViewModel
     {
         if (value != null)
         {
-            _logger?.Information("Preset selected for IO: {Name}", value.Name);
+            _logger?.LogInformation("Preset selected for IO: {Name}", value.Name);
         }
     }
 
@@ -99,7 +108,7 @@ public partial class PresetIOTabViewModel : TabItemViewModel
             var json = JsonConvert.SerializeObject(preset, Formatting.Indented);
             await File.WriteAllTextAsync(path, json);
 
-            _logger?.Information("Preset exported: {Name} to {Path}", preset.Name, path);
+            _logger?.LogInformation("Preset exported: {Name} to {Path}", preset.Name, path);
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_success"),
                 string.Format(Loc.Get("msg_preset_exported_to_0"), path),
@@ -107,7 +116,7 @@ public partial class PresetIOTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to export preset: {Name}", preset.Name);
+            _logger?.LogError(ex, "Failed to export preset: {Name}", preset.Name);
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 string.Format(Loc.Get("msg_failed_to_export_preset_0"), ex.Message),
@@ -158,7 +167,7 @@ public partial class PresetIOTabViewModel : TabItemViewModel
             RefreshPresetsList();
             SelectedPreset = imported;
 
-            _logger?.Information("Preset imported: {Name} from {Path}", imported.Name, filePath);
+            _logger?.LogInformation("Preset imported: {Name} from {Path}", imported.Name, filePath);
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_import_complete"),
                 string.Format(Loc.Get("msg_imported_session"), imported.Name),
@@ -166,7 +175,7 @@ public partial class PresetIOTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to import preset from {Path}", filePath);
+            _logger?.LogError(ex, "Failed to import preset from {Path}", filePath);
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_import_error"),
                 string.Format(Loc.Get("msg_import_failed_0"), ex.Message),
@@ -194,12 +203,205 @@ public partial class PresetIOTabViewModel : TabItemViewModel
     {
         preset ??= SelectedPreset;
         if (preset == null || preset.IsDefault) return;
+        if (string.IsNullOrEmpty(_settingsService?.Current?.AuthToken))
+        {
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("catalogue_toast_auth_failed"),
+                Loc.Get("msg_catalogue_auth_required"),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+            return;
+        }
 
-        // TODO: wire to CatalogueService and PatreonService once extracted to CCP.Core.
-        _logger?.Information("Preset catalogue share requested: {Name}", preset.Name);
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            "Catalogue sharing is not yet available in the Avalonia head.") ?? Task.CompletedTask);
+        JToken asset;
+        try
+        {
+            asset = JToken.FromObject(preset);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[Catalogue] Preset serialize failed");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("catalogue_toast_unknown_error"),
+                DialogSeverity.Error) ?? Task.CompletedTask);
+            return;
+        }
+
+        var mainWindow = GetMainWindow();
+        if (mainWindow == null)
+        {
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("catalogue_toast_unknown_error"),
+                DialogSeverity.Error) ?? Task.CompletedTask);
+            return;
+        }
+
+        var dialog = new AssetSubmitDialog(preset.Name, _settingsService.Current.UserDisplayName);
+        var confirmed = await dialog.ShowDialog<bool>(mainWindow);
+        if (!confirmed) return;
+
+        try
+        {
+            var result = await (_catalogueService?.SubmitCatalogueAssetAsync(
+                CatalogueSubmissionsTabViewModel.CatalogueKindPresets,
+                asset,
+                "ccp-preset/v1",
+                dialog.Creator,
+                dialog.Tags,
+                default) ?? Task.FromResult<SubmissionResult>(new SubmissionResult.UnknownError(0, "service_unavailable")));
+            RecordCatalogueSubmission(preset.Id, result);
+            await ShowCatalogueSubmissionResultAsync(result);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[Catalogue] Preset share threw unexpectedly");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("catalogue_toast_unknown_error"),
+                DialogSeverity.Error) ?? Task.CompletedTask);
+        }
+    }
+
+    private void RecordCatalogueSubmission(string key, SubmissionResult result)
+    {
+        try
+        {
+            string id;
+            string status;
+            switch (result)
+            {
+                case SubmissionResult.Success s:
+                    id = s.Id;
+                    status = string.IsNullOrEmpty(s.Status) ? "pending" : s.Status;
+                    break;
+                case SubmissionResult.Duplicate d:
+                    id = d.ExistingId;
+                    status = string.IsNullOrEmpty(d.ExistingStatus) ? "pending" : d.ExistingStatus;
+                    break;
+                default:
+                    return;
+            }
+
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(key)) return;
+            var dict = _settingsService?.Current?.CataloguePresetSubmissions;
+            if (dict == null) return;
+
+            dict.TryGetValue(key, out var existing);
+            var rec = existing ?? new DeeperSubmissionRecord { SubmittedUtc = DateTime.UtcNow };
+            rec.CatalogueId = id;
+            rec.Status = status;
+            rec.LastCheckedUtc = DateTime.UtcNow;
+            if (IsCatalogueAcceptedStatus(status)) rec.AcceptedNotified = true;
+
+            dict[key] = rec;
+            _settingsService?.Save();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning("[Catalogue] RecordCatalogueSubmission failed: {Error}", ex.Message);
+        }
+    }
+
+    private static bool IsCatalogueAcceptedStatus(string? status) =>
+        string.Equals(status, "approved", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "published", StringComparison.OrdinalIgnoreCase);
+
+    private async Task ShowCatalogueSubmissionResultAsync(SubmissionResult result)
+    {
+        switch (result)
+        {
+            case SubmissionResult.Success:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_success"),
+                    Loc.Get("catalogue_toast_success"),
+                    DialogSeverity.Info) ?? Task.CompletedTask);
+                break;
+
+            case SubmissionResult.Duplicate d:
+            {
+                var key = d.ExistingStatus switch
+                {
+                    "approved" => "catalogue_toast_duplicate_approved",
+                    "rejected" => "catalogue_toast_duplicate_rejected",
+                    _ => "catalogue_toast_duplicate_pending"
+                };
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_info"),
+                    Loc.Get(key),
+                    DialogSeverity.Info) ?? Task.CompletedTask);
+                break;
+            }
+
+            case SubmissionResult.ValidationError v:
+            {
+                var key = v.ErrorCode switch
+                {
+                    "missing_title" => "catalogue_toast_error_missing_title",
+                    "missing_creator" => "catalogue_toast_error_missing_creator",
+                    "invalid_media_source" => "catalogue_toast_error_invalid_media_source",
+                    "invalid_schema" => "catalogue_toast_error_invalid_schema",
+                    "file_too_large" => "catalogue_toast_error_file_too_large",
+                    "stale_guidelines_version" => "catalogue_toast_error_stale_guidelines",
+                    _ => ""
+                };
+                var msg = !string.IsNullOrEmpty(key)
+                    ? Loc.Get(key)
+                    : Loc.GetF("catalogue_toast_error_generic_fmt", v.ErrorCode);
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_warning"),
+                    msg,
+                    DialogSeverity.Warning) ?? Task.CompletedTask);
+                break;
+            }
+
+            case SubmissionResult.AuthFailed:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("catalogue_toast_auth_failed"),
+                    Loc.Get("msg_catalogue_auth_required"),
+                    DialogSeverity.Warning) ?? Task.CompletedTask);
+                break;
+
+            case SubmissionResult.TooLarge:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_error"),
+                    Loc.Get("catalogue_toast_too_large"),
+                    DialogSeverity.Error) ?? Task.CompletedTask);
+                break;
+
+            case SubmissionResult.RateLimited r:
+            {
+                string msg;
+                if (r.RetryAfterSeconds.HasValue && r.RetryAfterSeconds.Value > 0)
+                {
+                    var minutes = Math.Max(1, (int)Math.Ceiling(r.RetryAfterSeconds.Value / 60.0));
+                    msg = Loc.GetF("catalogue_toast_rate_limited_minutes_fmt", minutes);
+                }
+                else
+                {
+                    msg = Loc.Get("catalogue_toast_rate_limited_unknown");
+                }
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_warning"),
+                    msg,
+                    DialogSeverity.Warning) ?? Task.CompletedTask);
+                break;
+            }
+
+            case SubmissionResult.UnknownError:
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_error"),
+                    Loc.Get("catalogue_toast_unknown_error"),
+                    DialogSeverity.Error) ?? Task.CompletedTask);
+                break;
+        }
+    }
+
+    private static Window? GetMainWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            return desktop.MainWindow;
+        return null;
     }
 
     [RelayCommand]

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Services.Settings;
 using Serilog;
 
@@ -16,13 +16,12 @@ public sealed class SessionService : ISessionService, IDisposable
 {
     private readonly ISettingsService _settings;
     private readonly IProgressionService _progression;
-    private readonly IScheduler _scheduler;
     private readonly Random _random = new();
     private readonly Stopwatch _wallClockStopwatch = new();
 
     private ConditioningControlPanel.Models.Session? _currentSession;
     private SessionState _state = SessionState.Idle;
-    private IDisposable? _tickSubscription;
+    private DispatcherTimer? _tickSubscription;
     private CancellationTokenSource? _cancellationTokenSource;
 
     private DateTime _startTime;
@@ -84,11 +83,10 @@ public sealed class SessionService : ISessionService, IDisposable
     public event EventHandler<SessionPhaseChangedEventArgs>? PhaseChanged;
     public event EventHandler<SessionProgressEventArgs>? ProgressUpdated;
 
-    public SessionService(ISettingsService settings, IProgressionService progression, IScheduler scheduler)
+    public SessionService(ISettingsService settings, IProgressionService progression)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
     }
 
     public Task StartSessionAsync(ConditioningControlPanel.Models.Session session, CancellationToken cancellationToken = default)
@@ -111,7 +109,9 @@ public sealed class SessionService : ISessionService, IDisposable
         RecordSeasonFeatureUse(session);
         _settings.Save();
 
-        _tickSubscription = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(1), OnTick);
+        _tickSubscription = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _tickSubscription.Tick += (_, _) => OnTick();
+        _tickSubscription.Start();
 
         if (session.Phases.Count > 0)
         {
@@ -132,7 +132,7 @@ public sealed class SessionService : ISessionService, IDisposable
         _state = SessionState.Idle;
         _wallClockStopwatch.Stop();
         _cancellationTokenSource?.Cancel();
-        _tickSubscription?.Dispose();
+        _tickSubscription?.Stop();
         _tickSubscription = null;
 
         SessionStopped?.Invoke(this, EventArgs.Empty);
@@ -178,7 +178,7 @@ public sealed class SessionService : ISessionService, IDisposable
         _pauseCount++;
         _pauseStartTime = DateTime.Now;
         _wallClockStopwatch.Stop();
-        _tickSubscription?.Dispose();
+        _tickSubscription?.Stop();
         _tickSubscription = null;
 
         Log.Information("Session paused (pause #{Count}, -100 XP penalty)", _pauseCount);
@@ -191,7 +191,9 @@ public sealed class SessionService : ISessionService, IDisposable
         _state = SessionState.Running;
         _startTime = DateTime.Now;
         _wallClockStopwatch.Start();
-        _tickSubscription = _scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(1), OnTick);
+        _tickSubscription = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _tickSubscription.Tick += (_, _) => OnTick();
+        _tickSubscription.Start();
 
         Log.Information("Session resumed");
     }
@@ -264,7 +266,8 @@ public sealed class SessionService : ISessionService, IDisposable
     public void Dispose()
     {
         StopSession(false);
-        _tickSubscription?.Dispose();
+        _tickSubscription?.Stop();
+        _tickSubscription = null;
         _cancellationTokenSource?.Dispose();
     }
 }

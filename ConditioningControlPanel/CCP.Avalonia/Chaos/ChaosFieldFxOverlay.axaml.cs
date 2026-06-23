@@ -6,6 +6,7 @@ using global::Avalonia.Controls.Shapes;
 using global::Avalonia.Layout;
 using global::Avalonia.Media;
 using global::Avalonia.Threading;
+using Point = global::Avalonia.Point;
 
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Chaos;
@@ -96,7 +97,7 @@ WindowDecorations = WindowDecorations.None;
                         _active.Hide();
                     }
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosFieldFx.EnsureCreated: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosFieldFxOverlay>>().LogInformation("ChaosFieldFx.EnsureCreated: {E}", ex.Message); }
             });
         }
         catch { }
@@ -137,7 +138,7 @@ WindowDecorations = WindowDecorations.None;
 
     private static void OnUi(Action<ChaosFieldFxOverlay> act)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosFieldFxOverlay>>();
         try
         {
             Dispatcher.UIThread.Post(() =>
@@ -157,7 +158,7 @@ WindowDecorations = WindowDecorations.None;
                     }
                     act(_active);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosFieldFx: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosFieldFxOverlay>>().LogInformation("ChaosFieldFx: {E}", ex.Message); }
             });
         }
         catch { }
@@ -380,10 +381,7 @@ _trailScales[_trailIndex];
             try { Hide(); } catch { }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 
     private static IBrush Frozen(Color c) => new SolidColorBrush(c);
 }

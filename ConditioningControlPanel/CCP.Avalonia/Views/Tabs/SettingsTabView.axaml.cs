@@ -1,11 +1,21 @@
+using System;
+using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Features;
+using ConditioningControlPanel.Avalonia.Helpers;
+using ConditioningControlPanel.Avalonia.Services.Theme;
+using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Services.BouncingText;
 using ConditioningControlPanel.Core.Services.Chaos;
@@ -13,6 +23,7 @@ using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.LockCard;
 using ConditioningControlPanel.Core.Services.MindWipe;
 using ConditioningControlPanel.Core.Services.Overlays;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Subliminal;
@@ -29,6 +40,10 @@ public partial class SettingsTabView : UserControl
     private double _marqueeSegmentWidth;
     private double _marqueeOffset;
 
+    private DateTime _easterEggFirstClick = DateTime.MinValue;
+    private int _easterEggClickCount;
+    private bool _easterEggTriggered;
+
     public SettingsTabView()
     {
         InitializeComponent();
@@ -41,12 +56,37 @@ public partial class SettingsTabView : UserControl
     {
         LoadLogo();
         InitializeMarquee();
+
+        var themeService = App.Services?.GetService<AvaloniaThemeService>();
+        if (themeService != null)
+            themeService.ThemeChanged += OnThemeChanged;
     }
 
     private void OnUnloaded(object? sender, RoutedEventArgs e)
     {
         _marqueeTimer?.Stop();
         _marqueeTimer = null;
+
+        var themeService = App.Services?.GetService<AvaloniaThemeService>();
+        if (themeService != null)
+            themeService.ThemeChanged -= OnThemeChanged;
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        RefreshThemedImages();
+    }
+
+    private void RefreshThemedImages()
+    {
+        LoadLogo();
+
+        foreach (var card in this.GetVisualDescendants().OfType<FeatureCard>())
+        {
+            var uri = card.IconUri;
+            if (!string.IsNullOrWhiteSpace(uri))
+                card.Icon = AvaloniaBitmapHelper.Load(uri);
+        }
     }
 
     private void InitializeMarquee()
@@ -91,13 +131,13 @@ public partial class SettingsTabView : UserControl
             var settings = App.Services?.GetService<ISettingsService>()?.Current;
             var useNeutral = settings?.ActiveModId == BuiltInMods.CCPDefaultId || settings?.IsSissyMode == true;
             var logoFile = useNeutral ? "logo2.png" : "logo.png";
-            var uri = new Uri($"avares://CCP.Avalonia/Assets/{logoFile}");
-            using var stream = AssetLoader.Open(uri);
-            ImgLogo.Source = new Bitmap(stream);
+            var bitmap = AvaloniaBitmapHelper.LoadResource(logoFile);
+            if (bitmap != null)
+                ImgLogo.Source = bitmap;
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "SettingsTabView: failed to load logo");
+            App.Services?.GetRequiredService<ILogger<SettingsTabView>>().LogWarning(ex, "SettingsTabView: failed to load logo");
         }
     }
 
@@ -204,7 +244,110 @@ public partial class SettingsTabView : UserControl
 
     private void ImgLogo_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        // TODO: logo rapid-click easter egg / season recap trigger
+        if (e.GetCurrentPoint(this).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed)
+            return;
+
+        App.Services?.GetService<IAchievementService>()?.TrackAvatarClick();
+        try { App.Services?.GetService<IBarkService>()?.NotifyAvatarClicked(); } catch { }
+
+        var logger = App.Services?.GetRequiredService<ILogger<SettingsTabView>>();
+        try
+        {
+            var achievements = App.Services?.GetService<IAchievementService>();
+            var clickCount = achievements?.Progress.AvatarClickCount ?? 0;
+            logger?.LogDebug("Logo clicked! Count: {Count}/20", clickCount);
+        }
+        catch { }
+
+        if (!_easterEggTriggered)
+        {
+            var now = DateTime.Now;
+            if (_easterEggFirstClick == DateTime.MinValue || (now - _easterEggFirstClick).TotalSeconds > 60)
+            {
+                _easterEggFirstClick = now;
+                _easterEggClickCount = 1;
+            }
+            else
+            {
+                _easterEggClickCount++;
+                if (_easterEggClickCount >= 100)
+                {
+                    _easterEggTriggered = true;
+                    _ = ShowEasterEggAsync();
+                }
+            }
+        }
+
+        if (ImgLogo != null)
+        {
+            var scaleTransform = ImgLogo.RenderTransform as ScaleTransform;
+            if (scaleTransform == null)
+            {
+                scaleTransform = new ScaleTransform(1, 1);
+                ImgLogo.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+                ImgLogo.RenderTransform = scaleTransform;
+            }
+
+            var animation = new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(160),
+                FillMode = FillMode.None,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0.0),
+                        Setters =
+                        {
+                            new Setter(ScaleTransform.ScaleXProperty, 1.0),
+                            new Setter(ScaleTransform.ScaleYProperty, 1.0)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0.5),
+                        Setters =
+                        {
+                            new Setter(ScaleTransform.ScaleXProperty, 1.05),
+                            new Setter(ScaleTransform.ScaleYProperty, 1.05)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1.0),
+                        Setters =
+                        {
+                            new Setter(ScaleTransform.ScaleXProperty, 1.0),
+                            new Setter(ScaleTransform.ScaleYProperty, 1.0)
+                        }
+                    }
+                }
+            };
+            _ = animation.RunAsync(scaleTransform);
+        }
+    }
+
+    private async Task ShowEasterEggAsync()
+    {
+        // ProfileSync is not yet extracted to Core, so reader count stays at the default.
+        int readerCount = -1;
+
+        await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            try
+            {
+                var owner = TopLevel.GetTopLevel(this) as Window;
+                var window = new EasterEggWindow(readerCount);
+                if (owner != null)
+                    await window.ShowDialog(owner);
+                else
+                    window.Show();
+            }
+            catch (Exception ex)
+            {
+                App.Services?.GetRequiredService<ILogger<SettingsTabView>>().LogWarning(ex, "Failed to show easter egg window");
+            }
+        });
     }
 
     private void OnFeatureCardToggleRequested(object? sender, RoutedEventArgs e)
@@ -302,7 +445,7 @@ public partial class SettingsTabView : UserControl
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "Feature card quick-toggle failed for {Card}", card.Title);
+            App.Services?.GetRequiredService<ILogger<SettingsTabView>>().LogWarning(ex, "Feature card quick-toggle failed for {Card}", card.Title);
         }
     }
 
@@ -358,8 +501,8 @@ public partial class SettingsTabView : UserControl
         }
         catch (Exception ex)
         {
-            var logger = App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>();
-            logger?.Warning(ex, "Failed to open CCP catalogue link");
+            var logger = App.Services?.GetRequiredService<ILogger<SettingsTabView>>();
+            logger?.LogWarning(ex, "Failed to open CCP catalogue link");
         }
     }
 }

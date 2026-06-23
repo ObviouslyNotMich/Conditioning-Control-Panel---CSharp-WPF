@@ -26,13 +26,13 @@ public sealed class ChaosDvdHostOverlay : Window
 {
     private static ChaosDvdHostOverlay? _active;
     private readonly Canvas _canvas;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<ChaosDvdHostOverlay>? _logger;
 
     public static bool IsReady => _active != null;
 
     private ChaosDvdHostOverlay()
     {
-        _logger = App.Services?.GetService<IAppLogger>();
+        _logger = App.Services?.GetRequiredService<ILogger<ChaosDvdHostOverlay>>();
 
         WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
@@ -140,8 +140,5 @@ public sealed class ChaosDvdHostOverlay : Window
         catch { }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

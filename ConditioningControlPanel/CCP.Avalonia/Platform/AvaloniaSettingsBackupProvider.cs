@@ -17,7 +17,7 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
 {
     private readonly IAppEnvironment _environment;
     private readonly IServiceProvider _services;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaSettingsBackupProvider>? _logger;
 
     /// <summary>
     /// Number of backups to retain. Older backups are deleted after a new one is written.
@@ -27,7 +27,7 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
     public AvaloniaSettingsBackupProvider(
         IAppEnvironment environment,
         IServiceProvider services,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaSettingsBackupProvider>? logger = null)
     {
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _services = services ?? throw new ArgumentNullException(nameof(services));
@@ -50,7 +50,7 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
         var sourcePath = Path.Combine(_environment.UserDataPath, "settings.json");
         if (!File.Exists(sourcePath))
         {
-            _logger?.Debug("AvaloniaSettingsBackupProvider: no settings.json to back up");
+            _logger?.LogDebug("AvaloniaSettingsBackupProvider: no settings.json to back up");
             return;
         }
 
@@ -65,7 +65,7 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
             // Skip writing an identical copy if we already have a backup with the same content hash.
             if (HasBackupWithHash(backupDir, hash))
             {
-                _logger?.Debug("AvaloniaSettingsBackupProvider: skipped backup (identical content hash {Hash})", hash);
+                _logger?.LogDebug("AvaloniaSettingsBackupProvider: skipped backup (identical content hash {Hash})", hash);
                 return;
             }
 
@@ -73,7 +73,7 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
             var destPath = Path.Combine(backupDir, fileName);
 
             File.Copy(sourcePath, destPath, overwrite: true);
-            _logger?.Debug("AvaloniaSettingsBackupProvider: backed up settings to {BackupPath}", destPath);
+            _logger?.LogDebug("AvaloniaSettingsBackupProvider: backed up settings to {BackupPath}", destPath);
 
             PruneOldBackups(backupDir);
         }
@@ -83,7 +83,7 @@ public sealed class AvaloniaSettingsBackupProvider : ISettingsBackupProvider
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "AvaloniaSettingsBackupProvider: local backup failed");
+            _logger?.LogWarning(ex, "AvaloniaSettingsBackupProvider: local backup failed");
         }
     }
 

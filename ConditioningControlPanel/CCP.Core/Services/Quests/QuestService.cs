@@ -17,7 +17,7 @@ public sealed class QuestService : IQuestService
     private readonly ISettingsService _settingsService;
     private readonly ISkillTreeService _skillTreeService;
     private readonly IAppEnvironment _appEnvironment;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<QuestService>? _logger;
     private readonly string _progressPath;
     private readonly Random _random = new();
 
@@ -31,7 +31,7 @@ public sealed class QuestService : IQuestService
         ISettingsService settingsService,
         ISkillTreeService skillTreeService,
         IAppEnvironment appEnvironment,
-        IAppLogger? logger = null)
+        ILogger<QuestService>? logger = null)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _skillTreeService = skillTreeService ?? throw new ArgumentNullException(nameof(skillTreeService));
@@ -61,7 +61,7 @@ public sealed class QuestService : IQuestService
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to load quest progress from {Path}", _progressPath);
+                _logger?.LogWarning(ex, "Failed to load quest progress from {Path}", _progressPath);
             }
         }
 
@@ -74,14 +74,14 @@ public sealed class QuestService : IQuestService
                 var progress = JsonConvert.DeserializeObject<QuestProgress>(json);
                 if (progress != null)
                 {
-                    _logger?.Warning("Recovered quest progress from temp file {Path}", tmpPath);
+                    _logger?.LogWarning("Recovered quest progress from temp file {Path}", tmpPath);
                     try { File.Move(tmpPath, _progressPath, overwrite: true); } catch { }
                     return progress;
                 }
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "Failed to recover quest progress from {Path}", tmpPath);
+                _logger?.LogError(ex, "Failed to recover quest progress from {Path}", tmpPath);
             }
         }
 
@@ -105,7 +105,7 @@ public sealed class QuestService : IQuestService
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to save quest progress to {Path}", _progressPath);
+            _logger?.LogError(ex, "Failed to save quest progress to {Path}", _progressPath);
         }
     }
 
@@ -157,7 +157,7 @@ public sealed class QuestService : IQuestService
         var selected = available[_random.Next(available.Count)];
         Progress.DailyQuest = new ActiveQuest(selected.Id);
         Progress.DailyQuestGeneratedAt = DateTime.Today;
-        _logger?.Information("Generated new daily quest: {QuestId}", selected.Id);
+        _logger?.LogInformation("Generated new daily quest: {QuestId}", selected.Id);
     }
 
     private void GenerateWeeklyQuest()
@@ -175,7 +175,7 @@ public sealed class QuestService : IQuestService
         var selected = available[_random.Next(available.Count)];
         Progress.WeeklyQuest = new ActiveQuest(selected.Id);
         Progress.WeeklyQuestGeneratedAt = DateTime.Today;
-        _logger?.Information("Generated new weekly quest: {QuestId}", selected.Id);
+        _logger?.LogInformation("Generated new weekly quest: {QuestId}", selected.Id);
     }
 
     #endregion
@@ -227,20 +227,20 @@ public sealed class QuestService : IQuestService
     {
         if (GetRemainingDailyRerolls() <= 0)
         {
-            _logger?.Debug("No daily rerolls remaining");
+            _logger?.LogDebug("No daily rerolls remaining");
             return false;
         }
 
         if (Progress.DailyQuest?.IsCompleted == true)
         {
-            _logger?.Debug("Cannot reroll completed daily quest");
+            _logger?.LogDebug("Cannot reroll completed daily quest");
             return false;
         }
 
         var oldId = Progress.DailyQuest?.DefinitionId;
         GenerateDailyQuest();
         Progress.DailyRerollsUsed++;
-        _logger?.Information("Daily quest rerolled from {OldId} to {NewId}", oldId, Progress.DailyQuest?.DefinitionId);
+        _logger?.LogInformation("Daily quest rerolled from {OldId} to {NewId}", oldId, Progress.DailyQuest?.DefinitionId);
         OnQuestsChanged();
         return true;
     }
@@ -250,20 +250,20 @@ public sealed class QuestService : IQuestService
     {
         if (GetRemainingWeeklyRerolls() <= 0)
         {
-            _logger?.Debug("No weekly rerolls remaining");
+            _logger?.LogDebug("No weekly rerolls remaining");
             return false;
         }
 
         if (Progress.WeeklyQuest?.IsCompleted == true)
         {
-            _logger?.Debug("Cannot reroll completed weekly quest");
+            _logger?.LogDebug("Cannot reroll completed weekly quest");
             return false;
         }
 
         var oldId = Progress.WeeklyQuest?.DefinitionId;
         GenerateWeeklyQuest();
         Progress.WeeklyRerollsUsed++;
-        _logger?.Information("Weekly quest rerolled from {OldId} to {NewId}", oldId, Progress.WeeklyQuest?.DefinitionId);
+        _logger?.LogInformation("Weekly quest rerolled from {OldId} to {NewId}", oldId, Progress.WeeklyQuest?.DefinitionId);
         OnQuestsChanged();
         return true;
     }
@@ -315,6 +315,12 @@ public sealed class QuestService : IQuestService
         }
     }
 
+    /// <inheritdoc />
+    public void TrackMantraCompleted()
+    {
+        AddProgress(QuestCategory.Mantra, 1);
+    }
+
     private QuestDefinition? GetDailyDefinition()
     {
         if (Progress.DailyQuest == null) return null;
@@ -351,7 +357,7 @@ public sealed class QuestService : IQuestService
         Progress.DailyQuest = null;
         _settingsService.Save();
 
-        _logger?.Information("Daily quest completed: awarded {Xp} XP", xp);
+        _logger?.LogInformation("Daily quest completed: awarded {Xp} XP", xp);
         OnQuestsChanged();
 
         if (!Progress.AreAllDailyQuestsCompleted())

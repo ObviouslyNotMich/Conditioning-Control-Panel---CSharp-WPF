@@ -13,11 +13,11 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 public sealed class AvaloniaHotkeyProvider : IHotkeyProvider, IDisposable
 {
     private readonly IInputHook? _inputHook;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaHotkeyProvider>? _logger;
     private readonly Dictionary<string, HotkeyRegistration> _registrations = new();
     private readonly object _lock = new();
 
-    public AvaloniaHotkeyProvider(IInputHook? inputHook = null, IAppLogger? logger = null)
+    public AvaloniaHotkeyProvider(IInputHook? inputHook = null, ILogger<AvaloniaHotkeyProvider>? logger = null)
     {
         _inputHook = inputHook;
         _logger = logger;
@@ -34,7 +34,7 @@ public sealed class AvaloniaHotkeyProvider : IHotkeyProvider, IDisposable
     {
         if (!OperatingSystem.IsWindows())
         {
-            _logger?.Information("Global hotkeys are only supported on Windows in the Avalonia head.");
+            _logger?.LogInformation("Global hotkeys are only supported on Windows in the Avalonia head.");
             return false;
         }
 
@@ -46,7 +46,7 @@ public sealed class AvaloniaHotkeyProvider : IHotkeyProvider, IDisposable
             _registrations[id] = new HotkeyRegistration(id, modifiers, key);
         }
 
-        _logger?.Information("Registered global hotkey '{Id}' ({Modifiers}+{Key})", id, modifiers, key);
+        _logger?.LogInformation("Registered global hotkey '{Id}' ({Modifiers}+{Key})", id, modifiers, key);
         return true;
     }
 
@@ -57,7 +57,7 @@ public sealed class AvaloniaHotkeyProvider : IHotkeyProvider, IDisposable
             _registrations.Remove(id);
         }
 
-        _logger?.Information("Unregistered global hotkey '{Id}'", id);
+        _logger?.LogInformation("Unregistered global hotkey '{Id}'", id);
     }
 
     private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
@@ -79,14 +79,14 @@ public sealed class AvaloniaHotkeyProvider : IHotkeyProvider, IDisposable
             if (!AreModifiersPressed(registration.Modifiers))
                 continue;
 
-            _logger?.Information("Global hotkey '{Id}' pressed", registration.Id);
+            _logger?.LogInformation("Global hotkey '{Id}' pressed", registration.Id);
             try
             {
                 HotkeyPressed?.Invoke(this, registration.Id);
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Exception in global hotkey handler for '{Id}'", registration.Id);
+                _logger?.LogWarning(ex, "Exception in global hotkey handler for '{Id}'", registration.Id);
             }
         }
     }

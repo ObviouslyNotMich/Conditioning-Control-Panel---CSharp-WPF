@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Services.Help;
 using Microsoft.Extensions.DependencyInjection;
 using Point = global::Avalonia.Point;
 
@@ -193,7 +194,13 @@ public partial class WebcamCalibrationWindow : Window
 
     private async void BtnCalibrationHelp_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: open ported HelpVideoWindow once available.
+        var content = HelpContentService.GetContent("WebcamCalibration");
+        if (content?.SectionId == "WebcamCalibration")
+        {
+            HelpVideoWindow.Show(content, this, topmost: true);
+            return;
+        }
+
         if (_dialogService != null)
         {
             await _dialogService.ShowMessageAsync(

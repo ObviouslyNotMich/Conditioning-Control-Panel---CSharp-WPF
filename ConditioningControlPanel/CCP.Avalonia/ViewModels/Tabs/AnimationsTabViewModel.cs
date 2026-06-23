@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
@@ -16,7 +16,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 public partial class AnimationsTabViewModel : TabItemViewModel
 {
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AnimationsTabViewModel>? _logger;
 
     public AnimationsTabViewModel() : base("animations", "Animations", "✨")
     {
@@ -25,7 +25,7 @@ public partial class AnimationsTabViewModel : TabItemViewModel
     public AnimationsTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("animations", "Animations", "✨")
+        ILogger<AnimationsTabViewModel> logger) : base("animations", "Animations", "✨")
     {
         _dialogService = dialogService;
         _logger = logger;
@@ -44,48 +44,48 @@ public partial class AnimationsTabViewModel : TabItemViewModel
     private void StartSeasonTitleShimmer()
     {
         IsSeasonTitleShimmerActive = true;
-        _logger?.Information("Season title shimmer started");
+        _logger?.LogInformation("Season title shimmer started");
     }
 
     [RelayCommand]
     private void StopSeasonTitleShimmer()
     {
         IsSeasonTitleShimmerActive = false;
-        _logger?.Information("Season title shimmer stopped");
+        _logger?.LogInformation("Season title shimmer stopped");
     }
 
     [RelayCommand]
     private void StartLockdownPulse()
     {
         IsLockdownPulseActive = true;
-        _logger?.Information("Lockdown pulse started");
+        _logger?.LogInformation("Lockdown pulse started");
     }
 
     [RelayCommand]
     private void StopLockdownPulse()
     {
         IsLockdownPulseActive = false;
-        _logger?.Information("Lockdown pulse stopped");
+        _logger?.LogInformation("Lockdown pulse stopped");
     }
 
     [RelayCommand]
     private void StartSkillTreeAnimations()
     {
         AreSkillTreeAnimationsActive = true;
-        _logger?.Information("Skill tree animations started");
+        _logger?.LogInformation("Skill tree animations started");
     }
 
     [RelayCommand]
     private void StopSkillTreeAnimations()
     {
         AreSkillTreeAnimationsActive = false;
-        _logger?.Information("Skill tree animations stopped");
+        _logger?.LogInformation("Skill tree animations stopped");
     }
 
     [RelayCommand]
     private async Task ShowExpandableIconLabelAsync(bool show)
     {
-        _logger?.Information("Expandable icon label state: {Show}", show);
+        _logger?.LogInformation("Expandable icon label state: {Show}", show);
         // The view should react to a shared visual-state property if needed.
         // TODO: port ExpandableIcon_MouseEnter/Leave storyboards to Avalonia once animations are needed.
         await Task.CompletedTask;
@@ -94,10 +94,10 @@ public partial class AnimationsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task ShowOgWelcomePopupAsync()
     {
-        _logger?.Information("OG welcome popup requested");
-        // TODO: port the Season 0 OG welcome dialog to Avalonia.
+        _logger?.LogInformation("OG welcome popup requested");
+        // The Season 0 OG welcome dialog is not yet ported; surface a localized placeholder.
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_welcome_back"),
-            "Season 0 OG welcome popup is not yet ported to Avalonia.") ?? Task.CompletedTask);
+            Loc.Get("msg_og_welcome_not_yet_ported")) ?? Task.CompletedTask);
     }
 }

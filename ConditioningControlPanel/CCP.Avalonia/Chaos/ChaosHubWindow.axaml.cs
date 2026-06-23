@@ -16,7 +16,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 
 public partial class ChaosHubWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosHubWindow> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -32,7 +32,7 @@ public partial class ChaosHubWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosHubWindow>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 Current = this;
         AddHandler(Button.ClickEvent, (s, e) => { if (_uiSoundsReady) AvaloniaChaosSfx.Play("ui_click", 0.3f); }, RoutingStrategies.Bubble);
@@ -78,7 +78,7 @@ Current = this;
             };
             t.Start();
         }
-        catch (Exception ex) { _logger?.Information("ChaosHub.FireHubGreeting: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("ChaosHub.FireHubGreeting: {E}", ex.Message); }
     }
 
     private void LoadBanner()
@@ -191,8 +191,46 @@ Current = this;
         ToolTip.SetTip(tab, count == 1 ? "1 thing you can afford right now" : $"{count} things you can afford right now");
     }
 
-    private static int CountAffordableToybox() => 0;
-    private int CountAffordableBench() => 0;
+    private static int CountAffordableToybox()
+    {
+        int count = 0;
+        foreach (var u in ChaosUpgrades.All)
+        {
+            if (!OnShelfNow(u.Id)) continue;
+            if (ChaosMeta.IsOwned(u.Id)) continue;
+            if (ChaosMeta.IsPurchaseRankLocked(u.Id)) continue;
+            if (ChaosMeta.CanAfford(u.Id)) count++;
+        }
+        foreach (var b in ChaosLifetimeBoons.All)
+        {
+            int level = ChaosMeta.BoonLevel(b.Id);
+            bool unlocked = level >= 1;
+            if (!unlocked)
+            {
+                if (ChaosMeta.IsBoonRankLocked(b.Id)) continue;
+                if (ChaosMeta.IsAccessoryScriptLocked(b.Id)) continue;
+                if (ChaosMeta.CanAffordUnlock(b.Id)) count++;
+            }
+            else if (level < b.MaxLevel && ChaosMeta.CanAffordUpgrade(b.Id))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int CountAffordableBench()
+    {
+        int count = 0;
+        foreach (var item in BenchItems)
+        {
+            if (ChaosMeta.State.BenchPurchases.Contains(item.Id)) continue;
+            if (item.RankNeed.HasValue && !ChaosMeta.AtLeast(item.RankNeed.Value)) continue;
+            if (item.RevealGate != null && !RevealService.IsUnlocked(item.RevealGate)) continue;
+            if (ChaosMeta.State.Gold >= item.Cost) count++;
+        }
+        return count;
+    }
 
     private static void AnimateBalance(TextBlock tb, int from, int to)
     {
@@ -418,7 +456,7 @@ Current = this;
 new ChaosIntroWindow();
             intro.ShowDialog(this);
         }
-        catch (Exception ex) { _logger?.Information("Chaos guide reshow: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("Chaos guide reshow: {E}", ex.Message); }
     }
 
     private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)

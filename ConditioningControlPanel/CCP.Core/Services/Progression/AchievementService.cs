@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Text.Json;
+using Avalonia.Threading;
 using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
 
 namespace ConditioningControlPanel.Core.Services.Progression;
 
@@ -12,13 +12,11 @@ namespace ConditioningControlPanel.Core.Services.Progression;
 public sealed class AchievementService : IAchievementService, IDisposable
 {
     private readonly IAppEnvironment _environment;
-    private readonly IAppLogger _logger;
-    private readonly IScheduler _scheduler;
-    private readonly IUiDispatcher _uiDispatcher;
+    private readonly ILogger<AchievementService> _logger;
     private readonly IEnumerable<IAuthProvider> _authProviders;
     private readonly string _progressPath;
-    private readonly IDisposable _saveTimer;
-    private readonly IDisposable _trackingTimer;
+    private readonly DispatcherTimer _saveTimer;
+    private readonly DispatcherTimer _trackingTimer;
 
     private AchievementProgress _progress;
     private bool _isDirty;
@@ -41,12 +39,10 @@ public sealed class AchievementService : IAchievementService, IDisposable
     public bool CanUnlockExclusive => _authProviders.Any(p =>
         string.Equals(p.ProviderName, "patreon", StringComparison.OrdinalIgnoreCase) && p.HasPremiumAccess);
 
-    public AchievementService(IAppEnvironment environment, IAppLogger logger, IScheduler scheduler, IUiDispatcher uiDispatcher, IEnumerable<IAuthProvider>? authProviders = null)
+    public AchievementService(IAppEnvironment environment, ILogger<AchievementService> logger, IEnumerable<IAuthProvider>? authProviders = null)
     {
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
-        _uiDispatcher = uiDispatcher ?? throw new ArgumentNullException(nameof(uiDispatcher));
         _authProviders = authProviders ?? Enumerable.Empty<IAuthProvider>();
 
         _progressPath = Path.Combine(environment.UserDataPath, "achievements.json");
@@ -65,12 +61,16 @@ public sealed class AchievementService : IAchievementService, IDisposable
         _isDirty = true;
 
         // Auto-save every 30 seconds if dirty (off UI thread)
-        _saveTimer = scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(30), OnAutoSaveTick);
+        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _saveTimer.Tick += (_, _) => OnAutoSaveTick();
+        _saveTimer.Start();
 
         // Track time-based achievements every second
-        _trackingTimer = scheduler.StartPeriodicTimer(TimeSpan.FromSeconds(1), TrackTimeBasedProgress);
+        _trackingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _trackingTimer.Tick += (_, _) => TrackTimeBasedProgress();
+        _trackingTimer.Start();
 
-        _logger.Information("AchievementService initialized. {Count} achievements unlocked.",
+        _logger.LogInformation("AchievementService initialized. {Count} achievements unlocked.",
             _progress.UnlockedAchievements.Count);
     }
 
@@ -86,7 +86,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to load achievement progress");
+            _logger.LogError(ex, "Failed to load achievement progress");
         }
 
         return new AchievementProgress();
@@ -108,7 +108,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to save achievement progress");
+            _logger.LogError(ex, "Failed to save achievement progress");
         }
     }
 
@@ -130,7 +130,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Failed to save achievement progress");
+                _logger.LogError(ex, "Failed to save achievement progress");
             }
         });
     }
@@ -320,7 +320,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
             {
                 settings.SkillPoints += 1;
                 CoreApp.Settings?.Save();
-                _logger.Information("Bubble milestone! {Total} bubbles popped — awarded 1 sparkle point (total: {Points})",
+                _logger.LogInformation("Bubble milestone! {Total} bubbles popped — awarded 1 sparkle point (total: {Points})",
                     _progress.TotalBubblesPopped, settings.SkillPoints);
                 ShowBubbleMilestoneNotification(_progress.TotalBubblesPopped);
             }
@@ -342,22 +342,22 @@ public sealed class AchievementService : IAchievementService, IDisposable
                 Category = AchievementCategory.Minigames
             };
 
-            _uiDispatcher.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 try
                 {
-                    _logger.Debug("Firing bubble milestone achievement event for: {Total}", totalBubbles);
+                    _logger.LogDebug("Firing bubble milestone achievement event for: {Total}", totalBubbles);
                     AchievementUnlocked?.Invoke(this, fakeAchievement);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Failed to show bubble milestone popup");
+                    _logger.LogWarning(ex, "Failed to show bubble milestone popup");
                 }
             });
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Failed to show bubble milestone notification");
+            _logger.LogWarning(ex, "Failed to show bubble milestone notification");
         }
     }
 
@@ -391,7 +391,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         _progress.TotalLockCardsCompleted++;
         _isDirty = true;
-        _logger.Information("Lock card tracked! Total lock cards completed: {Count}", _progress.TotalLockCardsCompleted);
+        _logger.LogInformation("Lock card tracked! Total lock cards completed: {Count}", _progress.TotalLockCardsCompleted);
         Save();
 
         TryQuestTrack("TrackLockCardCompleted");
@@ -420,7 +420,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         var minutes = durationSeconds / 60.0;
         _progress.TotalVideoMinutes += minutes;
         _isDirty = true;
-        _logger.Information("Video watched: {Duration}s ({Minutes:F2} min). Total: {Total:F1} minutes",
+        _logger.LogInformation("Video watched: {Duration}s ({Minutes:F2} min). Total: {Total:F1} minutes",
             durationSeconds, minutes, _progress.TotalVideoMinutes);
         Save();
 
@@ -466,17 +466,17 @@ public sealed class AchievementService : IAchievementService, IDisposable
     public void TrackAvatarClick()
     {
         var clickCount = _progress.AvatarClickCount + 1;
-        _logger.Debug("TrackAvatarClick called. Current count will be: {Count}", clickCount);
+        _logger.LogDebug("TrackAvatarClick called. Current count will be: {Count}", clickCount);
 
         if (_progress.TrackAvatarClick())
         {
-            _logger.Information("20 clicks reached! Unlocking Neon Obsession...");
+            _logger.LogInformation("20 clicks reached! Unlocking Neon Obsession...");
             TryHapticAvatarEasterEggPattern();
             TryUnlock("neon_obsession");
         }
         if (_progress.TrackNeedyDollClick())
         {
-            _logger.Information("150 clicks in 60s! Unlocking Needy Doll...");
+            _logger.LogInformation("150 clicks in 60s! Unlocking Needy Doll...");
             TryUnlock("needy_doll");
         }
         _isDirty = true;
@@ -521,7 +521,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     /// <inheritdoc />
     public void TrackSessionComplete(string sessionName, double durationMinutes, bool noPanicEnabled, bool strictLockEnabled)
     {
-        _logger.Information("TrackSessionComplete called: Session={Name}, Duration={Duration:F1}min, NoPanic={NoPanic}, StrictLock={Strict}",
+        _logger.LogInformation("TrackSessionComplete called: Session={Name}, Duration={Duration:F1}min, NoPanic={NoPanic}, StrictLock={Strict}",
             sessionName, durationMinutes, noPanicEnabled, strictLockEnabled);
 
         _progress.CompletedSessions.Add(sessionName);
@@ -533,17 +533,17 @@ public sealed class AchievementService : IAchievementService, IDisposable
 
         if (durationMinutes >= 180)
         {
-            _logger.Information("Deep Sleep check: Session duration {Duration:F1}min >= 180min, unlocking!", durationMinutes);
+            _logger.LogInformation("Deep Sleep check: Session duration {Duration:F1}min >= 180min, unlocking!", durationMinutes);
             TryUnlock("deep_sleep");
         }
         else if (durationMinutes >= 60)
         {
-            _logger.Debug("Session {Duration:F1}min completed - need 180min for Deep Sleep achievement", durationMinutes);
+            _logger.LogDebug("Session {Duration:F1}min completed - need 180min for Deep Sleep achievement", durationMinutes);
         }
 
         if (noPanicEnabled)
         {
-            _logger.Information("No panic was enabled - unlocking 'what_panic_button'");
+            _logger.LogInformation("No panic was enabled - unlocking 'what_panic_button'");
             _progress.CompletedSessionWithNoPanic = true;
             TryUnlock("what_panic_button");
         }
@@ -584,17 +584,17 @@ public sealed class AchievementService : IAchievementService, IDisposable
     /// <inheritdoc />
     public bool TryUnlock(string achievementId)
     {
-        _logger.Debug("TryUnlock called for: {Id}", achievementId);
+        _logger.LogDebug("TryUnlock called for: {Id}", achievementId);
 
         if (_progress.IsUnlocked(achievementId))
         {
-            _logger.Debug("Achievement {Id} already unlocked", achievementId);
+            _logger.LogDebug("Achievement {Id} already unlocked", achievementId);
             return false;
         }
 
         if (!Achievement.All.TryGetValue(achievementId, out var achievement))
         {
-            _logger.Warning("Unknown achievement ID: {Id}", achievementId);
+            _logger.LogWarning("Unknown achievement ID: {Id}", achievementId);
             return false;
         }
 
@@ -602,30 +602,30 @@ public sealed class AchievementService : IAchievementService, IDisposable
         _isDirty = true;
         Save();
 
-        _logger.Information("Achievement unlocked: {Name} (ID: {Id}){Suppressed}", achievement.Name, achievementId,
+        _logger.LogInformation("Achievement unlocked: {Name} (ID: {Id}){Suppressed}", achievement.Name, achievementId,
             SuppressPopups ? " (popup suppressed)" : "");
 
         if (SuppressPopups) return true;
 
         try
         {
-            _uiDispatcher.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 try
                 {
-                    _logger.Debug("Firing AchievementUnlocked event for: {Name}", achievement.Name);
+                    _logger.LogDebug("Firing AchievementUnlocked event for: {Name}", achievement.Name);
                     AchievementUnlocked?.Invoke(this, achievement);
                     TryHapticAchievementPattern();
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error(ex, "Failed to fire achievement event");
+                    _logger.LogError(ex, "Failed to fire achievement event");
                 }
             });
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to post achievement event");
+            _logger.LogError(ex, "Failed to post achievement event");
         }
 
         return true;
@@ -707,7 +707,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         _progress = new AchievementProgress();
         _isDirty = false;
         Save();
-        _logger.Information("AchievementService progress reset");
+        _logger.LogInformation("AchievementService progress reset");
     }
 
     /// <inheritdoc />
@@ -752,7 +752,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         if (_progress.IsUnlocked(achievementId)) return false;
         if (!CanUnlockExclusive)
         {
-            _logger.Debug("Exclusive achievement {Id} withheld — user not entitled", achievementId);
+            _logger.LogDebug("Exclusive achievement {Id} withheld — user not entitled", achievementId);
             return false;
         }
         return TryUnlock(achievementId);
@@ -789,7 +789,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
                 break;
 
             default:
-                _logger.Debug("TrackFeatureUsed: unmapped feature '{FeatureId}' amount {Amount}", featureId, amount);
+                _logger.LogDebug("TrackFeatureUsed: unmapped feature '{FeatureId}' amount {Amount}", featureId, amount);
                 break;
         }
     }
@@ -806,8 +806,8 @@ public sealed class AchievementService : IAchievementService, IDisposable
     {
         if (_isDisposed) return;
         _isDisposed = true;
-        _saveTimer.Dispose();
-        _trackingTimer.Dispose();
+        _saveTimer.Stop();
+        _trackingTimer.Stop();
         Save();
     }
 
@@ -880,7 +880,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Debug(ex, "Quest track call {MethodName} failed", methodName);
+            _logger.LogDebug(ex, "Quest track call {MethodName} failed", methodName);
         }
     }
 
@@ -899,7 +899,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Debug(ex, "Achievement haptic pattern failed");
+            _logger.LogDebug(ex, "Achievement haptic pattern failed");
         }
     }
 
@@ -917,7 +917,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Debug(ex, "Avatar easter-egg haptic pattern failed");
+            _logger.LogDebug(ex, "Avatar easter-egg haptic pattern failed");
         }
     }
 }

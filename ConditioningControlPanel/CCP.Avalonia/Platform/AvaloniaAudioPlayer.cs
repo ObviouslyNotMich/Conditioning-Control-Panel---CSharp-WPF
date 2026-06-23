@@ -18,6 +18,16 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
         _libVlc = libVlc;
         _audioDeviceService = audioDeviceService;
         _player = new MediaPlayer(_libVlc);
+
+        if (_audioDeviceService != null)
+        {
+            _audioDeviceService.PreferredDeviceChanged += OnPreferredDeviceChanged;
+        }
+    }
+
+    private void OnPreferredDeviceChanged(object? sender, EventArgs e)
+    {
+        ApplyPreferredOutputDevice();
     }
 
     public Task PlayAsync(string filePath, CancellationToken cancellationToken = default)
@@ -72,6 +82,11 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
 
     public ValueTask DisposeAsync()
     {
+        if (_audioDeviceService != null)
+        {
+            _audioDeviceService.PreferredDeviceChanged -= OnPreferredDeviceChanged;
+        }
+
         StopInternal();
         _player.Dispose();
         // Do not dispose _libVlc: it is a shared singleton owned by the DI container.

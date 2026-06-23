@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Layout;
@@ -168,8 +168,5 @@ public sealed class ChaosFxWindow : Window
         return brush;
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

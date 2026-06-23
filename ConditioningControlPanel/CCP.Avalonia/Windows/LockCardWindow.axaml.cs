@@ -25,7 +25,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class LockCardWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<LockCardWindow> _logger;
 
 
     private readonly string _phrase = string.Empty;
@@ -53,7 +53,7 @@ public partial class LockCardWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<LockCardWindow>>();
 _progression = App.Services.GetRequiredService<IProgressionService>();
         _mods = App.Services.GetRequiredService<IModService>();
         _interactionQueue = App.Services.GetRequiredService<IInteractionQueueService>();
@@ -102,7 +102,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
     /// </summary>
     public static void ShowOnAllMonitors(string phrase, int repeats, bool strictMode, bool isTest = false)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<LockCardWindow>>();
         _allWindows.Clear();
         _sharedInput = "";
 
@@ -116,7 +116,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
 
         if (screens == null || screens.Count == 0)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning("LockCardWindow: no screens available");
+            App.Services?.GetRequiredService<ILogger<LockCardWindow>>().LogWarning("LockCardWindow: no screens available");
             return;
         }
 
@@ -175,7 +175,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "LockCardWindow: failed to position window");
+            _logger?.LogError(ex, "LockCardWindow: failed to position window");
             WindowState = WindowState.Maximized;
         }
     }
@@ -218,7 +218,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to apply lock card colors");
+            _logger?.LogWarning(ex, "Failed to apply lock card colors");
         }
     }
 
@@ -244,7 +244,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
             Activate();
             TxtInput.Focus();
 
-            _logger?.Information(
+            _logger?.LogInformation(
                 "Lock Card shown - Phrase: {Phrase}, Repeats: {Repeats}, Strict: {Strict}, Monitors: {Count}",
                 _phrase, _requiredRepeats, _strictMode, _allWindows.Count);
         }
@@ -254,7 +254,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
     {
         if (e.Key == Key.Escape && !_isCompleted)
         {
-            _logger?.Information("Lock Card closed via ESC (strict={Strict})", _strictMode);
+            _logger?.LogInformation("Lock Card closed via ESC (strict={Strict})", _strictMode);
             ForceCloseAll();
         }
 
@@ -375,7 +375,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
             catch { /* achievement service may not be present */ }
         }
 
-        _logger?.Information(
+        _logger?.LogInformation(
             "Lock Card completed - {Repeats} repeats in {Time:F1}s with {Errors} errors{Test}",
             _requiredRepeats, completionTime, _totalErrors, _isTest ? " (TEST)" : "");
 

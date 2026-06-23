@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Media;
+using Point = Avalonia.Point;
 using ConditioningControlPanel.Models.Deeper;
 
 namespace ConditioningControlPanel.Avalonia.Views.Deeper;

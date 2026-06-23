@@ -1,8 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.BouncingText;
+using ConditioningControlPanel.Core.Services.MindWipe;
+using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Sessions;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -15,7 +20,12 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ISessionService? _sessionService;
+    private readonly IBubbleCountService? _bubbleCountService;
+    private readonly IBouncingTextService? _bouncingTextService;
+    private readonly IMindWipeService? _mindWipeService;
+    private readonly IOverlayService? _overlayService;
+    private readonly ILogger<LevelFeaturesTabViewModel>? _logger;
 
     private int _playerLevel = 1;
 
@@ -31,14 +41,27 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     public LevelFeaturesTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("levelfeatures", "Level Features", "🎚️")
+        ISessionService sessionService,
+        IBubbleCountService bubbleCountService,
+        IBouncingTextService bouncingTextService,
+        IMindWipeService mindWipeService,
+        IOverlayService overlayService,
+        ILogger<LevelFeaturesTabViewModel> logger) : base("levelfeatures", "Level Features", "🎚️")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
+        _sessionService = sessionService;
+        _bubbleCountService = bubbleCountService;
+        _bouncingTextService = bouncingTextService;
+        _mindWipeService = mindWipeService;
+        _overlayService = overlayService;
         _logger = logger;
 
         PlayerLevel = _settingsService?.Current?.PlayerLevel ?? 1;
     }
+
+    private bool IsSessionRunning => _sessionService?.State == SessionState.Running;
+    private bool IsInPresetSession => _sessionService?.CurrentSession != null;
 
     #region Level / Lock State
 
@@ -97,7 +120,15 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BubbleCountEnabled = value;
             OnPropertyChanged();
             Save();
-            _logger?.Information("Bubble Count toggled: {Enabled}", value);
+            _logger?.LogInformation("Bubble Count toggled: {Enabled}", value);
+
+            if (IsSessionRunning)
+            {
+                if (value)
+                    _bubbleCountService?.Start();
+                else
+                    _bubbleCountService?.Stop();
+            }
         }
     }
 
@@ -110,6 +141,11 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BubbleCountFrequency = value;
             OnPropertyChanged();
             Save();
+
+            if (IsSessionRunning && _bubbleCountService?.IsRunning == true)
+            {
+                _bubbleCountService.RefreshSchedule();
+            }
         }
     }
 
@@ -158,8 +194,16 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task TestBubbleCountAsync()
     {
-        _logger?.Information("Test bubble count requested");
-        await ShowNotImplementedAsync(Loc.Get("feature_bubble_count"));
+        _logger?.LogInformation("Test bubble count requested");
+        try
+        {
+            _bubbleCountService?.TriggerGame(forceTest: true);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to test bubble count");
+        }
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -171,7 +215,9 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task OpenBubbleCountDetailsAsync()
     {
-        await ShowNotImplementedAsync(Loc.Get("feature_bubble_count"));
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("feature_bubble_count"),
+            Loc.Get("msg_level_feature_settings_on_dashboard")) ?? Task.CompletedTask);
     }
 
     #endregion
@@ -187,7 +233,15 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BouncingTextEnabled = value;
             OnPropertyChanged();
             Save();
-            _logger?.Information("Bouncing Text toggled: {Enabled}", value);
+            _logger?.LogInformation("Bouncing Text toggled: {Enabled}", value);
+
+            if (IsSessionRunning)
+            {
+                if (value)
+                    _bouncingTextService?.Start();
+                else
+                    _bouncingTextService?.Stop();
+            }
         }
     }
 
@@ -200,6 +254,11 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BouncingTextSpeed = value;
             OnPropertyChanged();
             Save();
+
+            if (_bouncingTextService?.IsRunning == true)
+            {
+                _bouncingTextService.Refresh();
+            }
         }
     }
 
@@ -212,6 +271,11 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BouncingTextSize = value;
             OnPropertyChanged();
             Save();
+
+            if (_bouncingTextService?.IsRunning == true)
+            {
+                _bouncingTextService.Refresh();
+            }
         }
     }
 
@@ -230,15 +294,33 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task EditBouncingTextPhrasesAsync()
     {
-        _logger?.Information("Edit bouncing text phrases requested");
-        await ShowNotImplementedAsync(Loc.Get("feature_bouncing_text"));
+        _logger?.LogInformation("Edit bouncing text phrases requested");
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("title_not_implemented"),
+            Loc.GetF("msg_not_implemented_body_fmt", Loc.Get("feature_bouncing_text"))) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
     private async Task TestBouncingTextAsync()
     {
-        _logger?.Information("Test bouncing text requested");
-        await ShowNotImplementedAsync(Loc.Get("feature_bouncing_text"));
+        _logger?.LogInformation("Test bouncing text requested");
+        try
+        {
+            _bouncingTextService?.Stop();
+            _bouncingTextService?.Start();
+
+            // Stop the demo after a few seconds so it doesn't linger.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                _bouncingTextService?.Stop();
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to test bouncing text");
+        }
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -250,7 +332,9 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task OpenBouncingTextDetailsAsync()
     {
-        await ShowNotImplementedAsync(Loc.Get("feature_bouncing_text"));
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("feature_bouncing_text"),
+            Loc.Get("msg_level_feature_settings_on_dashboard")) ?? Task.CompletedTask);
     }
 
     #endregion
@@ -266,7 +350,22 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.MindWipeEnabled = value;
             OnPropertyChanged();
             Save();
-            _logger?.Information("Mind Wipe toggled: {Enabled}", value);
+            _logger?.LogInformation("Mind Wipe toggled: {Enabled}", value);
+
+            // Only drive the standalone scheduler when running outside of a preset session.
+            if (IsSessionRunning && !IsInPresetSession)
+            {
+                if (value)
+                {
+                    _mindWipeService?.Start(
+                        _settingsService.Current.MindWipeFrequency,
+                        _settingsService.Current.MindWipeVolume / 100.0);
+                }
+                else
+                {
+                    _mindWipeService?.Stop();
+                }
+            }
         }
     }
 
@@ -279,6 +378,13 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.MindWipeFrequency = value;
             OnPropertyChanged();
             Save();
+
+            if (_mindWipeService?.IsRunning == true)
+            {
+                _mindWipeService.UpdateSettings(
+                    _settingsService.Current.MindWipeFrequency,
+                    _settingsService.Current.MindWipeVolume / 100.0);
+            }
         }
     }
 
@@ -291,6 +397,13 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.MindWipeVolume = value;
             OnPropertyChanged();
             Save();
+
+            if (_mindWipeService?.IsRunning == true)
+            {
+                _mindWipeService.UpdateSettings(
+                    _settingsService.Current.MindWipeFrequency,
+                    _settingsService.Current.MindWipeVolume / 100.0);
+            }
         }
     }
 
@@ -303,15 +416,32 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.MindWipeLoop = value;
             OnPropertyChanged();
             Save();
-            _logger?.Information("Mind Wipe loop toggled: {Looping}", value);
+            _logger?.LogInformation("Mind Wipe loop toggled: {Looping}", value);
+
+            if (value)
+            {
+                _mindWipeService?.StartLoop(_settingsService.Current.MindWipeVolume / 100.0);
+            }
+            else
+            {
+                _mindWipeService?.StopLoop();
+            }
         }
     }
 
     [RelayCommand]
     private async Task TestMindWipeAsync()
     {
-        _logger?.Information("Test mind wipe requested");
-        await ShowNotImplementedAsync(Loc.Get("feature_mind_wipe"));
+        _logger?.LogInformation("Test mind wipe requested");
+        try
+        {
+            _mindWipeService?.TriggerOnce();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to test mind wipe");
+        }
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -323,7 +453,9 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task OpenMindWipeDetailsAsync()
     {
-        await ShowNotImplementedAsync(Loc.Get("feature_mind_wipe"));
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("feature_mind_wipe"),
+            Loc.Get("msg_level_feature_settings_on_dashboard")) ?? Task.CompletedTask);
     }
 
     #endregion
@@ -339,7 +471,12 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BrainDrainEnabled = value;
             OnPropertyChanged();
             Save();
-            _logger?.Information("Brain Drain toggled: {Enabled}", value);
+            _logger?.LogInformation("Brain Drain toggled: {Enabled}", value);
+
+            if (IsSessionRunning)
+            {
+                _overlayService?.RefreshOverlays();
+            }
         }
     }
 
@@ -352,6 +489,11 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BrainDrainIntensity = value;
             OnPropertyChanged();
             Save();
+
+            if (_overlayService?.IsRunning == true)
+            {
+                _overlayService.RefreshOverlays();
+            }
         }
     }
 
@@ -364,7 +506,13 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
             _settingsService.Current.BrainDrainHighRefresh = value;
             OnPropertyChanged();
             Save();
-            _logger?.Information("Brain Drain High Refresh toggled: {Enabled}", value);
+            _logger?.LogInformation("Brain Drain High Refresh toggled: {Enabled}", value);
+
+            if (_overlayService?.IsRunning == true && BrainDrainEnabled)
+            {
+                _overlayService.Stop();
+                _overlayService.Start();
+            }
         }
     }
 
@@ -377,7 +525,9 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task OpenBrainDrainDetailsAsync()
     {
-        await ShowNotImplementedAsync(Loc.Get("feature_brain_drain"));
+        await (_dialogService?.ShowMessageAsync(
+            Loc.Get("feature_brain_drain"),
+            Loc.Get("msg_level_feature_settings_on_dashboard")) ?? Task.CompletedTask);
     }
 
     #endregion
@@ -392,6 +542,6 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save settings"); }
     }
 }

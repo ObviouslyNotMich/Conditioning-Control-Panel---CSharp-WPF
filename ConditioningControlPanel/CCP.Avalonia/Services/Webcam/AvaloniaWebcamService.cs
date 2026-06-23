@@ -11,10 +11,10 @@ namespace ConditioningControlPanel.Avalonia.Services.Webcam;
 /// </summary>
 public sealed class AvaloniaWebcamService : IWebcamService
 {
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaWebcamService>? _logger;
     private bool _isRunning;
 
-    public AvaloniaWebcamService(IAppLogger? logger = null)
+    public AvaloniaWebcamService(ILogger<AvaloniaWebcamService>? logger = null)
     {
         _logger = logger;
     }
@@ -30,33 +30,33 @@ public sealed class AvaloniaWebcamService : IWebcamService
     public void StartTracking()
     {
         _isRunning = true;
-        _logger?.Information("AvaloniaWebcamService: tracking started (stub)");
+        _logger?.LogInformation("AvaloniaWebcamService: tracking started (stub)");
     }
 
     public void StopTracking()
     {
         _isRunning = false;
-        _logger?.Information("AvaloniaWebcamService: tracking stopped (stub)");
+        _logger?.LogInformation("AvaloniaWebcamService: tracking stopped (stub)");
     }
 
     public void Calibrate()
     {
-        _logger?.Information("AvaloniaWebcamService: calibration requested (stub)");
+        _logger?.LogInformation("AvaloniaWebcamService: calibration requested (stub)");
     }
 
     public void TestTracker()
     {
-        _logger?.Information("AvaloniaWebcamService: tracker test requested (stub)");
+        _logger?.LogInformation("AvaloniaWebcamService: tracker test requested (stub)");
     }
 
     public void RefreshDevices()
     {
-        _logger?.Information("AvaloniaWebcamService: device list refreshed (stub)");
+        _logger?.LogInformation("AvaloniaWebcamService: device list refreshed (stub)");
     }
 
     public void RevokeConsent()
     {
         _isRunning = false;
-        _logger?.Information("AvaloniaWebcamService: consent revoked (stub)");
+        _logger?.LogInformation("AvaloniaWebcamService: consent revoked (stub)");
     }
 }

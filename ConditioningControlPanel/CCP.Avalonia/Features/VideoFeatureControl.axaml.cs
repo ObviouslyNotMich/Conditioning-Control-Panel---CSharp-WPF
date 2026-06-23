@@ -3,10 +3,10 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Video;
@@ -18,9 +18,8 @@ public partial class VideoFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly IVideoService? _video;
     private readonly ISessionService? _session;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<VideoFeatureControl>? _logger;
     private readonly IDialogService _dialogService;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IInteractionQueueService? _interactionQueue;
     private bool _isLoading = true;
 
@@ -30,9 +29,8 @@ public partial class VideoFeatureControl : UserControl
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _video = App.Services.GetService<IVideoService>();
         _session = App.Services.GetService<ISessionService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<VideoFeatureControl>>();
         _dialogService = App.Services.GetRequiredService<IDialogService>();
-        _dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
         _interactionQueue = App.Services.GetService<IInteractionQueueService>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -101,7 +99,7 @@ public partial class VideoFeatureControl : UserControl
             e.PropertyName == nameof(AppSettings.AttentionSize) ||
             e.PropertyName == nameof(AppSettings.VideoGazeClickEnabled))
         {
-            _dispatcher.Post(LoadFromSettings);
+            Dispatcher.UIThread.Post(LoadFromSettings);
         }
     }
 
@@ -125,7 +123,7 @@ public partial class VideoFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Video enable toggle: live apply failed");
+            _logger?.LogWarning(ex, "Video enable toggle: live apply failed");
         }
     }
 
@@ -138,13 +136,28 @@ public partial class VideoFeatureControl : UserControl
         _settings.Save();
     }
 
-    private void ChkStrict_Changed(object? sender, RoutedEventArgs e)
+    private async void ChkStrict_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
         var on = ChkStrict.IsChecked ?? false;
 
-        // Strict-lock confirmation dialog is Windows-specific and not ported yet.
-        // The setting is applied directly without UI blocking for the cross-platform build.
+        if (on)
+        {
+            var confirmed = await _dialogService.ShowConfirmationAsync(
+                Loc.Get("setting_strict_lock"),
+                "Enabling Strict Lock is a dangerous setting.\n\n" +
+                "• You will NOT be able to escape videos with ESC\n" +
+                "• You MUST watch the video to completion\n" +
+                "• This can be very restrictive!\n\n" +
+                "Are you absolutely sure?");
+            if (!confirmed)
+            {
+                _isLoading = true;
+                ChkStrict.IsChecked = false;
+                _isLoading = false;
+                return;
+            }
+        }
 
         _settings.Current.StrictLockEnabled = on;
         _settings.Save();
@@ -247,7 +260,7 @@ public partial class VideoFeatureControl : UserControl
         {
             s.AttentionPool = dialog.ResultData;
             _settings.Save();
-            _logger?.Information("Attention pool updated: {Count} items", dialog.ResultData.Count);
+            _logger?.LogInformation("Attention pool updated: {Count} items", dialog.ResultData.Count);
         }
     }
 
@@ -288,11 +301,11 @@ public partial class VideoFeatureControl : UserControl
                 return;
             }
 
-            _interactionQueue?.TryStart("VideoTest", () => _video?.Start(), queue: false);
+            _video?.TriggerVideo();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Test video failed");
+            _logger?.LogError(ex, "Test video failed");
             await _dialogService.ShowMessageAsync(
                 Loc.Get("title_error"),
                 Loc.GetF("msg_video_test_error", ex.Message),

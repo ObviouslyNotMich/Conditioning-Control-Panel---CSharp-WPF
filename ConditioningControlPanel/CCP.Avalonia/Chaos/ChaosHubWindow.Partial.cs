@@ -101,7 +101,7 @@ public partial class ChaosHubWindow
                 ? "you fall in with empty hands, for now."
                 : "what you take down with you. choose like it matters.";
         }
-        catch (Exception ex) { _logger?.Warning("ApplyReveals failed ({E})", ex.Message); }
+        catch (Exception ex) { _logger?.LogWarning("ApplyReveals failed ({E})", ex.Message); }
     }
 
     private void OnHubOpenedReveals()
@@ -118,12 +118,12 @@ public partial class ChaosHubWindow
                 ChaosMeta.Save();
             }
         }
-        catch (Exception ex) { _logger?.Warning("Chaos intro guide failed ({E})", ex.Message); }
+        catch (Exception ex) { _logger?.LogWarning("Chaos intro guide failed ({E})", ex.Message); }
         try
         {
             ChaosHappyPath.OnDollhouseFirstOpen();
         }
-        catch (Exception ex) { _logger?.Information("Dollhouse first-open beat: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("Dollhouse first-open beat: {E}", ex.Message); }
         RunRevealFlashes("hub_open");
     }
 
@@ -156,7 +156,7 @@ public partial class ChaosHubWindow
                 try { AvaloniaChaosApp.Bark?.NotifyChaosRevealFlash(firstFlashed); } catch { }
             }
         }
-        catch (Exception ex) { _logger?.Warning("RunRevealFlashes failed ({E})", ex.Message); }
+        catch (Exception ex) { _logger?.LogWarning("RunRevealFlashes failed ({E})", ex.Message); }
     }
 
     private static void FlashReveal(Control el, double beginSec, Action done)
@@ -301,7 +301,7 @@ public partial class ChaosHubWindow
             Grid.SetRow(panel, grid.RowDefinitions.Count - 1);
             grid.Children.Add(panel);
         }
-        catch (Exception ex) { _logger?.Warning("Chaos debug strip build failed ({E})", ex.Message); }
+        catch (Exception ex) { _logger?.LogWarning("Chaos debug strip build failed ({E})", ex.Message); }
     }
 
     private void Dbg_SetRuns(object? sender, RoutedEventArgs e)
@@ -358,7 +358,7 @@ public partial class ChaosHubWindow
             RunRevealFlashes("debug");
             if (_dbgRuns != null) _dbgRuns.Text = ChaosMeta.State.RunsCompleted.ToString();
         }
-        catch (Exception ex) { _logger?.Warning("Chaos debug refresh failed ({E})", ex.Message); }
+        catch (Exception ex) { _logger?.LogWarning("Chaos debug refresh failed ({E})", ex.Message); }
     }
 
     private static TextBlock DbgLabel(string text) => new()
@@ -1378,7 +1378,7 @@ public partial class ChaosHubWindow
 
         ChaosMeta.State.BenchPurchases.Add(item.Id);
         try { item.ApplyEffect?.Invoke(); }
-        catch (Exception ex) { _logger?.Warning("Bench effect {Id} failed ({E})", item.Id, ex.Message); }
+        catch (Exception ex) { _logger?.LogWarning("Bench effect {Id} failed ({E})", item.Id, ex.Message); }
         ChaosMeta.Save();
         bool cardFollows = item.Id is BenchIds.ToyPocket1 or BenchIds.ToyPocket2
                                    or BenchIds.AccPocket1 or BenchIds.AccPocket2;

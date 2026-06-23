@@ -22,7 +22,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class QuestCompletePopup : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<QuestCompletePopup> _logger;
 
 
     private readonly DispatcherTimer _autoCloseTimer;
@@ -31,7 +31,7 @@ public partial class QuestCompletePopup : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<QuestCompletePopup>>();
         TxtQuestName.Text = questName;
         TxtXPAwarded.Text = $"+{xpAwarded} {Loc.Get("label_xp")}";
 
@@ -59,7 +59,7 @@ public partial class QuestCompletePopup : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<QuestCompletePopup>>();
 _autoCloseTimer = new DispatcherTimer();
     }
 
@@ -78,7 +78,7 @@ _autoCloseTimer = new DispatcherTimer();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to position quest complete popup");
+            _logger?.LogError(ex, "Failed to position quest complete popup");
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
     }

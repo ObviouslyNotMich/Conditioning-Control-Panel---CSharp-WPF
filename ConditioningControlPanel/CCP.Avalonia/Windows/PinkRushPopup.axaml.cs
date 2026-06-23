@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Localization;
@@ -27,7 +28,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class PinkRushPopup : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<PinkRushPopup> _logger;
 
 
     private readonly DispatcherTimer _countdownTimer;
@@ -37,7 +38,7 @@ public partial class PinkRushPopup : Window
         InitializeComponent();
         ApplyDropShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<PinkRushPopup>>();
 // Apply mod overrides to text if a mod service is available.
         try
         {
@@ -88,28 +89,13 @@ public partial class PinkRushPopup : Window
     {
         try
         {
-            var env = App.Services?.GetService<IAppEnvironment>();
-            var assetLoader = App.Services?.GetService<IAssetLoader>();
-            var filePath = env != null
-                ? Path.Combine(env.BaseDirectory, "Resources", "skills", "pink_rush.png")
-                : Path.Combine(AppContext.BaseDirectory, "Resources", "skills", "pink_rush.png");
-
-            if (File.Exists(filePath))
-            {
-                ImgSkill.Source = new Bitmap(filePath);
-                return;
-            }
-
-            var avares = new Uri("avares://CCP.Avalonia/Assets/skills/pink_rush.png");
-            if (assetLoader?.Exists(avares) == true)
-            {
-                using var stream = assetLoader.Open(avares);
-                ImgSkill.Source = new Bitmap(stream);
-            }
+            var bitmap = AvaloniaBitmapHelper.LoadResource("skills/pink_rush.png");
+            if (bitmap != null)
+                ImgSkill.Source = bitmap;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "PinkRushPopup: failed to load skill image");
+            _logger?.LogWarning(ex, "PinkRushPopup: failed to load skill image");
         }
     }
 
@@ -128,7 +114,7 @@ public partial class PinkRushPopup : Window
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to position Pink Rush popup");
+            _logger?.LogError(ex, "Failed to position Pink Rush popup");
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
     }

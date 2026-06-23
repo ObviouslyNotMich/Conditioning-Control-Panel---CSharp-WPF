@@ -136,6 +136,9 @@
   <DataTemplate x:Key="{x:Type tabs:LockdownTabViewModel}" DataType="tabs:LockdownTabViewModel">
     <tabViews:LockdownTabView />
   </DataTemplate>
+  <DataTemplate x:Key="{x:Type tabs:AvailableSubjectsTabViewModel}" DataType="tabs:AvailableSubjectsTabViewModel">
+    <tabViews:AvailableSubjectsTabView />
+  </DataTemplate>
   <DataTemplate x:Key="{x:Type tabs:TabItemViewModel}" DataType="tabs:TabItemViewModel">
     <tabViews:PlaceholderTabView />
   </DataTemplate>

@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Services.Webcam;
 using ConditioningControlPanel.Models.Deeper;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,8 +27,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
         private Action? _detachActiveSource;
 
         private readonly IWebcamService? _webcam;
-        private readonly IUiDispatcher _dispatcher;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<EnhancementHostService>? _logger;
         private readonly IServiceProvider _services;
 
         public bool IsRunning => _engine?.IsRunning ?? false;
@@ -66,12 +65,10 @@ namespace ConditioningControlPanel.Core.Services.Deeper
 
         public EnhancementHostService(
             IWebcamService? webcam,
-            IUiDispatcher dispatcher,
             IServiceProvider services,
-            IAppLogger? logger = null)
+            ILogger<EnhancementHostService>? logger = null)
         {
             _webcam = webcam;
-            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _services = services ?? throw new ArgumentNullException(nameof(services));
             _logger = logger;
         }
@@ -104,7 +101,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                 LoadedEnhancement = enh;
                 LoadedFilePath = path;
                 Loaded?.Invoke(enh, path);
-                _logger?.Information("Deeper host loaded: {Name} ({Path})",
+                _logger?.LogInformation("Deeper host loaded: {Name} ({Path})",
                     enh.Metadata?.Name ?? "(untitled)", path);
                 return true;
             }
@@ -115,7 +112,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "EnhancementHostService.LoadFromFile failed");
+                _logger?.LogWarning(ex, "EnhancementHostService.LoadFromFile failed");
                 LoadFailed?.Invoke(ex.Message);
                 return false;
             }
@@ -147,7 +144,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "EnhancementHostService.LoadFromMemory validation failed");
+                _logger?.LogWarning(ex, "EnhancementHostService.LoadFromMemory validation failed");
                 LoadFailed?.Invoke(ex.Message);
                 return false;
             }
@@ -156,7 +153,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             LoadedEnhancement = enhancement;
             LoadedFilePath = sourceTag;
             try { Loaded?.Invoke(enhancement, sourceTag); } catch { }
-            _logger?.Information("Deeper host loaded from memory: {Name} ({Tag})",
+            _logger?.LogInformation("Deeper host loaded from memory: {Name} ({Tag})",
                 enhancement.Metadata?.Name ?? "(untitled)", sourceTag);
             return true;
         }
@@ -169,7 +166,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                 LoadedEnhancement = null;
                 LoadedFilePath = null;
                 try { Loaded?.Invoke(null, null); } catch { }
-                _logger?.Information("Deeper host unloaded");
+                _logger?.LogInformation("Deeper host unloaded");
             }
         }
 
@@ -207,15 +204,15 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                 // BlinkDetected/GazeTarget/etc. rules silently when playback started
                 // before the webcam did, even though the user later started tracking
                 // mid-session and saw the events register everywhere else.
-                _engine = new EnhancementEngine(LoadedEnhancement, source, _activeRecorder, _webcam, EmitDiagnostic, _dispatcher, _logger);
+                _engine = new EnhancementEngine(LoadedEnhancement, source, _activeRecorder, _webcam, EmitDiagnostic, _services.GetRequiredService<ILogger<EnhancementEngine>>());
                 _engine.PlaybackCompleted += OnEnginePlaybackCompleted;
                 _engine.Start();
-                _logger?.Information("Deeper engine bound and started");
+                _logger?.LogInformation("Deeper engine bound and started");
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "EnhancementHostService.Bind failed");
+                _logger?.LogWarning(ex, "EnhancementHostService.Bind failed");
                 UnbindEngine();
                 return false;
             }
@@ -240,7 +237,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
             catch (Exception ex)
             {
-                _logger?.Debug("EnhancementHostService.OnEnginePlaybackCompleted error: {Error}", ex.Message);
+                _logger?.LogDebug("EnhancementHostService.OnEnginePlaybackCompleted error: {Error}", ex.Message);
             }
         }
 
@@ -256,7 +253,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
             catch (Exception ex)
             {
-                _logger?.Debug("EnhancementHostService.UnbindEngine error: {Error}", ex.Message);
+                _logger?.LogDebug("EnhancementHostService.UnbindEngine error: {Error}", ex.Message);
             }
             _engine = null;
             if (_activeRecorder != null)
@@ -272,13 +269,13 @@ namespace ConditioningControlPanel.Core.Services.Deeper
         private void OnRecorderActionLogged(string line)
         {
             try { ActionLogged?.Invoke(line); }
-            catch (Exception ex) { _logger?.Debug("EnhancementHostService.ActionLogged subscriber error: {Error}", ex.Message); }
+            catch (Exception ex) { _logger?.LogDebug("EnhancementHostService.ActionLogged subscriber error: {Error}", ex.Message); }
         }
 
         private void EmitDiagnostic(string line)
         {
             try { Diagnostic?.Invoke(line); }
-            catch (Exception ex) { _logger?.Debug("EnhancementHostService.Diagnostic subscriber error: {Error}", ex.Message); }
+            catch (Exception ex) { _logger?.LogDebug("EnhancementHostService.Diagnostic subscriber error: {Error}", ex.Message); }
         }
 
         public void Dispose()

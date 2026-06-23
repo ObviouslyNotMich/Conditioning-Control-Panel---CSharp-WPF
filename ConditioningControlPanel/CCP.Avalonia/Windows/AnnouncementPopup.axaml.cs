@@ -28,7 +28,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class AnnouncementPopup : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<AnnouncementPopup> _logger;
 
 
     private readonly string _announcementId;
@@ -41,7 +41,7 @@ public partial class AnnouncementPopup : Window
 
         ApplyDefaultShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AnnouncementPopup>>();
 _announcementId = id;
         _linkUrl = linkUrl;
         TxtTitle.Text = title;
@@ -78,7 +78,7 @@ _announcementId = id;
 
         ApplyDefaultShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AnnouncementPopup>>();
 _announcementId = "";
     }
 
@@ -150,13 +150,13 @@ _announcementId = "";
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning(ex, "Failed to decode announcement image");
+                    _logger?.LogWarning(ex, "Failed to decode announcement image");
                 }
             });
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to load announcement image from {Url}", imageUrl);
+            _logger?.LogWarning(ex, "Failed to load announcement image from {Url}", imageUrl);
         }
     }
 
@@ -172,7 +172,7 @@ _announcementId = "";
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to open announcement link {Url}", _linkUrl);
+                _logger?.LogWarning(ex, "Failed to open announcement link {Url}", _linkUrl);
             }
         }
     }

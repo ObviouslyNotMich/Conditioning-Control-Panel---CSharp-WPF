@@ -21,7 +21,8 @@ public partial class AwarenessTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AwarenessTabViewModel>? _logger;
+    private readonly ILogger<KeywordTriggerViewModel>? _keywordTriggerLogger;
 
     public AwarenessTabViewModel() : base("awareness", "Awareness", "👁")
     {
@@ -38,11 +39,13 @@ public partial class AwarenessTabViewModel : TabItemViewModel
     public AwarenessTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("awareness", "Awareness", "👁")
+        ILogger<AwarenessTabViewModel> logger,
+        ILogger<KeywordTriggerViewModel> keywordTriggerLogger) : base("awareness", "Awareness", "👁")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
+        _keywordTriggerLogger = keywordTriggerLogger;
         Triggers = new ObservableCollection<KeywordTriggerViewModel>();
         VisualEffectOptions = new ObservableCollection<string>(Enum.GetNames(typeof(KeywordVisualEffect)));
         OcrConfirmationOptions = new ObservableCollection<string> { "1 scan", "2 scans", "3 scans" };
@@ -229,7 +232,7 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         _settingsService.Current.AwarenessModeEnabled = value;
         Save();
         UpdateStatus();
-        _logger?.Information("Awareness master switch toggled: {Enabled}", value);
+        _logger?.LogInformation("Awareness master switch toggled: {Enabled}", value);
     }
 
     partial void OnIgnoreOwnUiChanged(bool value)
@@ -258,7 +261,7 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.KeywordTriggersEnabled = value;
         Save();
-        _logger?.Information("Awareness keyboard capture toggled: {Enabled}", value);
+        _logger?.LogInformation("Awareness keyboard capture toggled: {Enabled}", value);
         UpdateStatus();
     }
 
@@ -267,7 +270,7 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.ScreenOcrEnabled = value;
         Save();
-        _logger?.Information("Awareness screen OCR toggled: {Enabled}", value);
+        _logger?.LogInformation("Awareness screen OCR toggled: {Enabled}", value);
         UpdateStatus();
     }
 
@@ -361,15 +364,15 @@ public partial class AwarenessTabViewModel : TabItemViewModel
             XPAward = 10
         };
         _settingsService?.Current?.KeywordTriggers.Add(trigger);
-        Triggers.Add(new KeywordTriggerViewModel(trigger, Save, _logger));
+        Triggers.Add(new KeywordTriggerViewModel(trigger, Save, _keywordTriggerLogger));
         Save();
-        _logger?.Information("Added keyword trigger");
+        _logger?.LogInformation("Added keyword trigger");
     }
 
     [RelayCommand]
     private async Task ImportFromCustomTriggersAsync()
     {
-        _logger?.Information("Import from custom triggers requested (stub)");
+        _logger?.LogInformation("Import from custom triggers requested (stub)");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_import_complete"),
             Loc.Get("msg_no_new_triggers_to_import_all_existing_trigge")) ?? Task.CompletedTask);
@@ -382,7 +385,7 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         _settingsService?.Current?.KeywordTriggers.Remove(vm.Model);
         Triggers.Remove(vm);
         Save();
-        _logger?.Information("Deleted keyword trigger {Id}", vm.Model.Id);
+        _logger?.LogInformation("Deleted keyword trigger {Id}", vm.Model.Id);
     }
 
     [RelayCommand]
@@ -396,7 +399,7 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         if (string.IsNullOrEmpty(path)) return;
         vm.Model.AudioFilePath = path;
         Save();
-        _logger?.Information("Set trigger audio for {Id}: {Path}", vm.Model.Id, Path.GetFileName(path));
+        _logger?.LogInformation("Set trigger audio for {Id}: {Path}", vm.Model.Id, Path.GetFileName(path));
     }
 
     private void LoadFromSettings()
@@ -426,14 +429,14 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         foreach (var trigger in s.KeywordTriggers)
         {
             if (trigger.Id.StartsWith("preset:", StringComparison.Ordinal)) continue;
-            Triggers.Add(new KeywordTriggerViewModel(trigger, Save, _logger));
+            Triggers.Add(new KeywordTriggerViewModel(trigger, Save, _keywordTriggerLogger));
         }
     }
 
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save keyword trigger settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save keyword trigger settings"); }
     }
 }
 
@@ -446,7 +449,7 @@ public sealed partial class KeywordTriggerViewModel : ObservableObject
     private readonly KeywordTrigger _model;
     private readonly Action _save;
 
-    public KeywordTriggerViewModel(KeywordTrigger model, Action save, IAppLogger? logger)
+    public KeywordTriggerViewModel(KeywordTrigger model, Action save, ILogger<KeywordTriggerViewModel>? logger)
     {
         _model = model;
         _save = save;

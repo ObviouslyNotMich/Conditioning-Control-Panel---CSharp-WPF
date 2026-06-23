@@ -11,6 +11,8 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using ConditioningControlPanel.Avalonia.Helpers;
+using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
@@ -23,7 +25,7 @@ public partial class SpiralFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
     private readonly IOverlayService? _overlay;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<SpiralFeatureControl>? _logger;
     private bool _isLoading = true;
 
     private static readonly string[] SpiralImageExts =
@@ -45,7 +47,7 @@ public partial class SpiralFeatureControl : UserControl
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _overlay = App.Services.GetService<IOverlayService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SpiralFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -99,7 +101,7 @@ public partial class SpiralFeatureControl : UserControl
         _settings.Save();
 
         try { _overlay?.RefreshOverlays(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Spiral toggle: RefreshOverlays failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Spiral toggle: RefreshOverlays failed"); }
     }
 
     private void SliderOpacity_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -112,7 +114,7 @@ public partial class SpiralFeatureControl : UserControl
         _settings.Save();
 
         try { _overlay?.RefreshOverlays(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Spiral opacity: RefreshOverlays failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Spiral opacity: RefreshOverlays failed"); }
     }
 
     // ── Spiral library ───────────────────────────────────────────────────
@@ -134,11 +136,20 @@ public partial class SpiralFeatureControl : UserControl
         SpiralLibraryPanel.Children.Clear();
 
         // Built-in spiral (active when SpiralPath is empty / missing).
+        // Prefer a mod override, then the base Resources/spiral.gif on disk.
         string? defaultThumb = null;
-        var builtInPath = Path.Combine(AppContext.BaseDirectory, "Resources", "spiral.gif");
-        if (File.Exists(builtInPath))
-            defaultThumb = builtInPath;
-        // TODO: ModResourceResolver.ResolveUri fallback for built-in spiral.
+        var resolver = App.Services?.GetService<AvaloniaModResourceResolver>();
+        var modUri = resolver?.ResolveUri("spiral.gif");
+        if (!string.IsNullOrEmpty(modUri) && modUri.StartsWith("file://", StringComparison.Ordinal))
+        {
+            defaultThumb = modUri.Substring(7);
+        }
+        else
+        {
+            var basePath = Path.Combine(AppContext.BaseDirectory, "Resources", "spiral.gif");
+            if (File.Exists(basePath))
+                defaultThumb = basePath;
+        }
 
         SpiralLibraryPanel.Children.Add(BuildSpiralCard("", LocalizationManager.Instance["label_default"], defaultThumb));
 
@@ -165,7 +176,7 @@ public partial class SpiralFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Spiral library: enumeration failed");
+            _logger?.LogWarning(ex, "Spiral library: enumeration failed");
         }
 
         if (SpiralEmptyState != null)
@@ -204,16 +215,16 @@ public partial class SpiralFeatureControl : UserControl
 
         if (thumbUri != null)
         {
-            try
+            var bmp = AvaloniaBitmapHelper.Load(thumbUri);
+            if (bmp != null)
             {
-                var bmp = new Bitmap(thumbUri);
                 thumbHost.Child = new Image
                 {
                     Source = bmp,
                     Stretch = Stretch.UniformToFill
                 };
             }
-            catch
+            else
             {
                 thumbHost.Child = SpiralGlyph("🌀");
             }
@@ -266,7 +277,7 @@ public partial class SpiralFeatureControl : UserControl
         UpdateSelectionHighlight();
 
         try { _overlay?.RefreshOverlays(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Spiral select: RefreshOverlays failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Spiral select: RefreshOverlays failed"); }
     }
 
     private void UpdateSelectionHighlight()
@@ -302,7 +313,7 @@ public partial class SpiralFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Spiral library: open folder failed");
+            _logger?.LogWarning(ex, "Spiral library: open folder failed");
         }
     }
 
@@ -331,11 +342,11 @@ public partial class SpiralFeatureControl : UserControl
             RefreshLibrary();
 
             try { _overlay?.RefreshOverlays(); }
-            catch (Exception ex2) { _logger?.Warning(ex2, "Spiral select: RefreshOverlays failed"); }
+            catch (Exception ex2) { _logger?.LogWarning(ex2, "Spiral select: RefreshOverlays failed"); }
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Spiral select failed");
+            _logger?.LogWarning(ex, "Spiral select failed");
         }
     }
 }

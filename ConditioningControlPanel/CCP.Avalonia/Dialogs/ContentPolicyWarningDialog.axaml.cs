@@ -14,7 +14,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class ContentPolicyWarningDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ContentPolicyWarningDialog> _logger;
 
 
 private const string PolicyUrl = "https://app.cclabs.app/policies/prohibited-content";
@@ -23,7 +23,7 @@ private const string PolicyUrl = "https://app.cclabs.app/policies/prohibited-con
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ContentPolicyWarningDialog>>();
 }
 
     public ContentPolicyWarningDialog(int hitCount)
@@ -48,7 +48,7 @@ private const string PolicyUrl = "https://app.cclabs.app/policies/prohibited-con
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "ContentPolicyWarningDialog: failed to open policy URL {Url}", PolicyUrl);
+            _logger?.LogWarning(ex, "ContentPolicyWarningDialog: failed to open policy URL {Url}", PolicyUrl);
         }
     }
 }

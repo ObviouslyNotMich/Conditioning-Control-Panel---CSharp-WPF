@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,7 +19,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class RoadmapDiaryDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<RoadmapDiaryDialog> _logger;
 
 
     private readonly string _stepId;
@@ -30,7 +30,7 @@ public partial class RoadmapDiaryDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<RoadmapDiaryDialog>>();
 _stepId = "";
         _progress = new RoadmapStepProgress();
         _roadmap = App.Services.GetRequiredService<IRoadmapService>();
@@ -88,7 +88,7 @@ _stepId = "";
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to load diary photo");
+            _logger?.LogError(ex, "Failed to load diary photo");
             ImgFullPhoto.Source = null;
             TxtNoPhoto.IsVisible = true;
         }
@@ -98,10 +98,15 @@ _stepId = "";
     {
         var newNote = TxtUserNote.Text?.Trim();
 
-        // TODO: IRoadmapService does not yet expose UpdateStepNote.
-        // Stub the persistence and provide visual feedback only.
-        _progress.UserNote = newNote;
-        _logger?.Information("TODO: persist updated note for step {StepId}", _stepId);
+        try
+        {
+            _roadmap.UpdateStepNote(_stepId, newNote);
+            _progress.UserNote = newNote;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to save roadmap note for step {StepId}", _stepId);
+        }
 
         if (sender is Button btn)
         {
@@ -109,8 +114,7 @@ _stepId = "";
             btn.Content = Loc.Get("btn_saved");
             btn.IsEnabled = false;
 
-            var timer =
-new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             timer.Tick += (s, args) =>
             {
                 timer.Stop();

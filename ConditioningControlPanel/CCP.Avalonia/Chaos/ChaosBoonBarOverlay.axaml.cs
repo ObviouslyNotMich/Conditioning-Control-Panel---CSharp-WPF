@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using global::Avalonia;
 using global::Avalonia.Controls;
@@ -34,6 +34,7 @@ WindowDecorations = WindowDecorations.None;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
+        IsHitTestVisible = true;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.Manual;
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -73,7 +74,7 @@ WindowDecorations = WindowDecorations.None;
             Dispatcher.UIThread.Post(() =>
             {
                 try { if (_active == null) { _active = new ChaosBoonBarOverlay(); ((global::Avalonia.Controls.Window)_active).Show(); } }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosBoonBar.EnsureCreated: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosBoonBarOverlay>>().LogInformation("ChaosBoonBar.EnsureCreated: {E}", ex.Message); }
             });
         }
         catch { }
@@ -91,7 +92,7 @@ WindowDecorations = WindowDecorations.None;
                     if (_active == null) { _active = new ChaosBoonBarOverlay(); ((global::Avalonia.Controls.Window)_active).Show(); }
                     _active.Rebuild(snapshot);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosBoonBar.SetPicks: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosBoonBarOverlay>>().LogInformation("ChaosBoonBar.SetPicks: {E}", ex.Message); }
             });
         }
         catch { }
@@ -204,10 +205,7 @@ WindowDecorations = WindowDecorations.None;
         try { Close(); } catch { }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE on Windows (no WS_EX_TRANSPARENT — want hover).
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, false);
 
     private static Rect GetWorkArea()
     {

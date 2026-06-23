@@ -37,11 +37,9 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     private readonly ISettingsService _settings;
     private readonly IAppEnvironment _environment;
     private readonly IScreenProvider _screens;
-    private readonly IScheduler _scheduler;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IAchievementService _achievements;
     private readonly IProgressionService _progression;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaFlashService>? _logger;
     private readonly Random _random = new();
     private readonly object _sync = new();
     private readonly List<FlashOverlayWindow> _activeWindows = new();
@@ -49,7 +47,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
     private string _imagesPath = "";
     private CancellationTokenSource? _cts;
-    private IDisposable? _scheduledTimer;
+    private DispatcherTimer? _scheduledTimer;
     private bool _isBusy;
     private bool _noImagesWarningShown;
     private readonly List<string> _lastDisplayedImagePaths = new();
@@ -58,17 +56,13 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         ISettingsService settings,
         IAppEnvironment environment,
         IScreenProvider screens,
-        IScheduler scheduler,
-        IUiDispatcher dispatcher,
         IAchievementService achievements,
         IProgressionService progression,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaFlashService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _achievements = achievements ?? throw new ArgumentNullException(nameof(achievements));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
         _logger = logger;
@@ -95,7 +89,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         if (IsRunning) return;
         if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS())
         {
-            _logger?.Debug("AvaloniaFlashService: overlays are not supported on mobile; Start is a no-op");
+            _logger?.LogDebug("AvaloniaFlashService: overlays are not supported on mobile; Start is a no-op");
             return;
         }
 
@@ -104,7 +98,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         _cts = new CancellationTokenSource();
         RefreshImagesPath();
         ScheduleNextFlash();
-        _logger?.Information("AvaloniaFlashService started, images path: {Path}", _imagesPath);
+        _logger?.LogInformation("AvaloniaFlashService started, images path: {Path}", _imagesPath);
     }
 
     public void Stop()
@@ -112,7 +106,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         if (!IsRunning) return;
         IsRunning = false;
 
-        _scheduledTimer?.Dispose();
+        _scheduledTimer?.Stop();
         _scheduledTimer = null;
 
         try { _cts?.Cancel(); } catch (ObjectDisposedException) { }
@@ -120,7 +114,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         _cts = null;
 
         CloseAllWindows();
-        _logger?.Information("AvaloniaFlashService stopped");
+        _logger?.LogInformation("AvaloniaFlashService stopped");
     }
 
     public void RefreshSchedule()
@@ -134,7 +128,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         _imagesPath = Path.Combine(_environment.EffectiveAssetsPath, "images");
         try { Directory.CreateDirectory(_imagesPath); } catch { /* best effort */ }
         ClearFileCache();
-        _logger?.Information("AvaloniaFlashService: images path refreshed to {Path}", _imagesPath);
+        _logger?.LogInformation("AvaloniaFlashService: images path refreshed to {Path}", _imagesPath);
     }
 
     public void ClearFileCache()
@@ -145,7 +139,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     public void LoadAssets()
     {
         ClearFileCache();
-        _logger?.Information("AvaloniaFlashService: assets reloaded");
+        _logger?.LogInformation("AvaloniaFlashService: assets reloaded");
     }
 
     public void TriggerFlash()
@@ -157,14 +151,84 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
     public void TriggerFlashOnce(string? imagePath, int durationMs, bool playSound, bool suppressHaptic)
     {
-        // Deeper single-flash path. Real implementation can reuse SpawnFlashWindow;
-        // for now the scheduled flash service handles the visual and we log the call.
-        _logger?.Debug(
-            "AvaloniaFlashService: Deeper single-flash requested (path={Path}, duration={Duration}ms, sound={Sound}, suppressHaptic={Suppress})",
-            imagePath ?? "(random)",
-            durationMs,
-            playSound,
-            suppressHaptic);
+        try
+        {
+            if (_isBusy)
+            {
+                _logger?.LogDebug("AvaloniaFlashService: one-shot flash skipped - busy");
+                return;
+            }
+
+            _isBusy = true;
+            RefreshImagesPath();
+            var settings = _settings.Current;
+            _ = Task.Run(async () => await ShowOneShotAsync(imagePath, durationMs, playSound, suppressHaptic, settings));
+        }
+        catch (Exception ex)
+        {
+            _isBusy = false;
+            _logger?.LogError(ex, "AvaloniaFlashService: one-shot flash failed");
+        }
+    }
+
+    private async Task ShowOneShotAsync(string? imagePath, int durationMs, bool playSound, bool suppressHaptic, AppSettings? settings)
+    {
+        try
+        {
+            string? path = null;
+            if (!string.IsNullOrWhiteSpace(imagePath))
+            {
+                path = File.Exists(imagePath) ? imagePath : Path.Combine(_imagesPath, imagePath);
+            }
+
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                var candidates = GetNextImages(1);
+                path = candidates.FirstOrDefault();
+            }
+
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                _logger?.LogWarning("AvaloniaFlashService: no image available for one-shot flash");
+                return;
+            }
+
+            var data = await LoadImageAsync(path);
+            if (data == null) return;
+
+            var monitor = PickMonitor(settings ?? new AppSettings(), null);
+            var scale = (settings?.ImageScale ?? 100) / 100.0;
+            var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
+            data.Geometry = geometry;
+            data.Monitor = monitor;
+
+            var lifetimeMs = durationMs > 0
+                ? durationMs
+                : Math.Max(1000, (settings?.FlashDuration ?? 1) * 1000 + 1000);
+            var maxOpacity = Math.Clamp(settings?.FlashOpacity ?? 80, 10, 100) / 100.0;
+
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                try
+                {
+                    SpawnFlashWindow(data, settings ?? new AppSettings(), lifetimeMs, 0, maxOpacity, oneShot: true);
+                    _achievements.TrackFlashImage();
+                    _progression.AddXP(4, XPSource.Flash);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "AvaloniaFlashService: failed to show one-shot flash");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "AvaloniaFlashService: one-shot flash load failed");
+        }
+        finally
+        {
+            _isBusy = false;
+        }
     }
 
     private void ScheduleNextFlash()
@@ -174,11 +238,11 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         var settings = _settings.Current;
         if (settings == null || !settings.FlashEnabled)
         {
-            _logger?.Debug("AvaloniaFlashService: flashes disabled or settings unavailable");
+            _logger?.LogDebug("AvaloniaFlashService: flashes disabled or settings unavailable");
             return;
         }
 
-        _scheduledTimer?.Dispose();
+        _scheduledTimer?.Stop();
 
         var baseFreq = Math.Max(1, settings.FlashFrequency);
         var baseInterval = 3600.0 / baseFreq;
@@ -186,7 +250,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         var interval = baseInterval + (_random.NextDouble() * variance * 2 - variance);
         interval = Math.Max(3, interval);
 
-        _scheduledTimer = _scheduler.StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
+        _scheduledTimer = StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
         {
             if (IsRunning && !_isBusy)
             {
@@ -208,14 +272,14 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             {
                 if (!_noImagesWarningShown)
                 {
-                    _logger?.Warning("AvaloniaFlashService: no images found in {Path}", _imagesPath);
+                    _logger?.LogWarning("AvaloniaFlashService: no images found in {Path}", _imagesPath);
                     _noImagesWarningShown = true;
                 }
                 _isBusy = false;
                 return;
             }
 
-            _logger?.Information("AvaloniaFlashService: displaying {Count} flash image(s)", imagePaths.Count);
+            _logger?.LogInformation("AvaloniaFlashService: displaying {Count} flash image(s)", imagePaths.Count);
             FlashAboutToDisplay?.Invoke(this, EventArgs.Empty);
 
             await Task.Delay(1000, _cts?.Token ?? default);
@@ -227,11 +291,11 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
             if (loaded.Count == 0) { _isBusy = false; return; }
 
-            _dispatcher.Invoke(() => ShowImages(loaded, false, 0));
+            Dispatcher.UIThread.Invoke(() => ShowImages(loaded, false, 0));
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "AvaloniaFlashService: error loading flash images");
+            _logger?.LogError(ex, "AvaloniaFlashService: error loading flash images");
             _isBusy = false;
         }
     }
@@ -257,14 +321,14 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Debug("AvaloniaFlashService: could not load image {Path}: {Error}", path, ex.Message);
+                    _logger?.LogDebug("AvaloniaFlashService: could not load image {Path}: {Error}", path, ex.Message);
                     return null;
                 }
             });
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaFlashService: could not load image {Path}: {Error}", path, ex.Message);
+            _logger?.LogDebug("AvaloniaFlashService: could not load image {Path}: {Error}", path, ex.Message);
             return null;
         }
     }
@@ -302,9 +366,9 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         }
     }
 
-    private void SpawnFlashWindow(LoadedImageData data, AppSettings settings, int lifetimeMs, int hydraGeneration, double maxOpacity)
+    private void SpawnFlashWindow(LoadedImageData data, AppSettings settings, int lifetimeMs, int hydraGeneration, double maxOpacity, bool oneShot = false)
     {
-        if (!IsRunning) return;
+        if (!IsRunning && !oneShot) return;
 
         lock (_sync)
         {
@@ -341,7 +405,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaFlashService: failed to show flash window: {Error}", ex.Message);
+            _logger?.LogDebug("AvaloniaFlashService: failed to show flash window: {Error}", ex.Message);
             window.Close();
         }
     }
@@ -410,7 +474,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
             if (loaded.Count > 0)
             {
-                _dispatcher.Invoke(() => ShowImages(loaded, true, childGeneration));
+                Dispatcher.UIThread.Invoke(() => ShowImages(loaded, true, childGeneration));
             }
             else
             {
@@ -419,7 +483,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "AvaloniaFlashService: TriggerMultiplication failed");
+            _logger?.LogError(ex, "AvaloniaFlashService: TriggerMultiplication failed");
         }
     }
 
@@ -553,7 +617,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaFlashService: could not enumerate monitors: {Error}", ex.Message);
+            _logger?.LogDebug("AvaloniaFlashService: could not enumerate monitors: {Error}", ex.Message);
         }
 
         if (monitors.Count == 0)
@@ -651,6 +715,21 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
         catch { }
+    }
+
+    private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = dueTime };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            timer.Stop();
+            timer.Tick -= handler;
+            callback();
+        };
+        timer.Tick += handler;
+        timer.Start();
+        return timer;
     }
 
     public void Dispose()

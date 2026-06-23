@@ -1,6 +1,7 @@
 using System;
 using ConditioningControlPanel.Helpers;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Models.Quiz;
 using ConditioningControlPanel.Services.AIService;
 using ConditioningControlPanel.Services.Deeper;
 

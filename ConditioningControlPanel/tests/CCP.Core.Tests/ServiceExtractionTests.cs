@@ -4,10 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Headless.XUnit;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Models;
 using Xunit;
 
 namespace ConditioningControlPanel.Core.Tests;
@@ -45,22 +45,13 @@ public class ServiceExtractionTests
         public void Delete(string key) => _store.Remove(key);
     }
 
-    private class TestDisposable : IDisposable
-    {
-        public void Dispose() { }
-    }
-
-    private class TestScheduler : IScheduler
-    {
-        public IDisposable StartPeriodicTimer(TimeSpan interval, Action callback) => new TestDisposable();
-        public IDisposable StartOneShotTimer(TimeSpan dueTime, Action callback) => new TestDisposable();
-    }
-
     private class TestProgressionService : IProgressionService
     {
         public void AddXP(int amount, XPSource source) { }
         public double GetSessionXPMultiplier(int playerLevel) => 1.0 + playerLevel * 0.02;
         public double GetXPForLevel(int level) => 100.0;
+        public double GetTotalXP(int level, double currentXP) => (level - 1) * 100.0 + currentXP;
+        public double GetCurrentLevelXP(int level, double totalXP) => totalXP - (level - 1) * 100.0;
         public event EventHandler<int>? LevelUp { add { } remove { } }
     }
 
@@ -70,7 +61,7 @@ public class ServiceExtractionTests
         public Task BackupSettingsAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SettingsService_LoadsDefaults_WhenFileMissing()
     {
         var env = new TestAppEnvironment();
@@ -87,7 +78,7 @@ public class ServiceExtractionTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SettingsService_SaveAndRestore_RoundTrips()
     {
         var env = new TestAppEnvironment();
@@ -109,17 +100,14 @@ public class ServiceExtractionTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task SessionService_StartStop_CompletesAndRaisesEvents()
     {
         var env = new TestAppEnvironment();
         try
         {
             var settings = new SettingsService(env, new TestSecretStore(), new TestSettingsBackupProvider());
-            var sessionService = new SessionService(
-                settings,
-                new TestProgressionService(),
-                new TestScheduler());
+            var sessionService = new SessionService(settings, new TestProgressionService());
 
             bool completed = false;
             sessionService.SessionCompleted += (_, _) => completed = true;

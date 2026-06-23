@@ -21,7 +21,7 @@ public partial class QuestsTabViewModel : TabItemViewModel
     private readonly IRoadmapService? _roadmap;
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<QuestsTabViewModel>? _logger;
     private readonly IQuestService? _questService;
     private readonly ISkillTreeService? _skillTreeService;
     private QuestProgress _questProgress;
@@ -43,9 +43,10 @@ public partial class QuestsTabViewModel : TabItemViewModel
         IRoadmapService roadmap,
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger,
+        ILogger<QuestsTabViewModel> logger,
         IQuestService questService,
-        ISkillTreeService skillTreeService) : base("quests", "Quests", "📜")
+        ISkillTreeService skillTreeService,
+        IModService modService) : base("quests", "Quests", "📜")
     {
         _roadmap = roadmap;
         _settingsService = settingsService;
@@ -64,6 +65,13 @@ public partial class QuestsTabViewModel : TabItemViewModel
         InitializeTracks();
         RefreshRoadmap();
         RefreshQuestUI();
+
+        modService.ActiveModChanged += (_, _) =>
+        {
+            RefreshQuestUI();
+            OnPropertyChanged(nameof(DailyImageUri));
+            OnPropertyChanged(nameof(WeeklyImageUri));
+        };
     }
 
     private void OnQuestsChanged(object? sender, EventArgs e)
@@ -307,13 +315,13 @@ public partial class QuestsTabViewModel : TabItemViewModel
 
     private void OnRoadmapStepCompleted(object? sender, RoadmapStepCompletedEventArgs e)
     {
-        _logger?.Information("Roadmap step completed: {Step}", e.StepDefinition.Title);
+        _logger?.LogInformation("Roadmap step completed: {Step}", e.StepDefinition.Title);
         RefreshRoadmap();
     }
 
     private void OnRoadmapTrackUnlocked(object? sender, RoadmapTrack track)
     {
-        _logger?.Information("Roadmap track unlocked: {Track}", track);
+        _logger?.LogInformation("Roadmap track unlocked: {Track}", track);
         RefreshRoadmap();
     }
 
@@ -452,7 +460,7 @@ public partial class QuestsTabViewModel : TabItemViewModel
     {
         if (_questService == null) return;
 
-        _logger?.Information("Daily quest reroll requested");
+        _logger?.LogInformation("Daily quest reroll requested");
         var success = _questService.RerollDaily();
         if (!success)
         {
@@ -468,7 +476,7 @@ public partial class QuestsTabViewModel : TabItemViewModel
     {
         if (_questService == null) return;
 
-        _logger?.Information("Weekly quest reroll requested");
+        _logger?.LogInformation("Weekly quest reroll requested");
         var success = _questService.RerollWeekly();
         if (!success)
         {
@@ -549,7 +557,7 @@ public partial class QuestsTabViewModel : TabItemViewModel
         if (!confirm) return;
 
         // TODO: wire to ProfileSyncService once extracted to CCP.Core.
-        _logger?.Information("Oopsie Insurance used to fix {Date} for 500 XP (server-validated)", day.Date);
+        _logger?.LogInformation("Oopsie Insurance used to fix {Date} for 500 XP (server-validated)", day.Date);
 
         _questProgress.DailyQuestCompletionDates.Add(day.Date);
 

@@ -1,12 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -21,14 +25,14 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// <summary>
 /// Avalonia port of the bubble-count challenge window.
 ///
-/// The WPF version uses per-window VideoViews, NAudio pop sounds, WPF Screen APIs,
-/// and the legacy BubbleCountService. This port plays the video through LibVLC and
-/// stubs the bubble-spawn game loop with TODOs until the engine is extracted.
+/// Watch a video, count the bubbles that appear, then enter the total.
+/// Multi-monitor support mirrors the WPF implementation: a LibVLC-backed
+/// VideoView on each screen, separate topmost bubble windows, a shared
+/// animation timer, and mod-aware bubble images.
 /// </summary>
 public partial class BubbleCountWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
-
+    private readonly ILogger<BubbleCountWindow>? _logger;
 
     private readonly string _videoPath = string.Empty;
     private readonly BubbleCountService.Difficulty _difficulty;
@@ -40,11 +44,20 @@ public partial class BubbleCountWindow : Window
     private readonly LibVLC? _libVLC;
     private readonly MediaPlayer? _mediaPlayer;
     private DispatcherTimer? _safetyTimer;
+    private DispatcherTimer? _bubbleSpawnTimer;
+    private DispatcherTimer? _bubbleAnimTimer;
+
+    private readonly Random _random = new();
+    private readonly List<CountBubble> _activeBubbles = new();
+    private Bitmap? _bubbleImage;
 
     private int _targetBubbleCount;
+    private int _bubbleCount;
     private double _videoDurationSeconds = 30;
     private bool _videoEnded;
     private bool _gameCompleted;
+
+    private const double BubbleAnimTickMs = 30;
 
     private static readonly object _cleanupLock = new();
     private static bool _isCleaningUp;
@@ -55,14 +68,14 @@ public partial class BubbleCountWindow : Window
     /// <summary>Duration of the last played video in seconds (shared for XP scaling).</summary>
     internal static double LastVideoDurationSeconds { get; private set; } = 30;
 
-    private readonly IBubbleCountService _bubbleCount;
+    private readonly IBubbleCountService _bubbleCountService;
 
     public BubbleCountWindow()
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-_bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
+        _logger = App.Services.GetRequiredService<ILogger<BubbleCountWindow>>();
+        _bubbleCountService = App.Services.GetRequiredService<IBubbleCountService>();
     }
 
     public BubbleCountWindow(string videoPath, BubbleCountService.Difficulty difficulty,
@@ -71,14 +84,16 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-_bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
+        _logger = App.Services.GetRequiredService<ILogger<BubbleCountWindow>>();
+        _bubbleCountService = App.Services.GetRequiredService<IBubbleCountService>();
         _videoPath = videoPath;
         _difficulty = difficulty;
         _strictMode = strictMode;
         _onComplete = onComplete;
         _screen = screen;
         _isPrimary = isPrimary;
+
+        LoadBubbleImage();
 
         TxtDifficulty.Text = $" ({difficulty})";
         if (_strictMode)
@@ -97,7 +112,7 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "BubbleCountWindow: failed to create LibVLC media player");
+            _logger?.LogError(ex, "BubbleCountWindow: failed to create LibVLC media player");
         }
 
         if (_mediaPlayer != null)
@@ -120,7 +135,7 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
     public static void ShowOnAllMonitors(string videoPath, BubbleCountService.Difficulty difficulty,
         bool strictMode, Action<bool> onComplete)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<BubbleCountWindow>>();
         lock (_cleanupLock)
         {
             _isCleaningUp = false;
@@ -135,7 +150,7 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
 
         if (screens == null || screens.Count == 0)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Error("BubbleCountWindow: no screens available");
+            App.Services?.GetRequiredService<ILogger<BubbleCountWindow>>().LogError("BubbleCountWindow: no screens available");
             onComplete?.Invoke(false);
             return;
         }
@@ -162,7 +177,7 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Error(ex, "BubbleCountWindow: failed to create/show windows");
+            App.Services?.GetRequiredService<ILogger<BubbleCountWindow>>().LogError(ex, "BubbleCountWindow: failed to create/show windows");
             onComplete?.Invoke(false);
         }
     }
@@ -172,7 +187,7 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
     /// </summary>
     public static void ForceCloseAll()
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<BubbleCountWindow>>();
         lock (_cleanupLock)
         {
             if (_isCleaningUp) return;
@@ -187,12 +202,14 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
             try
             {
                 window._safetyTimer?.Stop();
+                window._bubbleSpawnTimer?.Stop();
+                window._bubbleAnimTimer?.Stop();
                 window._mediaPlayer?.Stop();
                 window.Close();
             }
             catch (Exception ex)
             {
-                App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("BubbleCountWindow: error closing window - {Error}", ex.Message);
+                App.Services?.GetRequiredService<ILogger<BubbleCountWindow>>().LogInformation("BubbleCountWindow: error closing window - {Error}", ex.Message);
             }
         }
 
@@ -226,41 +243,59 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "BubbleCountWindow: failed to position window");
+            _logger?.LogError(ex, "BubbleCountWindow: failed to position window");
             WindowState = WindowState.Maximized;
+        }
+    }
+
+    private void LoadBubbleImage()
+    {
+        try
+        {
+            _bubbleImage = AvaloniaBitmapHelper.LoadResource("bubble.png");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "BubbleCountWindow: failed to load bubble image");
         }
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
-        _logger?.Information("BubbleCountWindow.OnLoaded: primary={IsPrimary}, video={Video}", _isPrimary, _videoPath);
+        _logger?.LogInformation("BubbleCountWindow.OnLoaded: primary={IsPrimary}, video={Video}", _isPrimary, _videoPath);
 
         try
         {
             if (_mediaPlayer == null || _libVLC == null)
             {
-                _logger?.Error("BubbleCountWindow.OnLoaded: LibVLC not available");
+                _logger?.LogError("BubbleCountWindow.OnLoaded: LibVLC not available");
                 if (_isPrimary) CloseAllWindows(false);
                 return;
             }
 
             if (!File.Exists(_videoPath))
             {
-                _logger?.Error("BubbleCountWindow.OnLoaded: video file not found: {Path}", _videoPath);
+                _logger?.LogError("BubbleCountWindow.OnLoaded: video file not found: {Path}", _videoPath);
                 if (_isPrimary) CloseAllWindows(false);
                 return;
             }
 
             if (_isPrimary)
             {
-                _videoDurationSeconds = 30;
+                _videoDurationSeconds = GetVideoDuration(_videoPath);
                 LastVideoDurationSeconds = _videoDurationSeconds;
                 _targetBubbleCount = CalculateTargetBubbles();
                 _sharedTargetCount = _targetBubbleCount;
 
                 StartSafetyTimer(_videoDurationSeconds);
-                // TODO: start actual bubble spawning once the game engine is ported.
-                _ = Dispatcher.UIThread.InvokeAsync(() => { /* placeholder spawn tick */ });
+                StartBubbleSpawning();
+
+                _logger?.LogInformation("BubbleCount game started - Target: {Target} bubbles, Duration: {Duration}s, Difficulty: {Diff}",
+                    _targetBubbleCount, _videoDurationSeconds, _difficulty);
+
+                var settings = App.Services?.GetService<ISettingsService>()?.Current;
+                var volume = (int)((settings?.MasterVolume ?? 100) / 100.0 * 100);
+                _mediaPlayer.Volume = Math.Clamp(volume, 0, 100);
             }
             else
             {
@@ -272,20 +307,33 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
             {
                 media.AddOption(":no-audio");
             }
-            else
-            {
-                var settings = App.Services?.GetService<ISettingsService>()?.Current;
-                var volume = (int)((settings?.MasterVolume ?? 100) / 100.0 * 100);
-                _mediaPlayer.Volume = Math.Clamp(volume, 0, 100);
-            }
 
             _mediaPlayer.Play(media);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "BubbleCountWindow.OnLoaded: failed to initialize game");
+            _logger?.LogError(ex, "BubbleCountWindow.OnLoaded: failed to initialize game");
             if (_isPrimary) CloseAllWindows(false);
         }
+    }
+
+    private double GetVideoDuration(string path)
+    {
+        try
+        {
+            if (_libVLC == null) return 30;
+            using var media = new Media(_libVLC, path, FromType.FromPath);
+            media.Parse(MediaParseOptions.ParseLocal, 2000);
+            if (media.Duration > 0)
+            {
+                return media.Duration / 1000.0;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "BubbleCountWindow: failed to parse video duration for {Path}", path);
+        }
+        return 30;
     }
 
     private void OnMediaEndReached(object? sender, EventArgs e)
@@ -301,7 +349,7 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
 
     private void OnMediaError(object? sender, EventArgs e)
     {
-        _logger?.Error("BubbleCountWindow: media playback error");
+        _logger?.LogError("BubbleCountWindow: media playback error");
         Dispatcher.UIThread.Post(() =>
         {
             if (_isPrimary)
@@ -322,8 +370,7 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
 
         var scaledCount = (baseRate / 30.0) * _videoDurationSeconds;
         var variance = scaledCount * 0.2;
-        var random = new Random();
-        var count = (int)Math.Round(scaledCount + (random.NextDouble() * variance * 2 - variance));
+        var count = (int)Math.Round(scaledCount + (_random.NextDouble() * variance * 2 - variance));
         return Math.Max(3, count);
     }
 
@@ -338,11 +385,162 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
             _safetyTimer?.Stop();
             if (!_videoEnded && !_isCleaningUp)
             {
-                _logger?.Warning("BubbleCountWindow: safety timeout - forcing video end");
+                _logger?.LogWarning("BubbleCountWindow: safety timeout - forcing video end");
                 OnVideoEnded();
             }
         };
         _safetyTimer.Start();
+    }
+
+    private void StartBubbleSpawning()
+    {
+        if (!_isPrimary) return;
+
+        var intervalMs = (_videoDurationSeconds * 1000) / Math.Max(1, _targetBubbleCount);
+
+        _bubbleSpawnTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(intervalMs * 0.7)
+        };
+
+        _bubbleSpawnTimer.Tick += (_, _) =>
+        {
+            if (_sharedBubbleCount < _targetBubbleCount && !_videoEnded && !_isCleaningUp)
+            {
+                if (_random.NextDouble() < 0.7 || _sharedBubbleCount < _targetBubbleCount / 2)
+                {
+                    SpawnBubbleOnAllWindows();
+                }
+            }
+        };
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1500);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_videoEnded || _isCleaningUp) return;
+                    _bubbleSpawnTimer?.Start();
+                    SpawnBubbleOnAllWindows();
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug("BubbleCount: failed to start spawning - {Error}", ex.Message);
+            }
+        });
+    }
+
+    private void SpawnBubbleOnAllWindows()
+    {
+        if (_sharedBubbleCount >= _targetBubbleCount) return;
+        _sharedBubbleCount++;
+        _bubbleCount = _sharedBubbleCount;
+
+        var relX = _random.NextDouble() * 0.7 + 0.15;
+        var relY = _random.NextDouble() * 0.5 + 0.25;
+        var size = _random.Next(120, 225);
+
+        var windows = _allWindows.ToList();
+        if (windows.Count > 0)
+        {
+            var randomWindow = windows[_random.Next(windows.Count)];
+            randomWindow.SpawnBubbleAt(relX, relY, size);
+        }
+    }
+
+    private void SpawnBubbleAt(double relX, double relY, int size)
+    {
+        try
+        {
+            var screen = _screen ?? App.Services?.GetService<IScreenProvider>()?.GetPrimaryScreen();
+            if (screen == null) return;
+
+            var area = screen.WorkingArea;
+            var screenX = area.X + (relX * area.Width) - (size / 2.0 * screen.Scaling);
+            var screenY = area.Y + (relY * area.Height) - (size / 2.0 * screen.Scaling);
+
+            var bubble = new CountBubble(_bubbleImage, size, screenX, screenY, _random, PlayPopSound);
+            _activeBubbles.Add(bubble);
+            EnsureBubbleAnimTimer();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug("BubbleCountWindow: failed to spawn bubble - {Error}", ex.Message);
+        }
+    }
+
+    private void EnsureBubbleAnimTimer()
+    {
+        if (_bubbleAnimTimer != null) return;
+        _bubbleAnimTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(BubbleAnimTickMs)
+        };
+        _bubbleAnimTimer.Tick += AnimateAllCountBubbles;
+        _bubbleAnimTimer.Start();
+    }
+
+    private void AnimateAllCountBubbles(object? sender, EventArgs e)
+    {
+        for (int i = _activeBubbles.Count - 1; i >= 0; i--)
+        {
+            if (i >= _activeBubbles.Count) continue;
+            var bubble = _activeBubbles[i];
+            bubble.Tick(BubbleAnimTickMs);
+            if (bubble.IsFinished)
+            {
+                _activeBubbles.RemoveAt(i);
+                bubble.Dispose();
+            }
+        }
+
+        if (_activeBubbles.Count == 0)
+        {
+            _bubbleAnimTimer?.Stop();
+            _bubbleAnimTimer = null;
+        }
+    }
+
+    private void PlayPopSound()
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (_libVLC == null) return;
+
+                var soundIndex = _random.Next(3);
+                var soundsPath = Path.Combine(AppContext.BaseDirectory, "Resources", "sounds", "bubbles");
+                var popFiles = new[] { "Pop.mp3", "Pop2.mp3", "Pop3.mp3" };
+                var popPath = Path.Combine(soundsPath, popFiles[soundIndex]);
+
+                if (!File.Exists(popPath)) return;
+
+                using var player = new MediaPlayer(_libVLC);
+                using var media = new Media(_libVLC, popPath, FromType.FromPath);
+
+                var settings = App.Services?.GetService<ISettingsService>()?.Current;
+                var masterVolume = (settings?.MasterVolume ?? 100) / 100.0;
+                var bubblesVolume = (settings?.BubblesVolume ?? 50) / 100.0;
+                var volume = (int)(Math.Pow(masterVolume * bubblesVolume, 1.5) * 100);
+                player.Volume = Math.Clamp(volume, 0, 100);
+
+                player.Play(media);
+
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000);
+                    try { player.Stop(); } catch { }
+                });
+            }
+            catch
+            {
+                // Best-effort pop sound.
+            }
+        });
     }
 
     private void OnVideoEnded()
@@ -351,15 +549,28 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
         _videoEnded = true;
 
         _safetyTimer?.Stop();
+        _bubbleSpawnTimer?.Stop();
 
         foreach (var window in _allWindows.ToList())
         {
             window._videoEnded = true;
+            window._bubbleSpawnTimer?.Stop();
+        }
+
+        foreach (var window in _allWindows.ToList())
+        {
+            foreach (var bubble in window._activeBubbles.ToArray())
+            {
+                bubble.Dispose();
+            }
+            window._activeBubbles.Clear();
+            window._bubbleAnimTimer?.Stop();
+            window._bubbleAnimTimer = null;
         }
 
         if (_isPrimary && _videoDurationSeconds > 0)
         {
-            _logger?.Information("BubbleCount video watched: {Duration}s", _videoDurationSeconds);
+            _logger?.LogInformation("BubbleCount video watched: {Duration}s", _videoDurationSeconds);
             try
             {
                 App.Services?.GetService<IAchievementService>()?.TrackVideoWatched(_videoDurationSeconds);
@@ -414,6 +625,8 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
                 try
                 {
                     window._safetyTimer?.Stop();
+                    window._bubbleSpawnTimer?.Stop();
+                    window._bubbleAnimTimer?.Stop();
                     window._mediaPlayer?.Stop();
                     window.Close();
                 }
@@ -435,9 +648,172 @@ _bubbleCount = App.Services.GetRequiredService<IBubbleCountService>();
     protected override void OnClosed(EventArgs e)
     {
         _safetyTimer?.Stop();
+        _bubbleSpawnTimer?.Stop();
+        _bubbleAnimTimer?.Stop();
+        _bubbleAnimTimer = null;
+
+        foreach (var bubble in _activeBubbles.ToArray())
+        {
+            bubble.Dispose();
+        }
+        _activeBubbles.Clear();
+
         _mediaPlayer?.Stop();
         _mediaPlayer?.Dispose();
         _allWindows.Remove(this);
         base.OnClosed(e);
+    }
+
+    /// <summary>
+    /// Individual topmost bubble window for the counting game.
+    /// </summary>
+    private sealed class CountBubble : IDisposable
+    {
+        private readonly Window _window;
+        private readonly Control _visual;
+        private readonly Action? _playSound;
+
+        private double _scale = 0.1;
+        private double _targetScale = 1.0;
+        private double _opacity = 1.0;
+        private double _rotation = 0;
+        private bool _isPopping;
+        private bool _isDisposed;
+        private double _lifeRemainingMs;
+        private readonly int _size;
+
+        public bool IsFinished { get; private set; }
+
+        public CountBubble(Bitmap? image, int size, double screenX, double screenY,
+            Random random, Action? playSound)
+        {
+            _playSound = playSound;
+            _rotation = random.Next(360);
+            _size = size;
+            _lifeRemainingMs = 1000 + random.Next(500);
+
+            var transformGroup = new TransformGroup();
+            transformGroup.Children.Add(new ScaleTransform(_scale, _scale));
+            transformGroup.Children.Add(new RotateTransform(_rotation));
+
+            if (image != null)
+            {
+                _visual = new Image
+                {
+                    Width = size,
+                    Height = size,
+                    Stretch = Stretch.Uniform,
+                    Source = image,
+                    RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
+                    RenderTransform = transformGroup
+                };
+            }
+            else
+            {
+                _visual = new global::Avalonia.Controls.Shapes.Ellipse
+                {
+                    Width = size,
+                    Height = size,
+                    Fill = new RadialGradientBrush
+                    {
+                        GradientStops =
+                        {
+                            new GradientStop(Color.FromArgb(200, 255, 182, 193), 0),
+                            new GradientStop(Color.FromArgb(100, 255, 105, 180), 1)
+                        }
+                    },
+                    Stroke = Brushes.White,
+                    StrokeThickness = 2,
+                    RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
+                    RenderTransform = transformGroup
+                };
+            }
+
+            _window = new Window
+            {
+                WindowDecorations = WindowDecorations.None,
+                Background = null,
+                TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                Topmost = true,
+                IsHitTestVisible = false,
+                CanResize = false,
+                Width = size,
+                Height = size,
+                Position = new PixelPoint((int)screenX, (int)screenY),
+                Content = _visual
+            };
+
+            _window.Show();
+        }
+
+        public void Tick(double dtMs)
+        {
+            if (_isDisposed) return;
+
+            try
+            {
+                if (!_isPopping)
+                {
+                    _lifeRemainingMs -= dtMs;
+                    if (_lifeRemainingMs <= 0) StartPopping();
+                }
+
+                if (_isPopping)
+                {
+                    _scale += 0.08;
+                    _opacity -= 0.12;
+                    _rotation += 5;
+
+                    if (_opacity <= 0)
+                    {
+                        IsFinished = true;
+                        return;
+                    }
+                }
+                else
+                {
+                    if (_scale < _targetScale)
+                    {
+                        _scale = Math.Min(_targetScale, _scale + 0.1);
+                    }
+                    _rotation += 0.5;
+                }
+
+                _window.Opacity = Math.Max(0, _opacity);
+
+                if (_visual.RenderTransform is TransformGroup tg && tg.Children.Count >= 2)
+                {
+                    if (tg.Children[0] is ScaleTransform st)
+                    {
+                        st.ScaleX = _scale;
+                        st.ScaleY = _scale;
+                    }
+                    if (tg.Children[1] is RotateTransform rt)
+                    {
+                        rt.Angle = _rotation;
+                    }
+                }
+            }
+            catch
+            {
+                // Bubble animation is best-effort.
+            }
+        }
+
+        private void StartPopping()
+        {
+            if (_isPopping || _isDisposed) return;
+            _isPopping = true;
+            _playSound?.Invoke();
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+            _isDisposed = true;
+            try { _window.Close(); } catch { }
+        }
     }
 }

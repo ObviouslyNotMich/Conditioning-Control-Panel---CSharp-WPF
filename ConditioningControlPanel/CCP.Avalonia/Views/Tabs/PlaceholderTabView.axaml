@@ -20,6 +20,10 @@
     <TextBlock Text="{Binding Header}"
                FontSize="24"
                HorizontalAlignment="Center" />
+    <TextBlock Text="{Binding Key, StringFormat='{}key: {0}'}"
+               FontSize="12"
+               Opacity="0.5"
+               HorizontalAlignment="Center" />
     <TextBlock Text="{loc:Str tab_placeholder_avalonia_tab_placeholder_text}"
                Opacity="0.7"
                HorizontalAlignment="Center" />

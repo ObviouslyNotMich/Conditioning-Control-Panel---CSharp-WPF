@@ -71,7 +71,7 @@ WindowDecorations = WindowDecorations.None;
         }
         Opacity = 0;
 
-        _host = new Grid();
+        _host = new Grid { IsHitTestVisible = false };
         Content = _host;
 
         Opened += (_, _) => ApplyExStyles();
@@ -106,12 +106,12 @@ WindowDecorations = WindowDecorations.None;
                 if (!_showing) ShowNext();
             });
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosAnnouncer.Announce: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosAnnouncerOverlay>>().LogInformation("ChaosAnnouncer.Announce: {E}", ex.Message); }
     }
 
     public static void AnnounceNarrator(string text, int bandPriority, bool interrupt, int holdMs)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosAnnouncerOverlay>>();
         try
         {
             if (string.IsNullOrWhiteSpace(text)) return;
@@ -123,7 +123,7 @@ WindowDecorations = WindowDecorations.None;
                 else if (interrupt) _active?.CutShort();   // STORY: end the current line so she shows next
             });
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosAnnouncer.AnnounceNarrator: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosAnnouncerOverlay>>().LogInformation("ChaosAnnouncer.AnnounceNarrator: {E}", ex.Message); }
     }
 
     public static void RaiseActive() => AvaloniaChaosWindowZ.RaiseTopmost(_active);
@@ -135,7 +135,7 @@ WindowDecorations = WindowDecorations.None;
 
     private static void ShowNext()
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosAnnouncerOverlay>>();
         if (!TryDequeue(out var dq)) { _showing = false; return; }
         _showing = true;
         var (text, kind, artKey, subText, holdMs, _) = dq;
@@ -148,7 +148,7 @@ WindowDecorations = WindowDecorations.None;
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosAnnouncer.ShowNext: {E}", ex.Message);
+            App.Services?.GetRequiredService<ILogger<ChaosAnnouncerOverlay>>().LogInformation("ChaosAnnouncer.ShowNext: {E}", ex.Message);
             _showing = false;
         }
     }
@@ -275,10 +275,7 @@ WindowDecorations = WindowDecorations.None;
         return (fill, new SolidColorBrush(Color.FromRgb(0x0B, 0x08, 0x12)));
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 
     private static Rect GetPrimaryWorkArea()
     {

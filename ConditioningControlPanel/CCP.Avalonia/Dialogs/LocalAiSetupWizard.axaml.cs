@@ -37,7 +37,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
 
         private readonly IOllamaSetupService _ollamaSetupService;
         private readonly ISettingsService _settingsService;
-        private readonly IAppLogger _logger;
+        private readonly ILogger<LocalAiSetupWizard> _logger;
 
         private Step _step = Step.Detecting;
         private CancellationTokenSource? _cts;
@@ -54,7 +54,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
 
             _ollamaSetupService = App.Services.GetRequiredService<IOllamaSetupService>();
             _settingsService = App.Services.GetRequiredService<ISettingsService>();
-            _logger = App.Services.GetRequiredService<IAppLogger>();
+            _logger = App.Services.GetRequiredService<ILogger<LocalAiSetupWizard>>();
 
             _targetModel = ResolveStartingModel();
             TxtAdvancedModel.Text = _targetModel;
@@ -219,7 +219,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "LocalAiSetupWizard: detect failed");
+                _logger.LogWarning(ex, "LocalAiSetupWizard: detect failed");
                 Show(Step.Consent);
             }
         }
@@ -266,7 +266,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "LocalAiSetupWizard: installer download failed");
+                _logger.LogWarning(ex, "LocalAiSetupWizard: installer download failed");
                 ShowError(Loc.GetF("error_local_ai_download_failed", ex.Message));
             }
         }
@@ -301,7 +301,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
                 }
                 // Drop the installer on success — it's ~700MB and unneeded once Ollama is in.
                 try { if (global::System.IO.File.Exists(installerPath)) global::System.IO.File.Delete(installerPath); }
-                catch (Exception ex) { _logger.Warning(ex, "Failed to delete OllamaSetup.exe after install"); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete OllamaSetup.exe after install"); }
                 await StartPullAsync();
             }
             catch (OperationCanceledException)
@@ -311,7 +311,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "LocalAiSetupWizard: silent install failed");
+                _logger.LogWarning(ex, "LocalAiSetupWizard: silent install failed");
                 ShowError(Loc.GetF("error_local_ai_install_failed_detail", ex.Message));
             }
         }
@@ -359,7 +359,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "LocalAiSetupWizard: pull failed (model={Model})", _targetModel);
+                _logger.LogWarning(ex, "LocalAiSetupWizard: pull failed (model={Model})", _targetModel);
                 ShowError(Loc.GetF("error_local_ai_pull_failed", _targetModel, ex.Message));
             }
         }
@@ -399,7 +399,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "LocalAiSetupWizard: smoke test threw");
+                _logger.LogWarning(ex, "LocalAiSetupWizard: smoke test threw");
                 ShowError(Loc.GetF("error_local_ai_smoke_threw", ex.Message));
             }
         }
@@ -420,7 +420,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "LocalAiSetupWizard: failed to save settings on Finish");
+                _logger.LogWarning(ex, "LocalAiSetupWizard: failed to save settings on Finish");
             }
 
             LocalAiReady = true;
@@ -487,7 +487,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "LocalAiSetupWizard: failed to open manual install URL");
+                _logger.LogWarning(ex, "LocalAiSetupWizard: failed to open manual install URL");
             }
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using global::Avalonia;
 using global::Avalonia.Controls;
@@ -13,7 +13,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosPopText : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosPopText> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -40,7 +40,7 @@ public partial class ChaosPopText : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosPopText>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
@@ -56,6 +56,7 @@ WindowDecorations = WindowDecorations.None;
         Height = WIN_H;
         Opacity = 0;
         Content = _root;
+        _root.IsHitTestVisible = false;
 
         _holdTimer.Interval = TimeSpan.FromMilliseconds(IN_MS + HOLD_MS);
         _holdTimer.Tick += (_, _) =>
@@ -84,10 +85,10 @@ WindowDecorations = WindowDecorations.None;
                     else if (_all.Count < POOL_MAX) { w = new ChaosPopText(); _all.Add(w); }
                     w?.Play(anchorXDip, anchorYDip, text, color);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosPopText.Show inner: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosPopText>>().LogInformation("ChaosPopText.Show inner: {E}", ex.Message); }
             });
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosPopText.Show: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosPopText>>().LogInformation("ChaosPopText.Show: {E}", ex.Message); }
     }
 
     public static void RaiseActive()
@@ -188,8 +189,5 @@ new SolidColorBrush(Color.FromRgb(0x0B, 0x08, 0x12));
         return (fill, stroke);
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

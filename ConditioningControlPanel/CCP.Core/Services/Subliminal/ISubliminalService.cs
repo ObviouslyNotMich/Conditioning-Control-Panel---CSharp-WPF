@@ -17,6 +17,11 @@ public interface ISubliminalService
     void Stop();
 
     /// <summary>
+    /// Flash a random active subliminal phrase from the configured pool.
+    /// </summary>
+    void FlashSubliminal();
+
+    /// <summary>
     /// Flash a single custom subliminal phrase. Used by the Deeper enhancement engine.
     /// </summary>
     void FlashSubliminalCustom(string text, int? overrideDurationMs = null, bool suppressHaptic = false);

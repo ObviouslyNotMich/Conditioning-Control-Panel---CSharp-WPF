@@ -9,7 +9,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Services.BouncingText;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -31,10 +31,9 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
 
     private readonly ISettingsService _settings;
     private readonly IScreenProvider _screens;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IAchievementService _achievements;
     private readonly IProgressionService _progression;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaBouncingTextService>? _logger;
     private readonly Random _random = new();
     private readonly object _sync = new();
     private readonly List<BouncingTextWindow> _windows = new();
@@ -57,14 +56,12 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
     public AvaloniaBouncingTextService(
         ISettingsService settings,
         IScreenProvider screens,
-        IUiDispatcher dispatcher,
         IAchievementService achievements,
         IProgressionService progression,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaBouncingTextService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _achievements = achievements ?? throw new ArgumentNullException(nameof(achievements));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
         _logger = logger;
@@ -81,7 +78,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         if (IsRunning) return;
         if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS())
         {
-            _logger?.Debug("AvaloniaBouncingTextService: overlays are not supported on mobile; Start is a no-op");
+            _logger?.LogDebug("AvaloniaBouncingTextService: overlays are not supported on mobile; Start is a no-op");
             return;
         }
 
@@ -110,7 +107,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         CreateWindows(settings.DualMonitorEnabled);
         _timer.Start();
 
-        _logger?.Information("AvaloniaBouncingTextService started - Text: {Text}, Size: {W}x{H}", _currentText, _textWidth, _textHeight);
+        _logger?.LogInformation("AvaloniaBouncingTextService started - Text: {Text}, Size: {W}x{H}", _currentText, _textWidth, _textHeight);
     }
 
     public void Stop()
@@ -128,7 +125,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             _windows.Clear();
         }
 
-        _logger?.Information("AvaloniaBouncingTextService stopped");
+        _logger?.LogInformation("AvaloniaBouncingTextService stopped");
     }
 
     public void Refresh()
@@ -207,7 +204,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "AvaloniaBouncingTextService: failed to measure text, using estimate");
+            _logger?.LogWarning(ex, "AvaloniaBouncingTextService: failed to measure text, using estimate");
             _textWidth = _currentFontSize * _currentText.Length * 0.6;
             _textHeight = _currentFontSize * 1.2;
         }
@@ -216,10 +213,10 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
     private void CalculateScreenBounds(bool dualMonitor)
     {
         var screens = GetScreens(dualMonitor);
-        _minX = screens.Min(s => s.Bounds.X);
-        _minY = screens.Min(s => s.Bounds.Y);
-        _maxX = screens.Max(s => s.Bounds.X + s.Bounds.Width);
-        _maxY = screens.Max(s => s.Bounds.Y + s.Bounds.Height);
+        _minX = screens.Min(s => s.Bounds.X / s.Scaling);
+        _minY = screens.Min(s => s.Bounds.Y / s.Scaling);
+        _maxX = screens.Max(s => (s.Bounds.X + s.Bounds.Width) / s.Scaling);
+        _maxY = screens.Max(s => (s.Bounds.Y + s.Bounds.Height) / s.Scaling);
     }
 
     private void CreateWindows(bool dualMonitor)
@@ -280,13 +277,13 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         var bounced = bouncedX || bouncedY;
         if (bouncedX && bouncedY)
         {
-            _logger?.Information("AvaloniaBouncingTextService: corner hit at ({X}, {Y})", _posX, _posY);
+            _logger?.LogInformation("AvaloniaBouncingTextService: corner hit at ({X}, {Y})", _posX, _posY);
             _achievements.TrackCornerHit();
             OnCornerHit?.Invoke(this, EventArgs.Empty);
         }
         else if (bounced && IsNearCorner(_posX, _posY, textRight, textBottom))
         {
-            _logger?.Information("AvaloniaBouncingTextService: near-corner hit at ({X}, {Y})", _posX, _posY);
+            _logger?.LogInformation("AvaloniaBouncingTextService: near-corner hit at ({X}, {Y})", _posX, _posY);
             _achievements.TrackCornerHit();
             OnCornerHit?.Invoke(this, EventArgs.Empty);
         }
@@ -385,7 +382,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaBouncingTextService: could not enumerate screens: {Error}", ex.Message);
+            _logger?.LogDebug("AvaloniaBouncingTextService: could not enumerate screens: {Error}", ex.Message);
             return new[] { new ScreenInfo("fallback", new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), 1.0) };
         }
     }
@@ -412,9 +409,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             CanResize = false;
             ShowActivated = false;
 
-            Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y);
-            Width = screen.Bounds.Width;
-            Height = screen.Bounds.Height;
+            this.ConstrainToScreen(screen);
 
             _textBlock = new TextBlock
             {
@@ -449,8 +444,9 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
 
         public void UpdatePosition(double globalX, double globalY, double textWidth, double textHeight)
         {
-            var localX = globalX - _screen.Bounds.X;
-            var localY = globalY - _screen.Bounds.Y;
+            var scale = _screen.Scaling > 0 ? _screen.Scaling : 1.0;
+            var localX = globalX - _screen.Bounds.X / scale;
+            var localY = globalY - _screen.Bounds.Y / scale;
             Canvas.SetLeft(_textBlock, localX);
             Canvas.SetTop(_textBlock, localY);
             _textBlock.IsVisible = true;

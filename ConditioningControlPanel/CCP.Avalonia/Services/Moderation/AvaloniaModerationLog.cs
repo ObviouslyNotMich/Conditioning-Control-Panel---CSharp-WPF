@@ -1,4 +1,5 @@
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Moderation;
 
 namespace ConditioningControlPanel.Avalonia.Services.Moderation;
 
@@ -9,17 +10,24 @@ namespace ConditioningControlPanel.Avalonia.Services.Moderation;
 /// </summary>
 public sealed class AvaloniaModerationLog : IModerationLog
 {
-    private readonly IAppLogger _logger;
+    private readonly ILogger<AvaloniaModerationLog> _logger;
 
-    public AvaloniaModerationLog(IAppLogger logger)
+    public AvaloniaModerationLog(ILogger<AvaloniaModerationLog> logger)
     {
         _logger = logger;
     }
 
     public void RecordEdit(string fieldName, int count, string source)
     {
-        _logger.Information(
+        _logger.LogInformation(
             "Moderation edit recorded: field={FieldName}, matches={Count}, source={Source}",
             fieldName, count, source);
+    }
+
+    public void Record(ProhibitedCategory category, string source, string modelHint)
+    {
+        _logger.LogInformation(
+            "Moderation hit recorded: category={Category}, source={Source}, modelHint={ModelHint}",
+            category, source, modelHint);
     }
 }

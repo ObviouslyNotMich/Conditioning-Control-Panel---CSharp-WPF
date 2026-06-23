@@ -23,7 +23,7 @@ namespace ConditioningControlPanel.Avalonia.Controls;
 /// </summary>
 public sealed class InlineLoopVideo : IDisposable
 {
-    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
+    private readonly ILogger<InlineLoopVideo>? _logger;
 
 
     private readonly AvaloniaInlineLoopVideo? _video;
@@ -33,7 +33,7 @@ public sealed class InlineLoopVideo : IDisposable
 
     public InlineLoopVideo(string clipPath, uint width = 480, uint height = 270)
     {
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<InlineLoopVideo>>();
 
 _image = new Image
         {
@@ -64,7 +64,7 @@ App.Services.GetService<LibVLC>();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "InlineLoopVideo: could not create LibVLC surface for {Path}", clipPath);
+            _logger?.LogWarning(ex, "InlineLoopVideo: could not create LibVLC surface for {Path}", clipPath);
         }
     }
 

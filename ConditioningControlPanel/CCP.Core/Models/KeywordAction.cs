@@ -186,7 +186,7 @@ namespace ConditioningControlPanel.Models
             {
                 // Unknown action type — skip gracefully. Log and return null so the
                 // containing list Where-filter can drop it.
-                CoreApp.Logger?.Warning("KeywordActionConverter: Unknown action type '{Type}'", typeName);
+                CoreApp.Logger?.LogWarning("KeywordActionConverter: Unknown action type '{Type}'", typeName);
                 return null;
             }
 

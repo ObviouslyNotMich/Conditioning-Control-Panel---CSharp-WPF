@@ -24,7 +24,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
     private static readonly TimeSpan PersistenceMinDuration = TimeSpan.FromSeconds(30);
 
     private readonly IAppEnvironment _environment;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<SessionLogService>? _logger;
     private readonly IFlashService? _flash;
     private readonly IVideoService? _video;
     private readonly object _lock = new();
@@ -37,7 +37,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
 
     public event EventHandler<SessionLogReadyEventArgs>? LogReady;
 
-    public SessionLogService(IAppEnvironment environment, IAppLogger? logger = null, IFlashService? flash = null, IVideoService? video = null)
+    public SessionLogService(IAppEnvironment environment, ILogger<SessionLogService>? logger = null, IFlashService? flash = null, IVideoService? video = null)
     {
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _logger = logger;
@@ -46,7 +46,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
 
         LogsFolder = Path.Combine(_environment.ApplicationDataPath, "session_logs");
         try { Directory.CreateDirectory(LogsFolder); }
-        catch (Exception ex) { _logger?.Warning(ex, "SessionLogService: failed to create logs folder"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "SessionLogService: failed to create logs folder"); }
     }
 
     /// <inheritdoc />
@@ -58,7 +58,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
         {
             if (_activeLog != null)
             {
-                _logger?.Warning("SessionLogService.BeginSession called while a log was already active; discarding previous log");
+                _logger?.LogWarning("SessionLogService.BeginSession called while a log was already active; discarding previous log");
                 UnsubscribeUnlocked();
             }
 
@@ -102,7 +102,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
         }
 
         try { LogReady?.Invoke(this, new SessionLogReadyEventArgs(log)); }
-        catch (Exception ex) { _logger?.Error(ex, "SessionLogService: LogReady handler threw"); }
+        catch (Exception ex) { _logger?.LogError(ex, "SessionLogService: LogReady handler threw"); }
     }
 
     /// <inheritdoc />
@@ -115,7 +115,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
         try { files = Directory.GetFiles(LogsFolder, "*.json"); }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SessionLogService: failed to enumerate logs folder");
+            _logger?.LogWarning(ex, "SessionLogService: failed to enumerate logs folder");
             return result;
         }
 
@@ -132,7 +132,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "SessionLogService: failed to read log file {File}", file);
+                _logger?.LogWarning(ex, "SessionLogService: failed to read log file {File}", file);
             }
         }
         return result;
@@ -158,7 +158,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SessionLogService: subscribe failed");
+            _logger?.LogWarning(ex, "SessionLogService: subscribe failed");
         }
     }
 
@@ -198,7 +198,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("SessionLogService.OnFlashDisplayed failed: {Error}", ex.Message);
+            _logger?.LogDebug("SessionLogService.OnFlashDisplayed failed: {Error}", ex.Message);
         }
     }
 
@@ -225,7 +225,7 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("SessionLogService.OnVideoStarted failed: {Error}", ex.Message);
+            _logger?.LogDebug("SessionLogService.OnVideoStarted failed: {Error}", ex.Message);
         }
     }
 
@@ -243,11 +243,11 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
             var path = Path.Combine(LogsFolder, fileName);
             var json = JsonConvert.SerializeObject(log, Formatting.Indented);
             File.WriteAllText(path, json);
-            _logger?.Debug("SessionLogService: persisted {File} ({Count} media entries)", fileName, log.Media.Count);
+            _logger?.LogDebug("SessionLogService: persisted {File} ({Count} media entries)", fileName, log.Media.Count);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SessionLogService: failed to persist session log");
+            _logger?.LogWarning(ex, "SessionLogService: failed to persist session log");
         }
     }
 
@@ -264,12 +264,12 @@ public sealed class SessionLogService : ISessionLogService, IDisposable
             for (int i = MaxRetainedLogs; i < files.Length; i++)
             {
                 try { File.Delete(files[i]); }
-                catch (Exception ex) { _logger?.Debug("SessionLogService: prune delete failed for {File}: {Error}", files[i], ex.Message); }
+                catch (Exception ex) { _logger?.LogDebug("SessionLogService: prune delete failed for {File}: {Error}", files[i], ex.Message); }
             }
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SessionLogService: prune failed");
+            _logger?.LogWarning(ex, "SessionLogService: prune failed");
         }
     }
 

@@ -12,6 +12,12 @@ public interface IMouseHook
     /// <summary>Raised when the right mouse button is pressed anywhere on the system.</summary>
     event EventHandler<HookPoint>? RightButtonDown;
 
+    /// <summary>Raised when the right mouse button is released anywhere on the system.</summary>
+    event EventHandler<HookPoint>? RightButtonUp;
+
+    /// <summary>Raised when the left mouse button is released anywhere on the system.</summary>
+    event EventHandler<HookPoint>? LeftButtonUp;
+
     /// <summary>Installs the global hook. Safe to call multiple times.</summary>
     void Install();
 

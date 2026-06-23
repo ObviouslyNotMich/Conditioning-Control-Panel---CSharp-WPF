@@ -18,13 +18,6 @@ using ChaosNarrativeContext = ConditioningControlPanel.Core.Services.Chaos.Chaos
 
 namespace ConditioningControlPanel.Avalonia.Services;
 
-/// <summary>In-memory unified user ID store for the Avalonia head.</summary>
-public sealed class AvaloniaUnifiedUserService : IUnifiedUserService
-{
-    public string? UnifiedUserId { get; set; }
-}
-
-/// <summary>
 /// Avalonia Chaos engine service. Owns the run lifecycle: countdown, spawn loop, scoring,
 /// combo/heat, boon draft between waves, and results. It wires into the ported overlay windows
 /// and the cross-platform <see cref="IBubbleService"/> chaos hooks.
@@ -34,9 +27,7 @@ public sealed class AvaloniaChaosService : IChaosService
     private readonly IBubbleService _bubbles;
     private readonly ISettingsService _settings;
     private readonly IProgressionService _progression;
-    private readonly IAppLogger? _logger;
-    private readonly IScheduler? _scheduler;
-    private readonly IUiDispatcher? _dispatcher;
+    private readonly ILogger<AvaloniaChaosService>? _logger;
     private readonly IInputHook? _inputHook;
     private readonly IMouseHook? _mouseHook;
     private readonly IPointerState? _pointerState;
@@ -51,8 +42,8 @@ public sealed class AvaloniaChaosService : IChaosService
     private ChaosOverlayWindow? _overlay;
     private ChaosHudWindow? _hud;
 
-    private IDisposable? _runTimer;
-    private IDisposable? _spawnTimer;
+    private DispatcherTimer? _runTimer;
+    private DispatcherTimer? _spawnTimer;
     private int _chromeRaiseTick;
     private int _waveIndex;
     private int _waveCount;
@@ -78,7 +69,7 @@ public sealed class AvaloniaChaosService : IChaosService
         IBubbleService bubbles,
         ISettingsService settings,
         IProgressionService progression,
-        IAppLogger? logger = null,
+        ILogger<AvaloniaChaosService>? logger = null,
         IInputHook? inputHook = null,
         IMouseHook? mouseHook = null,
         IPointerState? pointerState = null)
@@ -90,8 +81,6 @@ public sealed class AvaloniaChaosService : IChaosService
         _inputHook = inputHook;
         _mouseHook = mouseHook;
         _pointerState = pointerState;
-        _scheduler = App.Services?.GetService<IScheduler>();
-        _dispatcher = App.Services?.GetService<IUiDispatcher>();
         AvaloniaChaosCatalogs.EnsureInitialized();
     }
 
@@ -168,17 +157,17 @@ public sealed class AvaloniaChaosService : IChaosService
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Error(ex, "AvaloniaChaosService StartRun UI init failed");
+                    _logger?.LogError(ex, "AvaloniaChaosService StartRun UI init failed");
                     CleanupAfterRun();
                 }
             });
 
-            _logger?.Information("AvaloniaChaosService run started ({Difficulty}, {Duration}s, {Waves} waves)",
+            _logger?.LogInformation("AvaloniaChaosService run started ({Difficulty}, {Duration}s, {Waves} waves)",
                 config.Difficulty, config.RunDurationSec, _waveCount);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "AvaloniaChaosService StartRun failed");
+            _logger?.LogError(ex, "AvaloniaChaosService StartRun failed");
             CleanupAfterRun();
         }
     }
@@ -262,7 +251,7 @@ public sealed class AvaloniaChaosService : IChaosService
         foreach (var lifetimeId in ChaosMeta.State.ActiveLifetimeBoons)
         {
             var lb = ChaosLifetimeBoons.ById(lifetimeId);
-            _logger?.Information("AvaloniaChaosService lifetime boon active: {Id}", lifetimeId);
+            _logger?.LogInformation("AvaloniaChaosService lifetime boon active: {Id}", lifetimeId);
             _state.PushEvent($"👝 loadout: {lb?.Name ?? lifetimeId}");
         }
 
@@ -285,7 +274,7 @@ public sealed class AvaloniaChaosService : IChaosService
                     btn.Show();
                     _toyButtons.Add(btn);
                 }
-                catch (Exception ex) { _logger?.Warning(ex, "Chaos toy button init failed"); }
+                catch (Exception ex) { _logger?.LogWarning(ex, "Chaos toy button init failed"); }
             }
         });
 
@@ -295,30 +284,14 @@ public sealed class AvaloniaChaosService : IChaosService
     private void StartTimers()
     {
         StopTimers();
-        if (_scheduler != null)
-        {
-            _runTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromMilliseconds(250), RunTick);
-            _spawnTimer = _scheduler.StartPeriodicTimer(TimeSpan.FromMilliseconds(900), SpawnTick);
-        }
-        else
-        {
-            // Fallback to Avalonia dispatcher timer if the scheduler seam is missing.
-            var rt = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-            rt.Tick += (_, _) => RunTick();
-            rt.Start();
-            _runTimer = new DisposableAction(rt.Stop);
-
-            var st = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
-            st.Tick += (_, _) => SpawnTick();
-            st.Start();
-            _spawnTimer = new DisposableAction(st.Stop);
-        }
+        _runTimer = StartPeriodicTimer(TimeSpan.FromMilliseconds(250), RunTick);
+        _spawnTimer = StartPeriodicTimer(TimeSpan.FromMilliseconds(900), SpawnTick);
     }
 
     private void StopTimers()
     {
-        _runTimer?.Dispose();
-        _spawnTimer?.Dispose();
+        _runTimer?.Stop();
+        _spawnTimer?.Stop();
         _runTimer = null;
         _spawnTimer = null;
     }
@@ -443,7 +416,7 @@ public sealed class AvaloniaChaosService : IChaosService
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "AvaloniaChaosService spawn failed");
+            _logger?.LogWarning(ex, "AvaloniaChaosService spawn failed");
         }
     }
 
@@ -703,7 +676,7 @@ public sealed class AvaloniaChaosService : IChaosService
             long previousBest = (long)ChaosMeta.State.BestScore;
 
             try { _progression.AddXP(sparks, XPSource.Chaos); }
-            catch (Exception ex) { _logger?.Debug("Chaos payout AddXP: {E}", ex.Message); }
+            catch (Exception ex) { _logger?.LogDebug("Chaos payout AddXP: {E}", ex.Message); }
 
             ChaosMeta.State.Sparks += Math.Max(0, sparks);
             ChaosMeta.State.RunsCompleted++;
@@ -723,7 +696,7 @@ public sealed class AvaloniaChaosService : IChaosService
             });
         }
 
-        _logger?.Information("AvaloniaChaosService run ended");
+        _logger?.LogInformation("AvaloniaChaosService run ended");
     }
 
     private void CleanupAfterRun()
@@ -841,7 +814,7 @@ public sealed class AvaloniaChaosService : IChaosService
         {
             _inputHook.KeyPressed += OnToyKey;
         }
-        catch (Exception ex) { _logger?.Warning(ex, "Chaos toy key hook failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Chaos toy key hook failed"); }
     }
 
     private void StopKeyHook()
@@ -913,7 +886,7 @@ public sealed class AvaloniaChaosService : IChaosService
             _mouseHook.RightButtonUp += OnRippleRightUp;
             _mouseHook.Install();
         }
-        catch (Exception ex) { _logger?.Warning(ex, "Chaos ripple hook failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Chaos ripple hook failed"); }
     }
 
     private void StopRippleHook()
@@ -1111,7 +1084,7 @@ public sealed class AvaloniaChaosService : IChaosService
             _state.PushEvent(maxed ? $"🐇 {rabbits} at your fingertip… and the burrow is emptying"
                                    : $"🐇 {rabbits} answered at your fingertip");
         }
-        catch (Exception ex) { _logger?.Warning(ex, "RabbitAimTick failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "RabbitAimTick failed"); }
     }
 
     private void SpawnDarter(double? atPxX = null, double? atPxY = null)
@@ -1188,13 +1161,15 @@ public sealed class AvaloniaChaosService : IChaosService
 
     private void RunOnUi(Action action)
     {
-        if (_dispatcher != null)
-        {
-            _dispatcher.Post(action);
-            return;
-        }
-        if (Dispatcher.UIThread.CheckAccess()) action();
-        else Dispatcher.UIThread.Post(action);
+        Dispatcher.UIThread.Post(action);
+    }
+
+    private static DispatcherTimer StartPeriodicTimer(TimeSpan interval, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = interval };
+        timer.Tick += (_, _) => callback();
+        timer.Start();
+        return timer;
     }
 
     private sealed class DisposableAction : IDisposable
@@ -1209,7 +1184,7 @@ public sealed class AvaloniaChaosService : IChaosService
 /// and exposes chat/hotkey integration.</summary>
 public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
 {
-    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
+    private readonly ILogger<AvaloniaAvatarWindowService>? _logger;
     private readonly Window? _parentWindow;
     private AvatarTube.AvatarTubeWindow? _window;
     private bool _isMuted;
@@ -1218,7 +1193,7 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
 
     public AvaloniaAvatarWindowService()
     {
-        _logger = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = global::ConditioningControlPanel.Avalonia.App.Services?.GetRequiredService<ILogger<AvaloniaAvatarWindowService>>();
 
         if (global::Avalonia.Application.Current?.ApplicationLifetime is global::Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -1239,7 +1214,7 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to show avatar tube");
+            _logger?.LogError(ex, "Failed to show avatar tube");
         }
     }
 
@@ -1251,7 +1226,7 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to hide avatar tube");
+            _logger?.LogError(ex, "Failed to hide avatar tube");
         }
     }
 
@@ -1291,7 +1266,7 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to set avatar pose");
+            _logger?.LogError(ex, "Failed to set avatar pose");
         }
     }
 
@@ -1305,7 +1280,7 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to open avatar chat window");
+            _logger?.LogError(ex, "Failed to open avatar chat window");
         }
     }
 
@@ -1326,18 +1301,30 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to trigger avatar giggle");
+            _logger?.LogError(ex, "Failed to trigger avatar giggle");
         }
     }
 
     private void EnsureWindow()
     {
         if (_window != null) return;
-        _window = new AvatarTube.AvatarTubeWindow(_parentWindow);
-        _window.Closed += (_, _) => _window = null;
-        _window.SetMuted(_isMuted);
-        _window.SetChaosRunActive(_chaosRunActive);
-        _window.SetDetached(_detached);
+
+        // Reuse the avatar tube window that MainWindow already created so we never
+        // show two tubes side-by-side.
+        if (global::Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is global::ConditioningControlPanel.Avalonia.Views.MainWindow main)
+        {
+            _window = main.AvatarTube;
+        }
+
+        if (_window == null)
+        {
+            _window = new AvatarTube.AvatarTubeWindow(_parentWindow);
+            _window.Closed += (_, _) => _window = null;
+            _window.SetMuted(_isMuted);
+            _window.SetChaosRunActive(_chaosRunActive);
+            _window.SetDetached(_detached);
+        }
     }
 }
 

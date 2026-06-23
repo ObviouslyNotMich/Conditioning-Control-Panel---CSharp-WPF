@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
+using ConditioningControlPanel.Avalonia.Helpers;
 
 namespace ConditioningControlPanel.Avalonia.Features;
 
@@ -227,42 +228,7 @@ public partial class FeatureCard : UserControl
 
     private static Bitmap? LoadBitmapFromUri(string? uri)
     {
-        if (string.IsNullOrWhiteSpace(uri)) return null;
-        try
-        {
-            if (File.Exists(uri))
-                return new Bitmap(uri);
-
-            if (uri.StartsWith("file://", StringComparison.Ordinal))
-            {
-                var path = uri.Substring(7);
-                if (File.Exists(path))
-                    return new Bitmap(path);
-                return null;
-            }
-
-            if (uri.StartsWith("pack://application:,,,", StringComparison.Ordinal))
-            {
-                var relative = uri.Substring("pack://application:,,,".Length).TrimStart('/');
-                // WPF Resources/ folder is linked into the Avalonia head as Assets/.
-                if (relative.StartsWith("Resources/", StringComparison.OrdinalIgnoreCase))
-                    relative = relative.Substring("Resources/".Length);
-                var avares = $"avares://CCP.Avalonia/Assets/{relative}";
-                using var stream = AssetLoader.Open(new Uri(avares));
-                return new Bitmap(stream);
-            }
-
-            if (uri.StartsWith("avares://", StringComparison.Ordinal))
-            {
-                using var stream = AssetLoader.Open(new Uri(uri));
-                return new Bitmap(stream);
-            }
-        }
-        catch
-        {
-            // Fail-soft: missing assets are expected until mod/image resources are ported.
-        }
-        return null;
+        return AvaloniaBitmapHelper.Load(uri);
     }
 
     private void RefreshHelpState()

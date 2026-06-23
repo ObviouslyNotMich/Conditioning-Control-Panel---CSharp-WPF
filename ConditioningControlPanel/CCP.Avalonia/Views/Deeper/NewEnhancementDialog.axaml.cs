@@ -27,7 +27,7 @@ public partial class NewEnhancementDialog : Window
     public string SelectedSource { get; private set; } = "";
 
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<NewEnhancementDialog>? _logger;
     private readonly ISettingsService? _settings;
     private readonly IModService? _mods;
 
@@ -39,7 +39,7 @@ public partial class NewEnhancementDialog : Window
     {
         InitializeComponent();
         _dialogService = App.Services?.GetService<IDialogService>();
-        _logger = App.Services?.GetService<IAppLogger>();
+        _logger = App.Services?.GetRequiredService<ILogger<NewEnhancementDialog>>();
         _settings = App.Services?.GetService<ISettingsService>();
         _mods = App.Services?.GetService<IModService>();
         Closed += OnDialogClosed;
@@ -127,7 +127,7 @@ public partial class NewEnhancementDialog : Window
 
     private void BtnTryHypnoTubeTutorial_Click(object? sender, RoutedEventArgs e)
     {
-        _logger?.Information("HypnoTube tutorial requested");
+        _logger?.LogInformation("HypnoTube tutorial requested");
         RbVideo.IsChecked = true;
 
         // Mirror the WPF behavior: pick the active mod's first TikTok-style link,
@@ -151,7 +151,7 @@ public partial class NewEnhancementDialog : Window
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to resolve HypnoTube tutorial URL from active mod");
+            _logger?.LogWarning(ex, "Failed to resolve HypnoTube tutorial URL from active mod");
         }
         TxtSource.Text = url;
 
@@ -166,7 +166,7 @@ public partial class NewEnhancementDialog : Window
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to persist HasSeenDeeperHTInteractiveTutorial flag");
+            _logger?.LogWarning(ex, "Failed to persist HasSeenDeeperHTInteractiveTutorial flag");
         }
 
         StartInteractiveTutorial(
@@ -188,7 +188,7 @@ public partial class NewEnhancementDialog : Window
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to start interactive tutorial Part 1");
+            _logger?.LogWarning(ex, "Failed to start interactive tutorial Part 1");
         }
     }
 

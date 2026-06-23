@@ -7,9 +7,13 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Services.Avatar;
+using ConditioningControlPanel.Core.Services.Companion;
+using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 #pragma warning disable CS0169 // Avalonia port: unused stub fields kept for future companion/avatar work
 #pragma warning disable CS0414
@@ -37,6 +41,8 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private int _seqStepMs = 1000;
         private int _seqLastMs = 2000;
         private readonly Dictionary<string, double> _audioDurCache = new();
+        private readonly AvaloniaModResourceResolver? _resourceResolver;
+        private AvaloniaAnimatedGif? _animatedAvatarGif;
 
         private double _breathPhase;
         private double _wobblePhase;
@@ -96,7 +102,26 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
         public int[] GetUnlockedAvatarSets(int level)
         {
-            return new[] { 1, 2, 3, 4, 7, 5, 6 };
+            // Base sets in unlock-level order (not numerical order).
+            int[] setsInOrder = { 1, 2, 3, 4, 7, 5, 6 };
+            var unlocked = new List<int>();
+            foreach (int set in setsInOrder)
+            {
+                if (IsAvatarSetUnlocked(set, level) && (_modService?.IsAvatarSetSupported(set) ?? true))
+                    unlocked.Add(set);
+            }
+
+            var customSets = _modService?.GetCustomAvatarSets();
+            if (customSets != null)
+            {
+                foreach (var cs in customSets.OrderBy(c => c.UnlockLevel))
+                {
+                    if (IsAvatarSetUnlocked(cs.SetNumber, level) && (_modService?.IsAvatarSetSupported(cs.SetNumber) ?? true))
+                        unlocked.Add(cs.SetNumber);
+                }
+            }
+
+            return unlocked.ToArray();
         }
 
         public void UpdateAvatarForLevel(int newLevel)
@@ -118,8 +143,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         {
             try
             {
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"Resources/animated{setNumber}_1.gif");
-                return File.Exists(path);
+                return AvaloniaBitmapHelper.LoadResource($"animated{setNumber}_1.gif") != null;
             }
             catch { return false; }
         }
@@ -129,19 +153,64 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             try
             {
                 LeavePortraitMode();
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"Resources/animated{setNumber}_1.gif");
-                if (ImgAvatar != null) ImgAvatar.IsVisible = false;
-                if (ImgAvatarAnimated != null)
+                _animatedAvatarGif?.Dispose();
+                _animatedAvatarGif = null;
+
+                var resourcePath = $"animated{setNumber}_1.gif";
+                var resolver = App.Services?.GetService<AvaloniaModResourceResolver>();
+                var uri = resolver?.ResolveUri(resourcePath) ?? "";
+
+                AvaloniaAnimatedGif? gif = null;
+                if (uri.StartsWith("file://", StringComparison.Ordinal))
                 {
-                    ImgAvatarAnimated.IsVisible = true;
-                    ImgAvatarAnimated.Source = File.Exists(path) ? new Bitmap(path) : null;
+                    var path = uri.Substring(7);
+                    gif = AvaloniaAnimatedGif.TryCreate(path);
                 }
+                else if (uri.StartsWith("avares://", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        using var stream = global::Avalonia.Platform.AssetLoader.Open(new Uri(uri));
+                        if (stream != null)
+                        {
+                            var mem = new MemoryStream();
+                            stream.CopyTo(mem);
+                            mem.Position = 0;
+                            gif = AvaloniaAnimatedGif.TryCreate(mem);
+                            if (gif == null) mem.Dispose();
+                        }
+                    }
+                    catch { }
+                }
+
+                if (gif != null)
+                {
+                    _animatedAvatarGif = gif;
+                    if (ImgAvatar != null) ImgAvatar.IsVisible = false;
+                    if (ImgAvatarAnimated != null)
+                    {
+                        ImgAvatarAnimated.IsVisible = true;
+                        ImgAvatarAnimated.Source = gif.Source;
+                    }
+                    gif.Start();
+                }
+                else
+                {
+                    var bitmap = AvaloniaBitmapHelper.LoadResource(resourcePath);
+                    if (ImgAvatar != null) ImgAvatar.IsVisible = false;
+                    if (ImgAvatarAnimated != null)
+                    {
+                        ImgAvatarAnimated.IsVisible = true;
+                        ImgAvatarAnimated.Source = bitmap;
+                    }
+                }
+
                 _poseTimer.Stop();
                 TryUpdateCirceEmoteMode();
             }
             catch (Exception ex)
             {
-                _logger?.Warning("Failed to load animated avatar {Set}: {Error}", setNumber, ex.Message);
+                _logger?.LogWarning("Failed to load animated avatar {Set}: {Error}", setNumber, ex.Message);
                 _useAnimatedAvatar = false;
                 if (ImgAvatar != null) ImgAvatar.IsVisible = true;
                 if (ImgAvatarAnimated != null) ImgAvatarAnimated.IsVisible = false;
@@ -151,13 +220,19 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private Bitmap[] LoadAvatarPoses(int setNumber)
         {
             var list = new List<Bitmap>();
+            // Set 1 uses the legacy "avatar_poseN.png" naming; higher sets use "avatar{set}_poseN.png".
+            string prefix = setNumber == 1 ? "avatar_pose" : $"avatar{setNumber}_pose";
             for (int i = 1; i <= 4; i++)
             {
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"Resources/avatar{setNumber}_pose{i}.png");
-                if (File.Exists(path))
+                var path = $"{prefix}{i}.png";
+                var bitmap = AvaloniaBitmapHelper.LoadResource(path);
+                if (bitmap != null)
                 {
-                    try { list.Add(new Bitmap(path)); }
-                    catch { }
+                    list.Add(bitmap);
+                }
+                else
+                {
+                    _logger?.LogWarning("Failed to load avatar pose asset: {Path}", path);
                 }
             }
             return list.ToArray();
@@ -172,13 +247,13 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
         private void PauseAvatarGif()
         {
             if (_circeEmoteMode) { CircePause(); return; }
-            // TODO: pause Avalonia GIF animation.
+            _animatedAvatarGif?.Stop();
         }
 
         private void ResumeAvatarGif()
         {
             if (_circeEmoteMode) { CirceResume(); return; }
-            // TODO: resume Avalonia GIF animation.
+            _animatedAvatarGif?.Start();
         }
 
         private int _avatarSwitchGen;
@@ -203,7 +278,15 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                     var companionId = GetCompanionForAvatarSet(setNumber);
                     if (companionId.HasValue)
                     {
-                        // TODO: wire to ICompanionService.SwitchCompanion() once extracted to Core.
+                        try
+                        {
+                            var companionService = global::ConditioningControlPanel.Avalonia.App.Services?.GetService<ICompanionService>();
+                            companionService?.SwitchCompanion(companionId.Value);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning("Failed to switch companion from avatar set change: {Error}", ex.Message);
+                        }
                     }
                 }
 
@@ -306,7 +389,8 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 var def = CompanionDefinition.GetById(companionId.Value);
                 var progress = new CompanionProgress { Level = 1 };
                 bool isMax = progress.IsMaxLevel;
-                if (TxtAvatarTitle != null) TxtAvatarTitle.Text = def.GetDisplayName(false).ToUpperInvariant();
+                var displayName = _modService?.MakeModAware(def.GetDisplayName(false)) ?? def.GetDisplayName(false);
+                if (TxtAvatarTitle != null) TxtAvatarTitle.Text = displayName.ToUpperInvariant();
                 if (TxtAvatarLevel != null)
                 {
                     TxtAvatarLevel.IsVisible = true;
@@ -318,7 +402,8 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             else
             {
                 int idx = Math.Clamp(_currentAvatarSet - 1, 0, AvatarTitleKeys.Length - 1);
-                if (TxtAvatarTitle != null) TxtAvatarTitle.Text = Loc.Get(AvatarTitleKeys[idx]);
+                var title = _modService?.MakeModAware(Loc.Get(AvatarTitleKeys[idx])) ?? Loc.Get(AvatarTitleKeys[idx]);
+                if (TxtAvatarTitle != null) TxtAvatarTitle.Text = title;
                 if (TxtAvatarLevel != null)
                 {
                     TxtAvatarLevel.IsVisible = _currentAvatarSet > 2;
@@ -373,11 +458,37 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 return;
             }
 
+            // Mod authors can supply a global avatar scale in the tube layout (e.g. Circe's 0.864).
+            // Compose it with the per-set nudges used in the WPF app so the avatar sits in the glass.
+            double layoutScale = EffAvatarScale();
+            double setScale;
+            double setOffsetX;
+
             if (setNumber > 1)
             {
+                setScale = 1.12;
+                setOffsetX = 10;
+            }
+            else if (_modService?.ActiveMod?.Id == BuiltInMods.LockedId)
+            {
+                // Locked's set 1 ("The Lure") art reads smaller than the other stages,
+                // so give it a slight boost like the WPF app does.
+                setScale = 1.06;
+                setOffsetX = 0;
+            }
+            else
+            {
+                setScale = 1.0;
+                setOffsetX = 0;
+            }
+
+            double finalScale = setScale * layoutScale;
+            if (Math.Abs(finalScale - 1.0) > 0.001 || Math.Abs(setOffsetX) > 0.001)
+            {
                 var group = new TransformGroup();
-                group.Children.Add(new ScaleTransform(1.12, 1.12));
-                group.Children.Add(new TranslateTransform(10, 0));
+                group.Children.Add(new ScaleTransform(finalScale, finalScale));
+                if (Math.Abs(setOffsetX) > 0.001)
+                    group.Children.Add(new TranslateTransform(setOffsetX * layoutScale, 0));
                 AvatarBorder.RenderTransform = group;
                 AvatarBorder.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
             }
@@ -413,7 +524,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                         _selectedAvatarSet = _currentAvatarSet;
                         if (_settings?.Current != null)
                             _settings.Current.SelectedAvatarSet = _selectedAvatarSet;
-                        _logger?.Information("Avatar set {OldSet} not supported by new mod, switched to {NewSet}", oldSet, _currentAvatarSet);
+                        _logger?.LogInformation("Avatar set {OldSet} not supported by new mod, switched to {NewSet}", oldSet, _currentAvatarSet);
                     }
                 }
 
@@ -450,35 +561,83 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 UpdateNavigationArrows();
                 TryUpdateCirceEmoteMode();
                 UpdateTitleDisplay(_settings?.Current?.PlayerLevel ?? 1);
+
+                // Refresh tube frame and layout offsets for the new mod's art.
+                SetTubeStyle(!_isAttached);
+                ApplyTubeLayoutOffsets();
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to refresh resources after mod change");
+                _logger?.LogWarning(ex, "Failed to refresh resources after mod change");
             }
         }
 
         private void ApplyTubeLayoutOffsets()
         {
-            // TODO: apply mod tube layout offsets to margins.
+            if (AvatarBorder == null) return;
+
+            // Avalonia does not have a WPF-style LayoutTransform property, so the mod's
+            // TubeLayout avatar scale is not applied here. The offset math below matches
+            // the WPF app exactly and keeps the avatar/glass alignment parity.
+
+            // When the mod only overrides the attached tube image, force the attached
+            // layout in detached state too — otherwise the avatar lands outside the
+            // chamber the mod author drew.
+            var useAttachedLayout = _isAttached || ModOverridesAttachedTubeOnly();
+
+            if (useAttachedLayout)
+            {
+                var dx = EffAvatarOffsetX();
+                var dy = EffAvatarOffsetY();
+                AvatarBorder.Margin = new Thickness(5, 100, 126 - dx, 210 + dy);
+                if (TitleBox != null) TitleBox.Margin = new Thickness(0, 0, 121 - dx, 180);
+                if (InputPanel != null) InputPanel.Margin = new Thickness(0, 0, 126 - dx, 520);
+                if (SpeechBubble != null) SpeechBubble.Margin = new Thickness(0, 0, 125 - dx, 550);
+            }
+            else
+            {
+                var dx = EffAvatarDetachedOffsetX();
+                var dy = EffAvatarDetachedOffsetY();
+                // Detached nudge: 20px higher (bottom margin +20, bottom-aligned) and net 5px left
+                // (right margin +10 — element is HorizontalAlignment=Center, so offset is (L-R)/2).
+                AvatarBorder.Margin = new Thickness(5, 100, 436 - dx, 228 + dy);
+                if (TitleBox != null) TitleBox.Margin = new Thickness(0, 0, 416 - dx, 193);
+                if (InputPanel != null) InputPanel.Margin = new Thickness(0, 0, 426 - dx, 520);
+                if (SpeechBubble != null) SpeechBubble.Margin = new Thickness(0, 0, 425 - dx, 550);
+            }
         }
 
-        private void SetTubeStyle(bool detached)
+        private void SetTubeStyle(bool useAlternative)
         {
-            // TODO: swap tube frame image for mod/attach state.
+            try
+            {
+                // If the active mod only ships a tube.png override, use it in both states
+                // so the chamber stays consistent with the mod's art.
+                if (useAlternative && ModOverridesAttachedTubeOnly())
+                    useAlternative = false;
+
+                var tubeName = useAlternative ? "tube2.png" : "tube.png";
+                if (ImgTubeFrame != null && _resourceResolver != null)
+                    ImgTubeFrame.Source = _resourceResolver.ResolveBitmap(tubeName);
+                _logger?.LogInformation("Tube style changed to: {Style}", tubeName);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to change tube style");
+            }
         }
 
-        private bool ModOverridesAttachedTubeOnly() => false;
-        internal double EffAvatarScale() => 1.0;
-        internal int EffAvatarOffsetX() => 0;
-        internal int EffAvatarOffsetY() => 0;
-        internal int EffAvatarDetachedOffsetX() => 0;
-        internal int EffAvatarDetachedOffsetY() => 0;
-
-        private bool IsSingleEmoteAvatarMod(out int set)
+        private bool ModOverridesAttachedTubeOnly()
         {
-            set = 0;
-            return false;
+            return _resourceResolver?.HasModOverride("tube.png") == true
+                && _resourceResolver?.HasModOverride("tube2.png") != true;
         }
+
+        internal double EffAvatarScale() => _modService?.GetAvatarScale() ?? 1.0;
+        internal int EffAvatarOffsetX() => _modService?.GetAvatarOffsetX() ?? 0;
+        internal int EffAvatarOffsetY() => _modService?.GetAvatarOffsetY() ?? 0;
+        internal int EffAvatarDetachedOffsetX() => _modService?.GetAvatarDetachedOffsetX() ?? 0;
+        internal int EffAvatarDetachedOffsetY() => _modService?.GetAvatarDetachedOffsetY() ?? 0;
 
         // ════════════════════════════════════════════════════════════════════════════════
         //  EMOTIVE PORTRAIT AVATAR
@@ -539,12 +698,12 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 UpdateNavigationArrows();
                 StartPortraitAmbientAnimation();
 
-                _logger?.Information("Avatar portrait mode ON (skin {Skin}/{Count}, emotion '{Emo}')",
+                _logger?.LogInformation("Avatar portrait mode ON (skin {Skin}/{Count}, emotion '{Emo}')",
                     _skinIndex, _portraitSet.SkinCount, _currentEmotion);
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "TryEnterPortraitMode failed; falling back to legacy avatar");
+                _logger?.LogWarning(ex, "TryEnterPortraitMode failed; falling back to legacy avatar");
                 LeavePortraitMode();
             }
         }

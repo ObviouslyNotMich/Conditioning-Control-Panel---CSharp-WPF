@@ -1,103 +1,192 @@
 # Execution Goal — Finish the Avalonia v12 Cross-Platform Rebuild
 
-> Paste the block below into the AI as a `/goal` (or use `@ConditioningControlPanel/docs/EXECUTION_GOAL.md`).
-> It is written to run autonomously to completion and stays accurate by deferring to the plan.
+> **Run with:**
+> ```
+> /goal Read @ConditioningControlPanel/docs/EXECUTION_GOAL.md and execute it autonomously until its "DEFINITION OF DONE" fully holds
+> ```
+> `/goal` keeps the session working until that condition is true (it blocks stopping and starts immediately). Stop
+> early with `/goal clear`. — One line, then walk away.
+>
+> **Single entry point.** Reference only this file to execute. Everything you need is inline. The `(plan §X)`
+> pointers are *optional* deeper detail in `docs/crossplatform-rebuild-plan.md` — you don't have to open it. You DO
+> open the two **living trackers** and the reference images as you work (see "Files you work from" below) — those
+> are data, not rules.
 
 ---
 
-GOAL: Drive the cross-platform rebuild of Conditioning Control Panel to completion. The end state is the
-**Avalonia UI v12** app at **full feature parity with the current Windows WPF app** — it does everything the WPF
-app does today, on the new cross-platform stack (LibVLCSharp.Avalonia for video, the cross-platform audio/secret/
-browser/tray/etc. seams, no WPF-only paths in shared UI). Work autonomously until the Definition of Done holds.
+## GOAL
 
-SOURCE OF TRUTH: `ConditioningControlPanel/docs/crossplatform-rebuild-plan.md`. Read it first — especially
-**§1A** (current status), **§19** (mainline sync + the §19.3 backlog), **§20** (execution model, the §20.10 lane
-map, and §20.6 context compaction), **§21** (v12 gotchas), and **§23** (official Avalonia v12 docs — validate API
-choices there). Treat `docs/avalonia-migration-task-board.md` (live queue) and `docs/avalonia-ui-parity-matrix.md`
-(parity checklist) as external memory: update them as you work; first re-verify §1A against the real tree, since
-a recent merge from `main` moved things.
+Drive the cross-platform rebuild of **Conditioning Control Panel** to completion. End state: the **Avalonia UI v12**
+app at **full parity with today's Windows WPF app** — it *does* everything the WPF app does, on the cross-platform
+stack (LibVLCSharp.Avalonia video, cross-platform audio/secret/browser/tray seams; no WPF-only paths in shared UI).
+Work autonomously until the Definition of Done holds.
 
-STEP 0 — RECONCILE THE LATEST MERGE FROM `main` (do this BEFORE porting anything new). `main` was merged into
-`feat/crossplatform` and added/changed WPF code the Core/Avalonia copies don't have yet:
-  1. Re-verify the §19.3 backlog against the actual tree (AppSettings fields, ChaosSkiaFxOverlay, ChaosBoonColors,
-     ChaosBubbleHostOverlay, ChaosDvdHostOverlay, ChaosCrashSentinel, BubbleService overhaul, UpdateService rework,
-     Fredoka.ttf, ModService/FlashService/GlobalMouseHook deltas). Mark what's already done.
-  2. Detect ANY ADDITIONAL drift the merge introduced beyond §19.3 using the §19.2 triage: diff the merge range
-     over `ConditioningControlPanel/`, bucket each changed file (Model→Core, portable service→Core, UI→Avalonia,
-     infra/installer→ignore, localization JSON→auto-synced).
-  3. Port each outstanding item into Core/Avalonia; rewrite §19.3 to reflect done vs. remaining.
-  4. Prefer doing §19.4 first (make `CCP.Core` the single source of truth for models, delete the WPF `Models/`
-     duplicates) — it permanently removes the drift that caused this and shrinks every later step.
+## THE BAR (non-negotiable)
 
-DEFINITION OF DONE:
-  - `CCP.Avalonia.Desktop.Windows` launches and every tab / feature / dialog / window behaves AND **looks** the
-    same as today's WPF app — every row in `docs/avalonia-ui-parity-matrix.md` is ✅, and each tab visually matches
-    the `img state/` reference **for the active theme** + the running WPF app (no raw `{loc:Str}` keys shown as
-    text, all feature cards / controls / emblem / avatar tube present, correct per-theme palette and fonts — see
-    plan §13.5, §15.11).
-  - All media/audio/video run on `LibVLCSharp.Avalonia` + the cross-platform seams (no WebView2/WPF-only path in
-    shared UI; WebView2 only behind the Windows head).
-  - `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly` is clean (0 errors) and `CCP.Core.Tests` pass.
-  - The §19.3 sync backlog is empty (cross-platform behavior matches `main`).
-  - Linux/macOS/Android heads still build (CI green). **Windows parity is the primary bar**; full Linux/macOS/
-    Android parity is secondary.
-  - The legacy WPF app still builds and runs the whole time (no big-bang cutover).
+- **Every feature ports 1:1 — identical behavior to the WPF app — AND should be smoother and faster.** The WPF
+  baseline is the **floor, not the ceiling**: every function feels at least as snappy on Avalonia/Skia, ideally
+  better. Never slower, never janky.
+- **No permanent stubs, no simplified/approximate versions, no degraded behavior on Windows.** If WPF does X, the
+  port does X, at least as fast (beat it via Skia composition, async startup, pooling, off-UI-thread work).
+- "Better" = *faster/smoother*, not *changed*. Match WPF behavior first, then beat its performance.
+- Only acceptable degradation: Linux/macOS/Android features that are inherently platform-limited (global hooks,
+  wallpaper, etc.) — gate those; **never degrade on Windows**.
 
-EXECUTION MODEL (per §20):
-  - Act as the ORCHESTRATOR. Own the chokepoints yourself: `CCP.Avalonia/ServiceCollectionExtensions.cs` (DI),
-    `App.axaml`, the `MainWindow` shell, all `*.csproj`, and localization merges. Do the shell/infra backbone
-    first; everything else hangs off it.
-  - Seed lanes from the §20.10 map: one `MainWindow/MainWindow.<Feature>.cs` partial → one
-    `Views/Tabs/<Feature>TabView.*` + `ViewModels/Tabs/<Feature>TabViewModel.cs` lane (porting its `Services/<Area>`
-    logic into Core in the same lane). Sub-split the oversized Chaos lane.
-  - You MAY spawn worktree-isolated sub-agents per lane if that's available; otherwise run lanes sequentially.
-  - PER-LANE LOOP: claim (append a row to the Active Claims Ledger in the task board, commit it first) →
-    targeted reads of just that subtree → port → `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly` + Core tests →
-    **visual-parity check: screenshot the tab and compare to the `img state/` reference for the active theme + the
-    same tab in the running WPF app (§13.5)** → update task board + parity matrix → commit → **COMPACT CONTEXT**.
-  - COMPACT AGGRESSIVELY (§20.6): after every finished item, after each green build, after any large file read,
-    and at ~50–60% of the context window. Keep only the trackers + the outcome; never carry one lane's source
-    into the next.
+## BUILD PRINCIPLE — lazy senior dev / YAGNI ("ponytail")
 
-GUARDRAILS (from §21 / the v12 gotchas — validate against §23 docs):
-  - Keep `Microsoft.WindowsAppSDK` PINNED (`ExcludeAssets="all" PrivateAssets="all"`), do NOT remove it (§5.1).
-  - Compiled bindings are on by default → every `.axaml` needs `x:DataType`; use `{ReflectionBinding}` only for
-    dynamic paths (§4.2).
-  - Use `WindowDecorations` (not `SystemDecorations`); `TransparencyLevelHint` is a list in code (§4.4).
-  - Convert WPF mouse/Preview events to pointer/tunnel events and RE-ADD the left-button check that moves into the
-    pointer args (§4.8). Translate `ElementName`/`RelativeSource` bindings and `DependencyProperty` →
-    `StyledProperty`/`DirectProperty` (§4.7).
-  - Use the per-head DI override pattern (`App.ConfigurePlatformServices`); register new seams in the shared
-    `ConfigureCoreServices` with a safe fallback. Do NOT create the phantom seams in §3.3
-    (`ICaptureService`/`IImageDecoder`/`IImageSourceFactory`/`IUiTimer`/`IThumbnailProvider`) — they were folded
-    into `IFrameSource`/`IAssetLoader`/`IScheduler`.
-  - `IVideoSurface` is intentionally not DI-registered (constructed with a `VideoView`) — don't "fix" it.
-  - Localization auto-syncs into Core (§19.1); add new keys via `tools/new-localization-keys.json` then
-    `python tools/merge-localization-keys.py` (never hand-merge the per-language JSON in parallel).
-  - Every change must build; never leave the tree red. Don't touch a chokepoint from a porter lane — route it
-    through the task board's Hand-off Queue.
-  - VISUAL PARITY (§13.5): a clean build is not "done" — earlier ports made small UI mistakes (raw loc keys shown
-    as text, missing/unstyled cards, wrong spacing). At least once per tab before marking it ✅, screenshot the
-    Avalonia tab and compare to the `img state/` reference for the active theme and the same tab in the running WPF
-    app; avoid the defects in `img state/bad view*.png`. Doesn't need to be every iteration, but must happen before
-    a tab is complete.
-  - SELF-SERVE REFERENCES — DON'T GUESS: whenever you're unsure how *any* tab/dialog/popup/view looks or should
-    look/behave (a missing theme reference, or just an unfamiliar screen/state), **launch the WPF app yourself**
-    (from the `ConditioningControlPanel/` dir: `dotnet run --project ConditioningControlPanel.csproj`), switch the
-    top-left mod selector to the relevant theme (CCP Default / Bambi / Sissy Hypno / Droneification / Circe Lock),
-    open that exact view in the state you care about, and screenshot it — that's your reference. Save useful captures
-    into `img state/` (e.g. `good-view-bambi.png`) so they're reusable (this is how to fill the missing
-    Bambi/Droneification/Circe Lock references). Run the Avalonia head side-by-side to compare. (Local Windows step —
-    needs a desktop session + screenshot tooling.)
-  - THEMING (§15.11): the top-left mod switcher re-skins the app — **each mod is a theme**, and there are five with
-    distinct looks: **CCP Default, Bambi, Sissy Hypno, Droneification, Circe Lock**. The dashboard *layout* is shared;
-    *palette/avatar/card art* differ per theme. Reference images: `img state/default good view.jpg` (CCP Default),
-    `img state/good view.png` (Sissy Hypno); for Bambi/Droneification/Circe Lock capture from the running WPF app.
-    Compare each tab to the reference **for the active theme** — match layout/elements always, colors per theme.
-    Accent colors must come from theme resources via `DynamicResource` (never hard-coded hex), and the per-mod
-    re-skin path (WPF's `RefreshThemeAwareElements` reading `App.Mods` accents) must be ported. Smoke-test the app
-    across themes (at least CCP Default + one non-pink, e.g. Droneification) to confirm the whole UI re-skins.
+Build the **simplest thing that works**. Framework/stdlib first, no unrequested abstractions, delete over add,
+shortest working diff. **A platform seam earns its place only with a real cross-platform divergence + a real
+implementation — never a one-line wrapper over a framework API.** Use `Dispatcher.UIThread`, `DispatcherTimer`,
+`ILogger<T>`, LibVLCSharp's own native discovery, and `AssetLoader` directly (the ponytail-audit already deleted
+the `IUiDispatcher`/`IScheduler`/`IAppLogger`/`LibVLCNativeDiscovery`/frame-source/mobile wrappers — don't recreate
+them; record is `docs/avalonia-ponytail-audit-queue.md`). **Keep pruning unneeded code as you go — it makes the app
+faster — but each prune is a refactor:** build, then re-exercise the affected features, since a removed wrapper may
+have been load-bearing.
 
-CADENCE: Work until the Definition of Done holds, updating the trackers and compacting after each lane. If you hit
-a genuine decision, record it in the task board and proceed with the best reasonable default; only stop for truly
-irreversible or ambiguous choices that need the user.
+## Files you work from
+
+| File | What it is | How to use it |
+|---|---|---|
+| `docs/avalonia-migration-task-board.md` | **Live work queue.** Has the Active Claims Ledger, the per-lane history, and **"Known Functional Gaps"** (the authoritative not-done list: reported #1–#6 + audit groups A–M). | Claim work here (ledger row, commit first). Start from Known Functional Gaps. Log new gaps you find. |
+| `docs/avalonia-ui-parity-matrix.md` | **Per-screen checklist, RESET 2026-06-23 to all-unverified.** ~127 items, all `[ ]`. | Mark `[x]` ONLY after you exercise the item in the running app. Don't trust old marks (pruning/fixes made them stale). |
+| `img state/` (repo root) | **Reference screenshots.** 5 dashboard "good view" images, one per theme, + `bad view*.png` (anti-patterns). | Compare your port to the reference for the *active theme*. Filenames have spaces — quote them. |
+| `docs/crossplatform-rebuild-plan.md` | Deep detail behind the `(plan §X)` pointers. | Optional. Open only if a pointer's inline summary isn't enough. |
+
+Theme → reference image: CCP Default = `default good view.jpg` · Sissy Hypno = `good view.png` ·
+Bambi = `bambi sleep good view.jpg` · Droneification = `drone good view.jpg` · Circe Lock = `circe lock good view.jpg`.
+
+## Commands (run from the `ConditioningControlPanel/` dir)
+
+- Build (desktop): `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly`  → must be 0 errors.
+- Core tests: `dotnet test tests/CCP.Core.Tests/CCP.Core.Tests.csproj`  → must pass.
+- Run Avalonia (Windows): `dotnet run --project CCP.Avalonia.Desktop.Windows/CCP.Avalonia.Desktop.Windows.csproj`
+- Run legacy WPF (source of truth): `dotnet run --project ConditioningControlPanel.csproj`
+- Render smoke test: `dotnet run --project CCP.Avalonia.Desktop.Windows -- --smoke-test` (catches crashes / raw
+  `{loc:Str}` / placeholder tabs — it does **not** prove behavior).
+- Add loc keys: append to `tools/new-localization-keys.json`, then `python tools/merge-localization-keys.py`.
+
+---
+
+## STEP 0 — reconcile the latest `main` merge (BEFORE porting anything new)
+
+`main` was merged into `feat/crossplatform` and added WPF code the Core/Avalonia copies don't have yet (plan §19).
+1. Re-verify the sync backlog vs the tree (AppSettings fields, ChaosSkiaFxOverlay, ChaosBoonColors, host overlays,
+   ChaosCrashSentinel, BubbleService overhaul, UpdateService rework, Fredoka.ttf, ModService/FlashService/
+   GlobalMouseHook deltas). Mark what's done.
+2. Detect further drift: `git diff --stat <prev-main>..<new-main> -- ConditioningControlPanel/`; bucket each file —
+   Model → Core, portable service → Core, UI → Avalonia, infra/installer → ignore, localization JSON → auto-synced.
+3. Port outstanding items; keep the backlog current.
+4. **Do model-unification first (plan §19.4):** make `CCP.Core` the single source of truth for models and delete the
+   WPF `Models/` duplicates — it permanently removes the copy-drift and shrinks every later step.
+
+## WORKFLOW
+
+Act as the **orchestrator**. Own the chokepoints yourself: `CCP.Avalonia/ServiceCollectionExtensions.cs` (DI),
+`App.axaml`, the `MainWindow` shell, all `*.csproj`, and localization merges. Do the shell/infra backbone first;
+everything else hangs off it. You MAY spawn worktree-isolated sub-agents per lane (plan §20) if available; else run
+lanes sequentially.
+
+Lanes map to the original project: one `MainWindow/MainWindow.<Feature>.cs` partial → one
+`Views/Tabs/<Feature>TabView.*` + `ViewModels/Tabs/<Feature>TabViewModel.cs` (port its `Services/<Area>` logic into
+Core in the same lane). Sub-split the oversized Chaos lane.
+
+**PER-LANE LOOP:** claim (ledger row, commit first) → targeted reads of just that subtree → port → build
+(`-clp:ErrorsOnly`) + Core tests → **functionally verify (exercise it)** → **visually verify** (screenshot vs the
+active-theme reference + the same tab in the running WPF app) → prune anything needless while you're in the file →
+update task board + flip the matrix item to `[x]` → commit → **compact context**.
+
+**Compact aggressively:** after every finished item, after each green build, after any large file read, and at
+~50–60% of the window. Keep only the trackers + the outcome; never carry one lane's source into the next.
+
+## FUNCTIONAL PARITY — exercise it, don't just render it
+
+A clean build + correct screenshot does **not** mean it works. The first port shipped inert UI (START did nothing,
+avatar inert, overlays blocked input). Wire every control to a live `ICommand` → Core/platform service (no
+stubs/`NotImplemented`), then **run the feature and confirm it does what WPF does**. Start from the task board's
+**Known Functional Gaps** — includes high-impact ones like **account login being entirely no-op (premium/Patreon
+gating dead)**, Chaos run economy placeholder, content packs, feature-card editors, webcam tracking. Find more with
+`grep -rinE "TODO|stub|not ported|not wired|placeholder|NotImplemented|No-?op" CCP.Avalonia --include=*.cs` and by
+exercising every feature — the markers are a floor, not a ceiling.
+
+## VISUAL PARITY
+
+Screenshot each ported tab and compare to (a) the `img state/` reference **for the active theme** and (b) the same
+tab+theme in the running WPF app. Watch for: no raw `{loc:Str}` keys shown as text; all cards/controls/emblem/
+avatar present; correct grid/spacing/fonts (incl. Fredoka); accents correct for the active theme. Avoid the defects
+in `img state/bad view*.png`. **Don't guess** — if you're unsure how any view/state should look, launch the WPF app,
+switch to the relevant theme, open that exact view, and screenshot it; save keepers into `img state/`.
+
+**Overlays are pure passive paint-only layers — tinted glass over the monitor:** you *see* it rendered smoothly, but
+you can click/type/use the whole PC normally underneath. Pink fill, spiral, subliminal, flash, brain-drain must NOT
+affect the CCP window or any other app behind them — input passes straight through, no focus steal, no activation,
+not in Alt-Tab/taskbar, no interference, and the overlay's own animation (e.g. spiral) stays smooth. Implement with
+`IsHitTestVisible=false` AND, on Windows, `WS_EX_TRANSPARENT|WS_EX_LAYERED|WS_EX_NOACTIVATE` applied after the
+handle exists (plan §7.4). Verify: with an overlay up, click the app's buttons through it AND fully use a second app
+behind it.
+
+## MULTI-MONITOR — N screens, not "dual" (plan §7.5)
+
+Every screen-spanning feature (video, flash, subliminal, spiral, pink fill, brain-drain, bouncing text, bubbles,
+Chaos overlays) renders correctly across **all** monitors at once — **unless set to a single display** (respect it).
+Iterate `Screens.All` (never `[0]`/`[1]`); size each surface to its own monitor's `Bounds` and scale by that
+monitor's own `Scaling`, so a mix of landscape + portrait screens each look right (no stretching). Generalize
+`AvaloniaDualMonitorVideoService` to N; spawn a surface only where needed, pool/reuse them, react to
+`Screens.Changed` (hotplug/resolution/orientation). Verify on a 3-monitor mixed-orientation layout (1 landscape + 2
+portrait).
+
+## THEMING — each mod is a theme (plan §15.11)
+
+The top-left mod switcher re-skins the whole app. Five themes, distinct looks: **CCP Default, Bambi, Sissy Hypno,
+Droneification, Circe Lock**. Layout is shared; palette/avatar/card art differ per theme. **Accent colors must come
+from theme resources via `DynamicResource` (never hard-coded hex)**, and the per-mod re-skin path (WPF's
+`RefreshThemeAwareElements` reading `App.Mods` accents → rewriting `Application.Current.Resources`) must be ported.
+Smoke-test across themes (at least CCP Default + one non-pink, e.g. Droneification) to confirm the whole UI re-skins.
+
+## KNOWN CRITICAL BUGS (fix early)
+
+- **P0 data-loss — user-data path split (task board #L):** `AvaloniaAppEnvironment.ApplicationDataPath` returns
+  **Roaming** (`%APPDATA%`) while `UserDataPath` + the legacy WPF app use **Local**
+  (`%LOCALAPPDATA%\ConditioningControlPanel`). Core services keyed on `ApplicationDataPath` (`SessionLogService`,
+  `SessionFileService`, `ModerationCounter`) write to the wrong folder → existing users see empty session history /
+  lost saved sessions. **Collapse to one Local path** (ponytail: make `ApplicationDataPath` == `UserDataPath` or drop
+  it). Verify settings/tokens/logs/custom-sessions/progress all land in the legacy folder.
+- **No WPF perf baseline captured (#M):** capture WPF startup/working-set/a couple of effect frame rates **now**
+  (before more pruning) so "match or beat" is measurable.
+
+## AVALONIA v12 GOTCHAS (don't trip on these)
+
+- `Microsoft.WindowsAppSDK` stays **PINNED** (`ExcludeAssets="all" PrivateAssets="all"`) — do NOT remove (it's a
+  required transitive of LibVLCSharp; removing it causes a WebView2 `NU1605` downgrade).
+- Compiled bindings are on by default → every `.axaml` needs `x:DataType`; `{ReflectionBinding}` only for dynamic
+  paths.
+- `WindowDecorations` (not `SystemDecorations`); `TransparencyLevelHint` is a list in code.
+- WPF mouse/`Preview` events → pointer/tunnel events; **re-add the left-button check** (it moves into the pointer
+  args). `ElementName`/`RelativeSource` → `{Binding #name}` / `{Binding $parent[T]}`; `DependencyProperty` →
+  `StyledProperty`/`DirectProperty`.
+- Per-head DI override via `App.ConfigurePlatformServices`; register new seams in shared `ConfigureCoreServices`
+  with a safe fallback. Don't create phantom seams (`ICaptureService`/`IImageDecoder`/`IUiTimer`/`IThumbnailProvider`
+  — folded into `IFrameSource`/`IAssetLoader`/`IScheduler`).
+- `IVideoSurface` is intentionally not DI-registered (constructed with a `VideoView`) — don't "fix" it.
+- Localization auto-syncs into Core; add keys via `tools/new-localization-keys.json` + the merge script (never
+  hand-merge per-language JSON in parallel).
+
+## DEFINITION OF DONE
+
+- `CCP.Avalonia.Desktop.Windows` launches; every tab / feature / dialog / window **actually works** AND looks like
+  today's WPF app — **"builds + looks right" is NOT done.** START launches the mode, the avatar reacts,
+  progression/marquee run, feature cards activate their services, overlays are tinted-glass click-through.
+- The task board's **Known Functional Gaps** list is cleared.
+- Every item in `docs/avalonia-ui-parity-matrix.md` is `[x]` — verified by exercising it in the running app (it was
+  reset to all-unverified; don't trust old marks).
+- Each tab visually matches the `img state/` reference for the active theme; UI re-skins across all 5 themes.
+- All media/audio/video on `LibVLCSharp.Avalonia` + the cross-platform seams (WebView2 only behind the Windows head).
+- `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly` clean + `CCP.Core.Tests` pass; the sync backlog is empty.
+- The P0 data-path bug is fixed (user data in the legacy Local folder).
+- Linux/macOS/Android heads still build (CI green). **Windows parity is the primary bar.** The legacy WPF app stays
+  runnable throughout (no big-bang cutover).
+
+## CADENCE
+
+Work until Done, updating trackers and compacting after each lane. Hit a genuine decision? Record it in the task
+board and proceed with the best reasonable default; only stop for truly irreversible/ambiguous choices that need the
+user.

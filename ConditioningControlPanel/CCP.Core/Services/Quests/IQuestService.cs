@@ -40,6 +40,11 @@ public interface IQuestService
     void AddProgress(QuestCategory category, int amount);
 
     /// <summary>
+    /// Records that a mantra has been completed and applies quest progress.
+    /// </summary>
+    void TrackMantraCompleted();
+
+    /// <summary>
     /// Marks the current daily quest as completed, awards XP, and clears the slot
     /// so <see cref="EnsureGenerated"/> can create the next daily quest.
     /// </summary>

@@ -65,7 +65,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 }
                 else if (_isGiggling || _isWaitingForAi)
                 {
-                    _logger?.Debug("Skipping double-click - message still showing");
+                    _logger?.LogDebug("Skipping double-click - message still showing");
                 }
                 else if ((now - _lastInteractionTime).TotalSeconds >= 1.5)
                 {

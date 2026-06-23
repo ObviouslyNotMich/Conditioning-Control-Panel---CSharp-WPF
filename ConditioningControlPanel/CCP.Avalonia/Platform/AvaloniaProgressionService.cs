@@ -13,6 +13,7 @@ public sealed class AvaloniaProgressionService : IProgressionService
 {
     private readonly ISettingsService _settingsService;
     private readonly ISkillTreeService _skillTreeService;
+    private readonly Dictionary<int, double> _cumulativeXPCache = new();
 
     public AvaloniaProgressionService(ISettingsService settingsService, ISkillTreeService skillTreeService)
     {
@@ -92,5 +93,34 @@ public sealed class AvaloniaProgressionService : IProgressionService
             // 3% compound growth per level beyond 150.
             return Math.Round(10000 * Math.Pow(1.03, level - 150));
         }
+    }
+
+    /// <inheritdoc />
+    public double GetTotalXP(int level, double currentXP)
+    {
+        return GetCumulativeXPForLevel(level - 1) + currentXP;
+    }
+
+    /// <inheritdoc />
+    public double GetCurrentLevelXP(int level, double totalXP)
+    {
+        var cumulativeForPreviousLevels = GetCumulativeXPForLevel(level - 1);
+        return Math.Max(0, totalXP - cumulativeForPreviousLevels);
+    }
+
+    /// <summary>
+    /// Gets the cumulative XP required to reach a given level (sum of all previous levels).
+    /// Results are memoized for performance.
+    /// </summary>
+    private double GetCumulativeXPForLevel(int level)
+    {
+        if (level <= 0) return 0;
+
+        if (_cumulativeXPCache.TryGetValue(level, out double cached))
+            return cached;
+
+        double cumulative = GetCumulativeXPForLevel(level - 1) + GetXPForLevel(level);
+        _cumulativeXPCache[level] = cumulative;
+        return cumulative;
     }
 }

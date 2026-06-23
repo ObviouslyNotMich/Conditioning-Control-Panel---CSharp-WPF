@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Media;
 using global::Avalonia.Threading;
+using PixelRect = global::Avalonia.PixelRect;
 
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Chaos;
@@ -33,7 +34,7 @@ internal static class ChaosBackdropService
             if (_active == null) Build();
             SetDepth(depth);
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning("ChaosBackdropService.Show failed: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<object>>().LogWarning("ChaosBackdropService.Show failed: {E}", ex.Message); }
     }
 
     public static void SwapTo(int depth)
@@ -41,7 +42,7 @@ internal static class ChaosBackdropService
         if (!Enabled) return;
         if (_active == null) { Show(depth); return; }
         if (depth == _currentDepth) return;
-        try { SetDepth(depth); } catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosBackdropService.SwapTo: {E}", ex.Message); }
+        try { SetDepth(depth); } catch (Exception ex) { App.Services?.GetRequiredService<ILogger<object>>().LogInformation("ChaosBackdropService.SwapTo: {E}", ex.Message); }
     }
 
     public static void CloseActive()
@@ -82,6 +83,7 @@ primary?.Bounds ?? new PixelRect(0, 0, 1920, 1080);
             ShowInTaskbar = false,
             ShowActivated = false,
             Focusable = false,
+            IsHitTestVisible = true,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.Manual,
             Position = new PixelPoint(bounds.X, bounds.Y),
@@ -92,12 +94,9 @@ primary?.Bounds ?? new PixelRect(0, 0, 1920, 1080);
         };
         _active.Opened += (_, _) => ApplyExStyles(_active);
         _active.Show();
-        App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosBackdropService window up (non-topmost, click-absorbing)");
+        App.Services?.GetRequiredService<ILogger<object>>().LogInformation("ChaosBackdropService window up (non-topmost, click-absorbing)");
     }
 
-    private static void ApplyExStyles(Window w)
-    {
-        // TODO: apply WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW on Windows (no WS_EX_TRANSPARENT — absorbs clicks).
-    }
+    private static void ApplyExStyles(Window w) => ChaosWin32Helper.ApplyOverlayExStyles(w, false);
 
 }

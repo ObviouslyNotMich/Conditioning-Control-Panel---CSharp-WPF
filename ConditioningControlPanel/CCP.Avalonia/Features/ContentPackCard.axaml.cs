@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Localization;
 
 namespace ConditioningControlPanel.Avalonia.Features;
@@ -347,42 +348,6 @@ public partial class ContentPackCard : UserControl
 
     private static Bitmap? LoadBitmapFromUri(string? uri)
     {
-        if (string.IsNullOrWhiteSpace(uri)) return null;
-
-        try
-        {
-            if (File.Exists(uri))
-                return new Bitmap(uri);
-
-            if (uri.StartsWith("file://", StringComparison.Ordinal))
-            {
-                var path = uri.Substring(7);
-                if (File.Exists(path))
-                    return new Bitmap(path);
-                return null;
-            }
-
-            if (uri.StartsWith("pack://application:,,,", StringComparison.Ordinal))
-            {
-                var relative = uri.Substring("pack://application:,,,".Length).TrimStart('/');
-                if (relative.StartsWith("Resources/", StringComparison.Ordinal))
-                    relative = relative.Substring("Resources/".Length);
-                var avares = $"avares://CCP.Avalonia/Assets/{relative}";
-                using var stream = AssetLoader.Open(new Uri(avares));
-                return new Bitmap(stream);
-            }
-
-            if (uri.StartsWith("avares://", StringComparison.Ordinal))
-            {
-                using var stream = AssetLoader.Open(new Uri(uri));
-                return new Bitmap(stream);
-            }
-        }
-        catch
-        {
-            // Fail-soft for missing or unsupported preview URIs.
-        }
-
-        return null;
+        return AvaloniaBitmapHelper.Load(uri);
     }
 }

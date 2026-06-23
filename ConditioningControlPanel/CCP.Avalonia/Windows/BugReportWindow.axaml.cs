@@ -4,25 +4,22 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Dialogs;
-using ConditioningControlPanel.Core;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.BugReport;
 using ConditioningControlPanel.Core.Services.Settings;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 
 /// <summary>
 /// Avalonia port of the bug-report dialog. Collects description + steps from the user,
-/// shows the outgoing payload preview, and submits through a stubbed service.
+/// shows the outgoing payload preview, and submits through the cross-platform bug-report service.
 /// </summary>
 public partial class BugReportWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
-
-
-    private readonly BugReportService _service;
+    private readonly ILogger<BugReportWindow> _logger;
+    private readonly IBugReportService _service;
     private readonly DispatcherTimer _enableTimer;
     private readonly IDialogService? _dialogService;
     private bool _submitted;
@@ -32,8 +29,8 @@ public partial class BugReportWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-_service = new BugReportService();
+        _logger = App.Services.GetRequiredService<ILogger<BugReportWindow>>();
+        _service = App.Services.GetRequiredService<IBugReportService>();
         _dialogService = App.Services?.GetService<IDialogService>();
 
         _enableTimer = new DispatcherTimer
@@ -66,8 +63,8 @@ _service = new BugReportService();
         try
         {
             var draft = _service.CreateDraft(
-                TxtDescription.Text,
-                TxtSteps.Text,
+                TxtDescription.Text ?? "",
+                TxtSteps.Text ?? "",
                 ChkIncludeAppLog.IsChecked == true);
 
             var m = draft.Metadata;
@@ -89,7 +86,7 @@ _service = new BugReportService();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[BugReport] preview render failed");
+            _logger?.LogWarning(ex, "[BugReport] preview render failed");
         }
     }
 
@@ -104,8 +101,8 @@ _service = new BugReportService();
         try
         {
             var draft = _service.CreateDraft(
-                TxtDescription.Text,
-                TxtSteps.Text,
+                TxtDescription.Text ?? "",
+                TxtSteps.Text ?? "",
                 ChkIncludeAppLog.IsChecked == true);
 
             var result = await _service.SubmitAsync(draft).ConfigureAwait(true);
@@ -113,7 +110,7 @@ _service = new BugReportService();
 
             switch (result.Outcome)
             {
-                case BugReportService.SubmitOutcome.Success:
+                case SubmitOutcome.Success:
                     if (_dialogService != null)
                     {
                         await _dialogService.ShowMessageAsync(
@@ -124,7 +121,7 @@ _service = new BugReportService();
                     Close();
                     break;
 
-                case BugReportService.SubmitOutcome.SavedPending:
+                case SubmitOutcome.SavedPending:
                     if (_dialogService != null)
                     {
                         await _dialogService.ShowMessageAsync(
@@ -135,8 +132,8 @@ _service = new BugReportService();
                     Close();
                     break;
 
-                case BugReportService.SubmitOutcome.ValidationFailed:
-                case BugReportService.SubmitOutcome.NetworkError:
+                case SubmitOutcome.ValidationFailed:
+                case SubmitOutcome.NetworkError:
                 default:
                     if (_dialogService != null)
                     {
@@ -155,7 +152,7 @@ _service = new BugReportService();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "[BugReport] submit failed");
+            _logger?.LogError(ex, "[BugReport] submit failed");
             _ = _dialogService?.ShowMessageAsync(
                 Loc.Get("bug_report_title"),
                 Loc.Get("bug_report_error_toast") + "\n\n" + ex.Message,
@@ -172,107 +169,5 @@ _service = new BugReportService();
     {
         if (_submitting) return;
         Close();
-    }
-
-    /// <summary>
-    /// Minimal in-process stub for the legacy WPF BugReportService.
-    /// TODO: replace with the real cross-platform service once it is extracted to CCP.Core.
-    /// </summary>
-    private sealed class BugReportService
-    {
-        public enum SubmitOutcome
-        {
-            Success,
-            SavedPending,
-            ValidationFailed,
-            NetworkError
-        }
-
-        public sealed record SubmitResult(SubmitOutcome Outcome, string? Token = null, string? ErrorMessage = null);
-
-        public sealed class DraftMetadata
-        {
-            public string AppVersion { get; set; } = CCPCore.Version;
-            public string Os { get; set; } = Environment.OSVersion.ToString();
-            public string Dotnet { get; set; } = Environment.Version.ToString();
-            public string Language { get; set; } = "en";
-            public string ActiveModId { get; set; } = "";
-        }
-
-        public sealed class DraftCounts
-        {
-            public int Paths { get; set; }
-            public int Emails { get; set; }
-            public int Tokens { get; set; }
-            public int AppData { get; set; }
-        }
-
-        public sealed class Draft
-        {
-            public DraftMetadata Metadata { get; } = new();
-            public DraftCounts Counts { get; } = new();
-            public string Description { get; set; } = "";
-            public string Steps { get; set; } = "";
-            public bool IncludeLog { get; set; }
-        }
-
-        public Draft CreateDraft(string? description, string? steps, bool includeLog)
-        {
-            var draft = new Draft
-            {
-                Description = description ?? "",
-                Steps = steps ?? "",
-                IncludeLog = includeLog
-            };
-
-            try
-            {
-                var settings = App.Services?.GetService<ISettingsService>()?.Current;
-                draft.Metadata.Language = settings?.Language ?? "en";
-            }
-            catch { /* designer/no-services fallback */ }
-
-            draft.Counts.Paths = CountMatches(draft.Description + draft.Steps, @"[A-Za-z]:\\");
-            draft.Counts.Emails = CountMatches(draft.Description + draft.Steps, @"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b");
-            draft.Counts.Tokens = CountMatches(draft.Description + draft.Steps, @"\b[a-f0-9]{32,}\b");
-            draft.Counts.AppData = includeLog ? 1 : 0;
-
-            return draft;
-        }
-
-        public string RenderPreview(Draft draft)
-        {
-            return $"version: {draft.Metadata.AppVersion}\n" +
-                   $"os: {draft.Metadata.Os}\n" +
-                   $"language: {draft.Metadata.Language}\n" +
-                   $"include_log: {draft.IncludeLog}\n" +
-                   $"description:\n{draft.Description}\n\n" +
-                   $"steps:\n{draft.Steps}";
-        }
-
-        public async Task<SubmitResult> SubmitAsync(Draft draft)
-        {
-            await Task.Delay(500).ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(draft.Description))
-            {
-                return new SubmitResult(SubmitOutcome.ValidationFailed, null, "Description is required.");
-            }
-
-            // TODO: perform real network submit / save-pending once the backend service is available.
-            return new SubmitResult(SubmitOutcome.Success, Guid.NewGuid().ToString("N")[..8].ToUpperInvariant());
-        }
-
-        private static int CountMatches(string text, string pattern)
-        {
-            try
-            {
-                return System.Text.RegularExpressions.Regex.Matches(text, pattern).Count;
-            }
-            catch
-            {
-                return 0;
-}
-        }
     }
 }

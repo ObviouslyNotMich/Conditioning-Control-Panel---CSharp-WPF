@@ -22,7 +22,7 @@ internal sealed class CirceEmoteEngine : IDisposable
     private readonly Image _layerA;
     private readonly Image _layerB;
     private readonly IAssetLoader _assetLoader;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<CirceEmoteEngine>? _logger;
     private readonly Random _random;
 
     private AvaloniaAnimatedGif? _playerA;
@@ -80,7 +80,7 @@ internal sealed class CirceEmoteEngine : IDisposable
     private const int MinTalkWindowMs = 500;
     private const int NonverbalLeadInMs = 250;
 
-    public CirceEmoteEngine(Image layerA, Image layerB, IAssetLoader assetLoader, IAppLogger? logger, Random random)
+    public CirceEmoteEngine(Image layerA, Image layerB, IAssetLoader assetLoader, ILogger<CirceEmoteEngine>? logger, Random random)
     {
         _layerA = layerA;
         _layerB = layerB;
@@ -100,6 +100,7 @@ internal sealed class CirceEmoteEngine : IDisposable
 
     public bool IsActive => _isActive;
     public string? CurrentClip => _currentClip;
+    public string? CurrentFolder => _folder;
     public int AudioLeadInMs { get; private set; }
 
     public bool HasLayout => _emoteHasLayout;
@@ -116,22 +117,26 @@ internal sealed class CirceEmoteEngine : IDisposable
         if (string.Equals(_folder, folder, StringComparison.OrdinalIgnoreCase) && _isActive)
             return true;
 
-        Leave();
+        // Leave and all Image/Timer mutations must happen on the UI thread.
+        await Dispatcher.UIThread.InvokeAsync(() => Leave());
         _folder = folder;
 
         if (!await LoadMapAsync(folder))
         {
-            _folder = null;
+            await Dispatcher.UIThread.InvokeAsync(() => _folder = null);
             return false;
         }
 
-        _isActive = true;
-        _layerA.IsVisible = true;
-        _layerB.IsVisible = true;
-        _layerA.Opacity = 1;
-        _layerB.Opacity = 0;
-        await CrossfadeToAsync(PickWeightedIdle());
-        _watchdog.Start();
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _isActive = true;
+            _layerA.IsVisible = true;
+            _layerB.IsVisible = true;
+            _layerA.Opacity = 1;
+            _layerB.Opacity = 0;
+            CrossfadeTo(PickWeightedIdle());
+            _watchdog.Start();
+        });
         return true;
     }
 
@@ -279,17 +284,21 @@ internal sealed class CirceEmoteEngine : IDisposable
             }
 
             _timing.Clear();
-            try
+            var timingUri = AssetUri($"Assets/{folder}/clip_timing.json");
+            if (_assetLoader.Exists(timingUri))
             {
-                var timingJson = await _assetLoader.ReadTextAsync(AssetUri($"Assets/{folder}/clip_timing.json"));
-                var tj = JObject.Parse(timingJson);
-                foreach (var p in tj.Properties())
-                    if (p.Value is JObject o && !p.Name.StartsWith("_", StringComparison.Ordinal))
-                        _timing[p.Name] = ((int?)o["speakStartMs"] ?? 0,
-                                           (int?)o["speakEndMs"] ?? 0,
-                                           (int?)o["durationMs"] ?? 0);
+                try
+                {
+                    var timingJson = await _assetLoader.ReadTextAsync(timingUri);
+                    var tj = JObject.Parse(timingJson);
+                    foreach (var p in tj.Properties())
+                        if (p.Value is JObject o && !p.Name.StartsWith("_", StringComparison.Ordinal))
+                            _timing[p.Name] = ((int?)o["speakStartMs"] ?? 0,
+                                               (int?)o["speakEndMs"] ?? 0,
+                                               (int?)o["durationMs"] ?? 0);
+                }
+                catch { /* malformed timing file is harmless */ }
             }
-            catch { /* timing file optional */ }
 
             _expressive = _expressive.Where(ClipExistsAsync).Distinct().ToList();
             _clickEmotes.RemoveAll(c => !ClipExistsAsync(c));
@@ -317,7 +326,7 @@ internal sealed class CirceEmoteEngine : IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to load emote map for {Folder}", folder);
+            _logger?.LogWarning(ex, "Failed to load emote map for {Folder}", folder);
             return false;
         }
     }
@@ -620,7 +629,7 @@ internal sealed class CirceEmoteEngine : IDisposable
             var tempPath = await EnsureClipOnDiskAsync(clip);
             if (string.IsNullOrEmpty(tempPath))
             {
-                _logger?.Warning("Emote clip missing: {Clip}", clip);
+                _logger?.LogWarning("Emote clip missing: {Clip}", clip);
                 AdvanceQueue();
                 return;
             }
@@ -628,7 +637,7 @@ internal sealed class CirceEmoteEngine : IDisposable
             var nextPlayer = AvaloniaAnimatedGif.TryCreate(tempPath, playOnce: true);
             if (nextPlayer == null)
             {
-                _logger?.Warning("Emote clip decode failed: {Clip}", clip);
+                _logger?.LogWarning("Emote clip decode failed: {Clip}", clip);
                 AdvanceQueue();
                 return;
             }
@@ -665,7 +674,7 @@ internal sealed class CirceEmoteEngine : IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Emote crossfade failed for {Clip}", clip);
+            _logger?.LogWarning(ex, "Emote crossfade failed for {Clip}", clip);
         }
     }
 

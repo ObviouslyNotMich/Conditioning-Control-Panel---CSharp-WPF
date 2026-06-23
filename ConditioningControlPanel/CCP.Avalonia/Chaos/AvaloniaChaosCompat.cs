@@ -27,19 +27,32 @@ public enum ChaosAnnounceKind { Mantra, Temptation, Willpower, Depth, Streak, It
 /// until the engine is fully extracted into CCP.Core and wired through DI.</summary>
 public static class AvaloniaChaosEnv
 {
+    private static IChaosEnvironment? Env => App.Services?.GetService<IChaosEnvironment>();
+
     /// <summary>Effective assets root used by art loaders. Falls back to <see cref="IAppEnvironment.EffectiveAssetsPath"/> when not explicitly set.</summary>
     public static string? EffectiveAssetsPath
     {
-        get => _effectiveAssetsPath ?? App.Services?.GetService<IAppEnvironment>()?.EffectiveAssetsPath;
-        set => _effectiveAssetsPath = value;
+        get => Env?.EffectiveAssetsPath ?? App.Services?.GetService<IAppEnvironment>()?.EffectiveAssetsPath;
+        set
+        {
+            var env = Env;
+            if (env != null) env.EffectiveAssetsPath = value;
+        }
     }
-    private static string? _effectiveAssetsPath;
 
     /// <summary>Video service IsPlaying proxy. Returns <see cref="IVideoService.IsRunning"/> when available.</summary>
-    public static bool VideoIsPlaying => App.Services?.GetService<IVideoService>()?.IsRunning ?? false;
+    public static bool VideoIsPlaying => Env?.VideoIsPlaying ?? (App.Services?.GetService<IVideoService>()?.IsRunning ?? false);
 
     /// <summary>Bubble service proxy. Set at startup from the DI-injected bubble service.</summary>
-    public static IAvaloniaBubbleService? Bubbles { get; set; }
+    public static IAvaloniaBubbleService? Bubbles
+    {
+        get => Env?.Bubbles;
+        set
+        {
+            var env = Env;
+            if (env != null) env.Bubbles = value;
+        }
+    }
 }
 
 /// <summary>Stubbed bubble service surface used by chaos overlays.</summary>
@@ -50,15 +63,26 @@ public interface IAvaloniaBubbleService
     bool AnyDarterIntersects(global::Avalonia.Rect rectDips);
 }
 
-/// <summary>Static stub for ChaosModeService. TODO: replace with real run-state service.</summary>
+/// <summary>Static facade for ChaosModeService. Passes through to the DI-injected <see cref="IChaosModeState"/>.</summary>
 public static class AvaloniaChaosMode
 {
-public static ChaosPlayMode ActiveMode { get; set; } = ChaosPlayMode.Story;
-    public static bool DesktopMode => ActiveMode == ChaosPlayMode.FreeDesktop;
-    public static bool BornTopmost => !DesktopMode;
-    public static bool NarrativeActive =>
-        App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current?.NarrativeModeEnabled == true && ActiveMode == ChaosPlayMode.Story;
+    private static IChaosModeState? Mode => App.Services?.GetService<IChaosModeState>();
 
+    public static ChaosPlayMode ActiveMode
+    {
+        get => Mode?.ActiveMode ?? ChaosPlayMode.Story;
+        set
+        {
+            var mode = Mode;
+            if (mode != null) mode.ActiveMode = value;
+        }
+    }
+
+    public static bool DesktopMode => Mode?.DesktopMode ?? (ActiveMode == ChaosPlayMode.FreeDesktop);
+    public static bool BornTopmost => Mode?.BornTopmost ?? !DesktopMode;
+    public static bool NarrativeActive => Mode?.NarrativeActive ?? (
+        App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current?.NarrativeModeEnabled == true
+        && ActiveMode == ChaosPlayMode.Story);
 }
 
 /// <summary>Cross-platform Chaos SFX player. Resolves mod-overridable cues and plays them through <see cref="global::ConditioningControlPanel.Core.Platform.IAudioPlayer"/>.</summary>
@@ -123,8 +147,7 @@ public static class AvaloniaChaosSfx
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?
-                .Debug("AvaloniaChaosSfx resolve failed: {E}", ex.Message);
+            App.Services?.GetRequiredService<ILogger<object>>().LogDebug("AvaloniaChaosSfx resolve failed: {E}", ex.Message);
         }
     }
 
@@ -186,7 +209,7 @@ public static class AvaloniaChaosArt
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("AvaloniaChaosArt.TryLoad failed: {E}", ex.Message);
+            App.Services?.GetRequiredService<ILogger<object>>().LogInformation("AvaloniaChaosArt.TryLoad failed: {E}", ex.Message);
             return null;
         }
     }
@@ -223,7 +246,7 @@ public static class AvaloniaChaosArt
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("AvaloniaChaosArt.LoadSvg failed: {E}", ex.Message);
+            App.Services?.GetRequiredService<ILogger<object>>().LogInformation("AvaloniaChaosArt.LoadSvg failed: {E}", ex.Message);
             return null;
         }
     }

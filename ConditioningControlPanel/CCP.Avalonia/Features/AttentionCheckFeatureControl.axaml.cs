@@ -6,17 +6,20 @@ using Avalonia.Interactivity;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
+
 namespace ConditioningControlPanel.Avalonia.Features;
 
 public partial class AttentionCheckFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
+    private readonly IAttentionCheckService _attentionCheck;
     private bool _isLoading = true;
 
     public AttentionCheckFeatureControl()
     {
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
+        _attentionCheck = App.Services.GetRequiredService<IAttentionCheckService>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -74,8 +77,21 @@ public partial class AttentionCheckFeatureControl : UserControl
     private void ChkEnable_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        _settings.Current.AttentionCheckEnabled = ChkEnable.IsChecked ?? false;
+        var enabled = ChkEnable.IsChecked ?? false;
+        _settings.Current.AttentionCheckEnabled = enabled;
         _settings.Save();
+
+        try
+        {
+            if (enabled)
+                _attentionCheck.Start();
+            else
+                _attentionCheck.Stop();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AttentionCheck Start/Stop failed: {ex.Message}");
+        }
     }
 
     private void SliderMin_Changed(object? sender, RangeBaseValueChangedEventArgs e)

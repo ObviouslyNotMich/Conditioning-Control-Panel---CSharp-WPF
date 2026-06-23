@@ -29,7 +29,9 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             if (_portraitMode) return;
 
             string? folder = ResolveCirceFolderForCurrentState();
-            bool wanted = _useAnimatedAvatar && !string.IsNullOrEmpty(folder);
+            bool wanted = !string.IsNullOrEmpty(folder);
+            _logger?.LogDebug("TryUpdateCirceEmoteMode: wanted={Wanted}, folder={Folder}, currentMode={Mode}, engineActive={Active}",
+                wanted, folder, _circeEmoteMode, _circeEngine?.IsActive);
 
             if (wanted)
             {
@@ -41,6 +43,21 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 else if (_circeEngine?.IsActive != true)
                 {
                     EnterCirceEmoteMode(folder!);
+                }
+                else if (!string.Equals(_circeEngine?.CurrentFolder, folder, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Switched to a different registered pose while already animating: re-engage.
+                    LeaveCirceEmoteMode();
+                    _circeEmoteMode = true;
+                    EnterCirceEmoteMode(folder!);
+                }
+                else
+                {
+                    // Already animating the right folder; make sure the static avatar is hidden
+                    // and the animated layers are visible (OnModChanged may have shown the static image).
+                    if (ImgAvatar != null) ImgAvatar.IsVisible = false;
+                    if (ImgAvatarB != null) ImgAvatarB.IsVisible = false;
+                    ReassertCirceEmoteVisuals();
                 }
             }
             else if (_circeEmoteMode)
@@ -60,10 +77,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                 && x.ModId != null
                 && x.ModId.Equals(modId, StringComparison.OrdinalIgnoreCase)
                 && x.AvatarSet == _currentAvatarSet);
-            if (exact != null) return exact.Folder;
-
-            var fallback = _circeRegistry.FirstOrDefault(x => x.Fallback);
-            return fallback?.Folder;
+            return exact?.Folder;
         }
 
         private void LoadCirceRegistryIfNeeded()
@@ -85,23 +99,52 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                             _circeRegistry.Add(new CirceRegistryEntry(m, a.GetValueOrDefault(1), f, false));
                     }
                 }
-                // Built-in fallback chain so the tube works even when a registry entry is missing.
-                _circeRegistry.Add(new CirceRegistryEntry(null, 1, "avatar0_emotes", true));
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to load avatar emote registry");
-                _circeRegistry.Add(new CirceRegistryEntry(null, 1, "avatar0_emotes", true));
+                _logger?.LogWarning(ex, "Failed to load avatar emote registry");
             }
+        }
+
+        /// <summary>Registered emote sets for the active mod, ascending ([1] for BS/Sissy, [1..4] for Circe).</summary>
+        private int[] EmoteSetsForActiveMod()
+        {
+            LoadCirceRegistryIfNeeded();
+            var modId = App.Services.GetService<global::ConditioningControlPanel.IModService>()?.ActiveMod?.Id;
+            if (string.IsNullOrEmpty(modId)) return Array.Empty<int>();
+            return _circeRegistry
+                .Where(e => e.ModId != null
+                    && e.ModId.Equals(modId, StringComparison.OrdinalIgnoreCase)
+                    && !e.Fallback)
+                .Select(e => e.AvatarSet).Distinct().OrderBy(x => x).ToArray();
+        }
+
+        /// <summary>
+        /// True for a mod whose ONLY avatar is one animated emote set — these drop the level picker /
+        /// nav arrows entirely (BambiSleep, Sissy). Multi-set emote mods (Circe's 4 poses) and non-emote
+        /// mods return false.
+        /// </summary>
+        private bool IsSingleEmoteAvatarMod(out int set)
+        {
+            var sets = EmoteSetsForActiveMod();
+            if (sets.Length == 1) { set = sets[0]; return true; }
+            set = 0;
+            return false;
         }
 
         private void EnterCirceEmoteMode(string folder)
         {
             if (ImgAvatarAnimated == null || ImgAvatarAnimatedB == null)
+            {
+                _logger?.LogWarning("EnterCirceEmoteMode aborted: animated image layers are null");
                 return;
+            }
+
+            _logger?.LogInformation("Entering Circe emote mode for folder {Folder}", folder);
 
             _circeEngine ??= new CirceEmoteEngine(ImgAvatarAnimated, ImgAvatarAnimatedB,
-                App.Services.GetRequiredService<IAssetLoader>(), _logger, _random);
+                App.Services.GetRequiredService<IAssetLoader>(),
+                App.Services.GetRequiredService<ILogger<CirceEmoteEngine>>(), _random);
 
             _circeEngine.Leave();
             _circeEngine.ClipStarted += OnCirceClipStarted;
@@ -109,6 +152,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             _ = Task.Run(async () =>
             {
                 bool ok = await _circeEngine.EnterAsync(folder).ConfigureAwait(false);
+                _logger?.LogInformation("Circe emote EnterAsync returned {Ok} for folder {Folder}", ok, folder);
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (ok)
@@ -117,6 +161,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                         ImgAvatar!.IsVisible = false;
                         ImgAvatarB!.IsVisible = false;
                         ReassertCirceEmoteVisuals();
+                        _logger?.LogInformation("Circe emote mode active for folder {Folder}", folder);
                     }
                     else
                     {
@@ -125,6 +170,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                         ImgAvatarAnimated.IsVisible = false;
                         ImgAvatarAnimatedB.IsVisible = false;
                         ImgAvatar!.IsVisible = true;
+                        _logger?.LogWarning("Circe emote mode failed for folder {Folder}; falling back to static avatar", folder);
                     }
                 });
             });
@@ -155,6 +201,9 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
 
             ImgAvatarAnimated.IsVisible = true;
             ImgAvatarAnimatedB.IsVisible = true;
+
+            if (ImgAvatar != null) ImgAvatar.IsVisible = false;
+            if (ImgAvatarB != null) ImgAvatarB.IsVisible = false;
         }
 
         private static void ApplyImageTransform(Image img, double scale, int offX, int offY)

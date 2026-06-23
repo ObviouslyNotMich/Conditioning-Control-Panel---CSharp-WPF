@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -40,7 +40,7 @@ public partial class ChaosFlashOverlay : Window
     {
         InitializeComponent();
 
-_img = new Image { Stretch = Stretch.UniformToFill };
+_img = new Image { Stretch = Stretch.UniformToFill, IsHitTestVisible = false };
         Content = _img;
 
         var (sl, st, sw, sh) = AvaloniaChaosWindowZ.StageBounds();
@@ -70,7 +70,7 @@ _img = new Image { Stretch = Stretch.UniformToFill };
 
     public static void Show(int durationMs = DEFAULT_DURATION_MS, double opacity = DEFAULT_OPACITY)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<ChaosFlashOverlay>>();
         try
         {
             var pick = PickImage();
@@ -84,10 +84,10 @@ _img = new Image { Stretch = Stretch.UniformToFill };
                     AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
                     _active.Display(pick, durationMs, opacity);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosFlashOverlay.Show: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosFlashOverlay>>().LogInformation("ChaosFlashOverlay.Show: {E}", ex.Message); }
             });
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosFlashOverlay.Show: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosFlashOverlay>>().LogInformation("ChaosFlashOverlay.Show: {E}", ex.Message); }
     }
 
     public static void RaiseActive() => AvaloniaChaosWindowZ.RaiseTopmost(_active);
@@ -166,8 +166,5 @@ Directory.EnumerateFiles(dir, "*.*", SearchOption.TopDirectoryOnly)
         catch { return null; }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

@@ -16,7 +16,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class SessionLogHistoryWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<SessionLogHistoryWindow> _logger;
     private readonly ISessionLogService _sessionLog;
 
 
@@ -26,7 +26,7 @@ public partial class SessionLogHistoryWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SessionLogHistoryWindow>>();
         _sessionLog = App.Services.GetRequiredService<ISessionLogService>();
 }
 
@@ -64,7 +64,7 @@ public partial class SessionLogHistoryWindow : Window
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to open historical session log");
+            _logger?.LogError(ex, "Failed to open historical session log");
         }
     }
 

@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using LibVLCSharp.Shared;
@@ -17,12 +18,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Windows;
 
 /// <summary>
-/// Avalonia port of the preview mini-player. Uses LibVLC for video and static image
-/// fallback for GIFs (animated GIF playback is TODO).
+/// Avalonia port of the preview mini-player. Uses LibVLC for video and
+/// AvaloniaAnimatedGif for animated GIFs.
 /// </summary>
 public partial class MiniPlayerWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<MiniPlayerWindow> _logger;
     private readonly IDialogService? _dialogService;
 
 
@@ -31,6 +32,7 @@ public partial class MiniPlayerWindow : Window
 
     private MediaPlayer? _mediaPlayer;
     private Media? _media;
+    private AvaloniaAnimatedGif? _animatedGif;
     private DispatcherTimer? _positionTimer;
     private bool _isDraggingSlider;
     private bool _isPlaying;
@@ -40,7 +42,7 @@ public partial class MiniPlayerWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<MiniPlayerWindow>>();
         _dialogService = App.Services?.GetService<IDialogService>();
 }
 
@@ -144,7 +146,7 @@ public partial class MiniPlayerWindow : Window
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "MiniPlayerWindow: Failed to load video");
+            _logger?.LogError(ex, "MiniPlayerWindow: Failed to load video");
             if (_dialogService != null)
             {
                 await _dialogService.ShowMessageAsync(
@@ -160,13 +162,32 @@ public partial class MiniPlayerWindow : Window
     {
         try
         {
-            // TODO: animated GIF support once a cross-platform GIF renderer is available.
-            _logger?.Warning("MiniPlayerWindow: animated GIF playback not yet ported; falling back to static image");
-            LoadImage(filePath);
+            _animatedGif?.Dispose();
+            _animatedGif = null;
+
+            if (File.Exists(filePath))
+            {
+                _animatedGif = AvaloniaAnimatedGif.TryCreate(filePath);
+            }
+
+            if (_animatedGif != null)
+            {
+                ImagePreview.IsVisible = true;
+                VideoContainer.IsVisible = false;
+                VideoControls.IsVisible = false;
+                LoadingOverlay.IsVisible = false;
+                ImagePreview.Source = _animatedGif.Source;
+                _animatedGif.Start();
+            }
+            else
+            {
+                _logger?.LogWarning("MiniPlayerWindow: could not decode animated GIF; falling back to static image");
+                LoadImage(filePath);
+            }
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "MiniPlayerWindow: Failed to load GIF");
+            _logger?.LogError(ex, "MiniPlayerWindow: Failed to load GIF");
             LoadImage(filePath);
         }
     }
@@ -183,7 +204,7 @@ public partial class MiniPlayerWindow : Window
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "MiniPlayerWindow: Failed to load image");
+            _logger?.LogError(ex, "MiniPlayerWindow: Failed to load image");
             if (_dialogService != null)
             {
                 await _dialogService.ShowMessageAsync(
@@ -223,6 +244,23 @@ public partial class MiniPlayerWindow : Window
 
     private void TogglePlayPause()
     {
+        if (_animatedGif != null)
+        {
+            if (_isPlaying)
+            {
+                _animatedGif.Stop();
+                _isPlaying = false;
+                BtnPlayPause.Content = "▶";
+            }
+            else
+            {
+                _animatedGif.Start();
+                _isPlaying = true;
+                BtnPlayPause.Content = "⏸";
+            }
+            return;
+        }
+
         if (_mediaPlayer == null) return;
 
         if (_isPlaying)
@@ -342,10 +380,17 @@ public partial class MiniPlayerWindow : Window
             }
             catch { /* Ignore dispose errors */ }
             _media = null;
+
+            try
+            {
+                _animatedGif?.Dispose();
+            }
+            catch { /* Ignore dispose errors */ }
+            _animatedGif = null;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Error during MiniPlayerWindow cleanup");
+            _logger?.LogWarning(ex, "Error during MiniPlayerWindow cleanup");
         }
 
         base.OnClosed(e);

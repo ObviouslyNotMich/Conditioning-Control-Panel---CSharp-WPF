@@ -171,6 +171,16 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             if (_brainDrainCounter % 6 == 0) GiggleFromCategory("BrainDrain");
         }
 
+        private void OnSessionStopped(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(() => OnSessionStopped(sender, e));
+                return;
+            }
+            OnEngineStopped(sender, e);
+        }
+
         private void OnEngineStopped(object? sender, EventArgs e)
         {
             GiggleFromCategory("EngineStop");
@@ -195,7 +205,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Lock card AI reaction failed");
+                _logger?.LogWarning(ex, "Lock card AI reaction failed");
             }
             return false;
         }

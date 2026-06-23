@@ -1,8 +1,10 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text.Json;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -20,7 +22,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<MarqueeTabViewModel>? _logger;
 
     public MarqueeTabViewModel() : base("marquee", "Marquee", "📢")
     {
@@ -30,7 +32,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
     public MarqueeTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("marquee", "Marquee", "📢")
+        ILogger<MarqueeTabViewModel> logger) : base("marquee", "Marquee", "📢")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
@@ -69,7 +71,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
         IsBusy = true;
         try
         {
-            _logger?.Information("Refreshing marquee message from server");
+            _logger?.LogInformation("Refreshing marquee message from server");
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
             var response = await client.GetAsync("https://codebambi-proxy.vercel.app/config/marquee");
             if (response.IsSuccessStatusCode)
@@ -84,7 +86,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning("Failed to refresh marquee from server: {Error}", ex.Message);
+            _logger?.LogWarning("Failed to refresh marquee from server: {Error}", ex.Message);
         }
         finally
         {
@@ -98,7 +100,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
         IsBusy = true;
         try
         {
-            _logger?.Information("Checking server update banner");
+            _logger?.LogInformation("Checking server update banner");
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
             var response = await client.GetAsync("https://codebambi-proxy.vercel.app/config/update-banner");
             if (response.IsSuccessStatusCode)
@@ -114,7 +116,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning("Failed to check server update banner: {Error}", ex.Message);
+            _logger?.LogWarning("Failed to check server update banner: {Error}", ex.Message);
         }
         finally
         {
@@ -128,7 +130,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
         IsBusy = true;
         try
         {
-            _logger?.Information("Checking server announcement");
+            _logger?.LogInformation("Checking server announcement");
             var url = "https://codebambi-proxy.vercel.app/config/announcement";
             var unifiedId = _settingsService?.Current?.UnifiedId;
             if (!string.IsNullOrWhiteSpace(unifiedId))
@@ -147,18 +149,24 @@ public partial class MarqueeTabViewModel : TabItemViewModel
                     && !string.IsNullOrWhiteSpace(result.Title)
                     && result.Id != _settingsService?.Current?.DismissedAnnouncementId)
                 {
-                    _logger?.Information("Server announcement received: id={Id}, title={Title}", result.Id, result.Title);
-                    // TODO: show an Avalonia announcement popup once the view is ported.
-                    await (_dialogService?.ShowMessageAsync(
-                        result.Title,
+                    _logger?.LogInformation("Server announcement received: id={Id}, title={Title}", result.Id, result.Title);
+                    var popup = new AnnouncementPopup(
+                        result.Id!,
+                        result.Title!,
                         result.Message ?? "",
-                        DialogSeverity.Info) ?? Task.CompletedTask);
+                        result.ImageUrl,
+                        result.LinkUrl,
+                        result.Theme)
+                    {
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen
+                    };
+                    popup.Show();
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger?.Warning("Failed to check server announcement: {Error}", ex.Message);
+            _logger?.LogWarning("Failed to check server announcement: {Error}", ex.Message);
         }
         finally
         {
@@ -177,11 +185,11 @@ public partial class MarqueeTabViewModel : TabItemViewModel
                 FileName = UpdateBannerUrl,
                 UseShellExecute = true
             });
-            _logger?.Information("Opened update banner URL");
+            _logger?.LogInformation("Opened update banner URL");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open update URL");
+            _logger?.LogWarning(ex, "Failed to open update URL");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -235,7 +243,7 @@ public partial class MarqueeTabViewModel : TabItemViewModel
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save marquee settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save marquee settings"); }
     }
 
     private sealed class MarqueeResponse

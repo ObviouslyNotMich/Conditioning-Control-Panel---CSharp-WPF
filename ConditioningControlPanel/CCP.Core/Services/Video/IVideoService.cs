@@ -23,8 +23,17 @@ public interface IVideoService
     /// <summary>Immediately plays the specified video file in strict mode.</summary>
     void PlaySpecificVideo(string videoPath, bool strictMode);
 
+    /// <summary>Immediately plays a randomly-selected video from the configured search paths.</summary>
+    void PlayRandomVideo();
+
     /// <summary>Immediately plays a video from a URL.</summary>
     void PlayUrl(string url);
+
+    /// <summary>Immediately triggers a random video, with optional stuck-state force cleanup.</summary>
+    void TriggerVideo();
+
+    /// <summary>Forcibly cleans up any stuck video windows and resets the interaction queue.</summary>
+    void ForceCleanup();
 
     /// <summary>
     /// The file path of the video most recently started by the scheduler.

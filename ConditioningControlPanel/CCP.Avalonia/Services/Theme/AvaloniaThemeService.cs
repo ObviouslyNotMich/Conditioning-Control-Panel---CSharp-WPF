@@ -58,6 +58,8 @@ public sealed class AvaloniaThemeService : IDisposable
         var panelHex = _modService.GetPanelColorHex();
         var surfaceHex = _modService.GetSurfaceColorHex();
 
+        System.Diagnostics.Debug.WriteLine($"[Theme] Applying {mod.Id}: accent={accentHex}, bg={bgHex}");
+
         if (!TryParseColor(accentHex, out var accent)) accent = Color.Parse("#FF69B4");
         if (!TryParseColor(darkHex, out var dark)) dark = Color.Parse("#FF1493");
         if (!TryParseColor(lightHex, out var light)) light = Color.Parse("#FF8FAF");

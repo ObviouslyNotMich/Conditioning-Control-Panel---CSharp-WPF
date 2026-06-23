@@ -15,7 +15,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosCursorGlowOverlay : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosCursorGlowOverlay> _logger;
 
 
     private const double SIZE = 76;
@@ -30,7 +30,7 @@ public partial class ChaosCursorGlowOverlay : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosCursorGlowOverlay>>();
 WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
@@ -87,7 +87,7 @@ WindowDecorations = WindowDecorations.None;
         {
             if (_active == null) { _active = new ChaosCursorGlowOverlay(); ((global::Avalonia.Controls.Window)_active).Show(); }
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosCursorGlow.EnsureCreated: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosCursorGlowOverlay>>().LogInformation("ChaosCursorGlow.EnsureCreated: {E}", ex.Message); }
     }
 
     public static void Arm()
@@ -105,7 +105,7 @@ WindowDecorations = WindowDecorations.None;
                     _active._pulse?.Dispose();
                     _active._pulse = new ScalePulse(_active._scale, 0.85, 1.12, 620);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosCursorGlow.Arm: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosCursorGlowOverlay>>().LogInformation("ChaosCursorGlow.Arm: {E}", ex.Message); }
             });
         }
         catch { }
@@ -170,8 +170,5 @@ _active;
 
     private static Ellipse _haloFor(ChaosCursorGlowOverlay w) => w._halo;
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

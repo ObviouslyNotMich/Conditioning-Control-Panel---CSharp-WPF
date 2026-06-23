@@ -15,14 +15,14 @@ public partial class AppInfoFeatureControl : UserControl
 {
     private readonly IUpdateService? _updateService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AppInfoFeatureControl>? _logger;
 
     public AppInfoFeatureControl()
     {
         InitializeComponent();
         _updateService = App.Services.GetService<IUpdateService>();
         _dialogService = App.Services.GetService<IDialogService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AppInfoFeatureControl>>();
         Loaded += OnLoaded;
     }
 
@@ -52,7 +52,7 @@ public partial class AppInfoFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "AppInfo: check updates failed");
+            _logger?.LogWarning(ex, "AppInfo: check updates failed");
             await (_dialogService?.ShowMessageAsync(
                 LocalizationManager.Instance.Get("title_update_check"),
                 LocalizationManager.Instance.GetF("msg_update_check_failed", ex.Message)) ?? Task.CompletedTask);
@@ -75,7 +75,7 @@ public partial class AppInfoFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "AppInfo: failed to open BugReportWindow");
+            _logger?.LogError(ex, "AppInfo: failed to open BugReportWindow");
             _dialogService?.ShowMessageAsync(
                 LocalizationManager.Instance.Get("title_bug_report"),
                 LocalizationManager.Instance.GetF("msg_bug_report_open_failed", ex.Message));

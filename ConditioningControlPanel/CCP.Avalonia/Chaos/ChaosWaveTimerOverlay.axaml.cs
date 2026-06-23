@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Layout;
@@ -14,7 +14,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosWaveTimerOverlay : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosWaveTimerOverlay> _logger;
 
 
     private static ChaosWaveTimerOverlay? _active;
@@ -33,7 +33,7 @@ public partial class ChaosWaveTimerOverlay : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosWaveTimerOverlay>>();
 WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
@@ -85,6 +85,7 @@ WindowDecorations = WindowDecorations.None;
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(14, 5, 14, 5),
             IsVisible = false,
+            IsHitTestVisible = false,
             Child = stack,
         };
         Content = _pill;
@@ -130,7 +131,7 @@ WindowDecorations = WindowDecorations.None;
         {
             if (_active == null) { _active = new ChaosWaveTimerOverlay(); ((global::Avalonia.Controls.Window)_active).Show(); }
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosWaveTimer.EnsureCreated: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosWaveTimerOverlay>>().LogInformation("ChaosWaveTimer.EnsureCreated: {E}", ex.Message); }
     }
 
     public static void Update(int wave, int waveCount, double secLeftInWave, double score)
@@ -144,7 +145,7 @@ WindowDecorations = WindowDecorations.None;
                     if (_active == null) { _active = new ChaosWaveTimerOverlay(); ((global::Avalonia.Controls.Window)_active).Show(); }
                     _active.SetText(wave, waveCount, secLeftInWave, score);
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosWaveTimer.Update: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosWaveTimerOverlay>>().LogInformation("ChaosWaveTimer.Update: {E}", ex.Message); }
             });
         }
         catch { }
@@ -216,10 +217,7 @@ WindowDecorations = WindowDecorations.None;
         try { Close(); } catch { }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 
     private static Rect GetPrimaryWorkArea()
     {

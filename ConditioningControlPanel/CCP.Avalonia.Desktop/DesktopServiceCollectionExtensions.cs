@@ -11,18 +11,15 @@ namespace ConditioningControlPanel.Avalonia.Desktop;
 public static class DesktopServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the shared <see cref="LibVLC"/> singleton using the desktop native
-    /// discovery helper. This overrides the default registration in
-    /// <see cref="CCP.Avalonia.ServiceCollectionExtensions.ConfigureCoreServices"/>
-    /// so Linux and macOS can locate their native LibVLC libraries explicitly.
+    /// Registers the shared <see cref="LibVLC"/> singleton. This overrides the default
+    /// registration in <see cref="CCP.Avalonia.ServiceCollectionExtensions.ConfigureCoreServices"/>
+    /// so desktop heads can rely on LibVLCSharp's own runtime discovery.
     /// </summary>
     public static IServiceCollection AddDesktopLibVLC(this IServiceCollection services)
     {
-        // Replace the LibVLC registration from ConfigureCoreServices with one that
-        // runs platform-specific discovery first.
         return services.AddSingleton<LibVLC>(_ =>
         {
-            LibVLCNativeDiscovery.Initialize();
+            global::LibVLCSharp.Shared.Core.Initialize();
             return new LibVLC();
         });
     }

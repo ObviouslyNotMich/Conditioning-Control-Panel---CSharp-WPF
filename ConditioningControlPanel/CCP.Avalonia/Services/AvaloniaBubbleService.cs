@@ -1,5 +1,7 @@
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Chaos;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Avalonia.Platform;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Chaos;
@@ -17,11 +19,10 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     private readonly IScreenProvider _screens;
     private readonly IAssetLoader _assets;
     private readonly ISfxPlayer _sfx;
-    private readonly IScheduler _scheduler;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IPointerState _pointerState;
     private readonly IMouseHook _mouseHook;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaBubbleService>? _logger;
+    private readonly ILogger<BubbleEngine>? _bubbleEngineLogger;
     private readonly BubbleEngine _ambientEngine;
     private readonly Dictionary<Guid, AvaloniaBubbleWindow> _windows = new();
 
@@ -42,22 +43,20 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         IScreenProvider screens,
         IAssetLoader assets,
         ISfxPlayer sfx,
-        IScheduler scheduler,
-        IUiDispatcher dispatcher,
         IPointerState pointerState,
         IMouseHook mouseHook,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaBubbleService>? logger = null,
+        ILogger<BubbleEngine>? bubbleEngineLogger = null)
     {
         _settings = settings;
         _screens = screens;
         _assets = assets;
         _sfx = sfx;
-        _scheduler = scheduler;
-        _dispatcher = dispatcher;
         _pointerState = pointerState;
         _mouseHook = mouseHook;
         _logger = logger;
-        _ambientEngine = new BubbleEngine(screens, settings, this, scheduler, pointerState, logger);
+        _bubbleEngineLogger = bubbleEngineLogger;
+        _ambientEngine = new BubbleEngine(screens, settings, this, pointerState, bubbleEngineLogger);
         _ambientEngine.OnBubblePopped += OnEngineBubblePopped;
         _ambientEngine.EchoSplitRequested += (spec, px, py) => EchoSplitRequested?.Invoke(spec, px, py);
     }
@@ -195,7 +194,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             chaosRenderer = this;
         }
 
-        _chaosEngine = new BubbleEngine(_screens, _settings, chaosRenderer, _scheduler, _pointerState, _logger);
+        _chaosEngine = new BubbleEngine(_screens, _settings, chaosRenderer, _pointerState, _bubbleEngineLogger);
         _chaosEngine.OnBubblePopped += OnEngineBubblePopped;
         _chaosEngine.EchoSplitRequested += (spec, px, py) => EchoSplitRequested?.Invoke(spec, px, py);
 
@@ -228,8 +227,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         {
             _mouseHook.LeftButtonDown += OnMouseHookLeftDown;
             _mouseHook.RightButtonDown += OnMouseHookRightDown;
-            // TODO: add IMouseHook.LeftButtonUp and route to _chaosEngine.EndChaosChannel
-            // so shared-host mode supports early-release channel breaks.
+            _mouseHook.LeftButtonUp += OnMouseHookLeftUp;
             _mouseHook.Install();
         }
     }
@@ -287,7 +285,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     public void PlayChime(float volumeScale = 0.3f)
     {
         try { _sfx.Play("chime", volumeScale * 0.6f); }
-        catch (Exception ex) { _logger?.Warning(ex, "PlayChime failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "PlayChime failed"); }
     }
 
     private void OnMouseHookLeftDown(object? sender, HookPoint e)
@@ -326,6 +324,13 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         // The bubble engine still exposes TriggerPlayerRipple for consumers that call it directly.
     }
 
+    private void OnMouseHookLeftUp(object? sender, HookPoint e)
+    {
+        // In shared-host mode a live bubble channel is started on left-down.
+        // End any active channel when the button is released.
+        _chaosEngine?.EndActiveChaosChannel();
+    }
+
     private bool _lastHookSwallow;
 
     private void UninstallMouseHook()
@@ -334,6 +339,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         {
             _mouseHook.LeftButtonDown -= OnMouseHookLeftDown;
             _mouseHook.RightButtonDown -= OnMouseHookRightDown;
+            _mouseHook.LeftButtonUp -= OnMouseHookLeftUp;
         }
         catch { }
         _mouseHook.Uninstall();
@@ -381,7 +387,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to show bubble window");
+                _logger?.LogWarning(ex, "Failed to show bubble window");
                 _windows.Remove(state.Id);
             }
         });
@@ -477,32 +483,11 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         try
         {
             if (_bubbleBitmap != null) return;
-
-            var uri = new Uri("avares://CCP.Avalonia/Assets/bubble.png");
-            if (_assets.Exists(uri))
-            {
-                using var stream = _assets.Open(uri);
-                _bubbleBitmap = new Bitmap(stream);
-                return;
-            }
+            _bubbleBitmap = AvaloniaBitmapHelper.LoadResource("bubble.png");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to load avares bubble image");
-        }
-
-        var fallback = Path.Combine(AppContext.BaseDirectory, "Resources", "bubble.png");
-        if (File.Exists(fallback))
-        {
-            try
-            {
-                using var stream = File.OpenRead(fallback);
-                _bubbleBitmap = new Bitmap(stream);
-            }
-            catch (Exception ex)
-            {
-                _logger?.Warning(ex, "Failed to load fallback bubble image");
-            }
+            _logger?.LogWarning(ex, "Failed to load bubble image");
         }
     }
 
@@ -540,7 +525,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to show prism ghost bubble");
+                _logger?.LogWarning(ex, "Failed to show prism ghost bubble");
             }
         });
     }
@@ -553,9 +538,9 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     private void RunOnUi(Action action)
     {
-        if (_dispatcher.CheckAccess())
+        if (Dispatcher.UIThread.CheckAccess())
             action();
         else
-            _dispatcher.Post(action);
+            Dispatcher.UIThread.Post(action);
     }
 }

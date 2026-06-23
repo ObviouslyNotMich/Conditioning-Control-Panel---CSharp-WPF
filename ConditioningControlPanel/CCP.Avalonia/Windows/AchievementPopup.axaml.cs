@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Models;
 
 using Animation = global::Avalonia.Animation.Animation;
@@ -27,7 +28,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class AchievementPopup : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
+    private readonly ILogger<AchievementPopup>? _logger;
 
 
     private readonly DispatcherTimer _autoCloseTimer;
@@ -38,8 +39,8 @@ public partial class AchievementPopup : Window
 
         ApplyThemeShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-_logger?.Information("Creating AchievementPopup for: {Name}", achievement.Name);
+        _logger = App.Services.GetRequiredService<ILogger<AchievementPopup>>();
+_logger?.LogInformation("Creating AchievementPopup for: {Name}", achievement.Name);
 
         TxtName.Text = achievement.Name;
         TxtFlavor.Text = achievement.FlavorText;
@@ -61,7 +62,7 @@ _logger?.Information("Creating AchievementPopup for: {Name}", achievement.Name);
         Opacity = 0;
         Loaded += async (s, e) =>
         {
-            _logger?.Information("AchievementPopup loaded, starting fade-in animation");
+            _logger?.LogInformation("AchievementPopup loaded, starting fade-in animation");
             await RunFadeAnimation(0, 1, TimeSpan.FromMilliseconds(300));
         };
     }
@@ -75,7 +76,7 @@ _logger?.Information("Creating AchievementPopup for: {Name}", achievement.Name);
 
         ApplyThemeShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AchievementPopup>>();
 _autoCloseTimer = new DispatcherTimer();
     }
 
@@ -104,11 +105,11 @@ _autoCloseTimer = new DispatcherTimer();
                 (int)(workArea.X + workArea.Width - (Width * screen.Scaling) - 20),
                 (int)(workArea.Y + workArea.Height - (Height * screen.Scaling) - 20));
 
-            _logger?.Information("Positioned popup at {Position}", Position);
+            _logger?.LogInformation("Positioned popup at {Position}", Position);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to position achievement popup, using defaults");
+            _logger?.LogError(ex, "Failed to position achievement popup, using defaults");
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
     }
@@ -117,33 +118,22 @@ _autoCloseTimer = new DispatcherTimer();
     {
         try
         {
-            _logger?.Information("Loading achievement image: {Name}", imageName);
+            _logger?.LogInformation("Loading achievement image: {Name}", imageName);
 
-            var imagePath = Path.Combine(AppContext.BaseDirectory, "Resources", "achievements", imageName);
-            if (File.Exists(imagePath))
+            var bitmap = AvaloniaBitmapHelper.LoadResource($"achievements/{imageName}");
+            if (bitmap != null)
             {
-                _logger?.Information("Found image file at: {Path}", imagePath);
-                AchievementImage.Source = new Bitmap(imagePath);
-                return;
+                AchievementImage.Source = bitmap;
+                _logger?.LogInformation("Loaded achievement image");
             }
-
-            // TODO: mod override resolution once IModService exposes installed mod paths.
-            var packUri = $"pack://application:,,,/Resources/achievements/{imageName}";
-            var avares = $"avares://CCP.Avalonia/Assets/achievements/{imageName}";
-            try
+            else
             {
-                using var stream = AssetLoader.Open(new Uri(avares));
-AchievementImage.Source = new Bitmap(stream);
-                _logger?.Information("Loaded achievement image from assets");
-            }
-            catch (Exception packEx)
-            {
-                _logger?.Warning(packEx, "Achievement image not found: {Name}", imageName);
+                _logger?.LogWarning("Achievement image not found: {Name}", imageName);
             }
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to load achievement image: {Name}", imageName);
+            _logger?.LogError(ex, "Failed to load achievement image: {Name}", imageName);
         }
     }
 
@@ -181,7 +171,7 @@ new Animation
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Error during fade out, closing directly");
+            _logger?.LogError(ex, "Error during fade out, closing directly");
             Close();
         }
     }
@@ -201,6 +191,6 @@ new Animation
     {
         _autoCloseTimer.Stop();
         base.OnClosed(e);
-        _logger?.Information("AchievementPopup closed");
+        _logger?.LogInformation("AchievementPopup closed");
     }
 }

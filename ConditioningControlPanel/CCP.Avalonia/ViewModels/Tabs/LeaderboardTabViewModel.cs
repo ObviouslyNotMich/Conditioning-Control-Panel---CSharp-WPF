@@ -1,23 +1,24 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
 /// <summary>
 /// Avalonia port of the WPF MainWindow.Leaderboard partial.
-/// Drives leaderboard mode selection, sorting, and refresh.
-/// Leaderboard/ProfileSync services are not abstracted in Core yet, so refresh
-/// and server operations are stubbed with TODOs.
+/// Drives leaderboard mode selection, sorting, and refresh via <see cref="ILeaderboardService"/>.
 /// </summary>
 public partial class LeaderboardTabViewModel : TabItemViewModel
 {
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<LeaderboardTabViewModel>? _logger;
+    private readonly ILeaderboardService? _leaderboardService;
 
     public LeaderboardTabViewModel() : base("leaderboard", "Leaderboard", "📊")
     {
@@ -30,19 +31,27 @@ public partial class LeaderboardTabViewModel : TabItemViewModel
     }
 
     public LeaderboardTabViewModel(
-        ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger) : base("leaderboard", "Leaderboard", "📊")
+        ILogger<LeaderboardTabViewModel> logger,
+        ILeaderboardService leaderboardService) : base("leaderboard", "Leaderboard", "📊")
     {
         _dialogService = dialogService;
         _logger = logger;
+        _leaderboardService = leaderboardService;
         _entries = new ObservableCollection<LeaderboardEntryViewModel>();
         _modes = new ObservableCollection<LeaderboardModeViewModel>
         {
             new("monthly", Loc.Get("label_monthly"), "#FF69B4"),
             new("all-time", Loc.Get("label_all_time"), "#FFD700")
         };
+
+        _leaderboardService.LeaderboardUpdated += OnLeaderboardUpdated;
     }
+
+    /// <summary>
+    /// Raised when the view should switch to another primary tab (e.g., Profile).
+    /// </summary>
+    public event Action<string>? RequestSelectTab;
 
     [ObservableProperty]
     private ObservableCollection<LeaderboardModeViewModel> _modes;
@@ -82,12 +91,16 @@ public partial class LeaderboardTabViewModel : TabItemViewModel
 
         try
         {
-            _logger?.Information("Refreshing leaderboard (mode={Mode}, sort={Sort})", CurrentMode, sortBy ?? "default");
+            _logger?.LogInformation("Refreshing leaderboard (mode={Mode}, sort={Sort})", CurrentMode, sortBy ?? "default");
 
-            // TODO: wire to IProfileSyncService.SyncProfileAsync() and ILeaderboardService.RefreshAsync() once extracted.
-            await Task.Delay(250);
+            if (_leaderboardService == null)
+            {
+                StatusText = Loc.Get("label_failed_to_load");
+                return;
+            }
 
-            StatusText = Loc.Get("label_failed_to_load");
+            var ok = await _leaderboardService.RefreshAsync(sortBy, CurrentMode);
+
             SeasonText = CurrentMode == "all-time"
                 ? Loc.Get("label_all_time_legends_never_die")
                 : Loc.GetF("label_0_prove_your_devotion", "Current Season");
@@ -95,18 +108,61 @@ public partial class LeaderboardTabViewModel : TabItemViewModel
                 ? Loc.Get("label_cumulative_xp_across_all_seasons")
                 : Loc.Get("label_resets_monthly_your_rank_is_everything");
 
-            await (_dialogService?.ShowMessageAsync(
-                Loc.Get("title_not_implemented"),
-                "Leaderboard refresh is not yet ported to Avalonia.") ?? Task.CompletedTask);
+            if (ok)
+            {
+                MapEntries();
+                StatusText = Loc.GetF("label_0_online_1_users",
+                    _leaderboardService.OnlineUsers,
+                    _leaderboardService.TotalUsers);
+            }
+            else
+            {
+                StatusText = _leaderboardService.LastRefreshError ?? Loc.Get("label_failed_to_load");
+            }
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Error refreshing leaderboard");
+            _logger?.LogError(ex, "Error refreshing leaderboard");
             StatusText = Loc.Get("label_error_loading_leaderboard");
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private void OnLeaderboardUpdated(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            MapEntries();
+            StatusText = _leaderboardService == null
+                ? Loc.Get("label_failed_to_load")
+                : Loc.GetF("label_0_online_1_users", _leaderboardService.OnlineUsers, _leaderboardService.TotalUsers);
+        });
+    }
+
+    private void MapEntries()
+    {
+        if (_leaderboardService == null) return;
+
+        Entries.Clear();
+        foreach (var entry in _leaderboardService.Entries)
+        {
+            Entries.Add(new LeaderboardEntryViewModel
+            {
+                Rank = entry.Rank,
+                DisplayName = entry.DisplayName,
+                Level = entry.Level,
+                Xp = entry.Xp,
+                TotalXpEarned = entry.TotalXpEarned,
+                HighestLevelEver = entry.HighestLevelEver,
+                PatreonTier = entry.PatreonTier,
+                IsOnline = entry.IsOnline,
+                AchievementsCount = entry.AchievementsCount,
+                DiscordId = entry.DiscordId,
+                IsSeason0Og = entry.IsSeason0Og
+            });
         }
     }
 
@@ -122,7 +178,7 @@ public partial class LeaderboardTabViewModel : TabItemViewModel
     private async Task SortAsync(string? sortBy)
     {
         if (string.IsNullOrWhiteSpace(sortBy)) return;
-        _logger?.Information("Leaderboard sort requested: {Sort}", sortBy);
+        _logger?.LogInformation("Leaderboard sort requested: {Sort}", sortBy);
 
         var sorted = sortBy.ToLowerInvariant() switch
         {
@@ -154,11 +210,11 @@ public partial class LeaderboardTabViewModel : TabItemViewModel
                 FileName = url,
                 UseShellExecute = true
             });
-            _logger?.Information("Opened Discord profile for {DiscordId}", discordId);
+            _logger?.LogInformation("Opened Discord profile for {DiscordId}", discordId);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open Discord profile for {DiscordId}", discordId);
+            _logger?.LogWarning(ex, "Failed to open Discord profile for {DiscordId}", discordId);
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -170,8 +226,17 @@ public partial class LeaderboardTabViewModel : TabItemViewModel
     private async Task ViewSelectedProfileAsync()
     {
         if (SelectedEntry == null) return;
-        _logger?.Information("Leaderboard: view profile for {Name}", SelectedEntry.DisplayName);
-        // TODO: switch to Profile tab and search once the Avalonia shell exposes tab routing.
+        _logger?.LogInformation("Leaderboard: view profile for {Name}", SelectedEntry.DisplayName);
+
+        // Switch to the Profile tab. Full user lookup by leaderboard entry is not yet
+        // supported, so we navigate to the local profile view.
+        var handlers = RequestSelectTab;
+        if (handlers != null)
+        {
+            handlers("profile");
+            return;
+        }
+
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_not_implemented"),
             "Profile search from leaderboard is not yet ported to Avalonia.") ?? Task.CompletedTask);

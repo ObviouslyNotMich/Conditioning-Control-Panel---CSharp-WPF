@@ -21,14 +21,14 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class SplashScreen : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<SplashScreen> _logger;
 
 
     public SplashScreen()
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SplashScreen>>();
 TxtVersion.Text = $"v{CCPCore.Version}";
     }
 
@@ -105,7 +105,7 @@ new Animation
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SplashScreen fade-out failed");
+            _logger?.LogWarning(ex, "SplashScreen fade-out failed");
         }
 
         Close();

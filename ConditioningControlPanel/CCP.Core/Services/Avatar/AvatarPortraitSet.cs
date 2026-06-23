@@ -14,10 +14,10 @@ namespace ConditioningControlPanel.Core.Services.Avatar
     {
         private readonly AvatarPortraitManifest _m;
         private readonly string _baseDir;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<AvatarPortraitSet>? _logger;
         private readonly Dictionary<string, string[]> _cache = new();
 
-        public AvatarPortraitSet(AvatarPortraitManifest manifest, string baseDir, IAppLogger? logger = null)
+        public AvatarPortraitSet(AvatarPortraitManifest manifest, string baseDir, ILogger<AvatarPortraitSet>? logger = null)
         {
             _m = manifest;
             _baseDir = baseDir;

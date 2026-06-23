@@ -12,6 +12,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -34,15 +35,13 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     private readonly ISettingsService _settings;
     private readonly IAppEnvironment _environment;
     private readonly IScreenProvider _screens;
-    private readonly IScheduler _scheduler;
-    private readonly IUiDispatcher _dispatcher;
     private readonly IInteractionQueueService _interactionQueue;
     private readonly LibVLC _libVlc;
     private readonly IAudioDeviceService? _audioDeviceService;
     private readonly IModService? _mods;
     private readonly IAchievementService? _achievements;
     private readonly IProgressionService? _progression;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaVideoService>? _logger;
     private readonly Random _random = new();
     private readonly object _sync = new();
     private readonly List<string> _videoFiles = new();
@@ -52,8 +51,8 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     private readonly List<VideoOverlayWindow> _secondaryWindows = new();
 
     private CancellationTokenSource? _cts;
-    private IDisposable? _scheduledTimer;
-    private IDisposable? _safetyTimer;
+    private DispatcherTimer? _scheduledTimer;
+    private DispatcherTimer? _safetyTimer;
     private VideoOverlayWindow? _currentWindow;
     private string? _currentRetryPath;
     private bool _currentStrictMode;
@@ -70,21 +69,17 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         ISettingsService settings,
         IAppEnvironment environment,
         IScreenProvider screens,
-        IScheduler scheduler,
-        IUiDispatcher dispatcher,
         IInteractionQueueService interactionQueue,
         LibVLC libVlc,
         IAudioDeviceService? audioDeviceService = null,
         IModService? mods = null,
         IAchievementService? achievements = null,
         IProgressionService? progression = null,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaVideoService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _interactionQueue = interactionQueue ?? throw new ArgumentNullException(nameof(interactionQueue));
         _libVlc = libVlc ?? throw new ArgumentNullException(nameof(libVlc));
         _audioDeviceService = audioDeviceService;
@@ -111,7 +106,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         if (IsRunning || _isDisposed) return;
         if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS())
         {
-            _logger?.Debug("AvaloniaVideoService: full-screen video overlays are not supported on mobile; Start is a no-op");
+            _logger?.LogDebug("AvaloniaVideoService: full-screen video overlays are not supported on mobile; Start is a no-op");
             return;
         }
 
@@ -120,7 +115,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         _cts = new CancellationTokenSource();
         RefreshVideosPath();
         ScheduleNext();
-        _logger?.Information("AvaloniaVideoService started (videos: {Count})", _videoFiles.Count);
+        _logger?.LogInformation("AvaloniaVideoService started (videos: {Count})", _videoFiles.Count);
     }
 
     public void Stop()
@@ -128,15 +123,15 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         if (!IsRunning && _currentWindow == null) return;
         IsRunning = false;
 
-        _scheduledTimer?.Dispose();
+        _scheduledTimer?.Stop();
         _scheduledTimer = null;
 
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
 
-        _dispatcher.Invoke(() => CleanupInternal(notifyEnded: false));
-        _logger?.Information("AvaloniaVideoService stopped");
+        Dispatcher.UIThread.Invoke(() => CleanupInternal(notifyEnded: false));
+        _logger?.LogInformation("AvaloniaVideoService stopped");
     }
 
     public void RefreshVideosPath()
@@ -153,17 +148,37 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             path = Path.Combine(_environment.EffectiveAssetsPath, "videos", path);
         if (!File.Exists(path))
         {
-            _logger?.Warning("AvaloniaVideoService: PlaySpecificVideo path not found {Path}", path);
+            _logger?.LogWarning("AvaloniaVideoService: PlaySpecificVideo path not found {Path}", path);
             return;
         }
-        _dispatcher.Invoke(() => PlayFile(path, strictMode));
+        Dispatcher.UIThread.Invoke(() => PlayFile(path, strictMode));
     }
 
     public void PlayUrl(string url)
     {
         if (_isDisposed) return;
         if (string.IsNullOrWhiteSpace(url)) return;
-        _dispatcher.Invoke(() => PlayUrlCore(url));
+        Dispatcher.UIThread.Invoke(() => PlayUrlCore(url));
+    }
+
+    public void TriggerVideo()
+    {
+        if (_isDisposed) return;
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            CleanupInternal(notifyEnded: false);
+            PlayRandomVideo();
+        });
+    }
+
+    public void ForceCleanup()
+    {
+        if (_isDisposed) return;
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            CleanupInternal(notifyEnded: true);
+            try { _interactionQueue.ForceReset(); } catch { /* best effort */ }
+        });
     }
 
     private void LoadVideoFiles()
@@ -221,7 +236,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             if (_videoFiles.Count == 0) return;
         }
 
-        _scheduledTimer?.Dispose();
+        _scheduledTimer?.Stop();
 
         var freq = Math.Max(1, settings.VideosPerHour);
         var baseInterval = 3600.0 / freq;
@@ -229,7 +244,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         var interval = baseInterval + (Random.Shared.NextDouble() * variance * 2 - variance);
         interval = Math.Max(10, interval);
 
-        _scheduledTimer = _scheduler.StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
+        _scheduledTimer = StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
         {
             if (!IsRunning) return;
             try
@@ -238,21 +253,25 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 if (s != null && s.MandatoryVideosEnabled)
                     PlayRandomVideo();
             }
-            catch (Exception ex) { _logger?.Warning(ex, "AvaloniaVideoService: scheduled playback failed"); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "AvaloniaVideoService: scheduled playback failed"); }
             ScheduleNext();
         });
     }
 
-    private void PlayRandomVideo()
+    public void PlayRandomVideo()
     {
         string? file;
         lock (_sync)
         {
-            if (_videoFiles.Count == 0) return;
+            if (_videoFiles.Count == 0)
+            {
+                _logger?.LogDebug("AvaloniaVideoService: PlayRandomVideo called but no videos are available");
+                return;
+            }
             file = _videoFiles[Random.Shared.Next(_videoFiles.Count)];
         }
         var strict = _settings.Current?.StrictLockEnabled ?? false;
-        PlayFile(file, strict);
+        Dispatcher.UIThread.Invoke(() => PlayFile(file, strict));
     }
 
     private string? PickRandomVideo()
@@ -313,11 +332,11 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 win.Show();
             }
 
-            _logger?.Information("AvaloniaVideoService: spawned {Count} secondary video window(s)", _secondaryWindows.Count);
+            _logger?.LogInformation("AvaloniaVideoService: spawned {Count} secondary video window(s)", _secondaryWindows.Count);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "AvaloniaVideoService: failed to spawn secondary windows");
+            _logger?.LogWarning(ex, "AvaloniaVideoService: failed to spawn secondary windows");
         }
     }
 
@@ -364,7 +383,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             _ = Task.Run(async () =>
             {
                 await Task.Delay(2000);
-                _dispatcher.Post(SetupAttention);
+                Dispatcher.UIThread.Post(SetupAttention);
             });
         }
     }
@@ -376,11 +395,11 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
 
     private void StartSafetyTimer(double timeoutSeconds)
     {
-        _safetyTimer?.Dispose();
-        _safetyTimer = _scheduler.StartOneShotTimer(TimeSpan.FromSeconds(Math.Max(30, timeoutSeconds)), () =>
+        _safetyTimer?.Stop();
+        _safetyTimer = StartOneShotTimer(TimeSpan.FromSeconds(Math.Max(30, timeoutSeconds)), () =>
         {
             if (_currentWindow == null) return;
-            _logger?.Warning("AvaloniaVideoService: safety timeout triggered, forcing cleanup");
+            _logger?.LogWarning("AvaloniaVideoService: safety timeout triggered, forcing cleanup");
             CleanupInternal(notifyEnded: true);
         });
     }
@@ -426,11 +445,11 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             _attentionTimer.Tick += (_, _) => CheckSpawnTargets();
             _attentionTimer.Start();
 
-            _logger?.Information("Attention: {Count} targets over {Duration}s", _attentionTotal, (int)duration);
+            _logger?.LogInformation("Attention: {Count} targets over {Duration}s", _attentionTotal, (int)duration);
         }
         catch (Exception ex)
         {
-            _logger?.Warning("AvaloniaVideoService.SetupAttention failed: {Error}", ex.Message);
+            _logger?.LogWarning("AvaloniaVideoService.SetupAttention failed: {Error}", ex.Message);
         }
     }
 
@@ -459,7 +478,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             var screens = settings.DualMonitorEnabled ? _screens.GetAllScreens().ToArray() : new[] { GetPrimaryScreen() };
             if (screens.Length == 0 || screens[0] == null)
             {
-                _logger?.Warning("AvaloniaVideoService.SpawnTarget: no screens available");
+                _logger?.LogWarning("AvaloniaVideoService.SpawnTarget: no screens available");
                 return;
             }
 
@@ -467,7 +486,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             var spawnedTargets = new List<FloatingText>();
             bool hitRegistered = false;
 
-            _logger?.Debug("Spawning attention target: '{Text}' on {ScreenCount} screen(s) ({Spawned}/{Total})",
+            _logger?.LogDebug("Spawning attention target: '{Text}' on {ScreenCount} screen(s) ({Spawned}/{Total})",
                 text, screens.Length, _attentionSpawned, _attentionTotal);
 
             foreach (var screen in screens)
@@ -503,14 +522,14 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
 
                         List<FloatingText> remaining;
                         lock (_attentionTargets) { remaining = _attentionTargets.ToList(); }
-                        _logger?.Information("ATTENTION: Hit {Hits}/{Spawned}, {Remaining} targets remaining", _attentionHits, _attentionSpawned, remaining.Count);
+                        _logger?.LogInformation("ATTENTION: Hit {Hits}/{Spawned}, {Remaining} targets remaining", _attentionHits, _attentionSpawned, remaining.Count);
 
                         if (remaining.Count > 0)
                         {
                             _ = Task.Run(async () =>
                             {
                                 await Task.Delay(300);
-                                _dispatcher.Post(() =>
+                                Dispatcher.UIThread.Post(() =>
                                 {
                                     foreach (var t in remaining) t.BringToFront();
                                 });
@@ -526,7 +545,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             _ = Task.Run(async () =>
             {
                 await Task.Delay(lifespan);
-                _dispatcher.Post(() =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     lock (_attentionTargets)
                     {
@@ -544,7 +563,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Error("AvaloniaVideoService.SpawnTarget failed: {Error}", ex.Message);
+            _logger?.LogError("AvaloniaVideoService.SpawnTarget failed: {Error}", ex.Message);
         }
     }
 
@@ -552,7 +571,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     {
         _attentionTimer?.Stop();
         _attentionTimer = null;
-        _safetyTimer?.Dispose();
+        _safetyTimer?.Stop();
         _safetyTimer = null;
 
         var settings = _settings.Current;
@@ -561,7 +580,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         if (settings != null && settings.AttentionChecksEnabled && _attentionSpawned > 0)
         {
             bool passed = _attentionHits >= _attentionSpawned;
-            _logger?.Information("Attention result: {Hits}/{Spawned} (of {Total} scheduled) = {Result}",
+            _logger?.LogInformation("Attention result: {Hits}/{Spawned} (of {Total} scheduled) = {Result}",
                 _attentionHits, _attentionSpawned, _attentionTotal, passed ? "PASS" : "FAIL");
 
             if (passed)
@@ -640,9 +659,6 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 CanResize = false,
                 ShowActivated = false,
                 WindowState = WindowState.FullScreen,
-                Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y),
-                Width = screen.Bounds.Width,
-                Height = screen.Bounds.Height,
                 Content = new TextBlock
                 {
                     Text = text,
@@ -658,6 +674,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 }
             };
+            win.ConstrainToScreen(screen);
             win.Show();
             _messageWindows.Add(win);
         }
@@ -665,7 +682,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         _ = Task.Run(async () =>
         {
             await Task.Delay(ms);
-            _dispatcher.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 CloseMessageWindows();
                 then();
@@ -686,7 +703,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     {
         _attentionTimer?.Stop();
         _attentionTimer = null;
-        _safetyTimer?.Dispose();
+        _safetyTimer?.Stop();
         _safetyTimer = null;
 
         lock (_attentionTargets)
@@ -736,9 +753,24 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaVideoService: could not get primary screen: {Error}", ex.Message);
+            _logger?.LogDebug("AvaloniaVideoService: could not get primary screen: {Error}", ex.Message);
             return new ScreenInfo("fallback", new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), 1.0);
         }
+    }
+
+    private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = dueTime };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            timer.Stop();
+            timer.Tick -= handler;
+            callback();
+        };
+        timer.Tick += handler;
+        timer.Start();
+        return timer;
     }
 
     public void Dispose()
@@ -757,13 +789,13 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         private readonly bool _strictMode;
         private readonly Action _onClosed;
         private readonly VideoView _videoView;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<AvaloniaVideoService>? _logger;
         private readonly bool _withAudio;
         private MediaPlayer? _mediaPlayer;
         private Media? _media;
         private bool _isPlaying;
 
-        public VideoOverlayWindow(LibVLC libVlc, ScreenInfo screen, string source, bool fromUrl, double volume, bool strictMode, Action onClosed, IAppLogger? logger, bool withAudio = true)
+        public VideoOverlayWindow(LibVLC libVlc, ScreenInfo screen, string source, bool fromUrl, double volume, bool strictMode, Action onClosed, ILogger<AvaloniaVideoService>? logger, bool withAudio = true)
         {
             _libVlc = libVlc;
             _source = source;
@@ -781,9 +813,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             ShowActivated = false;
             WindowState = WindowState.FullScreen;
 
-            Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y);
-            Width = screen.Bounds.Width;
-            Height = screen.Bounds.Height;
+            this.ConstrainToScreen(screen);
 
             _videoView = new VideoView
             {
@@ -826,7 +856,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "AvaloniaVideoService: failed to start video {Source}", _source);
+                _logger?.LogError(ex, "AvaloniaVideoService: failed to start video {Source}", _source);
                 Close();
             }
         }

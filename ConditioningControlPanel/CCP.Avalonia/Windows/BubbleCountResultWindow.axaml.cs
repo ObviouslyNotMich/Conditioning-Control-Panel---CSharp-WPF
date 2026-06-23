@@ -23,7 +23,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class BubbleCountResultWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<BubbleCountResultWindow> _logger;
 
 
     private readonly int _correctAnswer;
@@ -46,7 +46,7 @@ public partial class BubbleCountResultWindow : Window
 
         ApplyThemeShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<BubbleCountResultWindow>>();
 _progression = App.Services.GetRequiredService<IProgressionService>();
         _mods = App.Services.GetRequiredService<IModService>();
     }
@@ -93,7 +93,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
     /// </summary>
     public static void ShowOnAllMonitors(int correctAnswer, bool strictMode, Action<bool> onComplete)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<BubbleCountResultWindow>>();
         _allWindows.Clear();
         _sharedInput = "";
 
@@ -102,7 +102,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
 
         if (screens == null || screens.Count == 0)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning("BubbleCountResultWindow: no screens available");
+            App.Services?.GetRequiredService<ILogger<BubbleCountResultWindow>>().LogWarning("BubbleCountResultWindow: no screens available");
             onComplete?.Invoke(false);
             return;
         }
@@ -148,7 +148,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "BubbleCountResultWindow: failed to position window");
+            _logger?.LogError(ex, "BubbleCountResultWindow: failed to position window");
             WindowState = WindowState.Maximized;
         }
     }

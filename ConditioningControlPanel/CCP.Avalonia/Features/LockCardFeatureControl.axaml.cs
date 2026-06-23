@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.LockCard;
@@ -18,7 +19,7 @@ public partial class LockCardFeatureControl : UserControl
     private readonly ISettingsService _settings;
     private readonly ILockCardService? _lockCard;
     private readonly ISessionService? _session;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<LockCardFeatureControl>? _logger;
     private bool _isLoading = true;
 
     public IPlatformCapabilities Capabilities { get; }
@@ -29,7 +30,7 @@ public partial class LockCardFeatureControl : UserControl
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _lockCard = App.Services.GetService<ILockCardService>();
         _session = App.Services.GetService<ISessionService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<LockCardFeatureControl>>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -97,7 +98,7 @@ public partial class LockCardFeatureControl : UserControl
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "LockCard enable toggle: live apply failed");
+            _logger?.LogWarning(ex, "LockCard enable toggle: live apply failed");
         }
     }
 
@@ -153,13 +154,19 @@ public partial class LockCardFeatureControl : UserControl
         _settings.Save();
     }
 
-    private void BtnManagePhrases_Click(object? sender, RoutedEventArgs e)
+    private async void BtnManagePhrases_Click(object? sender, RoutedEventArgs e)
     {
         if (_settings.Current is not { } s) return;
-        // TODO: TextEditorDialog / lock-card phrase editor is WPF-only and not ported to Avalonia yet.
-        // When ported, open it, assign s.LockCardPhrases = editor.ResultData, then call _settings.Save().
-        _logger?.Information("LockCard manage phrases clicked (dialog not yet ported)");
-        _settings.Save();
+
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var editor = new TextEditorDialog(Loc.Get("label_lock_card"), s.LockCardPhrases ?? new System.Collections.Generic.Dictionary<string, bool>());
+        var result = await editor.ShowDialog<bool?>(owner);
+        if (result == true && editor.ResultData != null)
+        {
+            s.LockCardPhrases = editor.ResultData;
+            _settings.Save();
+            _logger?.LogInformation("LockCard phrases updated: {Count} items", editor.ResultData.Count);
+        }
     }
 
     private void BtnTest_Click(object? sender, RoutedEventArgs e)
@@ -169,17 +176,18 @@ public partial class LockCardFeatureControl : UserControl
             .Where(p => p.Value).Select(p => p.Key).ToList();
         if (enabledPhrases.Count == 0)
         {
-            _logger?.Warning("LockCard test: no phrases enabled");
+            _logger?.LogWarning("LockCard test: no phrases enabled");
             return;
         }
 
         try { _lockCard?.TestLockCard(); }
-        catch (Exception ex) { _logger?.Warning(ex, "LockCard test failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "LockCard test failed"); }
     }
 
-    private void BtnColorSettings_Click(object? sender, RoutedEventArgs e)
+    private async void BtnColorSettings_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: LockCardColorDialog is WPF-only and not ported to Avalonia yet.
-        _logger?.Information("LockCard color settings clicked (dialog not yet ported)");
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var dialog = new LockCardColorDialog();
+        await dialog.ShowDialog<bool?>(owner);
     }
 }

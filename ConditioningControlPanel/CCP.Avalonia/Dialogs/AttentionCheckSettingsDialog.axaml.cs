@@ -14,7 +14,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class AttentionCheckSettingsDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<AttentionCheckSettingsDialog> _logger;
 
 
     private readonly IAttentionCheckService _attentionCheck;
@@ -22,7 +22,7 @@ public AttentionCheckSettingsDialog()
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<AttentionCheckSettingsDialog>>();
 _attentionCheck = App.Services.GetRequiredService<IAttentionCheckService>();
     }
 
@@ -45,7 +45,7 @@ _attentionCheck = App.Services.GetRequiredService<IAttentionCheckService>();
             }
             catch (Exception ex)
             {
-                _logger?.Warning("Test now: FireNow failed: {Error}", ex.Message);
+                _logger?.LogWarning("Test now: FireNow failed: {Error}", ex.Message);
             }
         }, global::Avalonia.Threading.DispatcherPriority.Background);
     }

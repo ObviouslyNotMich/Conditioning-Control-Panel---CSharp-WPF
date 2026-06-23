@@ -1,9 +1,16 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Content;
 using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -14,8 +21,7 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 /// <summary>
 /// Avalonia port of the WPF MainWindow.Assets partial.
 /// Manages the local asset tree, disabled-asset selection, asset presets,
-/// and content-pack UI. Pack/thumbnail/preview services are not abstracted
-/// in Core yet, so those commands are stubbed with TODOs.
+/// and content-pack UI.
 /// </summary>
 public partial class AssetsTabViewModel : TabItemViewModel
 {
@@ -24,7 +30,8 @@ public partial class AssetsTabViewModel : TabItemViewModel
     private readonly IAppEnvironment? _appEnvironment;
     private readonly IPlatformCapabilities? _platformCapabilities;
     private readonly IFlashService? _flashService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AssetsTabViewModel>? _logger;
+    private readonly IContentPackService? _contentPackService;
 
     private static readonly string[] ValidExtensions =
     {
@@ -52,7 +59,8 @@ public partial class AssetsTabViewModel : TabItemViewModel
         IAppEnvironment appEnvironment,
         IPlatformCapabilities platformCapabilities,
         IFlashService flashService,
-        IAppLogger logger) : base("assets", "Assets", "📁")
+        ILogger<AssetsTabViewModel> logger,
+        IContentPackService contentPackService) : base("assets", "Assets", "📁")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
@@ -60,6 +68,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         _platformCapabilities = platformCapabilities;
         _flashService = flashService;
         _logger = logger;
+        _contentPackService = contentPackService;
         _assetTree = new ObservableCollection<AssetTreeItem>();
         _currentFiles = new ObservableCollection<AssetFileItem>();
         _availablePacks = new ObservableCollection<PackCardViewModel>();
@@ -133,7 +142,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to ensure asset directories");
+            _logger?.LogWarning(ex, "Failed to ensure asset directories");
         }
 
         var imagesFolder = Path.Combine(assetsPath, "images");
@@ -152,9 +161,103 @@ public partial class AssetsTabViewModel : TabItemViewModel
             AssetTree.Add(videosNode);
         }
 
-        // TODO: add content-pack virtual folders once IContentPackService is extracted to Core.
+        AddContentPackVirtualFolders();
 
         UpdateAssetCounts();
+    }
+
+    private void AddContentPackVirtualFolders()
+    {
+        var activePackIds = _contentPackService?.GetActivePackIds();
+        if (activePackIds == null || activePackIds.Count == 0) return;
+
+        var packsNode = new AssetTreeItem
+        {
+            Name = "📦 Content Packs",
+            FullPath = "",
+            IsChecked = true,
+            IsPackFolder = true,
+            IsExpanded = true
+        };
+
+        foreach (var packId in activePackIds)
+        {
+            var packNode = BuildPackTree(packId);
+            if (packNode != null)
+            {
+                packNode.Parent = packsNode;
+                packsNode.Children.Add(packNode);
+            }
+        }
+
+        if (packsNode.Children.Count > 0)
+        {
+            packsNode.IsChecked = packsNode.Children.Any(c => c.IsChecked);
+            AssetTree.Add(packsNode);
+        }
+    }
+
+    private AssetTreeItem? BuildPackTree(string packId)
+    {
+        var packFiles = _contentPackService?.GetPackFiles(packId);
+        if (packFiles == null || packFiles.Count == 0)
+            return null;
+
+        var packs = _contentPackService?.GetBuiltInPacks();
+        var packInfo = packs?.FirstOrDefault(p => p.Id == packId);
+        var packName = packInfo?.Name ?? packId;
+
+        var disabledPaths = _settingsService?.Current?.DisabledAssetPaths;
+
+        var packNode = new AssetTreeItem
+        {
+            Name = packName,
+            FullPath = "",
+            IsPackFolder = true,
+            PackId = packId,
+            IsChecked = true,
+            IsExpanded = false,
+            FileCount = packFiles.Count
+        };
+
+        var imageFiles = packFiles.Where(f => f.FileType == "image").ToList();
+        if (imageFiles.Count > 0)
+        {
+            var activeImageCount = imageFiles.Count(f => !disabledPaths?.Contains($"pack:{packId}/{f.OriginalName}") ?? true);
+            packNode.Children.Add(new AssetTreeItem
+            {
+                Name = "images",
+                FullPath = "",
+                IsPackFolder = true,
+                PackId = packId,
+                PackFileType = "image",
+                IsChecked = activeImageCount > 0,
+                FileCount = imageFiles.Count,
+                CheckedFileCount = activeImageCount,
+                Parent = packNode
+            });
+        }
+
+        var videoFiles = packFiles.Where(f => f.FileType == "video").ToList();
+        if (videoFiles.Count > 0)
+        {
+            var activeVideoCount = videoFiles.Count(f => !disabledPaths?.Contains($"pack:{packId}/{f.OriginalName}") ?? true);
+            packNode.Children.Add(new AssetTreeItem
+            {
+                Name = "videos",
+                FullPath = "",
+                IsPackFolder = true,
+                PackId = packId,
+                PackFileType = "video",
+                IsChecked = activeVideoCount > 0,
+                FileCount = videoFiles.Count,
+                CheckedFileCount = activeVideoCount,
+                Parent = packNode
+            });
+        }
+
+        packNode.IsChecked = packNode.Children.Any(c => c.IsChecked);
+        return packNode;
     }
 
     private AssetTreeItem BuildFolderTree(string path, string name)
@@ -175,7 +278,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         }
         catch (Exception ex) when (ex is DirectoryNotFoundException or UnauthorizedAccessException or IOException)
         {
-            _logger?.Warning("BuildFolderTree: skipping unreadable folder {Path}: {Error}", path, ex.Message);
+            _logger?.LogWarning("BuildFolderTree: skipping unreadable folder {Path}: {Error}", path, ex.Message);
             node.UpdateCheckState();
             return node;
         }
@@ -195,7 +298,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         }
         catch (Exception ex) when (ex is DirectoryNotFoundException or UnauthorizedAccessException or IOException)
         {
-            _logger?.Warning("BuildFolderTree: cannot enumerate subfolders of {Path}: {Error}", path, ex.Message);
+            _logger?.LogWarning("BuildFolderTree: cannot enumerate subfolders of {Path}: {Error}", path, ex.Message);
             subDirs = Array.Empty<string>();
         }
 
@@ -224,9 +327,14 @@ public partial class AssetsTabViewModel : TabItemViewModel
 
         if (folder.IsPackFolder)
         {
-            EmptyThumbnailsText = Loc.Get("label_no_files_in_this_pack_folder");
+            if (!string.IsNullOrEmpty(folder.PackId) && !string.IsNullOrEmpty(folder.PackFileType))
+            {
+                LoadPackFolderFiles(folder.PackId, folder.PackFileType);
+                return;
+            }
+
+            EmptyThumbnailsText = Loc.Get("label_select_a_subfolder_to_view_files");
             HasCurrentFiles = false;
-            // TODO: load pack folder thumbnails once IContentPackService is extracted.
             return;
         }
 
@@ -264,7 +372,45 @@ public partial class AssetsTabViewModel : TabItemViewModel
             catch { /* ignore */ }
 
             CurrentFiles.Add(item);
-            // TODO: load thumbnail asynchronously once IThumbnailService is extracted.
+        }
+
+        HasCurrentFiles = CurrentFiles.Count > 0;
+    }
+
+    private void LoadPackFolderFiles(string packId, string fileType)
+    {
+        CurrentFiles.Clear();
+        EmptyThumbnailsText = "";
+
+        var packFiles = _contentPackService?.GetPackFiles(packId, fileType);
+        if (packFiles == null || packFiles.Count == 0)
+        {
+            EmptyThumbnailsText = Loc.Get("label_no_files_in_this_pack_folder");
+            HasCurrentFiles = false;
+            return;
+        }
+
+        var disabledPaths = _settingsService?.Current?.DisabledAssetPaths;
+
+        foreach (var file in packFiles.OrderBy(f => f.OriginalName))
+        {
+            var packPath = $"pack:{packId}/{file.OriginalName}";
+            var isActive = !(disabledPaths?.Contains(packPath) ?? false);
+
+            var item = new AssetFileItem
+            {
+                RelativePath = packPath,
+                IsChecked = isActive,
+                IsPackFile = true,
+                PackId = packId,
+                PackFileEntry = file,
+                Name = file.OriginalName,
+                Extension = file.Extension,
+                IsVideo = file.FileType == "video",
+                IsGif = file.Extension == ".gif"
+            };
+
+            CurrentFiles.Add(item);
         }
 
         HasCurrentFiles = CurrentFiles.Count > 0;
@@ -355,23 +501,36 @@ public partial class AssetsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to save asset selection");
+            _logger?.LogError(ex, "Failed to save asset selection");
         }
     }
 
     private void UpdateFolderFilesCheckState(AssetTreeItem folder, bool isChecked)
     {
-        var basePath = _appEnvironment?.EffectiveAssetsPath ?? "";
-        if (!string.IsNullOrWhiteSpace(folder.FullPath) && Directory.Exists(folder.FullPath))
+        var disabledPaths = _settingsService?.Current?.DisabledAssetPaths;
+        if (disabledPaths == null) return;
+
+        if (folder.IsPackFolder && !string.IsNullOrEmpty(folder.PackId) && !string.IsNullOrEmpty(folder.PackFileType))
         {
+            var packFiles = _contentPackService?.GetPackFiles(folder.PackId, folder.PackFileType);
+            if (packFiles != null)
+            {
+                foreach (var file in packFiles)
+                {
+                    var packPath = $"pack:{folder.PackId}/{file.OriginalName}";
+                    if (isChecked) disabledPaths.Remove(packPath);
+                    else disabledPaths.Add(packPath);
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(folder.FullPath) && Directory.Exists(folder.FullPath))
+        {
+            var basePath = _appEnvironment?.EffectiveAssetsPath ?? "";
             var files = Directory.GetFiles(folder.FullPath)
                 .Where(f => ValidExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()));
             foreach (var file in files)
             {
                 var relativePath = GetRelativePath(basePath, file);
-                var disabledPaths = _settingsService?.Current?.DisabledAssetPaths;
-                if (disabledPaths == null) continue;
-
                 if (isChecked) disabledPaths.Remove(relativePath);
                 else disabledPaths.Add(relativePath);
             }
@@ -447,9 +606,9 @@ public partial class AssetsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "InvalidateAssetPools: flash service cache clear failed");
+            _logger?.LogWarning(ex, "InvalidateAssetPools: flash service cache clear failed");
         }
-        _logger?.Information("Asset selection changed; pool invalidation requested (fullReload={FullReload})", fullReload);
+        _logger?.LogInformation("Asset selection changed; pool invalidation requested (fullReload={FullReload})", fullReload);
     }
 
     private void UpdateAssetCounts()
@@ -470,7 +629,27 @@ public partial class AssetsTabViewModel : TabItemViewModel
         {
             if (folder.IsPackFolder)
             {
-                // TODO: count pack files once IContentPackService is extracted.
+                if (!string.IsNullOrEmpty(folder.PackId) && !string.IsNullOrEmpty(folder.PackFileType))
+                {
+                    var packFiles = _contentPackService?.GetPackFiles(folder.PackId, folder.PackFileType);
+                    if (packFiles != null)
+                    {
+                        foreach (var file in packFiles)
+                        {
+                            var isImage = file.FileType == "image";
+                            var isVideo = file.FileType == "video";
+                            if (isImage) totalImages++;
+                            if (isVideo) totalVideos++;
+
+                            var packPath = $"pack:{folder.PackId}/{file.OriginalName}";
+                            var isActive = !(disabledPaths?.Contains(packPath) ?? false);
+                            if (isActive && isImage) activeImages++;
+                            if (isActive && isVideo) activeVideos++;
+                        }
+                    }
+                }
+
+                CountAssetsRecursive(folder.Children, ref totalImages, ref totalVideos, ref activeImages, ref activeVideos);
                 continue;
             }
 
@@ -559,7 +738,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         InvalidateAssetPools();
 
         var (activeImages, activeVideos) = GetCurrentActiveAssetCounts();
-        _logger?.Information("Loaded asset preset: {Name} ({Images} images, {Videos} videos active)",
+        _logger?.LogInformation("Loaded asset preset: {Name} ({Images} images, {Videos} videos active)",
             preset.Name, activeImages, activeVideos);
     }
 
@@ -569,8 +748,10 @@ public partial class AssetsTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         var (imageCount, videoCount) = GetCurrentActiveAssetCounts();
 
-        // TODO: replace with IDialogService.ShowInputDialogAsync once available.
-        var name = await PromptNameAsync("Save Asset Preset", $"Preset {_settingsService.Current.AssetPresets.Count}");
+        var name = await (_dialogService?.ShowInputDialogAsync(
+            Loc.Get("title_save_asset_preset"),
+            Loc.Get("msg_enter_a_name_for_your_preset"),
+            $"Preset {_settingsService.Current.AssetPresets.Count}") ?? Task.FromResult<string?>(null));
         if (string.IsNullOrWhiteSpace(name)) return;
 
         var disabledCount = _settingsService.Current.DisabledAssetPaths.Count;
@@ -683,7 +864,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task DeleteDownloadedPacksAsync()
     {
-        var installedIds = _settingsService?.Current?.InstalledPackIds;
+        var installedIds = _contentPackService?.InstalledPacks;
         if (installedIds == null || installedIds.Count == 0)
         {
             await (_dialogService?.ShowMessageAsync(
@@ -697,10 +878,12 @@ public partial class AssetsTabViewModel : TabItemViewModel
             Loc.GetF("msg_delete_downloaded_packs_confirm_0", installedIds.Count)) ?? Task.FromResult(false));
         if (!confirm) return;
 
-        // TODO: wire to IContentPackService.UninstallPack() once extracted.
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            "Pack uninstallation is not yet ported to Avalonia.") ?? Task.CompletedTask);
+        foreach (var packId in installedIds.ToList())
+        {
+            _contentPackService?.UninstallPack(packId);
+        }
+
+        await RefreshPacksAsync();
     }
 
     [RelayCommand]
@@ -715,17 +898,45 @@ public partial class AssetsTabViewModel : TabItemViewModel
         IsBusy = true;
         try
         {
-            _logger?.Information("Refreshing content packs");
+            _logger?.LogInformation("Refreshing content packs");
             AvailablePacks.Clear();
-            // TODO: wire to IContentPackService.GetAvailablePacksAsync() once extracted.
-            await Task.Delay(250);
-            await (_dialogService?.ShowMessageAsync(
-                Loc.Get("title_not_implemented"),
-                "Content pack refresh is not yet ported to Avalonia.") ?? Task.CompletedTask);
+
+            if (_contentPackService == null)
+                return;
+
+            var packs = await _contentPackService.GetAvailablePacksAsync();
+            foreach (var pack in packs)
+            {
+                var packVm = new PackCardViewModel(pack)
+                {
+                    InstallCommand = TogglePackCommand,
+                    ActivateCommand = ActivatePackCommand,
+                    InstallCommandParameter = null,
+                    ActivateCommandParameter = null
+                };
+
+                if (pack.IsDownloaded)
+                {
+                    try
+                    {
+                        var previews = _contentPackService.GetPackPreviewImages(pack.Id, count: 1, width: 240, height: 100);
+                        if (previews.Count > 0 && previews[0] is Bitmap bitmap)
+                        {
+                            packVm.SetPreviewImage(bitmap);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogWarning(ex, "Failed to load preview for pack {PackId}", pack.Id);
+                    }
+                }
+
+                AvailablePacks.Add(packVm);
+            }
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to refresh packs");
+            _logger?.LogWarning(ex, "Failed to refresh packs");
         }
         finally
         {
@@ -736,57 +947,88 @@ public partial class AssetsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task TogglePackAsync(PackCardViewModel? pack)
     {
-        if (pack == null) return;
-        _logger?.Information("Pack toggle requested: {PackId}", pack.Id);
+        if (pack == null || _contentPackService == null) return;
+        _logger?.LogInformation("Pack toggle requested: {PackId}", pack.Id);
 
-        if (pack.IsDownloaded)
+        try
         {
-            var confirm = await (_dialogService?.ShowConfirmationAsync(
-                "Uninstall Content Pack",
-                $"Uninstall '{pack.Name}'?\n\nThis will delete downloaded content from your computer.") ?? Task.FromResult(false));
-            if (!confirm) return;
-
-            // TODO: wire to IContentPackService.UninstallPack() once extracted.
-            await (_dialogService?.ShowMessageAsync(
-                Loc.Get("title_not_implemented"),
-                "Pack uninstallation is not yet ported to Avalonia.") ?? Task.CompletedTask);
-        }
-        else
-        {
-            if (pack.IsExternal)
+            if (pack.IsDownloaded)
             {
-                // TODO: wire to IContentPackService.GetExternalPackDownloadUrlAsync() once extracted.
-                await (_dialogService?.ShowMessageAsync(
-                    Loc.Get("title_not_implemented"),
-                    "External pack download is not yet ported to Avalonia.") ?? Task.CompletedTask);
-                return;
+                var confirm = await (_dialogService?.ShowConfirmationAsync(
+                    Loc.Get("title_uninstall_content_pack"),
+                    string.Format(Loc.Get("msg_uninstall_content_pack_confirm_fmt"), pack.Name)) ?? Task.FromResult(false));
+                if (!confirm) return;
+
+                _contentPackService.UninstallPack(pack.Id);
+            }
+            else if (pack.IsExternal)
+            {
+                var confirm = await (_dialogService?.ShowConfirmationAsync(
+                    Loc.Get("title_external_content_pack"),
+                    string.Format(Loc.Get("msg_external_content_pack_confirm_fmt"), pack.Name)) ?? Task.FromResult(false));
+                if (!confirm) return;
+
+                var url = await _contentPackService.GetExternalPackDownloadUrlAsync(pack.Id);
+                if (string.IsNullOrEmpty(url))
+                {
+                    await (_dialogService?.ShowMessageAsync(
+                        Loc.Get("title_authentication_required"),
+                        Loc.Get("msg_authentication_required_packs")) ?? Task.CompletedTask);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            }
+            else
+            {
+                var sizeStr = pack.Pack.SizeBytes > 0 ? $" ({pack.Pack.SizeBytes / (1024.0 * 1024):F0} MB)" : "";
+                var confirm = await (_dialogService?.ShowConfirmationAsync(
+                    Loc.Get("title_install_content_pack"),
+                    string.Format(Loc.Get("msg_install_content_pack_confirm_fmt"), pack.Name, sizeStr)) ?? Task.FromResult(false));
+                if (!confirm) return;
+
+                var progress = new Progress<int>(p => pack.Pack.DownloadProgress = p);
+                await _contentPackService.InstallPackAsync(pack.Pack, progress);
             }
 
-            var sizeStr = pack.Pack.SizeBytes > 0 ? $" ({pack.Pack.SizeBytes / (1024.0 * 1024):F0} MB)" : "";
-            var confirm = await (_dialogService?.ShowConfirmationAsync(
-                "Install Content Pack",
-                $"Download and install '{pack.Name}'?{sizeStr}\n\nThis will download encrypted content to a secure folder on your computer.") ?? Task.FromResult(false));
-            if (!confirm) return;
-
-            // TODO: wire to IContentPackService.InstallPackAsync() once extracted.
+            await RefreshPacksAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
             await (_dialogService?.ShowMessageAsync(
-                Loc.Get("title_not_implemented"),
-                "Pack installation is not yet ported to Avalonia.") ?? Task.CompletedTask);
+                Loc.Get("title_authentication_required"),
+                Loc.Get("msg_authentication_required_packs")) ?? Task.CompletedTask);
+        }
+        catch (PackRateLimitException ex)
+        {
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_rate_limit_exceeded"),
+                string.Format(Loc.Get("msg_rate_limited_pack_fmt"), ex.ResetTime)) ?? Task.CompletedTask);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to toggle pack {PackId}", pack.Id);
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("msg_pack_install_failed")) ?? Task.CompletedTask);
         }
     }
 
     [RelayCommand]
     private async Task ActivatePackAsync(PackCardViewModel? pack)
     {
-        if (pack == null) return;
-        _logger?.Information("Pack activation requested: {PackId}", pack.Id);
+        if (pack == null || _contentPackService == null) return;
+        _logger?.LogInformation("Pack activation requested: {PackId}", pack.Id);
 
-        // TODO: wire to IContentPackService.ActivatePackAsync() once extracted.
-        pack.Pack.IsActive = !pack.Pack.IsActive;
+        if (!pack.IsDownloaded)
+            return;
 
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            $"Pack '{pack.Name}' is now {(pack.Pack.IsActive ? "active" : "inactive")}.") ?? Task.CompletedTask);
+        if (pack.IsActive)
+            _contentPackService.DeactivatePack(pack.Id);
+        else
+            _contentPackService.ActivatePack(pack.Id);
+
+        await RefreshPacksAsync();
     }
 
     #endregion
@@ -817,11 +1059,11 @@ public partial class AssetsTabViewModel : TabItemViewModel
                 });
             }
 
-            _logger?.Information("Opened assets folder: {Path}", path);
+            _logger?.LogInformation("Opened assets folder: {Path}", path);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open assets folder");
+            _logger?.LogWarning(ex, "Failed to open assets folder");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -833,11 +1075,32 @@ public partial class AssetsTabViewModel : TabItemViewModel
     private async Task OpenAssetPreviewAsync(AssetFileItem? file)
     {
         if (file == null) return;
-        _logger?.Information("Open asset preview requested: {File}", file.Name);
-        // TODO: open an Avalonia media preview window once ported.
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            "Asset preview is not yet ported to Avalonia.") ?? Task.CompletedTask);
+        _logger?.LogInformation("Open asset preview requested: {File}", file.Name);
+
+        string? filePath = file.FullPath;
+
+        if (file.IsPackFile && file.PackFileEntry != null && !string.IsNullOrEmpty(file.PackId))
+        {
+            filePath = _contentPackService?.GetPackFileTempPath(file.PackId, file.PackFileEntry);
+            if (string.IsNullOrEmpty(filePath))
+            {
+                _logger?.LogWarning("Failed to extract pack file for preview: {File}", file.Name);
+                return;
+            }
+        }
+
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            _logger?.LogWarning("File not found for preview: {File}", filePath ?? file.Name);
+            return;
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var previewWindow = new MiniPlayerWindow();
+            previewWindow.LoadFile(filePath!);
+            previewWindow.Show();
+        });
     }
 
     [RelayCommand]
@@ -861,7 +1124,7 @@ public partial class AssetsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open file in Explorer");
+            _logger?.LogWarning(ex, "Failed to open file in Explorer");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -879,11 +1142,11 @@ public partial class AssetsTabViewModel : TabItemViewModel
                 FileName = "https://discord.gg/YxVAMt4qaZ",
                 UseShellExecute = true
             });
-            _logger?.Information("Opened creator Discord link");
+            _logger?.LogInformation("Opened creator Discord link");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open Discord link");
+            _logger?.LogWarning(ex, "Failed to open Discord link");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -975,16 +1238,6 @@ public partial class AssetsTabViewModel : TabItemViewModel
     }
 
     #endregion
-
-    private async Task<string?> PromptNameAsync(string title, string defaultValue)
-    {
-        // Avalonia's IDialogService does not expose an input dialog yet.
-        // TODO: replace with a proper input dialog once available.
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            "Input dialogs are not yet available in the Avalonia head.") ?? Task.CompletedTask);
-        return defaultValue;
-    }
 
     private static string GetRelativePath(string basePath, string filePath)
     {

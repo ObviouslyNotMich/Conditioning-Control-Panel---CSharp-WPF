@@ -16,9 +16,15 @@ using AvaloniaLayout = global::Avalonia.Layout;
 using IOPath = System.IO.Path;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Models.Quiz;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Chaos;
+using ConditioningControlPanel.Core.Services.Flash;
+using ConditioningControlPanel.Core.Services.MindWipe;
+using ConditioningControlPanel.Core.Services.Quiz;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Subliminal;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,11 +35,11 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class QuizWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
+    private readonly ILogger<QuizWindow>? _logger;
 
     public static bool IsOpen { get; private set; }
 
-    private QuizService? _quizService;
+    private IQuizService? _quizService;
     private QuizQuestion? _currentQuestion;
     private bool _isProcessing;
     private bool _isFullscreen;
@@ -86,7 +92,7 @@ public partial class QuizWindow : Window
 
         ApplyTitleShadow();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<QuizWindow>>();
 _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _loadingDotsTimer.Tick += LoadingDotsTimer_Tick;
     }
@@ -143,7 +149,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
     private void BuildCategoryButtons()
     {
         CategoryButtonsPanel.Children.Clear();
-        var categories = QuizService.GetAllCategories();
+        var categories = _quizService?.GetAllCategories() ?? new List<QuizCategoryDefinition>();
         foreach (var cat in categories)
         {
             var color = (Color)global::Avalonia.Application.Current!.Resources["TextLight"]!;
@@ -253,7 +259,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         _ = editor.ShowDialog<bool?>(this);
         if (editor.DialogResult == true && editor.Result != null)
         {
-            QuizService.SaveCustomCategory(editor.Result);
+            _quizService?.SaveCustomCategory(editor.Result);
             BuildCategoryButtons();
         }
     }
@@ -268,7 +274,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         if (editor.DialogResult == true)
         {
             if (editor.Result != null)
-                QuizService.SaveCustomCategory(editor.Result);
+                _quizService?.SaveCustomCategory(editor.Result);
             BuildCategoryButtons();
         }
     }
@@ -369,11 +375,11 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
                 ProfileText = result.ProfileText,
                 Answers = new List<QuizAnswerRecord>(_answerHistory)
             };
-            QuizService.SaveEntry(savedEntry);
+            _quizService?.SaveEntry(savedEntry);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "QuizWindow: Failed to save quiz history");
+            _logger?.LogWarning(ex, "QuizWindow: Failed to save quiz history");
         }
 
         try
@@ -395,7 +401,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "QuizWindow: Failed to save quiz result to settings");
+            _logger?.LogWarning(ex, "QuizWindow: Failed to save quiz result to settings");
         }
 
         TxtFinalScore.Text = Loc.GetF("quiz_final_score", result.TotalScore, result.MaxScore);
@@ -418,11 +424,11 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
             var perfect = result.MaxScore > 0 && result.TotalScore == result.MaxScore;
             var passed = percentage >= 60;
             var categoryId = catDef?.Id ?? result.Category.ToString();
-            QuizService.RaiseQuizCompleted(result.TotalScore, passed, perfect, categoryId);
+            _quizService?.RaiseQuizCompleted(result.TotalScore, passed, perfect, categoryId);
         }
         catch (Exception ex)
         {
-            _logger?.Information("QuizWindow: RaiseQuizCompleted failed: {Error}", ex.Message);
+            _logger?.LogInformation("QuizWindow: RaiseQuizCompleted failed: {Error}", ex.Message);
         }
 
         if (savedEntry != null)
@@ -451,7 +457,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "QuizWindow: AI session content generation failed, using fallback");
+                _logger?.LogWarning(ex, "QuizWindow: AI session content generation failed, using fallback");
             }
 
             textContent ??= QuizSessionGenerator.GetFallbackContent(categoryId, scorePercent);
@@ -473,7 +479,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "QuizWindow: Failed to generate session in background");
+            _logger?.LogWarning(ex, "QuizWindow: Failed to generate session in background");
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 BtnTrySession.IsVisible = false;
@@ -509,7 +515,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "QuizWindow: Failed to export session");
+            _logger?.LogWarning(ex, "QuizWindow: Failed to export session");
         }
     }
 
@@ -538,8 +544,8 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         try
         {
             TrendPanel.Children.Clear();
-            var history = QuizService.LoadHistory();
-            var trend = QuizService.GetScoreTrend(history, category);
+            var history = _quizService?.LoadHistory() ?? new List<QuizHistoryEntry>();
+            var trend = _quizService?.GetScoreTrend(history, category);
             if (trend == null) return;
 
             TxtTrendHeader.IsVisible = true;
@@ -582,7 +588,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "QuizWindow: Failed to build trend display");
+            _logger?.LogWarning(ex, "QuizWindow: Failed to build trend display");
         }
     }
 
@@ -621,7 +627,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         ShowLoading("Preparing your quiz...");
 
         _quizService?.Dispose();
-        _quizService = new QuizService();
+        _quizService = App.Services?.GetRequiredService<IQuizService>();
 
         try
         {
@@ -637,7 +643,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "QuizWindow: Failed to start quiz");
+            _logger?.LogError(ex, "QuizWindow: Failed to start quiz");
             ShowError("Something went wrong starting the quiz. Please try again.");
         }
         finally
@@ -717,7 +723,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "QuizWindow: Failed to process answer");
+            _logger?.LogError(ex, "QuizWindow: Failed to process answer");
             ShowError("Something went wrong. Please try again.");
         }
         finally
@@ -856,7 +862,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
 
     private static async void PlaySoundAsync(string path, double volume)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<QuizWindow>>();
         try
         {
             var player = App.Services?.GetService<IAudioPlayer>();
@@ -866,7 +872,7 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("Quiz audio playback failed: {Error}", ex.Message);
+            App.Services?.GetRequiredService<ILogger<QuizWindow>>().LogInformation("Quiz audio playback failed: {Error}", ex.Message);
         }
     }
 
@@ -899,7 +905,39 @@ IOPath.Combine(soundsPath, "result.mp3");
 
     private static void TriggerRandomEffect()
     {
-        // TODO: wire up Flash/Bubbles/Subliminal/MindWipe services once ported.
+        try
+        {
+            var services = App.Services;
+            if (services == null) return;
+
+            switch (_random.Next(4))
+            {
+                case 0:
+                    services.GetService<IFlashService>()?.TriggerFlashOnce(null, 1000, true, false);
+                    break;
+                case 1:
+                    var bubbleCount = _random.Next(2, 4);
+                    var bubbles = services.GetService<IBubbleService>();
+                    for (int i = 0; i < bubbleCount; i++)
+                        bubbles?.SpawnOnce();
+                    break;
+                case 2:
+                    services.GetService<ISubliminalService>()?.FlashSubliminal();
+                    break;
+                // case 3: nothing — keeps it unpredictable
+            }
+
+            if (_random.Next(4) == 0)
+            {
+                var mindWipe = services.GetService<IMindWipeService>();
+                if (mindWipe?.AudioFileCount > 0)
+                    mindWipe.TriggerOnce();
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetService<ILogger<QuizWindow>>()?.LogDebug("TriggerRandomEffect failed: {Error}", ex.Message);
+        }
     }
 
     private static Color GetAccentColor()

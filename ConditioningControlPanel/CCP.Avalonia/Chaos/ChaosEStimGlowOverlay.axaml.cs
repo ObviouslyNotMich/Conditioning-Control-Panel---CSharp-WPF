@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Controls.Shapes;
 using global::Avalonia.Layout;
 using global::Avalonia.Media;
 using global::Avalonia.Threading;
+using ConditioningControlPanel.Core.Platform;
 
 using Microsoft.Extensions.DependencyInjection;
 namespace ConditioningControlPanel.Avalonia.Chaos;
@@ -14,7 +15,8 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosEStimGlowOverlay : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosEStimGlowOverlay> _logger;
+    private readonly IPointerState? _pointerState;
 
 
     private const double HALO_SIZE = 64;
@@ -30,8 +32,9 @@ public partial class ChaosEStimGlowOverlay : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-WindowDecorations = WindowDecorations.None;
+        _logger = App.Services.GetRequiredService<ILogger<ChaosEStimGlowOverlay>>();
+        _pointerState = App.Services.GetService<IPointerState>();
+        WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
         Topmost = AvaloniaChaosWindowZ.BornTopmost;
@@ -80,7 +83,7 @@ WindowDecorations = WindowDecorations.None;
                         _active.Hide();
                     }
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosEStimGlow.EnsureCreated: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosEStimGlowOverlay>>().LogInformation("ChaosEStimGlow.EnsureCreated: {E}", ex.Message); }
             });
         }
         catch { }
@@ -100,7 +103,7 @@ WindowDecorations = WindowDecorations.None;
                     _active.FollowTick(null, EventArgs.Empty);
                     _active._follow.Start();
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosEStimGlow.Arm: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosEStimGlowOverlay>>().LogInformation("ChaosEStimGlow.Arm: {E}", ex.Message); }
             });
         }
         catch { }
@@ -148,21 +151,26 @@ WindowDecorations = WindowDecorations.None;
     {
         try
         {
-            // TODO: cross-platform cursor position; currently centers on primary screen.
+            var cursor = _pointerState?.GetCursorPosition();
+            if (cursor.HasValue)
+            {
+                Position = new PixelPoint(
+                    cursor.Value.X - WIN_SIZE / 2,
+                    cursor.Value.Y - WIN_SIZE / 2);
+                return;
+            }
+
+            // Degrade to center of primary screen when global cursor position is unavailable.
             var screens = AvaloniaChaosWindowZ.GetScreens();
             var primary = screens?.Primary;
             if (primary == null) return;
             var b = primary.Bounds;
             var cx = b.X + b.Width / 2;
-            var cy =
-b.Y + b.Height / 2;
+            var cy = b.Y + b.Height / 2;
             Position = new PixelPoint((int)(cx - WIN_SIZE / 2.0), (int)(cy - WIN_SIZE / 2.0));
         }
-        catch (Exception ex) { _logger?.Information("ChaosEStimGlow tick: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("ChaosEStimGlow tick: {E}", ex.Message); }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

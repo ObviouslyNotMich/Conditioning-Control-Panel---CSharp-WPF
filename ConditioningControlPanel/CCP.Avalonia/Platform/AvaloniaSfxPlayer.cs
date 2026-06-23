@@ -10,10 +10,10 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 /// </summary>
 public sealed class AvaloniaSfxPlayer : ISfxPlayer
 {
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaSfxPlayer>? _logger;
     private readonly Dictionary<string, string?> _cache = new(StringComparer.OrdinalIgnoreCase);
 
-    public AvaloniaSfxPlayer(IAppLogger? logger = null)
+    public AvaloniaSfxPlayer(ILogger<AvaloniaSfxPlayer>? logger = null)
     {
         _logger = logger;
     }
@@ -95,7 +95,7 @@ public sealed class AvaloniaSfxPlayer : ISfxPlayer
         }
         catch (Exception ex)
         {
-            _logger?.Debug(ex, "AvaloniaSfxPlayer failed for {Path}", path);
+            _logger?.LogDebug(ex, "AvaloniaSfxPlayer failed for {Path}", path);
         }
     }
 }

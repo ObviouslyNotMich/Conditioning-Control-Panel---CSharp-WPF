@@ -43,6 +43,7 @@ WindowDecorations = WindowDecorations.None;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
+        IsHitTestVisible = true;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
@@ -98,7 +99,7 @@ WindowDecorations = WindowDecorations.None;
                 if (!_showing) ShowNext();
             });
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosUnlockCard.Show: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosUnlockCardOverlay>>().LogInformation("ChaosUnlockCard.Show: {E}", ex.Message); }
     }
 
     public static void CloseActive()
@@ -119,7 +120,7 @@ WindowDecorations = WindowDecorations.None;
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosUnlockCard.ShowNext: {E}", ex.Message);
+            App.Services?.GetRequiredService<ILogger<ChaosUnlockCardOverlay>>().LogInformation("ChaosUnlockCard.ShowNext: {E}", ex.Message);
             _showing = false;
             try { onDismissed?.Invoke(); } catch { }
         }
@@ -231,10 +232,7 @@ WindowDecorations = WindowDecorations.None;
         try { Close(); } catch { }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE on Windows (NOT TRANSPARENT — needs click).
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, false);
 
     private static Rect GetPrimaryWorkArea()
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Services.BouncingText;
 using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Flash;
@@ -44,14 +44,12 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
     private readonly IWallpaperProvider? _wallpaper;
     private readonly IBrowserHost? _browserHost;
     private readonly ISessionLogService? _sessionLog;
-    private readonly IUiDispatcher _uiDispatcher;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaRemoteCommandExecutor>? _logger;
 
     private bool _remoteBrowserVideoActive;
 
     public AvaloniaRemoteCommandExecutor(
         ISettingsService settingsService,
-        IUiDispatcher uiDispatcher,
         IFlashService? flash = null,
         ISubliminalService? subliminal = null,
         IOverlayService? overlay = null,
@@ -68,10 +66,9 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         IWallpaperProvider? wallpaper = null,
         IBrowserHost? browserHost = null,
         ISessionLogService? sessionLog = null,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaRemoteCommandExecutor>? logger = null)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
-        _uiDispatcher = uiDispatcher ?? throw new ArgumentNullException(nameof(uiDispatcher));
         _flash = flash;
         _subliminal = subliminal;
         _overlay = overlay;
@@ -91,9 +88,9 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         _logger = logger;
     }
 
-    public Task ExecuteCommandAsync(string action, JObject? parameters)
+    public async Task ExecuteCommandAsync(string action, JObject? parameters)
     {
-        return _uiDispatcher.InvokeAsync(() =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             try
             {
@@ -101,14 +98,14 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[RemoteControl] Error executing command: {Action}", action);
+                _logger?.LogError(ex, "[RemoteControl] Error executing command: {Action}", action);
             }
         });
     }
 
-    public Task StopAllRemoteEffectsAsync()
+    public async Task StopAllRemoteEffectsAsync()
     {
-        return _uiDispatcher.InvokeAsync(() =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             try
             {
@@ -116,14 +113,14 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[RemoteControl] Failed to stop remote effects");
+                _logger?.LogError(ex, "[RemoteControl] Failed to stop remote effects");
             }
         });
     }
 
-    public Task HandleControllerDisconnectAsync()
+    public async Task HandleControllerDisconnectAsync()
     {
-        return _uiDispatcher.InvokeAsync(() =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             try
             {
@@ -134,7 +131,7 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "[RemoteControl] Failed to handle controller disconnect");
+                _logger?.LogWarning(ex, "[RemoteControl] Failed to handle controller disconnect");
             }
         });
     }
@@ -248,13 +245,13 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
                 var htUrl = parameters?["url"]?.ToString();
                 if (!string.IsNullOrWhiteSpace(htUrl) && IsEligibleHtUrl(htUrl))
                 {
-                    _logger?.Information("[RemoteControl] play_hypnotube id={Id}", TryExtractHtVideoId(htUrl));
+                    _logger?.LogInformation("[RemoteControl] play_hypnotube id={Id}", TryExtractHtVideoId(htUrl));
                     _remoteBrowserVideoActive = true;
                     _ = _browserHost?.NavigateAsync(new Uri(htUrl));
                 }
                 else
                 {
-                    _logger?.Warning("[RemoteControl] Rejected play_hypnotube — not an eligible HypnoTube URL");
+                    _logger?.LogWarning("[RemoteControl] Rejected play_hypnotube — not an eligible HypnoTube URL");
                 }
                 break;
 
@@ -272,11 +269,11 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
 
             // Full tier
             case "start_autonomy":
-                _logger?.Information("[RemoteControl] start_autonomy not yet ported to Avalonia service stack");
+                _logger?.LogInformation("[RemoteControl] start_autonomy not yet ported to Avalonia service stack");
                 break;
 
             case "stop_autonomy":
-                _logger?.Information("[RemoteControl] stop_autonomy not yet ported to Avalonia service stack");
+                _logger?.LogInformation("[RemoteControl] stop_autonomy not yet ported to Avalonia service stack");
                 break;
 
             case "trigger_bubble_count":
@@ -369,7 +366,7 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
                 break;
 
             default:
-                _logger?.Warning("[RemoteControl] Unknown action: {Action}", action);
+                _logger?.LogWarning("[RemoteControl] Unknown action: {Action}", action);
                 break;
         }
     }
@@ -420,14 +417,14 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[RemoteControl] Failed to start remote session");
+            _logger?.LogWarning(ex, "[RemoteControl] Failed to start remote session");
         }
     }
 
     private void StopAllRemoteEffectsInternal()
     {
         var settings = _settingsService.Current;
-        _logger?.Information("[RemoteControl] Stopping all remote effects");
+        _logger?.LogInformation("[RemoteControl] Stopping all remote effects");
 
         _audioPlayer?.Stop();
         _video?.Stop();
@@ -457,7 +454,7 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
     private void StopRemoteTriggeredEffectsInternal()
     {
         var settings = _settingsService.Current;
-        _logger?.Information("[RemoteControl] Controller disconnected — cleaning up remote effects only");
+        _logger?.LogInformation("[RemoteControl] Controller disconnected — cleaning up remote effects only");
 
         _video?.Stop();
         StopBrowserVideoInternal();
@@ -489,11 +486,11 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         try
         {
             _ = _browserHost?.NavigateAsync(new Uri("about:blank"));
-            _logger?.Information("[RemoteControl] Stopped remote browser video");
+            _logger?.LogInformation("[RemoteControl] Stopped remote browser video");
         }
         catch (Exception ex)
         {
-            _logger?.Debug("StopBrowserVideo failed: {Error}", ex.Message);
+            _logger?.LogDebug("StopBrowserVideo failed: {Error}", ex.Message);
         }
     }
 
@@ -505,7 +502,7 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[RemoteControl] Failed to save settings");
+            _logger?.LogWarning(ex, "[RemoteControl] Failed to save settings");
         }
     }
 

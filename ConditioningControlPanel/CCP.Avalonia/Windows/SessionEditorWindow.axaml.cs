@@ -14,9 +14,11 @@ using Avalonia.Media.Imaging;
 using AvaloniaLayout = global::Avalonia.Layout;
 using IOPath = System.IO.Path;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Help;
 using ConditioningControlPanel.Core.Services.Sessions;
 
 using AvaPoint = global::Avalonia.Point;
@@ -132,7 +134,12 @@ public partial class SessionEditorWindow : Window
 
     private void BtnHelp_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: show HelpVideoWindow once ported; fall back to overlay for now.
+        var content = HelpContentService.GetContent("SessionEditor");
+        if (content.HasClip)
+        {
+            HelpVideoWindow.Show(content, this);
+            return;
+        }
         TutorialOverlay.IsVisible = true;
     }
 
@@ -226,26 +233,7 @@ public partial class SessionEditorWindow : Window
         {
             try
             {
-                var env = App.Services?.GetService<IAppEnvironment>();
-                var assetLoader = App.Services?.GetService<IAssetLoader>();
-                var normalizedPath = feature.ImagePath.Replace('/', IOPath.DirectorySeparatorChar);
-                var filePath = env != null ? IOPath.Combine(env.BaseDirectory, normalizedPath) : normalizedPath;
-
-                Bitmap? bitmap = null;
-                if (File.Exists(filePath))
-                {
-                    using var stream = File.OpenRead(filePath);
-                    bitmap = new Bitmap(stream);
-                }
-                else if (assetLoader != null)
-                {
-                    var uri = new Uri($"avares://CCP.Avalonia/Assets/{feature.ImagePath.Replace("\\", "/")}");
-                    if (assetLoader.Exists(uri))
-                    {
-                        using var stream = assetLoader.Open(uri);
-                        bitmap = new Bitmap(stream);
-                    }
-                }
+                var bitmap = AvaloniaBitmapHelper.LoadResource(feature.ImagePath.Replace('\\', '/'));
 
                 if (bitmap != null)
                 {

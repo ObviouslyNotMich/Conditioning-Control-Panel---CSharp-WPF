@@ -24,7 +24,7 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class CompanionPhraseEditorDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<CompanionPhraseEditorDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
 
 
@@ -85,7 +85,7 @@ public partial class CompanionPhraseEditorDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<CompanionPhraseEditorDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
 _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseService>();
         _dialogService = App.Services?.GetService<IDialogService>();
@@ -130,30 +130,17 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         UpdateTotalCount();
     }
 
-    private static IEnumerable<CompanionPhrase> GetAllPhrases()
+    private IEnumerable<CompanionPhrase> GetAllPhrases()
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-        // TODO: App.CompanionPhrases service is not yet in CCP.Core; return placeholder data.
-        if (CoreApp.CompanionPhrases != null)
+        try
         {
-            try
-            {
-                dynamic svc = CoreApp.CompanionPhrases;
-                var list = svc.GetAllPhrases() as IEnumerable<CompanionPhrase>;
-                if (list != null) return list;
-            }
-            catch (Exception ex)
-            {
-                App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "CompanionPhraseEditorDialog: failed to load phrases");
-            }
+            return _companionPhraseService.GetAllPhrases();
         }
-
-        return new List<CompanionPhrase>
+        catch (Exception ex)
         {
-            new() { Id = "demo-1", Text = "Good girls obey.", Category = "Generic", IsBuiltIn = true },
-            new() { Id = "demo-2", Text = "Bambi loves pink.", Category = "Generic", IsBuiltIn = true },
-            new() { Id = "demo-3", Text = "Drop for cock.", Category = "VoiceLine", IsBuiltIn = true, AudioFileName = "drop.wav" }
-        };
+            _logger.LogWarning(ex, "CompanionPhraseEditorDialog: failed to load phrases");
+            return Array.Empty<CompanionPhrase>();
+        }
     }
 
     private void ApplyFilter()
@@ -270,7 +257,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         if (DialogService != null)
         {
             var files = await DialogService.ShowOpenFileDialogAsync(
-                "Select audio file for phrase",
+                Loc.Get("title_select_audio_file_for_phrase"),
                 new[]
                 {
                     new FileFilter("Audio Files", new[] { "mp3", "wav", "ogg", "flac" }),
@@ -292,8 +279,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
 
         if (string.IsNullOrEmpty(fileName)) return;
 
-        // TODO: App.CompanionPhrases.CopyAudioToFolder is not yet in CCP.Core.
-        var copied = CopyAudioPlaceholder(fileName, phrase.Text);
+        var copied = _companionPhraseService.CopyAudioToFolder(fileName, phrase.Text);
         if (copied == null) return;
 
         if (phrase.IsBuiltIn)
@@ -306,26 +292,6 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
 
         _settings?.Save();
         RefreshPhraseList();
-    }
-
-    private static string? CopyAudioPlaceholder(string sourcePath, string phraseText)
-    {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
-        // TODO: replace with App.CompanionPhrases.CopyAudioToFolder once ported.
-        try
-        {
-            var folder = CompanionPhrase.DefaultAudioFolder;
-            Directory.CreateDirectory(folder);
-            var name = $"custom_{Guid.NewGuid():N}.mp3";
-            var dest = Path.Combine(folder, name);
-            File.Copy(sourcePath, dest, overwrite: true);
-            return name;
-        }
-        catch (Exception ex)
-        {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Warning(ex, "CompanionPhraseEditorDialog: failed to copy audio placeholder");
-            return null;
-        }
     }
 
     private void BtnClearAudio_Click(object? sender, RoutedEventArgs e)
@@ -416,7 +382,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         // Build a small inline add-phrase dialog.
         var inputWindow = new Window
         {
-            Title = "Add Custom Phrase",
+            Title = Loc.Get("title_add_custom_phrase"),
             Width = 480,
             Height = 280,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -427,7 +393,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         var stack = new StackPanel { Margin = new Thickness(15), Spacing = 10 };
         stack.Children.Add(new TextBlock
         {
-            Text = "Enter phrase text:",
+            Text = Loc.Get("msg_enter_phrase_text"),
             Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             FontSize = 13
         });
@@ -445,7 +411,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
 
         stack.Children.Add(new TextBlock
         {
-            Text = "Category:",
+            Text = Loc.Get("label_category_name"),
             Foreground = (SolidColorBrush)global::Avalonia.Application.Current!.Resources["TextLightBrush"]!,
             FontSize = 13
         });
@@ -473,13 +439,13 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         };
         var cancelBtn = new Button
         {
-            Content = "Cancel",
+            Content = Loc.Get("btn_cancel"),
             Theme = this.FindResource("SecondaryButton") as ControlTheme,
         };
         cancelBtn.Click += (_, _) => inputWindow.Close(false);
         var okBtn = new Button
         {
-            Content = "Add",
+            Content = Loc.Get("btn_add"),
             Theme = this.FindResource("ActionButton") as ControlTheme,
         };
         okBtn.Click += (_, _) => inputWindow.Close(true);
@@ -512,7 +478,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
         if (addAudio && DialogService != null)
         {
             var files = await DialogService.ShowOpenFileDialogAsync(
-                "Select audio file for phrase",
+                Loc.Get("title_select_audio_file_for_phrase"),
                 new[]
                 {
                     new FileFilter("Audio Files", new[] { "mp3", "wav", "ogg", "flac" }),
@@ -521,8 +487,7 @@ _companionPhraseService = App.Services.GetRequiredService<ICompanionPhraseServic
             var audioFile = files.FirstOrDefault();
             if (audioFile != null)
             {
-                var copied =
-CopyAudioPlaceholder(audioFile, text);
+                var copied = _companionPhraseService.CopyAudioToFolder(audioFile, text);
                 if (copied != null) newPhrase.AudioFileName = copied;
             }
         }

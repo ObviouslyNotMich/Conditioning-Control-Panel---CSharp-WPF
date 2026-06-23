@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.Overlays;
@@ -187,7 +187,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
     /// </summary>
     public sealed class RealActionDispatcher : IActionDispatcher
     {
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<RealActionDispatcher>? _logger;
         private readonly IAppEnvironment _environment;
         private readonly ISettingsService _settings;
         private readonly IAudioPlayer _audioPlayer;
@@ -196,7 +196,6 @@ namespace ConditioningControlPanel.Core.Services.Deeper
         private readonly IOverlayService _overlay;
         private readonly IHapticsService _haptics;
         private readonly IBubbleService _bubbles;
-        private readonly IScheduler _scheduler;
 
         // Per-EffectId tracking for band-mode effects. Lets Stop hide the right
         // overlay kind and Restart re-issue a haptic with its previously dispatched
@@ -221,8 +220,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             IOverlayService overlay,
             IHapticsService haptics,
             IBubbleService bubbles,
-            IScheduler scheduler,
-            IAppLogger? logger = null)
+            ILogger<RealActionDispatcher>? logger = null)
         {
             _environment = environment ?? throw new ArgumentNullException(nameof(environment));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -232,7 +230,6 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
             _haptics = haptics ?? throw new ArgumentNullException(nameof(haptics));
             _bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
-            _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
             _logger = logger;
         }
 
@@ -268,14 +265,14 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                         break;
 
                     case ScreenShakeAction shake:
-                        _logger?.Debug("Deeper: screen_shake action stubbed in cross-platform runtime (intensity={Intensity}, duration={Duration}ms)",
+                        _logger?.LogDebug("Deeper: screen_shake action stubbed in cross-platform runtime (intensity={Intensity}, duration={Duration}ms)",
                             shake.Intensity, shake.DurationMs);
                         break;
 
                     case SetIntensityAction:
                         // No central session-intensity setting yet; log so creators
                         // see firing without a runtime side-effect.
-                        _logger?.Debug("Deeper: set_intensity action stubbed in cross-platform runtime");
+                        _logger?.LogDebug("Deeper: set_intensity action stubbed in cross-platform runtime");
                         break;
 
                     case NoOpEnhancementAction:
@@ -285,7 +282,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
             catch (Exception ex)
             {
-                _logger?.Debug("Deeper action dispatch error ({Type}): {Error}", action.Type, ex.Message);
+                _logger?.LogDebug("Deeper action dispatch error ({Type}): {Error}", action.Type, ex.Message);
             }
         }
 
@@ -345,16 +342,16 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                     path = Path.Combine(_environment.EffectiveAssetsPath, path);
                 if (!File.Exists(path))
                 {
-                    _logger?.Debug("Deeper play_audio: file not found ({Path})", path);
+                    _logger?.LogDebug("Deeper play_audio: file not found ({Path})", path);
                     return;
                 }
                 if (pa.DuckOtherAudio && _settings.Current.AudioDuckingEnabled)
-                    _logger?.Debug("Deeper play_audio: audio ducking requested (level={Level}) — full ducker wiring is separate", _settings.Current.DuckingLevel);
+                    _logger?.LogDebug("Deeper play_audio: audio ducking requested (level={Level}) — full ducker wiring is separate", _settings.Current.DuckingLevel);
                 _ = _audioPlayer.PlayAsync(path);
             }
             catch (Exception ex)
             {
-                _logger?.Debug("Deeper play_audio error: {Error}", ex.Message);
+                _logger?.LogDebug("Deeper play_audio error: {Error}", ex.Message);
             }
         }
 
@@ -403,13 +400,13 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                         break;
 
                     default:
-                        _logger?.Debug("Deeper trigger_effect: unknown effect_type \"{Type}\"", effect.EffectType);
+                        _logger?.LogDebug("Deeper trigger_effect: unknown effect_type \"{Type}\"", effect.EffectType);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                _logger?.Debug("Deeper trigger_effect dispatch error: {Error}", ex.Message);
+                _logger?.LogDebug("Deeper trigger_effect dispatch error: {Error}", ex.Message);
             }
         }
 
@@ -469,15 +466,21 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             try
             {
                 _bubbles.Start();
-                _scheduler.StartOneShotTimer(TimeSpan.FromMilliseconds(Math.Max(50, durationMs)), () =>
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Max(50, durationMs)) };
+                EventHandler? handler = null;
+                handler = (_, _) =>
                 {
+                    timer.Stop();
+                    timer.Tick -= handler;
                     try { _bubbles.Stop(); }
-                    catch (Exception ex) { _logger?.Debug("DispatchBubbleBurst stop: {E}", ex.Message); }
-                });
+                    catch (Exception ex) { _logger?.LogDebug("DispatchBubbleBurst stop: {E}", ex.Message); }
+                };
+                timer.Tick += handler;
+                timer.Start();
             }
             catch (Exception ex)
             {
-                _logger?.Debug("DispatchBubbleBurst start: {E}", ex.Message);
+                _logger?.LogDebug("DispatchBubbleBurst start: {E}", ex.Message);
             }
         }
 
@@ -509,7 +512,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
 
                 if (keyframes == null)
                 {
-                    _logger?.Debug("Deeper haptic: skipped — no pattern (name='{Name}', custom={Count})",
+                    _logger?.LogDebug("Deeper haptic: skipped — no pattern (name='{Name}', custom={Count})",
                         haptic.PatternName, haptic.CustomPattern?.Count ?? 0);
                     return;
                 }
@@ -539,7 +542,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
             catch (Exception ex)
             {
-                _logger?.Debug("Deeper haptic dispatch error: {Error}", ex.Message);
+                _logger?.LogDebug("Deeper haptic dispatch error: {Error}", ex.Message);
             }
         }
     }

@@ -4,7 +4,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using ConditioningControlPanel.Core.Platform;
+using System.Threading;
 using ConditioningControlPanel.Core.Services.Settings;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -52,9 +52,8 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
     private const int EmoteDebounceMs = 300;
 
     private readonly HttpClient _httpClient;
-    private readonly IScheduler _scheduler;
     private readonly ISettingsService _settingsService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<RemoteControlService>? _logger;
     private readonly IRemoteCommandExecutor? _commandExecutor;
     private readonly IRemoteStatusProvider? _statusProvider;
 
@@ -68,7 +67,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
     private string? _sessionCode;
     private string? _connectPin;
     private string? _tier;
-    private IDisposable? _pollTimer;
+    private Timer? _pollTimer;
     private bool _pollInProgress;
 
     private int _consecutivePollFailures;
@@ -87,13 +86,11 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
     private string? _lastOptInStatus;
 
     public RemoteControlService(
-        IScheduler scheduler,
         ISettingsService settingsService,
-        IAppLogger? logger = null,
+        ILogger<RemoteControlService>? logger = null,
         IRemoteCommandExecutor? commandExecutor = null,
         IRemoteStatusProvider? statusProvider = null)
     {
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _logger = logger;
         _commandExecutor = commandExecutor;
@@ -140,7 +137,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
             if (changed)
             {
-                _logger?.Information("Remote controller connected changed: {Connected}", value);
+                _logger?.LogInformation("Remote controller connected changed: {Connected}", value);
                 ControllerConnectedChanged?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -195,7 +192,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
         var unifiedId = _settingsService.Current?.UnifiedId;
         if (string.IsNullOrEmpty(unifiedId))
         {
-            _logger?.Warning("[RemoteControl] Cannot start: no unified ID");
+            _logger?.LogWarning("[RemoteControl] Cannot start: no unified ID");
             return null;
         }
 
@@ -209,7 +206,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger?.Warning("[RemoteControl] Start failed: {Status} {Body}", response.StatusCode, json);
+                _logger?.LogWarning("[RemoteControl] Start failed: {Status} {Body}", response.StatusCode, json);
                 return null;
             }
 
@@ -242,12 +239,12 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
             SchedulePoll(PollIntervalSeconds);
 
-            _logger?.Information("[RemoteControl] Session started: {Code}, tier: {Tier}", code, tier);
+            _logger?.LogInformation("[RemoteControl] Session started: {Code}, tier: {Tier}", code, tier);
             return code;
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "[RemoteControl] Start error");
+            _logger?.LogError(ex, "[RemoteControl] Start error");
             return null;
         }
     }
@@ -266,19 +263,19 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "[RemoteControl] Stop request failed");
+                _logger?.LogWarning(ex, "[RemoteControl] Stop request failed");
             }
         }
 
         CleanupSession();
-        _logger?.Information("[RemoteControl] Session stopped");
+        _logger?.LogInformation("[RemoteControl] Session stopped");
     }
 
     public async Task OptInToDirectoryAsync(List<string> tags, string statusText)
     {
         if (!IsActive || string.IsNullOrEmpty(SessionCode) || string.IsNullOrEmpty(ConnectPin))
         {
-            _logger?.Warning("[RemoteControl] OptIn called without active session");
+            _logger?.LogWarning("[RemoteControl] OptIn called without active session");
             return;
         }
 
@@ -299,24 +296,24 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
             using var response = await AuthPostAsync($"{ProxyBaseUrl}/v2/directory/opt-in", body).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                _logger?.Warning("[RemoteControl] Directory opt-in failed: {Status}", response.StatusCode);
+                _logger?.LogWarning("[RemoteControl] Directory opt-in failed: {Status}", response.StatusCode);
                 return;
             }
 
             _lastOptInTags = tags ?? new List<string>();
             _lastOptInStatus = statusText ?? "";
-            _logger?.Information("[RemoteControl] Directory opt-in OK ({TagCount} tags, status={StatusLen}c)",
+            _logger?.LogInformation("[RemoteControl] Directory opt-in OK ({TagCount} tags, status={StatusLen}c)",
                 (tags ?? new List<string>()).Count, (statusText ?? "").Length);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[RemoteControl] Directory opt-in error");
+            _logger?.LogWarning(ex, "[RemoteControl] Directory opt-in error");
         }
     }
 
     public async Task DisconnectControllerAsync()
     {
-        _logger?.Information("Remote controller disconnect requested.");
+        _logger?.LogInformation("Remote controller disconnect requested.");
 
         var unifiedId = _settingsService.Current?.UnifiedId;
         if (!string.IsNullOrEmpty(unifiedId) && !string.IsNullOrEmpty(SessionCode))
@@ -328,7 +325,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "[RemoteControl] Disconnect request failed");
+                _logger?.LogWarning(ex, "[RemoteControl] Disconnect request failed");
             }
         }
 
@@ -375,7 +372,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
             if (response.IsSuccessStatusCode)
             {
-                _logger?.Information("[RemoteControl] Emote sent (kind={Kind}, len={Len})", kind, trimmed.Length);
+                _logger?.LogInformation("[RemoteControl] Emote sent (kind={Kind}, len={Len})", kind, trimmed.Length);
                 return (true, null, null);
             }
 
@@ -391,16 +388,16 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
                 }
                 catch { /* keep null */ }
 
-                _logger?.Warning("[RemoteControl] Emote rate limited (retry_after={Retry}s)", retryAfter?.ToString() ?? "?");
+                _logger?.LogWarning("[RemoteControl] Emote rate limited (retry_after={Retry}s)", retryAfter?.ToString() ?? "?");
                 return (false, "rate_limited", retryAfter);
             }
 
-            _logger?.Warning("[RemoteControl] Emote send failed: {Status} {Body}", response.StatusCode, raw);
+            _logger?.LogWarning("[RemoteControl] Emote send failed: {Status} {Body}", response.StatusCode, raw);
             return (false, $"http {(int)response.StatusCode}", null);
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[RemoteControl] Emote send error");
+            _logger?.LogWarning(ex, "[RemoteControl] Emote send error");
             return (false, ex.Message, null);
         }
     }
@@ -447,7 +444,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
         if (wasActive)
         {
-            _logger?.Information("[RemoteControl] Session stopped.");
+            _logger?.LogInformation("[RemoteControl] Session stopped.");
             if (_commandExecutor != null)
                 _ = _commandExecutor.StopAllRemoteEffectsAsync();
             SessionEnded?.Invoke(this, EventArgs.Empty);
@@ -459,10 +456,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
         if (_isDisposed || !IsActive) return;
 
         _pollTimer?.Dispose();
-        _pollTimer = _scheduler.StartOneShotTimer(TimeSpan.FromSeconds(intervalSeconds), () =>
-        {
-            _ = PollForCommandsAsync();
-        });
+        _pollTimer = new Timer(_ => _ = PollForCommandsAsync(), null, TimeSpan.FromSeconds(intervalSeconds), Timeout.InfiniteTimeSpan);
     }
 
     private async Task PollForCommandsAsync()
@@ -501,12 +495,12 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
             {
                 _consecutivePollFailures++;
                 if (_consecutivePollFailures >= 3)
-                    _logger?.Warning("[RemoteControl] Poll timeout (consecutive: {Count})", _consecutivePollFailures);
+                    _logger?.LogWarning("[RemoteControl] Poll timeout (consecutive: {Count})", _consecutivePollFailures);
             }
             catch (Exception ex)
             {
                 _consecutivePollFailures++;
-                _logger?.Warning(ex, "[RemoteControl] Poll error (consecutive: {Count})", _consecutivePollFailures);
+                _logger?.LogWarning(ex, "[RemoteControl] Poll error (consecutive: {Count})", _consecutivePollFailures);
             }
         }
         finally
@@ -526,32 +520,32 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            _logger?.Warning("[RemoteControl] Session expired during poll");
+            _logger?.LogWarning("[RemoteControl] Session expired during poll");
             CleanupSession();
         }
         else if (response.StatusCode == (System.Net.HttpStatusCode)429)
         {
             _currentPollInterval = Math.Min(_currentPollInterval * 2, MaxBackoffSeconds);
             var (cap, count) = await Read429CapAsync(response).ConfigureAwait(false);
-            _logger?.Warning("[RemoteControl] Rate limited (429) [code={Code} cap={Cap} count={Count}], backing off to {Interval}s",
+            _logger?.LogWarning("[RemoteControl] Rate limited (429) [code={Code} cap={Cap} count={Count}], backing off to {Interval}s",
                 SessionCode ?? "?", cap, count, _currentPollInterval);
         }
         else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            _logger?.Warning("[RemoteControl] Auth failure (401), consecutive: {Count}", _consecutivePollFailures);
+            _logger?.LogWarning("[RemoteControl] Auth failure (401), consecutive: {Count}", _consecutivePollFailures);
             if (_consecutivePollFailures >= 3)
             {
-                _logger?.Error("[RemoteControl] 3 consecutive auth failures — terminating session");
+                _logger?.LogError("[RemoteControl] 3 consecutive auth failures — terminating session");
                 CleanupSession();
             }
         }
         else if (_consecutivePollFailures >= 5)
         {
-            _logger?.Error("[RemoteControl] Poll failed: {Status} (consecutive failures: {Count})", response.StatusCode, _consecutivePollFailures);
+            _logger?.LogError("[RemoteControl] Poll failed: {Status} (consecutive failures: {Count})", response.StatusCode, _consecutivePollFailures);
         }
         else
         {
-            _logger?.Warning("[RemoteControl] Poll failed: {Status}", response.StatusCode);
+            _logger?.LogWarning("[RemoteControl] Poll failed: {Status}", response.StatusCode);
         }
     }
 
@@ -565,11 +559,11 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
         if (wasBackedOff)
         {
             _currentPollInterval = PollIntervalSeconds;
-            _logger?.Information("[RemoteControl] Recovered from backoff, restoring {Interval}s poll interval", PollIntervalSeconds);
+            _logger?.LogInformation("[RemoteControl] Recovered from backoff, restoring {Interval}s poll interval", PollIntervalSeconds);
         }
         else if (wasFailingConsecutively && _consecutivePollSuccesses == 1)
         {
-            _logger?.Information("[RemoteControl] Poll recovered after failures");
+            _logger?.LogInformation("[RemoteControl] Poll recovered after failures");
         }
     }
 
@@ -580,7 +574,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
 
         _lastHealthLog = now;
         var uptime = now - _sessionStartTime;
-        _logger?.Information(
+        _logger?.LogInformation(
             "[RemoteControl] Health: code={Code} uptime={Uptime} polls_ok={Successes} cmds_total={Cmds} controller={Status}",
             SessionCode,
             $"{(int)uptime.TotalMinutes}m{uptime.Seconds}s",
@@ -635,7 +629,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
             var idleDuration = (DateTime.UtcNow - _controllerIdleSince.Value).TotalSeconds;
             if (idleDuration >= IdleAutoDisconnectSeconds)
             {
-                _logger?.Information("[RemoteControl] Controller idle for {Seconds:F0}s — auto-disconnecting", idleDuration);
+                _logger?.LogInformation("[RemoteControl] Controller idle for {Seconds:F0}s — auto-disconnecting", idleDuration);
                 _controllerAutoDisconnected = true;
                 ControllerConnected = false;
                 ControllerIdle = false;
@@ -653,7 +647,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
         if (commands != null && commands.Count > 0)
         {
             _totalCommandsReceived += commands.Count;
-            _logger?.Information("[RemoteControl] Poll returned {Count} command(s), session total: {Total}", commands.Count, _totalCommandsReceived);
+            _logger?.LogInformation("[RemoteControl] Poll returned {Count} command(s), session total: {Total}", commands.Count, _totalCommandsReceived);
         }
 
         if (commands == null) return;
@@ -664,7 +658,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
             var id = cmd["id"]?.ToString();
             if (string.IsNullOrEmpty(action)) continue;
 
-            _logger?.Information("[RemoteControl] Executing: {Action} (id: {Id})", action, id);
+            _logger?.LogInformation("[RemoteControl] Executing: {Action} (id: {Id})", action, id);
 
             try
             {
@@ -676,7 +670,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex, "[RemoteControl] Error executing command: {Action}", action);
+                _logger?.LogError(ex, "[RemoteControl] Error executing command: {Action}", action);
             }
 
             CommandReceived?.Invoke(this, action);
@@ -751,13 +745,13 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
                 {
                     _statusBackoffUntil = DateTime.UtcNow.AddSeconds(StatusBackoffSeconds);
                     var (cap, count) = await Read429CapAsync(response).ConfigureAwait(false);
-                    _logger?.Warning(
+                    _logger?.LogWarning(
                         "[RemoteControl] Status push rate limited (429) [code={Code} cap={Cap} count={Count}] — suppressing status pushes for {Seconds}s",
                         SessionCode ?? "?", cap, count, StatusBackoffSeconds);
                 }
                 else
                 {
-                    _logger?.Warning(
+                    _logger?.LogWarning(
                         "[RemoteControl] Status push failed: {Status} [code={Code}]",
                         response.StatusCode, SessionCode ?? "?");
                 }
@@ -769,7 +763,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[RemoteControl] Status update error");
+            _logger?.LogWarning(ex, "[RemoteControl] Status update error");
         }
     }
 
@@ -783,7 +777,7 @@ public sealed class RemoteControlService : IRemoteControlService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "[RemoteControl] Directory re-publish after disconnect failed");
+            _logger?.LogWarning(ex, "[RemoteControl] Directory re-publish after disconnect failed");
         }
     }
 

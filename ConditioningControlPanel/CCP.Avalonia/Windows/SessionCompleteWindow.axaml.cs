@@ -10,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
@@ -24,7 +25,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class SessionCompleteWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<SessionCompleteWindow> _logger;
     private readonly IDialogService? _dialogService;
 
 
@@ -43,7 +44,7 @@ public partial class SessionCompleteWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SessionCompleteWindow>>();
         _dialogService = App.Services?.GetService<IDialogService>();
 }
 
@@ -51,7 +52,7 @@ public partial class SessionCompleteWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SessionCompleteWindow>>();
         _dialogService = App.Services?.GetService<IDialogService>();
 LoadRandomCard();
         ApplyLog(log);
@@ -140,29 +141,15 @@ LoadRandomCard();
     {
         try
         {
-            var env = App.Services?.GetService<IAppEnvironment>();
-            var assetLoader = App.Services?.GetService<IAssetLoader>();
             var relative = CardImages[_random.Next(CardImages.Length)];
+            var resourcePath = relative.StartsWith("Resources/", StringComparison.OrdinalIgnoreCase)
+                ? relative.Substring("Resources/".Length)
+                : relative;
 
-            // Prefer file on disk; fall back to embedded asset loader.
-            var filePath = env != null ? Path.Combine(env.BaseDirectory, relative.Replace('/', Path.DirectorySeparatorChar)) : relative;
-            if (File.Exists(filePath))
+            var bitmap = AvaloniaBitmapHelper.LoadResource(resourcePath);
+            if (bitmap != null)
             {
-                using var stream = File.OpenRead(filePath);
-                ImgCard.Source = new Bitmap(stream);
-            }
-            else if (assetLoader != null)
-            {
-                var uri = new Uri($"avares://CCP.Avalonia/Assets/{relative}");
-                if (assetLoader.Exists(uri))
-                {
-                    using var stream = assetLoader.Open(uri);
-                    ImgCard.Source = new Bitmap(stream);
-                }
-                else
-                {
-                    CardBorder.IsVisible = false;
-                }
+                ImgCard.Source = bitmap;
             }
             else
             {
@@ -171,7 +158,7 @@ LoadRandomCard();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to load session completion card");
+            _logger?.LogWarning(ex, "Failed to load session completion card");
             CardBorder.IsVisible = false;
         }
     }
@@ -202,12 +189,12 @@ LoadRandomCard();
             _ = Task.Run(async () =>
             {
                 try { await player.PlayAsync(soundPath); }
-                catch (Exception ex) { _logger?.Information("Failed to play completion sound: {Error}", ex.Message); }
+                catch (Exception ex) { _logger?.LogInformation("Failed to play completion sound: {Error}", ex.Message); }
             });
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to play completion sound");
+            _logger?.LogError(ex, "Failed to play completion sound");
         }
     }
 
@@ -238,7 +225,7 @@ LoadRandomCard();
                 {
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{parent}\"") { UseShellExecute = true });
                 }
-                _logger?.Information("SessionCompleteWindow: file gone, opened parent folder {Parent}", parent);
+                _logger?.LogInformation("SessionCompleteWindow: file gone, opened parent folder {Parent}", parent);
                 return;
             }
 
@@ -252,7 +239,7 @@ LoadRandomCard();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SessionCompleteWindow: failed to open file location {Path}", path);
+            _logger?.LogWarning(ex, "SessionCompleteWindow: failed to open file location {Path}", path);
         }
     }
 

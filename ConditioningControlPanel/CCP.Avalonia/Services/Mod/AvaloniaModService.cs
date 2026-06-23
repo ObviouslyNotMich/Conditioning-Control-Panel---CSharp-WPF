@@ -22,13 +22,13 @@ public sealed class AvaloniaModService : IModService
 {
     private readonly ISettingsService _settings;
     private readonly IAppEnvironment _environment;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaModService>? _logger;
 
     private readonly List<ModPackage> _builtInMods;
     private readonly List<ModPackage> _installedMods = new();
     private ModPackage _activeMod = null!;
 
-    public AvaloniaModService(ISettingsService settings, IAppEnvironment environment, IAppLogger? logger = null)
+    public AvaloniaModService(ISettingsService settings, IAppEnvironment environment, ILogger<AvaloniaModService>? logger = null)
     {
         _settings = settings;
         _environment = environment;
@@ -59,6 +59,11 @@ public sealed class AvaloniaModService : IModService
         EnsureModsDirectoryExists();
         RefreshInstalledMods();
 
+        // Extract bundled .ccpmod packages (e.g. Drone, Locked resources) and register
+        // them as built-in mods with an InstalledPath so mod-aware art/sounds resolve.
+        ExtractBundledBuiltInMods();
+        ExtractBundledResourceMods();
+
         var target = ResolveMod(activeModId);
         if (target == null)
         {
@@ -72,7 +77,7 @@ public sealed class AvaloniaModService : IModService
         }
 
         _activeMod = target;
-        _logger?.Information("AvaloniaModService initialized — active mod: {ModId} ({ModName})", _activeMod.Id, _activeMod.Name);
+        _logger?.LogInformation("AvaloniaModService initialized — active mod: {ModId} ({ModName})", _activeMod.Id, _activeMod.Name);
     }
 
     /// <inheritdoc />
@@ -87,7 +92,7 @@ public sealed class AvaloniaModService : IModService
         _settings.Current.ActiveModId = target.Id;
         _settings.Save();
         ActiveModChanged?.Invoke(this, target);
-        _logger?.Information("Active mod changed to {ModId} ({ModName})", target.Id, target.Name);
+        _logger?.LogInformation("Active mod changed to {ModId} ({ModName})", target.Id, target.Name);
         return true;
     }
 
@@ -144,7 +149,7 @@ public sealed class AvaloniaModService : IModService
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to install mod from {Path}", ccpmodPath);
+            _logger?.LogError(ex, "Failed to install mod from {Path}", ccpmodPath);
             return ModInstallResult.Failure(ModInstallStatus.IOFailure, $"Installation failed: {ex.Message}");
         }
         finally
@@ -179,13 +184,95 @@ public sealed class AvaloniaModService : IModService
                 ActivateMod(BuiltInMods.CCPDefaultId);
             }
 
-            _logger?.Information("Uninstalled mod {ModId}", modId);
+            _logger?.LogInformation("Uninstalled mod {ModId}", modId);
             return true;
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to uninstall mod {ModId}", modId);
+            _logger?.LogError(ex, "Failed to uninstall mod {ModId}", modId);
             return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task ExportCurrentAsModAsync(string outputPath, string modName, string author)
+    {
+        var settings = _settings.Current;
+        var active = ActiveManifest;
+
+        var manifest = new ModManifest
+        {
+            Id = SanitizeModId(modName),
+            Name = modName,
+            Version = "1.0.0",
+            Author = author,
+            Description = $"Exported from {GetModeDisplayName()} configuration.",
+            Theme = new ModTheme
+            {
+                AccentColor = GetAccentColorHex(),
+                AccentLightColor = GetAccentLightColorHex(),
+                AccentDarkColor = GetAccentDarkColorHex(),
+                BackgroundColor = GetBackgroundColorHex(),
+                PanelColor = GetPanelColorHex(),
+                SurfaceColor = GetSurfaceColorHex(),
+                FilterColor = GetFilterColorHex()
+            },
+            Identity = CloneIdentity(active.Identity),
+            Triggers = CloneTriggers(active.Triggers),
+            Messages = CloneMessages(active.Messages),
+            Browser = CloneBrowser(active.Browser)
+        };
+
+        manifest.SubliminalPool = settings?.SubliminalPool != null
+            ? new Dictionary<string, bool>(settings.SubliminalPool)
+            : active.SubliminalPool != null
+                ? new Dictionary<string, bool>(active.SubliminalPool)
+                : null;
+
+        manifest.LockCardPhrases = settings?.LockCardPhrases != null
+            ? new Dictionary<string, bool>(settings.LockCardPhrases)
+            : active.LockCardPhrases != null
+                ? new Dictionary<string, bool>(active.LockCardPhrases)
+                : null;
+
+        manifest.CustomTriggers = settings?.CustomTriggers != null
+            ? new List<string>(settings.CustomTriggers)
+            : active.CustomTriggers != null
+                ? new List<string>(active.CustomTriggers)
+                : null;
+
+        if (active.Phrases != null)
+            manifest.Phrases = new Dictionary<string, string[]>(active.Phrases);
+
+        if (active.TextReplacements != null && active.TextReplacements.Count > 0)
+            manifest.TextReplacements = new Dictionary<string, string>(active.TextReplacements);
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "ccp_mod_export_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(tempDir);
+        Directory.CreateDirectory(Path.Combine(tempDir, "resources"));
+
+        try
+        {
+            var json = JsonConvert.SerializeObject(manifest, Formatting.Indented);
+            await File.WriteAllTextAsync(Path.Combine(tempDir, "mod.json"), json).ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(_activeMod.InstalledPath))
+            {
+                var srcResources = Path.Combine(_activeMod.InstalledPath, "resources");
+                if (Directory.Exists(srcResources))
+                    CopyDirectory(srcResources, Path.Combine(tempDir, "resources"));
+            }
+
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
+
+            await Task.Run(() => ZipFile.CreateFromDirectory(tempDir, outputPath)).ConfigureAwait(false);
+            _logger?.LogInformation("Mod exported to {Path}", outputPath);
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true); }
+            catch { /* best-effort cleanup */ }
         }
     }
 
@@ -195,6 +282,58 @@ public sealed class AvaloniaModService : IModService
 
     public string GetModeDisplayName()
         => ActiveManifest.Identity?.ModeDisplayName ?? ActiveManifest.Name ?? "Conditioning Control Panel";
+
+    public IReadOnlyDictionary<string, string> GetVideoLinks()
+    {
+        var activeId = ActiveManifest.Id;
+        var settings = _settings.Current;
+        if (settings?.VideoLinksByMod != null &&
+            settings.VideoLinksByMod.TryGetValue(activeId, out var overrideLinks) &&
+            overrideLinks != null &&
+            overrideLinks.Count > 0)
+        {
+            return new Dictionary<string, string>(overrideLinks, StringComparer.OrdinalIgnoreCase);
+        }
+
+        var defaults = ActiveManifest.Browser?.DefaultVideoLinks;
+        if (defaults == null || defaults.Count == 0)
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        return new Dictionary<string, string>(defaults, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public string GetAffirmation()
+        => ActiveManifest.Identity?.Affirmation ?? "Subject";
+
+    public double GetAvatarScale()
+        => Math.Clamp(ActiveManifest.TubeLayout?.AvatarScale ?? 1.0, 0.1, 3.0);
+
+    public int GetAvatarOffsetX()
+        => Math.Clamp(ActiveManifest.TubeLayout?.AvatarOffsetX ?? 0, -1000, 1000);
+
+    public int GetAvatarOffsetY()
+        => Math.Clamp(ActiveManifest.TubeLayout?.AvatarOffsetY ?? 0, -500, 500);
+
+    public int GetAvatarDetachedOffsetX()
+        => Math.Clamp(ActiveManifest.TubeLayout?.AvatarDetachedOffsetX ?? 0, -1000, 1000);
+
+    public int GetAvatarDetachedOffsetY()
+        => Math.Clamp(ActiveManifest.TubeLayout?.AvatarDetachedOffsetY ?? 0, -500, 500);
+
+    public bool IsAvatarSetSupported(int setNumber)
+    {
+        var supported = ActiveManifest.SupportedAvatarSets;
+        if (supported == null || supported.Count == 0) return true;
+        return supported.Contains(setNumber);
+    }
+
+    public IReadOnlyList<ConditioningControlPanel.Models.CustomAvatarSet> GetCustomAvatarSets()
+    {
+        var custom = ActiveManifest.CustomAvatarSets;
+        return custom == null
+            ? Array.Empty<ConditioningControlPanel.Models.CustomAvatarSet>()
+            : new List<ConditioningControlPanel.Models.CustomAvatarSet>(custom);
+    }
 
     public string MakeModAware(string text)
     {
@@ -289,6 +428,197 @@ public sealed class AvaloniaModService : IModService
     public string GetAttentionCheckMercyMessage()
         => MakeModAware(ActiveManifest.Messages?.AttentionCheckMercy ?? "BAMBI GETS MERCY");
 
+    private static ModIdentity? CloneIdentity(ModIdentity? source)
+    {
+        if (source == null) return null;
+        return new ModIdentity
+        {
+            CompanionName = source.CompanionName,
+            UserTerm = source.UserTerm,
+            ModeDisplayName = source.ModeDisplayName,
+            TalkToLabel = source.TalkToLabel,
+            TakeoverLabel = source.TakeoverLabel,
+            Affirmation = source.Affirmation,
+            RankSubject = source.RankSubject
+        };
+    }
+
+    private static ModTriggers? CloneTriggers(ModTriggers? source)
+    {
+        if (source == null) return null;
+        return new ModTriggers
+        {
+            Freeze = source.Freeze,
+            Reset = source.Reset,
+            CumAndCollapse = source.CumAndCollapse,
+            AutonomyOn = source.AutonomyOn
+        };
+    }
+
+    private static ModMessages? CloneMessages(ModMessages? source)
+    {
+        if (source == null) return null;
+        return new ModMessages
+        {
+            AttentionCheckFail = source.AttentionCheckFail,
+            AttentionCheckMercy = source.AttentionCheckMercy,
+            BubbleCountRetry = source.BubbleCountRetry
+        };
+    }
+
+    private static ModBrowser? CloneBrowser(ModBrowser? source)
+    {
+        if (source == null) return null;
+        var clone = new ModBrowser
+        {
+            DefaultUrl = source.DefaultUrl,
+            ShowBambiCloudOption = source.ShowBambiCloudOption
+        };
+        if (source.DefaultVideoLinks != null)
+            clone.DefaultVideoLinks = new Dictionary<string, string>(source.DefaultVideoLinks);
+        return clone;
+    }
+
+    private static string SanitizeModId(string name)
+    {
+        var id = name.ToLowerInvariant();
+        id = Regex.Replace(id, @"[^a-z0-9\-]", "-");
+        id = Regex.Replace(id, @"-+", "-");
+        id = id.Trim('-');
+        if (string.IsNullOrEmpty(id)) id = "custom-mod";
+        return id;
+    }
+
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+        foreach (var file in Directory.GetFiles(sourceDir))
+            File.Copy(file, Path.Combine(destinationDir, Path.GetFileName(file)), overwrite: true);
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+            CopyDirectory(dir, Path.Combine(destinationDir, Path.GetFileName(dir)));
+    }
+
+    #endregion
+
+    #region Bundled built-in mod extraction
+
+    private static readonly (string RelativePath, string BuiltInId)[] BundledBuiltInMods =
+    {
+        ("DroneMod/drone-mode.ccpmod", BuiltInMods.DronificationId),
+    };
+
+    private static readonly (string RelativePath, string BuiltInId, ModManifest Manifest)[] BundledResourceMods =
+    {
+        ("LockedMod/locked-resources.ccpmod", BuiltInMods.LockedId, BuiltInMods.Locked),
+    };
+
+    private void ExtractBundledBuiltInMods()
+    {
+        var builtInRoot = Path.Combine(_environment.UserDataPath, "builtin_mods");
+        Directory.CreateDirectory(builtInRoot);
+
+        foreach (var (relativePath, builtInId) in BundledBuiltInMods)
+        {
+            try
+            {
+                var bundledPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+                if (!File.Exists(bundledPath))
+                {
+                    _logger?.LogWarning("Bundled built-in mod missing on disk: {Path}", bundledPath);
+                    continue;
+                }
+
+                var extractDir = Path.Combine(builtInRoot, builtInId);
+                var manifestPath = Path.Combine(extractDir, "mod.json");
+
+                var needsExtract = !File.Exists(manifestPath)
+                    || File.GetLastWriteTimeUtc(bundledPath) > File.GetLastWriteTimeUtc(manifestPath);
+
+                if (needsExtract)
+                {
+                    if (Directory.Exists(extractDir))
+                        Directory.Delete(extractDir, recursive: true);
+                    Directory.CreateDirectory(extractDir);
+                    ZipFile.ExtractToDirectory(bundledPath, extractDir);
+                    _logger?.LogInformation("Extracted bundled built-in mod {BuiltInId} from {Path}", builtInId, bundledPath);
+                }
+
+                var json = File.ReadAllText(manifestPath);
+                var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
+                if (manifest == null || string.IsNullOrWhiteSpace(manifest.Id))
+                {
+                    _logger?.LogWarning("Bundled built-in mod {BuiltInId} has invalid mod.json", builtInId);
+                    continue;
+                }
+
+                manifest.Id = builtInId;
+                var idx = _installedMods.FindIndex(m => m.Id == builtInId);
+                var package = new ModPackage(manifest, extractDir, true);
+                if (idx >= 0)
+                    _installedMods[idx] = package;
+                else
+                    _installedMods.Add(package);
+                _logger?.LogInformation("Registered bundled built-in mod {BuiltInId} from {Path}", builtInId, extractDir);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to extract bundled built-in mod {BuiltInId} (falling back to hardcoded manifest)", builtInId);
+            }
+        }
+    }
+
+    private void ExtractBundledResourceMods()
+    {
+        var builtInRoot = Path.Combine(_environment.UserDataPath, "builtin_mods");
+        Directory.CreateDirectory(builtInRoot);
+
+        foreach (var (relativePath, builtInId, manifest) in BundledResourceMods)
+        {
+            try
+            {
+                var bundledPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+                if (!File.Exists(bundledPath))
+                {
+                    _logger?.LogWarning("Bundled resource mod missing on disk: {Path}", bundledPath);
+                    continue;
+                }
+
+                var extractDir = Path.Combine(builtInRoot, builtInId);
+                var resourcesDir = Path.Combine(extractDir, "resources");
+
+                var needsExtract = !Directory.Exists(resourcesDir)
+                    || File.GetLastWriteTimeUtc(bundledPath) > Directory.GetLastWriteTimeUtc(extractDir);
+
+                if (needsExtract)
+                {
+                    if (Directory.Exists(extractDir))
+                        Directory.Delete(extractDir, recursive: true);
+                    Directory.CreateDirectory(extractDir);
+                    ZipFile.ExtractToDirectory(bundledPath, extractDir);
+                    _logger?.LogInformation("Extracted bundled resource mod {BuiltInId} from {Path}", builtInId, bundledPath);
+                }
+
+                var idx = _installedMods.FindIndex(m => m.Id == builtInId);
+                var package = new ModPackage(manifest, extractDir, true);
+                if (idx >= 0)
+                    _installedMods[idx] = package;
+                else
+                    _installedMods.Add(package);
+                _logger?.LogInformation("Registered resource mod {BuiltInId} with assets at {Path}", builtInId, extractDir);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to extract bundled resource mod {BuiltInId} (falling back to baseline assets)", builtInId);
+            }
+        }
+    }
+
     #endregion
 
     #region Discovery helpers
@@ -330,7 +660,7 @@ public sealed class AvaloniaModService : IModService
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to load user mod from {Path}", dir);
+                _logger?.LogWarning(ex, "Failed to load user mod from {Path}", dir);
             }
         }
     }

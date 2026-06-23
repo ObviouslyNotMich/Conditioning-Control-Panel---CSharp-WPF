@@ -29,11 +29,8 @@ namespace ConditioningControlPanel.Avalonia.Views.Deeper;
 /// <summary>
 /// Avalonia/LibVLC port of the Deeper enhancement player view.
 ///
-/// This is the view-layer port only. The legacy WPF window depended on WPF-only
-/// services (EnhancementHostService, EnhancementAudioPlayer, BrowserVideoTimeSource,
-/// etc.) that have not yet been migrated to CCP.Core. This implementation preserves
-/// the UX and media playback behavior using LibVLCSharp, and stubs the engine/effect
-/// integration with clear TODO markers.
+/// Media playback, event log, mini-timeline, and engine-host binding are wired.
+/// PiP and eye-tracking are parity stubs pending cross-platform surface support.
 /// </summary>
 public partial class EnhancementPlayerWindow : Window
 {
@@ -41,7 +38,7 @@ public partial class EnhancementPlayerWindow : Window
     private readonly MediaPlayer _mediaPlayer;
     private readonly IDialogService _dialogService;
     private readonly AudioWaveformCache? _waveformCache;
-    private readonly global::ConditioningControlPanel.IAppLogger? _logger;
+    private readonly ILogger<EnhancementPlayerWindow>? _logger;
     private Media? _currentMedia;
 
     private readonly DispatcherTimer _uiTimer;
@@ -76,7 +73,7 @@ public partial class EnhancementPlayerWindow : Window
         _dialogService = App.Services.GetRequiredService<IDialogService>();
         _host = App.Services.GetRequiredService<EnhancementHostService>();
         _waveformCache = App.Services.GetService<AudioWaveformCache>();
-        _logger = App.Services.GetService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<EnhancementPlayerWindow>>();
         _mediaPlayer = new MediaPlayer(_libVlc);
 
         _host.ActionLogged += OnHostActionLogged;
@@ -608,7 +605,7 @@ public partial class EnhancementPlayerWindow : Window
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to load waveform for {AudioPath}", audioPath);
+            _logger?.LogWarning(ex, "Failed to load waveform for {AudioPath}", audioPath);
         }
     }
 
@@ -1100,8 +1097,15 @@ public partial class EnhancementPlayerWindow : Window
     private void BtnCreateNewEnhancement_Click(object? sender, RoutedEventArgs e)
     {
         ChangePopup.IsOpen = false;
-        // TODO: wire to Avalonia Deeper editor once ported.
-        IngestDiagnosticLine(Loc.Get("deeper_player_diag_create_new_stub"));
+        try
+        {
+            var editor = new DeeperEditorWindow(new Enhancement(), null);
+            editor.Show();
+        }
+        catch (Exception ex)
+        {
+            IngestErrorLine(string.Format(Loc.Get("deeper_editor_preview_open_failed_fmt"), ex.Message));
+        }
     }
 
     private void BtnOpenInEditor_Click(object? sender, RoutedEventArgs e)
@@ -1155,8 +1159,7 @@ public partial class EnhancementPlayerWindow : Window
         if (_host.IsRunning) return;
         if (_timeSource != null) return;
 
-        var dispatcher = App.Services.GetRequiredService<IUiDispatcher>();
-        _timeSource = new AvaloniaLibVlcTimeSource(_mediaPlayer, dispatcher, VideoView);
+        _timeSource = new AvaloniaLibVlcTimeSource(_mediaPlayer, VideoView);
         _host.Bind(_timeSource, attach: () => _timeSource.StartTicking(), detach: () => _timeSource.StopTicking());
     }
 

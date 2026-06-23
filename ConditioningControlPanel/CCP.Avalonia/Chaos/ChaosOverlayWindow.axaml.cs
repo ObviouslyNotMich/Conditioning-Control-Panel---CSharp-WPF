@@ -16,7 +16,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 
 public partial class ChaosOverlayWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosOverlayWindow> _logger;
     private readonly global::ConditioningControlPanel.Core.Platform.IInputHook? _inputHook;
 
     private Action<ChaosBoon?>? _onBoonPick;
@@ -54,7 +54,7 @@ public partial class ChaosOverlayWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosOverlayWindow>>();
         _inputHook = App.Services.GetService<global::ConditioningControlPanel.Core.Platform.IInputHook>();
         if (_inputHook != null) _inputHook.KeyPressed += OnGlobalKey;
         CountdownText.RenderTransform = _countdownScale;
@@ -129,7 +129,6 @@ public partial class ChaosOverlayWindow : Window
             else FinishCountdown();
         };
         _countdownTimer.Start();
-        // TODO: install low-level keyboard/mouse skip hooks for click-through countdown.
     }
 
     private void FinishCountdown()
@@ -775,7 +774,7 @@ public partial class ChaosOverlayWindow : Window
                 if (tab != null) _sharedHubWindow?.NavigateTo(tab);
                 _sharedHubWindow?.Activate();
             }
-            catch (Exception ex) { _logger?.Warning("Recap dollhouse door failed ({E})", ex.Message); }
+            catch (Exception ex) { _logger?.LogWarning("Recap dollhouse door failed ({E})", ex.Message); }
         });
     }
 
@@ -913,7 +912,7 @@ public partial class ChaosOverlayWindow : Window
             SetClickThrough(true);
             var cb = _onConversationComplete;
             _onConversationComplete = null;
-            try { cb?.Invoke(); } catch (Exception ex) { _logger?.Information("Story onComplete: {E}", ex.Message); }
+            try { cb?.Invoke(); } catch (Exception ex) { _logger?.LogInformation("Story onComplete: {E}", ex.Message); }
         });
     }
 
@@ -974,7 +973,7 @@ public partial class ChaosOverlayWindow : Window
         }
         catch (Exception ex)
         {
-            _logger?.Debug("ChaosOverlayWindow.ApplyExStyles failed: {E}", ex.Message);
+            _logger?.LogDebug("ChaosOverlayWindow.ApplyExStyles failed: {E}", ex.Message);
         }
     }
 

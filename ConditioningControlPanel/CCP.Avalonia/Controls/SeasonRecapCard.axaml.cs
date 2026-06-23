@@ -13,6 +13,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Point = Avalonia.Point;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Core.Services;
 using ShapesPath = Avalonia.Controls.Shapes.Path;
@@ -34,7 +36,7 @@ namespace ConditioningControlPanel.Avalonia.Controls;
 /// </summary>
 public partial class SeasonRecapCard : UserControl
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<SeasonRecapCard> _logger;
 
 
     private SeasonRecapViewModel? _vm;
@@ -57,7 +59,7 @@ public partial class SeasonRecapCard : UserControl
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<SeasonRecapCard>>();
 Loaded += OnLoaded;
         Unloaded += OnUnloaded;
 
@@ -112,37 +114,13 @@ Loaded += OnLoaded;
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SeasonRecapCard: failed to load background {Path}", path);
+            _logger?.LogWarning(ex, "SeasonRecapCard: failed to load background {Path}", path);
         }
     }
 
     private static Bitmap? LoadBitmapFromUri(string uriOrPath)
     {
-        if (uriOrPath.StartsWith("pack://application:,,,/", StringComparison.Ordinal))
-        {
-            var relative = uriOrPath.Substring("pack://application:,,,/".Length);
-            if (relative.StartsWith("Resources/", StringComparison.Ordinal))
-                relative = relative.Substring("Resources/".Length);
-            var avares = $"avares://CCP.Avalonia/Assets/{relative}";
-            try
-            {
-                using var stream = AssetLoader.Open(new Uri(avares));
-                return new Bitmap(stream);
-            }
-            catch { /* fall through */ }
-        }
-
-        if (uriOrPath.StartsWith("file://", StringComparison.Ordinal))
-        {
-            var path = uriOrPath.Substring(7);
-            if (File.Exists(path))
-                return new Bitmap(path);
-        }
-
-        if (File.Exists(uriOrPath))
-            return new Bitmap(uriOrPath);
-
-        return null;
+        return AvaloniaBitmapHelper.Load(uriOrPath);
     }
 
     // ---------- spiral geometry ----------

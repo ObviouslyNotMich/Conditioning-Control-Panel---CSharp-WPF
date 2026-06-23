@@ -14,7 +14,7 @@ public partial class PinkFilterFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
     private readonly IOverlayService? _overlay;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<PinkFilterFeatureControl>? _logger;
     private bool _isLoading = true;
 
     public PinkFilterFeatureControl()
@@ -22,7 +22,7 @@ public partial class PinkFilterFeatureControl : UserControl
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _overlay = App.Services.GetService<IOverlayService>();
-        _logger = App.Services.GetService<IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<PinkFilterFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -69,7 +69,7 @@ public partial class PinkFilterFeatureControl : UserControl
         _settings.Save();
 
         try { _overlay?.RefreshOverlays(); }
-        catch (Exception ex) { _logger?.Warning(ex, "PinkFilter toggle: RefreshOverlays failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "PinkFilter toggle: RefreshOverlays failed"); }
     }
 
     private void SliderOpacity_Changed(object? sender, RangeBaseValueChangedEventArgs e)
@@ -81,6 +81,6 @@ public partial class PinkFilterFeatureControl : UserControl
         _settings.Save();
 
         try { _overlay?.RefreshOverlays(); }
-        catch (Exception ex) { _logger?.Warning(ex, "PinkFilter opacity: RefreshOverlays failed"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "PinkFilter opacity: RefreshOverlays failed"); }
     }
 }

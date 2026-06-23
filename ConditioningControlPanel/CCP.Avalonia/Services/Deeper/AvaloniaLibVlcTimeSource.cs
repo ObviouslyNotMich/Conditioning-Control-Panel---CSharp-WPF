@@ -1,7 +1,9 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.VisualTree;
+using CorePixelRect = ConditioningControlPanel.Core.Platform.PixelRect;
 using ConditioningControlPanel.Core.Services.Deeper;
 using LibVLCSharp.Shared;
 
@@ -15,15 +17,13 @@ namespace ConditioningControlPanel.Avalonia.Services.Deeper
     public sealed class AvaloniaLibVlcTimeSource : IPlaybackTimeSource, IDisposable
     {
         private readonly MediaPlayer _player;
-        private readonly IUiDispatcher _dispatcher;
         private readonly DispatcherTimer _timer;
         private readonly Control? _videoViewHost;
         private bool _disposed;
 
-        public AvaloniaLibVlcTimeSource(MediaPlayer player, IUiDispatcher dispatcher, Control? videoViewHost = null)
+        public AvaloniaLibVlcTimeSource(MediaPlayer player, Control? videoViewHost = null)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
-            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _videoViewHost = videoViewHost;
 
             _timer = new DispatcherTimer
@@ -47,11 +47,38 @@ namespace ConditioningControlPanel.Avalonia.Services.Deeper
 
         public void Play() => _player.Play();
 
-        public PixelRect GetVideoRect()
+        public CorePixelRect GetVideoRect()
         {
-            // TODO: compute screen-space bounds of _videoViewHost when available.
-            // Returning Empty causes the engine to skip gaze-target evaluation.
-            return PixelRect.Empty;
+            if (_videoViewHost == null) return CorePixelRect.Empty;
+
+            try
+            {
+                var topLevel = TopLevel.GetTopLevel(_videoViewHost) as Window;
+                if (topLevel == null) return CorePixelRect.Empty;
+
+                var position = topLevel.Position;
+                var point = _videoViewHost.TranslatePoint(new global::Avalonia.Point(0, 0), topLevel) ?? new global::Avalonia.Point(0, 0);
+                var bounds = _videoViewHost.Bounds;
+                if (bounds.Width <= 0 || bounds.Height <= 0) return CorePixelRect.Empty;
+
+                var scaling = 1.0;
+                try
+                {
+                    var screen = topLevel.Screens?.ScreenFromWindow(topLevel);
+                    if (screen != null) scaling = screen.Scaling;
+                }
+                catch { /* fallback to 1.0 */ }
+
+                var x = (position.X + point.X) * scaling;
+                var y = (position.Y + point.Y) * scaling;
+                var w = bounds.Width * scaling;
+                var h = bounds.Height * scaling;
+                return new CorePixelRect(x, y, w, h);
+            }
+            catch
+            {
+                return CorePixelRect.Empty;
+            }
         }
 
         public void StartTicking()

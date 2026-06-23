@@ -24,11 +24,10 @@ public sealed class AvaloniaAppEnvironment : IAppEnvironment
 
     public string UserDataPath => GetUserDataPath();
 
-    public string ApplicationDataPath => OperatingSystem.IsWindows()
-        ? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "ConditioningControlPanel")
-        : UserDataPath;
+    // ponytail: one user-data path; legacy WPF and Core services must share the
+    // same Local folder. Roaming was a drift bug that split session logs / custom
+    // sessions / moderation counter away from existing user data.
+    public string ApplicationDataPath => UserDataPath;
 
     public string EffectiveAssetsPath
     {
@@ -81,5 +80,81 @@ public sealed class AvaloniaAppEnvironment : IAppEnvironment
             ".local",
             "share",
             "ConditioningControlPanel");
+    }
+
+    /// <summary>
+    /// One-time migration: move anything the Avalonia head previously wrote to the
+    /// Windows Roaming folder into the Local folder so it shares the legacy WPF path.
+    /// Skipped if a sentinel file already exists or the Roaming folder is absent.
+    /// </summary>
+    public static void MigrateFromLegacyRoamingPath()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var roaming = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "ConditioningControlPanel");
+        var local = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ConditioningControlPanel");
+
+        if (string.Equals(roaming, local, StringComparison.OrdinalIgnoreCase)) return;
+        if (!Directory.Exists(roaming)) return;
+
+        Directory.CreateDirectory(local);
+        var sentinel = Path.Combine(local, ".roaming-migrated");
+        if (File.Exists(sentinel)) return;
+
+        foreach (var entry in Directory.EnumerateFileSystemEntries(roaming))
+        {
+            var name = Path.GetFileName(entry);
+            var dest = Path.Combine(local, name);
+            if (File.Exists(dest) || Directory.Exists(dest))
+            {
+                dest = Path.Combine(local, $"{name}.roaming-merge-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}");
+            }
+
+            try
+            {
+                if (Directory.Exists(entry))
+                    Directory.Move(entry, dest);
+                else
+                    File.Move(entry, dest);
+            }
+            catch
+            {
+                // Cross-volume or locked: copy then delete. If that also fails,
+                // leave the original in place for manual cleanup rather than crash.
+                try
+                {
+                    CopyRecursive(entry, dest);
+                }
+                catch { /* best effort */ }
+            }
+        }
+
+        try { File.WriteAllText(sentinel, DateTimeOffset.UtcNow.ToString("O")); }
+        catch { /* best effort */ }
+    }
+
+    private static void CopyRecursive(string source, string destination)
+    {
+        if (File.Exists(source))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(source, destination, overwrite: true);
+            File.Delete(source);
+            return;
+        }
+
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var destFile = Path.Combine(destination, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
+            File.Copy(file, destFile, overwrite: true);
+        }
+        Directory.Delete(source, recursive: true);
     }
 }

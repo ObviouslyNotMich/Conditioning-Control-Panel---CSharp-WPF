@@ -21,7 +21,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
     private readonly ISettingsService? _settingsService;
     private readonly ISettingsBackupProvider? _backupProvider;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<PatreonTabViewModel>? _logger;
     private readonly IEnumerable<IAuthProvider>? _authProviders;
 
     public PatreonTabViewModel() : base("patreon", "Patreon", "⭐")
@@ -31,7 +31,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
     public PatreonTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger,
+        ILogger<PatreonTabViewModel> logger,
         IEnumerable<IAuthProvider> authProviders,
         ISettingsBackupProvider? backupProvider = null) : base("patreon", "Patreon", "⭐")
     {
@@ -76,7 +76,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         var settings = _settingsService?.Current;
         if (provider == null || settings == null)
         {
-            _logger?.Warning("Patreon provider or settings not available");
+            _logger?.LogWarning("Patreon provider or settings not available");
             return;
         }
 
@@ -86,11 +86,11 @@ public partial class PatreonTabViewModel : TabItemViewModel
             settings.HasLinkedPatreon = false;
             settings.PatreonPremiumValidUntil = null;
             settings.PatreonTier = 0;
-            _logger?.Information("Patreon logged out");
+            _logger?.LogInformation("Patreon logged out");
         }
         else
         {
-            _logger?.Information("Patreon login requested");
+            _logger?.LogInformation("Patreon login requested");
             await provider.StartOAuthFlowAsync();
         }
 
@@ -118,7 +118,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         var settings = _settingsService?.Current;
         if (provider == null || settings == null)
         {
-            _logger?.Warning("Discord provider or settings not available");
+            _logger?.LogWarning("Discord provider or settings not available");
             return;
         }
 
@@ -126,11 +126,11 @@ public partial class PatreonTabViewModel : TabItemViewModel
         {
             provider.Logout();
             settings.HasLinkedDiscord = false;
-            _logger?.Information("Discord logged out");
+            _logger?.LogInformation("Discord logged out");
         }
         else
         {
-            _logger?.Information("Discord login requested");
+            _logger?.LogInformation("Discord login requested");
             await provider.StartOAuthFlowAsync();
         }
 
@@ -158,18 +158,18 @@ public partial class PatreonTabViewModel : TabItemViewModel
         var settings = _settingsService?.Current;
         if (provider == null || settings == null)
         {
-            _logger?.Warning("SubscribeStar provider or settings not available");
+            _logger?.LogWarning("SubscribeStar provider or settings not available");
             return;
         }
 
         if (provider.IsLoggedIn)
         {
             provider.Logout();
-            _logger?.Information("SubscribeStar logged out");
+            _logger?.LogInformation("SubscribeStar logged out");
         }
         else
         {
-            _logger?.Information("SubscribeStar login requested");
+            _logger?.LogInformation("SubscribeStar login requested");
             await provider.StartOAuthFlowAsync();
         }
 
@@ -252,7 +252,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Manual settings backup failed");
+            _logger?.LogWarning(ex, "Manual settings backup failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_backup_failed"),
                 Loc.Get("msg_failed_to_backup_settings"),
@@ -287,7 +287,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Manual settings restore failed");
+            _logger?.LogWarning(ex, "Manual settings restore failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_restore_error"),
                 Loc.GetF("msg_restore_failed_0", ex.Message),
@@ -313,7 +313,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to update backup status");
+            _logger?.LogWarning(ex, "Failed to update backup status");
             BackupStatusText = Loc.Get("label_could_not_check_backup_status");
         }
 
@@ -348,7 +348,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Data export failed");
+            _logger?.LogWarning(ex, "Data export failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_export_error"),
                 Loc.GetF("msg_export_failed_0", ex.Message),
@@ -370,11 +370,11 @@ public partial class PatreonTabViewModel : TabItemViewModel
                 FileName = "https://cclabs.app/privacy-policy.html",
                 UseShellExecute = true
             });
-            _logger?.Information("Opened privacy policy");
+            _logger?.LogInformation("Opened privacy policy");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open privacy policy");
+            _logger?.LogWarning(ex, "Failed to open privacy policy");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -431,7 +431,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
             _settingsService.Current.AllowDiscordDm = value;
             OnPropertyChanged();
             _settingsService.Save();
-            _logger?.Information("Allow Discord DM changed: {Value}", value);
+            _logger?.LogInformation("Allow Discord DM changed: {Value}", value);
         }
     }
 
@@ -444,7 +444,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
             _settingsService.Current.ShareProfilePicture = value;
             OnPropertyChanged();
             _settingsService.Save();
-            _logger?.Information("Share profile picture changed: {Value}", value);
+            _logger?.LogInformation("Share profile picture changed: {Value}", value);
         }
     }
 
@@ -457,7 +457,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
             _settingsService.Current.ShowOnlineStatus = value;
             OnPropertyChanged();
             _settingsService.Save();
-            _logger?.Information("Online status visibility changed: {Value}", value);
+            _logger?.LogInformation("Online status visibility changed: {Value}", value);
         }
     }
 
@@ -491,7 +491,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.AllowDiscordDm = value;
         _settingsService.Save();
-        _logger?.Information("Allow Discord DM changed: {Value}", value);
+        _logger?.LogInformation("Allow Discord DM changed: {Value}", value);
         await Task.CompletedTask;
     }
 
@@ -501,7 +501,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.ShareProfilePicture = value;
         _settingsService.Save();
-        _logger?.Information("Share profile picture changed: {Value}", value);
+        _logger?.LogInformation("Share profile picture changed: {Value}", value);
         await Task.CompletedTask;
     }
 
@@ -511,7 +511,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.ShowOnlineStatus = value;
         _settingsService.Save();
-        _logger?.Information("Online status visibility changed: {Value}", value);
+        _logger?.LogInformation("Online status visibility changed: {Value}", value);
         await Task.CompletedTask;
     }
 
@@ -544,7 +544,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to open Patreon page");
+            _logger?.LogError(ex, "Failed to open Patreon page");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -565,7 +565,7 @@ public partial class PatreonTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to open SubscribeStar page");
+            _logger?.LogError(ex, "Failed to open SubscribeStar page");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,

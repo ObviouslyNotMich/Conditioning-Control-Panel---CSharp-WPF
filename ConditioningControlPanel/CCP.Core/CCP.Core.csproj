@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="ConditioningControlPanel.Core.Platform" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Cross-platform packages -->
     <PackageReference Include="Buttplug" Version="3.0.1" />
     <PackageReference Include="Buttplug.Client.Connectors.WebsocketConnector" Version="3.0.1" />
@@ -29,6 +34,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Avalonia" Version="12.0.4" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,6 +43,7 @@
     <!-- Ignore any stale PortableModels copies that may be recreated by tooling. -->
     <Compile Remove="PortableModels\**" />
     <None Remove="PortableModels\**" />
+
   </ItemGroup>
 
   <ItemGroup>

@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Companion;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Services.Moderation;
 
@@ -22,9 +23,9 @@ namespace ConditioningControlPanel.Avalonia.Dialogs;
 /// </summary>
 public partial class CompanionPromptEditorDialog : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<CompanionPromptEditorDialog> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
-
+    private readonly ICommunityPromptService? _promptService;
 
     private readonly CompanionPromptSettings _defaults;
     private readonly IPromptValidator _promptValidator;
@@ -37,9 +38,10 @@ public partial class CompanionPromptEditorDialog : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<CompanionPromptEditorDialog>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
-_defaults = CompanionPromptSettings.GetDefaults();
+        _promptService = App.Services?.GetService<ICommunityPromptService>();
+        _defaults = CompanionPromptSettings.GetDefaults();
         _promptValidator = App.Services.GetRequiredService<IPromptValidator>();
         _moderationLog = App.Services.GetRequiredService<IModerationLog>();
         _dialogService = App.Services?.GetService<IDialogService>();
@@ -78,7 +80,7 @@ _defaults = CompanionPromptSettings.GetDefaults();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "CompanionPromptEditorDialog: failed to open policy URL");
+            _logger?.LogWarning(ex, "CompanionPromptEditorDialog: failed to open policy URL");
         }
     }
 
@@ -109,9 +111,9 @@ _defaults = CompanionPromptSettings.GetDefaults();
 
         if (!string.IsNullOrEmpty(activePromptId))
         {
-            // TODO: CommunityPrompts service is not yet in CCP.Core.
-            TxtActivePromptName.Text = Loc.Get("label_unknown_prompt");
-            TxtActivePromptName.Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["Danger"]!);
+            var prompt = _promptService?.GetInstalledPrompt(activePromptId);
+            TxtActivePromptName.Text = prompt?.Name ?? $"Prompt {activePromptId}";
+            TxtActivePromptName.Foreground = new SolidColorBrush((Color)global::Avalonia.Application.Current!.Resources["PinkColor"]!);
         }
         else if (_settings?.Current?.CompanionPrompt?.UseCustomPrompt == true)
         {
@@ -166,7 +168,7 @@ _defaults = CompanionPromptSettings.GetDefaults();
         _settings.Save();
         _hasUnsavedChanges = false;
 
-        _logger?.Information("Companion prompt settings saved. UseCustomPrompt={UseCustom}, GlobalLinks={LinkCount}",
+        _logger?.LogInformation("Companion prompt settings saved. UseCustomPrompt={UseCustom}, GlobalLinks={LinkCount}",
             settings.UseCustomPrompt, _knowledgeLinks.Count);
     }
 
@@ -307,7 +309,6 @@ _defaults = CompanionPromptSettings.GetDefaults();
                     result.MatchedPatterns.Count);
                 ToolTip.SetTip(box, tip);
                 flaggedNames.Add(fieldName);
-                // TODO: ModerationLog service is not yet in CCP.Core.
                 TryRecordModerationEdit(fieldName, result.MatchedPatterns.Count);
             }
         }
@@ -322,7 +323,7 @@ _defaults = CompanionPromptSettings.GetDefaults();
                 Loc.Get("prompt_validator_banner"),
                 flaggedNames.Count);
             ValidatorBanner.IsVisible = true;
-            _logger?.Information(
+            _logger?.LogInformation(
                 "PromptValidator flagged {Count} field(s) in CompanionPromptEditorDialog",
                 flaggedNames.Count);
         }
@@ -336,7 +337,7 @@ _defaults = CompanionPromptSettings.GetDefaults();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "CompanionPromptEditorDialog: failed to record moderation edit");
+            _logger?.LogWarning(ex, "CompanionPromptEditorDialog: failed to record moderation edit");
         }
     }
 

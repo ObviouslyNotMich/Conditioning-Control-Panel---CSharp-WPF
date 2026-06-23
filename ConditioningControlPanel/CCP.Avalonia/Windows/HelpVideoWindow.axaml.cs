@@ -25,7 +25,7 @@ namespace ConditioningControlPanel.Avalonia.Windows;
 /// </summary>
 public partial class HelpVideoWindow : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<HelpVideoWindow> _logger;
 
 
     private static HelpVideoWindow? _current;
@@ -42,14 +42,14 @@ public partial class HelpVideoWindow : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<HelpVideoWindow>>();
 }
 
     private HelpVideoWindow(HelpContent content)
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<HelpVideoWindow>>();
 TxtGlyph.Text = string.IsNullOrEmpty(content.Icon) ? "?" : content.Icon;
         TxtTitle.Text = content.Title;
         Title = content.Title;
@@ -86,7 +86,7 @@ TxtGlyph.Text = string.IsNullOrEmpty(content.Icon) ? "?" : content.Icon;
 
     public static void Show(HelpContent content, Window? owner, bool topmost = false)
     {
-        var logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        var logger = App.Services.GetRequiredService<ILogger<HelpVideoWindow>>();
         try
         {
             CloseCurrent();
@@ -101,7 +101,7 @@ TxtGlyph.Text = string.IsNullOrEmpty(content.Icon) ? "?" : content.Icon;
         }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Error(ex, "HelpVideoWindow: failed to open");
+            App.Services?.GetRequiredService<ILogger<HelpVideoWindow>>().LogError(ex, "HelpVideoWindow: failed to open");
         }
     }
 
@@ -129,7 +129,7 @@ TxtGlyph.Text = string.IsNullOrEmpty(content.Icon) ? "?" : content.Icon;
         if (string.IsNullOrEmpty(_clipPath) || !File.Exists(_clipPath))
         {
             if (!string.IsNullOrEmpty(_clipPath))
-                _logger?.Warning("HelpVideoWindow: clip not found: {Path}", _clipPath);
+                _logger?.LogWarning("HelpVideoWindow: clip not found: {Path}", _clipPath);
             ShowWhatItDoesFallback();
             return;
         }
@@ -140,7 +140,7 @@ TxtGlyph.Text = string.IsNullOrEmpty(content.Icon) ? "?" : content.Icon;
 App.Services?.GetService<LibVLC>();
             if (libVLC == null)
             {
-                _logger?.Warning("HelpVideoWindow: LibVLC not available; hiding video surface");
+                _logger?.LogWarning("HelpVideoWindow: LibVLC not available; hiding video surface");
                 ShowWhatItDoesFallback();
                 return;
             }
@@ -171,7 +171,7 @@ App.Services?.GetService<LibVLC>();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "HelpVideoWindow: failed to start clip");
+            _logger?.LogError(ex, "HelpVideoWindow: failed to start clip");
             try { VideoContainer.IsVisible = false; } catch { /* ignore */ }
             ShowWhatItDoesFallback();
         }
@@ -186,7 +186,7 @@ App.Services?.GetService<LibVLC>();
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "HelpVideoWindow: failed to open tutorial url {Url}", _fullTutorialUrl);
+            _logger?.LogError(ex, "HelpVideoWindow: failed to open tutorial url {Url}", _fullTutorialUrl);
         }
     }
 
@@ -249,7 +249,7 @@ App.Services?.GetService<LibVLC>();
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Error during HelpVideoWindow cleanup");
+            _logger?.LogWarning(ex, "Error during HelpVideoWindow cleanup");
         }
 
         base.OnClosed(e);

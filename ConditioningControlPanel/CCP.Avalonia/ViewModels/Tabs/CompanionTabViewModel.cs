@@ -1,25 +1,34 @@
-﻿using System.Collections.ObjectModel;
+
+
+
+
+using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Companion;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
 /// <summary>
 /// Avalonia port of the WPF MainWindow.CompanionTab partial.
 /// Companion selection cards, prompts, and avatar UI settings.
-/// WPF-only services are stubbed with TODOs.
 /// </summary>
 public partial class CompanionTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<CompanionTabViewModel>? _logger;
     private readonly IModService? _modService;
+    private readonly ICompanionService? _companionService;
+    private readonly ICommunityPromptService? _promptService;
+    private readonly IAvatarWindowService? _avatarWindowService;
 
     public CompanionTabViewModel() : base("companion", "Companion", "🤖")
     {
@@ -31,17 +40,58 @@ public partial class CompanionTabViewModel : TabItemViewModel
     public CompanionTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger,
-        IModService modService) : base("companion", "Companion", "🤖")
+        ILogger<CompanionTabViewModel> logger,
+        IModService modService,
+        ICompanionService companionService,
+        ICommunityPromptService promptService,
+        IAvatarWindowService avatarWindowService) : base("companion", "Companion", "🤖")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
         _modService = modService;
+        _companionService = companionService;
+        _promptService = promptService;
+        _avatarWindowService = avatarWindowService;
         _companions = new ObservableCollection<CompanionCardViewModel>();
         _installedPrompts = new ObservableCollection<CommunityPromptRowViewModel>();
         SyncUi();
     }
+
+    public override void OnSelected()
+    {
+        base.OnSelected();
+        AttachEvents();
+    }
+
+    public override void OnDeselected()
+    {
+        base.OnDeselected();
+        DetachEvents();
+    }
+
+    private void AttachEvents()
+    {
+        if (_companionService == null) return;
+        _companionService.CompanionSwitched += OnCompanionEvent;
+        _companionService.XPAwarded += OnCompanionXpEvent;
+        _companionService.LevelUp += OnCompanionLevelEvent;
+        _companionService.XPDrained += OnCompanionXpDrainEvent;
+    }
+
+    private void DetachEvents()
+    {
+        if (_companionService == null) return;
+        _companionService.CompanionSwitched -= OnCompanionEvent;
+        _companionService.XPAwarded -= OnCompanionXpEvent;
+        _companionService.LevelUp -= OnCompanionLevelEvent;
+        _companionService.XPDrained -= OnCompanionXpDrainEvent;
+    }
+
+    private void OnCompanionEvent(object? sender, CompanionId e) => SyncUi();
+    private void OnCompanionXpEvent(object? sender, (CompanionId Companion, double Amount, double Modifier) e) => SyncUi();
+    private void OnCompanionLevelEvent(object? sender, (CompanionId Companion, int NewLevel) e) => SyncUi();
+    private void OnCompanionXpDrainEvent(object? sender, double e) => SyncUi();
 
     [ObservableProperty]
     private ObservableCollection<CompanionCardViewModel> _companions;
@@ -100,7 +150,7 @@ public partial class CompanionTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        _logger?.Information("Refreshing Companion tab");
+        _logger?.LogInformation("Refreshing Companion tab");
         SyncUi();
         await Task.CompletedTask;
     }
@@ -108,26 +158,27 @@ public partial class CompanionTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task SwitchCompanionAsync(int companionIndex)
     {
-        _logger?.Information("Switch companion requested: {Index}", companionIndex);
-        // TODO: wire to ICompanionService.SwitchCompanion() once extracted to CCP.Core.
-        var card = Companions.FirstOrDefault(c => c.Index == companionIndex);
-        if (card != null)
+        _logger?.LogInformation("Switch companion requested: {Index}", companionIndex);
+
+        if (companionIndex < 0 || companionIndex >= CompanionDefinition.AllCompanions.Length)
         {
-            foreach (var c in Companions) c.IsActive = false;
-            card.IsActive = true;
-            ActiveCompanion = card;
-            UpdateActiveCompanionDetails(card);
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("msg_invalid_companion_selection"),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+            return;
         }
 
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_companion_switch_not_yet_ported")) ?? Task.CompletedTask);
+        _companionService?.SwitchCompanion((CompanionId)companionIndex);
+        SyncUi();
+
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
     private async Task AssignPersonalityAsync(int companionIndex)
     {
-        _logger?.Information("Assign personality requested for companion {Index}", companionIndex);
+        _logger?.LogInformation("Assign personality requested for companion {Index}", companionIndex);
 
         var filters = new[] { new FileFilter("JSON files", new[] { "json" }) };
         var files = await (_dialogService?.ShowOpenFileDialogAsync(
@@ -136,60 +187,84 @@ public partial class CompanionTabViewModel : TabItemViewModel
 
         if (files.Count == 0) return;
 
-        // TODO: wire to ICommunityPromptService.ImportFromFile() and companion prompt assignment.
+        var imported = await (_promptService?.ImportFromFileAsync(files[0]) ?? Task.FromResult<CommunityPrompt?>(null));
+        if (imported == null)
+        {
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_import_failed"),
+                Loc.Get("msg_prompt_import_failed"),
+                DialogSeverity.Warning) ?? Task.CompletedTask);
+            return;
+        }
+
+        _settingsService?.Current?.SetCompanionPromptId(companionIndex, imported.Id);
+        _settingsService?.Save();
+        _companionService?.SwitchCompanion((CompanionId)companionIndex);
+        SyncUi();
+
         await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_personality_assign_not_yet_ported")) ?? Task.CompletedTask);
+            Loc.Get("title_prompt_assigned"),
+            string.Format(Loc.Get("msg_prompt_assigned_to_companion_fmt"), imported.Name, CompanionDefinition.GetById(companionIndex).Name)) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
     private async Task ActivatePromptAsync(string? promptId)
     {
         if (string.IsNullOrWhiteSpace(promptId)) return;
-        _logger?.Information("Activate community prompt: {PromptId}", promptId);
-        // TODO: wire to ICommunityPromptService.ActivatePrompt() and explicit-content gate.
+        _logger?.LogInformation("Activate community prompt: {PromptId}", promptId);
+
+        if (_promptService?.ActivatePrompt(promptId) == true)
+        {
+            SyncUi();
+            return;
+        }
+
         await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_prompt_activate_not_yet_ported")) ?? Task.CompletedTask);
+            Loc.Get("title_error"),
+            Loc.Get("msg_prompt_activate_failed"),
+            DialogSeverity.Warning) ?? Task.CompletedTask);
     }
 
     [RelayCommand]
     private async Task RemovePromptAsync(string? promptId)
     {
         if (string.IsNullOrWhiteSpace(promptId)) return;
-        _logger?.Information("Remove community prompt: {PromptId}", promptId);
-        // TODO: wire to ICommunityPromptService.RemovePrompt().
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_prompt_remove_not_yet_ported")) ?? Task.CompletedTask);
+        _logger?.LogInformation("Remove community prompt: {PromptId}", promptId);
+
+        var prompt = _promptService?.GetInstalledPrompt(promptId);
+        var confirm = await (_dialogService?.ShowConfirmationAsync(
+            Loc.Get("title_remove_prompt"),
+            string.Format(Loc.Get("msg_remove_prompt_confirm_0"), prompt?.Name ?? promptId)) ?? Task.FromResult(false));
+        if (!confirm) return;
+
+        _promptService?.RemovePrompt(promptId);
+        SyncUi();
     }
 
     [RelayCommand]
     private async Task DeactivatePromptAsync()
     {
-        _logger?.Information("Deactivate community prompt requested");
-        // TODO: wire to ICommunityPromptService.DeactivatePrompt().
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_prompt_deactivate_not_yet_ported")) ?? Task.CompletedTask);
+        _logger?.LogInformation("Deactivate community prompt requested");
+        _promptService?.DeactivatePrompt();
+        SyncUi();
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
     private async Task CustomizePromptAsync()
     {
-        _logger?.Information("Customize companion prompt requested");
-        // TODO: wire to companion prompt editor dialog once ported.
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_not_implemented"),
-            Loc.Get("msg_prompt_customize_not_yet_ported")) ?? Task.CompletedTask);
+        _logger?.LogInformation("Customize companion prompt requested");
+        var dialog = new ConditioningControlPanel.Avalonia.Dialogs.CompanionPromptEditorDialog();
+        await dialog.ShowDialog<bool?>((global::Avalonia.Controls.Window?)null);
+        SyncUi();
     }
 
     [RelayCommand]
     private async Task ToggleDetachAsync()
     {
         IsDetached = !IsDetached;
-        _logger?.Information("Companion tab detach toggled: {Detached}", IsDetached);
-        // TODO: wire to IAvatarTubeWindowService.Attach()/Detach().
+        _logger?.LogInformation("Companion tab detach toggled: {Detached}", IsDetached);
+        _avatarWindowService?.SetDetached(IsDetached);
         await Task.CompletedTask;
     }
 
@@ -215,7 +290,7 @@ public partial class CompanionTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "SyncCompanionTabUI failed");
+            _logger?.LogWarning(ex, "SyncCompanionTabUI failed");
         }
     }
 
@@ -223,25 +298,28 @@ public partial class CompanionTabViewModel : TabItemViewModel
     {
         Companions.Clear();
         var colors = new[] { "#FF69B4", "#9370DB", "#50C878", "#FF6B6B", "#F5DEB3" };
-        var activeId = 0; // TODO: wire to ICompanionService.ActiveCompanion.
+        var activeId = (int?)_companionService?.ActiveCompanion ?? 0;
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < CompanionDefinition.AllCompanions.Length; i++)
         {
-            // TODO: replace with ICompanionDefinition.GetById() and ICompanionService.GetProgress().
-            var name = $"Companion {i + 1}";
-            var level = 1;
-            var isMax = false;
-            var isSupported = true;
+            var def = CompanionDefinition.GetById(i);
+            var progress = _companionService?.GetProgress((CompanionId)i);
+            var isMax = progress?.IsMaxLevel ?? false;
+            var level = progress?.Level ?? 1;
+            var promptId = _settingsService?.Current?.GetCompanionPromptId(i);
+            var assignedName = promptId != null
+                ? _promptService?.GetInstalledPrompt(promptId)?.Name
+                : null;
 
             Companions.Add(new CompanionCardViewModel
             {
                 Index = i,
-                Name = _modService?.MakeModAware(name) ?? name,
+                Name = _modService?.MakeModAware(def.GetDisplayName(false)) ?? def.Name,
                 LevelText = isMax ? "MAX" : $"Lv.{level}",
-                ColorHex = colors[i],
+                ColorHex = colors[i % colors.Length],
                 IsActive = i == activeId,
-                IsSupported = isSupported,
-                AssignedPromptName = ""
+                IsSupported = true,
+                AssignedPromptName = assignedName ?? ""
             });
         }
 
@@ -251,25 +329,31 @@ public partial class CompanionTabViewModel : TabItemViewModel
 
     private void UpdateActiveCompanionDetails(CompanionCardViewModel card)
     {
+        var def = CompanionDefinition.GetById(card.Index);
+        var progress = _companionService?.GetProgress((CompanionId)card.Index);
+        var isMax = progress?.IsMaxLevel ?? false;
+
         ActiveCompanionName = card.Name;
-        ActiveCompanionLevelText = card.LevelText == "MAX" ? " · MAX LEVEL" : $" · Level {card.LevelText.TrimStart('L', 'v', '.')}";
-        // TODO: wire to ICompanionDefinition.Description.
-        ActiveCompanionDescription = Loc.Get("label_companion_description_placeholder");
-        ActiveCompanionXpText = card.LevelText == "MAX" ? "Complete!" : "0 / 100 XP";
-        ActiveCompanionProgress = card.LevelText == "MAX" ? 100 : 0;
+        ActiveCompanionLevelText = isMax
+            ? " · MAX LEVEL"
+            : $" · Level {progress?.Level ?? 1}";
+        ActiveCompanionDescription = def.Description;
+        ActiveCompanionXpText = isMax
+            ? "Complete!"
+            : $"{(progress?.CurrentXP ?? 0):F0} / {(progress?.XPForNextLevel ?? 0):F0} XP";
+        ActiveCompanionProgress = isMax ? 100 : (progress?.LevelProgress ?? 0) * 100;
     }
 
     private void RefreshPrompts()
     {
         InstalledPrompts.Clear();
-        var settings = _settingsService?.Current;
-        var activePromptId = settings?.ActiveCommunityPromptId;
-        var installedIds = settings?.InstalledCommunityPromptIds ?? new List<string>();
+        var activePromptId = _settingsService?.Current?.ActiveCommunityPromptId;
+        var installed = _promptService?.GetInstalledPrompts() ?? new List<CommunityPrompt>();
 
         CustomizePromptName = GetActivePromptDisplayName();
         ActivePromptName = GetActivePromptDisplayName();
 
-        if (installedIds.Count == 0)
+        if (installed.Count == 0)
         {
             InstalledPrompts.Add(new CommunityPromptRowViewModel
             {
@@ -279,15 +363,14 @@ public partial class CompanionTabViewModel : TabItemViewModel
             return;
         }
 
-        foreach (var id in installedIds)
+        foreach (var prompt in installed)
         {
-            // TODO: wire to ICommunityPromptService.GetInstalledPrompt(id).
             InstalledPrompts.Add(new CommunityPromptRowViewModel
             {
-                Id = id,
-                Name = $"Prompt {id}",
-                Author = "Unknown",
-                IsActive = id == activePromptId
+                Id = prompt.Id,
+                Name = prompt.Name,
+                Author = prompt.Author,
+                IsActive = prompt.Id == activePromptId
             });
         }
     }
@@ -297,8 +380,8 @@ public partial class CompanionTabViewModel : TabItemViewModel
         var activePromptId = _settingsService?.Current?.ActiveCommunityPromptId;
         if (!string.IsNullOrEmpty(activePromptId))
         {
-            // TODO: wire to ICommunityPromptService.GetInstalledPrompt(activePromptId).Name.
-            return $"Prompt {activePromptId}";
+            return _promptService?.GetInstalledPrompt(activePromptId)?.Name
+                ?? $"Prompt {activePromptId}";
         }
 
         if (_settingsService?.Current?.CompanionPrompt?.UseCustomPrompt == true)
@@ -324,7 +407,7 @@ public partial class CompanionTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to save companion settings");
+            _logger?.LogWarning(ex, "Failed to save companion settings");
         }
     }
 

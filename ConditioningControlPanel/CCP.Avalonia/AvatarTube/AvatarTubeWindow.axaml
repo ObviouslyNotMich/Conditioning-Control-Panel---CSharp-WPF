@@ -230,6 +230,7 @@
                 VerticalAlignment="Bottom"
                 Margin="5,100,126,210"
                 Cursor="Hand"
+                Background="Transparent"
                 PointerPressed="ImgAvatar_PointerPressed"
                 ClipToBounds="False">
 

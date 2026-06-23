@@ -27,13 +27,13 @@ public sealed class ChaosBubbleHostOverlay : Window
 {
     private static ChaosBubbleHostOverlay? _active;
     private readonly Canvas _canvas;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<ChaosBubbleHostOverlay>? _logger;
 
     public static bool IsReady => _active != null;
 
     private ChaosBubbleHostOverlay()
     {
-        _logger = App.Services?.GetService<IAppLogger>();
+        _logger = App.Services?.GetRequiredService<ILogger<ChaosBubbleHostOverlay>>();
 
         WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
@@ -144,8 +144,5 @@ public sealed class ChaosBubbleHostOverlay : Window
         catch { }
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 }

@@ -133,7 +133,7 @@ public static class ChaosLessons
         ChaosMeta.State.LessonsComplete ??= new();
         if (!ChaosMeta.State.LessonsComplete.Add(def.Id)) return;
         ChaosMeta.Save();
-        App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("Chaos lesson complete: {Id}", def.Id);
+        App.Services?.GetRequiredService<ILogger<object>>().LogInformation("Chaos lesson complete: {Id}", def.Id);
         RevealService.Sync("lesson:" + def.Id);
         try { LessonCompleted?.Invoke(def.Id); } catch { }
     }
@@ -170,7 +170,7 @@ public static class ChaosFirstTimes
         if (!ChaosMeta.State.FirstTimesAwarded.Add(bonusId)) return false;
         ChaosMeta.State.Sparks += amount;
         ChaosMeta.Save();
-        App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("Chaos first-time: {Id} +{Amount} drops", bonusId, amount);
+        App.Services?.GetRequiredService<ILogger<object>>().LogInformation("Chaos first-time: {Id} +{Amount} drops", bonusId, amount);
         try { Awarded?.Invoke(bonusId, amount); } catch { }
         return true;
     }
@@ -303,7 +303,7 @@ public static class ChaosLessonHooks
         try { a(); }
         catch (Exception ex)
         {
-            App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Debug("ChaosLessonHooks: {E}", ex.Message);
+            App.Services?.GetRequiredService<ILogger<object>>().LogDebug("ChaosLessonHooks: {E}", ex.Message);
         }
     }
 }

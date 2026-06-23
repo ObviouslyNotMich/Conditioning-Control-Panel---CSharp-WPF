@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -26,27 +27,24 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
 {
     private readonly ISettingsService _settings;
     private readonly IScreenProvider _screens;
-    private readonly IScheduler _scheduler;
     private readonly IProgressionService _progression;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaSubliminalService>? _logger;
     private readonly Random _random = new();
     private readonly object _sync = new();
     private readonly Dictionary<string, SubliminalWindow> _screenWindows = new();
 
     private CancellationTokenSource? _cts;
-    private IDisposable? _scheduledTimer;
+    private DispatcherTimer? _scheduledTimer;
     private bool _disposed;
 
     public AvaloniaSubliminalService(
         ISettingsService settings,
         IScreenProvider screens,
-        IScheduler scheduler,
         IProgressionService progression,
-        IAppLogger? logger = null)
+        ILogger<AvaloniaSubliminalService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
         _logger = logger;
     }
@@ -60,7 +58,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         if (IsRunning) return;
         if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS())
         {
-            _logger?.Debug("AvaloniaSubliminalService: overlays are not supported on mobile; Start is a no-op");
+            _logger?.LogDebug("AvaloniaSubliminalService: overlays are not supported on mobile; Start is a no-op");
             return;
         }
 
@@ -68,15 +66,13 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
         ScheduleNext();
-        _logger?.Information("AvaloniaSubliminalService started");
+        _logger?.LogInformation("AvaloniaSubliminalService started");
     }
 
     public void FlashSubliminalCustom(string text, int? overrideDurationMs = null, bool suppressHaptic = false)
     {
-        _logger?.Debug(
-            "AvaloniaSubliminalService: Deeper custom subliminal ignored (stub): \"{Text}\" duration={Duration}ms",
-            text,
-            overrideDurationMs?.ToString() ?? "(default)");
+        if (string.IsNullOrWhiteSpace(text)) return;
+        FlashSubliminalCustom(text, opacity: null, overrideDurationMs: overrideDurationMs);
     }
 
     public void Stop()
@@ -84,7 +80,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         if (!IsRunning) return;
         IsRunning = false;
 
-        _scheduledTimer?.Dispose();
+        _scheduledTimer?.Stop();
         _scheduledTimer = null;
 
         _cts?.Cancel();
@@ -106,7 +102,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
             }
         }
 
-        _logger?.Information("AvaloniaSubliminalService stopped");
+        _logger?.LogInformation("AvaloniaSubliminalService stopped");
     }
 
     public void FlashSubliminal()
@@ -118,7 +114,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         var activeTexts = pool.Where(kvp => kvp.Value).Select(kvp => kvp.Key).ToList();
         if (activeTexts.Count == 0)
         {
-            _logger?.Debug("AvaloniaSubliminalService: no active subliminal texts");
+            _logger?.LogDebug("AvaloniaSubliminalService: no active subliminal texts");
             return;
         }
 
@@ -174,7 +170,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         var settings = _settings.Current;
         if (settings == null || !settings.SubliminalEnabled) return;
 
-        _scheduledTimer?.Dispose();
+        _scheduledTimer?.Stop();
 
         var freq = Math.Max(1, settings.SubliminalFrequency);
         var baseInterval = 60.0 / freq;
@@ -182,14 +178,14 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         var interval = baseInterval + (_random.NextDouble() * variance * 2 - variance);
         interval = Math.Max(1, interval);
 
-        _scheduledTimer = _scheduler.StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
+        _scheduledTimer = StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
         {
             if (!IsRunning) return;
             var s = _settings.Current;
             if (s == null || !s.SubliminalEnabled) return;
 
             try { FlashSubliminal(); }
-            catch (Exception ex) { _logger?.Warning(ex, "AvaloniaSubliminalService: FlashSubliminal failed"); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "AvaloniaSubliminalService: FlashSubliminal failed"); }
             ScheduleNext();
         });
     }
@@ -205,7 +201,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
             var win = new SubliminalWindow(screen);
             win.Show();
             _screenWindows[key] = win;
-            _logger?.Debug("AvaloniaSubliminalService: keep-alive window created for {Screen}", key);
+            _logger?.LogDebug("AvaloniaSubliminalService: keep-alive window created for {Screen}", key);
             return win;
         }
     }
@@ -227,7 +223,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.Debug("AvaloniaSubliminalService: could not enumerate screens: {Error}", ex.Message);
+            _logger?.LogDebug("AvaloniaSubliminalService: could not enumerate screens: {Error}", ex.Message);
             return new[] { new ScreenInfo("fallback", new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), 1.0) };
         }
     }
@@ -309,6 +305,21 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         }
     }
 
+    private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
+    {
+        var timer = new DispatcherTimer { Interval = dueTime };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            timer.Stop();
+            timer.Tick -= handler;
+            callback();
+        };
+        timer.Tick += handler;
+        timer.Start();
+        return timer;
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -365,9 +376,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
             ShowActivated = false;
             Focusable = false;
 
-            Position = new PixelPoint((int)screen.Bounds.X, (int)screen.Bounds.Y);
-            Width = screen.Bounds.Width;
-            Height = screen.Bounds.Height;
+            this.ConstrainToScreen(screen);
             Opacity = 0;
         }
 

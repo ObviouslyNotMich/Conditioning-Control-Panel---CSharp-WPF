@@ -10,25 +10,27 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 /// </summary>
 public sealed class AvaloniaMouseHook : IMouseHook
 {
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AvaloniaMouseHook>? _logger;
 
     private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
     private LowLevelMouseProc? _mouseProc;
     private IntPtr _mouseHook = IntPtr.Zero;
 
-    public AvaloniaMouseHook(IAppLogger? logger = null)
+    public AvaloniaMouseHook(ILogger<AvaloniaMouseHook>? logger = null)
     {
         _logger = logger;
     }
 
     public event EventHandler<HookPoint>? LeftButtonDown;
     public event EventHandler<HookPoint>? RightButtonDown;
+    public event EventHandler<HookPoint>? RightButtonUp;
+    public event EventHandler<HookPoint>? LeftButtonUp;
 
     public void Install()
     {
         if (!OperatingSystem.IsWindows())
         {
-            _logger?.Information("Low-level mouse hooks are only supported on Windows in the Avalonia head.");
+            _logger?.LogInformation("Low-level mouse hooks are only supported on Windows in the Avalonia head.");
             return;
         }
 
@@ -43,17 +45,17 @@ public sealed class AvaloniaMouseHook : IMouseHook
             if (_mouseHook == IntPtr.Zero)
             {
                 var error = Marshal.GetLastWin32Error();
-                _logger?.Warning("SetWindowsHookEx(WH_MOUSE_LL) failed with error {Error}", error);
+                _logger?.LogWarning("SetWindowsHookEx(WH_MOUSE_LL) failed with error {Error}", error);
                 _mouseProc = null;
             }
             else
             {
-                _logger?.Information("Low-level mouse hook installed");
+                _logger?.LogInformation("Low-level mouse hook installed");
             }
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to install low-level mouse hook");
+            _logger?.LogWarning(ex, "Failed to install low-level mouse hook");
             _mouseProc = null;
         }
     }
@@ -68,7 +70,7 @@ public sealed class AvaloniaMouseHook : IMouseHook
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Failed to uninstall low-level mouse hook");
+                _logger?.LogWarning(ex, "Failed to uninstall low-level mouse hook");
             }
             _mouseHook = IntPtr.Zero;
         }
@@ -92,10 +94,18 @@ public sealed class AvaloniaMouseHook : IMouseHook
                 {
                     RightButtonDown?.Invoke(this, pt);
                 }
+                else if (wParam == (IntPtr)WM_RBUTTONUP)
+                {
+                    RightButtonUp?.Invoke(this, pt);
+                }
+                else if (wParam == (IntPtr)WM_LBUTTONUP)
+                {
+                    LeftButtonUp?.Invoke(this, pt);
+                }
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "Exception in low-level mouse hook handler");
+                _logger?.LogWarning(ex, "Exception in low-level mouse hook handler");
             }
         }
 
@@ -104,7 +114,9 @@ public sealed class AvaloniaMouseHook : IMouseHook
 
     private const int WH_MOUSE_LL = 14;
     private const int WM_LBUTTONDOWN = 0x0201;
+    private const int WM_LBUTTONUP = 0x0202;
     private const int WM_RBUTTONDOWN = 0x0204;
+    private const int WM_RBUTTONUP = 0x0205;
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);

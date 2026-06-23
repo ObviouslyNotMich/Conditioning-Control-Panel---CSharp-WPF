@@ -7,8 +7,10 @@ using ConditioningControlPanel.Avalonia.Desktop;
 using ConditioningControlPanel.Avalonia.Desktop.Platform;
 using ConditioningControlPanel.Avalonia.Desktop.Windows.Platform;
 using ConditioningControlPanel.Avalonia.Desktop.Windows.Services;
+using ConditioningControlPanel.Avalonia.Desktop.Windows.Services.Webcam;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Deeper;
+using ConditioningControlPanel.Core.Services.Webcam;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Desktop.Windows;
@@ -27,6 +29,7 @@ class Program
 
         var smokeTest = args.Contains("--smoke-test");
         var smokeScreenshots = args.Contains("--smoke-screenshots");
+#if DEBUG
         SmokeTestLogSink? smokeSink = null;
         SmokeTestRunner? smokeRunner = null;
         if (smokeTest)
@@ -36,12 +39,11 @@ class Program
             smokeRunner = new SmokeTestRunner(smokeSink, captureScreenshots: smokeScreenshots);
             smokeRunner.Attach();
         }
+#endif
 
         App.ConfigurePlatformServices = services =>
         {
             services.AddSingleton<IWallpaperProvider, WpfWallpaperProvider>();
-            services.AddSingleton<IHotkeyProvider, WpfHotkeyProvider>();
-            services.AddSingleton<IInputHook, WpfInputHook>();
             services.AddTransient<IOverlaySurface, WindowsOverlaySurface>();
             services.AddSingleton<IFrameSource, WindowsFrameSource>();
             services.AddSingleton<ISystemAudioDucker, WindowsSystemAudioDucker>();
@@ -51,22 +53,23 @@ class Program
             services.AddSingleton<IStartupRegistration, WindowsStartupRegistration>();
             services.AddSingleton<IBrowserHost, WebView2BrowserHost>();
             services.AddSingleton<IAudioWaveformProvider, NAudioWaveformProvider>();
+            services.AddSingleton<IWebcamService, AvaloniaWebcamTrackingService>();
             services.AddDesktopSecretStore();
             services.AddSingleton<ISingleInstanceService>(singleInstance);
 
-            // Use desktop LibVLC registration so Windows also benefits from explicit
-            // native discovery (e.g. published runtimes folder), while still falling
-            // back to the VideoLAN.LibVLC.Windows package copy in the output folder.
+            // Use desktop LibVLC registration; LibVLCSharp handles runtime discovery.
             services.AddDesktopLibVLC();
         };
 
         var builder = BuildAvaloniaApp();
+#if DEBUG
         if (smokeRunner != null)
         {
             // ProgramShared.BuildAvaloniaApp replaces the log sink; restore our capturing sink.
             Logger.Sink = smokeSink;
             builder.AfterSetup(_ => smokeRunner.ScheduleRun());
         }
+#endif
 
         builder.StartWithClassicDesktopLifetime(args);
     }

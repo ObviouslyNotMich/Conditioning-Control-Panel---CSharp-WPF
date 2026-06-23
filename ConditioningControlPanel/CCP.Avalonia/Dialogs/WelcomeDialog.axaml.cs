@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using ConditioningControlPanel.Core.Localization;
@@ -15,9 +15,8 @@ public partial class WelcomeDialog : Window
     {
         InitializeComponent();
 
-// TODO: App.Mods?.GetAffirmation() is a WPF-only ModService method not yet on IModService.
-        // Using a placeholder until the core mod service exposes affirmations.
-        const string affirmation = "Subject";
+        var modService = App.Services?.GetService<global::ConditioningControlPanel.IModService>();
+        var affirmation = modService?.GetAffirmation() ?? "Subject";
         TxtWelcomeHeading.Text = Loc.GetF("label_welcome", affirmation);
     }
 

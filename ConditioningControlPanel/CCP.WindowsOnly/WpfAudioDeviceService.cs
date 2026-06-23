@@ -14,6 +14,8 @@ public sealed class WpfAudioDeviceService : IAudioDeviceService
     private readonly MMDeviceEnumerator _enumerator = new();
     private string? _preferredDeviceId;
 
+    public event EventHandler? PreferredDeviceChanged;
+
     public IReadOnlyList<AudioDeviceInfo> GetOutputDevices()
     {
         string? defaultId = null;
@@ -35,6 +37,9 @@ public sealed class WpfAudioDeviceService : IAudioDeviceService
 
     public string? GetDefaultOutputDeviceId()
     {
+        if (!string.IsNullOrEmpty(_preferredDeviceId))
+            return _preferredDeviceId;
+
         try
         {
             using var device = _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
@@ -49,5 +54,6 @@ public sealed class WpfAudioDeviceService : IAudioDeviceService
     public void SetPreferredDevice(string? deviceId)
     {
         _preferredDeviceId = deviceId;
+        PreferredDeviceChanged?.Invoke(this, EventArgs.Empty);
     }
 }

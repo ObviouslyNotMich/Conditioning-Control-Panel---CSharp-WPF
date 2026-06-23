@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Quiz;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Webcam;
 
@@ -13,16 +16,27 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 /// <summary>
 /// Avalonia port of the WPF MainWindow.Lab partial.
 /// Exposes lockdown, quiz, chaos mode, wallpaper override, and lab session commands.
-/// Live services (Lockdown, Quiz, Chaos, Wallpaper, Webcam, AI) are not abstracted in Core yet,
-/// so most commands are stubbed with logging and dialogs.
+/// Lockdown, wallpaper, and pop-quiz test are wired to real Core services; chaos/AI remain parity stubs.
 /// </summary>
 public partial class LabTabViewModel : TabItemViewModel
 {
+    private static readonly string[] WallpaperExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff" };
+
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
     private readonly IWebcamService? _webcam;
-    private readonly IAppLogger? _logger;
+    private readonly IWallpaperProvider? _wallpaperProvider;
+    private readonly ILockdownService? _lockdownService;
+    private readonly IAppEnvironment? _appEnvironment;
+    private readonly IPopQuizService? _popQuiz;
+    private readonly ILogger<LabTabViewModel>? _logger;
+    private readonly Random _random = new();
+
     private bool _syncingPlayMode;
+    private int _lockdownTimerClickCount;
+    private List<string> _wallpaperPool = new();
+    private string? _currentWallpaperPath;
+    private string? _originalWallpaperPath;
 
     public LabTabViewModel() : base("lab", "Lab", "🧪")
     {
@@ -39,11 +53,19 @@ public partial class LabTabViewModel : TabItemViewModel
         ISettingsService settingsService,
         IDialogService dialogService,
         IWebcamService webcam,
-        IAppLogger logger) : base("lab", "Lab", "🧪")
+        IWallpaperProvider wallpaperProvider,
+        ILockdownService lockdownService,
+        IAppEnvironment appEnvironment,
+        IPopQuizService popQuiz,
+        ILogger<LabTabViewModel> logger) : base("lab", "Lab", "🧪")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _webcam = webcam;
+        _wallpaperProvider = wallpaperProvider;
+        _lockdownService = lockdownService;
+        _appEnvironment = appEnvironment;
+        _popQuiz = popQuiz;
         _logger = logger;
         LockdownDurations = new ObservableCollection<int> { 5, 10, 15, 30, 60 };
         PastQuizzes = new ObservableCollection<PastQuizViewModel>();
@@ -52,6 +74,7 @@ public partial class LabTabViewModel : TabItemViewModel
         EffectPermissions = new ObservableCollection<LabEffectPermissionItem>();
         DebugLog = new ObservableCollection<string>();
         InitializeDefaults();
+        SubscribeLockdownEvents();
         LoadFromSettings();
     }
 
@@ -239,26 +262,70 @@ public partial class LabTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         if (value)
         {
-            _logger?.Information("Wallpaper override activated (stub)");
-            CurrentWallpaper = "wallpaper-sample.jpg";
+            if (!TryActivateWallpaper())
+            {
+                _settingsService.Current.WallpaperEnabled = false;
+                WallpaperEnabled = false;
+                _ = _dialogService?.ShowMessageAsync(
+                    Loc.Get("wallpaper_override_title"),
+                    Loc.Get("msg_no_wallpaper_images"));
+                return;
+            }
         }
         else
         {
-            _logger?.Information("Wallpaper override deactivated (stub)");
+            _wallpaperProvider?.RestoreOriginalWallpaper();
+            _currentWallpaperPath = null;
             CurrentWallpaper = "";
+            _logger?.LogInformation("Wallpaper override deactivated");
         }
         _settingsService.Current.WallpaperEnabled = value;
         Save();
     }
 
+    private bool TryActivateWallpaper()
+    {
+        try
+        {
+            var wallpapersDir = Path.Combine(_appEnvironment?.EffectiveAssetsPath ?? AppContext.BaseDirectory, "wallpapers");
+            if (!Directory.Exists(wallpapersDir))
+            {
+                _logger?.LogWarning("[Wallpaper] Wallpapers directory not found: {Dir}", wallpapersDir);
+                return false;
+            }
+
+            _wallpaperPool = Directory.GetFiles(wallpapersDir)
+                .Where(f => WallpaperExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .ToList();
+
+            if (_wallpaperPool.Count == 0)
+            {
+                _logger?.LogWarning("[Wallpaper] No supported images found in {Dir}", wallpapersDir);
+                return false;
+            }
+
+            var image = _wallpaperPool[_random.Next(_wallpaperPool.Count)];
+            _wallpaperProvider?.SetWallpaper(image);
+            _currentWallpaperPath = image;
+            CurrentWallpaper = Path.GetFileName(image);
+            _logger?.LogInformation("[Wallpaper] Activated with {File} (pool: {Count} images)", CurrentWallpaper, _wallpaperPool.Count);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "[Wallpaper] Failed to activate");
+            return false;
+        }
+    }
+
     partial void OnAiEffectsEnabledChanged(bool value)
     {
-        _logger?.Information("AI effects master toggle: {Active}", value);
+        _logger?.LogInformation("AI effects master toggle: {Active}", value);
     }
 
     partial void OnAiMemoryEnabledChanged(bool value)
     {
-        _logger?.Information("AI memory toggle: {Active}", value);
+        _logger?.LogInformation("AI memory toggle: {Active}", value);
     }
 
     partial void OnIsTrackingChanged(bool value)
@@ -282,7 +349,7 @@ public partial class LabTabViewModel : TabItemViewModel
         FocusGazeStatusColor = value
             ? GetThemeBrush("SuccessBrush", "#FF00C853")
             : GetThemeBrush("TextMutedBrush", "#FF888888");
-        _logger?.Information("Focus Gaze toggled: {Active}", value);
+        _logger?.LogInformation("Focus Gaze toggled: {Active}", value);
     }
 
     [RelayCommand]
@@ -293,14 +360,14 @@ public partial class LabTabViewModel : TabItemViewModel
             string.Format(Loc.Get("lab_lockdown_message_fmt"), SelectedLockdownDuration)) ?? Task.FromResult(false));
         if (!confirmed) return;
 
-        IsLockdownActive = true;
-        _logger?.Information("Lockdown activated for {Minutes} minutes (stub)", SelectedLockdownDuration);
+        _lockdownService?.Activate(TimeSpan.FromMinutes(SelectedLockdownDuration));
+        _logger?.LogInformation("Lockdown activated for {Minutes} minutes", SelectedLockdownDuration);
     }
 
     [RelayCommand]
     private async Task StartQuizAsync()
     {
-        _logger?.Information("Quiz requested");
+        _logger?.LogInformation("Quiz requested");
         await (_dialogService?.ShowMessageAsync(
             "Login Required",
             Loc.Get("msg_you_need_to_be_logged_in_to_use_the_ai_quiz")) ?? Task.CompletedTask);
@@ -309,7 +376,7 @@ public partial class LabTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task StartChaosAsync()
     {
-        _logger?.Information("Chaos mode requested");
+        _logger?.LogInformation("Chaos mode requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("lab_chaos_title"),
             Loc.Get("lab_chaos_not_available")) ?? Task.CompletedTask);
@@ -318,35 +385,76 @@ public partial class LabTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task QuickStartChaosAsync()
     {
-        _logger?.Information("Chaos quick start requested");
+        _logger?.LogInformation("Chaos quick start requested");
         await StartChaosAsync();
     }
 
     [RelayCommand]
     private void TestPopQuiz()
     {
-        _logger?.Information("Pop quiz test requested");
+        _logger?.LogInformation("Pop quiz test requested");
+        _popQuiz?.TestPopQuiz();
     }
 
     [RelayCommand]
     private void ShuffleWallpaper()
     {
-        CurrentWallpaper = "wallpaper-shuffled.jpg";
-        _logger?.Information("Wallpaper shuffled (stub)");
+        try
+        {
+            if (_wallpaperPool.Count == 0 && !TryActivateWallpaper()) return;
+
+            string image;
+            if (_wallpaperPool.Count == 1)
+            {
+                image = _wallpaperPool[0];
+            }
+            else
+            {
+                do
+                {
+                    image = _wallpaperPool[_random.Next(_wallpaperPool.Count)];
+                } while (image == _currentWallpaperPath);
+            }
+
+            _wallpaperProvider?.SetWallpaper(image);
+            _currentWallpaperPath = image;
+            CurrentWallpaper = Path.GetFileName(image);
+            _logger?.LogDebug("[Wallpaper] Shuffled to {File}", CurrentWallpaper);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "[Wallpaper] Failed to shuffle");
+        }
     }
 
     [RelayCommand]
     private void LockdownTimerClick()
     {
-        _logger?.Information("Lockdown timer clicked (stub)");
+        if (_lockdownService?.IsActive != true) return;
+
+        _lockdownTimerClickCount++;
+        _logger?.LogInformation("Lockdown timer clicked ({Count} times)", _lockdownTimerClickCount);
+
+        if (_lockdownTimerClickCount >= 5)
+        {
+            AppendLog(Loc.Get("lab_log_lockdown_exit_revealed"));
+        }
     }
 
     [RelayCommand]
     private void AttemptLockdownExit(string? phrase)
     {
-        if (string.IsNullOrEmpty(phrase)) return;
-        _logger?.Information("Lockdown exit attempt (stub)");
-        IsLockdownActive = false;
+        if (string.IsNullOrEmpty(phrase) || _lockdownService?.IsActive != true) return;
+
+        if (_lockdownService.TryExitWithPhrase(phrase))
+        {
+            _lockdownTimerClickCount = 0;
+            AppendLog(Loc.Get("lab_log_lockdown_exited"));
+        }
+        else
+        {
+            AppendLog(Loc.Get("lab_log_lockdown_exit_failed"));
+        }
     }
 
     [RelayCommand]
@@ -358,7 +466,7 @@ public partial class LabTabViewModel : TabItemViewModel
         if (!confirmed) return;
 
         AiMemoryEnabled = false;
-        _logger?.Information("AI memory cleared (stub)");
+        _logger?.LogInformation("AI memory cleared (stub)");
         AppendLog(Loc.Get("lab_log_ai_memory_cleared"));
     }
 
@@ -443,17 +551,57 @@ public partial class LabTabViewModel : TabItemViewModel
     [RelayCommand]
     private void OpenGazeMinigame()
     {
-        _logger?.Information("Gaze minigame requested");
+        _logger?.LogInformation("Gaze minigame requested");
         AppendLog(Loc.Get("lab_log_gaze_minigame_opened"));
     }
 
     [RelayCommand]
     private async Task GoToBlinkTrainerAsync()
     {
-        _logger?.Information("Navigate to Blink Trainer requested");
+        _logger?.LogInformation("Navigate to Blink Trainer requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("lab_blink_trainer_title"),
             Loc.Get("lab_blink_trainer_message")) ?? Task.CompletedTask);
+    }
+
+    private void SubscribeLockdownEvents()
+    {
+        if (_lockdownService == null) return;
+
+        _lockdownService.LockdownActivated += OnLockdownActivated;
+        _lockdownService.LockdownDeactivated += OnLockdownDeactivated;
+        _lockdownService.CountdownTick += OnLockdownTick;
+
+        IsLockdownActive = _lockdownService.IsActive;
+        if (IsLockdownActive)
+            LockdownTimerText = FormatLockdownTime(_lockdownService.Remaining);
+    }
+
+    private void OnLockdownActivated()
+    {
+        IsLockdownActive = true;
+        _lockdownTimerClickCount = 0;
+        AppendLog(Loc.Get("lab_log_lockdown_activated"));
+    }
+
+    private void OnLockdownDeactivated()
+    {
+        IsLockdownActive = false;
+        _lockdownTimerClickCount = 0;
+        LockdownTimerText = "00:00";
+        AppendLog(Loc.Get("lab_log_lockdown_deactivated"));
+    }
+
+    private void OnLockdownTick(TimeSpan remaining)
+    {
+        LockdownTimerText = FormatLockdownTime(remaining);
+    }
+
+    private static string FormatLockdownTime(TimeSpan remaining)
+    {
+        return remaining.TotalHours >= 1
+            ? remaining.ToString(@"h\:mm\:ss")
+            : remaining.ToString(@"mm\:ss");
     }
 
     private void LoadFromSettings()
@@ -483,7 +631,7 @@ public partial class LabTabViewModel : TabItemViewModel
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save lab settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save lab settings"); }
     }
 
     private void AppendLog(string line)

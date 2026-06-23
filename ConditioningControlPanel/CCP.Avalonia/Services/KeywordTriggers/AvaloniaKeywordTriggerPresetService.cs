@@ -18,12 +18,12 @@ public sealed class AvaloniaKeywordTriggerPresetService : IKeywordTriggerPresetS
     private const string TriggerIdPrefix = "preset:";
 
     private readonly ISettingsService _settings;
-    private readonly IAppLogger _logger;
+    private readonly ILogger<AvaloniaKeywordTriggerPresetService> _logger;
     private readonly IAppEnvironment _environment;
 
     public AvaloniaKeywordTriggerPresetService(
         ISettingsService settings,
-        IAppLogger logger,
+        ILogger<AvaloniaKeywordTriggerPresetService> logger,
         IAppEnvironment environment)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -64,7 +64,7 @@ public sealed class AvaloniaKeywordTriggerPresetService : IKeywordTriggerPresetS
 
         if (preset.MasterEnabled)
         {
-            _logger.Debug("InstallPreset: {Id} already installed", presetId);
+            _logger.LogDebug("InstallPreset: {Id} already installed", presetId);
             return true;
         }
 
@@ -94,7 +94,7 @@ public sealed class AvaloniaKeywordTriggerPresetService : IKeywordTriggerPresetS
 
         preset.MasterEnabled = true;
         _settings.Save();
-        _logger.Information("InstallPreset: {Id} installed ({Count} triggers)",
+        _logger.LogInformation("InstallPreset: {Id} installed ({Count} triggers)",
             presetId, preset.Triggers?.Count ?? 0);
 
         PresetsChanged?.Invoke(this, EventArgs.Empty);
@@ -116,7 +116,7 @@ public sealed class AvaloniaKeywordTriggerPresetService : IKeywordTriggerPresetS
 
         preset.MasterEnabled = false;
         _settings.Save();
-        _logger.Information("UninstallPreset: {Id} uninstalled ({Count} triggers removed)",
+        _logger.LogInformation("UninstallPreset: {Id} uninstalled ({Count} triggers removed)",
             presetId, removed);
 
         PresetsChanged?.Invoke(this, EventArgs.Empty);
@@ -164,7 +164,7 @@ public sealed class AvaloniaKeywordTriggerPresetService : IKeywordTriggerPresetS
 
         settings.KeywordTriggerPresets.Add(copy);
         _settings.Save();
-        _logger.Information("CloneToCustom: created {NewId} from {SourceId} ({Count} triggers)",
+        _logger.LogInformation("CloneToCustom: created {NewId} from {SourceId} ({Count} triggers)",
             copy.Id, presetId, copy.Triggers.Count);
 
         PresetsChanged?.Invoke(this, EventArgs.Empty);

@@ -14,7 +14,7 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 /// </summary>
 public partial class ChaosVibeTrailOverlay : Window
 {
-    private readonly global::ConditioningControlPanel.IAppLogger _logger;
+    private readonly ILogger<ChaosVibeTrailOverlay> _logger;
 
 
     private const double GLOW_SIZE = 58;
@@ -42,7 +42,7 @@ public partial class ChaosVibeTrailOverlay : Window
     {
         InitializeComponent();
 
-        _logger = App.Services.GetRequiredService<global::ConditioningControlPanel.IAppLogger>();
+        _logger = App.Services.GetRequiredService<ILogger<ChaosVibeTrailOverlay>>();
 WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
@@ -151,7 +151,7 @@ WindowDecorations = WindowDecorations.None;
                 _active.Hide();
             }
         }
-        catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosVibeTrail.EnsureCreated: {E}", ex.Message); }
+        catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosVibeTrailOverlay>>().LogInformation("ChaosVibeTrail.EnsureCreated: {E}", ex.Message); }
     }
 
     public static void Start()
@@ -171,7 +171,7 @@ WindowDecorations = WindowDecorations.None;
                     AvaloniaChaosWindowZ.RaiseAboveVideo(_active);
                     _active.BeginFollow();
                 }
-                catch (Exception ex) { App.Services?.GetService<global::ConditioningControlPanel.IAppLogger>()?.Information("ChaosVibeTrail.Start: {E}", ex.Message); }
+                catch (Exception ex) { App.Services?.GetRequiredService<ILogger<ChaosVibeTrailOverlay>>().LogInformation("ChaosVibeTrail.Start: {E}", ex.Message); }
             });
         }
         catch { }
@@ -274,7 +274,7 @@ WindowDecorations = WindowDecorations.None;
             return;
 #endif
         }
-        catch (Exception ex) { _logger?.Information("ChaosVibeTrail tick: {E}", ex.Message); }
+        catch (Exception ex) { _logger?.LogInformation("ChaosVibeTrail tick: {E}", ex.Message); }
     }
 
     private double ScalingAt(int x, int y)
@@ -297,10 +297,7 @@ screens.Primary;
         return 1.0;
     }
 
-    private void ApplyExStyles()
-    {
-        // TODO: apply WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT on Windows.
-    }
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 
 #if WINDOWS
     [StructLayout(LayoutKind.Sequential)]

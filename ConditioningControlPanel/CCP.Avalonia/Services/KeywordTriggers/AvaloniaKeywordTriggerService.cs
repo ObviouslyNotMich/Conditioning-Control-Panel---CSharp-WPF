@@ -12,12 +12,12 @@ public sealed class AvaloniaKeywordTriggerService : IKeywordTriggerService
 {
     private readonly IAudioPlayer _audioPlayer;
     private readonly IAppEnvironment _environment;
-    private readonly IAppLogger _logger;
+    private readonly ILogger<AvaloniaKeywordTriggerService> _logger;
 
     public AvaloniaKeywordTriggerService(
         IAudioPlayer audioPlayer,
         IAppEnvironment environment,
-        IAppLogger logger)
+        ILogger<AvaloniaKeywordTriggerService> logger)
     {
         _audioPlayer = audioPlayer ?? throw new ArgumentNullException(nameof(audioPlayer));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
@@ -32,7 +32,7 @@ public sealed class AvaloniaKeywordTriggerService : IKeywordTriggerService
         var resolved = ResolveAudioPath(filePath);
         if (!File.Exists(resolved))
         {
-            _logger.Warning("PreviewAudioClip: file not found {Path}", resolved);
+            _logger.LogWarning("PreviewAudioClip: file not found {Path}", resolved);
             return;
         }
 
@@ -43,7 +43,7 @@ public sealed class AvaloniaKeywordTriggerService : IKeywordTriggerService
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "PreviewAudioClip: failed to play {Path}", resolved);
+            _logger.LogWarning(ex, "PreviewAudioClip: failed to play {Path}", resolved);
         }
     }
 

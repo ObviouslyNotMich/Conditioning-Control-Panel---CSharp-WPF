@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Input;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -22,7 +23,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
     private readonly IHapticsService? _hapticsService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<HapticsTabViewModel>? _logger;
 
     public HapticsTabViewModel() : base("haptics", "Haptics", "💜")
     {
@@ -31,15 +32,15 @@ public partial class HapticsTabViewModel : TabItemViewModel
         AudioSyncLatencyFormatted = FormatLatency(AudioSyncLatency);
         UpdateStatusColor();
 
-        // TODO: derive from auth/patreon state once a premium/auth service is injected.
-        IsPremiumLocked = false;
+        // Design-time default: locked until a real settings/auth service is injected.
+        IsPremiumLocked = true;
     }
 
     public HapticsTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
         IHapticsService hapticsService,
-        IAppLogger logger) : base("haptics", "Haptics", "💜")
+        ILogger<HapticsTabViewModel> logger) : base("haptics", "Haptics", "💜")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
@@ -55,9 +56,10 @@ public partial class HapticsTabViewModel : TabItemViewModel
         LoadFromSettings();
         AudioSyncLatencyFormatted = FormatLatency(AudioSyncLatency);
         UpdateStatusColor();
+        RefreshPremiumLock();
 
-        // TODO: derive from auth/patreon state once a premium/auth service is injected.
-        IsPremiumLocked = false;
+        if (_settingsService?.Current != null)
+            _settingsService.Current.PropertyChanged += OnSettingsPropertyChanged;
     }
 
     [ObservableProperty]
@@ -194,7 +196,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
 
     /// <summary>
     /// When true, a premium-gate overlay covers the tab.
-    /// TODO: derive from auth/patreon state instead of defaulting to false.
+    /// Mirrors the cached Patreon premium state from <see cref="AppSettings.HasCachedPremiumAccess"/>.
     /// </summary>
     [ObservableProperty]
     private bool _isPremiumLocked;
@@ -308,7 +310,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
         if (_settingsService?.Current?.Haptics == null) return;
         apply(_settingsService.Current.Haptics);
         Save();
-        _logger?.Information("Haptic event {Name} enabled = {Value}", name, value);
+        _logger?.LogInformation("Haptic event {Name} enabled = {Value}", name, value);
     }
 
     private void SaveEventIntensity(string name, int value, Action<HapticSettings> apply)
@@ -323,7 +325,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
         if (_settingsService?.Current?.Haptics == null) return;
         apply(_settingsService.Current.Haptics);
         Save();
-        _logger?.Information("Haptic event {Name} mode = {Mode}", name, (VibrationMode)value);
+        _logger?.LogInformation("Haptic event {Name} mode = {Mode}", name, (VibrationMode)value);
     }
 
     [RelayCommand]
@@ -331,7 +333,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
     {
         if (_hapticsService == null)
         {
-            _logger?.Warning("Haptic connect requested but no haptics service is available");
+            _logger?.LogWarning("Haptic connect requested but no haptics service is available");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 Loc.Get("msg_haptic_service_unavailable")) ?? Task.CompletedTask);
@@ -340,12 +342,12 @@ public partial class HapticsTabViewModel : TabItemViewModel
 
         if (_hapticsService.IsConnected)
         {
-            _logger?.Information("Haptic disconnect requested");
+            _logger?.LogInformation("Haptic disconnect requested");
             _hapticsService.Disconnect();
             return;
         }
 
-        _logger?.Information("Haptic connect requested for {ProviderUrl}", ProviderUrl);
+        _logger?.LogInformation("Haptic connect requested for {ProviderUrl}", ProviderUrl);
         var connected = await _hapticsService.ConnectAsync(ProviderUrl);
 
         if (!connected)
@@ -361,14 +363,14 @@ public partial class HapticsTabViewModel : TabItemViewModel
     {
         if (_hapticsService == null)
         {
-            _logger?.Warning("Haptic test requested but no haptics service is available");
+            _logger?.LogWarning("Haptic test requested but no haptics service is available");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 Loc.Get("msg_haptic_service_unavailable")) ?? Task.CompletedTask);
             return;
         }
 
-        _logger?.Information("Haptic test requested");
+        _logger?.LogInformation("Haptic test requested");
         var success = await _hapticsService.TestAsync(GlobalIntensity, 2000);
 
         if (success)
@@ -388,7 +390,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task ShowHelpAsync()
     {
-        _logger?.Information("Haptics help requested");
+        _logger?.LogInformation("Haptics help requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("haptics_help_title"),
             Loc.Get("haptics_help_body")) ?? Task.CompletedTask);
@@ -397,7 +399,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task ShowVideoSyncHelpAsync()
     {
-        _logger?.Information("Video haptic sync help requested");
+        _logger?.LogInformation("Video haptic sync help requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("label_video_haptic_sync"),
             Loc.Get("haptics_video_sync_help_body")) ?? Task.CompletedTask);
@@ -406,7 +408,7 @@ public partial class HapticsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task UnlockAsync()
     {
-        _logger?.Information("Premium unlock requested from haptics gate");
+        _logger?.LogInformation("Premium unlock requested from haptics gate");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("gate_premium_locked"),
             Loc.Get("label_unlock_haptic_feedback_by_supporting_on_patre")) ?? Task.CompletedTask);
@@ -513,6 +515,22 @@ public partial class HapticsTabViewModel : TabItemViewModel
             : new SolidColorBrush(Color.Parse("#FF6B6B"));
     }
 
+    private void RefreshPremiumLock()
+    {
+        IsPremiumLocked = !(_settingsService?.Current?.HasCachedPremiumAccess == true);
+    }
+
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.PropertyName)
+            || e.PropertyName == nameof(AppSettings.PatreonPremiumValidUntil)
+            || e.PropertyName == nameof(AppSettings.HasLinkedPatreon)
+            || e.PropertyName == nameof(AppSettings.HasCachedPremiumAccess))
+        {
+            RefreshPremiumLock();
+        }
+    }
+
     private static string FormatLatency(int ms)
     {
         var sign = ms >= 0 ? "+" : "";
@@ -522,6 +540,6 @@ public partial class HapticsTabViewModel : TabItemViewModel
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save haptics settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save haptics settings"); }
     }
 }

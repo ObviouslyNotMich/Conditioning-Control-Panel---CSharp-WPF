@@ -1,9 +1,10 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using ConditioningControlPanel.Models;
-using ConditioningControlPanel.Core.Platform;
+using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using ConditioningControlPanel.Core.Services.Progression;
+using ConditioningControlPanel.Models;
 using Xunit;
 
 namespace ConditioningControlPanel.Core.Tests;
@@ -33,42 +34,18 @@ public class AchievementServiceTests
         }
     }
 
-    private class TestScheduler : IScheduler
-    {
-        public IDisposable StartPeriodicTimer(TimeSpan interval, Action callback) => new TestDisposable();
-        public IDisposable StartOneShotTimer(TimeSpan dueTime, Action callback) => new TestDisposable();
-    }
-
-    private class TestDisposable : IDisposable
-    {
-        public void Dispose() { }
-    }
-
-    private class TestUiDispatcher : IUiDispatcher
-    {
-        public bool CheckAccess() => true;
-        public void Post(Action action) => action();
-        public void Invoke(Action action) => action();
-        public Task InvokeAsync(Action action)
-        {
-            action();
-            return Task.CompletedTask;
-        }
-
-        public T Invoke<T>(Func<T> func) => func();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void TryUnlock_KnownAchievement_AddsToProgressAndRaisesEvent()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
             Achievement? raised = null;
             service.AchievementUnlocked += (_, a) => raised = a;
 
             var result = service.TryUnlock("plastic_initiation");
+            Dispatcher.UIThread.RunJobs();
 
             Assert.True(result);
             Assert.True(service.Progress.IsUnlocked("plastic_initiation"));
@@ -81,14 +58,15 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryUnlock_AlreadyUnlocked_ReturnsFalse()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
             service.TryUnlock("plastic_initiation");
+            Dispatcher.UIThread.RunJobs();
 
             var result = service.TryUnlock("plastic_initiation");
 
@@ -100,13 +78,13 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryUnlock_UnknownAchievement_ReturnsFalse()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
 
             var result = service.TryUnlock("not_a_real_achievement");
 
@@ -118,18 +96,19 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SuppressPopups_SilentUnlock_DoesNotRaiseEvent()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
             service.SuppressPopups = true;
             var raised = false;
             service.AchievementUnlocked += (_, _) => raised = true;
 
             service.TryUnlock("plastic_initiation");
+            Dispatcher.UIThread.RunJobs();
 
             Assert.True(service.Progress.IsUnlocked("plastic_initiation"));
             Assert.False(raised);
@@ -140,14 +119,14 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TrackBubblePopped_MilestoneAwardsSkillPoint()
     {
         var env = new TestAppEnvironment();
         try
         {
             CoreApp.Settings = new TestSettingsService();
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
             var startingPoints = CoreApp.Settings.Current.SkillPoints;
 
             for (int i = 0; i < 100; i++)
@@ -164,13 +143,13 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TrackSessionComplete_DeepSleep_Unlocks()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
 
             service.TrackSessionComplete("Test", 200, false, false);
 
@@ -182,13 +161,13 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CheckLevelAchievements_LevelsUnlockAppropriately()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
 
             service.CheckLevelAchievements(20);
 
@@ -202,14 +181,15 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Save_PersistsProgress()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
             service.TryUnlock("plastic_initiation");
+            Dispatcher.UIThread.RunJobs();
 
             service.Save();
 
@@ -222,14 +202,15 @@ public class AchievementServiceTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task DisposeAsync_SavesAndDisposes()
     {
         var env = new TestAppEnvironment();
         try
         {
-            var service = new AchievementService(env, new DebugLogger(), new TestScheduler(), new TestUiDispatcher());
+            var service = new AchievementService(env, new DebugLogger<AchievementService>());
             service.TryUnlock("plastic_initiation");
+            Dispatcher.UIThread.RunJobs();
 
             await service.DisposeAsync();
 

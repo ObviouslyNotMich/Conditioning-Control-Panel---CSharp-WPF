@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
@@ -17,9 +18,10 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<EnhancementsTabViewModel>? _logger;
     private readonly IModService? _modService;
     private readonly ISkillTreeService? _skillTreeService;
+    private readonly IAchievementService? _achievementService;
 
     public EnhancementsTabViewModel() : base("enhancements", "Enhancements", "✨")
     {
@@ -35,15 +37,17 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
     public EnhancementsTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger,
+        ILogger<EnhancementsTabViewModel> logger,
         IModService modService,
-        ISkillTreeService skillTreeService) : base("enhancements", "Enhancements", "✨")
+        ISkillTreeService skillTreeService,
+        IAchievementService achievementService) : base("enhancements", "Enhancements", "✨")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
         _modService = modService;
         _skillTreeService = skillTreeService;
+        _achievementService = achievementService;
         _skillTiers = new ObservableCollection<SkillTierGroupViewModel>();
         _skills = new ObservableCollection<SkillNodeViewModel>();
         _connections = new ObservableCollection<SkillConnectionViewModel>();
@@ -51,6 +55,9 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
         _stats = new ObservableCollection<StatRowViewModel>();
         _ditzyStats = new ObservableCollection<StatRowViewModel>();
         RefreshUi();
+
+        if (_modService != null)
+            _modService.ActiveModChanged += (_, _) => RefreshUi();
     }
 
     [ObservableProperty]
@@ -118,7 +125,7 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        _logger?.Information("Refreshing Enhancements UI");
+        _logger?.LogInformation("Refreshing Enhancements UI");
         RefreshUi();
         await Task.CompletedTask;
     }
@@ -157,7 +164,7 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
 
         try
         {
-            _logger?.Information("Purchase skill requested: {SkillId}", node.SkillId);
+            _logger?.LogInformation("Purchase skill requested: {SkillId}", node.SkillId);
             var (success, error) = await _skillTreeService.PurchaseSkillAsync(node.SkillId);
             if (success)
             {
@@ -175,7 +182,7 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Purchase skill failed");
+            _logger?.LogWarning(ex, "Purchase skill failed");
             await _dialogService.ShowMessageAsync(
                 Loc.Get("dialog_purchase_failed"),
                 ex.Message,
@@ -243,7 +250,7 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "RefreshEnhancementsUI failed");
+            _logger?.LogWarning(ex, "RefreshEnhancementsUI failed");
         }
     }
 
@@ -418,32 +425,39 @@ public partial class EnhancementsTabViewModel : TabItemViewModel
     private void RefreshStats()
     {
         Stats.Clear();
-        // TODO: wire to IAchievementService.Progress once it is extracted to CCP.Core.
-        // Until then, the stats panel is a placeholder.
-        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_started"), Value = "0" });
-        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_completed"), Value = "0" });
-        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_abandoned"), Value = "0" });
+        var achievements = _achievementService?.Progress;
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_started"), Value = (achievements?.TotalSessionsStarted ?? 0).ToString("N0") });
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_completed"), Value = (achievements?.CompletedSessions.Count ?? 0).ToString("N0") });
+        Stats.Add(new StatRowViewModel { Label = Loc.Get("label_sessions_abandoned"), Value = (achievements?.TotalSessionsAbandoned ?? 0).ToString("N0") });
+    }
+
+    private static string FormatMinutes(double minutes)
+    {
+        return minutes >= 60
+            ? $"{minutes / 60:F1} {Loc.Get("label_hrs")}"
+            : $"{minutes:F1} {Loc.Get("label_min_abbrev")}";
     }
 
     private void RefreshDitzyStats(AppSettings settings)
     {
         DitzyStats.Clear();
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_total_xp_earned_stat"), Value = ((int)settings.PlayerXP).ToString() });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_skill_points_earned"), Value = settings.SkillPoints.ToString() });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_longest_session"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_attention_passes"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_att_passed"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_att_failed"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bubble_count_games"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bc_correct"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bc_best_streak"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_total_flashes_stat"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bubbles_popped_stat"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_lock_cards_done"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_time"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_pink_filter_time"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_spiral_time"), Value = "0" });
-        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_consecutive_days"), Value = "0" });
+        var achievements = _achievementService?.Progress;
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_total_xp_earned_stat"), Value = ((int)(achievements?.TotalXPEarned ?? settings.PlayerXP)).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_skill_points_earned"), Value = (achievements?.TotalSkillPointsEarned ?? settings.SkillPoints).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_longest_session"), Value = FormatMinutes(achievements?.LongestSessionMinutes ?? 0) });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_attention_passes"), Value = (achievements?.TotalAttentionChecksPassed ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_att_passed"), Value = (achievements?.VideoAttentionChecksPassed ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_att_failed"), Value = (achievements?.VideoAttentionChecksFailed ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bubble_count_games"), Value = (achievements?.TotalBubbleCountGames ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bc_correct"), Value = (achievements?.TotalBubbleCountCorrect ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bc_best_streak"), Value = (achievements?.BubbleCountBestStreak ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_total_flashes_stat"), Value = (achievements?.TotalFlashImages ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_bubbles_popped_stat"), Value = (achievements?.TotalBubblesPopped ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_lock_cards_done"), Value = (achievements?.TotalLockCardsCompleted ?? 0).ToString("N0") });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_video_time"), Value = FormatMinutes(achievements?.TotalVideoMinutes ?? 0) });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_pink_filter_time"), Value = FormatMinutes(achievements?.TotalPinkFilterMinutes ?? 0) });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_spiral_time"), Value = FormatMinutes(achievements?.TotalSpiralMinutes ?? 0) });
+        DitzyStats.Add(new StatRowViewModel { Label = Loc.Get("label_consecutive_days"), Value = (achievements?.ConsecutiveDays ?? 0).ToString("N0") });
     }
 
     private List<(string Source, double Value)> ComputeMultiplierBreakdown()

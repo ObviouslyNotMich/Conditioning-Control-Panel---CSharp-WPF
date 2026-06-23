@@ -21,6 +21,7 @@ public interface IRoadmapService
     string? GetFullPhotoPath(string? relativePath);
     void StartStep(string stepId);
     void SubmitPhoto(string stepId, string photoPath, string? note);
+    void UpdateStepNote(string stepId, string? note);
 }
 
 public sealed class RoadmapStepCompletedEventArgs : EventArgs

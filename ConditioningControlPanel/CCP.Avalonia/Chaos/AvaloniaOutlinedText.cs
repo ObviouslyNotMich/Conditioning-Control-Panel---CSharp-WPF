@@ -2,6 +2,7 @@ using System.Globalization;
 using global::Avalonia;
 using global::Avalonia.Controls;
 using global::Avalonia.Media;
+using Point = global::Avalonia.Point;
 
 namespace ConditioningControlPanel.Avalonia.Chaos;
 

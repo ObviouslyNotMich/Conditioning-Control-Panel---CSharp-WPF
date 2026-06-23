@@ -20,7 +20,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
     private readonly ISettingsService? _settingsService;
     private readonly ISettingsBackupProvider? _backupProvider;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<AppInfoTabViewModel>? _logger;
     private readonly IAudioPlayer? _audioPlayer;
     private readonly AvaloniaDualMonitorVideoService? _videoService;
     private readonly IUpdateService? _updateService;
@@ -36,7 +36,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         ISettingsService settingsService,
         ISettingsBackupProvider backupProvider,
         IDialogService dialogService,
-        IAppLogger logger,
+        ILogger<AppInfoTabViewModel> logger,
         IAudioPlayer? audioPlayer = null,
         AvaloniaDualMonitorVideoService? videoService = null,
         IUpdateService? updateService = null) : base("appinfo", "App Info", "ℹ️")
@@ -87,7 +87,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         current.Language = value.Code;
         LocalizationManager.Instance.SetLanguage(value.Code);
         _settingsService.Save();
-        _logger?.Information("Language changed to {Language}", value.Code);
+        _logger?.LogInformation("Language changed to {Language}", value.Code);
     }
 
     private void InitializeLanguages()
@@ -105,7 +105,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
     private async Task QuickPatreonLoginAsync()
     {
         // Legacy OAuth flow is WPF-only. Avalonia uses a unified login dialog (future work).
-        _logger?.Information("Patreon login requested");
+        _logger?.LogInformation("Patreon login requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_not_implemented"),
             Loc.Get("msg_patreon_login_dialog_not_yet_ported")) ?? Task.CompletedTask);
@@ -114,7 +114,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task QuickDiscordLoginAsync()
     {
-        _logger?.Information("Discord login requested");
+        _logger?.LogInformation("Discord login requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_not_implemented"),
             Loc.Get("msg_discord_login_dialog_not_yet_ported")) ?? Task.CompletedTask);
@@ -126,11 +126,11 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         try
         {
             OpenUrl("https://discord.gg/YxVAMt4qaZ");
-            _logger?.Information("Opened Discord invite link");
+            _logger?.LogInformation("Opened Discord invite link");
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to open Discord link");
+            _logger?.LogError(ex, "Failed to open Discord link");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -144,7 +144,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.DiscordRichPresenceEnabled = IsRichPresenceEnabled;
         _settingsService.Save();
-        _logger?.Information("Discord Rich Presence {Status}", IsRichPresenceEnabled ? "enabled" : "disabled");
+        _logger?.LogInformation("Discord Rich Presence {Status}", IsRichPresenceEnabled ? "enabled" : "disabled");
         await Task.CompletedTask;
     }
 
@@ -163,7 +163,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Manual settings backup failed");
+            _logger?.LogWarning(ex, "Manual settings backup failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_backup_failed"),
                 Loc.Get("msg_failed_to_backup_settings"),
@@ -197,7 +197,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Manual settings restore failed");
+            _logger?.LogWarning(ex, "Manual settings restore failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_restore_error"),
                 Loc.GetF("msg_restore_failed_0", ex.Message),
@@ -234,7 +234,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Data export failed");
+            _logger?.LogWarning(ex, "Data export failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_export_error"),
                 Loc.GetF("msg_export_failed_0", ex.Message),
@@ -252,11 +252,11 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         try
         {
             OpenUrl("https://cclabs.app/privacy-policy.html");
-            _logger?.Information("Opened privacy policy");
+            _logger?.LogInformation("Opened privacy policy");
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open privacy policy");
+            _logger?.LogWarning(ex, "Failed to open privacy policy");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 ex.Message,
@@ -279,7 +279,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to update backup status");
+            _logger?.LogWarning(ex, "Failed to update backup status");
             BackupStatusText = Loc.Get("label_could_not_check_backup_status");
         }
 
@@ -303,7 +303,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             var path = Path.Combine(AppContext.BaseDirectory, "Resources", "AwarenessPresets", "audio", "chime.wav");
             if (!File.Exists(path))
             {
-                _logger?.Warning("Smoke-test audio sample not found: {Path}", path);
+                _logger?.LogWarning("Smoke-test audio sample not found: {Path}", path);
                 await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_smoke_test"), Loc.Get("msg_sample_not_found"), DialogSeverity.Warning) ?? Task.CompletedTask);
                 return;
             }
@@ -311,12 +311,12 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             await (_audioPlayer?.PlayAsync(path) ?? Task.CompletedTask);
             await Task.Delay(1200);
             _audioPlayer?.Stop();
-            _logger?.Information("Audio smoke-test completed");
+            _logger?.LogInformation("Audio smoke-test completed");
             await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_smoke_test"), Loc.Get("msg_played_sample_successfully")) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Audio smoke-test failed");
+            _logger?.LogError(ex, "Audio smoke-test failed");
             await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_smoke_test"), string.Format(Loc.Get("msg_smoke_test_failed_fmt"), ex.Message), DialogSeverity.Error) ?? Task.CompletedTask);
         }
     }
@@ -329,7 +329,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             var path = Path.Combine(AppContext.BaseDirectory, "Resources", "tutorial_videos", "_test_loop.mp4");
             if (!File.Exists(path))
             {
-                _logger?.Warning("Smoke-test video sample not found: {Path}", path);
+                _logger?.LogWarning("Smoke-test video sample not found: {Path}", path);
                 await (_dialogService?.ShowMessageAsync(Loc.Get("title_video_smoke_test"), Loc.Get("msg_sample_not_found"), DialogSeverity.Warning) ?? Task.CompletedTask);
                 return;
             }
@@ -337,12 +337,12 @@ public partial class AppInfoTabViewModel : TabItemViewModel
             _videoService?.PlayFile(path, 640, 360);
             await Task.Delay(3000);
             _videoService?.Stop();
-            _logger?.Information("Video smoke-test completed");
+            _logger?.LogInformation("Video smoke-test completed");
             await (_dialogService?.ShowMessageAsync(Loc.Get("title_video_smoke_test"), Loc.Get("msg_played_sample_successfully")) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Video smoke-test failed");
+            _logger?.LogError(ex, "Video smoke-test failed");
             await (_dialogService?.ShowMessageAsync(Loc.Get("title_video_smoke_test"), string.Format(Loc.Get("msg_smoke_test_failed_fmt"), ex.Message), DialogSeverity.Error) ?? Task.CompletedTask);
         }
     }
@@ -353,7 +353,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         try
         {
             IsBusy = true;
-            _logger?.Information("Manual update check requested");
+            _logger?.LogInformation("Manual update check requested");
             var update = _updateService != null
                 ? await _updateService.CheckForUpdatesAsync(forceCheck: true)
                 : null;
@@ -372,7 +372,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Manual update check failed");
+            _logger?.LogWarning(ex, "Manual update check failed");
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_error"),
                 Loc.GetF("update_check_failed_0", ex.Message),
@@ -387,7 +387,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task OpenBugReportAsync()
     {
-        _logger?.Information("Bug report requested from App Info");
+        _logger?.LogInformation("Bug report requested from App Info");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("bug_report_title"),
             Loc.Get("bug_report_error_toast")) ?? Task.CompletedTask);

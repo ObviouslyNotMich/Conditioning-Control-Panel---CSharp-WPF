@@ -26,7 +26,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
-    private readonly IAppLogger? _logger;
+    private readonly ILogger<SettingsTabViewModel>? _logger;
     private readonly IBrowserHost? _browserHost;
     private readonly IAudioPlayer? _audioPlayer;
     private readonly IAudioDeviceService? _audioDeviceService;
@@ -45,7 +45,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     public SettingsTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        IAppLogger logger,
+        ILogger<SettingsTabViewModel> logger,
         IBrowserHost browserHost,
         IAudioPlayer audioPlayer,
         IAudioDeviceService audioDeviceService) : base("settings", "Dashboard", "📊")
@@ -320,7 +320,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         _settingsService.Current.AudioOutputDeviceName = name;
         _audioDeviceService?.SetPreferredDevice(id);
         Save();
-        _logger?.Information("Audio output device set to '{Name}' (id={Id})",
+        _logger?.LogInformation("Audio output device set to '{Name}' (id={Id})",
             string.IsNullOrEmpty(name) ? "System default" : name,
             string.IsNullOrEmpty(id) ? "(default)" : id);
     }
@@ -366,7 +366,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "RefreshAudioOutputDevices failed");
+            _logger?.LogWarning(ex, "RefreshAudioOutputDevices failed");
         }
         finally
         {
@@ -434,12 +434,12 @@ public partial class SettingsTabViewModel : TabItemViewModel
             }
 
             var message = diagnostics.ToString();
-            _logger?.Information("[AudioDiag] Test requested:\n{Result}", message);
+            _logger?.LogInformation("[AudioDiag] Test requested:\n{Result}", message);
             await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_diagnostics"), message) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Audio test failed");
+            _logger?.LogError(ex, "Audio test failed");
             await (_dialogService?.ShowMessageAsync(Loc.Get("title_audio_diagnostics"), string.Format(Loc.Get("msg_playback_failed_fmt"), ex.Message)) ?? Task.CompletedTask);
         }
     }
@@ -456,7 +456,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.DiscordRichPresenceEnabled = value;
         Save();
-        _logger?.Information("Discord Rich Presence {Status}", value ? "enabled" : "disabled");
+        _logger?.LogInformation("Discord Rich Presence {Status}", value ? "enabled" : "disabled");
     }
 
     [RelayCommand]
@@ -484,7 +484,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Unified login failed");
+            _logger?.LogWarning(ex, "Unified login failed");
         }
     }
 
@@ -507,7 +507,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Logout failed");
+            _logger?.LogWarning(ex, "Logout failed");
         }
     }
 
@@ -524,7 +524,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         }
         catch (Exception ex)
         {
-            _logger?.Warning(ex, "Failed to open Discord");
+            _logger?.LogWarning(ex, "Failed to open Discord");
         }
     }
 
@@ -539,18 +539,18 @@ public partial class SettingsTabViewModel : TabItemViewModel
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_success"),
                 Loc.Get("msg_settings_saved")) ?? Task.CompletedTask);
-            _logger?.Information("Settings saved from settings tab");
+            _logger?.LogInformation("Settings saved from settings tab");
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to save settings");
+            _logger?.LogError(ex, "Failed to save settings");
         }
     }
 
     [RelayCommand]
     private async Task OpenBugReportAsync()
     {
-        _logger?.Information("Bug report requested");
+        _logger?.LogInformation("Bug report requested");
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("bug_report_title"),
             Loc.Get("bug_report_error_toast")) ?? Task.CompletedTask);
@@ -560,7 +560,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     private void ShowHelpOverlay()
     {
         IsHelpOverlayVisible = true;
-        _logger?.Information("Help overlay opened");
+        _logger?.LogInformation("Help overlay opened");
     }
 
     [RelayCommand]
@@ -572,7 +572,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task StartTutorialAsync(string tutorialType)
     {
-        _logger?.Information("Tutorial requested: {Type}", tutorialType);
+        _logger?.LogInformation("Tutorial requested: {Type}", tutorialType);
         await (_dialogService?.ShowMessageAsync(
             Loc.Get("title_tutorial"),
             Loc.GetF("msg_tutorial_starting_0", tutorialType)) ?? Task.CompletedTask);
@@ -686,7 +686,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     {
         if (_settingsService?.Current?.OfflineMode == true)
         {
-            _logger?.Information("Browser launch blocked in offline mode");
+            _logger?.LogInformation("Browser launch blocked in offline mode");
             return;
         }
 
@@ -695,14 +695,14 @@ public partial class SettingsTabViewModel : TabItemViewModel
 
         try
         {
-            _logger?.Information("Navigating browser to {Url}", targetUrl);
+            _logger?.LogInformation("Navigating browser to {Url}", targetUrl);
             await (_browserHost?.NavigateAsync(new Uri(targetUrl)) ?? Task.CompletedTask);
             BrowserStatusText = Loc.Get("label_connected");
             BrowserInitialized = true;
         }
         catch (Exception ex)
         {
-            _logger?.Error(ex, "Failed to navigate browser to {Url}", targetUrl);
+            _logger?.LogError(ex, "Failed to navigate browser to {Url}", targetUrl);
             BrowserStatusText = Loc.Get("label_failed");
         }
     }
@@ -712,7 +712,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     {
         if (_settingsService?.Current?.OfflineMode == true)
         {
-            _logger?.Information("Browser initialization blocked in offline mode");
+            _logger?.LogInformation("Browser initialization blocked in offline mode");
             return;
         }
 
@@ -748,7 +748,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     {
         if (_settingsService?.Current?.OfflineMode == true) return;
         await OpenBrowserAsync(null);
-        _logger?.Information("Browser pop-out requested");
+        _logger?.LogInformation("Browser pop-out requested");
     }
 
     #endregion
@@ -756,7 +756,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     private void Save()
     {
         try { _settingsService?.Save(); }
-        catch (Exception ex) { _logger?.Warning(ex, "Failed to save settings"); }
+        catch (Exception ex) { _logger?.LogWarning(ex, "Failed to save settings"); }
     }
 
 }

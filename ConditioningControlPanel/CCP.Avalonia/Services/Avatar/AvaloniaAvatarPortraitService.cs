@@ -16,12 +16,17 @@ namespace ConditioningControlPanel.Avalonia.Services.Avatar
         public const string ManifestFileName = "avatar_manifest.json";
 
         private readonly IModService _modService;
-        private readonly IAppLogger? _logger;
+        private readonly ILogger<AvaloniaAvatarPortraitService>? _logger;
+        private readonly ILogger<AvatarPortraitSet>? _avatarPortraitSetLogger;
 
-        public AvaloniaAvatarPortraitService(IModService modService, IAppLogger? logger = null)
+        public AvaloniaAvatarPortraitService(
+            IModService modService,
+            ILogger<AvaloniaAvatarPortraitService>? logger = null,
+            ILogger<AvatarPortraitSet>? avatarPortraitSetLogger = null)
         {
             _modService = modService;
             _logger = logger;
+            _avatarPortraitSetLogger = avatarPortraitSetLogger;
         }
 
         /// <summary>True if the active mod ships a portrait manifest (cheap existence check, no parse).</summary>
@@ -42,18 +47,18 @@ namespace ConditioningControlPanel.Avalonia.Services.Avatar
                 var manifest = JsonConvert.DeserializeObject<AvatarPortraitManifest>(json);
                 if (manifest == null || manifest.Emotions.Count == 0 || manifest.Skins.Count == 0)
                 {
-                    _logger?.Warning("AvaloniaAvatarPortraitService: manifest at {Path} is empty/invalid", path);
+                    _logger?.LogWarning("AvaloniaAvatarPortraitService: manifest at {Path} is empty/invalid", path);
                     return null;
                 }
                 var baseDir = Path.GetDirectoryName(path) ?? "";
-                _logger?.Information(
+                _logger?.LogInformation(
                     "AvaloniaAvatarPortraitService: loaded {Emotions} emotions, {Skins} skins, {Lines} lines from {Path}",
                     manifest.Emotions.Count, manifest.Skins.Count, manifest.Lines.Count, path);
-                return new AvatarPortraitSet(manifest, baseDir, _logger);
+                return new AvatarPortraitSet(manifest, baseDir, _avatarPortraitSetLogger);
             }
             catch (Exception ex)
             {
-                _logger?.Warning(ex, "AvaloniaAvatarPortraitService: failed to load manifest at {Path}", path);
+                _logger?.LogWarning(ex, "AvaloniaAvatarPortraitService: failed to load manifest at {Path}", path);
                 return null;
             }
         }
