@@ -66,20 +66,8 @@ namespace ConditioningControlPanel.Features
         private void ChkEnable_Changed(object sender, RoutedEventArgs e)
         {
             if (_isLoading) return;
-            var s = App.Settings?.Current;
-            if (s == null) return;
-            var on = ChkEnable.IsChecked ?? false;
-            s.SubliminalEnabled = on;
-            App.Settings?.Save();
-
-            // Live-apply: start/stop subliminal service if engine is running
-            if (App.IsEngineRunning)
-            {
-                if (on)
-                    App.Subliminal?.Start();
-                else
-                    App.Subliminal?.Stop();
-            }
+            // Single authority: persists the flag and live-applies start/stop (idempotently).
+            App.Subliminal?.SetEnabled(ChkEnable.IsChecked ?? false);
         }
 
         private void SliderPerMin_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)

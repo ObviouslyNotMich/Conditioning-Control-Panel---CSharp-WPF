@@ -1,0 +1,14 @@
+{
+  "glow": {
+    "intensity": 1.55,
+    "frequency": 1.5
+  },
+  "twinkle": {
+    "intensity": 0.6,
+    "frequency": 0.75
+  },
+  "sheen": {
+    "intensity": 0.15,
+    "frequency": 0.8
+  }
+}

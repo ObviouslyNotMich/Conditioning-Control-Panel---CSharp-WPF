@@ -1197,25 +1197,9 @@ namespace ConditioningControlPanel
         internal void ChkSubliminalEnabled_Changed(object sender, RoutedEventArgs e)
         {
             if (_isLoading) return;
-
-            var isEnabled = SettingsTab.ChkSubliminalEnabled.IsChecked ?? false;
-            App.Settings.Current.SubliminalEnabled = isEnabled;
-
-            // Immediately start/stop subliminal service if engine is running
-            if (_isRunning)
-            {
-                if (isEnabled)
-                {
-                    App.Subliminal.Start();
-                }
-                else
-                {
-                    App.Subliminal.Stop();
-                }
-                App.Logger?.Information("Subliminals toggled: {Enabled}", isEnabled);
-            }
-
-            App.Settings.Save();
+            // Single authority: persists the flag and live-applies start/stop (idempotently),
+            // so this checkbox and the feature popup can't churn the service between them.
+            App.Subliminal?.SetEnabled(SettingsTab.ChkSubliminalEnabled.IsChecked ?? false);
         }
 
         internal void ChkAudioWhispers_Changed(object sender, RoutedEventArgs e)

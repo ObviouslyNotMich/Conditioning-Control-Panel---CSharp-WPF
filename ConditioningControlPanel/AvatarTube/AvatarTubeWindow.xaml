@@ -9,6 +9,7 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
+        ShowActivated="False"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         SizeToContent="WidthAndHeight"

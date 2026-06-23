@@ -24,6 +24,7 @@ public class AchievementService : IDisposable
     private DateTime _lastBrainDrainCheck = DateTime.Now;
     private DateTime _lastMindWipeCheck = DateTime.Now;
     private DateTime _lastDeeperCheck = DateTime.Now;
+    private DateTime _lastAutonomyCheck = DateTime.Now;
     
     public event EventHandler<Achievement>? AchievementUnlocked;
 
@@ -248,6 +249,22 @@ public class AchievementService : IDisposable
         else
         {
             _lastDeeperCheck = now;
+        }
+
+        // Track Bambi Takeover (autonomy) active time for Patreon quests — only while
+        // autonomy is enabled/running. Mirrors the spiral/pink accumulation pattern.
+        if (App.Autonomy?.IsEnabled == true)
+        {
+            var elapsed = (now - _lastAutonomyCheck).TotalMinutes;
+            if (elapsed > 0 && elapsed < 0.1) // sanity: max ~6s between ticks
+            {
+                App.Quests?.TrackAutonomyMinutes(elapsed);
+            }
+            _lastAutonomyCheck = now;
+        }
+        else
+        {
+            _lastAutonomyCheck = now;
         }
 
         // Check System Overload (Bubbles + Bouncing Text + Spiral all active)

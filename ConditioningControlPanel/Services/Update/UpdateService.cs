@@ -20,70 +20,55 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.1.6";
+        public const string AppVersion = "6.1.7";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.1.6 - Down the Rabbit Hole
+        public const string CurrentPatchNotes = @"v6.1.7 - Down the Rabbit Hole
 
-✨ THE RABBIT HOLE - PRETTIER THAN EVER
-- Pops burst into light, throwing off rings and shards in each bubble's colour.
-- Shockwave ripples bloom outward when you snap or set off a field effect.
-- Round bubbles now shine like glass.
-- The score multiplier swells, rounds out and glows brighter the higher it climbs.
-- E-Stim lightning, the rabbit's sparkle trail and the Rabbit-Caller cursor glow
-  are all rebuilt as soft, additive, bloomed light.
-- Little flourishes everywhere - boon cards pop on pick, the combo number blooms
-  on tier-up, your score pulses as it ticks up.
-- A consistent colour language across boons, tiles and banners (electric cyan /
-  pleasure pink / economy gold / mind purple / risk red).
-- New ""Enhanced FX"" and ""Keep on top"" toggles, and the whole layer now stays
-  pinned above other windows so it won't sink when you click away.
+🐇 THE RABBIT HOLE - A REAL FRONT DOOR
+- New ""Down the Rabbit Hole"" main menu: neon logo, soundtrack, pink fog, an
+  animated intro reveal and a How-to-Play tutorial overlay.
+- Prettier play: pops burst into coloured light, snaps and field effects send
+  ripples blooming outward, round bubbles shine like glass, and the score
+  multiplier glows brighter the higher it climbs.
+- E-Stim lightning, the rabbit's sparkle trail and the Rabbit-Caller glow are all
+  rebuilt as soft, bloomed light, with a consistent colour language across boons,
+  tiles and banners.
+- New ""Enhanced FX"" and ""Keep on top"" toggles, and the layer stays pinned so it
+  won't sink when you click away.
 
-⚡ THE RABBIT HOLE - SMOOTHER THAN EVER
-- A big performance pass: spawning bubbles, bouncing text and DVD logos no longer
-  hitches the whole game. Dense waves stay smooth.
-- The companion no longer freezes or stutters while the game is busy.
-- When you start a run she now tucks into the bottom-left instead of vanishing.
-
-🎭 COMPANION
-- Fixed the big one: she no longer disappears or freezes for a few seconds between
-  animations (the bug that ""fixed itself when she spoke""). She recovers in about
-  a second now instead of sitting blank.
-- She also no longer blinks out for a beat mid-sentence while a clip is still
-  loading - she holds her last frame instead of going blank.
+⚡ SMOOTHER & STEADIER
+- Big performance pass: dense waves of bubbles, bouncing text and DVD logos no
+  longer hitch the game, and the companion no longer freezes or stutters while
+  it's busy.
+- The companion no longer disappears or blanks out between animations or
+  mid-sentence, and tucks into the bottom-left when a run starts.
 
 🤖 BRING YOUR OWN AI
 - New OpenAI-compatible provider: point your companion at any OpenAI-style
-  endpoint (local models, other backends) - with endpoint diagnostics, a
-  sampler-settings popup and a test-connection check.
-- Custom AI error messages and a clearer daily-request-limit display.
+  endpoint (local models, other backends), with diagnostics, a sampler-settings
+  popup and a test-connection check.
 
-🔗 SUBSCRIBESTAR
-- You can now log in with SubscribeStar alongside the existing options.
+🔗 LOGIN & CATALOGUE
+- Log in with SubscribeStar alongside the existing options, with a more reliable
+  browser hand-off so sign-in can't fail silently.
+- New Community Catalogue card in Presets: browse and import community presets &
+  sessions, and share your own.
 
-🗂️ CATALOGUE
-- A new ""Community Catalogue"" card in the Presets tab - one click to browse and
-  import community presets & sessions.
-- Share your own Presets & Sessions straight to the catalogue.
+🎯 QUESTS
+- Refreshed quest pool: 20 free + 20 patron quests, with all the artwork bundled
+  in the app.
 
 🔧 FIXES & STABILITY
-- The window's X button now fully closes the app instead of leaving it running
-  in the background.
-- A cloud restore no longer wipes your per-mod phrase lists (subliminals,
-  bouncing text, lock cards, custom triggers).
-- Flash: stopped a ""stare to keep"" flash that could become immortal, and guarded
-  against unsupported image formats.
-- Multi-monitor: capped video decoders so extra screens don't overload things,
-  and your custom assets folder is now created on import.
-- Brain Drain: smoother opacity ramp, and it survives Windows running low on
-  window handles during very long sessions.
-- Assets tree no longer crashes if a folder disappears mid-build.
-- Fixed a double voiceline when unlocking a skill-tree enhancement.
-- Webcam calibration is easier to pass (lower sample floor on the first point).
-- Hardened some async handlers and hit-testing paths against rare crashes.
+- Subliminals: fixed the previous phrase flashing alongside the next one.
+- The companion window no longer steals focus and cancels your typing.
+- The title-bar X now fully closes the app; a cloud restore no longer wipes your
+  per-mod phrase lists; bouncing-text edits persist across restarts.
+- Flash, Brain Drain, multi-monitor, webcam calibration and assets-tree
+  hardening, plus rare-crash guards across async handlers.
 
 Season: Juicy June";
 

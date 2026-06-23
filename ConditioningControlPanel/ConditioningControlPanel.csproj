@@ -10,7 +10,7 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);CCP.Core\**;CCP.Avalonia\**;CCP.Avalonia.Desktop\**;CCP.Avalonia.Desktop.Windows\**;CCP.Avalonia.Desktop.Linux\**;CCP.Avalonia.Desktop.macOS\**;CCP.Avalonia.Android\**;CCP.WindowsOnly\**;tests\**</DefaultItemExcludes>
     <AssemblyName>ConditioningControlPanel</AssemblyName>
     <RootNamespace>ConditioningControlPanel</RootNamespace>
-    <Version>6.1.6</Version>
+    <Version>6.1.7</Version>
     <Company>CodeBambi</Company>
     <Product>Conditioning Control Panel</Product>
     <Description>A professional visual conditioning application with gamification features.</Description>
@@ -154,8 +154,8 @@
          from AppContext.BaseDirectory\Assets\Chaos\{kind}\{id}.png. Staging candidates are
          excluded so only the promoted finals ship. Remove from the default None glob first
          so the no-copy None item doesn't suppress this Content copy. -->
-    <None Remove="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" />
-    <Content Include="assets\Chaos\**\*.png;assets\Chaos\**\*.gif" Exclude="assets\Chaos\**\_staging*\**">
+    <None Remove="assets\Chaos\**\*.png;assets\Chaos\**\*.gif;assets\Chaos\**\*.json" />
+    <Content Include="assets\Chaos\**\*.png;assets\Chaos\**\*.gif;assets\Chaos\**\*.json" Exclude="assets\Chaos\**\_staging*\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
@@ -308,6 +308,12 @@
   <ItemGroup>
     <!-- Session completion card images -->
     <Resource Include="Resources\Cards\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Bespoke per-quest art (one PNG per quest id), bundled in-app so quests
+         render without any CDN dependency. Loaded via pack:// by quest id. -->
+    <Resource Include="Resources\quests\*.png" />
   </ItemGroup>
 
   <ItemGroup>

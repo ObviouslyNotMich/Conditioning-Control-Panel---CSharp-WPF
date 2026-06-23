@@ -240,8 +240,15 @@ public class QuestDefinitionService : IDisposable
                     TargetValue = q["targetValue"]?.Value<int>() ?? 0,
                     XPReward = q["xpReward"]?.Value<int>() ?? 0,
                     Icon = q["icon"]?.ToString() ?? "⭐",
-                    ImageUrl = q["imageUrl"]?.ToString(),
-                    ImagePath = GetFallbackImagePath(q["category"]?.ToString()),
+                    // Quest art is bundled in-app (no CDN). Prefer the bespoke per-id
+                    // PNG when this build carries it; otherwise fall back to a shared
+                    // category icon. ImageUrl is intentionally left null so the client
+                    // never fetches/caches from a CDN even if the server still sends one.
+                    ImageUrl = null,
+                    ImagePath = QuestDefinition.HasBundledArt(q["id"]?.ToString())
+                        ? QuestDefinition.BundledArtPath(q["id"]!.ToString())
+                        : GetFallbackImagePath(q["category"]?.ToString()),
+                    RequiresPremium = (bool?)q["requiresPremium"] ?? false,
                     IsSeasonal = (bool?)q["seasonal"] ?? false,
                     ActiveFrom = q["activeFrom"]?.ToString(),
                     ActiveUntil = q["activeUntil"]?.ToString()

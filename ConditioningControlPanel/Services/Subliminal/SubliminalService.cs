@@ -104,6 +104,31 @@ namespace ConditioningControlPanel.Services
             App.Logger?.Information("SubliminalService stopped");
         }
 
+        /// <summary>
+        /// Single authority for toggling the subliminal feature from any UI entry point
+        /// (the Settings-tab checkbox and the feature popup both route here). Persists the
+        /// flag and, when the engine is running, starts/stops the service — but only on an
+        /// actual state transition, so a checkbox and popup that mirror each other can't
+        /// churn Start()/Stop() between them.
+        /// </summary>
+        public void SetEnabled(bool on)
+        {
+            var s = App.Settings?.Current;
+            if (s == null) return;
+
+            if (s.SubliminalEnabled != on)
+                s.SubliminalEnabled = on;
+
+            if (App.IsEngineRunning)
+            {
+                if (on && !_isRunning) Start();
+                else if (!on && _isRunning) Stop();
+            }
+
+            App.Settings?.Save();
+            App.Logger?.Information("Subliminals toggled: {Enabled}", on);
+        }
+
         private void ScheduleNext()
         {
             if (!_isRunning || !App.Settings.Current.SubliminalEnabled) return;
@@ -124,10 +149,10 @@ namespace ConditioningControlPanel.Services
         private void Timer_Tick(object? sender, EventArgs e)
         {
             _timer.Stop();
-            
+
             if (!_isRunning || !App.Settings.Current.SubliminalEnabled)
                 return;
-            
+
             FlashSubliminal();
             ScheduleNext();
         }
@@ -574,9 +599,8 @@ namespace ConditioningControlPanel.Services
                 if (screen == null) continue;
                 var win = GetOrCreateScreenWindow(screen);
                 BuildSubliminalContent(win, text, bgColor, textColor, borderColor, bgTransparent);
-                if (!win.IsVisible) win.Show();   // idles HIDDEN between shows (a visible
-                                                  // full-screen layered surface costs DWM
-                                                  // composition every frame, even at opacity 0)
+                if (!win.IsVisible) win.Show();   // stays shown (transparent) between flashes; only
+                                                  // hidden by Stop(), so this re-shows after a stop
                 ApplyWindowStyles(win, screen.Bounds, stealsFocus);
                 if (stealsFocus) win.Activate();
                 PositionSubliminalText(win);
@@ -935,15 +959,16 @@ namespace ConditioningControlPanel.Services
             {
                 if (_showGeneration.TryGetValue(win, out var current) && current != myGeneration)
                     return;
-                // Detach animation clocks from the Window to break reference cycle
-                // (Storyboard.SetTarget creates clocks that prevent GC of the Window).
-                // The window itself stays alive but HIDES for the next show — never closed
-                // mid-session (layered-window close mid-run can deadlock the render thread),
-                // and never left visible (an idle full-screen layered surface taxes DWM).
+                // Detach animation clocks (Storyboard.SetTarget clocks pin the Window) and blank
+                // the window — but DO NOT Hide() it between flashes. A hidden AllowsTransparency
+                // window keeps its last layered bitmap, and the next Show() re-presents that stale
+                // frame (the PREVIOUS phrase) for a frame or two before WPF repaints — that's the
+                // "previous-then-next" double. Staying shown at Opacity 0 with null content keeps
+                // the surface live and blank so the next flash swaps in cleanly. The window is only
+                // ever closed at Stop()/Dispose() (closing mid-run can deadlock the render thread).
                 win.BeginAnimation(Window.OpacityProperty, null);
                 win.Opacity = 0;
                 win.Content = null;
-                try { win.Hide(); } catch { }
             };
 
             // Detach any still-running previous clocks before starting the new pass.

@@ -79,6 +79,29 @@ public static class ChaosArt
         return null;
     }
 
+    /// <summary>The main-menu cinematic art at <c>assets/Chaos/menu.png</c> (tall portrait), or
+    /// null when absent — callers fall back to <see cref="ResolveBanner"/>.</summary>
+    public static ImageSource? ResolveMenu()
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", "menu.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
+    /// <summary>A menu flipbook frame at <c>assets/Chaos/menu_{n}.png</c>, or null when absent.</summary>
+    public static ImageSource? ResolveMenuFrame(int n)
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", $"menu_{n}.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
     /// <summary>The recap-card hero banner at <c>assets/Chaos/recap.png</c>, or null when absent.</summary>
     public static ImageSource? ResolveRecap()
     {
@@ -100,6 +123,21 @@ public static class ChaosArt
         }
         return null;
     }
+
+    /// <summary>First existing path for a bare file under <c>assets/Chaos/</c> (e.g. "menu_glint.png",
+    /// "menu_fx.json"), or null. For callers that load the file themselves (Skia / JSON).</summary>
+    public static string? FilePath(string fileName)
+    {
+        foreach (var root in Roots())
+        {
+            var p = Path.Combine(root, "assets", "Chaos", fileName);
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
+    /// <summary>Path to a menu flipbook frame file (<c>assets/Chaos/menu_{n}.png</c>), or null.</summary>
+    public static string? MenuFramePath(int n) => FilePath($"menu_{n}.png");
 
     private static System.Collections.Generic.IEnumerable<string> Roots()
     {

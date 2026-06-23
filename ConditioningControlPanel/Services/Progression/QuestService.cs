@@ -61,6 +61,7 @@ public class QuestService : IDisposable
     private double _brainDrainMinutesAccumulator;
     private double _videoMinutesAccumulator;
     private double _combinedMinutesAccumulator;
+    private double _autonomyMinutesAccumulator;
 
     public QuestProgress Progress { get; private set; }
 
@@ -276,6 +277,19 @@ public class QuestService : IDisposable
             changed = true;
         }
 
+        // If daily quest requires premium but access was lost, regenerate a free one
+        if (Progress.DailyQuest != null && !Progress.DailyQuest.IsCompleted)
+        {
+            var dailyDef = GetCurrentDailyDefinition();
+            if (dailyDef != null && !IsQuestAvailableForTier(dailyDef))
+            {
+                App.Logger?.Information("Daily quest '{QuestId}' requires premium (access lost), regenerating",
+                    Progress.DailyQuest.DefinitionId);
+                GenerateNewDailyQuest();
+                changed = true;
+            }
+        }
+
         // If daily quest's feature is locked at current level, regenerate
         if (Progress.DailyQuest != null && !Progress.DailyQuest.IsCompleted)
         {
@@ -285,6 +299,19 @@ public class QuestService : IDisposable
                 App.Logger?.Information("Daily quest '{QuestId}' requires locked feature ({Category}), regenerating",
                     Progress.DailyQuest.DefinitionId, dailyDef.Category);
                 GenerateNewDailyQuest();
+                changed = true;
+            }
+        }
+
+        // If weekly quest requires premium but access was lost, regenerate a free one
+        if (Progress.WeeklyQuest != null && !Progress.WeeklyQuest.IsCompleted)
+        {
+            var weeklyDef = GetCurrentWeeklyDefinition();
+            if (weeklyDef != null && !IsQuestAvailableForTier(weeklyDef))
+            {
+                App.Logger?.Information("Weekly quest '{QuestId}' requires premium (access lost), regenerating",
+                    Progress.WeeklyQuest.DefinitionId);
+                GenerateNewWeeklyQuest();
                 changed = true;
             }
         }
@@ -316,6 +343,7 @@ public class QuestService : IDisposable
         var availableQuests = questPool
             .Where(q => q.Id != excludeId)
             .Where(q => IsQuestAvailableForLevel(q.Category))
+            .Where(IsQuestAvailableForTier)
             .ToList();
 
         if (availableQuests.Count == 0) return;
@@ -336,6 +364,7 @@ public class QuestService : IDisposable
         var availableQuests = questPool
             .Where(q => q.Id != excludeId)
             .Where(q => IsQuestAvailableForLevel(q.Category))
+            .Where(IsQuestAvailableForTier)
             .ToList();
 
         if (availableQuests.Count == 0) return;
@@ -355,6 +384,16 @@ public class QuestService : IDisposable
     private static bool IsQuestAvailableForLevel(QuestCategory category)
     {
         return true;
+    }
+
+    /// <summary>
+    /// Premium-gated quests (RequiresPremium) are only offered to users with Patreon
+    /// premium access. Free users never roll a quest tied to an exclusive feature they
+    /// can't complete. Premium users get the blended pool (free + premium).
+    /// </summary>
+    private static bool IsQuestAvailableForTier(QuestDefinition quest)
+    {
+        return !quest.RequiresPremium || App.Patreon?.HasPremiumAccess == true;
     }
 
     /// <summary>
@@ -646,6 +685,55 @@ public class QuestService : IDisposable
     public void TrackMantraCompleted()
     {
         UpdateQuestProgress(QuestCategory.Mantra, 1);
+    }
+
+    /// <summary>
+    /// Track Bambi Takeover (autonomy) active time (called periodically with elapsed minutes).
+    /// Patreon-exclusive category.
+    /// </summary>
+    public void TrackAutonomyMinutes(double minutes)
+    {
+        // Accumulate fractional minutes until we have at least 1 full minute
+        _autonomyMinutesAccumulator += minutes;
+
+        if (_autonomyMinutesAccumulator >= 1.0)
+        {
+            int wholeMinutes = (int)Math.Floor(_autonomyMinutesAccumulator);
+            UpdateQuestProgress(QuestCategory.Autonomy, wholeMinutes);
+            _autonomyMinutesAccumulator -= wholeMinutes;
+        }
+    }
+
+    /// <summary>
+    /// Track a completed lockdown. Patreon-exclusive category.
+    /// </summary>
+    public void TrackLockdownCompleted()
+    {
+        UpdateQuestProgress(QuestCategory.Lockdown, 1);
+    }
+
+    /// <summary>
+    /// Track a remote-control command received. Patreon-exclusive category.
+    /// </summary>
+    public void TrackRemoteCommand()
+    {
+        UpdateQuestProgress(QuestCategory.Remote, 1);
+    }
+
+    /// <summary>
+    /// Track a keyword/OCR trigger firing. Patreon-exclusive category.
+    /// </summary>
+    public void TrackKeywordTrigger()
+    {
+        UpdateQuestProgress(QuestCategory.KeywordTrigger, 1);
+    }
+
+    /// <summary>
+    /// Track a blink logged in the live blink trainer. Patreon-exclusive category.
+    /// </summary>
+    public void TrackBlinkTrainerBlink()
+    {
+        UpdateQuestProgress(QuestCategory.BlinkTrainer, 1);
     }
 
     /// <summary>
