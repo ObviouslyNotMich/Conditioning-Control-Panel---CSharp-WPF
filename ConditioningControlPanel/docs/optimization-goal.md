@@ -31,6 +31,15 @@ The agent may simplify/remove wrappers, pool/reuse resources, move work off the 
 5. Record the result.
 6. Repeat.
 
+## Latest results
+
+- Max-intensity benchmark (`--max-benchmark`) completed a full 180 s run without becoming unresponsive.
+  - Avg FPS: **177.8** (min **19**, max **227**)
+  - Peak CPU: **13.6%**
+  - Working set: **1.64 GB** (peak **1.85 GB**)
+  - Report: `CCP.Avalonia.Desktop.Windows/bin/Debug/net8.0-windows10.0.19041.0/benchmark-report.json`
+- Smoke-test (`--smoke-test`) and core unit tests still pass.
+
 ## Stop rule
 
 If a metric cannot be improved after several attempts and the bottleneck is external/platform-limited, report the best measured result and why, then move on. Stay within roughly a **400M-token** budget and report progress before it is exhausted.

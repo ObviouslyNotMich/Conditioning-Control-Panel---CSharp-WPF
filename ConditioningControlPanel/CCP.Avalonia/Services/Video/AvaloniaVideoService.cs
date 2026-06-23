@@ -13,6 +13,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Helpers;
+using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -294,6 +295,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             var volume = (_settings.Current?.MasterVolume ?? 50) / 100.0;
             _currentWindow = CreateWindow(screen, filePath, fromUrl: false, volume, strictMode);
             _currentWindow.Show();
+            OverlayZ.Register(_currentWindow, OverlayZ.Layer.Video);
             SpawnSecondaryWindows(filePath, fromUrl: false, strictMode);
         });
     }
@@ -309,6 +311,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             var volume = (_settings.Current?.MasterVolume ?? 50) / 100.0;
             _currentWindow = CreateWindow(screen, url, fromUrl: true, volume, strictMode: false);
             _currentWindow.Show();
+            OverlayZ.Register(_currentWindow, OverlayZ.Layer.Video);
             SpawnSecondaryWindows(url, fromUrl: true, strictMode: false);
         });
     }
@@ -330,6 +333,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 var win = new VideoOverlayWindow(_libVlc, screen, source, fromUrl, 0, strictMode, () => { }, _logger, withAudio: false);
                 _secondaryWindows.Add(win);
                 win.Show();
+                OverlayZ.Register(win, OverlayZ.Layer.Video);
             }
 
             _logger?.LogInformation("AvaloniaVideoService: spawned {Count} secondary video window(s)", _secondaryWindows.Count);

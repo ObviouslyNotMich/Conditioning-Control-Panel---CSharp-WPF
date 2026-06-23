@@ -69,7 +69,7 @@ namespace ConditioningControlPanel.Avalonia.Services.Avatar
         {
             get
             {
-                var modPath = _modService.ActiveMod.InstalledPath;
+                var modPath = _modService.ActiveMod?.InstalledPath;
                 if (string.IsNullOrEmpty(modPath)) return null;
                 var p = Path.Combine(modPath, "resources", "sounds", "companion_audio", ManifestFileName);
                 return File.Exists(p) ? p : null;
@@ -80,7 +80,7 @@ namespace ConditioningControlPanel.Avalonia.Services.Avatar
         {
             get
             {
-                var modId = _modService.ActiveMod.Id;
+                var modId = _modService.ActiveMod?.Id;
                 if (string.IsNullOrEmpty(modId)) return null;
                 var p = Path.Combine(CompanionPhrase.DefaultAudioFolder, "mods", modId, ManifestFileName);
                 return File.Exists(p) ? p : null;

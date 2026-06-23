@@ -58,9 +58,27 @@ public sealed class AvaloniaScreenProvider : IScreenProvider
         _attachedScreens = null;
     }
 
+    private string _lastLayoutSignature = "";
+
     private void OnScreensChanged(object? sender, EventArgs e)
     {
+        // Avalonia raises Screens.Changed liberally — including when full-screen effect windows
+        // (flash, video) come and go, which fires display-change events even though the monitor
+        // layout is identical. Forwarding those caused the overlay service to tear down and rebuild
+        // the pink/spiral windows repeatedly (a visible blink). Only forward when the actual layout
+        // (count / bounds / scaling / primary) changes.
+        var signature = ComputeLayoutSignature();
+        if (signature == _lastLayoutSignature) return;
+        _lastLayoutSignature = signature;
         _screensChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private string ComputeLayoutSignature()
+    {
+        var screens = GetScreens();
+        if (screens == null) return "";
+        return string.Join("|", screens.All.Select(s =>
+            $"{s.Bounds.X},{s.Bounds.Y},{s.Bounds.Width},{s.Bounds.Height},{s.Scaling},{s.IsPrimary}"));
     }
 
     private Screens? GetScreens()

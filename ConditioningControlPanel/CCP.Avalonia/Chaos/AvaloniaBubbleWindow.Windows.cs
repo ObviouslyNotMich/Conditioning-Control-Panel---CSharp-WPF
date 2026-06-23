@@ -16,6 +16,7 @@ public sealed partial class AvaloniaBubbleWindow
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpShowWindow = 0x0040;
+    private const uint SwpNoZOrder = 0x0004;
 
     private partial void ApplyPlatformStyles()
     {
@@ -32,8 +33,9 @@ public sealed partial class AvaloniaBubbleWindow
         // WsExTransparent is intentionally omitted here so clicks still reach the bubble visual.
         // SetWindowLong(handle, GwlExStyle, new IntPtr((nint)exStyle));
         _ = SetWindowLong(handle, GwlExStyle, new IntPtr((nint)exStyle));
+        // Keep z-order untouched (SwpNoZOrder) — relative depth is owned by OverlayZ.
         _ = SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0,
-            SwpNoMove | SwpNoSize | SwpNoActivate | SwpFrameChanged | SwpShowWindow);
+            SwpNoMove | SwpNoSize | SwpNoActivate | SwpFrameChanged | SwpShowWindow | SwpNoZOrder);
     }
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLong")]

@@ -24,6 +24,8 @@ public sealed class AvaloniaAnimatedGif : IDisposable
     private readonly SKBitmap _frameBuffer;
     private readonly DispatcherTimer _timer = new();
 
+    private static readonly object s_codecLock = new();
+
     private int _frameIndex;
     private int _remainingLoops = -1;
     private bool _disposed;
@@ -190,8 +192,17 @@ public sealed class AvaloniaAnimatedGif : IDisposable
         {
             try
             {
-                if (_disposed) return;
-                var result = _codec.GetPixels(_frameBuffer.Info, _frameBuffer.GetPixels(), options);
+                SKCodecResult result;
+                // SKCodec is not thread-safe across instances in this build; serialize
+                // all native decode calls to avoid the access-violation crashes seen
+                // during heavy multi-GIF benchmarks. The _disposed re-check MUST be inside
+                // the lock: Dispose() frees _codec/_frameBuffer under the same lock, so this
+                // guarantees we never call GetPixels on freed native memory (the crash).
+                lock (s_codecLock)
+                {
+                    if (_disposed) return;
+                    result = _codec.GetPixels(_frameBuffer.Info, _frameBuffer.GetPixels(), options);
+                }
                 Dispatcher.UIThread.Post(() => ApplyFrame(result, duration));
             }
             catch
@@ -225,7 +236,11 @@ public sealed class AvaloniaAnimatedGif : IDisposable
 
         var prior = _frameIndex == 0 ? -1 : _frameIndex - 1;
         var options = new SKCodecOptions(_frameIndex) { PriorFrame = prior };
-        var result = _codec.GetPixels(_frameBuffer.Info, _frameBuffer.GetPixels(), options);
+        SKCodecResult result;
+        lock (s_codecLock)
+        {
+            result = _codec.GetPixels(_frameBuffer.Info, _frameBuffer.GetPixels(), options);
+        }
         ApplyFrame(result, Math.Max(20, _frames[_frameIndex].Duration));
     }
 
@@ -253,7 +268,12 @@ public sealed class AvaloniaAnimatedGif : IDisposable
         _disposed = true;
         _timer.Stop();
         _timer.Tick -= OnTick;
-        _frameBuffer.Dispose();
-        _codec.Dispose();
+        // Free the native codec/buffer under the same lock the decode task uses, so an
+        // in-flight GetPixels on the thread pool can never touch freed memory.
+        lock (s_codecLock)
+        {
+            _frameBuffer.Dispose();
+            _codec.Dispose();
+        }
     }
 }

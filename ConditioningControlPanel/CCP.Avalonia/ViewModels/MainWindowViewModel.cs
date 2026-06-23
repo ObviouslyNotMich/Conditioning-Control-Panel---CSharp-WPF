@@ -621,11 +621,11 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (_modService != null)
         {
-            if (_modService.ActiveMod.Id == value.Id) return;
+            if (_modService.ActiveMod?.Id == value.Id) return;
             if (!_modService.ActivateMod(value.Id))
             {
                 // Activation failed (e.g. mod removed) — revert to the current active mod.
-                var current = AvailableMods.FirstOrDefault(m => m.Id == _modService.ActiveMod.Id);
+                var current = AvailableMods.FirstOrDefault(m => m.Id == _modService.ActiveMod?.Id);
                 if (current != null)
                     SelectedMod = current;
                 return;

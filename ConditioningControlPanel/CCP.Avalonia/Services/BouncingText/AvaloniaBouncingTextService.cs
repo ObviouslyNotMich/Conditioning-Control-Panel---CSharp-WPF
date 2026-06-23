@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Helpers;
+using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Core.Services.BouncingText;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -48,7 +49,6 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
     private int _currentFontSize = BASE_FONT_SIZE;
     private int _currentOpacity = 100;
     private Color _currentColor = Colors.HotPink;
-    private double _zReassertAccum;
     private DateTime _lastBounceXpTime = DateTime.MinValue;
     private int _bounceXpThisMinute;
     private DateTime _bounceXpMinuteStart = DateTime.MinValue;
@@ -102,7 +102,6 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         _velY = baseSpeed * speed * (_random.Next(2) == 0 ? 1 : -1);
 
         _currentColor = GetRandomColor();
-        _zReassertAccum = 0;
 
         CreateWindows(settings.DualMonitorEnabled);
         _timer.Start();
@@ -228,6 +227,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             {
                 var window = new BouncingTextWindow(screen, _currentFontSize, _currentOpacity);
                 window.Show();
+                OverlayZ.Register(window, OverlayZ.Layer.BouncingText);
                 _windows.Add(window);
             }
             UpdateWindowsText();
@@ -314,17 +314,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             UpdateWindowsText();
         }
 
-        _zReassertAccum += dt;
-        if (_zReassertAccum >= 0.5)
-        {
-            _zReassertAccum = 0;
-            lock (_sync)
-            {
-                foreach (var window in _windows)
-                    window.ReassertTopmost();
-            }
-        }
-
+        // Relative z-order is owned by OverlayZ (the shared coordinator); no per-service re-pinning.
         UpdateWindowsPosition();
     }
 
@@ -452,18 +442,6 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             Canvas.SetLeft(_textBlock, localX);
             Canvas.SetTop(_textBlock, localY);
             _textBlock.IsVisible = true;
-        }
-
-        public void ReassertTopmost()
-        {
-            if (!OperatingSystem.IsWindows()) return;
-            try
-            {
-                var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                if (hwnd != IntPtr.Zero)
-                    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            }
-            catch { }
         }
 
         private void ApplyPlatformStyles()

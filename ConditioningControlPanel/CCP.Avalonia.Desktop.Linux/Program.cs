@@ -1,8 +1,10 @@
 using System;
+using System.Linq;
 using Avalonia;
 using ConditioningControlPanel.Avalonia;
 using ConditioningControlPanel.Avalonia.Desktop;
 using ConditioningControlPanel.Avalonia.Desktop.Linux.Platform;
+using ConditioningControlPanel.Avalonia.Infrastructure;
 using ConditioningControlPanel.Core.Platform;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +16,19 @@ class Program
     public static void Main(string[] args)
     {
         Console.WriteLine("[CCP Linux] Process started.");
+
+        var benchmark = args.Contains("--benchmark");
+        var maxBenchmark = args.Contains("--max-benchmark");
+        BenchmarkContext.IsEnabled = benchmark || maxBenchmark;
+        BenchmarkContext.IsMaxBenchmark = maxBenchmark;
+        BenchmarkContext.EntryTimeUtc = DateTime.UtcNow;
+
+        var assetsPathIndex = Array.IndexOf(args, "--assets-path");
+        if (assetsPathIndex >= 0 && assetsPathIndex + 1 < args.Length)
+        {
+            App.OverrideAssetsPath = args[assetsPathIndex + 1];
+        }
+
         try
         {
             ProgramShared.Run(

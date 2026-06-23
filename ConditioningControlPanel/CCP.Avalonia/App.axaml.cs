@@ -148,32 +148,19 @@ public partial class App : Application
             catch (Exception ex) { Log.Logger?.Debug("ModerationCounter.LoadFromDisk failed: {Error}", ex.Message); }
 
             // Initialize the mod service (loads built-ins + user mods, restores active mod)
-            // off the UI thread so startup stays responsive. Apply the active mod's theme
-            // on the UI thread once initialization completes.
+            // before any UI that depends on ActiveMod is created. The file I/O is run on a
+            // background thread and awaited so cross-platform startup order is deterministic.
             var modService = Services.GetRequiredService<IModService>();
             var themeService = Services.GetRequiredService<AvaloniaThemeService>();
-            _ = Task.Run(() =>
+            try
             {
-                try
-                {
-                    modService.Initialize(CoreApp.Settings.Current.ActiveModId);
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        try
-                        {
-                            themeService.ApplyCurrentTheme();
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Logger?.Error(ex, "Failed to apply current theme");
-                        }
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Log.Logger?.Error(ex, "Failed to initialize mod service");
-                }
-            });
+                Task.Run(() => modService.Initialize(CoreApp.Settings.Current.ActiveModId)).GetAwaiter().GetResult();
+                themeService.ApplyCurrentTheme();
+            }
+            catch (Exception ex)
+            {
+                Log.Logger?.Error(ex, "Failed to initialize mod service or apply theme");
+            }
 
             // Subscribe to achievement unlocks, quest completions, and Pink Rush so the
             // Avalonia head can show popup toasts.

@@ -30,6 +30,12 @@ public interface IFlashService
     void LoadAssets();
 
     /// <summary>
+    /// Fire a regular flash event based on the configured <c>FlashImages</c> count.
+    /// Respects the current <c>SimultaneousImages</c> setting and the engine's busy guard.
+    /// </summary>
+    void TriggerFlash();
+
+    /// <summary>
     /// Fire a single flash image overlay. A null <paramref name="imagePath"/> selects
     /// a random image from the configured pool. Used by the Deeper enhancement engine.
     /// </summary>

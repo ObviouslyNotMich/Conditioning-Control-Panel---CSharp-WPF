@@ -13,6 +13,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Helpers;
+using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.Progression;
@@ -395,11 +396,16 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             geom, data, settings.FlashClickable, lifetimeMs, hydraGeneration, monitor,
             maxOpacity, OnFlashClicked);
 
+        // Reap on ANY close path (timeout fade-out, click, or Stop) — not just click. Without this,
+        // self-closed windows lingered in _activeWindows forever, leaking their bitmaps and (once 10
+        // had accumulated) silently blocking all new flashes via the MAX_CONCURRENT_FLASH cap.
+        window.Closed += (_, _) => { lock (_sync) { _activeWindows.Remove(window); } };
+
         try
         {
             window.Show();
             ApplyWindowStyles(window, settings.FlashClickable);
-            ForceTopmost(window);
+            OverlayZ.Register(window, OverlayZ.Layer.Flash);
 
             lock (_sync) { _activeWindows.Add(window); }
         }
@@ -726,25 +732,14 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             exStyle |= WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
             if (!clickable) exStyle |= WS_EX_TRANSPARENT;
             SetWindowLong(hwnd, GWL_EXSTYLE, new IntPtr(exStyle));
+            // Keep z-order untouched (SWP_NOZORDER) — relative depth is owned by OverlayZ.
             SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW | SWP_NOZORDER);
         }
         catch
         {
             // best-effort styling
         }
-    }
-
-    private static void ForceTopmost(Window window)
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        try
-        {
-            var hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-            if (hwnd == IntPtr.Zero) return;
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        }
-        catch { }
     }
 
     private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
@@ -777,7 +772,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_FRAMECHANGED = 0x0020;
     private const uint SWP_SHOWWINDOW = 0x0040;
-    private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+    private const uint SWP_NOZORDER = 0x0004;
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
     private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
@@ -830,6 +825,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         private readonly Action<FlashOverlayWindow> _onClick;
         private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(33) };
         private readonly AvaloniaAnimatedGif? _animator;
+        private readonly Bitmap? _bitmap;
         private readonly DateTime _expiresAt;
         private readonly double _maxOpacity;
         private bool _isFadingOut;
@@ -854,6 +850,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             _expiresAt = DateTime.Now.AddMilliseconds(lifetimeMs);
             _maxOpacity = maxOpacity;
             _animator = data.Animator;
+            _bitmap = data.Bitmap;
             if (_animator == null && data.FilePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
             {
                 _animator = AvaloniaAnimatedGif.TryCreate(data.FilePath);
@@ -896,6 +893,13 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
             Content = image;
 
+            if (_animator != null)
+            {
+                // Start animation once the window is actually shown so the visual tree
+                // is in place and FrameRendered invalidations are not wasted.
+                Opened += (_, _) => _animator.Start();
+            }
+
             _timer.Tick += OnTick;
             _timer.Start();
         }
@@ -937,10 +941,18 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         {
             if (_closed) return;
             _closed = true;
+            try { Close(); } catch { }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
             _timer.Stop();
             _timer.Tick -= OnTick;
             try { _animator?.Dispose(); } catch { }
-            try { Close(); } catch { }
+            // Dispose the decoded bitmap deterministically instead of waiting for GC finalization —
+            // the unmanaged Skia surface is what balloons working set under heavy flash churn.
+            try { _bitmap?.Dispose(); } catch { }
         }
     }
 }

@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Chaos;
 using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Avalonia.Platform;
+using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -408,7 +409,10 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         }
 
         if (hit?.Bubble?.StateId is Guid stateId && stateId != Guid.Empty)
-            _ambientEngine.PopBubble(stateId);
+        {
+            try { _ambientEngine.PopBubble(stateId); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to pop ambient bubble {StateId}", stateId); }
+        }
     }
 
     private void InstallMouseHook()
@@ -505,6 +509,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             try
             {
                 window.Show();
+                OverlayZ.Register(window, OverlayZ.Layer.Bubbles);
             }
             catch (Exception ex)
             {
@@ -643,6 +648,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             try
             {
                 ghost.Show();
+                OverlayZ.Register(ghost, OverlayZ.Layer.Bubbles);
                 ghost.Bubble.FadeOut(250.0, () => ghost.CloseWindow());
             }
             catch (Exception ex)

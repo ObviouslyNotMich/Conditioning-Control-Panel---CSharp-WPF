@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Helpers;
+using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Sessions;
@@ -222,6 +223,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
 
             var win = new SubliminalWindow(screen);
             win.Show();
+            OverlayZ.Register(win, OverlayZ.Layer.Subliminal);
             _screenWindows[key] = win;
             _logger?.LogDebug("AvaloniaSubliminalService: keep-alive window created for {Screen}", key);
             return win;
@@ -309,9 +311,10 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
             else exStyle &= ~WS_EX_NOACTIVATE;
             SetWindowLong(hwnd, GWL_EXSTYLE, new IntPtr(exStyle));
 
-            SetWindowPos(hwnd, HWND_TOPMOST,
+            // Keep z-order untouched (SWP_NOZORDER) — relative depth is owned by OverlayZ.
+            SetWindowPos(hwnd, IntPtr.Zero,
                 (int)screen.Bounds.X, (int)screen.Bounds.Y, (int)screen.Bounds.Width, (int)screen.Bounds.Height,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOZORDER);
         }
         catch { }
     }
@@ -367,7 +370,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
     private const uint WS_EX_TRANSPARENT = 0x00000020;
     private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_SHOWWINDOW = 0x0040;
-    private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+    private const uint SWP_NOZORDER = 0x0004;
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
     private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);

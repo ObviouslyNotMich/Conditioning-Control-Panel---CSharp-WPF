@@ -288,42 +288,25 @@ public partial class SettingsTabView : UserControl
                 ImgLogo.RenderTransform = scaleTransform;
             }
 
-            var animation = new Animation
+            // Manual 160 ms pulse: Avalonia's TransformAnimator expects a Visual target,
+            // so we animate the transform values directly instead of using Animation.RunAsync.
+            var start = DateTime.UtcNow;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            timer.Tick += (_, _) =>
             {
-                Duration = TimeSpan.FromMilliseconds(160),
-                FillMode = FillMode.None,
-                Children =
+                var elapsed = (DateTime.UtcNow - start).TotalMilliseconds;
+                var t = Math.Min(1.0, elapsed / 160.0);
+                var s = 1.0 + 0.05 * Math.Sin(t * Math.PI);
+                scaleTransform.ScaleX = s;
+                scaleTransform.ScaleY = s;
+                if (t >= 1.0)
                 {
-                    new KeyFrame
-                    {
-                        Cue = new Cue(0.0),
-                        Setters =
-                        {
-                            new Setter(ScaleTransform.ScaleXProperty, 1.0),
-                            new Setter(ScaleTransform.ScaleYProperty, 1.0)
-                        }
-                    },
-                    new KeyFrame
-                    {
-                        Cue = new Cue(0.5),
-                        Setters =
-                        {
-                            new Setter(ScaleTransform.ScaleXProperty, 1.05),
-                            new Setter(ScaleTransform.ScaleYProperty, 1.05)
-                        }
-                    },
-                    new KeyFrame
-                    {
-                        Cue = new Cue(1.0),
-                        Setters =
-                        {
-                            new Setter(ScaleTransform.ScaleXProperty, 1.0),
-                            new Setter(ScaleTransform.ScaleYProperty, 1.0)
-                        }
-                    }
+                    scaleTransform.ScaleX = 1.0;
+                    scaleTransform.ScaleY = 1.0;
+                    timer.Stop();
                 }
             };
-            _ = animation.RunAsync(scaleTransform);
+            timer.Start();
         }
     }
 

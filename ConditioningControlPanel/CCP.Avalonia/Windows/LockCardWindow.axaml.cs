@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
@@ -131,6 +132,7 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
                 primaryWindow = window;
             }
             window.Show();
+            OverlayZ.Register(window, OverlayZ.Layer.LockCard);
         }
 
         primaryWindow?.Activate();

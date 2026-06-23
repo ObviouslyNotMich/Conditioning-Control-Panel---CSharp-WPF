@@ -110,17 +110,20 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             var settings = _settings.Current;
             if (settings == null) return;
 
-            var pinkWanted = settings.PinkFilterEnabled || _adHocPinkOpacity.HasValue;
-            if (pinkWanted)
+            // Render the visual stack bottom-to-top so later windows sit above earlier
+            // ones within the topmost layer: brain-drain -> spiral -> pink filter.
+            var brainDrainWanted = settings.BrainDrainEnabled || _adHocBrainDrainIntensity.HasValue;
+            if (brainDrainWanted)
             {
-                if (_pinkFilterWindows.Count == 0)
-                    StartPinkFilter(_adHocPinkOpacity ?? settings.PinkFilterOpacity);
+                var intensity = _adHocBrainDrainIntensity ?? settings.BrainDrainIntensity;
+                if (_brainDrainWindows.Count == 0)
+                    StartBrainDrain(intensity);
                 else
-                    UpdatePinkFilterOpacity();
+                    UpdateBrainDrainIntensity(intensity);
             }
             else
             {
-                StopPinkFilter();
+                StopBrainDrain();
             }
 
             var spiralPath = GetSpiralPath();
@@ -137,18 +140,17 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
                 StopSpiral();
             }
 
-            var brainDrainWanted = settings.BrainDrainEnabled || _adHocBrainDrainIntensity.HasValue;
-            if (brainDrainWanted)
+            var pinkWanted = settings.PinkFilterEnabled || _adHocPinkOpacity.HasValue;
+            if (pinkWanted)
             {
-                var intensity = _adHocBrainDrainIntensity ?? settings.BrainDrainIntensity;
-                if (_brainDrainWindows.Count == 0)
-                    StartBrainDrain(intensity);
+                if (_pinkFilterWindows.Count == 0)
+                    StartPinkFilter(_adHocPinkOpacity ?? settings.PinkFilterOpacity);
                 else
-                    UpdateBrainDrainIntensity(intensity);
+                    UpdatePinkFilterOpacity();
             }
             else
             {
-                StopBrainDrain();
+                StopPinkFilter();
             }
         });
     }
@@ -379,6 +381,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
     {
         if (!_isRunning) return;
         RefreshOverlays();
+        // Relative z-order is owned by OverlayZ (the shared coordinator); no per-service re-pinning.
     }
 
     private void ShowSustainedOverlayInternal(string kind, double opacity)
@@ -448,6 +451,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             var window = new OverlayWindow(screen, GetFilterColor(opacityPercent));
             window.Show();
             ApplyWindowStyles(window);
+            OverlayZ.Register(window, OverlayZ.Layer.PinkTint);
             lock (_sync) { _pinkFilterWindows.Add(window); }
         }
         _lastAppliedPinkOpacity = opacityPercent;
@@ -532,11 +536,23 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         var screens = GetScreens();
         foreach (var screen in screens)
         {
-            var window = cache.Kind == SpiralCacheKind.Video
-                ? new SpiralOverlayWindow(screen, _libVlc, path, opacityPercent)
-                : new SpiralOverlayWindow(screen, cache, opacityPercent);
+            SpiralOverlayWindow window;
+            if (cache.Kind == SpiralCacheKind.Video)
+            {
+                window = new SpiralOverlayWindow(screen, _libVlc, path, opacityPercent);
+            }
+            else if (cache.Kind == SpiralCacheKind.AnimatedGif)
+            {
+                var animator = AvaloniaAnimatedGif.TryCreate(path);
+                window = new SpiralOverlayWindow(screen, cache, opacityPercent, animator);
+            }
+            else
+            {
+                window = new SpiralOverlayWindow(screen, cache, opacityPercent);
+            }
             window.Show();
             ApplyWindowStyles(window);
+            OverlayZ.Register(window, OverlayZ.Layer.Spiral);
             lock (_sync) { _spiralWindows.Add(window); }
         }
         _lastAppliedSpiralOpacity = opacityPercent;
@@ -582,6 +598,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             var window = new BrainDrainOverlayWindow(screen, intensity);
             window.Show();
             ApplyWindowStyles(window);
+            OverlayZ.Register(window, OverlayZ.Layer.BrainDrain);
             lock (_sync) { _brainDrainWindows.Add(window); }
         }
         _lastAppliedBrainDrainIntensity = intensity;
@@ -644,10 +661,12 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
 
             if (path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
             {
-                var anim = AvaloniaAnimatedGif.TryCreate(path);
-                if (anim != null)
+                // Do not create the animator here and share it across spiral windows:
+                // SKCodec is not thread-safe, and each window runs its own timer. Create
+                // a private animator per window in StartSpiral instead.
+                if (AvaloniaAnimatedGif.TryCreate(path) != null)
                 {
-                    _spiralCache = new SpiralCache(path, SpiralCacheKind.AnimatedGif, anim, null, null, null);
+                    _spiralCache = new SpiralCache(path, SpiralCacheKind.AnimatedGif, null, null, null, null);
                     return _spiralCache;
                 }
 
@@ -727,15 +746,37 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         if (!OperatingSystem.IsWindows()) return;
         try
         {
+            // Make sure the platform handle exists before styling. If Show() has not
+            // yet created it, register a one-shot Opened handler and try again.
             var hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-            if (hwnd == IntPtr.Zero) return;
+            if (hwnd == IntPtr.Zero)
+            {
+                window.Opened += OnWindowOpenedForStyling;
+                return;
+            }
 
-            var exStyle = (uint)GetWindowLong(hwnd, GWL_EXSTYLE).ToInt64();
-            exStyle |= WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE;
-            SetWindowLong(hwnd, GWL_EXSTYLE, new IntPtr(exStyle));
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+            ApplyWindowStylesCore(window, hwnd);
         }
         catch { }
+    }
+
+    private static void OnWindowOpenedForStyling(object? sender, EventArgs e)
+    {
+        if (sender is not Window window) return;
+        window.Opened -= OnWindowOpenedForStyling;
+        ApplyWindowStyles(window);
+    }
+
+    private static void ApplyWindowStylesCore(Window window, IntPtr hwnd)
+    {
+        var exStyle = (uint)GetWindowLong(hwnd, GWL_EXSTYLE).ToInt64();
+        // Match the WPF overlay service: layered + transparent + tool-window + no-activate.
+        // WS_EX_LAYERED is required for per-pixel alpha; WS_EX_TRANSPARENT passes input
+        // through to windows below.
+        exStyle |= WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE;
+        SetWindowLong(hwnd, GWL_EXSTYLE, new IntPtr(exStyle));
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
     }
 
     public void Dispose()
@@ -901,7 +942,7 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
         private readonly AvaloniaAnimatedGif? _animation;
         private readonly AvaloniaInlineLoopVideo? _video;
 
-        public SpiralOverlayWindow(ScreenInfo screen, SpiralCache cache, int opacityPercent)
+        public SpiralOverlayWindow(ScreenInfo screen, SpiralCache cache, int opacityPercent, AvaloniaAnimatedGif? animator = null)
         {
             WindowDecorations = WindowDecorations.None;
             TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
@@ -916,20 +957,15 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             this.ConstrainToScreen(screen);
             Opacity = Math.Clamp(opacityPercent / 100.0, 0.0, 1.0);
 
+            _animation = animator;
             _image = new Image
             {
                 HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Stretch,
                 Stretch = Stretch.UniformToFill,
-                Source = cache.Kind switch
-                {
-                    SpiralCacheKind.AnimatedGif => cache.Animation?.Source,
-                    SpiralCacheKind.StaticImage => cache.StaticBitmap,
-                    _ => null
-                }
+                Source = _animation?.Source ?? cache.StaticBitmap
             };
 
-            _animation = cache.Animation;
             if (_animation != null)
                 _animation.FrameRendered += (_, _) => _image?.InvalidateVisual();
 

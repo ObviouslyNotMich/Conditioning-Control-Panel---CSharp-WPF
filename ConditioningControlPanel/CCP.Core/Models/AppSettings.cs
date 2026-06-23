@@ -2041,7 +2041,7 @@ namespace ConditioningControlPanel.Models
             set { _spiralPath = value ?? ""; OnPropertyChanged(); }
         }
 
-        private int _spiralOpacity = 10; // 0-50%
+        private int _spiralOpacity = 20; // 0-50%
         public int SpiralOpacity
         {
             get => _spiralOpacity;
@@ -2537,7 +2537,7 @@ namespace ConditioningControlPanel.Models
             set { _pinkFilterEnabled = value; OnPropertyChanged(); }
         }
 
-        private int _pinkFilterOpacity = 10; // 0-50%
+        private int _pinkFilterOpacity = 20; // 0-50%
         public int PinkFilterOpacity
         {
             get => _pinkFilterOpacity;

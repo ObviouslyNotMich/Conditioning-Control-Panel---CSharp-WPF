@@ -123,7 +123,7 @@ public static class BenchmarkContext
             {
                 FlashEnabled = true,
                 FlashPerHour = 240,
-                FlashImages = 3,
+                FlashImages = 4,
                 FlashOpacity = 70,
                 FlashClickable = true,
                 FlashHydra = true,
@@ -169,10 +169,12 @@ public static class BenchmarkContext
             orchestrator?.StartEffects(session);
             await sessionService.StartSessionAsync(session, cancellationToken);
 
-            // Force sustained overlays at high opacity regardless of ramp settings.
-            overlay?.ShowOverlaySustained("pink", 1.0);
-            overlay?.ShowOverlaySustained("spiral", 1.0);
-            overlay?.ShowOverlaySustained("braindrain", 1.0);
+            // Force sustained overlays on regardless of ramp settings. Pink + spiral are capped at
+            // 50% (the dashboard max), and brain-drain is kept light, so the layering stays visible
+            // rather than a single opaque sheet. OverlayZ owns the relative z-order.
+            overlay?.ShowOverlaySustained("braindrain", 0.3);
+            overlay?.ShowOverlaySustained("spiral", 0.5);
+            overlay?.ShowOverlaySustained("pink", 0.5);
 
             // Ensure every individual service is started.
             TryRun("flash", () => flash?.Start());
@@ -199,15 +201,22 @@ public static class BenchmarkContext
         // Let effects ramp up for 2 s before measuring.
         await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
 
+        // Force non-strict video playback for the benchmark so the 1-minute video
+        // segment does not wait for an attention-check dismiss.
+        var originalStrictLock = settingsService.Current?.StrictLockEnabled ?? false;
+        if (settingsService.Current != null)
+            settingsService.Current.StrictLockEnabled = false;
+
         var frameTask = BenchmarkFrameCounter.MeasureAsync(mainWindow, duration);
         var cpuTask = BenchmarkCpuSampler.SampleAsync(duration, TimeSpan.FromMilliseconds(250), cancellationToken);
         var memoryCts = new CancellationTokenSource();
         var memoryTask = SamplePeakMemoryAsync(duration, TimeSpan.FromSeconds(1), memoryCts.Token);
-        var effectTask = DriveEffectsAsync(duration, TimeSpan.FromMilliseconds(1500), flash, video, overlay, bubbles, subliminal, cancellationToken);
+        var effectTask = DriveEffectsAsync(duration, TimeSpan.FromMilliseconds(1000), flash, overlay, bubbles, subliminal, cancellationToken);
+        var videoTask = RunVideoStressSegmentAsync(TimeSpan.FromMinutes(1), video, cancellationToken);
 
         try
         {
-            await Task.WhenAll(frameTask, cpuTask, memoryTask, effectTask);
+            await Task.WhenAll(frameTask, cpuTask, memoryTask, effectTask, videoTask);
         }
         catch (OperationCanceledException)
         {
@@ -216,6 +225,11 @@ public static class BenchmarkContext
         catch (Exception ex)
         {
             Log.Error(ex, "[BENCH] Max-intensity benchmark failed");
+        }
+        finally
+        {
+            if (settingsService.Current != null)
+                settingsService.Current.StrictLockEnabled = originalStrictLock;
         }
 
         var frameResult = frameTask.IsCompletedSuccessfully ? frameTask.Result : null;
@@ -258,7 +272,6 @@ public static class BenchmarkContext
         TimeSpan duration,
         TimeSpan tick,
         IFlashService? flash,
-        IVideoService? video,
         IOverlayService? overlay,
         IBubbleService? bubbles,
         ISubliminalService? subliminal,
@@ -283,7 +296,11 @@ public static class BenchmarkContext
             {
                 try
                 {
-                    flash?.TriggerFlashOnce(null, 2500, false, false);
+                    // TriggerFlash respects the service's own busy guard and shows
+                    // FlashImages simultaneous images in one batch, so it is a better
+                    // stress load than repeated one-shot calls that get skipped.
+                    flash?.TriggerFlash();
+
                     subliminal?.FlashSubliminal();
                     bubbles?.SpawnOnce();
 
@@ -309,10 +326,10 @@ public static class BenchmarkContext
                         });
                     }
 
-                    // Keep sustained overlays alive in case something clears them.
-                    overlay?.ShowOverlaySustained("pink", 1.0);
-                    overlay?.ShowOverlaySustained("spiral", 1.0);
-                    overlay?.ShowOverlaySustained("braindrain", 1.0);
+                    // Keep sustained overlays alive in case something clears them (idempotent).
+                    overlay?.ShowOverlaySustained("braindrain", 0.3);
+                    overlay?.ShowOverlaySustained("spiral", 0.5);
+                    overlay?.ShowOverlaySustained("pink", 0.5);
                 }
                 catch (Exception ex)
                 {
@@ -323,6 +340,36 @@ public static class BenchmarkContext
                     Interlocked.Exchange(ref pending, 0);
                 }
             }, DispatcherPriority.Background);
+        }
+    }
+
+    private static async Task RunVideoStressSegmentAsync(TimeSpan videoDuration, IVideoService? video, CancellationToken cancellationToken)
+    {
+        if (video == null) return;
+
+        try
+        {
+            Log.Information("[BENCH] Starting 1-minute video stress segment");
+            await Task.Run(() => video.TriggerVideo(), cancellationToken);
+
+            await Task.Delay(videoDuration, cancellationToken);
+
+            await Task.Run(() =>
+            {
+                video.ForceCleanup();
+                video.Stop();
+            }, cancellationToken);
+
+            Log.Information("[BENCH] Video stress segment ended");
+        }
+        catch (OperationCanceledException)
+        {
+            // Benchmark cancelled — clean up the video window so the app can shut down.
+            try { video.ForceCleanup(); video.Stop(); } catch { }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "[BENCH] Video stress segment failed");
         }
     }
 
