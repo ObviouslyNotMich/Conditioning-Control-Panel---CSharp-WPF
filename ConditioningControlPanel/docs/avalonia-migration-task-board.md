@@ -136,6 +136,7 @@ Append a row to **claim**; the orchestrator marks `✅ done` and removes the row
 | Subliminal double-flash + avatar focus fixes | Port WPF 6.1.7 subliminal double-flash fix + AvatarTube focus-steal fix to Avalonia; re-verify no double flash and typing isn't cancelled | subagent | `🚧 wip @subagent` | `feat/crossplatform` | 2026-06-23 | Reading WPF 6.1.7 deltas and Avalonia counterparts. |
 | `CCP.Core/Models/AppSettings.cs` + small service deltas | AppSettings +7 and small service deltas: apply Story re-lock/FIELD_PACE and related fields to CCP.Core/Models/AppSettings.cs; port BubbleService FIELD_PACE, KeywordTriggerService, BlinkTrainerService, AchievementService, UpdateService rework deltas | agent | `🚧 wip @you` | `feat/crossplatform` | 2026-06-23 | Claiming lane. |
 | `CCP.Avalonia/Chaos/ChaosHubWindow.*` | Chaos 'Down the Rabbit Hole' main menu: port ChaosHubWindow.xaml/.xaml.cs (+1357 lines) into existing CCP.Avalonia/Chaos/ChaosHubWindow.* with neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade; add ~70 assets as AvaloniaResource/Content | agent-18 | `🚧 wip @agent-18` | `feat/crossplatform` | 2026-06-23 | Claiming lane. |
+| Auth graceful browser-launch fallback | Port Helpers/BrowserLauncher.cs to Core using IBrowserHost/system-open; update Discord/Patreon/SubscribeStar providers in Avalonia to use it; verify login flow falls back gracefully | you | `🚧 wip @you` | `feat/crossplatform` | 2026-06-23 | Claiming lane. |
 
 ### Hand-off Queue (porter → orchestrator)
 
