@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -8,7 +7,12 @@ using System.Security;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Auth;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
 using Newtonsoft.Json;
@@ -24,6 +28,8 @@ public sealed class AvaloniaSubscribeStarProvider : IAuthProvider, INotifyProper
 {
     private readonly AvaloniaTokenStorage _tokenStorage;
     private readonly ISettingsService _settingsService;
+    private readonly IBrowserHost _browserHost;
+    private readonly IDialogService _dialogService;
     private readonly ILogger<AvaloniaSubscribeStarProvider>? _logger;
     private readonly HttpClient _httpClient;
 
@@ -84,11 +90,15 @@ public sealed class AvaloniaSubscribeStarProvider : IAuthProvider, INotifyProper
     public AvaloniaSubscribeStarProvider(
         ISecretStore secretStore,
         ISettingsService settingsService,
+        IBrowserHost browserHost,
+        IDialogService dialogService,
         ILogger<AvaloniaSubscribeStarProvider>? logger = null,
         ILogger<AvaloniaTokenStorage>? tokenStorageLogger = null)
     {
         _tokenStorage = new AvaloniaTokenStorage(secretStore, "substar", tokenStorageLogger);
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        _browserHost = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger;
 
         _httpClient = new HttpClient
@@ -144,7 +154,17 @@ public sealed class AvaloniaSubscribeStarProvider : IAuthProvider, INotifyProper
             _logger?.LogInformation("Started SubscribeStar OAuth callback listener on {Url}", callbackUrl);
 
             var authUrl = $"{AuthConstants.ProxyBaseUrl}/substar/authorize?state={state}";
-            Process.Start(new ProcessStartInfo { FileName = authUrl, UseShellExecute = true });
+            await BrowserLauncher.OpenUrlOrPromptAsync(
+                _browserHost,
+                _dialogService,
+                static async text =>
+                {
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                        && desktop.MainWindow?.Clipboard is IClipboard clipboard)
+                        await clipboard.SetTextAsync(text);
+                },
+                authUrl,
+                "sign in with SubscribeStar");
 
             var getContextTask = _callbackListener.GetContextAsync();
             _ = getContextTask.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);

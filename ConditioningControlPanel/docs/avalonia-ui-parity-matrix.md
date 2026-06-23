@@ -42,7 +42,7 @@ task board → **Known Functional Gaps**.
 
 - [ ] **Chaos "Down the Rabbit Hole" main menu** — neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade (`ChaosHubWindow` + `ChaosBackdropService` glint FX + ~70 assets/soundtrack)
 - [ ] **Quest pool refresh** — 20 free + 20 patron quests with 20 bundled art PNGs (`Quest` model + `QuestService`)
-- [ ] **Auth graceful browser-launch fallback** — `BrowserLauncher` + Discord/Patreon/SubscribeStar (ties to login gap; cross-platform open)
+- 🚧 **Auth graceful browser-launch fallback** — `BrowserLauncher` ported to Core; Discord/Patreon/SubscribeStar providers now use `IBrowserHost` with clipboard+dialog fallback; `CCP.Avalonia` builds. Runtime exercise blocked by concurrent Quest-lane build error (`QuestDefinitionsUpdated` mismatch in `QuestsTabViewModel`).
 - [ ] **Subliminal double-flash fix** — re-verify no prev-phrase flash / stale-timer double flash (changed in 6.1.7)
 - [ ] **Avatar focus-steal fix** — companion window must not steal focus / cancel typing (changed in 6.1.7)
 - [ ] **Bubble pace (FIELD_PACE) / ChaosArt / ChaosTuning / Achievement / KeywordTrigger / Lab tab** small deltas

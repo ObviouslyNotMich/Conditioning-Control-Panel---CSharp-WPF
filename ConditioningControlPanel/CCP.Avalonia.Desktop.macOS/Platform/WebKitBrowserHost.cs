@@ -14,8 +14,29 @@ public sealed class WebKitBrowserHost : IBrowserHost
 {
     public Task NavigateAsync(Uri url)
     {
-        Process.Start(new ProcessStartInfo { FileName = url.ToString(), UseShellExecute = true });
+        var urlString = url.ToString();
+        if (!TryStart("open", urlString))
+            Process.Start(new ProcessStartInfo { FileName = urlString, UseShellExecute = true });
         return Task.CompletedTask;
+    }
+
+    private static bool TryStart(string fileName, string arguments)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public Task<string> ExecuteScriptAsync(string script) => Task.FromResult(string.Empty);

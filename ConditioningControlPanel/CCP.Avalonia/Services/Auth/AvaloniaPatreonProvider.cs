@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -8,7 +7,12 @@ using System.Security;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Auth;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
 using Newtonsoft.Json;
@@ -23,6 +27,8 @@ public sealed class AvaloniaPatreonProvider : IAuthProvider, INotifyPropertyChan
 {
     private readonly AvaloniaTokenStorage _tokenStorage;
     private readonly ISettingsService _settingsService;
+    private readonly IBrowserHost _browserHost;
+    private readonly IDialogService _dialogService;
     private readonly ILogger<AvaloniaPatreonProvider>? _logger;
     private readonly HttpClient _httpClient;
     private readonly AvaloniaSubscribeStarProvider? _subscribeStar;
@@ -99,12 +105,16 @@ public sealed class AvaloniaPatreonProvider : IAuthProvider, INotifyPropertyChan
     public AvaloniaPatreonProvider(
         ISecretStore secretStore,
         ISettingsService settingsService,
+        IBrowserHost browserHost,
+        IDialogService dialogService,
         ILogger<AvaloniaPatreonProvider>? logger = null,
         AvaloniaSubscribeStarProvider? subscribeStar = null,
         ILogger<AvaloniaTokenStorage>? tokenStorageLogger = null)
     {
         _tokenStorage = new AvaloniaTokenStorage(secretStore, "patreon", tokenStorageLogger);
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        _browserHost = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger;
         _subscribeStar = subscribeStar;
 
@@ -174,7 +184,17 @@ public sealed class AvaloniaPatreonProvider : IAuthProvider, INotifyPropertyChan
             _logger?.LogInformation("Started Patreon OAuth callback listener on {Url}", callbackUrl);
 
             var authUrl = $"{AuthConstants.ProxyBaseUrl}/patreon/authorize?redirect_uri={Uri.EscapeDataString(callbackUrl)}&state={state}";
-            Process.Start(new ProcessStartInfo { FileName = authUrl, UseShellExecute = true });
+            await BrowserLauncher.OpenUrlOrPromptAsync(
+                _browserHost,
+                _dialogService,
+                static async text =>
+                {
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                        && desktop.MainWindow?.Clipboard is IClipboard clipboard)
+                        await clipboard.SetTextAsync(text);
+                },
+                authUrl,
+                "sign in with Patreon");
 
             var getContextTask = _callbackListener.GetContextAsync();
             _ = getContextTask.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
