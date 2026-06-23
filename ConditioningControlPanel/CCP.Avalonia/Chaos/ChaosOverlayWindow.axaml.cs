@@ -47,6 +47,12 @@ public partial class ChaosOverlayWindow : Window
     private readonly ScaleTransform _storyBoxScale = new(1, 1);
     private readonly TranslateTransform _storyAdvanceT = new(0, 0);
 
+    // Ignore low-level key events for a short window after an interactive panel
+    // becomes visible. This prevents the same keypress/click that launched the
+    // overlay from also skipping the countdown or advancing the first story card.
+    private long _interactiveShownAt;
+    private const int InputIgnoreMs = 500;
+
     public Action? OnRunAgain;
     public Action? OnDismissed;
 
@@ -69,6 +75,8 @@ public partial class ChaosOverlayWindow : Window
         Position = new PixelPoint((int)bounds.left, (int)bounds.top);
         Width = bounds.width;
         Height = bounds.height;
+        // Start in click-through mode; draft/results/story cards toggle it off when they need input.
+        SetClickThrough(true);
         Opened += (_, _) => ApplyExStyles();
         Closed += (_, _) =>
         {
@@ -81,15 +89,29 @@ public partial class ChaosOverlayWindow : Window
     private void OnGlobalKey(object? sender, global::ConditioningControlPanel.Core.Platform.KeyboardHookEventArgs e)
     {
         if (!IsVisible) return;
+        if (IsInputSuppressed()) return;
+
         if (_countdownTimer != null && CountdownBox.IsVisible)
         {
             FinishCountdown();
             return;
         }
-        if (StoryCardPanel.IsVisible)
+        if (StoryCardPanel.IsVisible && IsAdvanceStoryKey(e.VirtualKeyCode))
         {
             AdvanceStory();
         }
+    }
+
+    private static bool IsAdvanceStoryKey(int vk)
+    {
+        // Match the window-level key handler: Space, Enter, or Right Arrow.
+        // Avoids typing elsewhere from accidentally skipping the scene.
+        return vk is 0x20 or 0x0D or 0x27;
+    }
+
+    private bool IsInputSuppressed()
+    {
+        return Environment.TickCount64 - _interactiveShownAt < InputIgnoreMs;
     }
 
     #region countdown
@@ -110,6 +132,7 @@ public partial class ChaosOverlayWindow : Window
 
     private void ShowCountdownSteps(string[] steps, int interval, Action onComplete)
     {
+        _interactiveShownAt = Environment.TickCount64;
         SetClickThrough(true);
         Backdrop.IsVisible = false;
         DraftPanel.IsVisible = false;
@@ -169,6 +192,7 @@ public partial class ChaosOverlayWindow : Window
     public void ShowBoonDraft(int waveJustCleared, List<ChaosBoon> options, Action<ChaosBoon?> onPick, int autoResumeSec = 0,
                               int rerollsLeft = 0, Func<(List<ChaosBoon> options, int rerollsLeft)?>? onReroll = null)
     {
+        _interactiveShownAt = Environment.TickCount64;
         _onBoonPick = onPick;
         _selectedBoon = null;
         _selectionMade = false;
@@ -478,6 +502,7 @@ public partial class ChaosOverlayWindow : Window
     public void ShowResults(ChaosRunState s, double baseXp, double skillMult, double finalXp, long previousBest, int sparksEarned,
                             ChaosRank? rankUp = null)
     {
+        _interactiveShownAt = Environment.TickCount64;
         SetClickThrough(false);
         CountdownBox.IsVisible = false;
         DraftPanel.IsVisible = false;
@@ -802,6 +827,7 @@ public partial class ChaosOverlayWindow : Window
     public void ShowConversation(ChaosConversation convo, IImage? backdrop, Action? onComplete)
     {
         if (convo == null || convo.Lines.Count == 0) { onComplete?.Invoke(); return; }
+        _interactiveShownAt = Environment.TickCount64;
         _onConversationComplete = onComplete;
         _storyLines = convo.Lines;
         _storyIndex = 0;
@@ -945,6 +971,9 @@ public partial class ChaosOverlayWindow : Window
     private void SetClickThrough(bool on)
     {
         _clickThrough = on;
+        // Windows-level pass-through is handled by WS_EX_TRANSPARENT in ApplyExStyles.
+        // Toggle Avalonia hit-testing so the overlay does not intercept bubble/gif clicks
+        // while click-through, but interactive cards/panels can still receive pointer events.
         IsHitTestVisible = !on;
         Focusable = !on;
         ApplyExStyles();
@@ -956,7 +985,6 @@ public partial class ChaosOverlayWindow : Window
         {
             Topmost = false;
             Topmost = AvaloniaChaosWindowZ.BornTopmost;
-            if (!_clickThrough) { Activate(); Focus(); }
         }
         catch { }
     }
@@ -968,7 +996,7 @@ public partial class ChaosOverlayWindow : Window
         try
         {
             var ex = GetWindowLong(handle.Handle, GWL_EXSTYLE);
-            ex |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+            ex |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED;
             if (_clickThrough) ex |= WS_EX_TRANSPARENT;
             else ex &= ~WS_EX_TRANSPARENT;
             SetWindowLong(handle.Handle, GWL_EXSTYLE, ex);
@@ -983,6 +1011,7 @@ public partial class ChaosOverlayWindow : Window
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
     private const uint WS_EX_NOACTIVATE = 0x08000000;
     private const uint WS_EX_TRANSPARENT = 0x00000020;
+    private const uint WS_EX_LAYERED = 0x00080000;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);

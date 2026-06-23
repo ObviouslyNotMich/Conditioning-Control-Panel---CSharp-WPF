@@ -20,6 +20,9 @@ public class AvaloniaOverlaySurface : Window, IOverlaySurface
         Topmost = true;
         ShowInTaskbar = false;
         CanResize = false;
+        ShowActivated = false;
+        Focusable = false;
+        IsHitTestVisible = false;
     }
 
     public new bool IsVisible => base.IsVisible;

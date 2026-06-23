@@ -120,8 +120,8 @@
                                 Click="CardBubbleCount_Click" />
         </Grid>
 
-        <!-- Right half: browser / audio / quick links -->
-        <Grid Grid.Column="1" Margin="5" RowDefinitions="*,Auto">
+        <!-- Right half: browser / audio / quick links / media path -->
+        <Grid Grid.Column="1" Margin="5" RowDefinitions="*,Auto,Auto">
 
           <!-- Browser -->
           <Border Grid.Row="0" CornerRadius="12" Padding="9" Margin="0,0,0,5"
@@ -359,6 +359,32 @@
               </StackPanel>
             </Border>
           </Grid>
+
+          <!-- Media assets path -->
+          <Border Grid.Row="2" CornerRadius="12" Padding="9" Margin="0,0,0,6"
+                  Background="{DynamicResource ElevatedSurfaceBrush}"
+                  BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1">
+            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                         Text="Media folder"
+                         Foreground="{DynamicResource TextLightBrush}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
+              <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                       Text="{Binding CustomAssetsPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                       Watermark="Select or type the folder containing images, videos, wallpapers..."
+                       Foreground="{DynamicResource TextLightBrush}"
+                       FontSize="10"
+                       Margin="0,4,8,0"
+                       VerticalAlignment="Center" />
+              <Button Grid.Row="1" Grid.Column="2"
+                      Content="Browse..."
+                      Command="{Binding BrowseCustomAssetsPathCommand}"
+                      Padding="10,5"
+                      Background="{DynamicResource TransparentPinkBrush}"
+                      Foreground="{DynamicResource TextLightBrush}"
+                      BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </Border>
         </Grid>
       </Grid>
 

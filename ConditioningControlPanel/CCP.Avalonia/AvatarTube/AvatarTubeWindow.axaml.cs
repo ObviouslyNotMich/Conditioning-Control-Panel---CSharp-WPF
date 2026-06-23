@@ -849,7 +849,7 @@ _parentWindow = parentWindow;
                 emotionLineId: emotionLineId, mood: mood);
         }
 
-        private void GigglePriority(string text, bool playSound = true, bool aiGenerated = true,
+        public void GigglePriority(string text, bool playSound = true, bool aiGenerated = true,
             string? phraseAudioPath = null, bool barkVoice = false, string? mood = null)
         {
             if (_isPlayingUninterruptibleClip) return;

@@ -26,12 +26,12 @@ public partial class LockCardFeatureControl : UserControl
 
     public LockCardFeatureControl()
     {
-        InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _lockCard = App.Services.GetService<ILockCardService>();
         _session = App.Services.GetService<ISessionService>();
         _logger = App.Services.GetRequiredService<ILogger<LockCardFeatureControl>>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
+        InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }

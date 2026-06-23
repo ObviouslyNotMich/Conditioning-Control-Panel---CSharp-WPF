@@ -4,7 +4,8 @@
              xmlns:views="using:ConditioningControlPanel.Avalonia.Views.Tabs"
              x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.LabTabView"
              x:DataType="vm:LabTabViewModel"
-             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia">
+             xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
+             xmlns:converters="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base">
 
   <Design.DataContext>
     <vm:LabTabViewModel />
@@ -326,7 +327,9 @@
                            Foreground="{DynamicResource PinkBrush}" />
                 <ListBox ItemsSource="{Binding PastQuizzes}"
                          Background="Transparent"
-                         MaxHeight="140">
+                         MaxHeight="140"
+                         SelectedItem="{Binding SelectedPastQuiz, Mode=TwoWay}"
+                         SelectionMode="Single">
                   <ListBox.ItemTemplate>
                     <DataTemplate DataType="vm:PastQuizViewModel">
                       <Grid ColumnDefinitions="*,Auto,Auto">
@@ -337,6 +340,11 @@
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
+                <Button Content="{loc:Str lab_view_quiz_report}"
+                        Command="{Binding ViewQuizReportCommand}"
+                        IsEnabled="{Binding SelectedPastQuiz, Converter={x:Static converters:ObjectConverters.IsNotNull}}"
+                        Theme="{StaticResource OutlineButton}"
+                        HorizontalAlignment="Right" />
               </StackPanel>
             </StackPanel>
           </Border>

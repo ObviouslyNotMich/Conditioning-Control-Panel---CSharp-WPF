@@ -1,6 +1,9 @@
 using System;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Services.Companion;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Platform;
 
@@ -13,12 +16,17 @@ public sealed class AvaloniaProgressionService : IProgressionService
 {
     private readonly ISettingsService _settingsService;
     private readonly ISkillTreeService _skillTreeService;
+    private readonly IServiceProvider _services;
     private readonly Dictionary<int, double> _cumulativeXPCache = new();
 
-    public AvaloniaProgressionService(ISettingsService settingsService, ISkillTreeService skillTreeService)
+    public AvaloniaProgressionService(
+        ISettingsService settingsService,
+        ISkillTreeService skillTreeService,
+        IServiceProvider services)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _skillTreeService = skillTreeService ?? throw new ArgumentNullException(nameof(skillTreeService));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
     }
 
     /// <inheritdoc />
@@ -36,6 +44,15 @@ public sealed class AvaloniaProgressionService : IProgressionService
         double adjusted = amount * multiplier;
         settings.PlayerXP += adjusted;
 
+        // Mirror WPF: track XP in achievements, companion, and quests.
+        // Resolve lazily to avoid a DI cycle (QuestService also consumes IProgressionService).
+        try { _services.GetService<IAchievementService>()?.TrackXPEarned(adjusted); }
+        catch (Exception ex) { /* swallow; stats must not break progression */ }
+        try { _services.GetService<ICompanionService>()?.AddCompanionXP(adjusted, source); }
+        catch (Exception ex) { /* swallow; companion must not break progression */ }
+        try { _services.GetService<IQuestService>()?.TrackXPEarned((int)adjusted); }
+        catch (Exception ex) { /* swallow; quests must not break progression */ }
+
         double xpNeeded = GetXPForLevel(settings.PlayerLevel);
         while (settings.PlayerXP >= xpNeeded)
         {
@@ -46,6 +63,8 @@ public sealed class AvaloniaProgressionService : IProgressionService
             if (settings.PlayerLevel > settings.HighestLevelEver)
                 settings.HighestLevelEver = settings.PlayerLevel;
 
+            try { _services.GetService<IAchievementService>()?.CheckLevelAchievements(settings.PlayerLevel); }
+            catch (Exception ex) { /* swallow */ }
             LevelUp?.Invoke(this, settings.PlayerLevel);
             xpNeeded = GetXPForLevel(settings.PlayerLevel);
         }

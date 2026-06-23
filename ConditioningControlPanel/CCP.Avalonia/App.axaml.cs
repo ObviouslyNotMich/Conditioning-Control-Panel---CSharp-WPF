@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using ConditioningControlPanel.Avalonia.Infrastructure;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Views;
 using ConditioningControlPanel.Core.Platform;
@@ -38,6 +39,13 @@ public partial class App : Application
     /// Global tutorial service used by interactive Deeper editor walkthroughs.
     /// </summary>
     public static Avalonia.Services.Tutorial.AvaloniaTutorialService Tutorial { get; private set; } = null!;
+
+    /// <summary>
+    /// Optional override for the media assets path. Applied to
+    /// <see cref="AppSettings.CustomAssetsPath"/> at startup so headless/benchmark
+    /// runs can resolve media without opening the settings UI.
+    /// </summary>
+    public static string? OverrideAssetsPath { get; set; }
 
     /// <summary>
     /// Optional head-specific DI tweak. Set before starting the app.
@@ -88,6 +96,23 @@ public partial class App : Application
             ConfigurePlatformServices?.Invoke(serviceCollection);
             Services = serviceCollection.BuildServiceProvider();
             Tutorial = new Avalonia.Services.Tutorial.AvaloniaTutorialService();
+
+            // Allow command-line/benchmark runs to point at the user's media folder
+            // without opening the settings UI.
+            if (!string.IsNullOrWhiteSpace(OverrideAssetsPath))
+            {
+                try
+                {
+                    var settingsService = Services.GetRequiredService<ISettingsService>();
+                    settingsService.Current.CustomAssetsPath = OverrideAssetsPath;
+                    settingsService.Save();
+                    Log.Information("[BENCH] CustomAssetsPath overridden to {Path}", OverrideAssetsPath);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "[BENCH] Failed to apply --assets-path override");
+                }
+            }
 
             // Fix P0 data-path split: migrate any Avalonia data written to Roaming
             // into the legacy Local folder before Core services read/write it.
@@ -150,9 +175,16 @@ public partial class App : Application
                 }
             });
 
-            // Subscribe to achievement unlocks so the Avalonia head can show popup toasts.
+            // Subscribe to achievement unlocks, quest completions, and Pink Rush so the
+            // Avalonia head can show popup toasts.
             var achievements = Services.GetRequiredService<IAchievementService>();
             achievements.AchievementUnlocked += OnAchievementUnlocked;
+
+            var quests = Services.GetRequiredService<IQuestService>();
+            quests.QuestCompleted += OnQuestCompleted;
+
+            var skillTree = Services.GetRequiredService<ISkillTreeService>();
+            skillTree.PinkRushStarted += OnPinkRushStarted;
 
             // If another instance is launched, bring this one to the foreground.
             var singleInstance = Services.GetRequiredService<ISingleInstanceService>();
@@ -181,6 +213,8 @@ public partial class App : Application
                 };
 
                 // Wire desktop tray icon.
+                BenchmarkContext.Attach(desktop.MainWindow, desktop);
+
                 var tray = Services.GetRequiredService<ITrayIcon>();
                 tray.SetTooltip("Conditioning Control Panel");
                 tray.Menu.AddItem("Show Dashboard", () => RestoreMainWindow(desktop.MainWindow));
@@ -209,6 +243,27 @@ public partial class App : Application
                 if (settings?.AttentionCheckEnabled == true)
                 {
                     Services.GetRequiredService<IAttentionCheckService>().Start();
+                }
+            }
+            catch { }
+
+            // Start Awareness Engine keyword triggers (premium-gated) and screen OCR if enabled.
+            try
+            {
+                var settings = Services.GetRequiredService<ISettingsService>().Current;
+                if (settings?.KeywordTriggersEnabled == true)
+                {
+                    Services.GetRequiredService<IKeywordTriggerService>().Start();
+                }
+                if (settings?.ScreenOcrEnabled == true)
+                {
+                    // Defer OCR engine initialization so startup stays light; the model load
+                    // is heavy and is not needed in the first seconds after the window opens.
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        Services.GetService<IScreenOcrService>()?.Start();
+                    });
                 }
             }
             catch { }
@@ -278,6 +333,38 @@ public partial class App : Application
         catch (Exception ex)
         {
             App.Services?.GetRequiredService<ILogger<App>>().LogError(ex, "Failed to show achievement popup");
+        }
+    }
+
+    private static void OnQuestCompleted(object? sender, QuestCompletedEventArgs e)
+    {
+        try
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime)
+                return;
+
+            var popup = new Windows.QuestCompletePopup(e.QuestName, e.XpAwarded, e.QuestType);
+            popup.Show();
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetRequiredService<ILogger<App>>().LogError(ex, "Failed to show quest complete popup");
+        }
+    }
+
+    private static void OnPinkRushStarted(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime)
+                return;
+
+            var popup = new Windows.PinkRushPopup();
+            popup.Show();
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetRequiredService<ILogger<App>>().LogError(ex, "Failed to show pink rush popup");
         }
     }
 }

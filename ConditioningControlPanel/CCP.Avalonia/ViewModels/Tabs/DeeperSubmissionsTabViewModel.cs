@@ -46,7 +46,15 @@ public partial class DeeperSubmissionsTabViewModel : TabItemViewModel
         _logger = logger;
         _catalogueService = catalogueService;
         _submissions = new ObservableCollection<DeeperSubmissionRowViewModel>();
-        LoadSubmissions();
+    }
+
+    public override void OnSelected()
+    {
+        base.OnSelected();
+        if (_submissions.Count == 0)
+        {
+            LoadSubmissions();
+        }
     }
 
     [ObservableProperty]

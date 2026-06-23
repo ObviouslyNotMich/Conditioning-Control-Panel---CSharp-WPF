@@ -43,6 +43,9 @@ public sealed class QuestService : IQuestService, IDisposable
     /// <inheritdoc />
     public event EventHandler? QuestsChanged;
 
+    /// <inheritdoc />
+    public event EventHandler<QuestCompletedEventArgs>? QuestCompleted;
+
     public const int MaxDailyQuestsPerDay = 3;
 
     public QuestService(
@@ -689,6 +692,15 @@ public sealed class QuestService : IQuestService, IDisposable
             def.Name, type, xp);
 
         OnQuestsChanged();
+
+        try
+        {
+            QuestCompleted?.Invoke(this, new QuestCompletedEventArgs(def.Name, xp, type));
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "QuestCompleted subscriber threw");
+        }
 
         if (type == QuestType.Daily && Progress.DailyQuestsCompletedToday < MaxDailyQuestsPerDay)
         {

@@ -446,7 +446,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
             }
             else if (_reattachAfterChaos)
             {
-                if (_settings?.Current?.AvatarEnabled == true)
+                if (_settings?.Current?.AvatarEnabled == true && PlatformImpl != null)
                 {
                     Show();
                     UpdatePosition();

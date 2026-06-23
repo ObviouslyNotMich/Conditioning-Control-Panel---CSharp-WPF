@@ -46,6 +46,20 @@ public static class ChaosTuning
     /// <summary>Legacy alias used by some port code; same semantic as <see cref="ClickThresholdMs"/>.</summary>
     public const double ChannelBreakThresholdSec = 0.15;
 
+    // ============================ Echo / hydra split ============================
+
+    /// <summary>Scale factor applied to an Echo bubble's visual size for each child.</summary>
+    public const double EchoChildScale = 0.60;
+
+    /// <summary>Minimum fuse length for an Echo split child (ms).</summary>
+    public const int EchoChildFuseMinMs = 2500;
+
+    /// <summary>Maximum fuse length for an Echo split child (ms).</summary>
+    public const int EchoChildFuseMaxMs = 4500;
+
+    /// <summary>Speed multiplier for Echo split children so they scatter faster.</summary>
+    public const double EchoChildSpeedMult = 1.40;
+
     /// <summary>Visual shrink floor while channeling (scale 1.0 → this by completion).</summary>
     public const double ChannelMinScale = 0.55;
 

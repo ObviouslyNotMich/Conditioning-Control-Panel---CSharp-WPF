@@ -1,0 +1,47 @@
+{
+  "Description": "Optimized measurements for the Avalonia v12 Windows head after the lazy-initialization pass and max-intensity benchmark implementation. Standard and max-intensity numbers are from the final runs.",
+  "RecordedAt": "2026-06-23T23:31:00Z",
+  "StandardRun": {
+    "MainWindowShownMs": 1888.4,
+    "WorkingSetBytes10s": 582370918,
+    "PrivateMemoryBytes10s": 511608832,
+    "PeakWorkingSetBytes10s": 582656819,
+    "ManagedMemoryBytes10s": 68480563,
+    "IdleFps": 126.2,
+    "IdleMinFps": 121,
+    "IdleMaxFps": 133,
+    "IdleCpuPercent": 1.2,
+    "IdlePeakCpuPercent": 6.6,
+    "ActiveSessionFps": 183.1,
+    "ActiveSessionMinFps": 171,
+    "ActiveSessionMaxFps": 201,
+    "ActiveSessionCpuPercent": 3.0,
+    "ActiveSessionPeakCpuPercent": 11.7
+  },
+  "MaxIntensityRun": {
+    "DurationSeconds": 180,
+    "AvgFps": 177.8,
+    "MinFps": 19,
+    "MaxFps": 227,
+    "AvgCpuPercent": 5.35,
+    "PeakCpuPercent": 13.64,
+    "WorkingSetBytes": 1715658752,
+    "PeakWorkingSetBytes": 1937489920,
+    "ManagedBytes": 945887744
+  },
+  "ImprovementsVsBaseline": {
+    "StartupImprovementPercent": 7.3,
+    "RamReductionPercent": 10.6,
+    "IdleFpsDelta": 4,
+    "ActiveSessionFpsDelta": 3
+  },
+  "Notes": [
+    "LibVLC is now initialized lazily via ILibVlcProvider; startup services no longer force-load it.",
+    "OCR engine creation is deferred until the first timer tick, scheduled ~10 s after service start.",
+    "Session effect services are resolved lazily by AvaloniaSessionEffectOrchestrator.",
+    "GIF frames are decoded off the UI thread and only blitted/invalidated on the UI thread.",
+    "Flash-image windows use AvaloniaAnimatedGif for animated GIFs.",
+    "Added Windows app.manifest so overlay/video windows get proper transparency and native control host support.",
+    "Added --max-benchmark: 3-minute all-modules stress test measuring FPS, CPU, and peak memory."
+  ]
+}

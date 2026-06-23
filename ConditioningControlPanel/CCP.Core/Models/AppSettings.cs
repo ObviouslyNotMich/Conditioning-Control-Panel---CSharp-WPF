@@ -2167,13 +2167,11 @@ namespace ConditioningControlPanel.Models
             get => _chaosMenuMusicMuted;
             set { _chaosMenuMusicMuted = value; OnPropertyChanged(); }
         }
-        private bool _chaosBubbleSharedHost = true;
-        /// <summary>Default ON (proven win): render all chaos bubbles as visuals on ONE shared
-        /// click-through host window (Canvas-positioned) instead of one top-level layered Window per
-        /// bubble. The per-bubble-window model repositions every bubble via SetWindowPos each frame,
-        /// which saturates the UI thread and makes clicks register late under a dense field. With the
-        /// host on, pops are detected via the global mouse hook (swallow on hit) instead of WPF events,
-        /// so they're immune to that starvation. Falls back to the proven per-window path when off.</summary>
+        private bool _chaosBubbleSharedHost;
+        /// <summary>Default OFF until the shared-host global mouse hook reliably converts clicks to
+        /// pops in production: render chaos bubbles as one top-level layered Window per bubble, each
+        /// with native Avalonia PointerPressed handling. Falls back to the shared Canvas host when
+        /// enabled (intended for low-end machines once hit-testing is fully wired).</summary>
         public bool ChaosBubbleSharedHost
         {
             get => _chaosBubbleSharedHost;

@@ -59,7 +59,7 @@ public static class AvaloniaChaosEnv
 public interface IAvaloniaBubbleService
 {
     double ChaosRabbitTrailSecNow { get; }
-    void PopBubblesInRect(global::Avalonia.Rect rectDips);
+    int PopBubblesInRect(global::Avalonia.Rect rectDips);
     bool AnyDarterIntersects(global::Avalonia.Rect rectDips);
 }
 

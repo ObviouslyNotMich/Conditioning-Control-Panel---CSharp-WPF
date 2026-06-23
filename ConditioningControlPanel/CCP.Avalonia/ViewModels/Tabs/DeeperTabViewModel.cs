@@ -39,6 +39,7 @@ public partial class DeeperTabViewModel : TabItemViewModel
     private readonly ICatalogueService? _catalogueService;
 
     private readonly ObservableCollection<DeeperLibraryRowViewModel> _allEntries = new();
+    private bool _libraryLoaded;
 
     public enum DeeperMediaTypeFilter { All, Video, Audio }
     public enum DeeperSortMode { Recent, Name, Creator }
@@ -105,7 +106,16 @@ public partial class DeeperTabViewModel : TabItemViewModel
 
         WelcomeCardVisible = !(_settingsService.Current?.HasSeenDeeperWelcome ?? true);
         RefreshWebcamUi();
-        _ = ScanLibraryAsync();
+    }
+
+    public override void OnSelected()
+    {
+        base.OnSelected();
+        if (!_libraryLoaded)
+        {
+            _libraryLoaded = true;
+            _ = ScanLibraryAsync();
+        }
     }
 
     #region Header / Welcome

@@ -653,6 +653,7 @@ internal sealed class CirceEmoteEngine : IDisposable
             bool aIsActive = ReferenceEquals(outgoing, _layerA);
 
             incoming.Source = nextPlayer.Source;
+            nextPlayer.FrameRendered += (_, _) => incoming.InvalidateVisual();
             incoming.Opacity = 0;
             incoming.IsVisible = true;
 

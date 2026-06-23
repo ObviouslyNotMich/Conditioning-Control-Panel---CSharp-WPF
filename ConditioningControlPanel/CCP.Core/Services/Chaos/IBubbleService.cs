@@ -52,8 +52,8 @@ public interface IBubbleService
     /// <summary>Sets the Tail-Plug trail duration for the current chaos run.</summary>
     void SetRabbitTrailSec(double seconds);
 
-    /// <summary>Pops chaos bubbles intersecting the given DIP rectangle; Stage 1 is a no-op.</summary>
-    void PopBubblesInRect(PixelRect rectDips);
+    /// <summary>Pops bubbles intersecting the given DIP rectangle and returns how many were popped.</summary>
+    int PopBubblesInRect(PixelRect rectDips);
 
     /// <summary>True if any darter intersects the rectangle; Stage 1 always returns false.</summary>
     bool AnyDarterIntersects(PixelRect rectDips);

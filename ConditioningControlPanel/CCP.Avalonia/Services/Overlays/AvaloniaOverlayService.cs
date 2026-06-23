@@ -930,6 +930,8 @@ public sealed class AvaloniaOverlayService : IOverlayService, IDisposable
             };
 
             _animation = cache.Animation;
+            if (_animation != null)
+                _animation.FrameRendered += (_, _) => _image?.InvalidateVisual();
 
             Content = new Grid { Children = { _image } };
 

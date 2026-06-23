@@ -392,7 +392,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         }
 
         var window = new FlashOverlayWindow(
-            geom, data.Bitmap, settings.FlashClickable, lifetimeMs, hydraGeneration, monitor,
+            geom, data, settings.FlashClickable, lifetimeMs, hydraGeneration, monitor,
             maxOpacity, OnFlashClicked);
 
         try
@@ -438,6 +438,36 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
                 TriggerMultiplication(maxHydra, currentCount, window.OriginalLifetimeMs, remainingMs, window.HydraGeneration, window.Monitor);
             }
         }
+    }
+
+    public bool GazePop(ConditioningControlPanel.Core.Platform.PixelRect rect)
+    {
+        if (!IsRunning) return false;
+        if (_settings.Current?.FlashGazePopEnabled != true) return false;
+
+        FlashOverlayWindow? target = null;
+        lock (_sync)
+        {
+            foreach (var window in _activeWindows)
+            {
+                var scale = window.Monitor.Scaling > 0 ? window.Monitor.Scaling : 1.0;
+                var wx = window.Position.X / scale;
+                var wy = window.Position.Y / scale;
+                var ww = window.Width;
+                var wh = window.Height;
+
+                if (rect.X < wx + ww && rect.X + rect.Width > wx &&
+                    rect.Y < wy + wh && rect.Y + rect.Height > wy)
+                {
+                    target = window;
+                    break;
+                }
+            }
+        }
+
+        if (target == null) return false;
+        OnFlashClicked(target);
+        return true;
     }
 
     private async void TriggerMultiplication(int maxHydra, int currentCount, int parentLifetimeMs, int parentRemainingMs, int parentGeneration, MonitorInfo parentMonitor)
@@ -770,6 +800,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     {
         public string FilePath { get; set; } = "";
         public Bitmap Bitmap { get; set; } = null!;
+        public AvaloniaAnimatedGif? Animator { get; set; }
         public int Width { get; set; }
         public int Height { get; set; }
         public ImageGeometry Geometry { get; set; } = new();
@@ -798,6 +829,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     {
         private readonly Action<FlashOverlayWindow> _onClick;
         private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+        private readonly AvaloniaAnimatedGif? _animator;
         private readonly DateTime _expiresAt;
         private readonly double _maxOpacity;
         private bool _isFadingOut;
@@ -811,7 +843,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
         public FlashOverlayWindow(
             ImageGeometry geom,
-            Bitmap bitmap, bool clickable, int lifetimeMs, int hydraGeneration, MonitorInfo monitor,
+            LoadedImageData data, bool clickable, int lifetimeMs, int hydraGeneration, MonitorInfo monitor,
             double maxOpacity, Action<FlashOverlayWindow> onClick)
         {
             _onClick = onClick;
@@ -821,6 +853,11 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             Monitor = monitor;
             _expiresAt = DateTime.Now.AddMilliseconds(lifetimeMs);
             _maxOpacity = maxOpacity;
+            _animator = data.Animator;
+            if (_animator == null && data.FilePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
+            {
+                _animator = AvaloniaAnimatedGif.TryCreate(data.FilePath);
+            }
 
             WindowDecorations = WindowDecorations.None;
             TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
@@ -829,6 +866,8 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             ShowInTaskbar = false;
             CanResize = false;
             ShowActivated = false;
+            Focusable = false;
+            IsHitTestVisible = clickable;
 
             var scale = monitor.Scaling > 0 ? monitor.Scaling : 1.0;
             Position = new PixelPoint((int)(geom.X * scale), (int)(geom.Y * scale));
@@ -838,11 +877,16 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
 
             var image = new Image
             {
-                Source = bitmap,
+                Source = _animator?.Source ?? data.Bitmap,
                 Stretch = Stretch.Uniform,
                 Width = geom.Width,
                 Height = geom.Height
             };
+
+            if (_animator != null)
+            {
+                _animator.FrameRendered += (_, _) => image.InvalidateVisual();
+            }
 
             if (clickable)
             {
@@ -895,6 +939,7 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             _closed = true;
             _timer.Stop();
             _timer.Tick -= OnTick;
+            try { _animator?.Dispose(); } catch { }
             try { Close(); } catch { }
         }
     }

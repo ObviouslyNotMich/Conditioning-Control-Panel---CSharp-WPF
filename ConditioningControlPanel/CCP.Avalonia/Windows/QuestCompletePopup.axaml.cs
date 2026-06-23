@@ -9,6 +9,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Models;
 
 using Animation = global::Avalonia.Animation.Animation;
 using KeyFrame = global::Avalonia.Animation.KeyFrame;
@@ -27,12 +28,12 @@ public partial class QuestCompletePopup : Window
 
     private readonly DispatcherTimer _autoCloseTimer;
 
-    public QuestCompletePopup(string questName, int xpAwarded)
+    public QuestCompletePopup(string questName, int xpAwarded, QuestType questType)
     {
         InitializeComponent();
 
         _logger = App.Services.GetRequiredService<ILogger<QuestCompletePopup>>();
-        TxtQuestName.Text = questName;
+        TxtQuestName.Text = $"[{questType}] {questName}";
         TxtXPAwarded.Text = $"+{xpAwarded} {Loc.Get("label_xp")}";
 
         PositionWindow();

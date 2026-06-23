@@ -18,9 +18,9 @@ public partial class VisualsFeatureControl : UserControl
 
     public VisualsFeatureControl()
     {
-        InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
+        InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }

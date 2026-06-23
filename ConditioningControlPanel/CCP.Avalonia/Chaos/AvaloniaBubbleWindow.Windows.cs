@@ -9,6 +9,7 @@ public sealed partial class AvaloniaBubbleWindow
     private const uint WsExToolWindow = 0x00000080;
     private const uint WsExNoActivate = 0x08000000;
     private const uint WsExTransparent = 0x00000020;
+    private const uint WsExLayered = 0x00080000;
 
     private const uint SwpFrameChanged = 0x0020;
     private const uint SwpNoMove = 0x0002;
@@ -27,7 +28,7 @@ public sealed partial class AvaloniaBubbleWindow
         if (handle == IntPtr.Zero) return;
 
         var exStyle = (uint)GetWindowLong(handle, GwlExStyle);
-        exStyle |= WsExToolWindow | WsExNoActivate;
+        exStyle |= WsExToolWindow | WsExNoActivate | WsExLayered;
         // WsExTransparent is intentionally omitted here so clicks still reach the bubble visual.
         // SetWindowLong(handle, GwlExStyle, new IntPtr((nint)exStyle));
         _ = SetWindowLong(handle, GwlExStyle, new IntPtr((nint)exStyle));

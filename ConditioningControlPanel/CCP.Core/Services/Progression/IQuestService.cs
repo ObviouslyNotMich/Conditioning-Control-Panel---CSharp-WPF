@@ -3,6 +3,28 @@ using ConditioningControlPanel.Models;
 namespace ConditioningControlPanel.Core.Services.Progression;
 
 /// <summary>
+/// Event args for <see cref="IQuestService.QuestCompleted"/>.
+/// </summary>
+public sealed class QuestCompletedEventArgs : EventArgs
+{
+    /// <summary>Localized quest name.</summary>
+    public string QuestName { get; }
+
+    /// <summary>XP awarded for completing the quest.</summary>
+    public int XpAwarded { get; }
+
+    /// <summary>Type of quest completed.</summary>
+    public QuestType QuestType { get; }
+
+    public QuestCompletedEventArgs(string questName, int xpAwarded, QuestType questType)
+    {
+        QuestName = questName;
+        XpAwarded = xpAwarded;
+        QuestType = questType;
+    }
+}
+
+/// <summary>
 /// Generates, persists, and tracks progress for daily and weekly quests.
 /// </summary>
 public interface IQuestService
@@ -16,6 +38,11 @@ public interface IQuestService
     /// Raised whenever active quests or reroll state change.
     /// </summary>
     event EventHandler? QuestsChanged;
+
+    /// <summary>
+    /// Raised when a daily or weekly quest is completed and XP has been awarded.
+    /// </summary>
+    event EventHandler<QuestCompletedEventArgs>? QuestCompleted;
 
     /// <summary>
     /// Ensures daily and weekly quests have been generated for the current period.

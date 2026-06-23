@@ -13,8 +13,8 @@ public partial class WebcamFeatureControl : UserControl
 
     public WebcamFeatureControl()
     {
-        InitializeComponent();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
         WebcamViewModel = App.Services.GetRequiredService<LabTabViewModel>();
+        InitializeComponent();
     }
 }

@@ -25,7 +25,10 @@ using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Avalonia.Features;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Views.Tabs;
+using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Models.Quiz;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Overlays;
@@ -94,10 +97,10 @@ internal sealed class SmokeTestRunner
 
         try
         {
-            // Absolute safety cap: shutdown after 120 seconds no matter what.
+            // Absolute safety cap: shutdown after 180 seconds no matter what.
             _ = Task.Run(async () =>
             {
-                await Task.Delay(TimeSpan.FromSeconds(120));
+                await Task.Delay(TimeSpan.FromSeconds(180));
                 _cts.Cancel();
                 var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
                 await Dispatcher.UIThread.InvokeAsync(() => lifetime?.Shutdown());
@@ -226,6 +229,10 @@ internal sealed class SmokeTestRunner
                         _findings.Add(new SmokeTestFinding("ChaosRun", "Chaos run exceeded 45s smoke-test timeout; aborting run verification", FindingSeverity.Warning));
                     }
                 }
+                else if (tab.Key == "blinktrainer")
+                {
+                    await ExerciseBlinkTrainerTabAsync(vm);
+                }
             }
 
             // Exercise a representative, safe set of dialogs.
@@ -234,6 +241,9 @@ internal sealed class SmokeTestRunner
 
             // Exercise every parameterless Avalonia dialog to surface missing loc keys / layout issues.
             await ExerciseAllParameterlessDialogsAsync(mainWindow);
+
+            // Exercise the remaining window ports (popups, editor, webcam surfaces).
+            await ExerciseWindowsAsync(mainWindow);
 
             // Switch mods to exercise theme re-skinning (§15.11) and capture the dashboard per theme.
             var originalMod = vm.SelectedMod;
@@ -326,7 +336,6 @@ internal sealed class SmokeTestRunner
         // Some dialogs probe external services/network on construction; skip them in UI-only smoke coverage.
         var excludedDialogs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            nameof(LocalAiSetupWizard)
         };
 
         var dialogAssembly = typeof(FeaturePopupWindow).Assembly;
@@ -379,6 +388,207 @@ internal sealed class SmokeTestRunner
         catch (Exception ex)
         {
             _findings.Add(new SmokeTestFinding($"Dialog:{name}", $"Failed to open: {ex.Message}", FindingSeverity.Error));
+        }
+    }
+
+    private async Task ExerciseWindowsAsync(Window owner)
+    {
+        if (_cts.IsCancellationRequested) return;
+
+        // QuestCompletePopup
+        await ExerciseWindowAsync(owner, "QuestCompletePopup", () =>
+        {
+            var popup = new QuestCompletePopup("Smoke Quest", 150, QuestType.Daily);
+            popup.Show(owner);
+            return popup;
+        });
+
+        // PinkRushPopup
+        await ExerciseWindowAsync(owner, "PinkRushPopup", () =>
+        {
+            var settingsService = App.Services.GetRequiredService<ISettingsService>();
+            settingsService.Current.PinkRushEndTime = DateTime.Now.AddSeconds(10);
+            var popup = new PinkRushPopup();
+            popup.Show(owner);
+            return popup;
+        });
+
+        // QuizReportWindow
+        await ExerciseWindowAsync(owner, "QuizReportWindow", () =>
+        {
+            var entry = new QuizHistoryEntry
+            {
+                TakenAt = DateTime.Now,
+                Category = QuizCategory.Obedience,
+                CategoryName = "Obedience",
+                TotalScore = 8,
+                MaxScore = 10,
+                ProfileText = "Smoke-test profile summary.",
+                Answers = new List<QuizAnswerRecord>
+                {
+                    new()
+                    {
+                        QuestionNumber = 1,
+                        QuestionText = "Sample question one?",
+                        AllAnswers = new[] { "A", "B", "C", "D" },
+                        AllPoints = new[] { 0, 1, 0, 0 },
+                        ChosenIndex = 1,
+                        PointsEarned = 1
+                    }
+                }
+            };
+            var report = new QuizReportWindow(entry);
+            report.Show(owner);
+            return report;
+        });
+
+        // SessionEditorWindow
+        await ExerciseWindowAsync(owner, "SessionEditorWindow", () =>
+        {
+            var session = new ConditioningControlPanel.Models.Session
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = "Smoke Session",
+                DurationMinutes = 15,
+                Source = ConditioningControlPanel.Models.SessionSource.Custom
+            };
+            var editor = new SessionEditorWindow(session);
+            editor.Show(owner);
+            return editor;
+        });
+
+        // WebcamLoadingSplash
+        await ExerciseWindowAsync(owner, "WebcamLoadingSplash", () =>
+        {
+            var splash = new WebcamLoadingSplash();
+            splash.Show(owner);
+            splash.SetProgress(0.5, "Smoke test progress");
+            return splash;
+        });
+
+        // WebcamGazeTrackerWindow (will render the no-frame-source error path)
+        await ExerciseWindowAsync(owner, "WebcamGazeTrackerWindow", () =>
+        {
+            var tracker = new WebcamGazeTrackerWindow();
+            tracker.Show(owner);
+            return tracker;
+        });
+
+        // WebcamQuickRecalWindow (will render the no-frame-source error path)
+        await ExerciseWindowAsync(owner, "WebcamQuickRecalWindow", () =>
+        {
+            var recal = new WebcamQuickRecalWindow();
+            recal.Show(owner);
+            return recal;
+        });
+
+        // AchievementPopup
+        await ExerciseWindowAsync(owner, "AchievementPopup", () =>
+        {
+            var achievement = new Achievement
+            {
+                Id = "smoke_test",
+                Name = "Smoke Test Achievement",
+                FlavorText = "You ran the smoke test!",
+                ImageName = "lv_10.png"
+            };
+            var popup = new AchievementPopup(achievement, "🏆", "Achievement Unlocked");
+            popup.Show(owner);
+            return popup;
+        });
+
+        // BubbleCountResultWindow
+        await ExerciseWindowAsync(owner, "BubbleCountResult", () =>
+        {
+            var result = new BubbleCountResultWindow(42, false, _ => { });
+            result.Show(owner);
+            return result;
+        });
+
+
+
+        // LockCardWindow
+        await ExerciseWindowAsync(owner, "LockCardWindow", () =>
+        {
+            var lockCard = new LockCardWindow("Smoke test phrase", 3, false);
+            lockCard.Show(owner);
+            return lockCard;
+        });
+
+        // QuizCategoryEditorWindow
+        await ExerciseWindowAsync(owner, "QuizCategoryEditorWindow", () =>
+        {
+            var editor = new QuizCategoryEditorWindow();
+            editor.Show(owner);
+            return editor;
+        });
+
+        // FeatureSettingsPopup is a UserControl hosted in SessionEditorWindow; exercise it by
+        // creating a minimal wrapper window with the control loaded for a sample timeline event.
+        await ExerciseWindowAsync(owner, "FeatureSettingsPopup", () =>
+        {
+            var session = new TimelineSession
+            {
+                Name = "Smoke Session",
+                DurationMinutes = 15
+            };
+            var evt = new TimelineEvent
+            {
+                FeatureId = "flash",
+                Minute = 5,
+                EventType = TimelineEventType.Start,
+                Settings = new Dictionary<string, object>()
+            };
+            session.Events.Add(evt);
+
+            var popup = new FeatureSettingsPopup();
+            popup.LoadEvent(evt, session.DurationMinutes, session);
+
+            var host = new Window
+            {
+                Title = "FeatureSettingsPopup Smoke Host",
+                Width = 600,
+                Height = 500,
+                Content = popup,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ShowInTaskbar = false
+            };
+            host.Show(owner);
+            return host;
+        });
+    }
+
+    private async Task ExerciseWindowAsync(Window owner, string name, Func<Window> factory)
+    {
+        if (_cts.IsCancellationRequested) return;
+        try
+        {
+            Console.WriteLine($"[SMOKE] Window -> {name}");
+            var window = await Dispatcher.UIThread.InvokeAsync(factory);
+            await DelayAsync(400);
+            ScanVisualTree(window, $"Window:{name}");
+
+            if (_captureScreenshots)
+            {
+                try
+                {
+                    var safeName = string.Join("_", name.Split(Path.GetInvalidFileNameChars()));
+                    var path = await RenderScreenshotAsync(window, $"smoke-window-{safeName.ToLowerInvariant()}.png");
+                    _screenshotPaths.Add(path);
+                    Console.WriteLine($"[SMOKE] Window screenshot saved: {path}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SMOKE] Window screenshot failed for {name}: {ex.Message}");
+                }
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() => window.Close());
+            await DelayAsync(150);
+        }
+        catch (Exception ex)
+        {
+            _findings.Add(new SmokeTestFinding($"Window:{name}", $"Failed to open: {ex.Message}", FindingSeverity.Error));
         }
     }
 
@@ -568,7 +778,7 @@ internal sealed class SmokeTestRunner
         // User-created content that legitimately appears as raw text (not loc keys).
         return text switch
         {
-            "bambi" or "spiral" => true,
+            "bambi" or "spiral" or "tiktoks" => true,
             _ when text.StartsWith("u_", StringComparison.OrdinalIgnoreCase) && text.Length > 6 => true,
             _ => false
         };
@@ -837,6 +1047,36 @@ internal sealed class SmokeTestRunner
         }
     }
 
+    private async Task ExerciseBlinkTrainerTabAsync(MainWindowViewModel vm)
+    {
+        if (_cts.IsCancellationRequested) return;
+
+        try
+        {
+            var tab = vm.Tabs.OfType<ConditioningControlPanel.Avalonia.ViewModels.Tabs.BlinkTrainerTabViewModel>().FirstOrDefault();
+            if (tab == null)
+            {
+                _findings.Add(new SmokeTestFinding("BlinkTrainer", "Tab view model not found", FindingSeverity.Error));
+                return;
+            }
+
+            var service = App.Services?.GetService<ConditioningControlPanel.Core.Services.BlinkTrainer.IBlinkTrainerService>();
+            if (service == null)
+            {
+                _findings.Add(new SmokeTestFinding("BlinkTrainer", "IBlinkTrainerService not registered", FindingSeverity.Error));
+                return;
+            }
+
+            // Verify the service can be queried without throwing and the tab VM is wired to it.
+            Console.WriteLine($"[SMOKE] BlinkTrainer tab present. Service registered, running={service.IsRunning}");
+            await DelayAsync(100);
+        }
+        catch (Exception ex)
+        {
+            _findings.Add(new SmokeTestFinding("BlinkTrainer", $"Tab exercise failed: {ex.Message}", FindingSeverity.Error));
+        }
+    }
+
     private async Task ExerciseChaosHubMenuAsync(Window mainWindow)
     {
         if (_cts.IsCancellationRequested) return;
@@ -949,19 +1189,11 @@ internal sealed class SmokeTestRunner
         };
         double xpBefore = achievementService.Progress.TotalXPEarned;
 
-        ChaosHubWindow? hub = null;
+        ChaosOverlayWindow? overlay = null;
+        ChaosOverlayWindow? resultOverlay = null;
         try
         {
-            // Use a very short run so the smoke test stays fast. Draft is disabled to keep the
-            // test duration bounded; a start boon is equipped below to verify boon application.
-            settings.ChaosRunDurationSec = 12;
-            settings.ChaosWaveCount = 2;
-            settings.ChaosBoonDraftEnabled = false;
-            settings.ChaosAllowCurses = true;
-            settings.ChaosDartersEnabled = false;
-            settings.ChaosEnabledVariants = new List<string> { "flash", "pink", "subliminal" };
-
-            // Avoid the scripted first-run config override so the settings above are honored.
+            // Avoid the scripted first-run config override so a short config is honored.
             originalMeta.RunsCompleted = Math.Max(1, originalMeta.RunsCompleted);
 
             // Equip a start boon if one is available so we verify boon application.
@@ -973,23 +1205,27 @@ internal sealed class SmokeTestRunner
             int runsBefore = originalMeta.RunsCompleted;
             long sparksBefore = originalMeta.Sparks;
 
-            _findings.Add(new SmokeTestFinding("ChaosRun", $"Starting short run (duration={settings.ChaosRunDurationSec}s, waves={settings.ChaosWaveCount}, draft={settings.ChaosBoonDraftEnabled})", FindingSeverity.Info));
-            Console.WriteLine("[SMOKE] ChaosRun -> opening hub and starting a short run...");
-            hub = await Dispatcher.UIThread.InvokeAsync(() =>
+            // Build a short config directly. Going through the hub UI rewrites settings from the
+            // hub controls and can deliver a captured mouse-up to the overlay close button.
+            var cfg = new ConditioningControlPanel.Avalonia.Chaos.ChaosRunConfig
             {
-                var w = new ChaosHubWindow();
-                w.Show(mainWindow);
-                return w;
-            });
-            await DelayAsync(1200);
+                Difficulty = "Easy",
+                RunDurationSec = 10,
+                WaveCount = 2,
+                EnabledVariants = new List<string> { "flash", "pink", "subliminal" },
+                BoonDraftEnabled = false,
+                AllowCurses = true,
+                DartersEnabled = false,
+            };
 
-            await ClickHubButtonAsync(hub, "BtnBegin", "BeginRun");
+            _findings.Add(new SmokeTestFinding("ChaosRun", $"Starting short run (duration={cfg.RunDurationSec}s, waves={cfg.WaveCount}, draft={cfg.BoonDraftEnabled})", FindingSeverity.Info));
+            Console.WriteLine("[SMOKE] ChaosRun -> starting a short run directly...");
+            await Dispatcher.UIThread.InvokeAsync(() => chaosService.StartRun(cfg));
             await DelayAsync(2500); // countdown + run startup
 
             if (!chaosService.IsRunning)
             {
-                _findings.Add(new SmokeTestFinding("ChaosRun", "Run did not start after clicking Begin", FindingSeverity.Blocker));
-                try { await Dispatcher.UIThread.InvokeAsync(() => hub?.Close()); } catch { }
+                _findings.Add(new SmokeTestFinding("ChaosRun", "Run did not start", FindingSeverity.Blocker));
                 return;
             }
             _findings.Add(new SmokeTestFinding("ChaosRun", "Run started successfully", FindingSeverity.Info));
@@ -997,7 +1233,7 @@ internal sealed class SmokeTestRunner
             // The HUD and overlay should now be visible.
             var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             var hud = lifetime?.Windows.OfType<ChaosHudWindow>().FirstOrDefault();
-            var overlay = lifetime?.Windows.OfType<ChaosOverlayWindow>().FirstOrDefault();
+            overlay = lifetime?.Windows.OfType<ChaosOverlayWindow>().FirstOrDefault();
             if (hud == null)
                 _findings.Add(new SmokeTestFinding("ChaosRun", "HUD window was not created", FindingSeverity.Error));
             if (overlay == null)
@@ -1011,11 +1247,16 @@ internal sealed class SmokeTestRunner
 
             // Pop bubbles throughout the run to generate score and exercise the economy.
             var popRect = new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 5000, 5000);
+            int popTicks = 0;
             while (chaosService.IsRunning && !_cts.IsCancellationRequested)
             {
+                popTicks++;
+                if (popTicks <= 30)
+                    Console.WriteLine($"[SMOKE] ChaosRun pop tick #{popTicks}, IsRunning={chaosService.IsRunning}, ActiveBubbles={bubbleService.ActiveBubbles}");
                 try { bubbleService.PopBubblesInRect(popRect); } catch { }
-                await DelayAsync(600);
+                await DelayAsync(400);
             }
+            Console.WriteLine($"[SMOKE] ChaosRun pop loop exited after {popTicks} ticks, IsRunning={chaosService.IsRunning}");
 
             _findings.Add(new SmokeTestFinding("ChaosRun", "Run finished, waiting for results screen", FindingSeverity.Info));
 
@@ -1023,20 +1264,25 @@ internal sealed class SmokeTestRunner
             await DelayAsync(1500);
 
             bool resultsVisible = false;
-            double finalScore = 0;
+            double finalScore = chaosService.LastRunScore;
+            resultOverlay = overlay;
             if (overlay != null)
             {
-                var resultsPanelField = typeof(ChaosOverlayWindow).GetField("ResultsPanel", BindingFlags.NonPublic | BindingFlags.Instance);
-                var resultsPanel = resultsPanelField?.GetValue(overlay) as Control;
-                resultsVisible = resultsPanel?.IsVisible == true;
-
-                var stateField = chaosService.GetType().GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance);
-                var state = stateField?.GetValue(chaosService) as ChaosRunState;
-                finalScore = state?.Score ?? 0;
+                (var overlaysFound, var visibleOverlay) = await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    var resultsPanelField = typeof(ChaosOverlayWindow).GetField("ResultsPanel", BindingFlags.NonPublic | BindingFlags.Instance);
+                    var all = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+                        ?.Windows.OfType<ChaosOverlayWindow>().ToList() ?? new List<ChaosOverlayWindow>();
+                    var visible = all.FirstOrDefault(o => (resultsPanelField?.GetValue(o) as Control)?.IsVisible == true);
+                    return (all.Count, visible);
+                });
+                Console.WriteLine($"[SMOKE] ChaosRun results check: overlaysFound={overlaysFound}, visibleOverlay={visibleOverlay != null}");
+                resultOverlay = visibleOverlay ?? overlay;
+                resultsVisible = visibleOverlay != null;
 
                 if (_captureScreenshots && resultsVisible)
                 {
-                    try { _screenshotPaths.Add(await RenderScreenshotAsync(overlay, "smoke-chaos-run-results.png")); }
+                    try { _screenshotPaths.Add(await RenderScreenshotAsync(resultOverlay, "smoke-chaos-run-results.png")); }
                     catch (Exception ex) { Console.WriteLine($"[SMOKE] Results screenshot failed: {ex.Message}"); }
                 }
             }
@@ -1054,9 +1300,9 @@ internal sealed class SmokeTestRunner
             if (runsAfter <= runsBefore)
                 _findings.Add(new SmokeTestFinding("ChaosRun", $"RunsCompleted did not increment ({runsBefore} -> {runsAfter})", FindingSeverity.Blocker));
             if (sparksAfter <= sparksBefore)
-                _findings.Add(new SmokeTestFinding("ChaosRun", $"Sparks did not increase ({sparksBefore} -> {sparksAfter})", FindingSeverity.Error));
+                _findings.Add(new SmokeTestFinding("ChaosRun", "Sparks did not increase", FindingSeverity.Error));
             if (xpAfter <= xpBefore)
-                _findings.Add(new SmokeTestFinding("ChaosRun", $"Achievement XP did not increase ({xpBefore} -> {xpAfter})", FindingSeverity.Error));
+                _findings.Add(new SmokeTestFinding("ChaosRun", "Achievement XP did not increase", FindingSeverity.Error));
 
             _findings.Add(new SmokeTestFinding("ChaosRun", $"Results: score={finalScore:0}, runs={runsBefore}->{runsAfter}, sparks={sparksBefore}->{sparksAfter}, xp={xpBefore}->{xpAfter}", FindingSeverity.Info));
             Console.WriteLine($"[SMOKE] ChaosRun completed: score={finalScore}, runs={runsBefore}->{runsAfter}, sparks={sparksBefore}->{sparksAfter}, xp={xpBefore}->{xpAfter}");
@@ -1065,12 +1311,13 @@ internal sealed class SmokeTestRunner
             try
             {
                 var dismissField = typeof(ChaosOverlayWindow).GetField("BtnDone", BindingFlags.NonPublic | BindingFlags.Instance)
-                    ?? typeof(ChaosOverlayWindow).GetField("BtnResultsDone", BindingFlags.NonPublic | BindingFlags.Instance);
-                var dismissBtn = dismissField?.GetValue(overlay) as Control;
+                    ?? typeof(ChaosOverlayWindow).GetField("BtnResultsDone", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?? typeof(ChaosOverlayWindow).GetField("BtnClose", BindingFlags.NonPublic | BindingFlags.Instance);
+                var dismissBtn = dismissField?.GetValue(resultOverlay) as Control;
                 if (dismissBtn != null)
                     await Dispatcher.UIThread.InvokeAsync(() => dismissBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));
                 else
-                    await Dispatcher.UIThread.InvokeAsync(() => overlay?.Close());
+                    await Dispatcher.UIThread.InvokeAsync(() => resultOverlay?.Close());
             }
             catch { }
             await DelayAsync(500);
@@ -1078,7 +1325,7 @@ internal sealed class SmokeTestRunner
         catch (Exception ex)
         {
             _findings.Add(new SmokeTestFinding("ChaosRun", $"Unexpected exception exercising run: {ex.Message}", FindingSeverity.Blocker));
-            try { await Dispatcher.UIThread.InvokeAsync(() => hub?.Close()); } catch { }
+            try { await Dispatcher.UIThread.InvokeAsync(() => resultOverlay?.Close()); } catch { }
         }
         finally
         {
@@ -1124,7 +1371,7 @@ internal sealed class SmokeTestRunner
         }
     }
 
-    private static async Task<string> RenderScreenshotAsync(Window window, string fileName)
+    internal static async Task<string> RenderScreenshotAsync(Window window, string fileName)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {

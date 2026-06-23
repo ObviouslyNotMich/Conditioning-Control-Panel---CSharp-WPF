@@ -2184,6 +2184,7 @@
   "lab_ai_effects_needs_local_title": "Effects need a local AI (Ollama)",
   "lab_ai_effects_needs_local_body": "Cloud AI can chat but can't trigger app effects. Switch to a local Ollama model on the Companion tab to unlock effects.",
   "btn_lab_effects_setup_local": "Set up local AI",
+  "lab_view_quiz_report": "View Report",
   "label_slut_mode": "Slut Mode",
   "label_slut_mode_subtitle": "Spicier, more lewd version of the active personality. Takes effect on the next chat.",
   "label_ai_ollama_host": "Ollama Host URL",
@@ -4573,5 +4574,7 @@
   "title_companion_max_level": "MAX LEVEL!",
   "msg_companion_max_level_fmt": "{0} has reached maximum level!",
   "title_companion_level_up": "Companion Level Up!",
-  "msg_companion_level_up_fmt": "{0} reached Level {1}!"
+  "msg_companion_level_up_fmt": "{0} reached Level {1}!",
+  "msg_imported_n_triggers": "Imported {0} custom trigger(s).",
+  "msg_import_failed": "Import failed."
 }

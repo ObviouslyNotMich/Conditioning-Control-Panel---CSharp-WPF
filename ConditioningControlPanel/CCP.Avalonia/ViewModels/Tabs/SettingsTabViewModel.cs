@@ -118,6 +118,24 @@ public partial class SettingsTabViewModel : TabItemViewModel
     [ObservableProperty]
     private bool _mindWipeEnabled;
 
+    [ObservableProperty]
+    private string _customAssetsPath = "";
+
+    partial void OnCustomAssetsPathChanged(string value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.CustomAssetsPath = value;
+        Save();
+    }
+
+    [RelayCommand]
+    private async Task BrowseCustomAssetsPathAsync()
+    {
+        var selected = await (_dialogService?.ShowOpenFolderDialogAsync(Loc.Get("title_select_custom_assets_folder")) ?? Task.FromResult<string?>(null));
+        if (!string.IsNullOrWhiteSpace(selected))
+            CustomAssetsPath = selected;
+    }
+
     partial void OnFlashEnabledChanged(bool value)
     {
         if (_settingsService?.Current == null) return;
@@ -201,6 +219,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         BubbleCountEnabled = _settingsService.Current.BubbleCountEnabled;
         BouncingTextEnabled = _settingsService.Current.BouncingTextEnabled;
         MindWipeEnabled = _settingsService.Current.MindWipeEnabled;
+        CustomAssetsPath = _settingsService.Current.CustomAssetsPath ?? "";
         AudioDuckEnabled = _settingsService.Current.AudioDuckingEnabled;
         MasterVolume = _settingsService.Current.MasterVolume;
         _audioPlayer?.SetVolume(MasterVolume / 100.0);

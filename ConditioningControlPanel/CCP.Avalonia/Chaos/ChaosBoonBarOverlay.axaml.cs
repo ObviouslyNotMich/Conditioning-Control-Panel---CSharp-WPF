@@ -34,7 +34,7 @@ WindowDecorations = WindowDecorations.None;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
-        IsHitTestVisible = true;
+        IsHitTestVisible = false;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.Manual;
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -205,7 +205,7 @@ WindowDecorations = WindowDecorations.None;
         try { Close(); } catch { }
     }
 
-    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, false);
+    private void ApplyExStyles() => ChaosWin32Helper.ApplyOverlayExStyles(this, true);
 
     private static Rect GetWorkArea()
     {

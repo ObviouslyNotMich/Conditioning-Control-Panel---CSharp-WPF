@@ -5,8 +5,9 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <RootNamespace>ConditioningControlPanel.Avalonia.Desktop.Windows</RootNamespace>
     <AssemblyName>CCP.Desktop.Windows</AssemblyName>
-    <Version>6.1.6</Version>
+    <Version>6.1.7</Version>
     <ApplicationIcon>..\Resources\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <UseWindowsForms>true</UseWindowsForms>
     <!-- The Microsoft.WindowsAppSDK reference triggers WebView2's WinRT projection path,
@@ -49,6 +50,7 @@
          development/CI without shipping the harness in release builds. -->
     <Compile Include="..\tests\CCP.Avalonia.Desktop.Windows.Smoke\SmokeTestLogSink.cs" Link="SmokeTest\SmokeTestLogSink.cs" Condition="'$(Configuration)' == 'Debug'" />
     <Compile Include="..\tests\CCP.Avalonia.Desktop.Windows.Smoke\SmokeTestRunner.cs" Link="SmokeTest\SmokeTestRunner.cs" Condition="'$(Configuration)' == 'Debug'" />
+    <Compile Include="..\tests\CCP.Avalonia.Desktop.Windows.Smoke\SpiralVerification.cs" Link="SmokeTest\SpiralVerification.cs" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
   <!-- WebView2's managed targets always reference the WPF assembly for .NET 5+ projects.

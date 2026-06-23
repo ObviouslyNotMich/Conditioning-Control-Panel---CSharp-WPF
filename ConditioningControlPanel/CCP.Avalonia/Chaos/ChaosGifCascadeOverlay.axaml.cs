@@ -193,6 +193,7 @@ WindowDecorations = WindowDecorations.None;
                                 {
                                     faller.Anim = anim;
                                     img.Source = anim.Source;
+                                    anim.FrameRendered += (_, _) => img.InvalidateVisual();
                                     anim.Start();
                                 }
                                 catch { anim.Dispose(); }

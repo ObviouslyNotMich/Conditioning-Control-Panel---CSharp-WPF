@@ -15,59 +15,55 @@ using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Core.Services.Subliminal;
 using ConditioningControlPanel.Core.Services.Video;
 using ConditioningControlPanel.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Services.Sessions;
 
 /// <summary>
 /// Avalonia implementation of <see cref="ISessionEffectOrchestrator"/>.
 /// Starts/stops feature services according to the current session settings.
-/// Individual services are stubs while their full engines are being ported from WPF.
+/// Services are resolved lazily on first use so heavy dependencies such as
+/// LibVLC are not created during cold startup.
 /// </summary>
 public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrator
 {
+    private readonly IServiceProvider _services;
     private readonly ISettingsService _settings;
-    private readonly IFlashService? _flash;
-    private readonly IVideoService? _video;
-    private readonly ISubliminalService? _subliminal;
-    private readonly IMindWipeService? _mindWipe;
-    private readonly IBouncingTextService? _bouncingText;
-    private readonly IOverlayService? _overlay;
-    private readonly ILockCardService? _lockCard;
-    private readonly IBubbleService? _bubbles;
-    private readonly IBubbleCountService? _bubbleCount;
-    private readonly ISessionLogService? _sessionLog;
-    private readonly IPopQuizService? _popQuiz;
     private readonly ILogger<AvaloniaSessionEffectOrchestrator>? _logger;
 
+    private IFlashService? _flash;
+    private IVideoService? _video;
+    private ISubliminalService? _subliminal;
+    private IMindWipeService? _mindWipe;
+    private IBouncingTextService? _bouncingText;
+    private IOverlayService? _overlay;
+    private ILockCardService? _lockCard;
+    private IBubbleService? _bubbles;
+    private IBubbleCountService? _bubbleCount;
+    private ISessionLogService? _sessionLog;
+    private IPopQuizService? _popQuiz;
+
     public AvaloniaSessionEffectOrchestrator(
+        IServiceProvider services,
         ISettingsService settings,
-        IFlashService? flash = null,
-        IVideoService? video = null,
-        ISubliminalService? subliminal = null,
-        IMindWipeService? mindWipe = null,
-        IBouncingTextService? bouncingText = null,
-        IOverlayService? overlay = null,
-        ILockCardService? lockCard = null,
-        IBubbleService? bubbles = null,
-        IBubbleCountService? bubbleCount = null,
-        ISessionLogService? sessionLog = null,
-        IPopQuizService? popQuiz = null,
         ILogger<AvaloniaSessionEffectOrchestrator>? logger = null)
     {
+        _services = services ?? throw new ArgumentNullException(nameof(services));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _flash = flash;
-        _video = video;
-        _subliminal = subliminal;
-        _mindWipe = mindWipe;
-        _bouncingText = bouncingText;
-        _overlay = overlay;
-        _lockCard = lockCard;
-        _bubbles = bubbles;
-        _bubbleCount = bubbleCount;
-        _sessionLog = sessionLog;
-        _popQuiz = popQuiz;
         _logger = logger;
     }
+
+    private IFlashService? Flash => _flash ??= _services.GetService<IFlashService>();
+    private IVideoService? Video => _video ??= _services.GetService<IVideoService>();
+    private ISubliminalService? Subliminal => _subliminal ??= _services.GetService<ISubliminalService>();
+    private IMindWipeService? MindWipe => _mindWipe ??= _services.GetService<IMindWipeService>();
+    private IBouncingTextService? BouncingText => _bouncingText ??= _services.GetService<IBouncingTextService>();
+    private IOverlayService? Overlay => _overlay ??= _services.GetService<IOverlayService>();
+    private ILockCardService? LockCard => _lockCard ??= _services.GetService<ILockCardService>();
+    private IBubbleService? Bubbles => _bubbles ??= _services.GetService<IBubbleService>();
+    private IBubbleCountService? BubbleCount => _bubbleCount ??= _services.GetService<IBubbleCountService>();
+    private ISessionLogService? SessionLog => _sessionLog ??= _services.GetService<ISessionLogService>();
+    private IPopQuizService? PopQuiz => _popQuiz ??= _services.GetService<IPopQuizService>();
 
     public void StartEffects(Session session)
     {
@@ -75,27 +71,27 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         var s = session.Settings;
 
         _logger?.LogInformation("Starting session effects for {SessionName}", session.Name);
-        TryRun("session log begin", () => _sessionLog?.BeginSession(session));
+        TryRun("session log begin", () => SessionLog?.BeginSession(session));
 
-        TryRun("overlay", () => _overlay?.Start());
+        TryRun("overlay", () => Overlay?.Start());
 
-        if (s.FlashEnabled) TryRun("flash", () => _flash?.Start());
-        if (s.MandatoryVideosEnabled) TryRun("video", () => _video?.Start());
-        if (s.SubliminalEnabled) TryRun("subliminal", () => _subliminal?.Start());
+        if (s.FlashEnabled) TryRun("flash", () => Flash?.Start());
+        if (s.MandatoryVideosEnabled) TryRun("video", () => Video?.Start());
+        if (s.SubliminalEnabled) TryRun("subliminal", () => Subliminal?.Start());
         if (s.MindWipeEnabled)
         {
             var appSettings = _settings.Current;
-            TryRun("mindwipe", () => _mindWipe?.Start(appSettings.MindWipeFrequency, appSettings.MindWipeVolume / 100.0));
+            TryRun("mindwipe", () => MindWipe?.Start(appSettings.MindWipeFrequency, appSettings.MindWipeVolume / 100.0));
         }
-        if (s.BouncingTextEnabled) TryRun("bouncing text", () => _bouncingText?.Start(s.BouncingTextPhrases));
-        if (s.BubblesEnabled) TryRun("bubbles", () => _bubbles?.Start());
-        if (s.BubbleCountEnabled) TryRun("bubble count", () => _bubbleCount?.Start());
-        if (s.LockCardEnabled) TryRun("lock card", () => _lockCard?.Start());
-        if (s.PopQuizEnabled) TryRun("pop quiz", () => _popQuiz?.Start());
+        if (s.BouncingTextEnabled) TryRun("bouncing text", () => BouncingText?.Start(s.BouncingTextPhrases));
+        if (s.BubblesEnabled) TryRun("bubbles", () => Bubbles?.Start());
+        if (s.BubbleCountEnabled) TryRun("bubble count", () => BubbleCount?.Start());
+        if (s.LockCardEnabled) TryRun("lock card", () => LockCard?.Start());
+        if (s.PopQuizEnabled) TryRun("pop quiz", () => PopQuiz?.Start());
 
         // Refresh overlays after individual effect services have started so that
         // pink/spiral/brain-drain windows reflect current settings.
-        TryRun("overlay refresh", () => _overlay?.RefreshOverlays());
+        TryRun("overlay refresh", () => Overlay?.RefreshOverlays());
     }
 
     public void StopEffects()
@@ -104,16 +100,16 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
 
         // Note: session log end is handled by SessionService.SessionCompleted so we get
         // the real duration/XP/completed flag. Stopping effects alone does not end the log.
-        TryRun("flash", () => _flash?.Stop());
-        TryRun("video", () => _video?.Stop());
-        TryRun("subliminal", () => _subliminal?.Stop());
-        TryRun("mindwipe", () => _mindWipe?.Stop());
-        TryRun("bouncing text", () => _bouncingText?.Stop());
-        TryRun("bubble count", () => _bubbleCount?.Stop());
-        TryRun("lock card", () => _lockCard?.Stop());
-        TryRun("bubbles", () => _bubbles?.Stop());
-        TryRun("pop quiz", () => _popQuiz?.Stop());
-        TryRun("overlay", () => _overlay?.Stop());
+        TryRun("flash", () => Flash?.Stop());
+        TryRun("video", () => Video?.Stop());
+        TryRun("subliminal", () => Subliminal?.Stop());
+        TryRun("mindwipe", () => MindWipe?.Stop());
+        TryRun("bouncing text", () => BouncingText?.Stop());
+        TryRun("bubble count", () => BubbleCount?.Stop());
+        TryRun("lock card", () => LockCard?.Stop());
+        TryRun("bubbles", () => Bubbles?.Stop());
+        TryRun("pop quiz", () => PopQuiz?.Stop());
+        TryRun("overlay", () => Overlay?.Stop());
     }
 
     private void TryRun(string name, Action action)
@@ -124,7 +120,7 @@ public sealed class AvaloniaSessionEffectOrchestrator : ISessionEffectOrchestrat
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Session effect '{Effect}' start/stop failed", name);
+            _logger?.LogWarning(ex, "Session effect '{Name}' failed", name);
         }
     }
 }

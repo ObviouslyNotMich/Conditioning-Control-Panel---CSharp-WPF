@@ -4,20 +4,23 @@ using ConditioningControlPanel.Core.Platform;
 namespace ConditioningControlPanel.Avalonia.Platform;
 
 /// <summary>
-/// Cross-platform audio player shim using LibVLC.
+/// Cross-platform audio player shim using LibVLC. LibVLC is initialized lazily
+/// on the first playback so it does not add startup time or memory.
 /// </summary>
 public sealed class AvaloniaAudioPlayer : IAudioPlayer
 {
-    private readonly LibVLC _libVlc;
-    private readonly MediaPlayer _player;
+    private readonly ILibVlcProvider _libVlcProvider;
     private readonly IAudioDeviceService? _audioDeviceService;
+    private readonly object _lock = new();
+    private MediaPlayer? _player;
     private Media? _currentMedia;
+    private double _pendingVolume = 1.0;
+    private bool _disposed;
 
-    public AvaloniaAudioPlayer(LibVLC libVlc, IAudioDeviceService? audioDeviceService = null)
+    public AvaloniaAudioPlayer(ILibVlcProvider libVlcProvider, IAudioDeviceService? audioDeviceService = null)
     {
-        _libVlc = libVlc;
+        _libVlcProvider = libVlcProvider;
         _audioDeviceService = audioDeviceService;
-        _player = new MediaPlayer(_libVlc);
 
         if (_audioDeviceService != null)
         {
@@ -33,32 +36,60 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
     public Task PlayAsync(string filePath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        EnsurePlayer();
         StopInternal();
         ApplyPreferredOutputDevice();
-        _currentMedia = new Media(_libVlc, filePath);
-        _player.Play(_currentMedia);
+        var libVlc = _libVlcProvider.Value;
+        _currentMedia = new Media(libVlc, filePath);
+        _player!.Play(_currentMedia);
         return Task.CompletedTask;
     }
 
     public Task PlayLoopAsync(string filePath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        EnsurePlayer();
         StopInternal();
         ApplyPreferredOutputDevice();
-        _currentMedia = new Media(_libVlc, filePath);
+        var libVlc = _libVlcProvider.Value;
+        _currentMedia = new Media(libVlc, filePath);
         _currentMedia.AddOption(":input-repeat=-1");
-        _player.Play(_currentMedia);
+        _player!.Play(_currentMedia);
         return Task.CompletedTask;
     }
 
     public void Stop() => StopInternal();
 
-    public void SetVolume(double volume) => _player.Volume = (int)(volume * 100);
+    public void SetVolume(double volume)
+    {
+        volume = Math.Clamp(volume, 0.0, 1.0);
+        lock (_lock)
+        {
+            _pendingVolume = volume;
+            if (_player != null)
+                _player.Volume = (int)(volume * 100);
+        }
+    }
+
+    private void EnsurePlayer()
+    {
+        lock (_lock)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(AvaloniaAudioPlayer));
+            if (_player != null) return;
+
+            var libVlc = _libVlcProvider.Value;
+            _player = new MediaPlayer(libVlc);
+            _player.Volume = (int)(_pendingVolume * 100);
+            ApplyPreferredOutputDevice();
+        }
+    }
 
     private void ApplyPreferredOutputDevice()
     {
         try
         {
+            if (_player == null) return;
             var deviceId = _audioDeviceService?.GetDefaultOutputDeviceId();
             if (string.IsNullOrEmpty(deviceId))
                 return;
@@ -75,21 +106,28 @@ public sealed class AvaloniaAudioPlayer : IAudioPlayer
 
     private void StopInternal()
     {
-        _player.Stop();
+        _player?.Stop();
         _currentMedia?.Dispose();
         _currentMedia = null;
     }
 
     public ValueTask DisposeAsync()
     {
-        if (_audioDeviceService != null)
+        lock (_lock)
         {
-            _audioDeviceService.PreferredDeviceChanged -= OnPreferredDeviceChanged;
-        }
+            if (_disposed) return ValueTask.CompletedTask;
+            _disposed = true;
 
-        StopInternal();
-        _player.Dispose();
-        // Do not dispose _libVlc: it is a shared singleton owned by the DI container.
-        return ValueTask.CompletedTask;
+            if (_audioDeviceService != null)
+            {
+                _audioDeviceService.PreferredDeviceChanged -= OnPreferredDeviceChanged;
+            }
+
+            StopInternal();
+            _player?.Dispose();
+            _player = null;
+            // Do not dispose LibVLC: it is a shared singleton owned by the provider.
+            return ValueTask.CompletedTask;
+        }
     }
 }

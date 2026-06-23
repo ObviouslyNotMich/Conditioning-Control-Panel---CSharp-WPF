@@ -128,6 +128,7 @@ public interface ISkillTreeService
     double GetTotalXpMultiplier();
     int TotalPointsSpent { get; }
     event EventHandler<string>? SkillUnlocked;
+    event EventHandler? PinkRushStarted;
     Task<(bool Success, string? Error)> PurchaseSkillAsync(string skillId);
 
     /// <summary>
@@ -139,6 +140,11 @@ public interface ISkillTreeService
     /// Stops background timers.
     /// </summary>
     void Stop();
+
+    /// <summary>
+    /// Manually trigger a Pink Rush bonus window (for smoke tests / debug). Does nothing if settings unavailable.
+    /// </summary>
+    void TriggerPinkRush();
 
     // Legacy stubs still referenced by Core services until those services are fully ported.
     bool UseStreakShield();
@@ -283,7 +289,30 @@ public interface IKeywordTriggerPresetService
 
 public interface IKeywordTriggerService
 {
+    bool IsRunning { get; }
+    bool NeedsOcrConfirmation { get; }
+
+    void Start();
+    void Stop();
+
+    /// <summary>Process a low-level virtual-key press from the platform input hook.</summary>
+    void OnKeyPressed(int vkCode);
+
+    /// <summary>Check free-form text (e.g. clipboard) for keyword matches.</summary>
+    void CheckText(string text);
+
+    /// <summary>Process OCR word hits from a screen scan.</summary>
+    void CheckOcrWords(List<OcrWordHit> words);
+
+    /// <summary>Fires a synthetic trigger for tutorial/demo purposes.</summary>
+    void FireDemoTrigger(string keyword, string source = "Tutorial");
+
+    /// <summary>Imports legacy CustomTriggers entries into keyword triggers.</summary>
+    List<KeywordTrigger> ImportFromCustomTriggers();
+
     void PreviewAudioClip(string filePath, int volume);
+
+    event EventHandler<KeywordTrigger>? TriggerFired;
 }
 
 public interface ICompanionPhraseService
@@ -377,6 +406,7 @@ public interface IChaosService
 {
     bool IsRunning { get; }
     bool IsManuallyPaused { get; }
+    double LastRunScore { get; }
     void ShowLoadoutSidebar();
     void CloseLoadoutSidebar();
     void NotifyLoadoutChanged();
@@ -402,6 +432,7 @@ public interface IAvatarWindowService
     void SetPose(int poseNumber);
     void OpenChatWindow();
     void Giggle(string? text = null);
+    void GigglePriority(string text, bool playSound = true, bool aiGenerated = false);
 }
 
 public interface IBarkService

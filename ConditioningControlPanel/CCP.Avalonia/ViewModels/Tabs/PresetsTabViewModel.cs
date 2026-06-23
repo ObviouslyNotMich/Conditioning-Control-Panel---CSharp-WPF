@@ -9,6 +9,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Catalogue;
@@ -252,10 +253,10 @@ public partial class PresetsTabViewModel : TabItemViewModel
             return;
         }
 
-        var dialog = new SessionEditDialog(session, isNew: true);
-        var saved = await dialog.ShowDialog<bool>(mainWindow);
+        var editor = new SessionEditorWindow(session);
+        var saved = await editor.ShowDialog<bool>(mainWindow);
 
-        if (!saved)
+        if (!saved || editor.ResultSession == null)
         {
             _logger?.LogInformation("Create session cancelled");
             return;
@@ -263,15 +264,23 @@ public partial class PresetsTabViewModel : TabItemViewModel
 
         try
         {
-            var sessionsFolder = Path.Combine(_appEnvironment.ApplicationDataPath, "CustomSessions");
-            Directory.CreateDirectory(sessionsFolder);
-            var filePath = Path.Combine(sessionsFolder, $"{session.Id}.session.json");
+            var resultSession = editor.ResultSession;
+            var path = await (_dialogService?.ShowSaveFileDialogAsync(
+                Loc.Get("title_save_new_session"),
+                new[] { new FileFilter("Session files", new[] { "session.json" }) },
+                _sessionManager.GetExportFileName(resultSession)) ?? Task.FromResult<string?>(null));
 
-            _sessionManager.AddNewSession(session, filePath);
+            if (string.IsNullOrEmpty(path))
+            {
+                _logger?.LogInformation("Create session save cancelled");
+                return;
+            }
+
+            _sessionManager.AddNewSession(resultSession, path);
             LoadCustomSessions();
-            SelectedSession = session;
+            SelectedSession = resultSession;
 
-            _logger?.LogInformation("Created session: {Name} ({Id})", session.Name, session.Id);
+            _logger?.LogInformation("Created session: {Name} ({Id})", resultSession.Name, resultSession.Id);
         }
         catch (Exception ex)
         {
@@ -298,10 +307,10 @@ public partial class PresetsTabViewModel : TabItemViewModel
             return;
         }
 
-        var dialog = new SessionEditDialog(session, isNew: false);
-        var saved = await dialog.ShowDialog<bool>(mainWindow);
+        var editor = new SessionEditorWindow(session);
+        var saved = await editor.ShowDialog<bool>(mainWindow);
 
-        if (!saved)
+        if (!saved || editor.ResultSession == null)
         {
             _logger?.LogInformation("Edit session cancelled for {Name}", session.Name);
             return;
@@ -309,12 +318,40 @@ public partial class PresetsTabViewModel : TabItemViewModel
 
         try
         {
-            _sessionManager.UpdateCustomSession(session);
-            var updatedId = session.Id;
+            var resultSession = editor.ResultSession;
+
+            if (session.Source == SessionSource.BuiltIn)
+            {
+                // Editing a built-in session creates a new custom session
+                resultSession.Id = Guid.NewGuid().ToString();
+
+                var path = await (_dialogService?.ShowSaveFileDialogAsync(
+                    Loc.Get("title_save_as_new_custom_session"),
+                    new[] { new FileFilter("Session files", new[] { "session.json" }) },
+                    _sessionManager.GetExportFileName(resultSession)) ?? Task.FromResult<string?>(null));
+
+                if (string.IsNullOrEmpty(path))
+                {
+                    _logger?.LogInformation("Edit built-in session save cancelled for {Name}", session.Name);
+                    return;
+                }
+
+                _sessionManager.AddNewSession(resultSession, path);
+            }
+            else
+            {
+                // Preserve original ID, source, and file path to save over existing file
+                resultSession.Id = session.Id;
+                resultSession.Source = session.Source;
+                resultSession.SourceFilePath = session.SourceFilePath;
+                _sessionManager.UpdateCustomSession(resultSession);
+            }
+
             LoadCustomSessions();
+            var updatedId = resultSession.Id;
             SelectedSession = Sessions.FirstOrDefault(s => s.Id == updatedId) ?? CustomSessions.FirstOrDefault(s => s.Id == updatedId);
 
-            _logger?.LogInformation("Updated session: {Name} ({Id})", session.Name, session.Id);
+            _logger?.LogInformation("Updated session: {Name} ({Id})", resultSession.Name, resultSession.Id);
         }
         catch (Exception ex)
         {

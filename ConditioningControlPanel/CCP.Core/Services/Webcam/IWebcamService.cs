@@ -29,6 +29,13 @@ public interface IWebcamService
     /// <summary>Revoke user consent and stop tracking.</summary>
     void RevokeConsent();
 
+    /// <summary>
+    /// Returns the monitor the current calibration was performed on, or null when
+    /// no calibration is loaded or the calibrated monitor is no longer connected.
+    /// Implementations that do not support calibration should return null.
+    /// </summary>
+    ScreenInfo? GetCalibratedScreen() => null;
+
     // ---- Events consumed by the Deeper enhancement engine ----
 
     /// <summary>Fires when a blink is detected (already marshalled to the UI thread by the provider).</summary>

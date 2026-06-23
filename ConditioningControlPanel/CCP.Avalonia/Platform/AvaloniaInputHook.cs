@@ -136,15 +136,19 @@ public sealed class AvaloniaInputHook : IInputHook
     {
         if (nCode >= 0 && lParam != IntPtr.Zero)
         {
-            var info = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-            var keyArgs = new KeyboardHookEventArgs((int)info.vkCode, false, false, false, false);
-            try
+            var msg = wParam.ToInt32();
+            if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
             {
-                KeyPressed?.Invoke(this, keyArgs);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "Exception in low-level keyboard hook handler");
+                var info = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
+                var keyArgs = new KeyboardHookEventArgs((int)info.vkCode, false, false, false, false);
+                try
+                {
+                    KeyPressed?.Invoke(this, keyArgs);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Exception in low-level keyboard hook handler");
+                }
             }
         }
 
@@ -171,6 +175,8 @@ public sealed class AvaloniaInputHook : IInputHook
 
     private const int WH_KEYBOARD_LL = 13;
     private const int WH_MOUSE_LL = 14;
+    private const int WM_KEYDOWN = 0x0100;
+    private const int WM_SYSKEYDOWN = 0x0104;
     private const int WM_MOUSEMOVE = 0x0200;
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]

@@ -6,7 +6,9 @@ using ConditioningControlPanel.Avalonia;
 using ConditioningControlPanel.Avalonia.Desktop;
 using ConditioningControlPanel.Avalonia.Desktop.Platform;
 using ConditioningControlPanel.Avalonia.Desktop.Windows.Platform;
+using ConditioningControlPanel.Avalonia.Infrastructure;
 using ConditioningControlPanel.Avalonia.Desktop.Windows.Services;
+using ConditioningControlPanel.Avalonia.Desktop.Windows.Services.Ocr;
 using ConditioningControlPanel.Avalonia.Desktop.Windows.Services.Webcam;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Deeper;
@@ -29,6 +31,18 @@ class Program
 
         var smokeTest = args.Contains("--smoke-test");
         var smokeScreenshots = args.Contains("--smoke-screenshots");
+        var benchmark = args.Contains("--benchmark");
+        var maxBenchmark = args.Contains("--max-benchmark");
+        var verifySpiral = args.Contains("--verify-spiral");
+        BenchmarkContext.IsEnabled = benchmark || maxBenchmark;
+        BenchmarkContext.IsMaxBenchmark = maxBenchmark;
+        BenchmarkContext.EntryTimeUtc = DateTime.UtcNow;
+
+        var assetsPathIndex = Array.IndexOf(args, "--assets-path");
+        if (assetsPathIndex >= 0 && assetsPathIndex + 1 < args.Length)
+        {
+            App.OverrideAssetsPath = args[assetsPathIndex + 1];
+        }
 #if DEBUG
         SmokeTestLogSink? smokeSink = null;
         SmokeTestRunner? smokeRunner = null;
@@ -54,6 +68,7 @@ class Program
             services.AddSingleton<IBrowserHost, WebView2BrowserHost>();
             services.AddSingleton<IAudioWaveformProvider, NAudioWaveformProvider>();
             services.AddSingleton<IWebcamService, AvaloniaWebcamTrackingService>();
+            services.AddSingleton<IScreenOcrService, AvaloniaScreenOcrService>();
             services.AddDesktopSecretStore();
             services.AddSingleton<ISingleInstanceService>(singleInstance);
 
@@ -68,6 +83,10 @@ class Program
             // ProgramShared.BuildAvaloniaApp replaces the log sink; restore our capturing sink.
             Logger.Sink = smokeSink;
             builder.AfterSetup(_ => smokeRunner.ScheduleRun());
+        }
+        else if (verifySpiral)
+        {
+            SpiralVerification.Attach(builder);
         }
 #endif
 

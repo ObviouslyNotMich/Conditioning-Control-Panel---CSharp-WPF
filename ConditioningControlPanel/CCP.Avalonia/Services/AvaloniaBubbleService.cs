@@ -30,6 +30,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     private SharedHostBubbleRenderer? _sharedHostRenderer;
     private bool _sharedHost;
     private Bitmap? _bubbleBitmap;
+    private int _mouseHookRefCount;
 
     // ---- active-toy state (Avalonia parity stubs) ----
     private bool _vibePopActive;
@@ -58,7 +59,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _bubbleEngineLogger = bubbleEngineLogger;
         _ambientEngine = new BubbleEngine(screens, settings, this, pointerState, bubbleEngineLogger);
         _ambientEngine.OnBubblePopped += OnEngineBubblePopped;
-        _ambientEngine.EchoSplitRequested += (spec, px, py) => EchoSplitRequested?.Invoke(spec, px, py);
+        _ambientEngine.EchoSplitRequested += OnEchoSplitRequested;
     }
 
     public bool IsRunning => _ambientEngine.IsRunning;
@@ -88,6 +89,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         LoadBubbleImage();
         _ambientEngine.Start();
+        InstallMouseHook();
     }
 
     public void Stop()
@@ -96,7 +98,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _chaosEngine?.Stop();
         _chaosEngine = null;
         _sharedHostRenderer = null;
-        UninstallMouseHook();
+        ReleaseMouseHook();
         _bubbleBitmap?.Dispose();
         _bubbleBitmap = null;
     }
@@ -111,17 +113,56 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _chaosEngine?.PopAllChaosPaid();
     }
 
-    public void PopBubblesInRect(ConditioningControlPanel.Core.Platform.PixelRect rectDips)
+    public int PopBubblesInRect(ConditioningControlPanel.Core.Platform.PixelRect rectDips)
     {
-        if (_chaosEngine == null) return;
-        var hits = _chaosEngine.GetChaosBubblesInRect(rectDips);
-        foreach (var id in hits)
+        int popped = 0;
+
+        // Ambient bubbles first — they share the same window dictionary as chaos bubbles
+        // but have no spec (or a non-live spec via the ambient engine).
+        if (_ambientEngine != null)
         {
-            var bubble = _chaosEngine.GetChaosBubble(id);
-            if (bubble?.Spec is not { } spec) continue;
-            if (spec.IsDarter || spec.IsFreeze || spec.IsTease || spec.IsBrittle) continue;
-            _chaosEngine.PopBubble(id);
+            List<Guid> ambientHits;
+            lock (_windows)
+            {
+                ambientHits = _windows
+                    .Where(kv => kv.Value.Scaling > 0)
+                    .Where(kv =>
+                    {
+                        var w = kv.Value;
+                        var scale = w.Scaling;
+                        var r = new PixelRect(w.Position.X / scale, w.Position.Y / scale, w.Width, w.Height);
+                        return rectDips.X < r.Right && rectDips.Right > r.X &&
+                               rectDips.Y < r.Bottom && rectDips.Bottom > r.Y;
+                    })
+                    .Select(kv => kv.Key)
+                    .ToList();
+            }
+
+            foreach (var id in ambientHits)
+            {
+                _logger?.LogDebug("PopBubblesInRect popping ambient bubble {Id}", id);
+                _ambientEngine.PopBubble(id);
+                popped++;
+            }
         }
+
+        if (_chaosEngine != null)
+        {
+            var hits = _chaosEngine.GetChaosBubblesInRect(rectDips);
+            if (hits.Count > 0)
+                _logger?.LogDebug("PopBubblesInRect chaos hits={Hits}", hits.Count);
+            foreach (var id in hits)
+            {
+                var bubble = _chaosEngine.GetChaosBubble(id);
+                if (bubble?.Spec is not { } spec) continue;
+                if (spec.IsDarter || spec.IsFreeze || spec.IsTease || spec.IsBrittle) continue;
+                _logger?.LogDebug("PopBubblesInRect popping chaos bubble {Id} live={Live}", id, spec.IsLive);
+                _chaosEngine.PopBubble(id);
+                popped++;
+            }
+        }
+
+        return popped;
     }
 
     public bool AnyDarterIntersects(ConditioningControlPanel.Core.Platform.PixelRect rectDips)
@@ -179,7 +220,6 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             _chaosEngine.EndChaosMode();
             _chaosEngine = null;
         }
-        UninstallMouseHook();
 
         _sharedHost = _settings.Current.ChaosBubbleSharedHost;
         IBubbleRenderer chaosRenderer;
@@ -196,7 +236,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
         _chaosEngine = new BubbleEngine(_screens, _settings, chaosRenderer, _pointerState, _bubbleEngineLogger);
         _chaosEngine.OnBubblePopped += OnEngineBubblePopped;
-        _chaosEngine.EchoSplitRequested += (spec, px, py) => EchoSplitRequested?.Invoke(spec, px, py);
+        _chaosEngine.EchoSplitRequested += OnEchoSplitRequested;
 
         Action<ChaosBubbleSpec> wrappedBenignPop = spec =>
         {
@@ -223,13 +263,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             onChannelStarted,
             onChannelBroken);
 
-        if (_sharedHost)
-        {
-            _mouseHook.LeftButtonDown += OnMouseHookLeftDown;
-            _mouseHook.RightButtonDown += OnMouseHookRightDown;
-            _mouseHook.LeftButtonUp += OnMouseHookLeftUp;
-            _mouseHook.Install();
-        }
+        InstallMouseHook();
     }
 
     public void EndChaosMode()
@@ -237,7 +271,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _chaosEngine?.EndChaosMode();
         _chaosEngine = null;
         _sharedHostRenderer = null;
-        UninstallMouseHook();
+        ReleaseMouseHook();
     }
 
     public void SpawnChaosBubble(ChaosBubbleSpec spec) => _chaosEngine?.SpawnChaosBubble(spec);
@@ -290,32 +324,48 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     private void OnMouseHookLeftDown(object? sender, HookPoint e)
     {
-        var pt = new Point(e.X, e.Y);
+        // The low-level hook runs off the UI thread. Marshal the decision to the UI thread so
+        // we can safely inspect engine/window state and call PopBubble/BeginChaosChannel.
+        Dispatcher.UIThread.Post(() => HandleMouseLeftDown(e));
+    }
 
-        // VibePopping: while armed, every left-down sweeps the immediate area.
-        if (_vibePopActive && _chaosEngine != null)
+    private void HandleMouseLeftDown(HookPoint e)
+    {
+        try
         {
-            if (DateTime.UtcNow >= _vibePopEndUtc) _vibePopActive = false;
-            else
+            // VibePopping: while armed, every left-down sweeps the immediate area.
+            if (_vibePopActive && _chaosEngine != null)
             {
-                const int sweep = 120;
-                PopBubblesInRect(new PixelRect(e.X - sweep, e.Y - sweep, sweep * 2, sweep * 2));
+                if (DateTime.UtcNow >= _vibePopEndUtc) _vibePopActive = false;
+                else
+                {
+                    const int sweep = 120;
+                    PopBubblesInRect(new PixelRect(e.X - sweep, e.Y - sweep, sweep * 2, sweep * 2));
+                }
             }
-        }
 
-        // E-Stim: discharge one charge on each click while armed.
-        if (_eStimCharges > 0 && _chaosEngine != null)
+            // E-Stim: discharge one charge on each click while armed.
+            if (_eStimCharges > 0 && _chaosEngine != null)
+            {
+                _eStimCharges--;
+                int radius = _eStimChainReaction ? 800 : 500;
+                PopBubblesInRect(new PixelRect(e.X - radius, e.Y - radius, radius * 2, radius * 2));
+            }
+
+            // Chaos bubbles (shared-host or per-window) take priority.
+            if (_chaosEngine != null)
+            {
+                bool swallowed = _chaosEngine.OnSharedHostLeftDown(new Point(e.X, e.Y));
+                if (swallowed) return;
+            }
+
+            // Ambient session bubbles: pop the window under the cursor.
+            TryPopAmbientBubbleAt(e.X, e.Y);
+        }
+        catch (Exception ex)
         {
-            _eStimCharges--;
-            int radius = _eStimChainReaction ? 800 : 500;
-            PopBubblesInRect(new PixelRect(e.X - radius, e.Y - radius, radius * 2, radius * 2));
+            _logger?.LogWarning(ex, "Mouse left-down handler failed");
         }
-
-        var swallow = _chaosEngine?.OnSharedHostLeftDown(pt) ?? false;
-        // Swallow is not directly supported by EventHandler<HookPoint>; the hook always calls
-        // CallNextHookEx. The WPF version returns a bool via its own hook contract. For Stage 2c
-        // we record the swallow decision on the last click for future use.
-        _lastHookSwallow = swallow;
     }
 
     private void OnMouseHookRightDown(object? sender, HookPoint e)
@@ -326,30 +376,101 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     private void OnMouseHookLeftUp(object? sender, HookPoint e)
     {
-        // In shared-host mode a live bubble channel is started on left-down.
-        // End any active channel when the button is released.
-        _chaosEngine?.EndActiveChaosChannel();
+        Dispatcher.UIThread.Post(() =>
+        {
+            try { _chaosEngine?.EndActiveChaosChannel(); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Mouse left-up handler failed"); }
+        });
     }
 
-    private bool _lastHookSwallow;
-
-    private void UninstallMouseHook()
+    private void TryPopAmbientBubbleAt(double x, double y)
     {
-        try
+        if (_ambientEngine == null || !_ambientEngine.IsRunning || _ambientEngine.IsPaused) return;
+
+        AvaloniaBubbleWindow? hit = null;
+        lock (_windows)
         {
-            _mouseHook.LeftButtonDown -= OnMouseHookLeftDown;
-            _mouseHook.RightButtonDown -= OnMouseHookRightDown;
-            _mouseHook.LeftButtonUp -= OnMouseHookLeftUp;
+            foreach (var kv in _windows)
+            {
+                var w = kv.Value;
+                if (w.Scaling <= 0) continue;
+
+                // Window.Position is in physical pixels; Width/Height are DIPs.
+                var rect = new global::Avalonia.Rect(
+                    w.Position.X,
+                    w.Position.Y,
+                    w.Width * w.Scaling,
+                    w.Height * w.Scaling);
+
+                if (rect.Contains(new global::Avalonia.Point(x, y)))
+                    hit = w;
+            }
         }
-        catch { }
-        _mouseHook.Uninstall();
+
+        if (hit?.Bubble?.StateId is Guid stateId && stateId != Guid.Empty)
+            _ambientEngine.PopBubble(stateId);
+    }
+
+    private void InstallMouseHook()
+    {
+        if (_mouseHookRefCount++ == 0)
+        {
+            _mouseHook.LeftButtonDown += OnMouseHookLeftDown;
+            _mouseHook.RightButtonDown += OnMouseHookRightDown;
+            _mouseHook.LeftButtonUp += OnMouseHookLeftUp;
+            _mouseHook.Install();
+        }
+    }
+
+    private void ReleaseMouseHook()
+    {
+        if (--_mouseHookRefCount <= 0)
+        {
+            _mouseHookRefCount = 0;
+            try
+            {
+                _mouseHook.LeftButtonDown -= OnMouseHookLeftDown;
+                _mouseHook.RightButtonDown -= OnMouseHookRightDown;
+                _mouseHook.LeftButtonUp -= OnMouseHookLeftUp;
+            }
+            catch { }
+            _mouseHook.Uninstall();
+        }
+    }
+
+    private void OnEchoSplitRequested(ChaosBubbleSpec spec, double x, double y)
+    {
+        EchoSplitRequested?.Invoke(spec, x, y);
+        SpawnEchoChildren(spec, x, y);
+    }
+
+    private void SpawnEchoChildren(ChaosBubbleSpec parent, double centerPxX, double centerPxY)
+    {
+        if (_chaosEngine == null) return;
+
+        for (int i = 0; i < 2; i++)
+        {
+            try
+            {
+                var child = ChaosBubbleVariants.BuildEchoChild(
+                    parent.SizePx,
+                    centerPxX + Random.Shared.Next(-70, 71),
+                    centerPxY + Random.Shared.Next(-50, 51),
+                    parent.EffectIntensity);
+                _chaosEngine.SpawnChaosBubble(child);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to spawn echo child");
+            }
+        }
     }
 
     // ---- IAvaloniaBubbleService explicit implementation ----
 
-    void IAvaloniaBubbleService.PopBubblesInRect(global::Avalonia.Rect rectDips)
+    int IAvaloniaBubbleService.PopBubblesInRect(global::Avalonia.Rect rectDips)
     {
-        PopBubblesInRect(new PixelRect(rectDips.X, rectDips.Y, rectDips.Width, rectDips.Height));
+        return PopBubblesInRect(new PixelRect(rectDips.X, rectDips.Y, rectDips.Width, rectDips.Height));
     }
 
     bool IAvaloniaBubbleService.AnyDarterIntersects(global::Avalonia.Rect rectDips) =>
@@ -476,6 +597,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
         window.Bubble.SetShielded(state.IsShielded);
         window.Bubble.SetBrittle(isBrittle);
+        window.Scaling = state.Scaling;
     }
 
     private void LoadBubbleImage()

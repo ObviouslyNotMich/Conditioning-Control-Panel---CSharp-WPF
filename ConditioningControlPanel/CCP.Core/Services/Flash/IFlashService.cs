@@ -41,6 +41,12 @@ public interface IFlashService
     /// </summary>
     IReadOnlyList<string> LastDisplayedImagePaths { get; }
 
+    /// <summary>
+    /// Closes an active flash window intersecting <paramref name="rect"/> when gaze-pop
+    /// is enabled. Returns true if a window was closed.
+    /// </summary>
+    bool GazePop(PixelRect rect);
+
     /// <summary>Raised when flash images are about to be displayed.</summary>
     event EventHandler? FlashAboutToDisplay;
 

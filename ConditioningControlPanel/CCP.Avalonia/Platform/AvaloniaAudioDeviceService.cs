@@ -14,14 +14,14 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 /// </summary>
 public sealed class AvaloniaAudioDeviceService : IAudioDeviceService
 {
-    private readonly LibVLC _libVlc;
+    private readonly ILibVlcProvider _libVlcProvider;
     private string? _preferredDeviceId;
 
     public event EventHandler? PreferredDeviceChanged;
 
-    public AvaloniaAudioDeviceService(LibVLC libVlc)
+    public AvaloniaAudioDeviceService(ILibVlcProvider libVlcProvider)
     {
-        _libVlc = libVlc;
+        _libVlcProvider = libVlcProvider;
     }
 
     public IReadOnlyList<AudioDeviceInfo> GetOutputDevices()
@@ -30,7 +30,8 @@ public sealed class AvaloniaAudioDeviceService : IAudioDeviceService
 
         try
         {
-            var outputs = _libVlc.AudioOutputs;
+            var libVlc = _libVlcProvider.Value;
+            var outputs = libVlc.AudioOutputs;
             if (outputs is { Length: > 0 })
             {
                 foreach (var output in outputs)
@@ -38,15 +39,15 @@ public sealed class AvaloniaAudioDeviceService : IAudioDeviceService
                     if (string.IsNullOrWhiteSpace(output.Name))
                         continue;
 
-                    TryAddDevices(output.Name, devices);
+                    TryAddDevices(libVlc, output.Name, devices);
                 }
             }
             else
             {
                 // Some platforms expose devices only under a known module name.
-                TryAddDevices("mmdevice", devices);
-                TryAddDevices("wasapi", devices);
-                TryAddDevices("directsound", devices);
+                TryAddDevices(libVlc, "mmdevice", devices);
+                TryAddDevices(libVlc, "wasapi", devices);
+                TryAddDevices(libVlc, "directsound", devices);
             }
         }
         catch
@@ -57,11 +58,11 @@ public sealed class AvaloniaAudioDeviceService : IAudioDeviceService
         return devices;
     }
 
-    private void TryAddDevices(string outputModuleName, List<AudioDeviceInfo> devices)
+    private static void TryAddDevices(LibVLC libVlc, string outputModuleName, List<AudioDeviceInfo> devices)
     {
         try
         {
-            var list = _libVlc.AudioOutputDevices(outputModuleName);
+            var list = libVlc.AudioOutputDevices(outputModuleName);
             if (list is null)
                 return;
 

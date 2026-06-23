@@ -28,13 +28,13 @@ public partial class SystemFeatureControl : UserControl
 
     public SystemFeatureControl()
     {
-        InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _startup = App.Services.GetRequiredService<IStartupRegistration>();
         _inputHook = App.Services.GetService<IInputHook>();
         Capabilities = App.Services.GetRequiredService<IPlatformCapabilities>();
         _dialogService = App.Services.GetRequiredService<IDialogService>();
         _logger = App.Services.GetRequiredService<ILogger<SystemFeatureControl>>();
+        InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }

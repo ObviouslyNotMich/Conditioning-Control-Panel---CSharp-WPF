@@ -86,6 +86,7 @@ public sealed class AvaloniaChaosService : IChaosService
 
     public bool IsRunning => _active;
     public bool IsManuallyPaused => _manualPaused;
+    public double LastRunScore { get; private set; }
 
     public void ShowLoadoutSidebar() { }
     public void CloseLoadoutSidebar() { }
@@ -132,12 +133,22 @@ public sealed class AvaloniaChaosService : IChaosService
             _paused = false;
             _manualPaused = false;
             _ending = false;
+            LastRunScore = 0;
             _chromeRaiseTick = 0;
 
             RunOnUi(() =>
             {
                 try
                 {
+                    // Close any orphaned overlay windows (e.g., hub greeting conversations)
+                    // so the run overlay is the only interactive surface and gameplay clicks
+                    // are not blocked by a stale conversation.
+                    var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+                    foreach (var w in lifetime?.Windows.OfType<ChaosOverlayWindow>().ToList() ?? new List<ChaosOverlayWindow>())
+                    {
+                        try { w.Close(); } catch { }
+                    }
+
                     _hud = new ChaosHudWindow(_state, this);
                     _hud.Show();
 
@@ -145,7 +156,9 @@ public sealed class AvaloniaChaosService : IChaosService
                     _overlay.OnRunAgain = () =>
                     {
                         var previous = _state?.Config;
-                        RequestStop();
+                        // Close the old overlay/hud and clear run state before restarting,
+                        // otherwise the previous results surface stays on screen.
+                        CleanupAfterRun();
                         if (previous != null) StartRun(previous);
                     };
                     _overlay.OnDismissed = OnOverlayClosed;
@@ -668,6 +681,7 @@ public sealed class AvaloniaChaosService : IChaosService
         var state = _state;
         if (state != null)
         {
+            LastRunScore = state.Score;
             ChaosLessonHooks.OnRunCompleted(state.Shields, ranFullCourse, state.Config.Difficulty);
             ChaosNarrativeHooks.OnRunEnded(BuildNarrativeContext(depth: _waveIndex), state.Score, ranFullCourse);
 
@@ -698,11 +712,17 @@ public sealed class AvaloniaChaosService : IChaosService
             });
         }
 
+        // The run lifecycle is complete; the results overlay may stay visible until the
+        // user dismisses it. Report IsRunning=false so callers (and the smoke test) don't
+        // wait forever for a window that needs user input to close.
+        _active = false;
+
         _logger?.LogInformation("AvaloniaChaosService run ended");
     }
 
     private void CleanupAfterRun()
     {
+        _logger?.LogDebug("CleanupAfterRun called");
         ChaosHappyPath.OnRunEnded();
         _ending = false;
         _active = false;
@@ -1305,6 +1325,19 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Failed to trigger avatar giggle");
+        }
+    }
+
+    public void GigglePriority(string text, bool playSound = true, bool aiGenerated = false)
+    {
+        try
+        {
+            EnsureWindow();
+            _window?.GigglePriority(text, playSound, aiGenerated);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to trigger priority avatar giggle");
         }
     }
 

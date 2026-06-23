@@ -408,6 +408,8 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             ShowInTaskbar = false;
             CanResize = false;
             ShowActivated = false;
+            Focusable = false;
+            IsHitTestVisible = false;
 
             this.ConstrainToScreen(screen);
 
@@ -473,7 +475,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
                 if (hwnd == IntPtr.Zero) return;
 
                 var exStyle = (uint)GetWindowLong(hwnd, GWL_EXSTYLE).ToInt64();
-                exStyle |= WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+                exStyle |= WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
                 SetWindowLong(hwnd, GWL_EXSTYLE, new IntPtr(exStyle));
                 SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
@@ -485,6 +487,7 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         private const uint WS_EX_TRANSPARENT = 0x00000020;
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
         private const uint WS_EX_NOACTIVATE = 0x08000000;
+        private const uint WS_EX_LAYERED = 0x00080000;
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
         private const uint SWP_NOACTIVATE = 0x0010;

@@ -22,6 +22,7 @@ using ConditioningControlPanel.Avalonia.Services.Autonomy;
 using ConditioningControlPanel.Avalonia.Services.Subliminal;
 using ConditioningControlPanel.Avalonia.Services.Theme;
 using ConditioningControlPanel.Avalonia.Services.Webcam;
+using ConditioningControlPanel.Avalonia.Services.BlinkTrainer;
 using ConditioningControlPanel.Avalonia.Services.Sessions;
 using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Services.SessionLog;
@@ -61,6 +62,7 @@ using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Subliminal;
 using ConditioningControlPanel.Core.Services.Video;
 using ConditioningControlPanel.Core.Services.Webcam;
+using ConditioningControlPanel.Core.Services.BlinkTrainer;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Update;
 using ConditioningControlPanel.Core.Services.Catalogue;
@@ -91,6 +93,7 @@ public static class ServiceCollectionExtensions
             LibVLCSharp.Shared.Core.Initialize();
             return new LibVLC();
         });
+        services.AddSingleton<ILibVlcProvider, LibVlcProvider>();
         services.AddSingleton<IScreenProvider, AvaloniaScreenProvider>();
         services.AddSingleton<IAssetLoader, AvaloniaAssetLoader>();
         services.AddSingleton<IPointerState, AvaloniaPointerState>();
@@ -174,6 +177,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IBouncingTextService, AvaloniaBouncingTextService>();
         services.AddSingleton<IOverlayService, AvaloniaOverlayService>();
         services.AddSingleton<IWebcamService, AvaloniaWebcamService>();
+        services.AddSingleton<IBlinkTrainerService, AvaloniaBlinkTrainerService>();
+        services.AddSingleton<IGazeFocusService, AvaloniaGazeFocusService>();
+        services.AddSingleton<IGazeDebugCursorService, AvaloniaGazeDebugCursorService>();
         services.AddSingleton<IPopQuizService, AvaloniaPopQuizService>();
         services.AddSingleton<IAttentionCheckService, AvaloniaAttentionCheckService>();
         services.AddSingleton<IModerationCounter, ModerationCounter>();
@@ -206,6 +212,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IKeywordTriggerPresetService, AvaloniaKeywordTriggerPresetService>();
         services.AddSingleton<IKeywordTriggerService, AvaloniaKeywordTriggerService>();
+        services.AddSingleton<IKeywordHighlightService, AvaloniaKeywordHighlightService>();
         services.AddSingleton<ICompanionPhraseService, AvaloniaCompanionPhraseService>();
         services.AddSingleton<ICommunityPromptService, AvaloniaCommunityPromptService>();
         services.AddSingleton<ICompanionService, AvaloniaCompanionService>();

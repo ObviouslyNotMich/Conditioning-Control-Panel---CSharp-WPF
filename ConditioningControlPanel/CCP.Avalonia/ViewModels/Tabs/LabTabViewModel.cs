@@ -1,15 +1,20 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Quiz;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Webcam;
+using ConditioningControlPanel.Models.Quiz;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -29,8 +34,11 @@ public partial class LabTabViewModel : TabItemViewModel
     private readonly ILockdownService? _lockdownService;
     private readonly IAppEnvironment? _appEnvironment;
     private readonly IPopQuizService? _popQuiz;
+    private readonly IQuizService? _quizService;
+    private readonly IFrameSource? _frameSource;
     private readonly ILogger<LabTabViewModel>? _logger;
     private readonly Random _random = new();
+    private readonly System.Collections.Generic.Dictionary<string, QuizHistoryEntry> _historyByLabel = new();
 
     private bool _syncingPlayMode;
     private int _lockdownTimerClickCount;
@@ -57,7 +65,9 @@ public partial class LabTabViewModel : TabItemViewModel
         ILockdownService lockdownService,
         IAppEnvironment appEnvironment,
         IPopQuizService popQuiz,
-        ILogger<LabTabViewModel> logger) : base("lab", "Lab", "🧪")
+        ILogger<LabTabViewModel> logger,
+        IQuizService? quizService = null,
+        IFrameSource? frameSource = null) : base("lab", "Lab", "🧪")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
@@ -66,6 +76,8 @@ public partial class LabTabViewModel : TabItemViewModel
         _lockdownService = lockdownService;
         _appEnvironment = appEnvironment;
         _popQuiz = popQuiz;
+        _quizService = quizService;
+        _frameSource = frameSource;
         _logger = logger;
         LockdownDurations = new ObservableCollection<int> { 5, 10, 15, 30, 60 };
         PastQuizzes = new ObservableCollection<PastQuizViewModel>();
@@ -76,6 +88,7 @@ public partial class LabTabViewModel : TabItemViewModel
         InitializeDefaults();
         SubscribeLockdownEvents();
         LoadFromSettings();
+        LoadPastQuizzes();
     }
 
     #region Lockdown / Quiz / Chaos / Wallpaper (existing bindings)
@@ -115,6 +128,9 @@ public partial class LabTabViewModel : TabItemViewModel
 
     [ObservableProperty]
     private ObservableCollection<PastQuizViewModel> _pastQuizzes;
+
+    [ObservableProperty]
+    private PastQuizViewModel? _selectedPastQuiz;
 
     #endregion
 
@@ -374,6 +390,33 @@ public partial class LabTabViewModel : TabItemViewModel
     }
 
     [RelayCommand]
+    private async Task ViewQuizReportAsync()
+    {
+        var selected = SelectedPastQuiz;
+        if (selected == null) return;
+
+        var entry = selected.Entry
+            ?? (_historyByLabel.TryGetValue(selected.Label, out var cached) ? cached : null)
+            ?? _quizService?.LoadHistory()
+                .FirstOrDefault(h => FormatQuizLabel(h) == selected.Label
+                                  && h.CategoryName == selected.Category);
+
+        if (entry == null)
+        {
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_error"),
+                Loc.Get("msg_quiz_report_not_found")) ?? Task.CompletedTask);
+            return;
+        }
+
+        var owner = GetMainWindow();
+        if (owner == null) return;
+
+        var report = new QuizReportWindow(entry);
+        await Dispatcher.UIThread.InvokeAsync(() => report.Show(owner));
+    }
+
+    [RelayCommand]
     private async Task StartChaosAsync()
     {
         _logger?.LogInformation("Chaos mode requested");
@@ -490,17 +533,32 @@ public partial class LabTabViewModel : TabItemViewModel
     }
 
     [RelayCommand]
-    private void StartTracking()
+    private async Task StartTrackingAsync()
     {
         if (IsTracking)
         {
             _webcam?.StopTracking();
             IsTracking = false;
+            return;
         }
-        else
+
+        var owner = GetMainWindow();
+        WebcamLoadingSplash? splash = null;
+        if (owner != null)
+        {
+            splash = new WebcamLoadingSplash();
+            await Dispatcher.UIThread.InvokeAsync(() => splash.Show(owner));
+        }
+
+        try
         {
             _webcam?.StartTracking();
             IsTracking = true;
+            await Task.Delay(500);
+        }
+        finally
+        {
+            splash?.CloseSplash();
         }
     }
 
@@ -509,9 +567,7 @@ public partial class LabTabViewModel : TabItemViewModel
     {
         _webcam?.Calibrate();
         AppendLog(Loc.Get("lab_log_calibration_requested"));
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("lab_calibration_title"),
-            Loc.Get("lab_calibration_not_available")) ?? Task.CompletedTask);
+        await OpenWebcamWindowAsync(() => new WebcamCalibrationWindow(_frameSource));
     }
 
     [RelayCommand]
@@ -519,9 +575,7 @@ public partial class LabTabViewModel : TabItemViewModel
     {
         _webcam?.Calibrate();
         AppendLog(Loc.Get("lab_log_quick_recal_requested"));
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("lab_quick_recal_title"),
-            Loc.Get("lab_quick_recal_not_available")) ?? Task.CompletedTask);
+        await OpenWebcamWindowAsync(() => new WebcamQuickRecalWindow(_frameSource));
     }
 
     [RelayCommand]
@@ -529,9 +583,7 @@ public partial class LabTabViewModel : TabItemViewModel
     {
         _webcam?.TestTracker();
         AppendLog(Loc.Get("lab_log_tracker_test_requested"));
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("lab_tracker_test_title"),
-            Loc.Get("lab_tracker_test_not_available")) ?? Task.CompletedTask);
+        await OpenWebcamWindowAsync(() => new WebcamGazeTrackerWindow(_frameSource));
     }
 
     [RelayCommand]
@@ -628,6 +680,37 @@ public partial class LabTabViewModel : TabItemViewModel
         IsBetaLocked = !(s.HasLinkedPatreon || s.HasLinkedDiscord);
     }
 
+    private void LoadPastQuizzes()
+    {
+        try
+        {
+            PastQuizzes.Clear();
+            _historyByLabel.Clear();
+            var history = _quizService?.LoadHistory() ?? new System.Collections.Generic.List<QuizHistoryEntry>();
+            foreach (var entry in history)
+            {
+                var label = FormatQuizLabel(entry);
+                _historyByLabel[label] = entry;
+                PastQuizzes.Add(new PastQuizViewModel
+                {
+                    Label = label,
+                    Category = entry.CategoryName,
+                    Percent = entry.MaxScore > 0
+                        ? (int)System.Math.Round((double)entry.TotalScore / entry.MaxScore * 100)
+                        : 0,
+                    Entry = entry
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to load past quizzes");
+        }
+    }
+
+    private static string FormatQuizLabel(QuizHistoryEntry entry)
+        => entry.TakenAt.ToString("g");
+
     private void Save()
     {
         try { _settingsService?.Save(); }
@@ -653,6 +736,22 @@ public partial class LabTabViewModel : TabItemViewModel
 
         return new SolidColorBrush(Color.Parse(fallbackHex));
     }
+
+    private static Window? GetMainWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            return desktop.MainWindow;
+        return null;
+    }
+
+    private async Task OpenWebcamWindowAsync(Func<Window> createWindow)
+    {
+        var owner = GetMainWindow();
+        if (owner == null) return;
+
+        var window = createWindow();
+        await Dispatcher.UIThread.InvokeAsync(() => window.Show(owner));
+    }
 }
 
 public sealed partial class PastQuizViewModel : ObservableObject
@@ -665,6 +764,9 @@ public sealed partial class PastQuizViewModel : ObservableObject
 
     [ObservableProperty]
     private int _percent;
+
+    /// <summary>Strongly typed backing entry for the quiz report window.</summary>
+    public QuizHistoryEntry? Entry { get; set; }
 }
 
 /// <summary>

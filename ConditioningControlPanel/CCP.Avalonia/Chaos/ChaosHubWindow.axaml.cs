@@ -25,6 +25,7 @@ public partial class ChaosHubWindow : Window
     private bool _uiSoundsReady;
     private bool _fallingIn;
     private bool _diffAutoClamped;
+    private ChaosOverlayWindow? _greetingOverlay;
 
     // Menu soundtrack state
     private const double MenuMusicVol = 0.5;
@@ -55,6 +56,8 @@ Current = this;
             MenuArtBox?.Stop();
             AvaloniaChaosApp.Chaos?.CloseLoadoutSidebar();
             if (!_fallingIn) AvaloniaChaosApp.Avatar?.SetChaosRunActive(false);
+            try { _greetingOverlay?.Close(); } catch { }
+            _greetingOverlay = null;
         };
 
         LoadFromSettings();
@@ -91,7 +94,7 @@ Current = this;
             {
                 t.Stop();
                 if (Current != this) return;
-                ChaosNarrativeHooks.OnHubMoment("hub_return", new ChaosNarrativeContext { RankIndex = ChaosMeta.RankIndex });
+                _greetingOverlay = ChaosNarrativeHooks.OnHubMoment("hub_return", new ChaosNarrativeContext { RankIndex = ChaosMeta.RankIndex });
             };
             t.Start();
         }

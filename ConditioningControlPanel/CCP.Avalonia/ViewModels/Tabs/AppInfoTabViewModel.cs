@@ -8,6 +8,7 @@ using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Update;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -22,7 +23,6 @@ public partial class AppInfoTabViewModel : TabItemViewModel
     private readonly IDialogService? _dialogService;
     private readonly ILogger<AppInfoTabViewModel>? _logger;
     private readonly IAudioPlayer? _audioPlayer;
-    private readonly AvaloniaDualMonitorVideoService? _videoService;
     private readonly IUpdateService? _updateService;
 
     public AppInfoTabViewModel() : base("appinfo", "App Info", "ℹ️")
@@ -38,7 +38,6 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         IDialogService dialogService,
         ILogger<AppInfoTabViewModel> logger,
         IAudioPlayer? audioPlayer = null,
-        AvaloniaDualMonitorVideoService? videoService = null,
         IUpdateService? updateService = null) : base("appinfo", "App Info", "ℹ️")
     {
         _settingsService = settingsService;
@@ -46,7 +45,6 @@ public partial class AppInfoTabViewModel : TabItemViewModel
         _dialogService = dialogService;
         _logger = logger;
         _audioPlayer = audioPlayer;
-        _videoService = videoService;
         _updateService = updateService;
         LanguageOptions = new ObservableCollection<LanguageOption>();
         InitializeLanguages();
@@ -334,9 +332,10 @@ public partial class AppInfoTabViewModel : TabItemViewModel
                 return;
             }
 
-            _videoService?.PlayFile(path, 640, 360);
+            var videoService = App.Services?.GetService<AvaloniaDualMonitorVideoService>();
+            videoService?.PlayFile(path, 640, 360);
             await Task.Delay(3000);
-            _videoService?.Stop();
+            videoService?.Stop();
             _logger?.LogInformation("Video smoke-test completed");
             await (_dialogService?.ShowMessageAsync(Loc.Get("title_video_smoke_test"), Loc.Get("msg_played_sample_successfully")) ?? Task.CompletedTask);
         }

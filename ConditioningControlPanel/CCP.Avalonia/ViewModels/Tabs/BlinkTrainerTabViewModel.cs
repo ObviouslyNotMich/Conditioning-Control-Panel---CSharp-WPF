@@ -1,29 +1,39 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ConditioningControlPanel.Avalonia.Dialogs;
+using ConditioningControlPanel.Avalonia.Windows;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.BlinkTrainer;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Webcam;
+using ConditioningControlPanel.Models;
+using Microsoft.Extensions.Logging;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
 /// <summary>
-/// Avalonia port of the WPF MainWindow.LabTab partial.
-/// Exposes webcam debug start/stop, calibration, tracker test, quick recal,
-/// gaze focus toggle, device/monitor selection, and the blink-to-recalibrate
-/// shortcut. Live Webcam/GazeFocus services are not abstracted in Core yet,
-/// so most commands are stubbed with logging and dialogs.
-///
-/// This VM also supports the richer secondary-tab shell: hero banner, stage,
-/// asset-packs list, session/webcam cards, and premium gating. No actual
-/// eye-tracking or session engine logic is implemented here.
+/// Avalonia port of the WPF MainWindow.LabTab partial / Blink Trainer flagship tab.
+/// Wires the real Blink Trainer, Focus Gaze, and debug-cursor services.
 /// </summary>
 public partial class BlinkTrainerTabViewModel : TabItemViewModel
 {
     private readonly ISettingsService? _settingsService;
     private readonly IDialogService? _dialogService;
+    private readonly IBlinkTrainerService? _blinkTrainer;
+    private readonly IGazeFocusService? _gazeFocus;
+    private readonly IGazeDebugCursorService? _gazeCursor;
+    private readonly IWebcamService? _webcam;
+    private readonly IScreenProvider? _screens;
+    private readonly IHapticsService? _haptics;
+    private readonly IQuestService? _quests;
     private readonly ILogger<BlinkTrainerTabViewModel>? _logger;
+
+    private DispatcherTimer? _statusTimer;
 
     public BlinkTrainerTabViewModel() : base("blinktrainer", "Blink Trainer", "💫")
     {
@@ -37,17 +47,34 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     public BlinkTrainerTabViewModel(
         ISettingsService settingsService,
         IDialogService dialogService,
-        ILogger<BlinkTrainerTabViewModel> logger) : base("blinktrainer", "Blink Trainer", "💫")
+        IBlinkTrainerService blinkTrainer,
+        IGazeFocusService gazeFocus,
+        IGazeDebugCursorService gazeCursor,
+        IWebcamService webcam,
+        IScreenProvider screens,
+        IHapticsService? haptics = null,
+        IQuestService? quests = null,
+        ILogger<BlinkTrainerTabViewModel>? logger = null) : base("blinktrainer", "Blink Trainer", "💫")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
+        _blinkTrainer = blinkTrainer;
+        _gazeFocus = gazeFocus;
+        _gazeCursor = gazeCursor;
+        _webcam = webcam;
+        _screens = screens;
+        _haptics = haptics;
+        _quests = quests;
         _logger = logger;
+
         WebcamDevices = new ObservableCollection<WebcamDeviceOption>();
         Monitors = new ObservableCollection<MonitorOption>();
         DebugLog = new ObservableCollection<string>();
         AssetFolders = new ObservableCollection<AssetFolderItem>();
+
         InitializeDefaults();
         LoadFromSettings();
+        SubscribeToService();
     }
 
     private void InitializeDefaults()
@@ -62,8 +89,28 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         ConsentStatusText = Loc.Get("blink_trainer_consent_required");
         CalibrationStatusText = Loc.Get("blink_trainer_calibration_none");
 
-        // Placeholder folder so the asset-packs card is not empty at design time.
         AssetFolders.Add(new AssetFolderItem("Default", Loc.Get("blink_trainer_folder_empty_or_invalid")));
+    }
+
+    private void SubscribeToService()
+    {
+        if (_blinkTrainer == null) return;
+        _blinkTrainer.StateChanged += OnBlinkTrainerStateChanged;
+    }
+
+    private void OnBlinkTrainerStateChanged()
+    {
+        var running = _blinkTrainer?.IsRunning ?? false;
+        var lastError = _blinkTrainer?.LastError;
+        Dispatcher.UIThread.Post(() =>
+        {
+            IsSessionRunning = running;
+            if (!running && !string.IsNullOrEmpty(lastError))
+            {
+                StatusText = lastError;
+                UpdateStatusColor();
+            }
+        });
     }
 
     [ObservableProperty]
@@ -111,8 +158,6 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     [ObservableProperty]
     private ObservableCollection<string> _debugLog;
 
-    // Rich-shell properties
-
     [ObservableProperty]
     private bool _isPremiumLocked;
 
@@ -153,6 +198,33 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     {
         FocusGazeStatus = value ? Loc.Get("label_focus_gaze_active") : "";
         _logger?.LogInformation("Focus Gaze toggled: {Active}", value);
+
+        if (value)
+        {
+            if (_gazeFocus?.Start() == true)
+            {
+                AppendLog(Loc.Get("label_focus_gaze_active"));
+                if (DebugCursorEnabled)
+                    _gazeCursor?.Show("blinktrainer");
+            }
+            else
+            {
+                AppendLog(Loc.Get("label_focus_gaze_calibrate_first"));
+            }
+        }
+        else
+        {
+            _gazeFocus?.Stop();
+            _gazeCursor?.Hide("blinktrainer");
+        }
+    }
+
+    partial void OnDebugCursorEnabledChanged(bool value)
+    {
+        AppendLog(value ? Loc.Get("blink_trainer_log_debug_cursor_enabled") : Loc.Get("blink_trainer_log_debug_cursor_hidden"));
+        if (!FocusGazeActive) return;
+        if (value) _gazeCursor?.Show("blinktrainer");
+        else _gazeCursor?.Hide("blinktrainer");
     }
 
     partial void OnBlinkRecalibrateShortcutEnabledChanged(bool value)
@@ -167,11 +239,6 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.RestrictGazeContentToCalibratedScreen = value;
         Save();
-    }
-
-    partial void OnDebugCursorEnabledChanged(bool value)
-    {
-        AppendLog(value ? Loc.Get("blink_trainer_log_debug_cursor_enabled") : Loc.Get("blink_trainer_log_debug_cursor_hidden"));
     }
 
     partial void OnSelectedWebcamDeviceChanged(WebcamDeviceOption? value)
@@ -198,12 +265,38 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
             ? Loc.GetF("blink_trainer_status_running", $"{SessionDuration:0} min")
             : Loc.Get("blink_trainer_status_ready");
         UpdateStatusColor();
+        StartOrStopStatusTimer(value);
     }
 
     partial void OnSessionDurationChanged(double value)
     {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.BlinkTrainerDurationMinutes = (int)value;
+        Save();
         if (IsSessionRunning)
             StatusText = Loc.GetF("blink_trainer_status_running", $"{value:0} min");
+    }
+
+    partial void OnOverlayOpacityChanged(double value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.BlinkTrainerOpacity = (int)Math.Round(value * 100.0);
+        Save();
+    }
+
+    partial void OnIncludeVideosChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.BlinkTrainerIncludeVideos = value;
+        Save();
+        _logger?.LogInformation("Include videos toggled: {Value}", value);
+    }
+
+    partial void OnIsMixModeChanged(bool value)
+    {
+        if (_settingsService?.Current == null) return;
+        _settingsService.Current.BlinkTrainerMixImages = value;
+        Save();
     }
 
     partial void OnConsentGrantedChanged(bool value)
@@ -211,53 +304,112 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
         ConsentStatusText = value ? Loc.Get("blink_trainer_consent_granted") : Loc.Get("blink_trainer_consent_required");
     }
 
-    partial void OnIncludeVideosChanged(bool value)
-    {
-        _logger?.LogInformation("Include videos toggled: {Value}", value);
-    }
-
     [RelayCommand]
     private async Task ToggleTrackingAsync()
     {
         if (IsTracking)
         {
+            _webcam?.StopTracking();
             IsTracking = false;
             TrackerButtonText = Loc.Get("blink_trainer_tracker_start");
             StatusText = Loc.Get("blink_trainer_status_ready");
             UpdateStatusColor();
             AppendLog(Loc.Get("blink_trainer_log_stop_requested"));
+            return;
+        }
+
+        if (!(_settingsService?.Current?.WebcamConsentGiven == true))
+        {
+            var dialog = new WebcamConsentDialog();
+            var tcs = new TaskCompletionSource<bool>();
+            dialog.Closed += (_, _) => tcs.TrySetResult(dialog.ConsentGiven);
+            dialog.Show();
+            var granted = await tcs.Task;
+            if (!granted)
+            {
+                AppendLog(Loc.Get("blink_trainer_consent_required"));
+                return;
+            }
+
+            ConsentGranted = true;
+            if (_settingsService?.Current != null)
+            {
+                _settingsService.Current.WebcamConsentGiven = true;
+                Save();
+            }
+        }
+
+        _webcam?.StartTracking();
+        IsTracking = true;
+        TrackerButtonText = Loc.Get("blink_trainer_tracker_stop");
+        StatusText = Loc.Get("blink_trainer_status_starting");
+        UpdateStatusColor();
+        AppendLog(Loc.Get("blink_trainer_log_start_result"));
+    }
+
+    [RelayCommand]
+    private async Task ToggleSessionAsync()
+    {
+        if (_blinkTrainer == null) return;
+
+        if (IsSessionRunning)
+        {
+            await Task.Run(() => _blinkTrainer.Stop());
+            IsSessionRunning = false;
+            AppendLog(Loc.Get("blink_trainer_log_session_stopped"));
         }
         else
         {
-            var consent = await (_dialogService?.ShowConfirmationAsync(
-                Loc.Get("blink_trainer_webcam_consent_prompt_title"),
-                Loc.Get("blink_trainer_webcam_consent_prompt_body")) ?? Task.FromResult(false));
-            if (!consent) return;
-
-            IsTracking = true;
-            TrackerButtonText = Loc.Get("blink_trainer_tracker_stop");
-            StatusText = Loc.Get("blink_trainer_status_starting");
-            UpdateStatusColor();
-            AppendLog(Loc.Get("blink_trainer_log_start_result"));
+            var started = await Task.Run(() => _blinkTrainer.Start());
+            if (started)
+            {
+                IsSessionRunning = true;
+                AppendLog(Loc.Get("blink_trainer_log_session_started"));
+            }
+            else
+            {
+                var err = _blinkTrainer.LastError;
+                StatusText = err;
+                UpdateStatusColor();
+                AppendLog(err);
+            }
         }
     }
 
     [RelayCommand]
-    private void ToggleSession()
+    private async Task AddFolderAsync()
     {
-        IsSessionRunning = !IsSessionRunning;
-        AppendLog(IsSessionRunning ? Loc.Get("blink_trainer_log_session_started") : Loc.Get("blink_trainer_log_session_stopped"));
-    }
+        var path = await (_dialogService?.ShowOpenFolderDialogAsync(Loc.Get("blink_trainer_add_folder")) ?? Task.FromResult<string?>(null));
+        if (string.IsNullOrWhiteSpace(path)) return;
 
-    [RelayCommand]
-    private void AddFolder()
-    {
-        AppendLog(Loc.Get("blink_trainer_log_add_folder_requested"));
+        var settings = _settingsService?.Current;
+        if (settings == null) return;
+
+        if (settings.BlinkTrainerFolders == null)
+            settings.BlinkTrainerFolders = new List<string>();
+
+        if (!settings.BlinkTrainerFolders.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            settings.BlinkTrainerFolders.Add(path);
+            Save();
+            AppendLog(Loc.GetF("blink_trainer_log_add_folder_requested", path));
+        }
+
+        RefreshAssetFolders();
     }
 
     [RelayCommand]
     private void GrantConsent()
     {
+        var settings = _settingsService?.Current;
+        if (settings == null) return;
+
+        settings.WebcamConsentGiven = true;
+        if (string.IsNullOrEmpty(settings.WebcamConsentVersion))
+            settings.WebcamConsentVersion = "1.0";
+        settings.WebcamConsentDate = DateTime.UtcNow;
+        Save();
+
         ConsentGranted = true;
         AppendLog(Loc.Get("blink_trainer_log_consent_granted"));
     }
@@ -283,19 +435,16 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     private async Task CalibrateAsync()
     {
         AppendLog(Loc.Get("blink_trainer_log_calibration_opening"));
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("blink_trainer_calibration_dialog_title"),
-            Loc.Get("blink_trainer_calibration_unavailable_body")) ?? Task.CompletedTask);
+        _webcam?.Calibrate();
+        await OpenCalibrationWindowAsync();
         AppendLog(Loc.Get("blink_trainer_log_calibration_cancelled"));
     }
 
     [RelayCommand]
-    private async Task TrackerTestAsync()
+    private void TrackerTestAsync()
     {
         AppendLog(Loc.Get("blink_trainer_log_tracker_test_opening"));
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("blink_trainer_tracker_test_dialog_title"),
-            Loc.Get("blink_trainer_tracker_test_unavailable_body")) ?? Task.CompletedTask);
+        _webcam?.TestTracker();
         AppendLog(Loc.Get("blink_trainer_log_tracker_test_closed"));
     }
 
@@ -303,10 +452,25 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     private async Task QuickRecalAsync()
     {
         AppendLog(Loc.Get("blink_trainer_log_quick_recal_opening"));
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("blink_trainer_quick_recal_dialog_title"),
-            Loc.Get("blink_trainer_quick_recal_unavailable_body")) ?? Task.CompletedTask);
+        _webcam?.Calibrate();
+        await OpenCalibrationWindowAsync();
         AppendLog(Loc.Get("blink_trainer_log_quick_recal_cancelled"));
+    }
+
+    private async Task OpenCalibrationWindowAsync()
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                var window = new WebcamCalibrationWindow();
+                window.Show();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to open calibration window");
+            }
+        });
     }
 
     [RelayCommand]
@@ -326,11 +490,15 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
             Loc.Get("blink_trainer_revoke_confirm_body_short")) ?? Task.FromResult(false));
         if (!confirmed) return;
 
+        _webcam?.RevokeConsent();
+        _gazeFocus?.Stop();
+        _gazeCursor?.Hide("blinktrainer");
+        FocusGazeActive = false;
+        DebugCursorEnabled = false;
         IsTracking = false;
         TrackerButtonText = Loc.Get("blink_trainer_tracker_start");
         StatusText = Loc.Get("blink_trainer_status_ready");
         ConsentGranted = false;
-        DebugCursorEnabled = false;
         UpdateStatusColor();
         AppendLog(Loc.Get("blink_trainer_log_consent_revoked"));
     }
@@ -338,6 +506,7 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     [RelayCommand]
     private void RefreshDevices()
     {
+        _webcam?.RefreshDevices();
         WebcamDevices.Clear();
         WebcamDevices.Add(new WebcamDeviceOption(0, Loc.Get("blink_trainer_default_camera")));
         SelectedWebcamDevice = WebcamDevices[0];
@@ -348,8 +517,36 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     private void RefreshMonitors()
     {
         Monitors.Clear();
-        Monitors.Add(new MonitorOption("Primary", Loc.Get("webcam_monitor_primary")));
-        SelectedMonitor = Monitors[0];
+        if (_screens == null)
+        {
+            Monitors.Add(new MonitorOption("Primary", Loc.Get("webcam_monitor_primary")));
+            SelectedMonitor = Monitors[0];
+            return;
+        }
+
+        var all = _screens.GetAllScreens();
+        var primary = _screens.GetPrimaryScreen();
+        var index = 1;
+        foreach (var screen in all)
+        {
+            var label = string.Format(Loc.Get("webcam_monitor_item_fmt"),
+                index++,
+                string.IsNullOrEmpty(screen.Name) ? $"{screen.Bounds.X},{screen.Bounds.Y}" : screen.Name,
+                (int)screen.Bounds.Width,
+                (int)screen.Bounds.Height);
+            Monitors.Add(new MonitorOption(screen.Name, label));
+        }
+
+        if (Monitors.Count == 0)
+            Monitors.Add(new MonitorOption("Primary", Loc.Get("webcam_monitor_primary")));
+
+        var settings = _settingsService?.Current;
+        var preferredName = settings?.WebcamCalibrationScreen;
+        SelectedMonitor = Monitors.FirstOrDefault(m =>
+            !string.IsNullOrEmpty(preferredName)
+            && string.Equals(m.DeviceName, preferredName, StringComparison.OrdinalIgnoreCase))
+            ?? Monitors[0];
+
         AppendLog(Loc.Get("blink_trainer_log_monitors_refreshed"));
     }
 
@@ -366,16 +563,41 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
 
         BlinkRecalibrateShortcutEnabled = s.BlinkRecalibrateShortcutEnabled;
         RestrictGazeToCalibratedScreen = s.RestrictGazeContentToCalibratedScreen;
-
-        WebcamDevices.Clear();
-        WebcamDevices.Add(new WebcamDeviceOption(Math.Max(0, s.WebcamDeviceIndex), s.WebcamDeviceName));
-        SelectedWebcamDevice = WebcamDevices[0];
-
-        Monitors.Clear();
-        Monitors.Add(new MonitorOption(s.WebcamCalibrationScreen, s.WebcamCalibrationScreen));
-        SelectedMonitor = Monitors[0];
-
+        SessionDuration = s.BlinkTrainerDurationMinutes;
+        OverlayOpacity = s.BlinkTrainerOpacity / 100.0;
+        IncludeVideos = s.BlinkTrainerIncludeVideos;
+        IsMixMode = s.BlinkTrainerMixImages;
+        ConsentGranted = s.WebcamConsentGiven;
         IsPremiumLocked = !(s.HasLinkedPatreon || s.HasLinkedDiscord);
+
+        RefreshAssetFolders();
+        RefreshDevices();
+        RefreshMonitors();
+
+        SelectedMonitor = Monitors.FirstOrDefault(m =>
+            string.Equals(m.DeviceName, s.WebcamCalibrationScreen, StringComparison.OrdinalIgnoreCase))
+            ?? Monitors.FirstOrDefault();
+    }
+
+    private void RefreshAssetFolders()
+    {
+        AssetFolders.Clear();
+        var folders = _settingsService?.Current?.BlinkTrainerFolders;
+        if (folders == null || folders.Count == 0)
+        {
+            AssetFolders.Add(new AssetFolderItem("Default", Loc.Get("blink_trainer_folder_empty_or_invalid")));
+            return;
+        }
+
+        foreach (var folder in folders)
+        {
+            if (string.IsNullOrWhiteSpace(folder)) continue;
+            var name = System.IO.Path.GetFileName(folder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+            var status = System.IO.Directory.Exists(folder)
+                ? Loc.Get("blink_trainer_folder_empty_or_invalid")
+                : Loc.Get("blink_trainer_folder_empty_or_invalid");
+            AssetFolders.Add(new AssetFolderItem(name, status));
+        }
     }
 
     private void Save()
@@ -395,6 +617,23 @@ public partial class BlinkTrainerTabViewModel : TabItemViewModel
     {
         var color = IsTracking || IsSessionRunning ? "#FF00C853" : "#FFFF69B4";
         StatusColor = new SolidColorBrush(Color.Parse(color));
+    }
+
+    private void StartOrStopStatusTimer(bool running)
+    {
+        _statusTimer?.Stop();
+        _statusTimer = null;
+        if (!running) return;
+
+        _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _statusTimer.Tick += (_, _) =>
+        {
+            var remaining = _blinkTrainer?.Remaining ?? TimeSpan.Zero;
+            CounterText = remaining > TimeSpan.Zero
+                ? Loc.GetF("blink_trainer_status_running", $"{remaining.TotalMinutes:0}:{remaining.Seconds:00}")
+                : Loc.Get("blink_trainer_counter_format");
+        };
+        _statusTimer.Start();
     }
 }
 

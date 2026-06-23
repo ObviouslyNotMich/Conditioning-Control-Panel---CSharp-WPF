@@ -8,7 +8,7 @@
         Background="Black"
         Topmost="True"
         ShowInTaskbar="False"
-        ShowActivated="True"
+        ShowActivated="False"
         CanResize="False"
         WindowState="Maximized"
         WindowStartupLocation="Manual"

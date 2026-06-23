@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using ConditioningControlPanel.Core.Services;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
+using Microsoft.Extensions.Logging;
 
 namespace ConditioningControlPanel.Avalonia.Platform;
 
@@ -16,14 +17,19 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 public sealed class AvaloniaSkillTreeService : ISkillTreeService, IDisposable
 {
     private readonly ISettingsService _settingsService;
+    private readonly ILogger<AvaloniaSkillTreeService>? _logger;
 
-    public AvaloniaSkillTreeService(ISettingsService settingsService)
+    public AvaloniaSkillTreeService(ISettingsService settingsService, ILogger<AvaloniaSkillTreeService>? logger = null)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        _logger = logger;
     }
 
     /// <inheritdoc />
     public event EventHandler<string>? SkillUnlocked;
+
+    /// <inheritdoc />
+    public event EventHandler? PinkRushStarted;
 
     /// <inheritdoc />
     public bool HasSkill(string skillId)
@@ -239,6 +245,27 @@ public sealed class AvaloniaSkillTreeService : ISkillTreeService, IDisposable
             settings.EarlyMorningUsageCount++;
 
         _settingsService.Save();
+    }
+
+    /// <inheritdoc />
+    public void TriggerPinkRush()
+    {
+        var settings = _settingsService.Current;
+        if (settings == null) return;
+
+        // Mirror the legacy Pink Rush activation: mark the window and notify listeners.
+        settings.PinkRushActive = true;
+        settings.PinkRushEndTime = DateTime.UtcNow.AddSeconds(60);
+        _settingsService.Save();
+
+        try
+        {
+            PinkRushStarted?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "PinkRushStarted subscriber threw");
+        }
     }
 
     #endregion

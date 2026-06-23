@@ -177,6 +177,7 @@ public partial class MiniPlayerWindow : Window
                 VideoControls.IsVisible = false;
                 LoadingOverlay.IsVisible = false;
                 ImagePreview.Source = _animatedGif.Source;
+                _animatedGif.FrameRendered += (_, _) => ImagePreview.InvalidateVisual();
                 _animatedGif.Start();
             }
             else

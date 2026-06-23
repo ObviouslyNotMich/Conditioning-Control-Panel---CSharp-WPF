@@ -77,6 +77,8 @@
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Button Content="{loc:Str lab_tracker_test}"
                     Command="{Binding TrackerTestCommand}" />
+            <Button Content="{loc:Str lab_quick_recal}"
+                    Command="{Binding QuickRecalCommand}" />
             <Button Content="{loc:Str lab_revoke_consent}"
                     Command="{Binding RevokeConsentCommand}" />
             <ToggleButton Content="{loc:Str lab_debug_cursor}"

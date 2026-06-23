@@ -28,12 +28,16 @@ public sealed class AvaloniaAnimatedGif : IDisposable
     private int _remainingLoops = -1;
     private bool _disposed;
     private bool _playOnce;
+    private bool _decodePending;
 
     /// <summary>The Avalonia image source to bind to an <see cref="Avalonia.Controls.Image"/>.</summary>
     public IImage Source => _bitmap;
 
     /// <summary>True when the clip has finished playing (play-once mode).</summary>
     public bool IsComplete { get; private set; }
+
+    /// <summary>Fired after each frame is rendered so the hosting <see cref="Image"/> can be invalidated.</summary>
+    public event EventHandler? FrameRendered;
 
     /// <summary>Fired once when the clip finishes playing (play-once mode).</summary>
     public event EventHandler? Completed;
@@ -133,7 +137,7 @@ public sealed class AvaloniaAnimatedGif : IDisposable
 
     private void OnTick(object? sender, EventArgs e)
     {
-        if (_disposed) return;
+        if (_disposed || _decodePending) return;
         Advance();
     }
 
@@ -165,24 +169,64 @@ public sealed class AvaloniaAnimatedGif : IDisposable
             }
         }
 
-        RenderFrame();
+        RenderFrameAsync();
     }
 
     private void RenderFrame()
+    {
+        // Initial frame is rendered synchronously on the caller; subsequent frames are
+        // decoded on the thread pool to keep the UI thread responsive.
+        RenderFrameCore();
+    }
+
+    private void RenderFrameAsync()
+    {
+        _decodePending = true;
+        var prior = _frameIndex == 0 ? -1 : _frameIndex - 1;
+        var options = new SKCodecOptions(_frameIndex) { PriorFrame = prior };
+        var duration = Math.Max(20, _frames[_frameIndex].Duration);
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (_disposed) return;
+                var result = _codec.GetPixels(_frameBuffer.Info, _frameBuffer.GetPixels(), options);
+                Dispatcher.UIThread.Post(() => ApplyFrame(result, duration));
+            }
+            catch
+            {
+                Dispatcher.UIThread.Post(() => _decodePending = false);
+            }
+        });
+    }
+
+    private void ApplyFrame(SKCodecResult result, int durationMs)
+    {
+        try
+        {
+            if (_disposed) return;
+            if (result == SKCodecResult.Success || result == SKCodecResult.IncompleteInput)
+            {
+                CopyToWriteableBitmap(_frameBuffer, _bitmap);
+                try { FrameRendered?.Invoke(this, EventArgs.Empty); } catch { /* ignore invalidation failures */ }
+            }
+            _timer.Interval = TimeSpan.FromMilliseconds(durationMs);
+        }
+        finally
+        {
+            _decodePending = false;
+        }
+    }
+
+    private void RenderFrameCore()
     {
         if (_frames.Length == 0) return;
 
         var prior = _frameIndex == 0 ? -1 : _frameIndex - 1;
         var options = new SKCodecOptions(_frameIndex) { PriorFrame = prior };
         var result = _codec.GetPixels(_frameBuffer.Info, _frameBuffer.GetPixels(), options);
-
-        if (result == SKCodecResult.Success || result == SKCodecResult.IncompleteInput)
-        {
-            CopyToWriteableBitmap(_frameBuffer, _bitmap);
-        }
-
-        var duration = Math.Max(20, _frames[_frameIndex].Duration);
-        _timer.Interval = TimeSpan.FromMilliseconds(duration);
+        ApplyFrame(result, Math.Max(20, _frames[_frameIndex].Duration));
     }
 
     private static unsafe void CopyToWriteableBitmap(SKBitmap src, WriteableBitmap dst)

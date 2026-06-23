@@ -670,6 +670,34 @@ public static class ChaosBubbleVariants
             TintR = 0xFF, TintG = 0xFF, TintB = 0xFF,
         };
     }
+
+    /// <summary>Build one Echo split-child at the parent's pop point: a NORMAL live from the light
+    /// trio (pink/spiral/braindrain), smaller, faster, with a short fuse. Children carry no IsEcho
+    /// flag, so they never re-split. Mirrors the WPF ChaosBubbleVariants.BuildEchoChild behaviour.</summary>
+    public static ChaosBubbleSpec BuildEchoChild(double parentVisualSizePx, double atPxX, double atPxY,
+        double effectIntensity = 1.0)
+    {
+        var rng = Random.Shared;
+        // Rows 2..4 in the seeded catalog are pink / spiral / braindrain (the light live trio).
+        var v = All[2 + rng.Next(Math.Min(3, Math.Max(1, All.Count - 2)))];
+        double size = Math.Max(60, parentVisualSizePx * ChaosTuning.EchoChildScale);
+        int fuse = ChaosTuning.EchoChildFuseMinMs
+                   + rng.Next(Math.Max(1, ChaosTuning.EchoChildFuseMaxMs - ChaosTuning.EchoChildFuseMinMs));
+        return new ChaosBubbleSpec
+        {
+            SpawnAtPxX = atPxX,
+            SpawnAtPxY = atPxY,
+            VariantId = v.Id,
+            PayloadKind = v.Id,
+            SizePx = size,
+            IsLive = true,
+            FuseMs = fuse,
+            Motion = ChaosMotion.RoamBounce,
+            SpeedMult = ChaosTuning.EchoChildSpeedMult,
+            TintR = v.Tint.R, TintG = v.Tint.G, TintB = v.Tint.B,
+            EffectIntensity = effectIntensity,
+        };
+    }
 }
 
 public static class ChaosArt
@@ -904,19 +932,20 @@ public static class ChaosNarrativeHooks
     }
 
     /// <summary>Hub-side moment (no live run). Picks and displays a conversation standalone.</summary>
-    public static void OnHubMoment(string moment, ChaosNarrativeContext ctx)
+    public static ChaosOverlayWindow? OnHubMoment(string moment, ChaosNarrativeContext ctx)
     {
         try
         {
             ctx.Trigger = moment;
             ctx.Depth = 0;
             var convo = ChaosNarrativeDirector.Pick(ctx, moment);
-            if (convo == null) return;
-            global::Avalonia.Threading.Dispatcher.UIThread.Post(() => ShowStandaloneConversation(convo));
+            if (convo == null) return null;
+            return ShowStandaloneConversation(convo);
         }
         catch (Exception ex)
         {
             LogDebug("ChaosNarrativeHooks.OnHubMoment: {E}", ex.Message);
+            return null;
         }
     }
 
@@ -981,7 +1010,7 @@ public static class ChaosNarrativeHooks
         return true;
     }
 
-    private static void ShowStandaloneConversation(ChaosConversation convo)
+    private static ChaosOverlayWindow? ShowStandaloneConversation(ChaosConversation convo)
     {
         try
         {
@@ -989,10 +1018,12 @@ public static class ChaosNarrativeHooks
             var bg = ChaosArt.Resolve("hub", "backdrop") ?? ChaosArt.Resolve("backdrops", "depth1");
             win.Show();
             win.ShowConversation(convo, bg, onComplete: () => { try { win.Close(); } catch { } });
+            return win;
         }
         catch (Exception ex)
         {
             LogDebug("ChaosNarrativeHooks.ShowStandaloneConversation: {E}", ex.Message);
+            return null;
         }
     }
 

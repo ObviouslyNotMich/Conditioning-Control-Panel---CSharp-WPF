@@ -23,7 +23,6 @@ using ConditioningControlPanel.Core.Services.Sessions;
 
 using AvaPoint = global::Avalonia.Point;
 using Microsoft.Extensions.DependencyInjection;
-using System.Threading.Tasks;
 
 namespace ConditioningControlPanel.Avalonia.Windows;
 

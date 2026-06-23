@@ -35,6 +35,9 @@ public sealed partial class AvaloniaBubbleWindow : Window
     /// <summary>The hosted bubble visual.</summary>
     public AvaloniaBubble Bubble => _bubble;
 
+    /// <summary>Scaling factor of the screen hosting this bubble, used for gaze hit-tests.</summary>
+    public double Scaling { get; set; } = 1.0;
+
     /// <summary>Raised when the bubble inside this window is clicked.</summary>
     public event EventHandler? Click;
 

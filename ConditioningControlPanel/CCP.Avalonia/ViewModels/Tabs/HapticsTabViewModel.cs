@@ -15,8 +15,8 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 /// Avalonia port of the WPF MainWindow.Haptics partial.
 /// Exposes haptic provider selection, connection, per-event enable/intensity/mode,
 /// and video audio-sync controls. The live device service is abstracted by
-/// <see cref="IHapticsService"/>; the Avalonia head uses a stub implementation
-/// so connect/test commands can be exercised for UI testing.
+/// <see cref="IHapticsService"/>; the Avalonia head uses a real Buttplug.io
+/// implementation (<see cref="Services.Haptics.AvaloniaHapticsService"/>).
 /// </summary>
 public partial class HapticsTabViewModel : TabItemViewModel
 {

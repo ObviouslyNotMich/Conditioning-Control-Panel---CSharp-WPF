@@ -191,6 +191,7 @@ namespace ConditioningControlPanel.Avalonia.AvatarTube
                     {
                         ImgAvatarAnimated.IsVisible = true;
                         ImgAvatarAnimated.Source = gif.Source;
+                        gif.FrameRendered += (_, _) => ImgAvatarAnimated.InvalidateVisual();
                     }
                     gif.Start();
                 }

@@ -110,6 +110,7 @@ _img = new Image { Stretch = Stretch.UniformToFill, IsHitTestVisible = false };
             if (_anim != null)
             {
                 _img.Source = _anim.Source;
+                _anim.FrameRendered += (_, _) => _img.InvalidateVisual();
                 _anim.Start();
             }
             else

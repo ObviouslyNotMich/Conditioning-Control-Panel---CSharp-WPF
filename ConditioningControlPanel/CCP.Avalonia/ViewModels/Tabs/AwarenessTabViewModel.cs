@@ -14,8 +14,8 @@ namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 /// <summary>
 /// Avalonia port of the WPF MainWindow.KeywordTriggers partial.
 /// Exposes keyword trigger list management, screen-OCR toggles, cooldown sliders,
-/// and import commands. Live keyword/OCR services are not abstracted in Core yet,
-/// so start/stop and import are stubbed with logging and dialogs.
+/// and import commands. Toggle changes now start/stop the live <see cref="IKeywordTriggerService"/>
+/// and <see cref="IScreenOcrService"/> implementations registered in DI.
 /// </summary>
 public partial class AwarenessTabViewModel : TabItemViewModel
 {
@@ -23,6 +23,8 @@ public partial class AwarenessTabViewModel : TabItemViewModel
     private readonly IDialogService? _dialogService;
     private readonly ILogger<AwarenessTabViewModel>? _logger;
     private readonly ILogger<KeywordTriggerViewModel>? _keywordTriggerLogger;
+    private readonly IKeywordTriggerService? _keywordService;
+    private readonly IScreenOcrService? _ocrService;
 
     public AwarenessTabViewModel() : base("awareness", "Awareness", "👁")
     {
@@ -40,12 +42,16 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         ISettingsService settingsService,
         IDialogService dialogService,
         ILogger<AwarenessTabViewModel> logger,
-        ILogger<KeywordTriggerViewModel> keywordTriggerLogger) : base("awareness", "Awareness", "👁")
+        ILogger<KeywordTriggerViewModel> keywordTriggerLogger,
+        IKeywordTriggerService keywordService,
+        IScreenOcrService? ocrService = null) : base("awareness", "Awareness", "👁")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
         _keywordTriggerLogger = keywordTriggerLogger;
+        _keywordService = keywordService;
+        _ocrService = ocrService;
         Triggers = new ObservableCollection<KeywordTriggerViewModel>();
         VisualEffectOptions = new ObservableCollection<string>(Enum.GetNames(typeof(KeywordVisualEffect)));
         OcrConfirmationOptions = new ObservableCollection<string> { "1 scan", "2 scans", "3 scans" };
@@ -231,6 +237,8 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.AwarenessModeEnabled = value;
         Save();
+        UpdateKeywordServiceState();
+        UpdateOcrServiceState();
         UpdateStatus();
         _logger?.LogInformation("Awareness master switch toggled: {Enabled}", value);
     }
@@ -262,6 +270,7 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         _settingsService.Current.KeywordTriggersEnabled = value;
         Save();
         _logger?.LogInformation("Awareness keyboard capture toggled: {Enabled}", value);
+        UpdateKeywordServiceState();
         UpdateStatus();
     }
 
@@ -271,7 +280,42 @@ public partial class AwarenessTabViewModel : TabItemViewModel
         _settingsService.Current.ScreenOcrEnabled = value;
         Save();
         _logger?.LogInformation("Awareness screen OCR toggled: {Enabled}", value);
+        UpdateOcrServiceState();
         UpdateStatus();
+    }
+
+    private void UpdateKeywordServiceState()
+    {
+        if (_keywordService == null) return;
+        if (!IsPremiumLocked && IsAwarenessMasterEnabled && KeywordTriggersEnabled)
+        {
+            try { _keywordService.Start(); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to start keyword trigger service"); }
+        }
+        else
+        {
+            try { _keywordService.Stop(); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to stop keyword trigger service"); }
+        }
+    }
+
+    private void UpdateOcrServiceState()
+    {
+        if (_ocrService == null) return;
+        if (!IsPremiumLocked && IsAwarenessMasterEnabled && ScreenOcrEnabled)
+        {
+            try
+            {
+                _ocrService.UpdateInterval(_settingsService?.Current?.ScreenOcrIntervalMs ?? 5000);
+                _ocrService.Start();
+            }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to start screen OCR service"); }
+        }
+        else
+        {
+            try { _ocrService.Stop(); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to stop screen OCR service"); }
+        }
     }
 
     private void UpdateStatus()
@@ -337,7 +381,7 @@ public partial class AwarenessTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task ToggleKeywordTriggersAsync()
     {
-        if (!KeywordTriggersEnabled)
+        if (IsPremiumLocked)
         {
             await (_dialogService?.ShowMessageAsync(
                 Loc.Get("title_patreon_feature"),
@@ -372,10 +416,53 @@ public partial class AwarenessTabViewModel : TabItemViewModel
     [RelayCommand]
     private async Task ImportFromCustomTriggersAsync()
     {
-        _logger?.LogInformation("Import from custom triggers requested (stub)");
-        await (_dialogService?.ShowMessageAsync(
-            Loc.Get("title_import_complete"),
-            Loc.Get("msg_no_new_triggers_to_import_all_existing_trigge")) ?? Task.CompletedTask);
+        if (_keywordService == null)
+        {
+            _logger?.LogInformation("Import from custom triggers requested but no service is available");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_import_complete"),
+                Loc.Get("msg_no_new_triggers_to_import_all_existing_trigge")) ?? Task.CompletedTask);
+            return;
+        }
+
+        try
+        {
+            var imported = _keywordService.ImportFromCustomTriggers();
+            if (imported.Count == 0)
+            {
+                await (_dialogService?.ShowMessageAsync(
+                    Loc.Get("title_import_complete"),
+                    Loc.Get("msg_no_new_triggers_to_import_all_existing_trigge")) ?? Task.CompletedTask);
+                return;
+            }
+
+            var settings = _settingsService?.Current;
+            if (settings != null)
+            {
+                foreach (var trigger in imported)
+                {
+                    if (settings.KeywordTriggers.Any(t =>
+                        string.Equals(t.Keyword, trigger.Keyword, StringComparison.OrdinalIgnoreCase)
+                        && t.MatchType == trigger.MatchType)) continue;
+
+                    settings.KeywordTriggers.Add(trigger);
+                    Triggers.Add(new KeywordTriggerViewModel(trigger, Save, _keywordTriggerLogger));
+                }
+                Save();
+            }
+
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_import_complete"),
+                Loc.GetF("msg_imported_n_triggers", imported.Count)) ?? Task.CompletedTask);
+            _logger?.LogInformation("Imported {Count} custom keyword triggers", imported.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to import custom keyword triggers");
+            await (_dialogService?.ShowMessageAsync(
+                Loc.Get("title_import_complete"),
+                Loc.Get("msg_import_failed")) ?? Task.CompletedTask);
+        }
     }
 
     [RelayCommand]

@@ -55,7 +55,15 @@ public partial class DeeperHubTabViewModel : TabItemViewModel
         _catalogueService = catalogueService;
         _allEntries = new ObservableCollection<DeeperLibraryRowViewModel>();
         _filteredEntries = new ObservableCollection<DeeperLibraryRowViewModel>();
-        _ = ReloadLibraryAsync();
+    }
+
+    public override void OnSelected()
+    {
+        base.OnSelected();
+        if (_allEntries.Count == 0)
+        {
+            _ = ReloadLibraryAsync();
+        }
     }
 
     public enum DeeperMediaTypeFilter { All, Video, Audio }
