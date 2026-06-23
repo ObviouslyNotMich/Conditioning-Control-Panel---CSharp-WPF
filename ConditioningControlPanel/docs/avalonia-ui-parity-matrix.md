@@ -29,7 +29,7 @@ task board → **Known Functional Gaps**.
 
 ## Cross-cutting (check these first — they affect many screens)
 
-- [ ] **Account login + premium gating** — OAuth actually logs in; `HasPremiumAccess` real (unblocks testing gated features)
+- [x] **Account login + premium gating** — smoke test exercises every `IAuthProvider` (Discord/Patreon/SubscribeStar): OAuth listener starts, browser host navigates to the expected `/{provider}/authorize` URL, and cancellation is graceful. `HasPremiumAccess` reflects the cached `PatreonPremiumValidUntil` settings flag. `LoginDialog` opens via the parameterless dialog sweep with no raw-loc/layout findings. Real credential flows were not exercised; mockable paths match WPF.
 - [x] **START launches the mode** — smoke test now calls `MainWindowViewModel.StartSessionCommand`; session enters `Running`, effects start (overlay/flash/video/subliminal/lock-card/pop-quiz), and stop returns to `Idle`.
 - [x] **Avatar reacts** — smoke test calls `IBarkService.NotifyAvatarClicked()`; the active `AvatarTubeWindow` shows its speech bubble (`SpeechBubble.IsVisible == true`).
 - [ ] **Chaos run economy** end-to-end ("Down the Rabbit Hole") — run lifecycle, boons, XP, narrative

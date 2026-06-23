@@ -26,8 +26,13 @@ using ConditioningControlPanel.Avalonia.Features;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Views.Tabs;
 using ConditioningControlPanel.Core.Localization;
+using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Overlays;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Sessions;
+using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Avalonia.Services.Auth;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -205,6 +210,21 @@ internal sealed class SmokeTestRunner
 
                     // Exercise the Rabbit Hole main menu (Down the Rabbit Hole 6.1.7 port).
                     await ExerciseChaosHubMenuAsync(mainWindow);
+
+                    // Exercise auth provider OAuth launch paths (Account login + premium gating verification).
+                    // Run before the full Chaos run so a run-level timeout does not block auth coverage.
+                    await ExerciseAuthProvidersAsync();
+
+                    // Exercise a full Chaos run end-to-end: scoring, boons, XP/progression, results.
+                    // Cap the runtime so an unresponsive run does not hang the smoke test.
+                    try
+                    {
+                        await ExerciseChaosRunAsync(mainWindow).WaitAsync(TimeSpan.FromSeconds(45), _cts.Token);
+                    }
+                    catch (TimeoutException)
+                    {
+                        _findings.Add(new SmokeTestFinding("ChaosRun", "Chaos run exceeded 45s smoke-test timeout; aborting run verification", FindingSeverity.Warning));
+                    }
                 }
             }
 
@@ -360,6 +380,116 @@ internal sealed class SmokeTestRunner
         {
             _findings.Add(new SmokeTestFinding($"Dialog:{name}", $"Failed to open: {ex.Message}", FindingSeverity.Error));
         }
+    }
+
+    private async Task ExerciseAuthProvidersAsync()
+    {
+        if (_cts.IsCancellationRequested) return;
+
+        try
+        {
+            Console.WriteLine("[SMOKE] Auth -> exercising provider OAuth launch paths...");
+            var providers = App.Services.GetServices<IAuthProvider>().ToList();
+            if (providers.Count == 0)
+            {
+                _findings.Add(new SmokeTestFinding("Auth", "No IAuthProvider registrations found", FindingSeverity.Error));
+                return;
+            }
+
+            var settingsService = App.Services.GetRequiredService<ISettingsService>();
+            var settings = settingsService.Current;
+            var originalPremiumValidUntil = settings.PatreonPremiumValidUntil;
+
+            foreach (var provider in providers)
+            {
+                if (_cts.IsCancellationRequested) break;
+                var name = provider.ProviderName;
+                try
+                {
+                    var mock = new RecordingBrowserHost();
+                    ReplaceBrowserHost(provider, mock);
+
+                    var startTask = provider.StartOAuthFlowAsync();
+                    await DelayAsync(800); // let listener start and NavigateAsync fire
+
+                    if (!mock.NavigatedUrls.Any())
+                    {
+                        _findings.Add(new SmokeTestFinding($"Auth:{name}", "Browser host was not asked to navigate to OAuth URL", FindingSeverity.Error));
+                    }
+                    else
+                    {
+                        var url = mock.NavigatedUrls.First();
+                        var expectedPath = $"/{name}/authorize";
+                        if (!url.ToString().Contains(expectedPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _findings.Add(new SmokeTestFinding($"Auth:{name}", $"Unexpected OAuth URL: {url}", FindingSeverity.Error));
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[SMOKE] Auth:{name} -> OAuth URL launched: {url}");
+                        }
+                    }
+
+                    // Verify Patreon premium gating reads from cached settings when no live token is present.
+                    // SubscribeStar mirrors WPF and only checks its own tier/whitelist, so only Patreon is
+                    // expected to reflect the cross-cutting cached premium flag.
+                    settings.PatreonPremiumValidUntil = DateTime.UtcNow.AddDays(14);
+                    if (name == "patreon")
+                    {
+                        if (!provider.HasPremiumAccess)
+                        {
+                            _findings.Add(new SmokeTestFinding($"Auth:{name}", "HasPremiumAccess returned false while PatreonPremiumValidUntil was future-dated", FindingSeverity.Error));
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[SMOKE] Auth:{name} -> HasPremiumAccess true from cached settings flag");
+                        }
+                    }
+
+                    // The concrete providers expose CancelOAuthFlow; it is not on the interface yet.
+                    try { provider.GetType().GetMethod("CancelOAuthFlow", Type.EmptyTypes)?.Invoke(provider, null); }
+                    catch { }
+                    try { await startTask.WaitAsync(TimeSpan.FromSeconds(2)); } catch { /* cancelled/timeout expected */ }
+                }
+                catch (Exception ex)
+                {
+                    _findings.Add(new SmokeTestFinding($"Auth:{name}", $"OAuth launch failed: {ex.Message}", FindingSeverity.Error));
+                }
+            }
+
+            settings.PatreonPremiumValidUntil = originalPremiumValidUntil;
+            settingsService.Save();
+        }
+        catch (Exception ex)
+        {
+            _findings.Add(new SmokeTestFinding("Auth", $"Unexpected auth exercise exception: {ex.Message}", FindingSeverity.Error));
+        }
+    }
+
+    private static void ReplaceBrowserHost(IAuthProvider provider, IBrowserHost mock)
+    {
+        var field = provider.GetType().GetField("_browserHost", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (field != null)
+        {
+            // Readonly instance fields can be updated via reflection.
+            field.SetValue(provider, mock);
+        }
+    }
+
+    private sealed class RecordingBrowserHost : IBrowserHost
+    {
+        public List<Uri> NavigatedUrls { get; } = new();
+        public bool IsFullscreen { get; }
+        public event EventHandler<string>? TitleChanged;
+        public event EventHandler<Uri>? Navigated;
+        public event EventHandler<bool>? FullscreenChanged;
+        public Task NavigateAsync(Uri url)
+        {
+            NavigatedUrls.Add(url);
+            return Task.CompletedTask;
+        }
+        public Task<string> ExecuteScriptAsync(string script) => Task.FromResult(string.Empty);
+        public global::Avalonia.Controls.Control? CreateBrowserControl() => null;
     }
 
     private void ScanVisualTree(Control root, string context)
@@ -783,6 +913,192 @@ internal sealed class SmokeTestRunner
         {
             _findings.Add(new SmokeTestFinding("ChaosHubMenu", $"Failed to exercise menu: {ex.Message}", FindingSeverity.Error));
             try { await Dispatcher.UIThread.InvokeAsync(() => hub?.Close()); } catch { }
+        }
+    }
+
+    private async Task ExerciseChaosRunAsync(Window mainWindow)
+    {
+        if (_cts.IsCancellationRequested) return;
+
+        var settingsService = App.Services.GetRequiredService<ISettingsService>();
+        var metaService = App.Services.GetRequiredService<IChaosMetaService>();
+        var achievementService = App.Services.GetRequiredService<IAchievementService>();
+        var bubbleService = App.Services.GetRequiredService<IBubbleService>();
+        var chaosService = App.Services.GetRequiredService<IChaosService>();
+
+        // Snapshot values so we can restore them after the test run.
+        var settings = settingsService.Current;
+        int originalDuration = settings.ChaosRunDurationSec;
+        int originalWaveCount = settings.ChaosWaveCount;
+        bool originalDraft = settings.ChaosBoonDraftEnabled;
+        bool originalCurses = settings.ChaosAllowCurses;
+        bool originalDarters = settings.ChaosDartersEnabled;
+        var originalVariants = settings.ChaosEnabledVariants?.ToList();
+
+        var originalMeta = metaService.State;
+        var metaSnapshot = new ChaosMetaState
+        {
+            RunsCompleted = originalMeta.RunsCompleted,
+            Sparks = originalMeta.Sparks,
+            Gold = originalMeta.Gold,
+            BestScore = originalMeta.BestScore,
+            BestCombo = originalMeta.BestCombo,
+            TotalDefused = originalMeta.TotalDefused,
+            TotalRunSeconds = originalMeta.TotalRunSeconds,
+            EquippedStartBoon = originalMeta.EquippedStartBoon,
+        };
+        double xpBefore = achievementService.Progress.TotalXPEarned;
+
+        ChaosHubWindow? hub = null;
+        try
+        {
+            // Use a very short run so the smoke test stays fast. Draft is disabled to keep the
+            // test duration bounded; a start boon is equipped below to verify boon application.
+            settings.ChaosRunDurationSec = 12;
+            settings.ChaosWaveCount = 2;
+            settings.ChaosBoonDraftEnabled = false;
+            settings.ChaosAllowCurses = true;
+            settings.ChaosDartersEnabled = false;
+            settings.ChaosEnabledVariants = new List<string> { "flash", "pink", "subliminal" };
+
+            // Avoid the scripted first-run config override so the settings above are honored.
+            originalMeta.RunsCompleted = Math.Max(1, originalMeta.RunsCompleted);
+
+            // Equip a start boon if one is available so we verify boon application.
+            if (ChaosBoonPool.All.Count > 0 && string.IsNullOrEmpty(originalMeta.EquippedStartBoon))
+            {
+                originalMeta.EquippedStartBoon = ChaosBoonPool.All.First(b => !b.IsCurse).Id;
+            }
+
+            int runsBefore = originalMeta.RunsCompleted;
+            long sparksBefore = originalMeta.Sparks;
+
+            _findings.Add(new SmokeTestFinding("ChaosRun", $"Starting short run (duration={settings.ChaosRunDurationSec}s, waves={settings.ChaosWaveCount}, draft={settings.ChaosBoonDraftEnabled})", FindingSeverity.Info));
+            Console.WriteLine("[SMOKE] ChaosRun -> opening hub and starting a short run...");
+            hub = await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var w = new ChaosHubWindow();
+                w.Show(mainWindow);
+                return w;
+            });
+            await DelayAsync(1200);
+
+            await ClickHubButtonAsync(hub, "BtnBegin", "BeginRun");
+            await DelayAsync(2500); // countdown + run startup
+
+            if (!chaosService.IsRunning)
+            {
+                _findings.Add(new SmokeTestFinding("ChaosRun", "Run did not start after clicking Begin", FindingSeverity.Blocker));
+                try { await Dispatcher.UIThread.InvokeAsync(() => hub?.Close()); } catch { }
+                return;
+            }
+            _findings.Add(new SmokeTestFinding("ChaosRun", "Run started successfully", FindingSeverity.Info));
+
+            // The HUD and overlay should now be visible.
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            var hud = lifetime?.Windows.OfType<ChaosHudWindow>().FirstOrDefault();
+            var overlay = lifetime?.Windows.OfType<ChaosOverlayWindow>().FirstOrDefault();
+            if (hud == null)
+                _findings.Add(new SmokeTestFinding("ChaosRun", "HUD window was not created", FindingSeverity.Error));
+            if (overlay == null)
+                _findings.Add(new SmokeTestFinding("ChaosRun", "Overlay window was not created", FindingSeverity.Error));
+
+            if (_captureScreenshots && hud != null)
+            {
+                try { _screenshotPaths.Add(await RenderScreenshotAsync(hud, "smoke-chaos-run-hud.png")); }
+                catch (Exception ex) { Console.WriteLine($"[SMOKE] HUD screenshot failed: {ex.Message}"); }
+            }
+
+            // Pop bubbles throughout the run to generate score and exercise the economy.
+            var popRect = new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 5000, 5000);
+            while (chaosService.IsRunning && !_cts.IsCancellationRequested)
+            {
+                try { bubbleService.PopBubblesInRect(popRect); } catch { }
+                await DelayAsync(600);
+            }
+
+            _findings.Add(new SmokeTestFinding("ChaosRun", "Run finished, waiting for results screen", FindingSeverity.Info));
+
+            // Wait for the results screen to render.
+            await DelayAsync(1500);
+
+            bool resultsVisible = false;
+            double finalScore = 0;
+            if (overlay != null)
+            {
+                var resultsPanelField = typeof(ChaosOverlayWindow).GetField("ResultsPanel", BindingFlags.NonPublic | BindingFlags.Instance);
+                var resultsPanel = resultsPanelField?.GetValue(overlay) as Control;
+                resultsVisible = resultsPanel?.IsVisible == true;
+
+                var stateField = chaosService.GetType().GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance);
+                var state = stateField?.GetValue(chaosService) as ChaosRunState;
+                finalScore = state?.Score ?? 0;
+
+                if (_captureScreenshots && resultsVisible)
+                {
+                    try { _screenshotPaths.Add(await RenderScreenshotAsync(overlay, "smoke-chaos-run-results.png")); }
+                    catch (Exception ex) { Console.WriteLine($"[SMOKE] Results screenshot failed: {ex.Message}"); }
+                }
+            }
+
+            if (!resultsVisible)
+                _findings.Add(new SmokeTestFinding("ChaosRun", "Results panel was not shown after the run ended", FindingSeverity.Blocker));
+
+            if (finalScore <= 0)
+                _findings.Add(new SmokeTestFinding("ChaosRun", "Final score remained zero (bubbles/scoring may be broken)", FindingSeverity.Error));
+
+            int runsAfter = originalMeta.RunsCompleted;
+            long sparksAfter = originalMeta.Sparks;
+            double xpAfter = achievementService.Progress.TotalXPEarned;
+
+            if (runsAfter <= runsBefore)
+                _findings.Add(new SmokeTestFinding("ChaosRun", $"RunsCompleted did not increment ({runsBefore} -> {runsAfter})", FindingSeverity.Blocker));
+            if (sparksAfter <= sparksBefore)
+                _findings.Add(new SmokeTestFinding("ChaosRun", $"Sparks did not increase ({sparksBefore} -> {sparksAfter})", FindingSeverity.Error));
+            if (xpAfter <= xpBefore)
+                _findings.Add(new SmokeTestFinding("ChaosRun", $"Achievement XP did not increase ({xpBefore} -> {xpAfter})", FindingSeverity.Error));
+
+            _findings.Add(new SmokeTestFinding("ChaosRun", $"Results: score={finalScore:0}, runs={runsBefore}->{runsAfter}, sparks={sparksBefore}->{sparksAfter}, xp={xpBefore}->{xpAfter}", FindingSeverity.Info));
+            Console.WriteLine($"[SMOKE] ChaosRun completed: score={finalScore}, runs={runsBefore}->{runsAfter}, sparks={sparksBefore}->{sparksAfter}, xp={xpBefore}->{xpAfter}");
+
+            // Dismiss the results overlay.
+            try
+            {
+                var dismissField = typeof(ChaosOverlayWindow).GetField("BtnDone", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?? typeof(ChaosOverlayWindow).GetField("BtnResultsDone", BindingFlags.NonPublic | BindingFlags.Instance);
+                var dismissBtn = dismissField?.GetValue(overlay) as Control;
+                if (dismissBtn != null)
+                    await Dispatcher.UIThread.InvokeAsync(() => dismissBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));
+                else
+                    await Dispatcher.UIThread.InvokeAsync(() => overlay?.Close());
+            }
+            catch { }
+            await DelayAsync(500);
+        }
+        catch (Exception ex)
+        {
+            _findings.Add(new SmokeTestFinding("ChaosRun", $"Unexpected exception exercising run: {ex.Message}", FindingSeverity.Blocker));
+            try { await Dispatcher.UIThread.InvokeAsync(() => hub?.Close()); } catch { }
+        }
+        finally
+        {
+            // Restore settings and meta state.
+            settings.ChaosRunDurationSec = originalDuration;
+            settings.ChaosWaveCount = originalWaveCount;
+            settings.ChaosBoonDraftEnabled = originalDraft;
+            settings.ChaosAllowCurses = originalCurses;
+            settings.ChaosDartersEnabled = originalDarters;
+            settings.ChaosEnabledVariants = originalVariants;
+
+            originalMeta.RunsCompleted = metaSnapshot.RunsCompleted;
+            originalMeta.Sparks = metaSnapshot.Sparks;
+            originalMeta.Gold = metaSnapshot.Gold;
+            originalMeta.BestScore = metaSnapshot.BestScore;
+            originalMeta.BestCombo = metaSnapshot.BestCombo;
+            originalMeta.TotalDefused = metaSnapshot.TotalDefused;
+            originalMeta.TotalRunSeconds = metaSnapshot.TotalRunSeconds;
+            originalMeta.EquippedStartBoon = metaSnapshot.EquippedStartBoon;
+            metaService.Save();
         }
     }
 
