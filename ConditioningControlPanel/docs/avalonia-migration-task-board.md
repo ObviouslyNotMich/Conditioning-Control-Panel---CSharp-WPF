@@ -213,7 +213,7 @@ areas (the code literally says so). Each is P0/P1 — port the missing Core serv
 | # | Severity | Gap | Fix |
 |---|---|---|---|
 | L | ✅ **P0 data-loss — fixed.** `AvaloniaAppEnvironment.ApplicationDataPath` now returns `UserDataPath` (Local) on all platforms; Core services (`SessionLogService`, `SessionFileService`, `ModerationCounter`) now write to the legacy WPF folder. Added one-time `MigrateFromLegacyRoamingPath()` called at startup: moves Roaming files/folders to Local if a sentinel is absent, renaming on conflict. Verified settings load from `C:\Users\Micha\AppData\Local\ConditioningControlPanel\settings.json`; build + Core tests + smoke test pass. | Done |
-| M | P2 | **No WPF perf baseline captured** — the "smoother/faster than WPF" bar (§1A/§13.4) is unfalsifiable without numbers, and each prune makes the before/after harder to reconstruct. | Capture WPF startup time, working-set, and a couple of effect frame rates **now** (before more pruning), per plan §13.3 Phase 0; record them so ported features can be held to "match or beat". |
+| M | P2 | **WPF perf baseline partially captured** — startup + working set measured; effect frame rates still need tooling. WPF: startup ~4.21s, working set ~1,218MB (10s). Avalonia: startup ~2.55s, working set ~422MB (10s). Avalonia beats WPF on both metrics in this environment. Frame-rate capture (spiral/flash) blocked by lack of a built-in FPS counter; revisit with a lightweight overlay or ETW/PresentMon if needed. |
 
 ---
 

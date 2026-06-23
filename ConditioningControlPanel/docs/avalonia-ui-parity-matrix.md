@@ -34,7 +34,7 @@ task board → **Known Functional Gaps**.
 - [x] **Avatar reacts** — smoke test calls `IBarkService.NotifyAvatarClicked()`; the active `AvatarTubeWindow` shows its speech bubble (`SpeechBubble.IsVisible == true`).
 - [ ] **Chaos run economy** end-to-end ("Down the Rabbit Hole") — run lifecycle, boons, XP, narrative
 - [x] **Overlays are pure passive click-through layers** (pink fill, spiral, subliminal, flash, brain-drain) — smoke test starts `AvaloniaOverlayService`, creates a pink overlay, and verifies every overlay window has `IsHitTestVisible=false`, `ShowInTaskbar=false`, and no window decorations.
-- [ ] **Multi-monitor (N screens)** incl. mixed landscape+portrait, per-monitor scale; single-display setting honored — §7.5
+- [x] **Multi-monitor (N screens)** incl. mixed landscape+portrait, per-monitor scale; single-display setting honored — §7.5
 - [x] **Per-mod theme re-skin** across all 5 (CCP Default, Bambi, Sissy Hypno, Droneification, Circe Lock) — smoke test switches mods and captures dashboard+tube screenshots for each theme with 0 exceptions/findings.
 - [ ] **Performance** — startup, frame rates, memory match-or-beat WPF — §13.4
 
