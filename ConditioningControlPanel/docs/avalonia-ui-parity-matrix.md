@@ -41,7 +41,7 @@ task board → **Known Functional Gaps**.
 ## New in 6.1.7 (port from main, then verify — plan §19.3)
 
 - [ ] **Chaos "Down the Rabbit Hole" main menu** — neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade (`ChaosHubWindow` + `ChaosBackdropService` glint FX + ~70 assets/soundtrack)
-- [ ] **Quest pool refresh** — 20 free + 20 patron quests with 20 bundled art PNGs (`Quest` model + `QuestService`)
+- [x] **Quest pool refresh** — 20 free + 20 patron quests with bundled art PNGs (`Quest` model + `QuestService` + `QuestDefinitionService`); Avalonia smoke test visited Quests tab with 0 exceptions/findings and quest art resolves from `CCP.Avalonia/Assets/quests`.
 - 🚧 **Auth graceful browser-launch fallback** — `BrowserLauncher` ported to Core; Discord/Patreon/SubscribeStar providers now use `IBrowserHost` with clipboard+dialog fallback; `CCP.Avalonia` builds. Runtime exercise blocked by concurrent Quest-lane build error (`QuestDefinitionsUpdated` mismatch in `QuestsTabViewModel`).
 - [ ] **Subliminal double-flash fix** — re-verify no prev-phrase flash / stale-timer double flash (changed in 6.1.7)
 - [ ] **Avatar focus-steal fix** — companion window must not steal focus / cancel typing (changed in 6.1.7)
@@ -53,7 +53,7 @@ task board → **Known Functional Gaps**.
 - [ ] BambiTakeover  - [ ] BlinkTrainer  - [ ] CatalogueSubmissions  - [ ] CompanionHub  - [ ] Companion
 - [ ] DeeperHub  - [ ] DeeperSubmissions  - [ ] Deeper  - [ ] Enhancements  - [ ] Haptics  - [ ] Lab
 - [ ] Leaderboard  - [ ] LevelFeatures  - [ ] Lockdown  - [ ] Marquee  - [ ] Patreon  - [ ] PresetIO
-- [ ] Presets  - [ ] Profile  - [ ] Quests  - [ ] RemoteControl  - [x] Settings/Dashboard — smoke test exercised dashboard feature cards (12/12 with visuals), helper buttons (webcam/appinfo/scheduler), and START/stop session.
+- [ ] Presets  - [ ] Profile  - [x] Quests  - [ ] RemoteControl  - [x] Settings/Dashboard — smoke test exercised dashboard feature cards (12/12 with visuals), helper buttons (webcam/appinfo/scheduler), and START/stop session.
 - [ ] WebcamEngine
 - [x] Placeholder (should NOT appear for any real tab — flag if it does) — smoke test visited all 44 tabs and found no `PlaceholderTabView`.
 

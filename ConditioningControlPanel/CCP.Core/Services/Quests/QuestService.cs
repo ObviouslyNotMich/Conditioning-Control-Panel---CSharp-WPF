@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Avalonia.Threading;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -12,14 +13,29 @@ namespace ConditioningControlPanel.Core.Services.Quests;
 /// Cross-platform quest service: generates daily/weekly quests, tracks progress,
 /// awards XP, and persists state to the user data folder.
 /// </summary>
-public sealed class QuestService : IQuestService
+public sealed class QuestService : IQuestService, IDisposable
 {
     private readonly ISettingsService _settingsService;
     private readonly ISkillTreeService _skillTreeService;
     private readonly IAppEnvironment _appEnvironment;
+    private readonly IQuestDefinitionService? _questDefinitions;
+    private readonly IProgressionService? _progression;
     private readonly ILogger<QuestService>? _logger;
     private readonly string _progressPath;
     private readonly Random _random = new();
+    private readonly DispatcherTimer _saveTimer;
+    private readonly DispatcherTimer _refreshTimer;
+
+    private bool _isDirty;
+    private bool _isDisposed;
+
+    // Fractional-minute accumulators for time-based quest categories.
+    private double _spiralMinutesAccumulator;
+    private double _pinkFilterMinutesAccumulator;
+    private double _brainDrainMinutesAccumulator;
+    private double _videoMinutesAccumulator;
+    private double _combinedMinutesAccumulator;
+    private double _autonomyMinutesAccumulator;
 
     /// <inheritdoc />
     public QuestProgress Progress { get; private set; }
@@ -27,19 +43,48 @@ public sealed class QuestService : IQuestService
     /// <inheritdoc />
     public event EventHandler? QuestsChanged;
 
+    public const int MaxDailyQuestsPerDay = 3;
+
     public QuestService(
         ISettingsService settingsService,
         ISkillTreeService skillTreeService,
         IAppEnvironment appEnvironment,
+        IQuestDefinitionService? questDefinitions = null,
+        IProgressionService? progression = null,
         ILogger<QuestService>? logger = null)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _skillTreeService = skillTreeService ?? throw new ArgumentNullException(nameof(skillTreeService));
         _appEnvironment = appEnvironment ?? throw new ArgumentNullException(nameof(appEnvironment));
+        _questDefinitions = questDefinitions;
+        _progression = progression;
         _logger = logger;
 
         _progressPath = Path.Combine(appEnvironment.UserDataPath, "quests.json");
         Progress = LoadProgress();
+
+        EnsureGenerated();
+
+        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _saveTimer.Tick += (_, _) => OnAutoSaveTick();
+        _saveTimer.Start();
+
+        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _refreshTimer.Tick += (_, _) =>
+        {
+            var dailyExpired = Progress.IsDailyExpired();
+            var weeklyExpired = Progress.IsWeeklyExpired();
+            if (dailyExpired || weeklyExpired)
+            {
+                _logger?.LogInformation("Quest rollover detected (daily={Daily}, weekly={Weekly})", dailyExpired, weeklyExpired);
+                EnsureGenerated();
+            }
+        };
+        _refreshTimer.Start();
+
+        _logger?.LogInformation("QuestService initialized. Daily: {Daily}, Weekly: {Weekly}",
+            Progress.DailyQuest?.DefinitionId ?? "none",
+            Progress.WeeklyQuest?.DefinitionId ?? "none");
     }
 
     #region Persistence
@@ -109,8 +154,16 @@ public sealed class QuestService : IQuestService
         }
     }
 
+    private void OnAutoSaveTick()
+    {
+        if (!_isDirty) return;
+        _isDirty = false;
+        _ = Task.Run(() => SaveProgress());
+    }
+
     private void OnQuestsChanged()
     {
+        _isDirty = true;
         SaveProgress();
         QuestsChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -124,16 +177,65 @@ public sealed class QuestService : IQuestService
     {
         bool changed = false;
 
+        // Daily quest: generate if missing/expired and slots remain.
         if ((Progress.DailyQuest == null || Progress.IsDailyExpired()) && !Progress.AreAllDailyQuestsCompleted())
         {
             GenerateDailyQuest();
             changed = true;
         }
 
+        // Auto-generate the next daily quest after completing one (up to 3 per day).
+        if (Progress.DailyQuest?.IsCompleted == true
+            && Progress.GetDailyQuestsCompletedToday() < MaxDailyQuestsPerDay)
+        {
+            var completedId = Progress.DailyQuest.DefinitionId;
+            GenerateDailyQuest(excludeId: completedId);
+            changed = true;
+        }
+
+        // Regenerate if the definition is no longer available (removed from server/pool).
+        if (Progress.DailyQuest != null && !Progress.DailyQuest.IsCompleted && GetDailyDefinition() == null)
+        {
+            _logger?.LogInformation("Daily quest definition '{QuestId}' no longer available, regenerating", Progress.DailyQuest.DefinitionId);
+            GenerateDailyQuest();
+            changed = true;
+        }
+
+        // Regenerate if premium access was lost.
+        if (Progress.DailyQuest != null && !Progress.DailyQuest.IsCompleted)
+        {
+            var def = GetDailyDefinition();
+            if (def != null && !IsQuestAvailableForTier(def))
+            {
+                _logger?.LogInformation("Daily quest '{QuestId}' requires premium (access lost), regenerating", Progress.DailyQuest.DefinitionId);
+                GenerateDailyQuest();
+                changed = true;
+            }
+        }
+
+        // Weekly quest: generate if missing/expired.
         if (Progress.WeeklyQuest == null || Progress.IsWeeklyExpired())
         {
             GenerateWeeklyQuest();
             changed = true;
+        }
+
+        if (Progress.WeeklyQuest != null && !Progress.WeeklyQuest.IsCompleted && GetWeeklyDefinition() == null)
+        {
+            _logger?.LogInformation("Weekly quest definition '{QuestId}' no longer available, regenerating", Progress.WeeklyQuest.DefinitionId);
+            GenerateWeeklyQuest();
+            changed = true;
+        }
+
+        if (Progress.WeeklyQuest != null && !Progress.WeeklyQuest.IsCompleted)
+        {
+            var def = GetWeeklyDefinition();
+            if (def != null && !IsQuestAvailableForTier(def))
+            {
+                _logger?.LogInformation("Weekly quest '{QuestId}' requires premium (access lost), regenerating", Progress.WeeklyQuest.DefinitionId);
+                GenerateWeeklyQuest();
+                changed = true;
+            }
         }
 
         if (changed)
@@ -142,17 +244,22 @@ public sealed class QuestService : IQuestService
         }
     }
 
-    private void GenerateDailyQuest()
+    private void GenerateDailyQuest(string? excludeId = null)
     {
-        var pool = QuestDefinition.DailyQuests;
+        var pool = _questDefinitions?.GetDailyQuests() ?? QuestDefinition.DailyQuests;
         if (pool.Count == 0) return;
 
-        var excludeId = Progress.DailyQuest?.DefinitionId;
-        var available = pool.Where(q => q.Id != excludeId).ToList();
+        var available = pool
+            .Where(q => q.Id != excludeId)
+            .Where(IsQuestAvailableForTier)
+            .ToList();
+
         if (available.Count == 0)
         {
-            available = pool.ToList();
+            available = pool.Where(IsQuestAvailableForTier).ToList();
         }
+
+        if (available.Count == 0) return;
 
         var selected = available[_random.Next(available.Count)];
         Progress.DailyQuest = new ActiveQuest(selected.Id);
@@ -160,17 +267,22 @@ public sealed class QuestService : IQuestService
         _logger?.LogInformation("Generated new daily quest: {QuestId}", selected.Id);
     }
 
-    private void GenerateWeeklyQuest()
+    private void GenerateWeeklyQuest(string? excludeId = null)
     {
-        var pool = QuestDefinition.WeeklyQuests;
+        var pool = _questDefinitions?.GetWeeklyQuests() ?? QuestDefinition.WeeklyQuests;
         if (pool.Count == 0) return;
 
-        var excludeId = Progress.WeeklyQuest?.DefinitionId;
-        var available = pool.Where(q => q.Id != excludeId).ToList();
+        var available = pool
+            .Where(q => q.Id != excludeId)
+            .Where(IsQuestAvailableForTier)
+            .ToList();
+
         if (available.Count == 0)
         {
-            available = pool.ToList();
+            available = pool.Where(IsQuestAvailableForTier).ToList();
         }
+
+        if (available.Count == 0) return;
 
         var selected = available[_random.Next(available.Count)];
         Progress.WeeklyQuest = new ActiveQuest(selected.Id);
@@ -178,11 +290,46 @@ public sealed class QuestService : IQuestService
         _logger?.LogInformation("Generated new weekly quest: {QuestId}", selected.Id);
     }
 
+    private bool HasPremiumAccess => _settingsService.Current?.HasCachedPremiumAccess == true;
+
+    private static bool IsQuestAvailableForLevel(QuestCategory category) => true;
+
+    private bool IsQuestAvailableForTier(QuestDefinition quest)
+    {
+        return !quest.RequiresPremium || HasPremiumAccess;
+    }
+
+    private QuestDefinition? GetDailyDefinition()
+    {
+        if (Progress.DailyQuest == null) return null;
+
+        var remote = _questDefinitions?.GetDailyQuests();
+        if (remote != null)
+        {
+            var remoteQuest = remote.FirstOrDefault(q => q.Id == Progress.DailyQuest.DefinitionId);
+            if (remoteQuest != null) return remoteQuest;
+        }
+
+        return QuestDefinition.DailyQuests.FirstOrDefault(q => q.Id == Progress.DailyQuest.DefinitionId);
+    }
+
+    private QuestDefinition? GetWeeklyDefinition()
+    {
+        if (Progress.WeeklyQuest == null) return null;
+
+        var remote = _questDefinitions?.GetWeeklyQuests();
+        if (remote != null)
+        {
+            var remoteQuest = remote.FirstOrDefault(q => q.Id == Progress.WeeklyQuest.DefinitionId);
+            if (remoteQuest != null) return remoteQuest;
+        }
+
+        return QuestDefinition.WeeklyQuests.FirstOrDefault(q => q.Id == Progress.WeeklyQuest.DefinitionId);
+    }
+
     #endregion
 
     #region Rerolls
-
-    private bool HasPremiumAccess => _settingsService.Current?.HasCachedPremiumAccess == true;
 
     /// <inheritdoc />
     public int GetRemainingDailyRerolls()
@@ -238,7 +385,7 @@ public sealed class QuestService : IQuestService
         }
 
         var oldId = Progress.DailyQuest?.DefinitionId;
-        GenerateDailyQuest();
+        GenerateDailyQuest(excludeId: oldId);
         Progress.DailyRerollsUsed++;
         _logger?.LogInformation("Daily quest rerolled from {OldId} to {NewId}", oldId, Progress.DailyQuest?.DefinitionId);
         OnQuestsChanged();
@@ -261,7 +408,7 @@ public sealed class QuestService : IQuestService
         }
 
         var oldId = Progress.WeeklyQuest?.DefinitionId;
-        GenerateWeeklyQuest();
+        GenerateWeeklyQuest(excludeId: oldId);
         Progress.WeeklyRerollsUsed++;
         _logger?.LogInformation("Weekly quest rerolled from {OldId} to {NewId}", oldId, Progress.WeeklyQuest?.DefinitionId);
         OnQuestsChanged();
@@ -288,14 +435,15 @@ public sealed class QuestService : IQuestService
 
             if (Progress.DailyQuest.CurrentProgress >= dailyDef.TargetValue)
             {
-                Progress.DailyQuest.IsCompleted = true;
-                Progress.DailyQuest.CompletedAt = DateTime.Now;
+                CompleteQuest(Progress.DailyQuest, dailyDef, QuestType.Daily);
+                return;
             }
             changed = true;
         }
 
         var weeklyDef = GetWeeklyDefinition();
-        if (weeklyDef != null && weeklyDef.Category == category && Progress.WeeklyQuest?.IsCompleted == false)
+        var weeklyHasDedicatedTracking = weeklyDef?.Id is "conditioning_champion_w" or "streak_keeper_w";
+        if (weeklyDef != null && weeklyDef.Category == category && Progress.WeeklyQuest?.IsCompleted == false && !weeklyHasDedicatedTracking)
         {
             Progress.WeeklyQuest.CurrentProgress = Math.Min(
                 Progress.WeeklyQuest.CurrentProgress + amount,
@@ -303,8 +451,8 @@ public sealed class QuestService : IQuestService
 
             if (Progress.WeeklyQuest.CurrentProgress >= weeklyDef.TargetValue)
             {
-                Progress.WeeklyQuest.IsCompleted = true;
-                Progress.WeeklyQuest.CompletedAt = DateTime.Now;
+                CompleteQuest(Progress.WeeklyQuest, weeklyDef, QuestType.Weekly);
+                return;
             }
             changed = true;
         }
@@ -316,53 +464,236 @@ public sealed class QuestService : IQuestService
     }
 
     /// <inheritdoc />
-    public void TrackMantraCompleted()
+    public void TrackMantraCompleted() => AddProgress(QuestCategory.Mantra, 1);
+
+    /// <inheritdoc />
+    public void TrackFlashImage() => AddProgress(QuestCategory.Flash, 1);
+
+    /// <inheritdoc />
+    public void TrackBubblePopped() => AddProgress(QuestCategory.Bubbles, 1);
+
+    /// <inheritdoc />
+    public void TrackSessionCompleted() => AddProgress(QuestCategory.Session, 1);
+
+    /// <inheritdoc />
+    public void TrackLockCardCompleted() => AddProgress(QuestCategory.LockCard, 1);
+
+    /// <inheritdoc />
+    public void TrackBubbleCountCompleted() => AddProgress(QuestCategory.BubbleCount, 1);
+
+    /// <inheritdoc />
+    public void TrackLockdownCompleted() => AddProgress(QuestCategory.Lockdown, 1);
+
+    /// <inheritdoc />
+    public void TrackRemoteCommand() => AddProgress(QuestCategory.Remote, 1);
+
+    /// <inheritdoc />
+    public void TrackKeywordTrigger() => AddProgress(QuestCategory.KeywordTrigger, 1);
+
+    /// <inheritdoc />
+    public void TrackBlinkTrainerBlink() => AddProgress(QuestCategory.BlinkTrainer, 1);
+
+    /// <inheritdoc />
+    public void TrackSpiralMinutes(double minutes)
     {
-        AddProgress(QuestCategory.Mantra, 1);
+        _spiralMinutesAccumulator += minutes;
+        _combinedMinutesAccumulator += minutes;
+
+        if (_spiralMinutesAccumulator >= 1.0)
+        {
+            int whole = (int)Math.Floor(_spiralMinutesAccumulator);
+            AddProgress(QuestCategory.Spiral, whole);
+            _spiralMinutesAccumulator -= whole;
+        }
+
+        if (_combinedMinutesAccumulator >= 1.0)
+        {
+            int whole = (int)Math.Floor(_combinedMinutesAccumulator);
+            AddProgress(QuestCategory.Combined, whole);
+            _combinedMinutesAccumulator -= whole;
+        }
     }
 
-    private QuestDefinition? GetDailyDefinition()
+    /// <inheritdoc />
+    public void TrackPinkFilterMinutes(double minutes)
     {
-        if (Progress.DailyQuest == null) return null;
-        return QuestDefinition.DailyQuests.FirstOrDefault(q => q.Id == Progress.DailyQuest.DefinitionId);
+        _pinkFilterMinutesAccumulator += minutes;
+        _combinedMinutesAccumulator += minutes;
+
+        if (_pinkFilterMinutesAccumulator >= 1.0)
+        {
+            int whole = (int)Math.Floor(_pinkFilterMinutesAccumulator);
+            AddProgress(QuestCategory.PinkFilter, whole);
+            _pinkFilterMinutesAccumulator -= whole;
+        }
+
+        if (_combinedMinutesAccumulator >= 1.0)
+        {
+            int whole = (int)Math.Floor(_combinedMinutesAccumulator);
+            AddProgress(QuestCategory.Combined, whole);
+            _combinedMinutesAccumulator -= whole;
+        }
     }
 
-    private QuestDefinition? GetWeeklyDefinition()
+    /// <inheritdoc />
+    public void TrackBrainDrainMinutes(double minutes)
     {
-        if (Progress.WeeklyQuest == null) return null;
-        return QuestDefinition.WeeklyQuests.FirstOrDefault(q => q.Id == Progress.WeeklyQuest.DefinitionId);
+        _brainDrainMinutesAccumulator += minutes;
+        _combinedMinutesAccumulator += minutes;
+
+        if (_brainDrainMinutesAccumulator >= 1.0)
+        {
+            _brainDrainMinutesAccumulator -= (int)Math.Floor(_brainDrainMinutesAccumulator);
+        }
+
+        if (_combinedMinutesAccumulator >= 1.0)
+        {
+            int whole = (int)Math.Floor(_combinedMinutesAccumulator);
+            AddProgress(QuestCategory.Combined, whole);
+            _combinedMinutesAccumulator -= whole;
+        }
+    }
+
+    /// <inheritdoc />
+    public void TrackVideoMinutes(double minutes)
+    {
+        _videoMinutesAccumulator += minutes;
+
+        if (_videoMinutesAccumulator >= 1.0)
+        {
+            int whole = (int)Math.Floor(_videoMinutesAccumulator);
+            AddProgress(QuestCategory.Video, whole);
+            _videoMinutesAccumulator -= whole;
+        }
+    }
+
+    /// <inheritdoc />
+    public void TrackAutonomyMinutes(double minutes)
+    {
+        _autonomyMinutesAccumulator += minutes;
+
+        if (_autonomyMinutesAccumulator >= 1.0)
+        {
+            int whole = (int)Math.Floor(_autonomyMinutesAccumulator);
+            AddProgress(QuestCategory.Autonomy, whole);
+            _autonomyMinutesAccumulator -= whole;
+        }
+    }
+
+    /// <inheritdoc />
+    public void TrackXPEarned(int xp)
+    {
+        if (xp <= 0) return;
+
+        var weeklyDef = GetWeeklyDefinition();
+        if (weeklyDef?.Id == "conditioning_champion_w" && Progress.WeeklyQuest?.IsCompleted == false)
+        {
+            Progress.WeeklyQuest.CurrentProgress += xp;
+            if (Progress.WeeklyQuest.CurrentProgress >= weeklyDef.TargetValue)
+            {
+                CompleteQuest(Progress.WeeklyQuest, weeklyDef, QuestType.Weekly);
+            }
+            else
+            {
+                OnQuestsChanged();
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public void TrackStreak(int currentStreak)
+    {
+        var weeklyDef = GetWeeklyDefinition();
+        if (weeklyDef?.Id == "streak_keeper_w" && Progress.WeeklyQuest?.IsCompleted == false)
+        {
+            Progress.WeeklyQuest.CurrentProgress = Math.Max(Progress.WeeklyQuest.CurrentProgress, currentStreak);
+            if (Progress.WeeklyQuest.CurrentProgress >= weeklyDef.TargetValue)
+            {
+                CompleteQuest(Progress.WeeklyQuest, weeklyDef, QuestType.Weekly);
+            }
+            else
+            {
+                OnQuestsChanged();
+            }
+        }
     }
 
     /// <inheritdoc />
     public void CompleteDailyQuest()
     {
-        var settings = _settingsService.Current;
-        if (settings == null) return;
-
-        int xp = GetScaledDailyXp();
-
-        Progress.GetDailyQuestsCompletedToday();
-        Progress.DailyQuestsCompletedToday++;
-        Progress.TotalDailyQuestsCompleted++;
-
-        var today = DateTime.Today;
-        if (!Progress.DailyQuestCompletionDates.Contains(today))
+        var def = GetDailyDefinition();
+        if (Progress.DailyQuest != null && def != null && !Progress.DailyQuest.IsCompleted)
         {
-            Progress.DailyQuestCompletionDates.Add(today);
+            CompleteQuest(Progress.DailyQuest, def, QuestType.Daily);
+        }
+    }
+
+    private void CompleteQuest(ActiveQuest quest, QuestDefinition def, QuestType type)
+    {
+        if (quest.IsCompleted) return;
+
+        quest.IsCompleted = true;
+        quest.CompletedAt = DateTime.Now;
+
+        int xp = type == QuestType.Daily ? GetScaledDailyXp() : GetScaledWeeklyXp();
+
+        if (type == QuestType.Daily)
+        {
+            Progress.GetDailyQuestsCompletedToday();
+            Progress.DailyQuestsCompletedToday++;
+            Progress.TotalDailyQuestsCompleted++;
+
+            var today = DateTime.Today;
+            if (!Progress.DailyQuestCompletionDates.Contains(today))
+            {
+                Progress.DailyQuestCompletionDates.Add(today);
+            }
+
+            var cutoff = today.AddDays(-90);
+            Progress.DailyQuestCompletionDates.RemoveAll(d => d.Date < cutoff);
+            _settingsService.Current?.StreakShieldUsedDates?.RemoveAll(d => d.Date < cutoff);
+
+            var yesterday = today.AddDays(-1);
+            var settings = _settingsService.Current;
+            if (settings != null
+                && !Progress.DailyQuestCompletionDates.Any(d => d.Date == yesterday)
+                && settings.LastDailyQuestDate?.Date < yesterday)
+            {
+                if (_skillTreeService.UseStreakShield())
+                {
+                    Progress.DailyQuestCompletionDates.Add(yesterday);
+                    if (!settings.StreakShieldUsedDates.Contains(yesterday))
+                        settings.StreakShieldUsedDates.Add(yesterday);
+                    _logger?.LogInformation("Quest streak shield used! Filled gap at {Date}", yesterday);
+                }
+            }
+
+            if (!Progress.DailyQuestCompletionDates.Contains(today))
+            {
+                Progress.DailyQuestCompletionDates.Add(today);
+            }
+
+            AdvanceQuestStreak();
+            RecalculateStreak();
+        }
+        else
+        {
+            Progress.TotalWeeklyQuestsCompleted++;
         }
 
         Progress.TotalXPFromQuests += xp;
-        settings.PlayerXP += xp;
+        _progression?.AddXP(xp, XPSource.Other);
 
-        Progress.DailyQuest = null;
-        _settingsService.Save();
+        _logger?.LogInformation(
+            "Quest completed: {QuestName} ({Type}) - Awarded {XP} XP",
+            def.Name, type, xp);
 
-        _logger?.LogInformation("Daily quest completed: awarded {Xp} XP", xp);
         OnQuestsChanged();
 
-        if (!Progress.AreAllDailyQuestsCompleted())
+        if (type == QuestType.Daily && Progress.DailyQuestsCompletedToday < MaxDailyQuestsPerDay)
         {
-            EnsureGenerated();
+            GenerateDailyQuest(excludeId: def.Id);
+            OnQuestsChanged();
         }
     }
 
@@ -372,7 +703,8 @@ public sealed class QuestService : IQuestService
         var settings = _settingsService.Current;
         int playerLevel = settings?.PlayerLevel ?? 1;
         int questStreak = settings?.DailyQuestStreak ?? 0;
-        return (int)Math.Round(150 * (1 + playerLevel * 0.04) * (1 + questStreak * 0.03));
+        int baseXp = GetDailyDefinition()?.XPReward ?? 150;
+        return (int)Math.Round(baseXp * (1 + playerLevel * 0.04) * (1 + questStreak * 0.03));
     }
 
     /// <inheritdoc />
@@ -381,7 +713,85 @@ public sealed class QuestService : IQuestService
         var settings = _settingsService.Current;
         int playerLevel = settings?.PlayerLevel ?? 1;
         int questStreak = settings?.DailyQuestStreak ?? 0;
-        return (int)Math.Round(600 * (1 + playerLevel * 0.04) * (1 + questStreak * 0.03));
+        int baseXp = GetWeeklyDefinition()?.XPReward ?? 600;
+        return (int)Math.Round(baseXp * (1 + playerLevel * 0.04) * (1 + questStreak * 0.03));
+    }
+
+    private void AdvanceQuestStreak()
+    {
+        var settings = _settingsService.Current;
+        if (settings == null) return;
+
+        var yesterday = DateTime.Today.AddDays(-1);
+        bool continuesStreak =
+            Progress.DailyQuestCompletionDates.Any(d => d.Date == yesterday)
+            || (settings.StreakShieldUsedDates?.Any(d => d.Date == yesterday) ?? false);
+
+        if (continuesStreak || settings.DailyQuestStreak <= 0)
+        {
+            settings.DailyQuestStreak++;
+        }
+        else
+        {
+            _logger?.LogInformation("Quest streak reset to 1 — gap before {Today} (was {Prev})",
+                DateTime.Today.ToString("yyyy-MM-dd"), settings.DailyQuestStreak);
+            settings.DailyQuestStreak = 1;
+        }
+
+        settings.LastDailyQuestDate = DateTime.Today;
+        _settingsService.Save();
+    }
+
+    private void RecalculateStreak()
+    {
+        var settings = _settingsService.Current;
+        if (settings == null) return;
+
+        var completedDates = new HashSet<DateTime>(
+            Progress.DailyQuestCompletionDates.Select(d => d.Date));
+
+        if (settings.StreakShieldUsedDates != null)
+        {
+            foreach (var shieldDate in settings.StreakShieldUsedDates)
+                completedDates.Add(shieldDate.Date);
+        }
+
+        int streak = 0;
+        var checkDate = DateTime.Today;
+        if (!completedDates.Contains(checkDate))
+            checkDate = checkDate.AddDays(-1);
+
+        while (completedDates.Contains(checkDate))
+        {
+            streak++;
+            checkDate = checkDate.AddDays(-1);
+        }
+
+        if (streak > settings.DailyQuestStreak)
+        {
+            _logger?.LogDebug("RecalculateStreak: calendar proves {Calculated} > stored {Current} — repairing upward",
+                streak, settings.DailyQuestStreak);
+            settings.DailyQuestStreak = streak;
+        }
+    }
+
+    #endregion
+
+    #region IDisposable
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (_isDisposed) return;
+        _isDisposed = true;
+
+        _saveTimer.Stop();
+        _refreshTimer.Stop();
+
+        if (_isDirty)
+        {
+            SaveProgress();
+        }
     }
 
     #endregion

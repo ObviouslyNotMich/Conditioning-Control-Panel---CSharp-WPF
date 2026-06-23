@@ -184,6 +184,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<IRoadmapService, AvaloniaRoadmapService>();
         services.AddSingleton<IQuestService, QuestService>();
+        services.AddSingleton<IQuestDefinitionService, QuestDefinitionService>();
         services.AddSingleton<IMantraService, MantraService>();
         services.AddSingleton<IAchievementService, AchievementService>();
 

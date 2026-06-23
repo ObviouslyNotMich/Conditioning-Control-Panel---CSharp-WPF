@@ -45,6 +45,86 @@ public interface IQuestService
     void TrackMantraCompleted();
 
     /// <summary>
+    /// Records that a flash image was viewed.
+    /// </summary>
+    void TrackFlashImage();
+
+    /// <summary>
+    /// Records spiral overlay time in minutes.
+    /// </summary>
+    void TrackSpiralMinutes(double minutes);
+
+    /// <summary>
+    /// Records pink filter overlay time in minutes.
+    /// </summary>
+    void TrackPinkFilterMinutes(double minutes);
+
+    /// <summary>
+    /// Records brain-drain overlay time in minutes.
+    /// </summary>
+    void TrackBrainDrainMinutes(double minutes);
+
+    /// <summary>
+    /// Records that a bubble was popped.
+    /// </summary>
+    void TrackBubblePopped();
+
+    /// <summary>
+    /// Records video watch time in minutes.
+    /// </summary>
+    void TrackVideoMinutes(double minutes);
+
+    /// <summary>
+    /// Records that a session was completed.
+    /// </summary>
+    void TrackSessionCompleted();
+
+    /// <summary>
+    /// Records that a lock card was completed.
+    /// </summary>
+    void TrackLockCardCompleted();
+
+    /// <summary>
+    /// Records that a bubble-count minigame was completed.
+    /// </summary>
+    void TrackBubbleCountCompleted();
+
+    /// <summary>
+    /// Records Bambi Takeover active time in minutes.
+    /// </summary>
+    void TrackAutonomyMinutes(double minutes);
+
+    /// <summary>
+    /// Records that a lockdown was completed.
+    /// </summary>
+    void TrackLockdownCompleted();
+
+    /// <summary>
+    /// Records that a remote-control command was received.
+    /// </summary>
+    void TrackRemoteCommand();
+
+    /// <summary>
+    /// Records that a keyword/OCR trigger fired.
+    /// </summary>
+    void TrackKeywordTrigger();
+
+    /// <summary>
+    /// Records that a blink was logged in the live blink trainer.
+    /// </summary>
+    void TrackBlinkTrainerBlink();
+
+    /// <summary>
+    /// Records XP earned (used by the conditioning_champion_w weekly quest).
+    /// </summary>
+    void TrackXPEarned(int xp);
+
+    /// <summary>
+    /// Records the current streak (used by the streak_keeper_w weekly quest).
+    /// </summary>
+    void TrackStreak(int currentStreak);
+
+    /// <summary>
     /// Marks the current daily quest as completed, awards XP, and clears the slot
     /// so <see cref="EnsureGenerated"/> can create the next daily quest.
     /// </summary>
