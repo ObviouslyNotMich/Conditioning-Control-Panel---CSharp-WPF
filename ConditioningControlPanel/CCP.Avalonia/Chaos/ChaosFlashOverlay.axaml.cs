@@ -43,7 +43,7 @@ public partial class ChaosFlashOverlay : Window
 _img = new Image { Stretch = Stretch.UniformToFill, IsHitTestVisible = false };
         Content = _img;
 
-        var (sl, st, sw, sh) = AvaloniaChaosWindowZ.StageBounds();
+        var (sl, st, sw, sh) = AvaloniaChaosWindowZ.StageBounds(forcePrimary: true);
         Position = new PixelPoint((int)sl, (int)st);
         Width = sw;
         Height = sh;

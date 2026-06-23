@@ -52,7 +52,7 @@ WindowDecorations = WindowDecorations.None;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
-        var (sl, st, sw, sh) = AvaloniaChaosWindowZ.StageBounds();
+        var (sl, st, sw, sh) = AvaloniaChaosWindowZ.StageBounds(forcePrimary: true);
         Position = new PixelPoint((int)sl, (int)st);
         Width = sw;
         Height = sh;
