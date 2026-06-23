@@ -70,6 +70,12 @@ remaining hard-coded dialogs) plus mobile polish — not scaffolding.
 > context**. The live work queue is `docs/avalonia-migration-task-board.md`; the current cross-merge backlog
 > is §19.3.
 
+> **⚠️ `main` 6.1.7 merged (2026-06-23):** branch is caught up. The on-branch WPF 6.1.7 code (Chaos "Down the
+> Rabbit Hole" main menu, quest-pool refresh, auth browser-launch fallback, subliminal/avatar fixes) now needs
+> **porting to Core/Avalonia** — see §19.3 and the goal's STEP 0. ⚠️ The `Quest.cs`/`AppSettings.cs` deltas were
+> **dropped** in conflict resolution (modify/delete → kept deleted), so they're NOT in Core — re-apply them.
+> (Merge also left a stale `using` that broke the Core build; fixed — Core + desktop build green.)
+
 | Phase | Status | Evidence / Notes |
 |---|---|---|
 | 0 — Cleanup | ✅ done | The 3 dead deps (`SharpDX`, `OpenAI-DotNet`, `OllamaSharp`) are removed from **all** projects (verified: 0 references); `NAudio`/`OpenCvSharp`/WebView2 are confined to the Windows head. The WPF head still carries the packages it genuinely needs to keep running (MahApps, XamlAnimatedGif, etc.) **by design**. |
@@ -1355,9 +1361,37 @@ makes that process explicit — it is the practical answer to "where do the chan
 3. Port, then `dotnet build CCP.Desktop.slnf -clp:ErrorsOnly` and run `CCP.Core.Tests`.
 4. Record anything deferred in `docs/avalonia-migration-task-board.md` so it isn't lost.
 
-### 19.3 Current sync backlog — merge of `main` (commit `22caaab4`, 2026-06-21)
+### 19.3 Current sync backlog — `main` 6.1.7 update (2026-06-23)
 
-These `main` changes landed in the WPF head but are **not yet** reflected in Core/Avalonia:
+`main` **6.1.7 is merged** (2026-06-23; branch caught up). The on-branch WPF code now needs porting to Core/Avalonia.
+⚠️ The `Models/Quest.cs` / `Models/AppSettings.cs` deltas were **dropped** in the merge (modify/delete resolved
+keep-deleted — confirmed: no patron pool / StoryMode / FIELD_PACE in Core), so **re-apply them to `CCP.Core/Models/`
+by hand.** (The merge also left a stale `using ConditioningControlPanel.Localization` in Core `Quest.cs` → fixed to
+`.Core.Localization`; Core + desktop build green.) Not yet in Core/Avalonia:
+
+| Item | Landed in (WPF) | Port to | Notes |
+|---|---|---|---|
+| `Quest` model + pool refresh (20 free + 20 patron) | `Models/Quest.cs` (+114), `Services/Progression/QuestService.cs` (+88), `QuestDefinitionService.cs` | `CCP.Core/Models/Quest.cs` + Core quest services | Model delta applied by hand to Core (file deleted on our branch). |
+| 20 quest art PNGs (bundled in-app, no CDN) | `Resources/quests/*.png` | `CCP.Avalonia` `AvaloniaResource`/Content | Wire into Quests tab/cards. |
+| **Chaos "Down the Rabbit Hole" main menu** | `Chaos/ChaosHubWindow.xaml` (+321) + `.xaml.cs` (+1036) | existing `CCP.Avalonia/Chaos/ChaosHubWindow.*` | Biggest item: neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade. |
+| Chaos backdrop glint FX | `Chaos/ChaosBackdropService.cs` (+405), `Services/Chaos/ChaosArt.cs` (+38), `ChaosTuning.cs` (+14) | `CCP.Avalonia/Chaos` + Core | Authored glint FX on gameplay depth backdrops + main menu. |
+| ~70 Chaos menu/backdrop assets + soundtrack | `assets/Chaos/backdrops/*`, `menu*.png`, `*_fx.json`, `sounds/chaos/menu_theme.mp3` | `CCP.Avalonia` `AvaloniaResource`/Content | Needed by the menu/backdrop port. |
+| **Auth graceful browser-launch fallback** | new `Helpers/BrowserLauncher.cs` (+101); `Account/DiscordService` (+10), `PatreonService` (+9), `SubscribeStarService` (+9) | Core auth + `IBrowserHost`/system-open | **Ties to dead-auth gap A** — implement cross-platform (xdg-open/open on Linux/macOS). |
+| Subliminal double-flash fixes | `Services/Subliminal/SubliminalService.cs` (+47), `Features/SubliminalFeatureControl.xaml.cs` (+16) | Avalonia subliminal service/control | Stop prev phrase flashing + drop stale timer tick. |
+| Avatar focus-steal fix | `AvatarTube/AvatarTubeWindow.xaml` (+1) | `CCP.Avalonia/AvatarTube` | Companion window no longer steals focus / cancels typing. |
+| `UpdateService` rework (+89) | `Services/Update/UpdateService.cs` | Core update logic | Reconcile against the already-ported Core `UpdateService`. |
+| `AppSettings` +7 (Story re-lock / FIELD_PACE etc.) | `Models/AppSettings.cs` | `CCP.Core/Models/AppSettings.cs` | Apply by hand to Core. |
+| Small deltas | `BubbleService` (FIELD_PACE knob), `BlinkTrainerService`, `KeywordTriggerService`, `Progression/AchievementService`, `MainWindow.UiUpdates`, `LabTabView.xaml` (+108) | matching Core/Avalonia | Verify each. |
+| Localization (+2 keys ×9 langs) | `Localization/Languages/*.json` | — (auto-synced, §19.1) | No manual port; reference new keys in ported views. |
+
+> **Also re-verify** anything these WPF fixes touched (subliminal flashing, avatar focus, bubble pace) against the
+> new 6.1.7 behavior — existing matrix rows for those may now be wrong.
+
+---
+
+### 19.3a Previously completed — 6.1.6 sync (commit `22caaab4`, 2026-06-21)
+
+These `main` changes landed in the WPF head and have been ported (kept for record):
 
 | Item | Landed in (WPF) | Port to | Notes |
 |---|---|---|---|

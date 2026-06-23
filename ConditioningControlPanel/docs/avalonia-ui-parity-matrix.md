@@ -4,6 +4,10 @@
 untrustworthy (a prune can break what leaned on a removed abstraction). So every item starts **unverified** and is
 re-checked from scratch by *exercising it in the running app*. The old detailed matrix is in git history if needed.
 
+> ⚠️ **`main` moved to 6.1.7 (2026-06-23).** New WPF work must be ported *and then verified* — see "New in 6.1.7"
+> below and the backlog in plan §19.3. The 6.1.7 fixes also changed existing behavior (subliminal flashing, avatar
+> focus, bubble pace), so re-check those rows against the **updated** WPF, not your memory of 6.1.6.
+
 ## Status
 
 - `[ ]` unverified — **default. Do not trust; nothing is "done" until exercised.**
@@ -33,6 +37,15 @@ task board → **Known Functional Gaps**.
 - [ ] **Multi-monitor (N screens)** incl. mixed landscape+portrait, per-monitor scale; single-display setting honored — §7.5
 - [x] **Per-mod theme re-skin** across all 5 (CCP Default, Bambi, Sissy Hypno, Droneification, Circe Lock) — smoke test switches mods and captures dashboard+tube screenshots for each theme with 0 exceptions/findings.
 - [ ] **Performance** — startup, frame rates, memory match-or-beat WPF — §13.4
+
+## New in 6.1.7 (port from main, then verify — plan §19.3)
+
+- [ ] **Chaos "Down the Rabbit Hole" main menu** — neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade (`ChaosHubWindow` + `ChaosBackdropService` glint FX + ~70 assets/soundtrack)
+- [ ] **Quest pool refresh** — 20 free + 20 patron quests with 20 bundled art PNGs (`Quest` model + `QuestService`)
+- [ ] **Auth graceful browser-launch fallback** — `BrowserLauncher` + Discord/Patreon/SubscribeStar (ties to login gap; cross-platform open)
+- [ ] **Subliminal double-flash fix** — re-verify no prev-phrase flash / stale-timer double flash (changed in 6.1.7)
+- [ ] **Avatar focus-steal fix** — companion window must not steal focus / cancel typing (changed in 6.1.7)
+- [ ] **Bubble pace (FIELD_PACE) / ChaosArt / ChaosTuning / Achievement / KeywordTrigger / Lab tab** small deltas
 
 ## Tab views (`Views/Tabs`)
 

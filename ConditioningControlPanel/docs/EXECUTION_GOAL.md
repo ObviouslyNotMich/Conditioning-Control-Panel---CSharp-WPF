@@ -67,17 +67,22 @@ Bambi = `bambi sleep good view.jpg` · Droneification = `drone good view.jpg` ·
 
 ---
 
-## STEP 0 — reconcile the latest `main` merge (BEFORE porting anything new)
+## STEP 0 — reconcile the `main` 6.1.7 update (BEFORE porting anything new)
 
-`main` was merged into `feat/crossplatform` and added WPF code the Core/Avalonia copies don't have yet (plan §19).
-1. Re-verify the sync backlog vs the tree (AppSettings fields, ChaosSkiaFxOverlay, ChaosBoonColors, host overlays,
-   ChaosCrashSentinel, BubbleService overhaul, UpdateService rework, Fredoka.ttf, ModService/FlashService/
-   GlobalMouseHook deltas). Mark what's done.
-2. Detect further drift: `git diff --stat <prev-main>..<new-main> -- ConditioningControlPanel/`; bucket each file —
-   Model → Core, portable service → Core, UI → Avalonia, infra/installer → ignore, localization JSON → auto-synced.
-3. Port outstanding items; keep the backlog current.
-4. **Do model-unification first (plan §19.4):** make `CCP.Core` the single source of truth for models and delete the
-   WPF `Models/` duplicates — it permanently removes the copy-drift and shrinks every later step.
+`main` **6.1.7 is merged** (branch caught up); the on-branch WPF 6.1.7 code now needs porting into Core/Avalonia.
+⚠️ The merge **dropped** main's `Models/Quest.cs` / `Models/AppSettings.cs` edits (modify/delete → kept deleted —
+confirmed not in Core), so the quest-pool refresh + new settings must be **re-applied to `CCP.Core/Models/` by
+hand**. Full grounded backlog is plan **§19.3**. Bucketed:
+
+- **Models → `CCP.Core/Models`:** `Quest.cs` (+114, quest-pool refresh: 20 free + 20 patron), `AppSettings.cs` (+7, incl. Story re-lock / FIELD_PACE).
+- **Portable services → `CCP.Core`:** Quest pool (`QuestService` +88, `QuestDefinitionService`), `AchievementService` (+17), `UpdateService` rework (+89), `KeywordTriggerService`, `ChaosArt`/`ChaosTuning`. **Auth browser-launch fallback** — new `Helpers/BrowserLauncher.cs` (+101) + Discord/Patreon/SubscribeStar service deltas (graceful OAuth launch — **ties to the dead-auth gap A**; do via `IBrowserHost`/system-open cross-platform).
+- **UI → `CCP.Avalonia`:** **Chaos "Down the Rabbit Hole" main menu** — biggest item: `ChaosHubWindow.xaml` (+321) + `.xaml.cs` (+1036) → port into the existing `CCP.Avalonia/Chaos/ChaosHubWindow.*` (neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade). `ChaosBackdropService` (+405, authored glint FX on depth backdrops). **Subliminal double-flash fixes** (`SubliminalService` +47 + `SubliminalFeatureControl`). **Avatar focus-steal fix** (`AvatarTubeWindow.xaml`). `BubbleService` FIELD_PACE knob. `LabTabView.xaml` (+108). `MainWindow.UiUpdates`/`MainWindow.xaml`.
+- **Assets → add as `AvaloniaResource`/Content:** ~70 new Chaos assets (`assets/Chaos/backdrops/*`, `menu*.png`, `menu_fx.json`/`backdrop_fx.json`, `sounds/chaos/menu_theme.mp3`) + 20 quest art PNGs in `Resources/quests/` (now bundled in-app, no CDN).
+- **Localization → auto-synced** (Core links the language JSON; +2 keys each). No manual port — just reference new keys in ported views.
+
+Steps: (1) merge is **done** — re-apply the dropped `Quest.cs`/`AppSettings.cs` deltas to Core by hand; (2) port the
+buckets above; (3) refresh §19.3 to done/remaining; (4) **re-verify** anything the WPF fixes touched (subliminal,
+avatar focus, bubble pace) against the new WPF behavior — those existing matrix rows may now be wrong.
 
 ## WORKFLOW
 
