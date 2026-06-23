@@ -137,6 +137,7 @@ Append a row to **claim**; the orchestrator marks `✅ done` and removes the row
 | `CCP.Core/Models/AppSettings.cs` + small service deltas | AppSettings +7 and small service deltas: apply Story re-lock/FIELD_PACE and related fields to CCP.Core/Models/AppSettings.cs; port BubbleService FIELD_PACE, KeywordTriggerService, BlinkTrainerService, AchievementService, UpdateService rework deltas | agent | `🚧 wip @you` | `feat/crossplatform` | 2026-06-23 | Claiming lane. |
 | `CCP.Avalonia/Chaos/ChaosHubWindow.*` | Chaos 'Down the Rabbit Hole' main menu: port ChaosHubWindow.xaml/.xaml.cs (+1357 lines) into existing CCP.Avalonia/Chaos/ChaosHubWindow.* with neon logo, How-to-Play tutorial overlay, menu soundtrack, pink fog, intro reveal, FX crossfade; add ~70 assets as AvaloniaResource/Content | agent-18 | `🚧 wip @agent-18` | `feat/crossplatform` | 2026-06-23 | Claiming lane. |
 | Auth graceful browser-launch fallback | Port Helpers/BrowserLauncher.cs to Core using IBrowserHost/system-open; update Discord/Patreon/SubscribeStar providers in Avalonia to use it; verify login flow falls back gracefully | you | `🚧 wip @you` | `feat/crossplatform` | 2026-06-23 | Claiming lane. |
+| `CCP.Core/Services/Quests` + `CCP.Avalonia/Assets/quests` | Quest pool refresh: port WPF QuestService/QuestDefinitionService deltas and bundle 20 quest art PNGs into CCP.Avalonia; verify Quests tab shows free+patron quests | @you | `🚧 wip` | `feat/crossplatform` | 2026-06-23 | Claiming lane. |
 
 ### Hand-off Queue (porter → orchestrator)
 
