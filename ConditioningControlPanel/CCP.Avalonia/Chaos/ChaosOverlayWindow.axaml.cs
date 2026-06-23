@@ -63,7 +63,9 @@ public partial class ChaosOverlayWindow : Window
         StoryBox.RenderTransform = _storyBoxScale;
         StoryAdvance.RenderTransform = _storyAdvanceT;
         Topmost = AvaloniaChaosWindowZ.BornTopmost;
-        var bounds = AvaloniaChaosWindowZ.StageBounds();
+        // ponytail: keep the roguelike game UI on the primary monitor; ambient overlays
+        // (pink filter, spiral, bubbles, video, flash, subliminal) still respect DualMonitorEnabled.
+        var bounds = AvaloniaChaosWindowZ.StageBounds(forcePrimary: true);
         Position = new PixelPoint((int)bounds.left, (int)bounds.top);
         Width = bounds.width;
         Height = bounds.height;

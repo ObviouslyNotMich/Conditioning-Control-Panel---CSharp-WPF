@@ -48,12 +48,12 @@ internal static class AvaloniaChaosWindowZ
     /// Bounds (DIPs) a full-screen chaos overlay should cover. Single-monitor unless
     /// DualMonitorEnabled is true.
     /// </summary>
-    public static (double left, double top, double width, double height) StageBounds()
+    public static (double left, double top, double width, double height) StageBounds(bool forcePrimary = false)
     {
-        bool dual = App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current?.DualMonitorEnabled ?? true;
         var screens = GetScreens();
         if (screens == null) return (0, 0, 1920, 1080);
 
+        bool dual = !forcePrimary && (App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current?.DualMonitorEnabled ?? true);
         if (dual)
         {
             var all = screens.All;
