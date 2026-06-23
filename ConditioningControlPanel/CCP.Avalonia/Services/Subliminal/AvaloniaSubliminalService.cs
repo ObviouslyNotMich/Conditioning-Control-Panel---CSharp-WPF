@@ -12,6 +12,7 @@ using ConditioningControlPanel;
 using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Progression;
+using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Subliminal;
 using ConditioningControlPanel.Models;
@@ -28,6 +29,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
     private readonly ISettingsService _settings;
     private readonly IScreenProvider _screens;
     private readonly IProgressionService _progression;
+    private readonly ISessionService? _session;
     private readonly ILogger<AvaloniaSubliminalService>? _logger;
     private readonly Random _random = new();
     private readonly object _sync = new();
@@ -41,11 +43,13 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
         ISettingsService settings,
         IScreenProvider screens,
         IProgressionService progression,
+        ISessionService? session = null,
         ILogger<AvaloniaSubliminalService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
+        _session = session;
         _logger = logger;
     }
 
@@ -73,6 +77,24 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         FlashSubliminalCustom(text, opacity: null, overrideDurationMs: overrideDurationMs);
+    }
+
+    public void SetEnabled(bool on)
+    {
+        var s = _settings.Current;
+        if (s == null) return;
+
+        if (s.SubliminalEnabled != on)
+            s.SubliminalEnabled = on;
+
+        if (_session?.State == SessionState.Running)
+        {
+            if (on && !IsRunning) Start();
+            else if (!on && IsRunning) Stop();
+        }
+
+        _settings.Save();
+        _logger?.LogInformation("AvaloniaSubliminalService: subliminals toggled: {Enabled}", on);
     }
 
     public void Stop()
@@ -247,9 +269,12 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
 
             if (!token.IsCancellationRequested)
             {
+                // Keep the window shown (transparent, blank content) between flashes.
+                // Hiding a transparent layered window preserves its last layered bitmap,
+                // so the next Show() can re-present the previous phrase for a frame —
+                // the "previous-then-next" double flash. Staying shown keeps the surface live.
                 window.Opacity = 0;
                 window.Content = null;
-                try { window.Hide(); } catch { }
             }
         }
         catch (OperationCanceledException)
@@ -375,6 +400,7 @@ public sealed class AvaloniaSubliminalService : ISubliminalService, IDisposable
             CanResize = false;
             ShowActivated = false;
             Focusable = false;
+            IsHitTestVisible = false;
 
             this.ConstrainToScreen(screen);
             Opacity = 0;

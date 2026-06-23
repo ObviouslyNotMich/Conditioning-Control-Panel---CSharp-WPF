@@ -47,7 +47,7 @@ using ConditioningControlPanel.Core.Services.AIService;
 using ConditioningControlPanel.Core.Services.AIService.Enrichment;
 using ConditioningControlPanel.Core.Services.Moderation;
 using ConditioningControlPanel.Core.Services.Progression;
-using ConditioningControlPanel.Core.Services.Quests;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Quiz;
 using ConditioningControlPanel.Core.Services.Autonomy;
 using ConditioningControlPanel.Core.Services.Roadmap;

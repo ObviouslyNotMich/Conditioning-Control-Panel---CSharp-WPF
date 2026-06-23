@@ -382,12 +382,8 @@ public partial class SettingsTabView : UserControl
                     }
                     break;
                 case var t when t == LocalizationManager.Instance.Get("feature_title_subliminals"):
-                    settings.SubliminalEnabled = !settings.SubliminalEnabled;
-                    if (running)
-                    {
-                        if (settings.SubliminalEnabled) App.Services?.GetService<ISubliminalService>()?.Start();
-                        else App.Services?.GetService<ISubliminalService>()?.Stop();
-                    }
+                    // Single authority: persists the flag and live-applies start/stop (idempotently).
+                    App.Services?.GetService<ISubliminalService>()?.SetEnabled(!settings.SubliminalEnabled);
                     break;
                 case var t when t == LocalizationManager.Instance.Get("feature_title_spiral_overlay"):
                     settings.SpiralEnabled = !settings.SpiralEnabled;

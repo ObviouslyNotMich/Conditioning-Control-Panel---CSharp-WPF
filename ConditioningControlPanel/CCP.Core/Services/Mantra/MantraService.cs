@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using ConditioningControlPanel.Core.Services.Progression;
-using ConditioningControlPanel.Core.Services.Quests;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
 

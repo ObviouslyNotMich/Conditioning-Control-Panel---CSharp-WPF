@@ -228,6 +228,8 @@ public sealed class AvaloniaChaosService : IChaosService
         _spawning = true;
         _state.PushEvent("🐇 the descent begins");
 
+        try { ChaosBackdropService.Show(_state.ActIndex); } catch (Exception ex) { _logger?.LogDebug("ChaosBackdropService.Show failed: {E}", ex.Message); }
+
         ChaosHappyPath.OnRunStarted(_state, this);
         if (ChaosMeta.State.RunsCompleted == 0)
             ChaosHappyPath.OnFirstDescentStarted(_state);
@@ -719,6 +721,7 @@ public sealed class AvaloniaChaosService : IChaosService
             _hud = null;
             try { _overlay?.Close(); } catch { }
             _overlay = null;
+            try { ChaosBackdropService.CloseActive(); } catch { }
         });
         _state = null;
         _vibeRemainingSec = 0;

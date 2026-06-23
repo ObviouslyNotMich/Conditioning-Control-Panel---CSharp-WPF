@@ -7,7 +7,7 @@ using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Settings;
 using Newtonsoft.Json;
 
-namespace ConditioningControlPanel.Core.Services.Quests;
+namespace ConditioningControlPanel.Core.Services.Progression;
 
 /// <summary>
 /// Cross-platform quest service: generates daily/weekly quests, tracks progress,

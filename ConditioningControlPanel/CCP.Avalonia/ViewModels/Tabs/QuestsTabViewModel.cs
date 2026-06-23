@@ -6,7 +6,7 @@ using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Core.Services.Quests;
+using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Roadmap;
 using ConditioningControlPanel.Core.Services.Settings;
 

@@ -25,4 +25,11 @@ public interface ISubliminalService
     /// Flash a single custom subliminal phrase. Used by the Deeper enhancement engine.
     /// </summary>
     void FlashSubliminalCustom(string text, int? overrideDurationMs = null, bool suppressHaptic = false);
+
+    /// <summary>
+    /// Single authority for toggling the subliminal feature from any UI entry point.
+    /// Persists the flag and, when a session is running, starts/stops the service
+    /// only on an actual state transition so multiple checkboxes can't churn Start/Stop.
+    /// </summary>
+    void SetEnabled(bool on);
 }

@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <Content Include="..\assets\Chaos\**\*" Exclude="..\assets\Chaos\**\_staging*\**">
+      <Link>assets\Chaos\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="..\Resources\sounds\**\*">
       <Link>Resources\sounds\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -69,6 +73,9 @@
     </AvaloniaResource>
     <AvaloniaResource Include="..\Resources\logo2.png">
       <Link>Assets\logo2.png</Link>
+    </AvaloniaResource>
+    <AvaloniaResource Include="..\Resources\quests\**\*">
+      <Link>Assets\quests\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </AvaloniaResource>
   </ItemGroup>
 

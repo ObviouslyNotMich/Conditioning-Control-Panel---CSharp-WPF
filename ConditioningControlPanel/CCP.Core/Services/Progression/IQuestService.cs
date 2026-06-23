@@ -1,6 +1,6 @@
 using ConditioningControlPanel.Models;
 
-namespace ConditioningControlPanel.Core.Services.Quests;
+namespace ConditioningControlPanel.Core.Services.Progression;
 
 /// <summary>
 /// Generates, persists, and tracks progress for daily and weekly quests.

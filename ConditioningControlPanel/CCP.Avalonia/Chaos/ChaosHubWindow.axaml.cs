@@ -18,13 +18,22 @@ public partial class ChaosHubWindow : Window
 {
     private readonly ILogger<ChaosHubWindow> _logger;
     private readonly global::ConditioningControlPanel.Core.Services.Settings.ISettingsService _settings;
-
+    private readonly global::ConditioningControlPanel.Core.Platform.IAudioPlayer _audioPlayer;
 
     private static readonly Random _rng = new();
     private int _waves = 5;
     private bool _uiSoundsReady;
     private bool _fallingIn;
     private bool _diffAutoClamped;
+
+    // Menu soundtrack state
+    private const double MenuMusicVol = 0.5;
+    private string? _musicPath;
+    private DispatcherTimer? _musicFade;
+    private double _fadeFrom, _fadeTo;
+    private int _fadeStep, _fadeSteps;
+    private Action? _fadeDone;
+    private double _lastMusicVol;
 
     public static ChaosHubWindow? Current { get; private set; }
 
@@ -34,11 +43,15 @@ public partial class ChaosHubWindow : Window
 
         _logger = App.Services.GetRequiredService<ILogger<ChaosHubWindow>>();
         _settings = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>();
+        _audioPlayer = App.Services.GetRequiredService<global::ConditioningControlPanel.Core.Platform.IAudioPlayer>();
+        _musicPath = AvaloniaChaosSfx.ResolvePath("menu_theme");
+        UpdateMuteIcon(_settings.Current?.ChaosMenuMusicMuted == true);
 Current = this;
         AddHandler(Button.ClickEvent, (s, e) => { if (_uiSoundsReady) AvaloniaChaosSfx.Play("ui_click", 0.3f); }, RoutingStrategies.Bubble);
         Closed += (_, _) =>
         {
             Current = null;
+            DisposeMenuMusic();
             AvaloniaChaosApp.Chaos?.CloseLoadoutSidebar();
             if (!_fallingIn) AvaloniaChaosApp.Avatar?.SetChaosRunActive(false);
         };
@@ -60,7 +73,7 @@ Current = this;
         LoadBanner();
         BuildDebugStrip();
         ShowTab("loadout");
-        Opened += (_, _) => { OnHubOpenedReveals(); FireHubGreeting(); };
+        Opened += (_, _) => { OnHubOpenedReveals(); FireHubGreeting(); StartMenuMusic(); };
         _uiSoundsReady = true;
     }
 
@@ -80,6 +93,82 @@ Current = this;
         }
         catch (Exception ex) { _logger?.LogInformation("ChaosHub.FireHubGreeting: {E}", ex.Message); }
     }
+
+    #region Menu soundtrack
+
+    private void StartMenuMusic()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(_musicPath) || !File.Exists(_musicPath)) return;
+            bool muted = _settings.Current?.ChaosMenuMusicMuted == true;
+            UpdateMuteIcon(muted);
+            _audioPlayer.SetVolume(muted ? 0.0 : MenuMusicVol);
+            _audioPlayer.PlayLoopAsync(_musicPath);
+            FadeMusicTo(muted ? 0.0 : MenuMusicVol, 2.0);
+        }
+        catch (Exception ex) { _logger?.LogDebug("ChaosHub.StartMenuMusic: {E}", ex.Message); }
+    }
+
+    private void StopMenuMusic()
+    {
+        try
+        {
+            FadeMusicTo(0.0, 2.0, () => { try { _audioPlayer.Stop(); } catch { } });
+        }
+        catch (Exception ex) { _logger?.LogDebug("ChaosHub.StopMenuMusic: {E}", ex.Message); }
+    }
+
+    private void DisposeMenuMusic()
+    {
+        try { _musicFade?.Stop(); } catch { }
+        try { _audioPlayer.Stop(); } catch { }
+    }
+
+    private void FadeMusicTo(double target, double secs, Action? onDone = null)
+    {
+        _fadeFrom = _lastMusicVol;
+        _fadeTo = target;
+        _fadeSteps = Math.Max(1, (int)(secs / 0.05));
+        _fadeStep = 0;
+        _fadeDone = onDone;
+        if (_musicFade == null)
+        {
+            _musicFade = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _musicFade.Tick += MusicFadeTick;
+        }
+        _musicFade.Start();
+    }
+
+    private void MusicFadeTick(object? sender, EventArgs e)
+    {
+        _fadeStep++;
+        double t = Math.Min(1.0, (double)_fadeStep / _fadeSteps);
+        double vol = Math.Clamp(_fadeFrom + (_fadeTo - _fadeFrom) * t, 0, 1);
+        _lastMusicVol = vol;
+        try { _audioPlayer.SetVolume(vol); }
+        catch { _musicFade?.Stop(); return; }
+        if (t >= 1.0)
+        {
+            _musicFade?.Stop();
+            var d = _fadeDone; _fadeDone = null; d?.Invoke();
+        }
+    }
+
+    private void UpdateMuteIcon(bool muted)
+    {
+        if (BtnMenuMute != null) BtnMenuMute.Content = muted ? "🔇" : "🔊";
+    }
+
+    private void BtnMenuMute_Click(object? sender, RoutedEventArgs e)
+    {
+        bool muted = !(_settings.Current?.ChaosMenuMusicMuted == true);
+        if (_settings.Current != null) _settings.Current.ChaosMenuMusicMuted = muted;
+        UpdateMuteIcon(muted);
+        FadeMusicTo(muted ? 0.0 : MenuMusicVol, 0.6);
+    }
+
+    #endregion
 
     private void LoadBanner()
     {

@@ -10,7 +10,7 @@ using ConditioningControlPanel.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace ConditioningControlPanel.Core.Services.Quests;
+namespace ConditioningControlPanel.Core.Services.Progression;
 
 /// <summary>
 /// Cross-platform quest definition provider. Loads cached definitions, refreshes from

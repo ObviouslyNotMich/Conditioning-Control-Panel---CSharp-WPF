@@ -52,6 +52,24 @@ public static class ChaosTuning
     /// <summary>Seconds of "focus below cost while lives hang on screen" before the once-per-run warning bark fires.</summary>
     public const double FocusLowBarkSec = 8;
 
+    // ============================ Field pace ============================
+
+    /// <summary>Global chaos bubble speed bump — verticals travel farther before they rot.</summary>
+    public const double ChaosSpeedMult = 1.4375;
+
+    /// <summary>Global simulation pace, &lt;1 = slower. Every per-tick motion step and countdown
+    /// routes through Bubble.TimeScale, so this one knob uniformly slows travel AND lengthens
+    /// fuses/fades for both ambient and chaos bubbles. Pre-6.1.6 the UI thread was heavily loaded,
+    /// starving the fixed-step timer; 6.1.6 restored the timer's true ~31 fps, making the field feel
+    /// too fast. This constant dials the perceived pace back without reverting the perf wins.</summary>
+    public const double FieldPace = 0.8;
+
+    /// <summary>Fuse remaining (ms) at which the ring starts flashing yellow↔red.</summary>
+    public const double RingFlashFromMs = 2400;
+
+    /// <summary>Fuse remaining (ms) at which the ring goes solid red.</summary>
+    public const double RingBrinkMs = 800;
+
     // ============================ Active toys ============================
 
     public const double FREEZE_DURATION_SEC = 3.5;

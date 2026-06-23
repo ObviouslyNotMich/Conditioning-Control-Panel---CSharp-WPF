@@ -1,6 +1,6 @@
 using ConditioningControlPanel.Models;
 
-namespace ConditioningControlPanel.Core.Services.Quests;
+namespace ConditioningControlPanel.Core.Services.Progression;
 
 /// <summary>
 /// Provides quest definitions, optionally fetched from a remote server and cached locally.

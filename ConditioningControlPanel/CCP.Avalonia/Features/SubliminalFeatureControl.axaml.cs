@@ -6,7 +6,6 @@ using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Models;
 using ConditioningControlPanel.Core.Platform;
-using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Subliminal;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +15,6 @@ public partial class SubliminalFeatureControl : UserControl
 {
     private readonly ISettingsService _settings;
     private readonly ISubliminalService? _subliminal;
-    private readonly ISessionService? _session;
     private readonly ILogger<SubliminalFeatureControl>? _logger;
     private bool _isLoading = true;
 
@@ -25,7 +23,6 @@ public partial class SubliminalFeatureControl : UserControl
         InitializeComponent();
         _settings = App.Services.GetRequiredService<ISettingsService>();
         _subliminal = App.Services.GetService<ISubliminalService>();
-        _session = App.Services.GetService<ISessionService>();
         _logger = App.Services.GetRequiredService<ILogger<SubliminalFeatureControl>>();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -80,25 +77,8 @@ public partial class SubliminalFeatureControl : UserControl
     private void ChkEnable_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        var on = ChkEnable.IsChecked ?? false;
-        _settings.Current.SubliminalEnabled = on;
-        _settings.Save();
-        LiveApply(on);
-    }
-
-    private void LiveApply(bool on)
-    {
-        if (_session?.State != SessionState.Running || _subliminal == null) return;
-
-        try
-        {
-            if (on && !_subliminal.IsRunning) _subliminal.Start();
-            else if (!on && _subliminal.IsRunning) _subliminal.Stop();
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "Subliminal enable toggle: live apply failed");
-        }
+        // Single authority: persists the flag and live-applies start/stop (idempotently).
+        _subliminal?.SetEnabled(ChkEnable.IsChecked ?? false);
     }
 
     private void SliderPerMin_Changed(object? sender, RangeBaseValueChangedEventArgs e)
