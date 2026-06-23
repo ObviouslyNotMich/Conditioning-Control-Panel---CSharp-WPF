@@ -280,7 +280,10 @@ public sealed class ChaosRunConfig
         if (s == null) return new ChaosRunConfig();
         return new ChaosRunConfig
         {
-            PlayMode = s.NarrativeModeEnabled ? ChaosPlayMode.Story : ChaosPlayMode.FreeDesktop,
+            // Story mode is globally locked off until content ships; NarrativeModeEnabled is ignored.
+            PlayMode = (AvaloniaChaosMode.StoryModeEnabled && s.NarrativeModeEnabled)
+                ? ChaosPlayMode.Story
+                : ChaosPlayMode.FreeDesktop,
             Difficulty = s.ChaosDifficulty,
             MotionMode = s.ChaosMotionMode,
             RunDurationSec = s.ChaosRunDurationSec,
@@ -673,8 +676,13 @@ public static class ChaosArt
 {
     public static IImage? Resolve(string kind, string id) => AvaloniaChaosArt.Resolve(kind, id);
     public static IImage? ResolveBanner() => ResolveThemeFile("banner.png");
+    public static IImage? ResolveMenu() => AvaloniaChaosArt.ResolveMenu();
+    public static IImage? ResolveMenuFrame(int n) => AvaloniaChaosArt.ResolveMenuFrame(n);
     public static IImage? ResolveRecap() => ResolveThemeFile("recap.png");
     public static IImage? TryLoad(string? path) => AvaloniaChaosArt.TryLoad(path);
+    public static string? PathFor(string kind, string id) => AvaloniaChaosArt.PathFor(kind, id);
+    public static string? FilePath(string fileName) => AvaloniaChaosArt.FilePath(fileName);
+    public static string? MenuFramePath(int n) => AvaloniaChaosArt.MenuFramePath(n);
 
     private static IImage? ResolveThemeFile(string fileName)
     {

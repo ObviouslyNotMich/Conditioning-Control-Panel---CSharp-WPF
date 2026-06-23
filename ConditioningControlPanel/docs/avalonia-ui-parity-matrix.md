@@ -45,7 +45,7 @@ task board → **Known Functional Gaps**.
 - 🚧 **Auth graceful browser-launch fallback** — `BrowserLauncher` ported to Core; Discord/Patreon/SubscribeStar providers now use `IBrowserHost` with clipboard+dialog fallback; `CCP.Avalonia` builds. Runtime exercise blocked by concurrent Quest-lane build error (`QuestDefinitionsUpdated` mismatch in `QuestsTabViewModel`).
 - [ ] **Subliminal double-flash fix** — re-verify no prev-phrase flash / stale-timer double flash (changed in 6.1.7)
 - [ ] **Avatar focus-steal fix** — companion window must not steal focus / cancel typing (changed in 6.1.7)
-- [ ] **Bubble pace (FIELD_PACE) / ChaosArt / ChaosTuning / Achievement / KeywordTrigger / Lab tab** small deltas
+- 🚧 **Bubble pace (FIELD_PACE) / ChaosArt / ChaosTuning / Achievement / KeywordTrigger / Lab tab** small deltas — FIELD_PACE constant + BubbleEngine dt multiplier ported; Story re-lock wired; AchievementService autonomy quest tracking ported; UpdateService version bumped. KeywordTriggerService/BlinkTrainerService hooks blocked (no Core/Avalonia services yet). Runtime exercise blocked by concurrent Chaos WIP build errors.
 
 ## Tab views (`Views/Tabs`)
 

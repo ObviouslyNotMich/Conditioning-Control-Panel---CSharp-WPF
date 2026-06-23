@@ -23,6 +23,7 @@ public partial class QuestsTabViewModel : TabItemViewModel
     private readonly IDialogService? _dialogService;
     private readonly ILogger<QuestsTabViewModel>? _logger;
     private readonly IQuestService? _questService;
+    private readonly IQuestDefinitionService? _questDefinitions;
     private readonly ISkillTreeService? _skillTreeService;
     private QuestProgress _questProgress;
 
@@ -46,13 +47,15 @@ public partial class QuestsTabViewModel : TabItemViewModel
         ILogger<QuestsTabViewModel> logger,
         IQuestService questService,
         ISkillTreeService skillTreeService,
-        IModService modService) : base("quests", "Quests", "📜")
+        IModService modService,
+        IQuestDefinitionService? questDefinitions = null) : base("quests", "Quests", "📜")
     {
         _roadmap = roadmap;
         _settingsService = settingsService;
         _dialogService = dialogService;
         _logger = logger;
         _questService = questService;
+        _questDefinitions = questDefinitions;
         _skillTreeService = skillTreeService;
         _roadmapTracks = new ObservableCollection<RoadmapTrackViewModel>();
         _roadmapNodes = new ObservableCollection<RoadmapNodeViewModel>();
@@ -65,6 +68,17 @@ public partial class QuestsTabViewModel : TabItemViewModel
         InitializeTracks();
         RefreshRoadmap();
         RefreshQuestUI();
+
+        if (_questDefinitions != null)
+        {
+            SeasonTitle = _questDefinitions.SeasonTitle;
+            _questDefinitions.QuestDefinitionsUpdated += () =>
+            {
+                SeasonTitle = _questDefinitions.SeasonTitle;
+                RefreshQuestUI();
+            };
+            _ = Task.Run(async () => await _questDefinitions.InitializeAsync());
+        }
 
         modService.ActiveModChanged += (_, _) =>
         {
@@ -600,9 +614,7 @@ public partial class QuestsTabViewModel : TabItemViewModel
         DailyCounterText = $"{dailyCompleted}/3";
         AllDailyDone = progress.AreAllDailyQuestsCompleted();
 
-        var dailyDef = progress.DailyQuest == null
-            ? null
-            : QuestDefinition.DailyQuests.FirstOrDefault(q => q.Id == progress.DailyQuest.DefinitionId);
+        var dailyDef = GetDailyDefinition();
         DailyQuestName = dailyDef?.LocalizedName ?? dailyDef?.Name ?? Loc.Get("label_daily_quest");
         DailyQuestDescription = dailyDef?.LocalizedDescription ?? dailyDef?.Description ?? "";
         DailyQuestIcon = dailyDef?.Icon ?? "⚡";
@@ -627,9 +639,7 @@ public partial class QuestsTabViewModel : TabItemViewModel
             ? Loc.GetF("label_reroll_left_fmt", dailyRerollsRemaining)
             : Loc.Get("label_no_rerolls_left");
 
-        var weeklyDef = progress.WeeklyQuest == null
-            ? null
-            : QuestDefinition.WeeklyQuests.FirstOrDefault(q => q.Id == progress.WeeklyQuest.DefinitionId);
+        var weeklyDef = GetWeeklyDefinition();
         WeeklyQuestName = weeklyDef?.LocalizedName ?? weeklyDef?.Name ?? Loc.Get("label_weekly_quest");
         WeeklyQuestDescription = weeklyDef?.LocalizedDescription ?? weeklyDef?.Description ?? "";
         WeeklyQuestIcon = weeklyDef?.Icon ?? "🔥";
@@ -671,6 +681,34 @@ public partial class QuestsTabViewModel : TabItemViewModel
         QuestCompleteBannerVisible = false;
 
         RefreshCalendar();
+    }
+
+    private QuestDefinition? GetDailyDefinition()
+    {
+        if (_questProgress?.DailyQuest == null) return null;
+
+        var remote = _questDefinitions?.GetDailyQuests();
+        if (remote != null)
+        {
+            var remoteQuest = remote.FirstOrDefault(q => q.Id == _questProgress.DailyQuest.DefinitionId);
+            if (remoteQuest != null) return remoteQuest;
+        }
+
+        return QuestDefinition.DailyQuests.FirstOrDefault(q => q.Id == _questProgress.DailyQuest.DefinitionId);
+    }
+
+    private QuestDefinition? GetWeeklyDefinition()
+    {
+        if (_questProgress?.WeeklyQuest == null) return null;
+
+        var remote = _questDefinitions?.GetWeeklyQuests();
+        if (remote != null)
+        {
+            var remoteQuest = remote.FirstOrDefault(q => q.Id == _questProgress.WeeklyQuest.DefinitionId);
+            if (remoteQuest != null) return remoteQuest;
+        }
+
+        return QuestDefinition.WeeklyQuests.FirstOrDefault(q => q.Id == _questProgress.WeeklyQuest.DefinitionId);
     }
 
     private void RefreshCalendar()

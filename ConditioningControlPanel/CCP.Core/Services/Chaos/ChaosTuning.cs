@@ -59,6 +59,20 @@ public static class ChaosTuning
     /// (2026-06-12: +15% over the original 1.25 — field felt sluggish.)</summary>
     public const double CHAOS_SPEED_MULT = 1.4375;
 
+    /// <summary>Global simulation pace, &lt;1 = slower. Every per-tick motion step and countdown
+    /// (motion <c>_vx*ts</c>, fuse/tease/darter <c>-= 32*ts</c>) routes through Bubble.TimeScale, so
+    /// this one knob uniformly slows travel AND lengthens fuses/fades for both ambient and chaos
+    /// bubbles. WHY it exists: the animation is fixed-step (each tick assumes a flat 32 ms), so visible
+    /// speed tracks how often the 32 ms render-priority timer actually fires. Pre-6.1.6 the UI thread
+    /// was heavily loaded (per-bubble SetWindowPos storm, per-spawn text rasterization, DVD windows,
+    /// GIF decode spikes), starving that timer — the field ran in unintended slow-motion. The 6.1.6
+    /// perf pass removed that load, so the timer now fires at its true ~31 fps and the field snapped to
+    /// its (faster) designed pace, which testers read as "everything sped up / bubbles fade too fast".
+    /// This restores the prior feel without reverting the perf wins. Dial toward 1.0 for the full
+    /// designed pace, toward ~0.6 for the old sluggish feel. The proper long-term fix is real
+    /// delta-time (measure elapsed ms per tick); this constant is the deliberate stop-gap.</summary>
+    public const double FIELD_PACE = 0.8;
+
     /// <summary>Hard cap on freeze pickups visible at once. A swarm of freezes let the player
     /// chain near-permanent field holds; two on screen keeps it a scramble, not a guarantee.</summary>
     public const int FREEZE_MAX_ON_SCREEN = 2;

@@ -673,7 +673,9 @@ public sealed class BubbleEngine
     {
         if (!_isRunning || _isPaused) return;
 
-        var dt = TickIntervalSec * _chaosTimeScale;
+        // Global FIELD_PACE folds in here so the one knob slows BOTH ambient and chaos bubbles:
+        // every motion step and countdown reads this. See ChaosTuning.FIELD_PACE for the why.
+        var dt = TickIntervalSec * _chaosTimeScale * ChaosTuning.FIELD_PACE;
         if (_chaosFrozen) dt = 0.0;
 
         // Manual pause quietly cancels any active channel (no detonation, no completion).

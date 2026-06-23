@@ -1,7 +1,9 @@
 using System.Linq;
 using System.Text.Json;
 using Avalonia.Threading;
+using ConditioningControlPanel.Core.Services.Autonomy;
 using ConditioningControlPanel.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Core.Services.Progression;
 
@@ -25,6 +27,7 @@ public sealed class AchievementService : IAchievementService, IDisposable
     private DateTime _lastBrainDrainCheck = DateTime.Now;
     private DateTime _lastMindWipeCheck = DateTime.Now;
     private DateTime _lastDeeperCheck = DateTime.Now;
+    private DateTime _lastAutonomyCheck = DateTime.Now;
     private bool _isDisposed;
 
     public event EventHandler<Achievement>? AchievementUnlocked;
@@ -241,6 +244,25 @@ public sealed class AchievementService : IAchievementService, IDisposable
         else
         {
             _lastDeeperCheck = now;
+        }
+
+        // Track Bambi Takeover (autonomy) active time for Patreon quests — only while
+        // autonomy is enabled/running. Mirrors the spiral/pink accumulation pattern.
+        // Resolved lazily via CoreApp.Services to avoid a circular DI dependency
+        // (AvaloniaAutonomyService -> IFlashService -> IAchievementService).
+        var autonomy = CoreApp.Services?.GetService<IAutonomyService>();
+        if (autonomy?.IsEnabled == true)
+        {
+            var elapsed = (now - _lastAutonomyCheck).TotalMinutes;
+            if (elapsed > 0 && elapsed < 0.1) // sanity: max ~6s between ticks
+            {
+                TryQuestTrack("TrackAutonomyMinutes", elapsed);
+            }
+            _lastAutonomyCheck = now;
+        }
+        else
+        {
+            _lastAutonomyCheck = now;
         }
 
         // Check System Overload (Bubbles + Bouncing Text + Spiral all active)

@@ -68,6 +68,13 @@ public static class AvaloniaChaosMode
 {
     private static IChaosModeState? Mode => App.Services?.GetService<IChaosModeState>();
 
+    /// <summary>
+    /// Master kill-switch for Story/Madam mode. Story content is not yet shipped, so this stays
+    /// <c>false</c> to keep every run in Free Desktop. Flip to <c>true</c> once real story content
+    /// exists. Mirrors WPF ChaosModeService.StoryModeEnabled.
+    /// </summary>
+    public static readonly bool StoryModeEnabled = false;
+
     public static ChaosPlayMode ActiveMode
     {
         get => Mode?.ActiveMode ?? ChaosPlayMode.Story;
@@ -78,10 +85,11 @@ public static class AvaloniaChaosMode
         }
     }
 
-    public static bool DesktopMode => Mode?.DesktopMode ?? (ActiveMode == ChaosPlayMode.FreeDesktop);
+    public static bool DesktopMode => Mode?.DesktopMode ?? (ActiveMode == ChaosPlayMode.FreeDesktop || !StoryModeEnabled);
     public static bool BornTopmost => Mode?.BornTopmost ?? !DesktopMode;
     public static bool NarrativeActive => Mode?.NarrativeActive ?? (
-        App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current?.NarrativeModeEnabled == true
+        StoryModeEnabled
+        && App.Services?.GetService<global::ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current?.NarrativeModeEnabled == true
         && ActiveMode == ChaosPlayMode.Story);
 }
 
@@ -280,6 +288,77 @@ Math.Min(src.Height, fb.Size.Height);
         }
         return null;
     }
+
+    /// <summary>The hero banner at <c>Assets/Chaos/banner.png</c>, or null when absent.</summary>
+    public static IImage? ResolveBanner()
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", "banner.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
+    /// <summary>The main-menu cinematic art at <c>assets/Chaos/menu.png</c> (tall portrait), or
+    /// null when absent — callers fall back to <see cref="ResolveBanner"/>.</summary>
+    public static IImage? ResolveMenu()
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", "menu.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
+    /// <summary>A menu flipbook frame at <c>assets/Chaos/menu_{n}.png</c>, or null when absent.</summary>
+    public static IImage? ResolveMenuFrame(int n)
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", $"menu_{n}.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
+    /// <summary>The recap-card hero banner at <c>assets/Chaos/recap.png</c>, or null when absent.</summary>
+    public static IImage? ResolveRecap()
+    {
+        foreach (var root in Roots())
+        {
+            var img = TryLoad(Path.Combine(root, "assets", "Chaos", "recap.png"));
+            if (img != null) return img;
+        }
+        return null;
+    }
+
+    /// <summary>The first existing convention path for a kind/id, or null. Used by callers that need the path itself.</summary>
+    public static string? PathFor(string kind, string id)
+    {
+        foreach (var root in Roots())
+        {
+            var p = Path.Combine(root, "assets", "Chaos", kind, id + ".png");
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
+    /// <summary>First existing path for a bare file under <c>assets/Chaos/</c> (e.g. "menu_glint.png",
+    /// "menu_fx.json"), or null. For callers that load the file themselves (Skia / JSON).</summary>
+    public static string? FilePath(string fileName)
+    {
+        foreach (var root in Roots())
+        {
+            var p = Path.Combine(root, "assets", "Chaos", fileName);
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
+    /// <summary>Path to a menu flipbook frame file (<c>assets/Chaos/menu_{n}.png</c>), or null.</summary>
+    public static string? MenuFramePath(int n) => FilePath($"menu_{n}.png");
 
 }
 
