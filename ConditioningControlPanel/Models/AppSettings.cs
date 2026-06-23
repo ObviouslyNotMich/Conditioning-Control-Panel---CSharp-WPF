@@ -2259,6 +2259,17 @@ namespace ConditioningControlPanel.Models
             get => _narrativeModeEnabled;
             set { _narrativeModeEnabled = value; OnPropertyChanged(); }
         }
+        private bool _storyPreviewEnabled = false;
+        /// <summary>Dev-only: reveal the "Play Opening (preview)" entry in the Lab tab, which opens the
+        /// in-app VN runner (the "half musical" — VN beats + song-synced popping sessions). Default OFF so
+        /// the unfinished story never ships to users; independent of the globally-off
+        /// <see cref="Services.Chaos.ChaosModeService.StoryModeEnabled"/>.</summary>
+        public bool StoryPreviewEnabled
+        {
+            get => _storyPreviewEnabled;
+            set { _storyPreviewEnabled = value; OnPropertyChanged(); }
+        }
+
         private bool _backdropEnabled = true;
         /// <summary>Show per-zone backdrop plates under the chaos bubbles. When OFF, no backdrop window
         /// spawns and classic Chaos keeps its desktop click-through behavior exactly.</summary>

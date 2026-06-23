@@ -186,6 +186,12 @@ public sealed class ChaosRunConfig
     /// behavioral bubbles, the start boon and the BeginRun defuse teach all stand down so
     /// <see cref="ChaosHappyPath"/> can run its beats. Default false = every other run unchanged.</summary>
     public bool ScriptedFirstRun { get; set; } = false;
+    /// <summary>A story "popping session": a deterministic, song-driven descent launched from the
+    /// in-app VN runner (no boon drafts / curses / meta — see <see cref="ChaosMusicalDirector"/>).
+    /// The director owns spawn rate (envelope), scripted events and the song; the run shows a custom
+    /// story backdrop and skips the results/PB overlay, handing control back to the story on end.
+    /// Default false = every other run unchanged.</summary>
+    public bool ScriptedStoryRun { get; set; } = false;
 
     public static ChaosRunConfig FromSettings()
     {

@@ -1,0 +1,57 @@
+{
+  "title": "The Rabbit Hole — Opening (preview slice)",
+  "canvas": { "w": 1920, "h": 1080 },
+  "beats": [
+    {
+      "id": "p_b1",
+      "scene": "Preview — First Pop",
+      "speaker": "BUNNY",
+      "text": "you hear that? the music. it's already in your head.",
+      "background": "output/chaos_scenes/alley_background.png",
+      "characters": [],
+      "bubble": { "cx": 0.5, "cy": 0.84 }
+    },
+    {
+      "id": "p_b2",
+      "scene": "Preview — First Pop",
+      "speaker": "",
+      "text": "The bubbles start to drift up from the dark. The beat picks up.",
+      "background": "output/chaos_scenes/dollhouse_background.png",
+      "characters": [],
+      "bubble": { "cx": 0.5, "cy": 0.86 }
+    },
+    {
+      "id": "p_pop1",
+      "scene": "Preview — First Pop",
+      "beat_type": "popping_session",
+      "text": "",
+      "background": "output/chaos_scenes/dollhouse_background.png",
+      "characters": [],
+      "bubble": { "cx": 0.5, "cy": 0.86 },
+      "session": {
+        "song": "songs/first_pop.wav",
+        "envelope": "songs/first_pop.envelope.json",
+        "difficulty": "Medium",
+        "duration_sec": 0,
+        "loop": false,
+        "spawn_floor": 0.35,
+        "spawn_ceil": 1.7,
+        "spawn_keyframes": [],
+        "events": [
+          { "t": 8.0, "type": "announce", "text": "the music pulls you under", "kind": "Depth" },
+          { "t": 8.0, "type": "sfx", "cue": "heartbeat", "vol": 0.6 },
+          { "t": 16.0, "type": "overwhelm", "text": "she floods the room", "intensity": 1.9, "dur_sec": 6 }
+        ]
+      }
+    },
+    {
+      "id": "p_b3",
+      "scene": "Preview — First Pop",
+      "speaker": "BUNNY",
+      "text": "good. the song's over… for now. but you're deeper than you were.",
+      "background": "output/chaos_scenes/dollhouse_background.png",
+      "characters": [],
+      "bubble": { "cx": 0.5, "cy": 0.84 }
+    }
+  ]
+}
