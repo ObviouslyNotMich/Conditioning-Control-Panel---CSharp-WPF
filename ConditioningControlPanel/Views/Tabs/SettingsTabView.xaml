@@ -151,6 +151,50 @@
                                        FontSize="12" FontWeight="Bold" Foreground="#7FD8FF" TextAlignment="Center" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Border>
+                    <!-- Remote — opens a flyout to compose + start a remote session -->
+                    <Button x:Name="ChipRemote" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipRemote_Click" ToolTip="Remote Control — let someone drive your session">
+                        <StackPanel>
+                            <Ellipse x:Name="DotRemote" x:FieldModifier="internal" Width="9" Height="9" HorizontalAlignment="Center" Fill="#555555"/>
+                            <TextBlock Text="Remote" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Popup x:Name="RemoteFlyout" x:FieldModifier="internal" PlacementTarget="{Binding ElementName=ChipRemote}"
+                           Placement="Right" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="4">
+                        <Border Background="{DynamicResource ElevatedSurfaceBrush}" BorderBrush="{DynamicResource PinkBrush}"
+                                BorderThickness="1" CornerRadius="10" Padding="10" Width="226">
+                            <StackPanel>
+                                <TextBlock Text="Go available" FontWeight="Bold" Foreground="White" FontSize="13" Margin="0,0,0,6"/>
+                                <TextBlock Text="Difficulty" Foreground="{DynamicResource SecondaryBrush}" FontSize="10"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,8">
+                                    <RadioButton x:Name="RemoteDiffEasy" x:FieldModifier="internal" GroupName="RemoteDiff" Content="Easy" Foreground="White" Margin="0,0,10,0"/>
+                                    <RadioButton x:Name="RemoteDiffMed" x:FieldModifier="internal" GroupName="RemoteDiff" Content="Medium" IsChecked="True" Foreground="White" Margin="0,0,10,0"/>
+                                    <RadioButton x:Name="RemoteDiffHard" x:FieldModifier="internal" GroupName="RemoteDiff" Content="Hard" Foreground="White"/>
+                                </StackPanel>
+                                <CheckBox x:Name="RemoteShareCheck" x:FieldModifier="internal" Content="Share in Available Subjects"
+                                          Foreground="White" FontSize="11" Margin="0,0,0,6"/>
+                                <TextBlock Text="Message" Foreground="{DynamicResource SecondaryBrush}" FontSize="10"/>
+                                <TextBox x:Name="RemoteMessageBox" x:FieldModifier="internal" MaxLength="80" Height="40"
+                                         TextWrapping="Wrap" AcceptsReturn="True" Margin="0,2,0,6"/>
+                                <TextBlock Text="Tags (up to 5)" Foreground="{DynamicResource SecondaryBrush}" FontSize="10"/>
+                                <WrapPanel x:Name="RemoteTagPanel" x:FieldModifier="internal" Margin="0,2,0,8">
+                                    <ToggleButton Content="Bimbo" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Drone" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Trance" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Fem" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Submission" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Degrade" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Audio OK" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Soft" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Lockdown OK" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Chastity" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                </WrapPanel>
+                                <Button x:Name="BtnRemoteStart" x:FieldModifier="internal" Content="Start Remote"
+                                        Click="BtnRemoteStart_Click" Style="{StaticResource PinkButton}"
+                                        Background="{DynamicResource AccentGradientBrush}" Height="30" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
                 </StackPanel>
                 <!-- Patron lock overlay (also serves as the ad) -->
                 <Border x:Name="PremiumRailLock" x:FieldModifier="internal" Visibility="Collapsed"

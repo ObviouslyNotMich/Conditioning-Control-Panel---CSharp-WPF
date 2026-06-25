@@ -122,6 +122,16 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.PremiumBlinkToggle();
         }
+        private void ChipRemote_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumRemoteOpenFlyout();
+        }
+        private void BtnRemoteStart_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumRemoteStart();
+        }
         private void BtnQuickLogout_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)

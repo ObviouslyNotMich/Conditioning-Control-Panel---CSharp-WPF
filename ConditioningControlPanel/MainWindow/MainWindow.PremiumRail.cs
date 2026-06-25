@@ -125,6 +125,60 @@ namespace ConditioningControlPanel
                 SettingsTab.TxtBlinkCountdown.Text = $"{(int)ts.TotalMinutes:D2}:{ts.Seconds:D2}";
         }
 
+        // --- Remote chip: a flyout that composes a listing and reuses the Remote tab's
+        //     full enable flow (login + waiver + StartSessionAsync + opt-in + code/PIN). ---
+
+        internal void PremiumRemoteOpenFlyout()
+        {
+            if (SettingsTab?.RemoteFlyout != null) SettingsTab.RemoteFlyout.IsOpen = true;
+        }
+
+        internal void PremiumRemoteStart()
+        {
+            if (SettingsTab == null || RemoteControlTab == null) return;
+
+            // Difficulty bubble → tier combo index (0 light/easy, 1 standard/medium, 2 full/hard).
+            int tierIdx = SettingsTab.RemoteDiffHard?.IsChecked == true ? 2
+                        : SettingsTab.RemoteDiffEasy?.IsChecked == true ? 0 : 1;
+            if (RemoteControlTab.CmbRemoteTier != null) RemoteControlTab.CmbRemoteTier.SelectedIndex = tierIdx;
+
+            var share = SettingsTab.RemoteShareCheck?.IsChecked == true;
+            // Setting this fires ChkOptIntoDirectory_Changed, which populates the form from
+            // saved settings — so we set our flyout values AFTER, letting them win.
+            if (RemoteControlTab.ChkOptIntoDirectory != null) RemoteControlTab.ChkOptIntoDirectory.IsChecked = share;
+
+            if (share)
+            {
+                if (RemoteControlTab.TxtOptInStatus != null)
+                    RemoteControlTab.TxtOptInStatus.Text = SettingsTab.RemoteMessageBox?.Text ?? "";
+
+                // Map flyout tag toggles → the Remote tab's fixed tag checkboxes by index
+                // (both lists share the same order). The opt-in chain caps to 5 defensively.
+                var remoteTags = OptInTagCheckBoxes();
+                if (SettingsTab.RemoteTagPanel != null)
+                {
+                    int i = 0;
+                    foreach (var child in SettingsTab.RemoteTagPanel.Children)
+                    {
+                        if (child is System.Windows.Controls.Primitives.ToggleButton tb && i < remoteTags.Length)
+                            remoteTags[i].IsChecked = tb.IsChecked == true;
+                        i++;
+                    }
+                }
+            }
+
+            if (SettingsTab.RemoteFlyout != null) SettingsTab.RemoteFlyout.IsOpen = false;
+
+            // Show the Remote tab so the user can see the pairing code/PIN once it starts.
+            ShowTab("remotecontrol");
+
+            // Trigger the full existing enable flow (login check, waiver, start, opt-in, code/PIN).
+            if (RemoteControlTab.ChkRemoteControlEnabled != null && RemoteControlTab.ChkRemoteControlEnabled.IsChecked != true)
+                RemoteControlTab.ChkRemoteControlEnabled.IsChecked = true;
+
+            RefreshPremiumRail();
+        }
+
         // --- Lockdown chip: +/- duration, double-warning activate, live countdown ---
 
         internal void PremiumLockdownAdjust(int deltaMinutes)
@@ -216,6 +270,8 @@ namespace ConditioningControlPanel
             if (SettingsTab.TxtBlinkMins != null && App.Settings?.Current != null)
                 SettingsTab.TxtBlinkMins.Text = App.Settings.Current.BlinkTrainerDurationMinutes + "m";
             SetBlinkActiveUi(App.BlinkTrainer?.IsRunning == true);
+
+            SetDot(SettingsTab.DotRemote, RemoteControlTab?.ChkRemoteControlEnabled?.IsChecked == true);
         }
 
         private static void SetDot(System.Windows.Shapes.Ellipse? dot, bool on)
