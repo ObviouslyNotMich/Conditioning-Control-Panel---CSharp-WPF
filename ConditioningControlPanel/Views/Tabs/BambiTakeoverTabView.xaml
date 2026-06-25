@@ -180,12 +180,17 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="12"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Button x:Name="BtnAutonomyStartStop" x:FieldModifier="internal" Grid.Column="0" Content="{loc:Str btn_start_2}" Background="#2A1A3A" Foreground="#90EE90"
                                     FontWeight="Bold" FontSize="14" Padding="14,8"
                                     Click="BtnAutonomyStartStop_Click" ToolTip="{loc:Str tooltip_start_stop_takeover}"/>
                             <Button Grid.Column="2" Content="{loc:Str btn_test}" Background="{DynamicResource PinkBrush}" Foreground="White" FontWeight="Bold" FontSize="14"
                                     Padding="14,8" Click="BtnTestAutonomy_Click" ToolTip="{loc:Str tooltip_test_action}"/>
+                            <!-- Dev/test affordance for the new offline "repeat after me" voice action (pass-2 UI will relocate this). -->
+                            <Button x:Name="BtnTestVoice" Grid.Column="4" Content="🎤 Test voice" Background="#3A2A4A" Foreground="#90EE90" FontWeight="Bold" FontSize="14"
+                                    Padding="14,8" Click="BtnTestVoice_Click" ToolTip="Fire the 'say it for me' voice action now (requires a Vosk model in Resources/Models/vosk and a mic)."/>
                         </Grid>
                     </Border>
     

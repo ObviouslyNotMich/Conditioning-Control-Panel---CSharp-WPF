@@ -293,6 +293,11 @@ namespace ConditioningControlPanel
             App.Autonomy?.TestTrigger();
         }
 
+        internal void BtnTestVoice_Click(object sender, RoutedEventArgs e)
+        {
+            App.Autonomy?.TestVoiceCommand();
+        }
+
         internal void BtnForceStartAutonomy_Click(object sender, RoutedEventArgs e)
         {
             App.Autonomy?.ForceStart();

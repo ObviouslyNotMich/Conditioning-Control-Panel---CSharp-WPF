@@ -32,6 +32,11 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnTestAutonomy_Click(sender, e);
         }
+        private void BtnTestVoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnTestVoice_Click(sender, e);
+        }
         private void ChkAutonomyBehavior_Changed(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)

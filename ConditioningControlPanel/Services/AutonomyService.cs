@@ -304,6 +304,31 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
+        /// Fire the "say it for me" voice action on demand, bypassing the weighted picker and the
+        /// _isEnabled gate (dev/test affordance). Still requires the speech engine to be available
+        /// and the avatar to be present; surfaces a friendly message if not.
+        /// </summary>
+        public void TestVoiceCommand()
+        {
+            if (App.Speech?.IsAvailable != true)
+            {
+                System.Windows.MessageBox.Show(
+                    "Speech isn't available.\n\nDrop a Vosk model into Resources/Models/vosk/ (see the README there) and make sure a microphone is connected, then try again.",
+                    "Voice Test — Not Available");
+                return;
+            }
+            if (App.AvatarWindow == null)
+            {
+                System.Windows.MessageBox.Show(
+                    "The companion avatar needs to be visible for the voice prompt. Show the avatar, then try again.",
+                    "Voice Test — No Avatar");
+                return;
+            }
+            App.Logger?.Information("AutonomyService: TestVoiceCommand invoked manually");
+            TriggerVoiceCommand();
+        }
+
+        /// <summary>
         /// Force start the service (for debugging) - bypasses all checks
         /// </summary>
         public void ForceStart()
