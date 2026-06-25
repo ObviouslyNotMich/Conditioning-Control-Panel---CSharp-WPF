@@ -124,6 +124,13 @@ namespace ConditioningControlPanel.Services
         public event EventHandler<AutonomyActionEventArgs>? ActionTriggered;
         public event EventHandler<string>? AnnouncementMade;
 
+        /// <summary>Raised when Takeover arms (true) or disarms (false), so the UI orb/state can follow.</summary>
+        public event EventHandler<bool>? EnabledChanged;
+        /// <summary>Raised when a "say it for me" voice prompt begins, carrying the target phrase.</summary>
+        public event EventHandler<string>? VoicePromptStarted;
+        /// <summary>Raised when a voice prompt resolves, carrying its result.</summary>
+        public event EventHandler<Services.Speech.PhraseResult>? VoicePromptFinished;
+
         // Announcement phrases by action type
         private readonly Dictionary<AutonomyActionType, string[]> _announcementPhrases = new()
         {
@@ -410,6 +417,8 @@ namespace ConditioningControlPanel.Services
             StartHeartbeatTimer();
             UpdateMood();
 
+            try { EnabledChanged?.Invoke(this, true); } catch { }
+
             App.Logger?.Information("AutonomyService: Started successfully! Timers: Idle={IdleRunning}, Random={RandomRunning}",
                 _idleTimer?.IsEnabled == true,
                 _randomTimer?.IsEnabled == true);
@@ -451,6 +460,8 @@ namespace ConditioningControlPanel.Services
             _bubblesPulseActive = false;
             _bouncingTextPulseActive = false;
             _globalPulseGeneration++; // Invalidate ALL pending pulse callbacks
+
+            try { EnabledChanged?.Invoke(this, false); } catch { }
 
             App.Logger?.Information("AutonomyService: Stopped");
         }
@@ -1714,6 +1725,8 @@ namespace ConditioningControlPanel.Services
             {
                 var phrase = _voicePhrases[_random.Next(_voicePhrases.Length)];
 
+                try { VoicePromptStarted?.Invoke(this, phrase); } catch { }
+
                 // She demands it (announce + show the target in the bubble).
                 App.AvatarWindow?.GigglePriority($"Say it for me~  “{phrase}”", false, aiGenerated: false);
 
@@ -1739,6 +1752,8 @@ namespace ConditioningControlPanel.Services
                     App.Logger?.Information("AutonomyService: VoiceCommand — speech went unavailable mid-action");
                     return;
                 }
+
+                try { VoicePromptFinished?.Invoke(this, result); } catch { }
 
                 if (result.Matched)
                 {

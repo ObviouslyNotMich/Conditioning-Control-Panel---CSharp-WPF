@@ -1881,6 +1881,9 @@ namespace ConditioningControlPanel
             // Header "Remember" button: reflect whether a setup is already saved.
             SyncRememberButton();
 
+            // Takeover state hero + live voice panel: subscribe to speech/autonomy events.
+            InitTakeoverVoiceUi();
+
             // Wire the in-app notification surface. Anything App.Notifications.Show()'d
             // before this point is replayed on attach.
             App.Notifications?.AttachHost(NotificationHost);
