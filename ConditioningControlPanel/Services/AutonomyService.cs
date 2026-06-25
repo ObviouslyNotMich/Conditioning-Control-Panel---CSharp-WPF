@@ -26,7 +26,8 @@ namespace ConditioningControlPanel.Services
         BouncingText,
         BubbleCount,
         WebVideo,
-        WallpaperShuffle
+        WallpaperShuffle,
+        VoiceCommand
     }
 
     /// <summary>
@@ -362,6 +363,15 @@ namespace ConditioningControlPanel.Services
             {
                 App.Logger?.Information("AutonomyService: Start() called from non-UI thread, dispatching to UI thread...");
                 DispatcherHelper.RunOnUISync(() => Start());
+                return;
+            }
+
+            // Re-entrancy guard: Start() has three entry points (toggle / startup / panic-restart)
+            // plus remote/chat paths. If we're already running, do nothing rather than spin up a
+            // second set of timers on top of the live ones.
+            if (_isEnabled)
+            {
+                App.Logger?.Information("AutonomyService: Start() ignored — already running");
                 return;
             }
 
@@ -896,6 +906,16 @@ namespace ConditioningControlPanel.Services
             if (settings.AutonomyCanTriggerWallpaper)
                 candidates.Add((AutonomyActionType.WallpaperShuffle, 10));
 
+            // Voice command - "say it for me" (offline speech). Self-gating: only ever a candidate
+            // when the speech engine is actually available (model + mic) and the user consented to
+            // the mic, so it's purely additive — no engine => it simply never appears.
+            if (settings.AutonomyCanTriggerVoiceCommand
+                && settings.MicConsentGiven
+                && App.Speech?.IsAvailable == true
+                && App.Speech?.IsListening != true
+                && App.AvatarWindow != null)
+                candidates.Add((AutonomyActionType.VoiceCommand, 18));
+
             // Note: BubbleCount removed from autonomy - too disruptive and unreliable
 
             if (candidates.Count == 0) return null;
@@ -1104,6 +1124,10 @@ namespace ConditioningControlPanel.Services
 
                         case AutonomyActionType.WebVideo:
                             TriggerWebVideoFullscreen();
+                            break;
+
+                        case AutonomyActionType.VoiceCommand:
+                            TriggerVoiceCommand();
                             break;
 
                         case AutonomyActionType.WallpaperShuffle:
@@ -1626,6 +1650,102 @@ namespace ConditioningControlPanel.Services
             catch (Exception ex)
             {
                 App.Logger?.Warning("Autonomy: AI comment failed: {Error}", ex.Message);
+            }
+        }
+
+        // Short, common-word phrases for the "repeat after me" mechanic. Kept to in-vocabulary words
+        // so the closed grammar resolves reliably on the Vosk small model; fuzzy scoring forgives the rest.
+        private static readonly string[] _voicePhrases =
+        {
+            "good girl",
+            "yes mistress",
+            "i obey",
+            "i am bambi",
+            "thank you",
+            "drop for you",
+            "empty and happy",
+            "i belong here",
+            "deeper for you",
+            "bambi loves to obey"
+        };
+
+        /// <summary>
+        /// "Say it for me" — she names a phrase, opens the mic, and reacts to what you say.
+        /// Fully additive and self-protecting: bails if speech isn't available or the mic is busy.
+        /// </summary>
+        private void TriggerVoiceCommand()
+        {
+            if (App.Speech?.IsAvailable != true || App.Speech.IsListening || App.AvatarWindow == null)
+            {
+                App.Logger?.Information("AutonomyService: VoiceCommand skipped — speech unavailable/busy");
+                return;
+            }
+            _ = RunVoiceCommandAsync();
+        }
+
+        private async Task RunVoiceCommandAsync()
+        {
+            try
+            {
+                var phrase = _voicePhrases[_random.Next(_voicePhrases.Length)];
+
+                // She demands it (announce + show the target in the bubble).
+                App.AvatarWindow?.GigglePriority($"Say it for me~  “{phrase}”", false, aiGenerated: false);
+
+                // Small beat so she's "finished asking" before the mic opens.
+                await Task.Delay(1400).ConfigureAwait(false);
+
+                var result = await App.Speech!.RecognizePhraseAsync(
+                    phrase, new Services.Speech.RecognizeOptions { Timeout = TimeSpan.FromSeconds(8) })
+                    .ConfigureAwait(false);
+
+                // One gentle retry when she heard you but you were too quiet.
+                if (!result.Matched && result.LoudEnough == false && result.Score >= 0.45 && !result.Unavailable)
+                {
+                    Bubble("Louder for me~ say it like you mean it.");
+                    await Task.Delay(900).ConfigureAwait(false);
+                    result = await App.Speech!.RecognizePhraseAsync(
+                        phrase, new Services.Speech.RecognizeOptions { Timeout = TimeSpan.FromSeconds(8) })
+                        .ConfigureAwait(false);
+                }
+
+                if (result.Unavailable)
+                {
+                    App.Logger?.Information("AutonomyService: VoiceCommand — speech went unavailable mid-action");
+                    return;
+                }
+
+                if (result.Matched)
+                {
+                    Bubble(Pick("Mmm… good girl~", "*purrs* perfect.", "Yes. Just like that~", "Such a good girl for me~"));
+                    App.Logger?.Information("AutonomyService: VoiceCommand matched '{Phrase}' (score={Score:0.00}, conf={Conf:0.00})",
+                        phrase, result.Score, result.Confidence);
+                }
+                else if (result.TimedOut && string.IsNullOrWhiteSpace(result.Transcript))
+                {
+                    Bubble(Pick("*pouts* …say it for me next time~", "Too shy? I'll ask again later~"));
+                    App.Logger?.Information("AutonomyService: VoiceCommand timed out (no speech) for '{Phrase}'", phrase);
+                }
+                else
+                {
+                    Bubble(Pick("Almost~ try it again for me, slower.", "Mmm, not quite. Next time say it just for me~"));
+                    App.Logger?.Information("AutonomyService: VoiceCommand miss for '{Phrase}' — heard '{Heard}' (score={Score:0.00})",
+                        phrase, result.Transcript, result.Score);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("AutonomyService: VoiceCommand failed: {Error}", ex.Message);
+            }
+
+            string Pick(params string[] opts) => opts[_random.Next(opts.Length)];
+            void Bubble(string text)
+            {
+                if (Application.Current?.Dispatcher == null) return;
+                Application.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    try { App.AvatarWindow?.GigglePriority(text, false, aiGenerated: false); } catch { }
+                });
             }
         }
 

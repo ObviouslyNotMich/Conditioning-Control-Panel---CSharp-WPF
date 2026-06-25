@@ -304,6 +304,8 @@ namespace ConditioningControlPanel
         public static DualMonitorVideoService DualMonitorVideo { get; private set; } = null!;
         public static ScreenMirrorService ScreenMirror { get; private set; } = null!;
         public static AutonomyService Autonomy { get; private set; } = null!;
+        /// <summary>Offline speech recognition (Takeover "repeat after me"). May be unavailable (no model/mic); callers check IsAvailable.</summary>
+        public static Services.Speech.SpeechService Speech { get; private set; } = null!;
         public static InteractionQueueService InteractionQueue { get; private set; } = null!;
         public static ContentPackService ContentPacks { get; private set; } = null!;
         public static CompanionService Companion { get; private set; } = null!;
@@ -1268,6 +1270,11 @@ namespace ConditioningControlPanel
             // Initialize autonomy service (companion autonomous behavior - Level 100+)
             Autonomy = new AutonomyService();
 
+            // Initialize offline speech recognition (Takeover "repeat after me").
+            // Constructor is a no-op; the mic only opens during an explicit listen window, and the
+            // service reports IsAvailable=false (no model on disk / no capture device) instead of throwing.
+            Speech = new Services.Speech.SpeechService();
+
             // Initialize content packs service
             ContentPacks = new ContentPackService();
 
@@ -1574,17 +1581,26 @@ namespace ConditioningControlPanel
                     ProfileSync.StartHeartbeat();
                 }
 
-                // Start autonomy service if it should be enabled
-                // (might have been skipped during LoadSettings if whitelist wasn't loaded yet)
+                // Re-arm Takeover on launch ONLY if the user opted in (AutonomyResumeOnStartup).
+                // Takeover now always starts OFF by default — this fixes "it stays on after a restart".
+                // The enabled+consent flags persist so the toggle remembers its label, but the service
+                // does not auto-run unless resume-on-startup is explicitly turned on.
                 var s = Settings?.Current;
-                if (s != null && s.AutonomyModeEnabled && s.AutonomyConsentGiven)
+                if (s != null && s.AutonomyResumeOnStartup && s.AutonomyModeEnabled && s.AutonomyConsentGiven)
                 {
                     var hasPatreonAccess = s.PatreonTier >= 1 || Patreon?.IsWhitelisted == true;
                     if (hasPatreonAccess && Autonomy?.IsEnabled != true)
                     {
                         Autonomy?.Start();
-                        Logger?.Information("Started autonomy service after Patreon validation");
+                        Logger?.Information("Re-armed Takeover on startup (AutonomyResumeOnStartup opt-in)");
                     }
+                }
+                else if (s != null && s.AutonomyModeEnabled && !s.AutonomyResumeOnStartup)
+                {
+                    // Clear the stale "enabled" flag so the UI shows OFF on a fresh launch and a
+                    // mid-pulse Stop() from a previous run can't leave anything armed.
+                    s.AutonomyModeEnabled = false;
+                    Logger?.Information("Takeover left OFF on startup (resume-on-startup not opted in)");
                 }
             }
             catch (Exception ex)

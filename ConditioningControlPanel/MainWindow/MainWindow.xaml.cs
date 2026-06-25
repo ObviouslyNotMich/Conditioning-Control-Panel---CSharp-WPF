@@ -587,16 +587,17 @@ namespace ConditioningControlPanel
                 // Also update avatar in case level changed significantly
                 _avatarTubeWindow?.UpdateAvatarForLevel(App.Settings.Current.PlayerLevel);
 
-                // Start autonomy if it was enabled but couldn't start earlier (Patreon wasn't validated yet)
+                // Re-arm autonomy after profile load ONLY if the user opted into resume-on-startup
+                // (same gate as App.OnStartup — Takeover otherwise always starts OFF).
                 var s = App.Settings?.Current;
-                if (s != null && s.AutonomyModeEnabled && s.AutonomyConsentGiven
+                if (s != null && s.AutonomyResumeOnStartup && s.AutonomyModeEnabled && s.AutonomyConsentGiven
                     && App.Autonomy?.IsEnabled != true)
                 {
                     var hasAccess = s.PatreonTier >= 1 || App.Patreon?.IsWhitelisted == true;
                     if (hasAccess)
                     {
                         App.Autonomy?.Start();
-                        App.Logger?.Information("Started autonomy service after profile loaded");
+                        App.Logger?.Information("Re-armed Takeover after profile load (resume-on-startup opt-in)");
                     }
                 }
             });
