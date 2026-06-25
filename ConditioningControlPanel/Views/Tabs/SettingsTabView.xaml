@@ -599,6 +599,7 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <helpers:EmojiTextBlock Style="{StaticResource SectionHeader}" Text="{loc:Str section_browser}" Margin="0"/>
@@ -755,8 +756,28 @@
                             </Button.Style>
                             <helpers:EmojiTextBlock x:Name="TxtWebcamTracking" x:FieldModifier="internal" Text="{loc:Str btn_browser_webcam_tracking_off}"/>
                         </Button>
+                        <!-- Mute browser audio toggle (BambiCloud / HypnoTube video) -->
+                        <Button Grid.Column="5" x:Name="BtnMuteBrowser" x:FieldModifier="internal"
+                                Click="BtnMuteBrowser_Click" Cursor="Hand"
+                                ToolTip="Mute / unmute browser audio (BambiCloud / HypnoTube)"
+                                Background="Transparent" BorderThickness="0" Padding="5,2" Margin="4,0,0,0"
+                                VerticalAlignment="Center">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#55FF69B4"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <helpers:EmojiTextBlock x:Name="TxtBrowserMute" x:FieldModifier="internal" Text="🔊" FontSize="13"/>
+                        </Button>
                         <!-- Pop Out button -->
-                        <Button Grid.Column="5" x:Name="BtnPopOutBrowser" x:FieldModifier="internal" Content="{loc:Str btn_pop_out}"
+                        <Button Grid.Column="6" x:Name="BtnPopOutBrowser" x:FieldModifier="internal" Content="{loc:Str btn_pop_out}"
                                 Click="BtnPopOutBrowser_Click"
                                 ToolTip="{loc:Str tooltip_pop_out_browser_to_resizable_window}"
                                 FontSize="9" Padding="6,3" VerticalAlignment="Center">

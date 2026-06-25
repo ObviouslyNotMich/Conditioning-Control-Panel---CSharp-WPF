@@ -99,6 +99,18 @@ namespace ConditioningControlPanel.Services
             set { if (_webView != null) _webView.ZoomFactor = value; }
         }
 
+        /// <summary>
+        /// Mutes/unmutes all audio from the integrated browser (BambiCloud / HypnoTube
+        /// video). Uses CoreWebView2.IsMuted, which persists across navigations
+        /// automatically — no per-page re-injection needed. No-op until CoreWebView2
+        /// is ready; the saved state is re-applied in WebView_Loaded.
+        /// </summary>
+        public bool IsAudioMuted
+        {
+            get => _webView?.CoreWebView2?.IsMuted ?? false;
+            set { if (_webView?.CoreWebView2 != null) _webView.CoreWebView2.IsMuted = value; }
+        }
+
         public BrowserService()
         {
             // Store browser data in AppData (not install folder) to avoid lock issues during updates/uninstall
@@ -204,6 +216,10 @@ namespace ConditioningControlPanel.Services
                 // the next BrowserSiteToggle click. Forward to the consumer so
                 // it can dispose the control and lazy-reinit on next use.
                 _webView.CoreWebView2.ProcessFailed += OnProcessFailed;
+
+                // Re-apply the saved browser-mute preference now that CoreWebView2 exists
+                // (IsMuted is a no-op before this point and resets on a fresh control).
+                _webView.CoreWebView2.IsMuted = App.Settings?.Current?.BrowserVideoMuted == true;
 
                 // Inject the CCP forced-fullscreen exit detector. When MainWindow
                 // reparents the WebView into a borderless fullscreen popout window

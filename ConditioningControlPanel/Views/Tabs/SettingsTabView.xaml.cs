@@ -72,6 +72,11 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnPopOutBrowser_Click(sender, e);
         }
+        private void BtnMuteBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnMuteBrowser_Click(sender, e);
+        }
         private void BtnQuickLogout_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)

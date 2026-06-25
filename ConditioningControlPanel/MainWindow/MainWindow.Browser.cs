@@ -174,6 +174,7 @@ namespace ConditioningControlPanel
                     SettingsTab.BrowserLoadingText.Visibility = Visibility.Collapsed;
                     SettingsTab.BrowserContainer.Children.Add(webView);
                     _browserInitialized = true;
+                    SyncBrowserMuteIcon();
 
                     // Note: WebMessageReceived handler is attached in BrowserReady event
                     // because CoreWebView2 isn't ready until then
@@ -1987,6 +1988,27 @@ namespace ConditioningControlPanel
         }
 
         #endregion
+
+        /// <summary>
+        /// Toggles the integrated browser's audio (BambiCloud / HypnoTube video).
+        /// Persists to <see cref="AppSettings.BrowserVideoMuted"/> and applies live via
+        /// CoreWebView2.IsMuted (the BrowserService re-applies it on init too).
+        /// </summary>
+        internal void BtnMuteBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            var muted = !(App.Settings?.Current?.BrowserVideoMuted ?? false);
+            if (App.Settings?.Current != null) App.Settings.Current.BrowserVideoMuted = muted;
+            if (_browser != null) _browser.IsAudioMuted = muted;
+            App.Settings?.Save();
+            SyncBrowserMuteIcon();
+        }
+
+        /// <summary>Updates the header mute glyph to match the saved preference.</summary>
+        internal void SyncBrowserMuteIcon()
+        {
+            if (SettingsTab?.TxtBrowserMute == null) return;
+            SettingsTab.TxtBrowserMute.Text = App.Settings?.Current?.BrowserVideoMuted == true ? "🔇" : "🔊";
+        }
 
         internal async void BtnPopOutBrowser_Click(object sender, RoutedEventArgs e)
         {

@@ -899,6 +899,18 @@ namespace ConditioningControlPanel.Models
             set { _backgroundMusicEnabled = value; OnPropertyChanged(); }
         }
 
+        private bool _browserVideoMuted = false;
+        /// <summary>
+        /// When true, the integrated browser's audio (BambiCloud / HypnoTube video)
+        /// is muted via CoreWebView2.IsMuted. Lets users run their own audio
+        /// alongside CCP without the browser video doubling on top.
+        /// </summary>
+        public bool BrowserVideoMuted
+        {
+            get => _browserVideoMuted;
+            set { _browserVideoMuted = value; OnPropertyChanged(); }
+        }
+
         // MMDevice ID of the playback endpoint the user wants CCP audio routed to.
         // Empty = system default. Streaming use case: route CCP to a private headset
         // while the stream's default endpoint stays clean.
