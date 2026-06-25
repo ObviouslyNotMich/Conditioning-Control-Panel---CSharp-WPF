@@ -1,6 +1,8 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
+using ConditioningControlPanel.Services;
 
 namespace ConditioningControlPanel
 {
@@ -15,6 +17,8 @@ namespace ConditioningControlPanel
         private bool _premiumRailSubscribed;
         private bool _lockdownEventsBound;
         private int _railLockdownMinutes = 15;
+        private bool _blinkEventsBound;
+        private DispatcherTimer? _blinkCountdownTimer;
 
         private static Brush CreateFrozenBrush(Color c)
         {
@@ -39,7 +43,86 @@ namespace ConditioningControlPanel
                 App.Lockdown.CountdownTick += ts => Dispatcher.BeginInvoke(new Action(() => UpdateLockdownCountdown(ts)));
                 _lockdownEventsBound = true;
             }
+            if (!_blinkEventsBound && App.BlinkTrainer != null)
+            {
+                App.BlinkTrainer.StateChanged += () => Dispatcher.BeginInvoke(new Action(() => SetBlinkActiveUi(App.BlinkTrainer?.IsRunning == true)));
+                _blinkEventsBound = true;
+            }
             RefreshPremiumRail();
+        }
+
+        // --- Blink Trainer chip: +/- duration, consent-gated start/stop, countdown ---
+
+        internal void PremiumBlinkAdjust(int deltaMinutes)
+        {
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.BlinkTrainerDurationMinutes = Math.Clamp(s.BlinkTrainerDurationMinutes + deltaMinutes, 1, 120);
+            App.Settings?.Save();
+            if (SettingsTab?.TxtBlinkMins != null)
+                SettingsTab.TxtBlinkMins.Text = s.BlinkTrainerDurationMinutes + "m";
+        }
+
+        internal void PremiumBlinkToggle()
+        {
+            if (App.BlinkTrainer == null) return;
+            if (App.BlinkTrainer.IsRunning)
+            {
+                App.BlinkTrainer.Stop();
+                return;
+            }
+
+            // Webcam consent first — same flow the Blink tab uses.
+            if (!WebcamTrackingService.IsConsentCurrent())
+            {
+                var dlg = new WebcamConsentDialog { Owner = this };
+                var ok = dlg.ShowDialog();
+                if (ok != true || !dlg.ConsentGiven) return;
+            }
+
+            if (!App.BlinkTrainer.Start())
+            {
+                MessageBox.Show(App.BlinkTrainer.LastError ?? "Could not start Blink Trainer.",
+                    "Blink Trainer", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void SetBlinkActiveUi(bool active)
+        {
+            if (SettingsTab == null) return;
+            if (SettingsTab.BlinkSetRow != null)
+                SettingsTab.BlinkSetRow.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
+            if (SettingsTab.TxtBlinkCountdown != null)
+                SettingsTab.TxtBlinkCountdown.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            if (SettingsTab.BtnBlinkGo != null)
+                SettingsTab.BtnBlinkGo.Content = active ? "Stop" : "Start";
+
+            if (active)
+            {
+                UpdateBlinkCountdown();
+                if (_blinkCountdownTimer == null)
+                {
+                    _blinkCountdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                    _blinkCountdownTimer.Tick += (s, e) => UpdateBlinkCountdown();
+                }
+                _blinkCountdownTimer.Start();
+            }
+            else
+            {
+                _blinkCountdownTimer?.Stop();
+            }
+        }
+
+        private void UpdateBlinkCountdown()
+        {
+            if (App.BlinkTrainer?.IsRunning != true)
+            {
+                _blinkCountdownTimer?.Stop();
+                return;
+            }
+            var ts = App.BlinkTrainer.Remaining;
+            if (SettingsTab?.TxtBlinkCountdown != null)
+                SettingsTab.TxtBlinkCountdown.Text = $"{(int)ts.TotalMinutes:D2}:{ts.Seconds:D2}";
         }
 
         // --- Lockdown chip: +/- duration, double-warning activate, live countdown ---
@@ -129,6 +212,10 @@ namespace ConditioningControlPanel
             if (SettingsTab.TxtLockdownMins != null)
                 SettingsTab.TxtLockdownMins.Text = _railLockdownMinutes + "m";
             SetLockdownActiveUi(App.Lockdown?.IsActive == true);
+
+            if (SettingsTab.TxtBlinkMins != null && App.Settings?.Current != null)
+                SettingsTab.TxtBlinkMins.Text = App.Settings.Current.BlinkTrainerDurationMinutes + "m";
+            SetBlinkActiveUi(App.BlinkTrainer?.IsRunning == true);
         }
 
         private static void SetDot(System.Windows.Shapes.Ellipse? dot, bool on)

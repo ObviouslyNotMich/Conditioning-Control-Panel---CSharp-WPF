@@ -126,6 +126,31 @@
                                        FontSize="12" FontWeight="Bold" Foreground="#FF6B6B" TextAlignment="Center" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Border>
+                    <!-- Blink Trainer — launcher with +/- duration and countdown -->
+                    <Border Margin="0,0,0,5" Background="{DynamicResource AccentTintedBgBrush}"
+                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" CornerRadius="9" Padding="2,3"
+                            ToolTip="Blink Trainer — webcam blink-gated visuals">
+                        <StackPanel>
+                            <TextBlock Text="Blink" FontSize="9" Foreground="White" TextAlignment="Center"/>
+                            <Grid x:Name="BlinkSetRow" x:FieldModifier="internal" Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" x:Name="BtnBlinkMinus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="−" FontSize="13" Width="18" Height="18" Click="BtnBlinkMinus_Click"/>
+                                <TextBlock Grid.Column="1" x:Name="TxtBlinkMins" x:FieldModifier="internal" Text="10m" FontSize="10"
+                                           Foreground="White" VerticalAlignment="Center" TextAlignment="Center"/>
+                                <Button Grid.Column="2" x:Name="BtnBlinkPlus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="＋" FontSize="11" Width="18" Height="18" Click="BtnBlinkPlus_Click"/>
+                            </Grid>
+                            <Button x:Name="BtnBlinkGo" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                    Content="Start" FontSize="9" Height="16" Margin="0,3,0,0" Click="BtnBlinkGo_Click"/>
+                            <TextBlock x:Name="TxtBlinkCountdown" x:FieldModifier="internal" Visibility="Collapsed"
+                                       FontSize="12" FontWeight="Bold" Foreground="#7FD8FF" TextAlignment="Center" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                 <!-- Patron lock overlay (also serves as the ad) -->
                 <Border x:Name="PremiumRailLock" x:FieldModifier="internal" Visibility="Collapsed"
