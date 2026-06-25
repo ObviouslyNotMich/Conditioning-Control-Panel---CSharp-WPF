@@ -1874,6 +1874,9 @@ namespace ConditioningControlPanel
             // etc.) reflect on this button too.
             EnsureBrowserWebcamStateSubscribed();
 
+            // Dashboard premium quick-toggle rail: paint state + subscribe to patron changes.
+            InitPremiumRail();
+
             // Wire the in-app notification surface. Anything App.Notifications.Show()'d
             // before this point is replayed on attach.
             App.Notifications?.AttachHost(NotificationHost);

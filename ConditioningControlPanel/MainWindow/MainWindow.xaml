@@ -8,8 +8,8 @@
         xmlns:local="clr-namespace:ConditioningControlPanel"
         xmlns:views="clr-namespace:ConditioningControlPanel.Views.Tabs"
         Title="Conditioning Control Panel"
-        Height="943" Width="1385"
-        MinHeight="620" MinWidth="978"
+        Height="943" Width="1469"
+        MinHeight="620" MinWidth="1062"
         Background="{DynamicResource DarkerBgBrush}"
         WindowStartupLocation="Manual"
         WindowStyle="None"
@@ -111,7 +111,7 @@
     <!-- Viewbox scales all content proportionally with window size -->
     <Viewbox Stretch="Fill">
         <!-- Design canvas at reference size - wider to fit all header buttons -->
-        <Grid Width="1405" Height="901">
+        <Grid Width="1489" Height="901">
             <Grid.RowDefinitions>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="Auto"/>

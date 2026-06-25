@@ -10,6 +10,7 @@
              d:DesignHeight="450" d:DesignWidth="800">
         <Grid>
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="84"/>
             <ColumnDefinition Width="640"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
@@ -18,11 +19,82 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-    
+
+        <!-- ============================================================ -->
+        <!-- PREMIUM QUICK-TOGGLE RAIL (col 0). Quick on/off for gated     -->
+        <!-- features. Greyed with a lock (doubles as an ad) when the      -->
+        <!-- user is not a logged-in patron.                               -->
+        <!-- ============================================================ -->
+        <Border x:Name="PremiumRail" x:FieldModifier="internal" Grid.Column="0" Grid.Row="0" Margin="5,5,0,5"
+                Background="{DynamicResource ElevatedSurfaceBrush}" BorderBrush="{DynamicResource GlassBorderBrush}"
+                BorderThickness="1" CornerRadius="12">
+            <Border.Resources>
+                <Style x:Key="PremiumChipStyle" TargetType="Button">
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="Margin" Value="0,0,0,5"/>
+                    <Setter Property="Height" Value="46"/>
+                    <Setter Property="Background" Value="{DynamicResource AccentTintedBgBrush}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="cb" Background="{TemplateBinding Background}"
+                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1"
+                                        CornerRadius="9" Padding="2,3">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="cb" Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                        <Setter TargetName="cb" Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Border.Resources>
+            <Grid>
+                <StackPanel Margin="4,6,4,6">
+                    <TextBlock Text="PREMIUM" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource SecondaryBrush}"
+                               TextAlignment="Center" Margin="0,0,0,6"/>
+                    <Button x:Name="ChipTakeover" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipTakeover_Click" ToolTip="Takeover — the companion triggers effects on her own">
+                        <StackPanel>
+                            <Ellipse x:Name="DotTakeover" x:FieldModifier="internal" Width="9" Height="9" HorizontalAlignment="Center" Fill="#555555"/>
+                            <TextBlock Text="Takeover" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ChipAwareness" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipAwareness_Click" ToolTip="Awareness — reacts to what's on your screen">
+                        <StackPanel>
+                            <Ellipse x:Name="DotAwareness" x:FieldModifier="internal" Width="9" Height="9" HorizontalAlignment="Center" Fill="#555555"/>
+                            <TextBlock Text="Awareness" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ChipHaptics" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipHaptics_Click" ToolTip="Haptics — connect a toy">
+                        <StackPanel>
+                            <Ellipse x:Name="DotHaptics" x:FieldModifier="internal" Width="9" Height="9" HorizontalAlignment="Center" Fill="#555555"/>
+                            <TextBlock Text="Haptics" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <!-- Patron lock overlay (also serves as the ad) -->
+                <Border x:Name="PremiumRailLock" x:FieldModifier="internal" Visibility="Collapsed"
+                        Background="#E01A1A2E" CornerRadius="12" Cursor="Hand"
+                        ToolTip="Premium features — unlock with Patreon">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <helpers:EmojiTextBlock Text="🔒" FontSize="20" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Patron" FontSize="10" Foreground="White" TextAlignment="Center" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
         <!-- ============================================================ -->
         <!-- VELVET MOSAIC DASHBOARD - 4x4 feature card grid (col 0)       -->
         <!-- ============================================================ -->
-        <Grid Grid.Column="0" Grid.Row="0" x:Name="VelvetFeatureGrid" x:FieldModifier="internal" Margin="5">
+        <Grid Grid.Column="1" Grid.Row="0" x:Name="VelvetFeatureGrid" x:FieldModifier="internal" Margin="5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -124,7 +196,7 @@
         <!-- referenced by MainWindow.xaml.cs until the full rewire is    -->
         <!-- complete. Phase 6+ will delete this block.                   -->
         <!-- ============================================================ -->
-        <Grid x:Name="LegacyDashboardHost" x:FieldModifier="internal" Visibility="Collapsed">
+        <Grid x:Name="LegacyDashboardHost" x:FieldModifier="internal" Grid.Column="1" Grid.Row="0" Visibility="Collapsed">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="330"/>
             <ColumnDefinition Width="360"/>
@@ -578,8 +650,8 @@
         </Grid>
         <!-- /LegacyDashboardHost -->
     
-        <!-- RIGHT HALF (was col 2, now col 1 — Browser / Audio / Quick Links) -->
-        <Grid Grid.Column="1" Grid.Row="0" Margin="5">
+        <!-- RIGHT HALF (Browser / Audio / Quick Links) — col 2 (after premium rail + feature grid) -->
+        <Grid Grid.Column="2" Grid.Row="0" Margin="5">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -1152,7 +1224,7 @@
         <!-- VELVET MOSAIC HELPER BUTTON ROW - full width, under both     -->
         <!-- the feature grid AND the right half.                         -->
         <!-- ============================================================ -->
-        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="VelvetHelperButtonRow"
+        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" x:Name="VelvetHelperButtonRow"
               Height="30" Margin="5,4,5,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -1280,8 +1352,8 @@
             </Button>
         </Grid>
 
-        <!-- Scrolling Marquee Banner - row 2, spans both columns -->
-        <Border x:Name="MarqueeBanner" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+        <!-- Scrolling Marquee Banner - row 2, spans all columns -->
+        <Border x:Name="MarqueeBanner" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                 Background="#1A0A1A" BorderBrush="{DynamicResource DarkPinkBrush}" BorderThickness="2"
                 CornerRadius="8" Height="48" Margin="5,5,5,0" ClipToBounds="True">
             <Border.Effect>

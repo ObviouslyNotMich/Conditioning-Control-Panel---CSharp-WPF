@@ -77,6 +77,21 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnMuteBrowser_Click(sender, e);
         }
+        private void ChipTakeover_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumChip_Click(PremiumFeature.Takeover);
+        }
+        private void ChipAwareness_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumChip_Click(PremiumFeature.Awareness);
+        }
+        private void ChipHaptics_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumChip_Click(PremiumFeature.Haptics);
+        }
         private void BtnQuickLogout_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)
