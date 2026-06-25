@@ -104,6 +104,50 @@ namespace ConditioningControlPanel
             }
         }
 
+        // Opens the Start-options menu (Start normally / Jump right in).
+        private void BtnStartMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button b && b.ContextMenu != null)
+            {
+                b.ContextMenu.PlacementTarget = b;
+                b.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                b.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void MenuStartNormal_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isRunning) StartEngine();
+        }
+
+        private void MenuJumpRightIn_Click(object sender, RoutedEventArgs e)
+        {
+            RandomizeAndStart();
+        }
+
+        /// <summary>
+        /// "Jump right in": turns on a fun, non-overwhelming mix and randomizes its
+        /// pacing, then starts the engine — a one-tap way to begin without arming
+        /// settings by hand. Setters clamp, so the random ranges are always safe.
+        /// </summary>
+        internal void RandomizeAndStart()
+        {
+            var s = App.Settings?.Current;
+            if (s != null)
+            {
+                var rng = new Random();
+                s.FlashEnabled = true;
+                s.FlashFrequency = rng.Next(20, 81);
+                s.SimultaneousImages = rng.Next(2, 9);
+                s.SubliminalEnabled = true;
+                s.SubliminalFrequency = rng.Next(3, 13);
+                s.SpiralEnabled = rng.Next(2) == 0;
+                s.PinkFilterEnabled = rng.Next(2) == 0;
+                App.Settings?.Save();
+            }
+            if (!_isRunning) StartEngine();
+        }
+
         public void StartEngine()
         {
             SaveSettings();
