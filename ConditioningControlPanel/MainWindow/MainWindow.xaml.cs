@@ -1877,6 +1877,9 @@ namespace ConditioningControlPanel
             // Dashboard premium quick-toggle rail: paint state + subscribe to patron changes.
             InitPremiumRail();
 
+            // Header "Remember" button: reflect whether a setup is already saved.
+            SyncRememberButton();
+
             // Wire the in-app notification surface. Anything App.Notifications.Show()'d
             // before this point is replayed on attach.
             App.Notifications?.AttachHost(NotificationHost);

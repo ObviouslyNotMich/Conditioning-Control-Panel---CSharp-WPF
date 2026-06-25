@@ -911,6 +911,18 @@ namespace ConditioningControlPanel.Models
             set { _browserVideoMuted = value; OnPropertyChanged(); }
         }
 
+        private string? _rememberedConfigJson;
+        /// <summary>
+        /// One-slot snapshot for the header "Remember" button — the conditioning
+        /// config (as a Preset) plus the premium toggle states + browser mute.
+        /// Null/empty = nothing remembered yet. Progression/XP are never captured.
+        /// </summary>
+        public string? RememberedConfigJson
+        {
+            get => _rememberedConfigJson;
+            set { _rememberedConfigJson = value; OnPropertyChanged(); }
+        }
+
         // MMDevice ID of the playback endpoint the user wants CCP audio routed to.
         // Empty = system default. Streaming use case: route CCP to a private headset
         // while the stream's default endpoint stays clean.
