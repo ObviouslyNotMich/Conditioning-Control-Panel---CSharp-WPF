@@ -298,6 +298,55 @@ namespace ConditioningControlPanel
             App.Autonomy?.TestVoiceCommand();
         }
 
+        internal void ChkAutonomyVoice_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+
+            var turningOn = BambiTakeoverTab.ChkAutonomyVoice.IsChecked == true;
+
+            // First time enabling: require explicit mic consent. If declined, revert the toggle.
+            if (turningOn && !s.MicConsentGiven)
+            {
+                var dlg = new MicConsentDialog { Owner = this };
+                var ok = dlg.ShowDialog() == true && dlg.ConsentGiven;
+                if (!ok)
+                {
+                    var wasLoading = _isLoading;
+                    _isLoading = true;                       // suppress the re-fired Changed
+                    BambiTakeoverTab.ChkAutonomyVoice.IsChecked = false;
+                    _isLoading = wasLoading;
+                    return;
+                }
+            }
+
+            s.AutonomyCanTriggerVoiceCommand = turningOn;
+            App.Settings?.Save();
+
+            // Friendly heads-up if they enabled it but the engine can't run yet.
+            if (turningOn && App.Speech?.IsAvailable != true && BambiTakeoverTab.TxtAutonomyVoiceHint != null)
+            {
+                BambiTakeoverTab.TxtAutonomyVoiceHint.Text =
+                    App.Speech == null || !Services.Speech.SpeechService.HasCaptureDevice
+                        ? "No microphone detected — connect one to use this."
+                        : "Speech model not installed yet — voice prompts stay off until it is.";
+            }
+            else if (BambiTakeoverTab.TxtAutonomyVoiceHint != null)
+            {
+                BambiTakeoverTab.TxtAutonomyVoiceHint.Text = "Offline mic. Opens only when she prompts you.";
+            }
+        }
+
+        internal void ChkAutonomyResume_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.AutonomyResumeOnStartup = BambiTakeoverTab.ChkAutonomyResumeOnStartup.IsChecked == true;
+            App.Settings?.Save();
+        }
+
         internal void BtnForceStartAutonomy_Click(object sender, RoutedEventArgs e)
         {
             App.Autonomy?.ForceStart();

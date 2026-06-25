@@ -172,6 +172,30 @@
                         </StackPanel>
                     </Border>
     
+                    <!-- ============ SUBSECTION 3b: VOICE & SESSION ============ -->
+                    <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
+                            BorderThickness="1" CornerRadius="10" Padding="20,16" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="Voice &amp; session" Foreground="{DynamicResource PinkBrush}"
+                                       FontSize="13" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <Grid Margin="0,2" ToolTip="She asks you to say a phrase out loud and listens for it — fully offline. First time on asks for mic consent.">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="🎤 Voice — say it back to me" FontSize="12" Foreground="#CCC"/>
+                                    <TextBlock x:Name="TxtAutonomyVoiceHint" x:FieldModifier="internal" Text="Offline mic. Opens only when she prompts you." FontSize="10" Foreground="#888"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ChkAutonomyVoice" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkAutonomyVoice_Changed" Unchecked="ChkAutonomyVoice_Changed"/>
+                            </Grid>
+                            <Border Height="1" Background="#2E2E48" Margin="0,10"/>
+                            <Grid Margin="0,2" ToolTip="When on, Takeover re-arms itself the next time you launch the app. Off by default — Takeover always starts off.">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="↻ Resume Takeover on startup" FontSize="12" Foreground="#CCC"/>
+                                    <TextBlock Text="Off by default — Takeover starts off every launch." FontSize="10" Foreground="#888"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ChkAutonomyResumeOnStartup" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkAutonomyResume_Changed" Unchecked="ChkAutonomyResume_Changed"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- ============ SUBSECTION 4: CONTROLS ============ -->
                     <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
                             BorderThickness="1" CornerRadius="10" Padding="20,16">

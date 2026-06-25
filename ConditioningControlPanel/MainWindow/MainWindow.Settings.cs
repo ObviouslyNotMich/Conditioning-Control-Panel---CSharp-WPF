@@ -197,6 +197,8 @@ namespace ConditioningControlPanel
             BambiTakeoverTab.ChkAutonomyPinkFilter.IsChecked = s.AutonomyCanTriggerPinkFilter;
             BambiTakeoverTab.ChkAutonomyBouncingText.IsChecked = s.AutonomyCanTriggerBouncingText;
             BambiTakeoverTab.ChkAutonomyBubbleCount.IsChecked = s.AutonomyCanTriggerBubbleCount;
+            BambiTakeoverTab.ChkAutonomyVoice.IsChecked = s.AutonomyCanTriggerVoiceCommand && s.MicConsentGiven;
+            BambiTakeoverTab.ChkAutonomyResumeOnStartup.IsChecked = s.AutonomyResumeOnStartup;
             BambiTakeoverTab.SliderAutonomyAnnounce.Value = s.AutonomyAnnouncementChance;
 
             // Bouncing Text Size (add if not already loaded above)
