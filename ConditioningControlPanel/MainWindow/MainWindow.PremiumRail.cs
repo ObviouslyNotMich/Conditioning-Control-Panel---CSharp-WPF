@@ -13,6 +13,8 @@ namespace ConditioningControlPanel
         private static readonly Brush PremiumDotOn = CreateFrozenBrush(Color.FromRgb(0x4C, 0xAF, 0x50));
         private static readonly Brush PremiumDotOff = CreateFrozenBrush(Color.FromRgb(0x55, 0x55, 0x55));
         private bool _premiumRailSubscribed;
+        private bool _lockdownEventsBound;
+        private int _railLockdownMinutes = 15;
 
         private static Brush CreateFrozenBrush(Color c)
         {
@@ -30,7 +32,57 @@ namespace ConditioningControlPanel
                 catch { }
                 _premiumRailSubscribed = true;
             }
+            if (!_lockdownEventsBound && App.Lockdown != null)
+            {
+                App.Lockdown.LockdownActivated += () => Dispatcher.BeginInvoke(new Action(() => SetLockdownActiveUi(true)));
+                App.Lockdown.LockdownDeactivated += () => Dispatcher.BeginInvoke(new Action(() => SetLockdownActiveUi(false)));
+                App.Lockdown.CountdownTick += ts => Dispatcher.BeginInvoke(new Action(() => UpdateLockdownCountdown(ts)));
+                _lockdownEventsBound = true;
+            }
             RefreshPremiumRail();
+        }
+
+        // --- Lockdown chip: +/- duration, double-warning activate, live countdown ---
+
+        internal void PremiumLockdownAdjust(int deltaMinutes)
+        {
+            _railLockdownMinutes = Math.Clamp(_railLockdownMinutes + deltaMinutes, 5, 180);
+            if (SettingsTab?.TxtLockdownMins != null)
+                SettingsTab.TxtLockdownMins.Text = _railLockdownMinutes + "m";
+        }
+
+        internal void PremiumLockdownActivate()
+        {
+            if (App.Lockdown == null || App.Lockdown.IsActive) return;
+            var minutes = _railLockdownMinutes;
+            var confirmed = WarningDialog.ShowDoubleWarning(this, "Lockdown Mode",
+                "- You will be LOCKED IN for " + minutes + " minutes\n" +
+                "- Strict Lock will be FORCED ON\n" +
+                "- Panic Key will be DISABLED\n" +
+                "- Alt+F4, Alt+Tab, Windows key, and Escape will be BLOCKED\n" +
+                "- You CANNOT close or minimize the application\n" +
+                "- The only escape is waiting for the timer to expire\n" +
+                "  (or Ctrl+Alt+Del → Task Manager as a safety valve)");
+            if (!confirmed) return;
+            App.Lockdown.Activate(TimeSpan.FromMinutes(minutes));
+        }
+
+        private void SetLockdownActiveUi(bool active)
+        {
+            if (SettingsTab == null) return;
+            if (SettingsTab.LockdownSetRow != null)
+                SettingsTab.LockdownSetRow.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
+            if (SettingsTab.BtnLockdownGo != null)
+                SettingsTab.BtnLockdownGo.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
+            if (SettingsTab.TxtLockdownCountdown != null)
+                SettingsTab.TxtLockdownCountdown.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            if (active) UpdateLockdownCountdown(App.Lockdown?.Remaining ?? TimeSpan.Zero);
+        }
+
+        private void UpdateLockdownCountdown(TimeSpan ts)
+        {
+            if (SettingsTab?.TxtLockdownCountdown != null)
+                SettingsTab.TxtLockdownCountdown.Text = $"{(int)ts.TotalMinutes:D2}:{ts.Seconds:D2}";
         }
 
         /// <summary>
@@ -73,6 +125,10 @@ namespace ConditioningControlPanel
             SetDot(SettingsTab.DotTakeover, BambiTakeoverTab?.ChkAutonomyEnabled?.IsChecked == true);
             SetDot(SettingsTab.DotAwareness, AwarenessTab?.ChkAwarenessMaster?.IsChecked == true);
             SetDot(SettingsTab.DotHaptics, HapticsTab?.ChkHapticsEnabled?.IsChecked == true);
+
+            if (SettingsTab.TxtLockdownMins != null)
+                SettingsTab.TxtLockdownMins.Text = _railLockdownMinutes + "m";
+            SetLockdownActiveUi(App.Lockdown?.IsActive == true);
         }
 
         private static void SetDot(System.Windows.Shapes.Ellipse? dot, bool on)

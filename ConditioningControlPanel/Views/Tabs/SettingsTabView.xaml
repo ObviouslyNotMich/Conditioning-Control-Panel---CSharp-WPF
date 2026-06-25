@@ -52,6 +52,29 @@
                         </Setter.Value>
                     </Setter>
                 </Style>
+                <Style x:Key="RailMiniBtn" TargetType="Button">
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="mb" Background="{DynamicResource AccentTintedBgBrush}"
+                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1"
+                                        CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="mb" Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
+                                        <Setter TargetName="mb" Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
             </Border.Resources>
             <Grid>
                 <StackPanel Margin="4,6,4,6">
@@ -78,6 +101,31 @@
                             <TextBlock Text="Haptics" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Button>
+                    <!-- Lockdown — launcher with +/- duration and a live countdown -->
+                    <Border Margin="0,0,0,5" Background="{DynamicResource AccentTintedBgBrush}"
+                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" CornerRadius="9" Padding="2,3"
+                            ToolTip="Lockdown — locks you in for the set time (panic key disabled)">
+                        <StackPanel>
+                            <TextBlock Text="Lockdown" FontSize="9" Foreground="White" TextAlignment="Center"/>
+                            <Grid x:Name="LockdownSetRow" x:FieldModifier="internal" Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" x:Name="BtnLockdownMinus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="−" FontSize="13" Width="18" Height="18" Click="BtnLockdownMinus_Click"/>
+                                <TextBlock Grid.Column="1" x:Name="TxtLockdownMins" x:FieldModifier="internal" Text="15m" FontSize="10"
+                                           Foreground="White" VerticalAlignment="Center" TextAlignment="Center"/>
+                                <Button Grid.Column="2" x:Name="BtnLockdownPlus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="＋" FontSize="11" Width="18" Height="18" Click="BtnLockdownPlus_Click"/>
+                            </Grid>
+                            <Button x:Name="BtnLockdownGo" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                    Content="Lock in" FontSize="9" Height="16" Margin="0,3,0,0" Click="BtnLockdownGo_Click"/>
+                            <TextBlock x:Name="TxtLockdownCountdown" x:FieldModifier="internal" Visibility="Collapsed"
+                                       FontSize="12" FontWeight="Bold" Foreground="#FF6B6B" TextAlignment="Center" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                 <!-- Patron lock overlay (also serves as the ad) -->
                 <Border x:Name="PremiumRailLock" x:FieldModifier="internal" Visibility="Collapsed"

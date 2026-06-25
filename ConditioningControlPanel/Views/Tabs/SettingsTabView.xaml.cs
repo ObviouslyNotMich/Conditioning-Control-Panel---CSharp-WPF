@@ -92,6 +92,21 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.PremiumChip_Click(PremiumFeature.Haptics);
         }
+        private void BtnLockdownMinus_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumLockdownAdjust(-5);
+        }
+        private void BtnLockdownPlus_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumLockdownAdjust(5);
+        }
+        private void BtnLockdownGo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumLockdownActivate();
+        }
         private void BtnQuickLogout_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)
