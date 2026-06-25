@@ -1091,7 +1091,19 @@ namespace ConditioningControlPanel.Services
                 {
                     if (_isRunning && !_videoPlaying && !_triggerInProgress)
                     {
-                        TriggerVideo();
+                        if (App.Autonomy?.IsWebVideoActive == true)
+                        {
+                            // A fullscreen browser/HypnoTube video is on screen — don't stack a
+                            // mandatory video (and its audio) on top (BUG-XRFQH4AHDN). Nothing
+                            // else re-arms us in this branch (there's no mandatory-video Cleanup
+                            // to follow), so reschedule to retry once the web video has ended.
+                            App.Logger?.Information("VideoService: scheduler tick skipped — web video active; rescheduling");
+                            ScheduleNext();
+                        }
+                        else
+                        {
+                            TriggerVideo();
+                        }
                     }
                     // Cleanup() will call ScheduleNext() when video ends
                 }

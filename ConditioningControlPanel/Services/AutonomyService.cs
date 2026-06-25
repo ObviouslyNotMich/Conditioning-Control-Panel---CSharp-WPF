@@ -96,6 +96,13 @@ namespace ConditioningControlPanel.Services
         private bool _bubblesPulseActive = false;
         private bool _bouncingTextPulseActive = false;
         private bool _webVideoActive = false; // Blocks all actions while web video plays fullscreen
+
+        /// <summary>
+        /// True while a fullscreen browser/HypnoTube web video is on screen. The mandatory
+        /// VideoService scheduler reads this so it won't stack a mandatory video (and its audio)
+        /// on top of a web video — and vice versa (BUG-XRFQH4AHDN).
+        /// </summary>
+        public bool IsWebVideoActive => _webVideoActive;
         private int _webVideoWatchdogGeneration = 0; // Invalidates stale watchdog callbacks
         private HashSet<string> _shownWebVideos = new(); // Track shown videos to avoid repeats
         // Separate generation counters for each pulse type to avoid cross-invalidation
@@ -879,8 +886,10 @@ namespace ConditioningControlPanel.Services
             if (settings.AutonomyCanTriggerBouncingText)
                 candidates.Add((AutonomyActionType.BouncingText, 15));
 
-            // Web video - plays random HypnoTube video fullscreen in browser
-            if (settings.AutonomyCanTriggerWebVideo && !_webVideoActive)
+            // Web video - plays random HypnoTube video fullscreen in browser.
+            // Exclude while a mandatory video is on screen so we pick a different action
+            // rather than stacking two videos (BUG-XRFQH4AHDN).
+            if (settings.AutonomyCanTriggerWebVideo && !_webVideoActive && App.Video?.IsPlaying != true)
                 candidates.Add((AutonomyActionType.WebVideo, 20));
 
             // Wallpaper shuffle - subtle desktop wallpaper change
@@ -1194,6 +1203,16 @@ namespace ConditioningControlPanel.Services
             if (_webVideoActive)
             {
                 App.Logger?.Information("AutonomyService: Web video already active, skipping");
+                return;
+            }
+
+            // Don't stack a fullscreen web video on top of a mandatory video that's already
+            // playing — that's the doubled video + doubled audio users reported (BUG-XRFQH4AHDN).
+            // The reverse (mandatory over web) is guarded in VideoService's scheduler and
+            // TriggerVideoSafely().
+            if (App.Video?.IsPlaying == true)
+            {
+                App.Logger?.Information("AutonomyService: Mandatory video playing, skipping web video to avoid stacked playback");
                 return;
             }
 
