@@ -268,6 +268,49 @@
                                 </StackPanel>
                                 <CheckBox x:Name="ChkAutonomyResumeOnStartup" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkAutonomyResume_Changed" Unchecked="ChkAutonomyResume_Changed"/>
                             </Grid>
+
+                            <Border Height="1" Background="#2E2E48" Margin="0,10"/>
+
+                            <!-- Wake word: always-on "Hey Bambi" while Takeover is active -->
+                            <Grid Margin="0,2" ToolTip="When on, she listens continuously for her name while Takeover is active and prompts you when she hears it. The mic stays open (still fully offline). Needs mic consent.">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="👂 Wake word — call her by name" FontSize="12" Foreground="#CCC"/>
+                                    <TextBlock Text="Always-on mic while Takeover runs. Say it to summon her." FontSize="10" Foreground="#888"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ChkSpeechWakeWord" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkSpeechWakeWord_Changed" Unchecked="ChkSpeechWakeWord_Changed"/>
+                            </Grid>
+                            <Grid Margin="22,4,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Phrases" FontSize="10" Foreground="#888" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox x:Name="TxtSpeechWakeWords" x:FieldModifier="internal" Grid.Column="1" FontSize="11" Foreground="#DDD" Background="#1A1A2E" BorderBrush="#2E2E48" BorderThickness="1" Padding="6,3"
+                                         Text="hey bambi" LostFocus="TxtSpeechWakeWords_LostFocus"
+                                         ToolTip="Comma-separated wake phrases (e.g. hey bambi, hey bimbo). Short common-word phrases recognize best."/>
+                            </Grid>
+
+                            <Border Height="1" Background="#2E2E48" Margin="0,10"/>
+
+                            <!-- Push-to-talk: summon a voice prompt with a system-wide key -->
+                            <Grid Margin="0,2" ToolTip="When on, a key you choose summons a voice prompt on demand (works even when the app isn't focused). Best for noisy rooms — overrides the surprise auto-prompt.">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="🎙 Push-to-talk — summon with a key" FontSize="12" Foreground="#CCC"/>
+                                    <TextBlock Text="Press your key to make her prompt you. No surprise mic." FontSize="10" Foreground="#888"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ChkSpeechPushToTalk" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkSpeechPushToTalk_Changed" Unchecked="ChkSpeechPushToTalk_Changed"/>
+                            </Grid>
+                            <Grid Margin="22,4,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Key" FontSize="10" Foreground="#888" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock x:Name="TxtPttKey" x:FieldModifier="internal" Grid.Column="1" Text="F8" FontSize="11" FontWeight="Bold" Foreground="#90EE90" VerticalAlignment="Center"/>
+                                <Button x:Name="BtnSetPttKey" Grid.Column="2" Content="Set key…" FontSize="11" Padding="10,3" Background="#3A2A4A" Foreground="#DDD" BorderThickness="0"
+                                        Click="BtnSetPttKey_Click" ToolTip="Click, then press the key you want to use for push-to-talk."/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 

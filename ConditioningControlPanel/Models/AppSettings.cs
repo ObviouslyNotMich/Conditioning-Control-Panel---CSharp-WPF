@@ -3523,6 +3523,15 @@ namespace ConditioningControlPanel.Models
             set { _speechPushToTalkEnabled = value; OnPropertyChanged(); }
         }
 
+        private string _speechPushToTalkKey = "F8";
+        /// <summary>The key that summons a voice prompt when push-to-talk is on. Parsed as a <see cref="System.Windows.Input.Key"/>.</summary>
+        [JsonProperty]
+        public string SpeechPushToTalkKey
+        {
+            get => _speechPushToTalkKey;
+            set { _speechPushToTalkKey = string.IsNullOrWhiteSpace(value) ? "F8" : value; OnPropertyChanged(); }
+        }
+
         #endregion
 
         #region Lab — Wallpaper Override

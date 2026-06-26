@@ -47,6 +47,26 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.ChkAutonomyResume_Changed(sender, e);
         }
+        private void ChkSpeechWakeWord_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkSpeechWakeWord_Changed(sender, e);
+        }
+        private void TxtSpeechWakeWords_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.TxtSpeechWakeWords_LostFocus(sender, e);
+        }
+        private void ChkSpeechPushToTalk_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.ChkSpeechPushToTalk_Changed(sender, e);
+        }
+        private void BtnSetPttKey_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnSetPttKey_Click(sender, e);
+        }
         private void ChkAutonomyBehavior_Changed(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)

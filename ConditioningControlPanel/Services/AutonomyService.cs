@@ -74,7 +74,7 @@ namespace ConditioningControlPanel.Services
     /// The avatar can trigger effects on her own based on idle time, random intervals,
     /// context awareness, and time of day.
     /// </summary>
-    public class AutonomyService : IDisposable
+    public partial class AutonomyService : IDisposable
     {
         // Timers
         private DispatcherTimer? _idleTimer;
@@ -417,6 +417,9 @@ namespace ConditioningControlPanel.Services
             StartHeartbeatTimer();
             UpdateMood();
 
+            // Arm the opt-in user-driven mic modes (wake-word / push-to-talk) if configured.
+            RefreshVoiceInputModes();
+
             try { EnabledChanged?.Invoke(this, true); } catch { }
 
             App.Logger?.Information("AutonomyService: Started successfully! Timers: Idle={IdleRunning}, Random={RandomRunning}",
@@ -450,6 +453,9 @@ namespace ConditioningControlPanel.Services
             _isEnabled = false;
             _forceTestMode = false; // Reset test mode
             StopAllTimers();
+
+            // Tear down the always-on mic modes — they only run while Takeover is active.
+            StopVoiceInputModes();
 
             // Restore any active pulse settings (spiral, pink filter, etc.) before cleanup
             CancelActivePulses();
@@ -945,10 +951,15 @@ namespace ConditioningControlPanel.Services
             // Voice command - "say it for me" (offline speech). Self-gating: only ever a candidate
             // when the speech engine is actually available (model + mic) and the user consented to
             // the mic, so it's purely additive — no engine => it simply never appears.
+            // When the user opted into wake-word or push-to-talk, the mic only opens on her own
+            // initiative — so we suppress the surprise auto-trigger ("overrides auto-listen").
             if (settings.AutonomyCanTriggerVoiceCommand
                 && settings.MicConsentGiven
+                && !settings.SpeechWakeWordEnabled
+                && !settings.SpeechPushToTalkEnabled
                 && App.Speech?.IsAvailable == true
                 && App.Speech?.IsListening != true
+                && !_voiceBusy
                 && App.AvatarWindow != null)
                 candidates.Add((AutonomyActionType.VoiceCommand, 18));
 
@@ -1711,12 +1722,14 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         private void TriggerVoiceCommand()
         {
-            if (App.Speech?.IsAvailable != true || App.Speech.IsListening || App.AvatarWindow == null)
+            if (App.Speech?.IsAvailable != true || App.AvatarWindow == null)
             {
-                App.Logger?.Information("AutonomyService: VoiceCommand skipped — speech unavailable/busy");
+                App.Logger?.Information("AutonomyService: VoiceCommand skipped — speech unavailable");
                 return;
             }
-            _ = RunVoiceCommandAsync();
+            // All four initiators (auto timer / wake-word / push-to-talk / dev test) funnel through
+            // RequestVoiceCommand so the mic's single-session guard is never violated.
+            RequestVoiceCommand();
         }
 
         private async Task RunVoiceCommandAsync()
@@ -1727,8 +1740,9 @@ namespace ConditioningControlPanel.Services
 
                 try { VoicePromptStarted?.Invoke(this, phrase); } catch { }
 
-                // She demands it (announce + show the target in the bubble).
-                App.AvatarWindow?.GigglePriority($"Say it for me~  “{phrase}”", false, aiGenerated: false);
+                // She demands it (announce + show the target in the bubble). Marshaled to the UI
+                // thread via Bubble() since the funnel may invoke us off-thread (wake-word / PTT).
+                Bubble($"Say it for me~  “{phrase}”");
 
                 // Small beat so she's "finished asking" before the mic opens.
                 await Task.Delay(1400).ConfigureAwait(false);
