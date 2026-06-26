@@ -2355,6 +2355,18 @@ namespace ConditioningControlPanel.Models
             get => _lockCardStrict;
             set { _lockCardStrict = value; OnPropertyChanged(); }
         }
+
+        private bool _lockCardVoiceMode = false; // Solve by speaking the phrase (offline mic) instead of typing
+        /// <summary>
+        /// When true, lock cards are solved by saying the phrase out loud (offline Vosk mic) rather
+        /// than typing it. Falls back to typing automatically if speech isn't available or mic
+        /// consent wasn't given, so the user is never trapped.
+        /// </summary>
+        public bool LockCardVoiceMode
+        {
+            get => _lockCardVoiceMode;
+            set { _lockCardVoiceMode = value; OnPropertyChanged(); }
+        }
         
         private Dictionary<string, bool> _lockCardPhrases = new()
         {

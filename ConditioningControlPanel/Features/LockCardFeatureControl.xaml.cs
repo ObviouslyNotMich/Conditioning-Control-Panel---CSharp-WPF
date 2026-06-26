@@ -44,6 +44,8 @@ namespace ConditioningControlPanel.Features
                 SliderRepeats.Value = s.LockCardRepeats;
                 TxtRepeats.Text = $"{s.LockCardRepeats}x";
                 ChkStrict.IsChecked = s.LockCardStrict;
+                ChkVoiceMode.IsChecked = s.LockCardVoiceMode && s.MicConsentGiven;
+                UpdateVoiceHint();
             }
             finally { _isLoading = false; }
         }
@@ -53,7 +55,8 @@ namespace ConditioningControlPanel.Features
             if (e.PropertyName == nameof(Models.AppSettings.LockCardEnabled) ||
                 e.PropertyName == nameof(Models.AppSettings.LockCardFrequency) ||
                 e.PropertyName == nameof(Models.AppSettings.LockCardRepeats) ||
-                e.PropertyName == nameof(Models.AppSettings.LockCardStrict))
+                e.PropertyName == nameof(Models.AppSettings.LockCardStrict) ||
+                e.PropertyName == nameof(Models.AppSettings.LockCardVoiceMode))
             {
                 Dispatcher.BeginInvoke(new Action(LoadFromSettings));
             }
@@ -130,6 +133,53 @@ namespace ConditioningControlPanel.Features
 
             s.LockCardStrict = on;
             App.Settings?.Save();
+        }
+
+        private void ChkVoiceMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+
+            var on = ChkVoiceMode.IsChecked ?? false;
+
+            // First time on: require mic consent (shared offline-audio contract). Decline => revert.
+            if (on && !s.MicConsentGiven)
+            {
+                var dlg = new MicConsentDialog { Owner = Window.GetWindow(this) ?? Application.Current.MainWindow };
+                var ok = dlg.ShowDialog() == true && dlg.ConsentGiven;
+                if (!ok)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        _isLoading = true;
+                        ChkVoiceMode.IsChecked = false;
+                        _isLoading = false;
+                    }));
+                    return;
+                }
+            }
+
+            s.LockCardVoiceMode = on;
+            App.Settings?.Save();
+            UpdateVoiceHint();
+        }
+
+        /// <summary>Refresh the grey hint under the voice toggle to reflect mic availability.</summary>
+        private void UpdateVoiceHint()
+        {
+            var on = ChkVoiceMode.IsChecked ?? false;
+            if (!on)
+            {
+                TxtVoiceHint.Text = "Say the phrase out loud instead of typing it (offline mic). Falls back to typing if no mic.";
+                return;
+            }
+            if (App.Speech?.IsAvailable == true)
+                TxtVoiceHint.Text = "On — speak the phrase to dismiss the card. Typing stays available if the mic can't hear you.";
+            else if (App.Speech == null || !Services.Speech.SpeechService.HasCaptureDevice)
+                TxtVoiceHint.Text = "No microphone detected — lock cards will use typing until one is connected.";
+            else
+                TxtVoiceHint.Text = "Speech model not installed yet — lock cards will use typing until it is.";
         }
 
         private void BtnManagePhrases_Click(object sender, RoutedEventArgs e)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -8,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using ConditioningControlPanel.Services;
+using ConditioningControlPanel.Services.Speech;
 using ConditioningControlPanel.Localization;
 
 namespace ConditioningControlPanel
@@ -21,9 +23,11 @@ namespace ConditioningControlPanel
         private readonly string _phrase;
         private readonly int _requiredRepeats;
         private readonly bool _strictMode;
+        private bool _voiceMode;   // solve by speaking instead of typing (may fall back mid-session)
         private int _completedRepeats = 0;
         private bool _isCompleted = false;
         private DispatcherTimer? _closeTimer;
+        private bool _voiceListening = false;
         
         // Multi-monitor support
         private readonly bool _isPrimary;
@@ -67,19 +71,34 @@ namespace ConditioningControlPanel
         /// <param name="strictMode">If true, ESC is disabled</param>
         /// <param name="screen">The screen to show on (null for primary)</param>
         /// <param name="isPrimary">If true, this window handles input</param>
-        public LockCardWindow(string phrase, int repeats, bool strictMode, 
-            System.Windows.Forms.Screen? screen = null, bool isPrimary = true)
+        public LockCardWindow(string phrase, int repeats, bool strictMode,
+            System.Windows.Forms.Screen? screen = null, bool isPrimary = true, bool voiceMode = false)
         {
             InitializeComponent();
-            
+
             _phrase = phrase;
             _requiredRepeats = repeats;
             _strictMode = strictMode;
             _isPrimary = isPrimary;
-            
+            // Voice mode degrades gracefully to typing if the offline engine isn't usable, so the
+            // user can never be trapped behind a mic that won't cooperate.
+            _voiceMode = voiceMode && App.Speech?.IsAvailable == true && App.Settings.Current.MicConsentGiven;
+            if (voiceMode && !_voiceMode)
+                App.Logger?.Information("LockCardWindow: voice mode requested but unavailable — falling back to typing");
+
             // Set the phrase text
             TxtPhrase.Text = phrase;
-            
+
+            // Swap the input affordance for the voice panel when solving by voice.
+            if (_voiceMode)
+            {
+                InputBorder.Visibility = Visibility.Collapsed;
+                VoicePanel.Visibility = Visibility.Visible;
+                TxtTitle.Text = "SAY IT TO UNLOCK";
+                TxtHint.Text = "Say the phrase out loud, clearly.";
+                TxtVoiceState.Text = _isPrimary ? "🎤 Listening…" : "🎤 Speak on the main monitor";
+            }
+
             // Update progress display
             UpdateProgress();
             
@@ -133,7 +152,7 @@ namespace ConditioningControlPanel
                             SetForegroundWindow(_hwnd);
                         }
                         Activate();
-                        TxtInput.Focus();
+                        if (_voiceMode) Focus(); else TxtInput.Focus();
                     }), DispatcherPriority.Input);
                 };
             }
@@ -224,10 +243,13 @@ namespace ConditioningControlPanel
                     SetForegroundWindow(_hwnd);
                 }
                 Activate();
-                TxtInput.Focus();
+                if (_voiceMode) Focus(); else TxtInput.Focus();
 
-                App.Logger?.Information("Lock Card shown - Phrase: {Phrase}, Repeats: {Repeats}, Strict: {Strict}, Monitors: {Count}",
-                    _phrase, _requiredRepeats, _strictMode, _allWindows.Count);
+                App.Logger?.Information("Lock Card shown - Phrase: {Phrase}, Repeats: {Repeats}, Strict: {Strict}, Voice: {Voice}, Monitors: {Count}",
+                    _phrase, _requiredRepeats, _strictMode, _voiceMode, _allWindows.Count);
+
+                // Begin the spoken-solve listen loop on the primary monitor.
+                if (_voiceMode) StartVoiceSolve();
             }
         }
 
@@ -285,28 +307,39 @@ namespace ConditioningControlPanel
             // Check if the input matches the phrase (case-insensitive)
             if (string.Equals(input.Trim(), _phrase, StringComparison.OrdinalIgnoreCase))
             {
-                _completedRepeats++;
-                UpdateProgressOnAllWindows();
-                
-                // Clear input for next repeat
-                TxtInput.Clear();
-                _sharedInput = "";
-                SyncInputToAllWindows("");
-                
-                // Pulse animation on all windows
-                PulseAllWindows();
-                
-                // Check if completed all repeats
-                if (_completedRepeats >= _requiredRepeats)
-                {
-                    CompleteAllWindows();
-                }
-                else
-                {
-                    // Show encouragement on all windows
-                    var hint = GetEncouragement();
-                    SetHintOnAllWindows(hint);
-                }
+                RegisterSuccessfulRepeat();
+            }
+        }
+
+        /// <summary>
+        /// Shared completion step for one correct repeat — used by both the typed and the spoken
+        /// solve paths. Always call on the UI thread.
+        /// </summary>
+        private void RegisterSuccessfulRepeat()
+        {
+            if (_isCompleted) return;
+
+            _completedRepeats++;
+            UpdateProgressOnAllWindows();
+
+            // Clear input for next repeat (no-op/harmless in voice mode)
+            TxtInput.Clear();
+            _sharedInput = "";
+            SyncInputToAllWindows("");
+
+            // Pulse animation on all windows
+            PulseAllWindows();
+
+            // Check if completed all repeats
+            if (_completedRepeats >= _requiredRepeats)
+            {
+                CompleteAllWindows();
+            }
+            else
+            {
+                // Show encouragement on all windows
+                var hint = GetEncouragement();
+                SetHintOnAllWindows(hint);
             }
         }
 
@@ -437,6 +470,135 @@ namespace ConditioningControlPanel
             return messages[_completedRepeats % messages.Length];
         }
 
+        // ── Voice solve (speak the phrase) ─────────────────────────────────────
+
+        private static readonly Color VoicePink = Color.FromRgb(0xFF, 0x69, 0xB4);
+        private static readonly Color VoiceGreen = Color.FromRgb(0x00, 0xE6, 0x76);
+        private static readonly Color VoiceAmber = Color.FromRgb(0xF0, 0xB4, 0x29);
+
+        private void StartVoiceSolve()
+        {
+            if (_voiceListening || !_voiceMode) return;
+            _voiceListening = true;
+            if (App.Speech != null)
+            {
+                App.Speech.LevelChanged += OnVoiceLevel;
+                App.Speech.PartialTranscript += OnVoicePartial;
+            }
+            _ = RunVoiceSolveLoopAsync();
+        }
+
+        private void StopVoiceSolve()
+        {
+            if (!_voiceListening) return;
+            _voiceListening = false;
+            if (App.Speech != null)
+            {
+                App.Speech.LevelChanged -= OnVoiceLevel;
+                App.Speech.PartialTranscript -= OnVoicePartial;
+            }
+        }
+
+        private async Task RunVoiceSolveLoopAsync()
+        {
+            int consecutiveUnavailable = 0;
+            try
+            {
+                while (!_isCompleted && _voiceMode)
+                {
+                    if (App.Speech?.IsAvailable != true)
+                    {
+                        // Engine/mic vanished mid-session — degrade to typing so we never trap.
+                        if (++consecutiveUnavailable > 6) { FallBackToTextMidSession(); break; }
+                        await Task.Delay(500);
+                        continue;
+                    }
+
+                    PhraseResult res;
+                    try
+                    {
+                        res = await App.Speech.RecognizePhraseAsync(
+                            _phrase, new RecognizeOptions { Timeout = TimeSpan.FromSeconds(10) });
+                    }
+                    catch { res = PhraseResult.NotAvailable; }
+
+                    if (_isCompleted || !_voiceMode) break;
+
+                    if (res.Unavailable)
+                    {
+                        // Another capture session briefly held the mic — just retry.
+                        await Task.Delay(350);
+                        continue;
+                    }
+                    consecutiveUnavailable = 0;
+                    SetVoiceLevel(0);
+
+                    if (res.Matched)
+                    {
+                        SetVoiceState("✓ Yes~", VoiceGreen);
+                        RegisterSuccessfulRepeat();
+                        if (_isCompleted) break;
+                        await Task.Delay(700);
+                        SetVoiceState("🎤 Listening…", VoicePink);
+                    }
+                    else if (!res.LoudEnough && res.Score >= 0.45)
+                    {
+                        SetVoiceHeard(res.Transcript);
+                        SetVoiceState("🔊 Louder…", VoiceAmber);
+                        await Task.Delay(800);
+                        SetVoiceState("🎤 Listening…", VoicePink);
+                    }
+                    else if (res.TimedOut && string.IsNullOrWhiteSpace(res.Transcript))
+                    {
+                        // Pure silence — keep listening without nagging.
+                    }
+                    else
+                    {
+                        SetVoiceHeard(res.Transcript);
+                        SetVoiceState("✗ Again, slower…", VoiceAmber);
+                        await Task.Delay(800);
+                        SetVoiceState("🎤 Listening…", VoicePink);
+                    }
+                }
+            }
+            catch (Exception ex) { App.Logger?.Warning("LockCardWindow: voice solve loop failed: {Error}", ex.Message); }
+            finally { StopVoiceSolve(); }
+        }
+
+        private void OnVoiceLevel(object? sender, double level) =>
+            Dispatcher.BeginInvoke(new Action(() => SetVoiceLevel(level)));
+
+        private void OnVoicePartial(object? sender, string text) =>
+            Dispatcher.BeginInvoke(new Action(() => SetVoiceHeard(text)));
+
+        private void SetVoiceLevel(double level)
+        {
+            if (VoiceLevelFill.RenderTransform is ScaleTransform st)
+                st.ScaleX = Math.Min(1.0, Math.Max(0.0, level / 0.2)); // RMS ~0..0.2 -> full bar
+        }
+
+        private void SetVoiceHeard(string text) =>
+            TxtVoiceHeard.Text = string.IsNullOrWhiteSpace(text) ? "I heard: …" : $"I heard: {text}";
+
+        private void SetVoiceState(string text, Color color)
+        {
+            TxtVoiceState.Text = text;
+            VoiceStateBrush.Color = color;
+        }
+
+        /// <summary>Drop back to typed solve if speech dies mid-card, so the user is never stuck.</summary>
+        private void FallBackToTextMidSession()
+        {
+            _voiceMode = false;
+            StopVoiceSolve();
+            VoicePanel.Visibility = Visibility.Collapsed;
+            InputBorder.Visibility = Visibility.Visible;
+            TxtTitle.Text = Loc.Get("label_type_to_unlock_2");
+            TxtHint.Text = Loc.Get("label_type_the_phrase_exactly_as_shown_above");
+            TxtInput.Focus();
+            App.Logger?.Information("LockCardWindow: fell back to typed solve (speech unavailable mid-card)");
+        }
+
         private void CloseAllWindows()
         {
             ForceCloseAll();
@@ -476,6 +638,7 @@ namespace ConditioningControlPanel
             }
             
             _closeTimer?.Stop();
+            StopVoiceSolve();
             _allWindows.Remove(this);
             base.OnClosing(e);
         }
@@ -504,7 +667,7 @@ namespace ConditioningControlPanel
         /// <summary>
         /// Create lock card windows for all monitors
         /// </summary>
-        public static void ShowOnAllMonitors(string phrase, int repeats, bool strictMode, bool isTest = false)
+        public static void ShowOnAllMonitors(string phrase, int repeats, bool strictMode, bool isTest = false, bool voiceMode = false)
         {
             // Clear any existing windows
             _allWindows.Clear();
@@ -528,7 +691,7 @@ namespace ConditioningControlPanel
             foreach (var screen in screens)
             {
                 var isPrimary = screen.Primary;
-                var window = new LockCardWindow(phrase, repeats, strictMode, screen, isPrimary);
+                var window = new LockCardWindow(phrase, repeats, strictMode, screen, isPrimary, voiceMode);
 
                 if (isPrimary)
                 {
