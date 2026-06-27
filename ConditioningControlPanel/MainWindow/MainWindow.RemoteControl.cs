@@ -1406,10 +1406,15 @@ namespace ConditioningControlPanel
                 App.LockCard?.Stop();
 
                 // Turn off overlays but keep the overlay service alive
-                // so the controller can turn them back on
+                // so the controller can turn them back on. Clear the settings flags first so a
+                // running reconcile loop won't recreate them, then stop the windows directly:
+                // voice/Deeper start spiral & pink ad-hoc (no reconcile loop), so RefreshOverlays()
+                // — gated on the service's IsRunning — can't see those windows to tear them down.
                 EnablePinkFilter(false);
                 EnableSpiral(false);
                 App.Overlay?.RefreshOverlays();
+                App.Overlay?.StopPinkFilter();
+                App.Overlay?.StopSpiral();
 
                 App.InteractionQueue?.ForceReset();
 

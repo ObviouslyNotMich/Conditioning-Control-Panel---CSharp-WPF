@@ -1566,6 +1566,13 @@ namespace ConditioningControlPanel
         }
 
         /// <summary>
+        /// True while a spoken companion clip (wake ack, bark voice, idle line, etc.) is actually
+        /// playing. The voice-command listener polls this to hold the mic open until she's finished,
+        /// so on speakers (not headphones) it doesn't capture her own voice and match it as a command.
+        /// </summary>
+        public bool IsSpeakingAudio => _isSpeakingAudio;
+
+        /// <summary>
         /// The single companion-voice channel. Cuts off whatever is currently speaking, then plays
         /// <paramref name="filePath"/>. Drives <see cref="_isSpeakingAudio"/> for the speaking wobble/mist,
         /// for exactly the clip's duration. All voice paths (bark / event / idle) route through here so two
@@ -2190,6 +2197,10 @@ namespace ConditioningControlPanel
         {
             try
             {
+                // Bambi Sleep mode: suppress the canned "hehehe" giggle SFX entirely — it sounds cheap
+                // next to that mod's real voiceline barks, so a clip-less bubble just stays silent.
+                if (IsBambiSleepMod()) return;
+
                 // Use giggle sounds 5-8 for AI responses (reserved for special interactions)
                 var giggleFiles = new[] {
                     "giggle5.mp3", "giggle6.mp3", "giggle7.mp3", "giggle8.mp3"

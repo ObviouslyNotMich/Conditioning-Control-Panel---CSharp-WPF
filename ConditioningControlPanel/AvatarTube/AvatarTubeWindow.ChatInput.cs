@@ -1201,6 +1201,20 @@ namespace ConditioningControlPanel
             }
         }
 
+        /// <summary>
+        /// Sets the avatar's mute state from an external caller (the "mute"/"unmute" voice commands)
+        /// and refreshes the quick-menu labels — mirrors what <see cref="MenuItemMute_Click"/> does on a
+        /// manual toggle, minus the settings write (the caller owns that). UpdateQuickMenuState also
+        /// re-reads SubAudioEnabled, so the "mute whispers" menu label refreshes here too.
+        /// </summary>
+        public void ApplyMuteState(bool avatarMuted)
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => ApplyMuteState(avatarMuted))); return; }
+            _isMuted = avatarMuted;
+            if (avatarMuted) { try { SpeechBubble.Visibility = Visibility.Collapsed; } catch { } }
+            UpdateQuickMenuState();
+        }
+
         private void MenuItemMuteWhispers_Click(object sender, RoutedEventArgs e)
         {
             // Toggle SubAudioEnabled setting (mute = disabled)

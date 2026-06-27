@@ -56,12 +56,17 @@ namespace ConditioningControlPanel.Services
             public string? VoiceRuleId;
         }
 
-        // Minimum fuzzy similarity (grammar-constrained, so a real hit scores ~1.0). Kept at 0.62:
-        // a higher gate mostly costs legitimate recognitions (a 3-word alias missing one word scores
-        // 0.667), and it does NOT prevent cross-talk — near-neighbours ("stop the video" vs "stop the
-        // spiral") collide at Vosk's acoustic layer at ~1.0, below this check. Distinct phrasing, not a
-        // tighter threshold, is what keeps commands apart; this gate only rejects [unk]/garbage.
-        private const double VoiceCommandMatchThreshold = 0.62;
+        // Minimum fuzzy similarity. Similarity is WORD-level (1 - wordEditDistance/maxWords), so each
+        // dropped/wrong word costs 1/maxWords — brutal on the short aliases that dominate this grammar.
+        // At the old 0.62 a bare noun ("bubbles") scored only 0.5 vs its 2-word alias ("bubbles on") and
+        // was rejected, as was any 2-word alias one word off — which silently ate roughly half of real
+        // commands. Lowered to 0.5 = "at least half the words align", which recovers single-noun and
+        // one-word-off utterances. This is safe to relax because recognition is GRAMMAR-CONSTRAINED:
+        // Vosk can only emit alias words (or [unk]/empty), so non-commands fail at the engine, not here —
+        // this gate mainly rejects [unk]/garbage. It never prevented command cross-talk anyway (near-
+        // neighbours collide acoustically at ~1.0, above any threshold); distinct phrasing handles that.
+        // Don't go below 0.5: that starts accepting phrases sharing under half their words.
+        private const double VoiceCommandMatchThreshold = 0.5;
 
         // After a successful command we keep listening for a few quick follow-ups (no wake word needed)
         // so you can stack "bubbles ... flashes ... deeper" in one breath. Capped so it always winds down.
@@ -208,38 +213,18 @@ namespace ConditioningControlPanel.Services
                 },
             },
 
-            // ── Flashes ───────────────────────────────────────────────────────────
-            new VoiceCommandIntent
-            {
-                Name = "flash_on",
-                Aliases = OnAliases("flashes", "the flashes", "flash for me"),
-                Execute = () => App.Flash?.Start(),
-                VoiceRuleId = "voicecmd_flash_on",
-                Confirm = new()
-                {
-                    ["bambi"] = "flashy flashy~ don't blink!",
-                    ["sissy"] = "let it wash over you~",
-                    ["circe"] = "flashes on. sink.",
-                },
-            },
-            new VoiceCommandIntent
-            {
-                Name = "flash_off",
-                Aliases = OffAliases("flashes", "the flashes", "stop flashing"),
-                Execute = () => App.Flash?.Stop(),
-                VoiceRuleId = "voicecmd_flash_off",
-                Confirm = new()
-                {
-                    ["bambi"] = "okayy, no more flashes~",
-                    ["sissy"] = "rest your eyes, good girl.",
-                    ["circe"] = "flashes off.",
-                },
-            },
+            // ── Flashes (one-shot only) ───────────────────────────────────────────
+            // The start/stop toggles were dropped on purpose: their aliases collided acoustically
+            // with the one-shot below, and "flashes on" only arms the periodic flasher (which needs
+            // a running session) — so she'd confirm but nothing visibly happened. The single-flash
+            // trigger fires immediately and reliably. Same pattern for mind wipe / lock cards / quiz.
             new VoiceCommandIntent
             {
                 Name = "flash_once",
                 Aliases = new[] { "flash me", "one flash", "give me a flash", "flash once", "just one flash", "quick flash", "a single flash", "one quick flash" },
-                Execute = () => App.Flash?.TriggerFlash(),
+                // TriggerFlash() bails when the service isn't running; TriggerFlashOnce() is the
+                // standalone one-shot (sets its own images path) so "flash me" fires without a session.
+                Execute = () => App.Flash?.TriggerFlashOnce(),
                 VoiceRuleId = "voicecmd_flash_once",
                 Confirm = new()
                 {
@@ -338,7 +323,8 @@ namespace ConditioningControlPanel.Services
             {
                 Name = "pink_on",
                 Aliases = OnAliases("pink filter", "the pink filter", "make it pink", "go pink"),
-                Execute = () => App.Overlay?.ShowOverlaySustained("pink", 0.4),
+                // OverlayService keys this overlay "pink_filter"; "pink" hits the unknown-kind no-op.
+                Execute = () => App.Overlay?.ShowOverlaySustained("pink_filter", 0.4),
                 VoiceRuleId = "voicecmd_pink_on",
                 Confirm = new()
                 {
@@ -351,7 +337,7 @@ namespace ConditioningControlPanel.Services
             {
                 Name = "pink_off",
                 Aliases = OffAliases("pink filter", "the pink filter", "make it normal"),
-                Execute = () => App.Overlay?.HideOverlaySustained("pink"),
+                Execute = () => App.Overlay?.HideOverlaySustained("pink_filter"),
                 VoiceRuleId = "voicecmd_pink_off",
                 Confirm = new()
                 {
@@ -361,33 +347,7 @@ namespace ConditioningControlPanel.Services
                 },
             },
 
-            // ── Mind wipe ───────────────────────────────────────────────────────────
-            new VoiceCommandIntent
-            {
-                Name = "mindwipe_on",
-                Aliases = OnAliases("mind wipe", "the mind wipe"),
-                Execute = () => App.MindWipe?.Start(30.0, (App.Settings?.Current?.MindWipeVolume ?? 50) / 100.0),
-                VoiceRuleId = "voicecmd_mindwipe_on",
-                Confirm = new()
-                {
-                    ["bambi"] = "ooh, wipey wipey~ bye bye thoughts!",
-                    ["sissy"] = "let me empty that pretty head, good girl~",
-                    ["circe"] = "mind wipe on.",
-                },
-            },
-            new VoiceCommandIntent
-            {
-                Name = "mindwipe_off",
-                Aliases = OffAliases("mind wipe", "the mind wipe"),
-                Execute = () => App.MindWipe?.Stop(),
-                VoiceRuleId = "voicecmd_mindwipe_off",
-                Confirm = new()
-                {
-                    ["bambi"] = "okayy, thoughts can come back~",
-                    ["sissy"] = "all done, good girl.",
-                    ["circe"] = "mind wipe off.",
-                },
-            },
+            // ── Mind wipe (one-shot only; on/off toggles dropped — see Flashes) ─────
             new VoiceCommandIntent
             {
                 Name = "wipe_once",
@@ -402,33 +362,7 @@ namespace ConditioningControlPanel.Services
                 },
             },
 
-            // ── Lock cards ──────────────────────────────────────────────────────────
-            new VoiceCommandIntent
-            {
-                Name = "lockcard_on",
-                Aliases = OnAliases("lock cards", "the lock cards", "lock card mode on", "lock card mode"),
-                Execute = () => App.LockCard?.Start(),
-                VoiceRuleId = "voicecmd_lockcard_on",
-                Confirm = new()
-                {
-                    ["bambi"] = "lock cards on~ get ready to say it!",
-                    ["sissy"] = "time to prove yourself, good girl~",
-                    ["circe"] = "lock cards armed.",
-                },
-            },
-            new VoiceCommandIntent
-            {
-                Name = "lockcard_off",
-                Aliases = OffAliases("lock cards", "the lock cards", "lock card mode off"),
-                Execute = () => App.LockCard?.Stop(),
-                VoiceRuleId = "voicecmd_lockcard_off",
-                Confirm = new()
-                {
-                    ["bambi"] = "okayy, no more lock cards~",
-                    ["sissy"] = "you're released, good girl.",
-                    ["circe"] = "lock cards off.",
-                },
-            },
+            // ── Lock cards (one-shot only; on/off toggles dropped — see Flashes) ────
             new VoiceCommandIntent
             {
                 Name = "lock_once",
@@ -443,33 +377,7 @@ namespace ConditioningControlPanel.Services
                 },
             },
 
-            // ── Pop quiz ────────────────────────────────────────────────────────────
-            new VoiceCommandIntent
-            {
-                Name = "popquiz_on",
-                Aliases = OnAliases("pop quizzes", "pop quizzes", "pop quiz mode on", "pop quiz mode"),
-                Execute = () => App.PopQuiz?.Start(),
-                VoiceRuleId = "voicecmd_popquiz_on",
-                Confirm = new()
-                {
-                    ["bambi"] = "quiz time soon~ study up!",
-                    ["sissy"] = "i'll be testing you, good girl~",
-                    ["circe"] = "pop quizzes on.",
-                },
-            },
-            new VoiceCommandIntent
-            {
-                Name = "popquiz_off",
-                Aliases = OffAliases("pop quizzes", "pop quizzes", "pop quiz mode off"),
-                Execute = () => App.PopQuiz?.Stop(),
-                VoiceRuleId = "voicecmd_popquiz_off",
-                Confirm = new()
-                {
-                    ["bambi"] = "no more quizzes~ phew!",
-                    ["sissy"] = "no more tests for now, good girl.",
-                    ["circe"] = "pop quizzes off.",
-                },
-            },
+            // ── Pop quiz (one-shot only; on/off toggles dropped — see Flashes) ──────
             new VoiceCommandIntent
             {
                 Name = "quiz_once",
@@ -517,7 +425,9 @@ namespace ConditioningControlPanel.Services
             {
                 Name = "count_once",
                 Aliases = new[] { "count for me", "count the bubbles", "give me a counting game", "make me count", "let me count", "counting game", "time to count", "i want to count" },
-                Execute = () => App.BubbleCount?.TriggerGame(),
+                // forceTest: true — TriggerGame() bails when the engine isn't running; the force path is
+                // built to run standalone (it sets its own videos path), so the voice command fires it now.
+                Execute = () => App.BubbleCount?.TriggerGame(forceTest: true),
                 VoiceRuleId = "voicecmd_count_once",
                 Confirm = new()
                 {
@@ -634,7 +544,12 @@ namespace ConditioningControlPanel.Services
                 // user says "quieter" (a different, non-destructive command), which would hard-mute ALL
                 // audio. "be quiet" keeps the intent reachable without the one-word collision.
                 Aliases = new[] { "be quiet", "mute", "silence", "shush", "hush", "mute it", "mute everything", "quiet please", "stop the sound", "stop the audio", "no sound", "kill the sound", "turn off the sound" },
-                Execute = () => App.KillAllAudio(),
+                // Mute = master volume 0 + mute whispers + mute avatar, reflected across ALL the UI that
+                // mirrors those toggles (master slider, both whisper checkboxes, mute-avatar, avatar menu).
+                // MainWindow owns that sync because the controls are wired manually, not data-bound.
+                // (KillAllAudio is NOT used here — it's a panic-grade teardown that also stops Autonomy
+                // and the overlays, i.e. it would kill the very voice loop that heard "mute".)
+                Execute = () => App.MainWindowRef?.ApplyVoiceMute(true),
                 TerseAck = true,
                 NoChain = true,
                 Confirm = new()
@@ -646,9 +561,25 @@ namespace ConditioningControlPanel.Services
             },
             new VoiceCommandIntent
             {
+                Name = "unmute",
+                // The inverse of "mute": clear the avatar mute flag and, if master is sitting at 0
+                // (where mute left it), lift it back to a comfortable level so she's audible again.
+                Aliases = new[] { "unmute", "un mute", "unmute yourself", "unmute everything", "sound on", "audio on", "turn the sound on", "turn the sound back on", "turn sound back on", "you can talk again", "i can't hear you" },
+                Execute = () => App.MainWindowRef?.ApplyVoiceMute(false),
+                TerseAck = true,
+                NoChain = true,
+                Confirm = new()
+                {
+                    ["bambi"] = "yay~ sound's back on!",
+                    ["sissy"] = "there, you can hear me again, good girl~",
+                    ["circe"] = "sound on.",
+                },
+            },
+            new VoiceCommandIntent
+            {
                 Name = "louder",
                 Aliases = new[] { "louder", "turn it up", "volume up", "more volume", "turn up the volume", "crank it up", "louder please", "make it louder", "raise the volume", "pump it up" },
-                Execute = () => { var s = App.Settings?.Current; if (s != null) s.MasterVolume += 15; },
+                Execute = () => App.MainWindowRef?.AdjustMasterVolume(+15),
                 TerseAck = true,
                 NoChain = true,
                 Confirm = new()
@@ -662,7 +593,7 @@ namespace ConditioningControlPanel.Services
             {
                 Name = "quieter",
                 Aliases = new[] { "quieter", "turn it down", "volume down", "less volume", "lower the volume", "turn down the volume", "quieter please", "make it quieter", "not so loud", "softer", "tone it down" },
-                Execute = () => { var s = App.Settings?.Current; if (s != null) s.MasterVolume -= 15; },
+                Execute = () => App.MainWindowRef?.AdjustMasterVolume(-15),
                 TerseAck = true,
                 NoChain = true,
                 Confirm = new()
@@ -712,11 +643,14 @@ namespace ConditioningControlPanel.Services
                 Aliases = new[] { "what can i say", "what can you do", "help", "commands", "what can i ask for", "what are my options", "what are the commands", "what should i say", "list commands", "what do you understand" },
                 TerseAck = true,
                 Repeatable = false,
+                // The help line is long; without this the chained "anything else?" prompt overwrites
+                // it within ~1.4s before it can be read. NoChain keeps the list on screen.
+                NoChain = true,
                 Confirm = new()
                 {
-                    ["bambi"] = "ooh lots! try: bubbles, flashes, a video, the spiral, deeper, quiz me, lock me, freeze, pause, quieter — or say red to stop everything~!",
-                    ["sissy"] = "you can ask for: bubbles, flashes, a video, the spiral, deeper, a quiz, a lock card, pause, quieter — or say red and i'll stop everything, good girl~",
-                    ["circe"] = "try: bubbles, flashes, video, spiral, deeper, quiz me, lock me, pause, quieter — or 'red' to stop everything.",
+                    ["bambi"] = "ooh lots! try: bubbles, flash me, a video, the spiral, deeper, quiz me, lock me, freeze, pause, quieter — or say red to stop everything~!",
+                    ["sissy"] = "you can ask for: bubbles, flash me, a video, the spiral, deeper, quiz me, lock me, pause, quieter — or say red and i'll stop everything, good girl~",
+                    ["circe"] = "try: bubbles, flash me, video, spiral, deeper, quiz me, lock me, pause, quieter — or 'red' to stop everything.",
                 },
             },
 
@@ -830,6 +764,13 @@ namespace ConditioningControlPanel.Services
                 if (Application.Current?.Dispatcher != null)
                     _ = Application.Current.Dispatcher.InvokeAsync(() =>
                         { try { App.AvatarWindow?.ShowListeningBubble(listeningLine); } catch { } });
+
+                // Echo guard: she just spoke (the wake ack on the first turn, the previous command's
+                // confirmation on a chained turn). On speakers — not headphones — an immediately-open
+                // mic captures her own voice and matches it as a bogus command. Hold the recogniser
+                // until her clip finishes, then a short tail for the speaker echo to decay. The dots
+                // bubble is already up, so she visibly "keeps listening" through the wait.
+                await WaitForAvatarQuietAsync(waitForStart: !chained && !isRetry).ConfigureAwait(false);
 
                 PhraseResult res;
                 try
@@ -954,5 +895,38 @@ namespace ConditioningControlPanel.Services
             "circe" => "again?",
             _       => "sorry love, say that again?~",
         };
+
+        /// <summary>
+        /// Holds until the avatar has stopped speaking (capped by <paramref name="maxWaitMs"/>), then
+        /// waits a short <paramref name="tailMs"/> for speaker echo to decay — so the command mic never
+        /// hears her own voice. When <paramref name="waitForStart"/> is set (the wake/PTT turn, where the
+        /// ack clip starts after a brief bubble lead-in), it first gives her clip up to
+        /// <paramref name="graceMs"/> to actually begin so we don't sail past the wait before she speaks.
+        /// </summary>
+        private static async Task WaitForAvatarQuietAsync(bool waitForStart, int graceMs = 800, int maxWaitMs = 5000, int tailMs = 300)
+        {
+            try
+            {
+                if (waitForStart)
+                {
+                    int g = 0;
+                    while (App.AvatarWindow?.IsSpeakingAudio != true && g < graceMs)
+                    {
+                        await Task.Delay(50).ConfigureAwait(false);
+                        g += 50;
+                    }
+                }
+
+                int waited = 0;
+                while (App.AvatarWindow?.IsSpeakingAudio == true && waited < maxWaitMs)
+                {
+                    await Task.Delay(60).ConfigureAwait(false);
+                    waited += 60;
+                }
+
+                if (tailMs > 0) await Task.Delay(tailMs).ConfigureAwait(false);
+            }
+            catch { /* never let the echo guard wedge the listen */ }
+        }
     }
 }

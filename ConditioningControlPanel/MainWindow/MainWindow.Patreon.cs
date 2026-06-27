@@ -1852,6 +1852,93 @@ namespace ConditioningControlPanel
             }
         }
 
+        // Remembers master volume from just before a voice "mute" so "unmute" can restore it.
+        private int _preMuteMasterVolume = 70;
+
+        /// <summary>
+        /// Applies a full mute / unmute exactly as if the user flipped the master-volume, mute-whispers,
+        /// and mute-avatar toggles by hand — used by the "mute" / "unmute" voice commands. Writes the
+        /// settings AND refreshes every control that mirrors them (Settings tab master slider, Settings +
+        /// Companion whisper toggles, Companion mute-avatar, and the avatar right-click menu), since those
+        /// are synced manually (not data-bound) and otherwise wouldn't move. Remembers the pre-mute master
+        /// volume so unmute restores it rather than guessing.
+        /// </summary>
+        public void ApplyVoiceMute(bool muted)
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => ApplyVoiceMute(muted))); return; }
+            try
+            {
+                var s = App.Settings?.Current;
+                if (s == null) return;
+
+                if (muted)
+                {
+                    if (s.MasterVolume > 0) _preMuteMasterVolume = s.MasterVolume; // remember for unmute
+                    s.MasterVolume = 0;
+                    s.SubAudioEnabled = false; // "mute whispers" (bark / voiceline audio)
+                    s.AvatarMuted = true;
+                }
+                else
+                {
+                    s.MasterVolume = _preMuteMasterVolume > 0 ? _preMuteMasterVolume : 70;
+                    s.SubAudioEnabled = true;
+                    s.AvatarMuted = false;
+                }
+
+                // Master-volume slider + readout — guarded so its ValueChanged handler doesn't fight us.
+                _isLoading = true;
+                try
+                {
+                    SettingsTab.SliderMaster.Value = s.MasterVolume;
+                    if (SettingsTab.TxtMaster != null) SettingsTab.TxtMaster.Text = $"{s.MasterVolume}%";
+                }
+                finally { _isLoading = false; }
+
+                // Checkboxes that mirror these settings (both tabs).
+                SyncQuickControlsUI(muteAvatar: muted);
+                SyncWhispersUI(enabled: !muted);
+
+                // Avatar right-click menu (mute / mute-whispers labels) + its own _isMuted flag.
+                App.AvatarWindow?.ApplyMuteState(muted);
+
+                if (muted) { try { App.AvatarWindow?.StopVoiceLineAudio(); } catch { } }
+
+                App.Settings?.Save();
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "ApplyVoiceMute failed");
+            }
+        }
+
+        /// <summary>
+        /// Nudges master volume by <paramref name="delta"/> (the "louder"/"quieter" voice commands) and
+        /// moves the Settings-tab slider to match — the slider is synced manually, not bound, so a bare
+        /// settings write would leave it stale just like the mute bug.
+        /// </summary>
+        public void AdjustMasterVolume(int delta)
+        {
+            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => AdjustMasterVolume(delta))); return; }
+            try
+            {
+                var s = App.Settings?.Current;
+                if (s == null) return;
+                s.MasterVolume = Math.Clamp(s.MasterVolume + delta, 0, 100);
+                _isLoading = true;
+                try
+                {
+                    SettingsTab.SliderMaster.Value = s.MasterVolume;
+                    if (SettingsTab.TxtMaster != null) SettingsTab.TxtMaster.Text = $"{s.MasterVolume}%";
+                }
+                finally { _isLoading = false; }
+                App.Settings?.Save();
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "AdjustMasterVolume failed");
+            }
+        }
+
         #endregion
 
         #region Community Prompts

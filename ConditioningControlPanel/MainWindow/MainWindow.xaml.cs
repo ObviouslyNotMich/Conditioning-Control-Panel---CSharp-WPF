@@ -847,7 +847,17 @@ namespace ConditioningControlPanel
                     if (BtnPauseSession != null) BtnPauseSession.ToolTip = Loc.Get("tooltip_resume_session");
                 }
             }
-            else if (_panicPressCount >= 2)
+            else
+            {
+                // Engine isn't running, but ad-hoc effects (voice commands, dashboard one-shots,
+                // Deeper) can still be live and were previously left untouched by a first press —
+                // so Esc appeared to "do nothing" when stopping voice-triggered spiral / bouncing
+                // text / pink. Tear those down on every press here (all idempotent no-ops when
+                // nothing is active, so the double-press-to-exit path below is unaffected).
+                StopAdHocEffects();
+            }
+
+            if (!_isRunning && _panicPressCount >= 2)
             {
                 // Second press while stopped: exit application
                 App.Logger?.Information("Double panic! Exiting application...");
@@ -876,6 +886,43 @@ namespace ConditioningControlPanel
                 _trayIcon?.Dispose();
                 _browser?.Dispose();
                 Application.Current.Shutdown();
+            }
+        }
+
+        /// <summary>
+        /// Stops every "ad-hoc" effect that can be live without the engine running — i.e. effects
+        /// fired by voice commands ("She's Listening"), dashboard one-shots, or Deeper. The normal
+        /// stop paths assume a running session/overlay reconcile loop; these surfaces don't, so the
+        /// panic key must tear them down explicitly. Every call is idempotent, so this is a no-op
+        /// when nothing is active.
+        /// </summary>
+        private void StopAdHocEffects()
+        {
+            try
+            {
+                App.KillAllAudio();
+                App.Video?.Stop();
+                App.Flash?.Stop();
+                App.Subliminal?.Stop();
+                App.Bubbles?.Stop();
+                App.BouncingText?.Stop();
+                App.BubbleCount?.Stop();
+                App.MindWipe?.Stop();
+                App.BrainDrain?.Stop();
+                App.LockCard?.Stop();
+
+                // Clear the settings flags so a running reconcile loop won't recreate them, then
+                // stop the windows directly — voice/Deeper start spiral & pink ad-hoc (no reconcile
+                // loop), so RefreshOverlays() (gated on the service's IsRunning) can't see them.
+                EnablePinkFilter(false);
+                EnableSpiral(false);
+                App.Overlay?.RefreshOverlays();
+                App.Overlay?.StopPinkFilter();
+                App.Overlay?.StopSpiral();
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Error(ex, "Panic: StopAdHocEffects failed");
             }
         }
 

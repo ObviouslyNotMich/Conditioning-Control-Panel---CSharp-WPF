@@ -220,8 +220,21 @@
                     BorderThickness="1" CornerRadius="12" Padding="24,20" Margin="0,22,0,0">
                 <StackPanel>
                     <TextBlock Text="WHAT YOU CAN SAY" Foreground="{DynamicResource PinkBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
-                    <TextBlock Foreground="#9090A8" FontSize="12" Margin="0,0,0,16" TextWrapping="Wrap"
-                               Text="Call her with your wake word (or push-to-talk), then say a command:"/>
+                    <TextBlock Foreground="#9090A8" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap"
+                               Text="Call her with your wake word (or push-to-talk), then say a command. Each line shows a few ways to say the same thing — any of them work:"/>
+                    <TextBlock Foreground="#6E6E86" FontSize="11" Margin="0,0,0,16" TextWrapping="Wrap"
+                               Text="Tip: most effects also take a plain “&lt;name&gt; on” / “&lt;name&gt; off” (e.g. “spiral on”, “bubbles off”)."/>
+
+                    <!-- Safety word, up top where it belongs -->
+                    <Border Background="#22FF69B4" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
+                            CornerRadius="8" Padding="14,10" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="🛟  Safety word — stops every effect, instantly" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#E8C8DA" FontSize="12" LineHeight="20"
+                                       Text="“red”  ·  “stop everything”  ·  “make it stop”  ·  “all stop”"/>
+                        </StackPanel>
+                    </Border>
+
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -229,37 +242,136 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Left column -->
+                        <!-- ── Left column ─────────────────────────────────────────── -->
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="🫧  Bubbles" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,4"/>
-                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="20" Margin="0,0,0,14"
-                                       Text="“show me some bubbles”&#x0a;“stop the bubbles”"/>
 
-                            <TextBlock Text="📺  Video" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,4"/>
-                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="20" Margin="0,0,0,14"
-                                       Text="“show me a video”&#x0a;“stop the video”"/>
+                            <TextBlock Text="🫧  Bubbles" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14">
+                                <Run Foreground="#7E7E96" Text="on "/><Run Text="“show me some bubbles” · “bubbles on” · “give me bubbles”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="off "/><Run Text="“stop the bubbles” · “no more bubbles” · “bubbles off”"/>
+                            </TextBlock>
 
-                            <TextBlock Text="✨  Flashes" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,4"/>
-                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="20"
-                                       Text="“show me flashes”&#x0a;“stop flashing”"/>
+                            <TextBlock Text="📺  Video" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14">
+                                <Run Foreground="#7E7E96" Text="play "/><Run Text="“show me a video” · “play a video” · “put on a video”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="stop "/><Run Text="“stop the video” · “no more videos” · “video off”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="pause "/><Run Text="“pause the video” · “resume the video” · “keep playing”"/>
+                            </TextBlock>
+
+                            <TextBlock Text="✨  Flash" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“flash me” · “one flash” · “give me a flash”"/>
+
+                            <TextBlock Text="🌀  Spiral" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14">
+                                <Run Foreground="#7E7E96" Text="on "/><Run Text="“show me the spiral” · “spiral on” · “bring up the spiral”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="off "/><Run Text="“stop the spiral” · “hide the spiral” · “spiral off”"/>
+                            </TextBlock>
+
+                            <TextBlock Text="🩷  Pink filter" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14">
+                                <Run Foreground="#7E7E96" Text="on "/><Run Text="“make it pink” · “go pink” · “pink filter on”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="off "/><Run Text="“make it normal” · “stop the pink filter” · “pink filter off”"/>
+                            </TextBlock>
+
+                            <TextBlock Text="💬  Subliminals" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14">
+                                <Run Foreground="#7E7E96" Text="on "/><Run Text="“show me subliminals” · “subliminals on” · “start the subliminals”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="off "/><Run Text="“stop the subliminals” · “no more subliminals” · “subliminals off”"/>
+                            </TextBlock>
+
+                            <TextBlock Text="🔤  Bouncing text" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21">
+                                <Run Foreground="#7E7E96" Text="on "/><Run Text="“show me bouncing text” · “bouncing text on” · “start the bouncing text”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="off "/><Run Text="“stop the bouncing text” · “no more bouncing text” · “bouncing text off”"/>
+                            </TextBlock>
+
                         </StackPanel>
 
-                        <!-- Right column -->
+                        <!-- ── Right column ────────────────────────────────────────── -->
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="💬  Mantra" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,4"/>
-                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="20" Margin="0,0,0,14"
-                                       Text="“give me a mantra”&#x0a;(she asks you to say something back)"/>
 
-                            <TextBlock Text="🛟  Safety word" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,4"/>
-                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="20" Margin="0,0,0,14"
-                                       Text="“red”  ·  “stop everything”&#x0a;stops every effect immediately"/>
+                            <TextBlock Text="🧠  Mind wipe" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“wipe my mind” · “empty my head” · “blank my mind”"/>
 
-                            <Border Background="#1F1430" BorderBrush="#3A2A4A" BorderThickness="1" CornerRadius="8" Padding="12,8">
-                                <TextBlock Foreground="#9090A8" FontSize="11" TextWrapping="Wrap" LineHeight="16"
-                                           Text="More commands are on the way. Short, plain phrases recognize best."/>
-                            </Border>
+                            <TextBlock Text="🔒  Lock card" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“lock me” · “give me a lock card” · “lock me up”"/>
+
+                            <TextBlock Text="📝  Pop quiz" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“quiz me” · “test me” · “ask me a question”"/>
+
+                            <TextBlock Text="⚡  Keyword triggers" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14">
+                                <Run Foreground="#7E7E96" Text="on "/><Run Text="“trigger words on” · “keyword triggers on” · “start the keyword triggers”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="off "/><Run Text="“trigger words off” · “stop the keyword triggers”"/>
+                            </TextBlock>
+
+                            <TextBlock Text="🎯  Quick toys" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14">
+                                <Run Foreground="#7E7E96" Text="freeze "/><Run Text="“freeze” · “freeze me” · “hold still”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="shake "/><Run Text="“shake the screen” · “shake it” · “make it shake”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="count "/><Run Text="“count for me” · “counting game” · “make me count”"/>
+                            </TextBlock>
+
+                            <TextBlock Text="🌊  Go deeper" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“deeper” · “take me deeper” · “drop me down”"/>
+
+                            <TextBlock Text="🎀  Takeover" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21">
+                                <Run Foreground="#7E7E96" Text="on "/><Run Text="“take over” · “take control” · “you’re in charge”"/><LineBreak/>
+                                <Run Foreground="#7E7E96" Text="off "/><Run Text="“give me control back” · “stop the takeover” · “release control”"/>
+                            </TextBlock>
+
                         </StackPanel>
                     </Grid>
+
+                    <Border Height="1" Background="#2E2E48" Margin="0,18,0,16"/>
+
+                    <!-- ── Session, audio & handy verbs ────────────────────────────── -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="28"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="⏸  Session" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“pause” · “resume” · “keep going”"/>
+
+                            <TextBlock Text="🔊  Volume" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“louder” · “quieter” · “mute”"/>
+
+                            <TextBlock Text="💗  Mantra" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21"
+                                       Text="“give me a mantra” · “say a mantra” · “give me something to say”"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="🔁  Again" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“again” · “one more” · “harder”  (repeats the last thing)"/>
+
+                            <TextBlock Text="❓  Help" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21" Margin="0,0,0,14"
+                                       Text="“what can I say” · “what can you do” · “commands”"/>
+
+                            <TextBlock Text="🎤  Stop the mic" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,3"/>
+                            <TextBlock Foreground="#C0C0D0" FontSize="12" LineHeight="21"
+                                       Text="“stop listening” · “mic off” · “you can stop listening”"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Background="#1F1430" BorderBrush="#3A2A4A" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,18,0,0">
+                        <TextBlock Foreground="#9090A8" FontSize="11" TextWrapping="Wrap" LineHeight="16"
+                                   Text="Short, plain phrases recognize best. You can stack commands in one breath — say one, then another without calling her name again. If she mishears, she’ll give you a mantra to say instead."/>
+                    </Border>
                 </StackPanel>
             </Border>
 
