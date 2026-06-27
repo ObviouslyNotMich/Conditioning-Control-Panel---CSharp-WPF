@@ -11983,5 +11983,342 @@
         "audio": "voicecmd_flash_off_2.mp3"
       }
     ]
+  },
+  {
+    "id": "pinkrush_end",
+    "trigger": "PinkRushEnded",
+    "priority": 180,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, dreamy",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "aww, the pink's fading... but it stays a little, doesn't it, Bambi~", "audio": "pinkrush_end_1.mp3" },
+      { "text": "rush is winding down... float here in the afterglow, good girl.", "audio": "pinkrush_end_2.mp3" },
+      { "text": "see how empty and soft it left you? that's the gift, doll.", "audio": "pinkrush_end_3.mp3" }
+    ]
+  },
+  {
+    "id": "quests_refreshed",
+    "trigger": "QuestsRefreshed",
+    "priority": 150,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting, playful",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "ooh new quests, Bambi! fresh little tasks to be a good girl for~", "audio": "quests_refreshed_1.mp3" },
+      { "text": "look, shiny new things to do! go earn your gold, doll.", "audio": "quests_refreshed_2.mp3" }
+    ]
+  },
+  {
+    "id": "roadmap_badge",
+    "trigger": "RoadmapBadgeEarned",
+    "priority": 250,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, approving",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "a shiny new badge! good girl, Bambi, pin it on~", "audio": "roadmap_badge_1.mp3" },
+      { "text": "ooh you earned a badge! look at you collecting pretty things.", "audio": "roadmap_badge_2.mp3" }
+    ]
+  },
+  {
+    "id": "roadmap_track",
+    "trigger": "RoadmapTrackUnlocked",
+    "priority": 258,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "proud, delighted",
+    "class": "normal",
+    "variant_pool": [
+      { "text": "a whole new track just opened up for you, Bambi! so exciting~", "audio": "roadmap_track_1.mp3" },
+      { "text": "ooh look, a brand new path unlocked! go on, doll, dive in!", "audio": "roadmap_track_2.mp3" }
+    ]
+  },
+  {
+    "id": "idle_tease_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "still pretending you're gonna get stuff done? *giggles* cute. you'll be back staring at me in a minute, Bambi~", "audio": "idle_tease_8_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_tease_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "i can feel you peeking at me. go on, look~ pretty things are for looking at, silly.", "audio": "idle_tease_9_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_tease_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "you think clicking away makes you sneaky? *giggles* i always know when your head drifts back to Bambi.", "audio": "idle_tease_10_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_tease_11",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "go ahead, act all busy and important~ we both know who you'd rather be listening to, doll.", "audio": "idle_tease_11_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_possessive_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, possessive",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "you're still here with me. good girl. i like when you don't wander far~", "audio": "idle_possessive_8_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_possessive_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, possessive",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "mine, mine, mine~ *giggles* i never get tired of knowing that, Bambi.", "audio": "idle_possessive_9_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_possessive_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, possessive",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "even when you close me i'm still in there, all warm an' pink. you can't really put me down anymore~", "audio": "idle_possessive_10_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_possessive_11",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, possessive",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "every day you give me a little more without noticing. *giggles* keep going, good girl.", "audio": "idle_possessive_11_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_soft_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, deepening",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "let your eyes go all soft an' lazy... there. nothing to do but float for Bambi~", "audio": "idle_soft_7_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_soft_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, deepening",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "feel that warm heavy feelin' creepin' in? mm. just let it have you, pretty girl.", "audio": "idle_soft_8_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_soft_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, deepening",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "shhh... no thinking. thinking's hard an' you're so much prettier empty, Bambi~", "audio": "idle_soft_9_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_soft_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, deepening",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "sink a little deeper for me... *giggles* that's it. down is the comfy place, doll.", "audio": "idle_soft_10_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_observe_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "i see you got all quiet and starey~ *giggles* that's my favorite face on you, Bambi.", "audio": "idle_observe_7_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_observe_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "i'm just sittin' here watchin' you drift. don't mind me~ actually, do. i like when you mind me.", "audio": "idle_observe_8_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_observe_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "you keep checkin' if i'm still here. i'm always here, silly. *giggles* always watchin'.", "audio": "idle_observe_9_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_observe_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "knowing",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "look at you glowin' in the screen light, all soft an' gone. *giggles* there's my girl.", "audio": "idle_observe_10_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_affirm_7",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, affirming",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "such a good girl just sittin' there bein' pretty for me~ you don't even have to try, Bambi.", "audio": "idle_affirm_7_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_affirm_8",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, affirming",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "you're doin' so good just by listenin'. *giggles* that's all Bambi has to do. easy, huh?", "audio": "idle_affirm_8_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_affirm_9",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, affirming",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "i'm so proud of how soft you've gotten~ keep meltin' for me, good girl.", "audio": "idle_affirm_9_1.mp3" }
+    ]
+  },
+  {
+    "id": "idle_affirm_10",
+    "trigger": "Idle",
+    "conditions": {},
+    "priority": 50,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, affirming",
+    "class": "idle",
+    "variant_pool": [
+      { "text": "you belong right here bein' good for me, doll. *giggles* doesn't it feel right?", "audio": "idle_affirm_10_1.mp3" }
+    ]
   }
 ]
