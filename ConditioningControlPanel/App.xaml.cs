@@ -350,7 +350,7 @@ namespace ConditioningControlPanel
         /// Whether user is logged in with Patreon, Discord, or email (required for progression tracking).
         /// HasCloudIdentity covers email login (has UnifiedId) and restored sessions.
         /// </summary>
-        public static bool IsLoggedIn => (Patreon?.IsAuthenticated == true) || (Discord?.IsAuthenticated == true) || HasCloudIdentity;
+        public static bool IsLoggedIn => (Patreon?.IsAuthenticated == true) || (Discord?.IsAuthenticated == true) || (SubscribeStar?.IsAuthenticated == true) || HasCloudIdentity;
 
         /// <summary>
         /// Whether a conditioning session is currently running. Set by MainWindow.
@@ -406,7 +406,8 @@ namespace ConditioningControlPanel
                 return Settings?.Current?.UserDisplayName
                     ?? Patreon?.DisplayName
                     ?? Discord?.CustomDisplayName
-                    ?? Discord?.DisplayName;
+                    ?? Discord?.DisplayName
+                    ?? SubscribeStar?.DisplayName;
             }
         }
 

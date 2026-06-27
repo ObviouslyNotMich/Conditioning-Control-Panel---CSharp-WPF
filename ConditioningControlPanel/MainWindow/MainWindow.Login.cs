@@ -218,6 +218,13 @@ namespace ConditioningControlPanel
         /// </summary>
         private void ClearAccountData()
         {
+            // Tear down SubscribeStar too. It's a third login provider (alongside
+            // Patreon/Discord) but the rest of the logout plumbing predates it, so
+            // every full-logout path used to clear only Patreon+Discord. Its cached
+            // whitelist/tokens would otherwise keep granting premium and re-inject
+            // UnifiedUserId on the next launch — premium that survives "Log Out".
+            App.SubscribeStar?.Logout();
+
             // Clear identity
             App.UnifiedUserId = null;
             if (App.Settings?.Current != null)
@@ -284,6 +291,7 @@ namespace ConditioningControlPanel
             var displayName = App.Settings?.Current?.UserDisplayName
                            ?? App.Patreon?.DisplayName
                            ?? App.Discord?.DisplayName
+                           ?? App.SubscribeStar?.DisplayName
                            ?? "User";
 
             SettingsTab.BtnUnifiedLogin.Visibility = isLoggedIn ? Visibility.Collapsed : Visibility.Visible;
