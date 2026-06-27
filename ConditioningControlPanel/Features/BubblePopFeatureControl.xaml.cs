@@ -44,6 +44,16 @@ namespace ConditioningControlPanel.Features
                 SliderSpeed.Value = s.BubbleSpeedBoost;
                 TxtSpeed.Text = $"+{s.BubbleSpeedBoost}%";
 
+                // Easter-egg hint (companion auto-pops a lingering effect bubble) — name the active persona.
+                var persona = App.Mods?.ActiveModId switch
+                {
+                    "builtin-bambisleep" => "Bambi",
+                    "builtin-sissyhypno" => "your bimbo",
+                    "builtin-locked" => "Circe",
+                    _ => "your companion"
+                };
+                TxtTriggerEggHint.Text = $"careful — {persona} loves these… leave one drifting too long and she might pop it for you~";
+
                 ChkTriggers.IsChecked = s.BubbleTriggersEnabled;
                 TriggerOptionsPanel.Visibility = s.BubbleTriggersEnabled
                     ? Visibility.Visible : Visibility.Collapsed;

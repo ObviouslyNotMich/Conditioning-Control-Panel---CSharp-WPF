@@ -90,6 +90,10 @@
                         <TextBlock Text="Some bubbles fire an effect when popped (flash, video, overlays…)"
                                    Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
                                    TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        <TextBlock x:Name="TxtTriggerEggHint"
+                                   Text="careful — Bambi loves these… leave one drifting too long and she might pop it for you~"
+                                   Foreground="{DynamicResource PinkBrush}" FontSize="11" FontStyle="Italic"
+                                   TextWrapping="Wrap" Margin="0,5,0,0"/>
                     </StackPanel>
                     <CheckBox Grid.Column="1" x:Name="ChkTriggers"
                               Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
