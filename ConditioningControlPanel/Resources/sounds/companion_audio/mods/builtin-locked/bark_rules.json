@@ -10282,5 +10282,181 @@
         "audio": "rh_tease_denied_streak_1.mp3"
       }
     ]
+  },
+  {
+    "id": "voicecmd_wake",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "you called. i'm listening.",
+        "audio": "voicecmd_wake_1.mp3"
+      },
+      {
+        "text": "yes, pet?",
+        "audio": "voicecmd_wake_2.mp3"
+      },
+      {
+        "text": "speak. i'm here.",
+        "audio": "voicecmd_wake_3.mp3"
+      },
+      {
+        "text": "what is it, little one?",
+        "audio": "voicecmd_wake_4.mp3"
+      },
+      {
+        "text": "go on. i'm listening.",
+        "audio": "voicecmd_wake_5.mp3"
+      },
+      {
+        "text": "ready when you are.",
+        "audio": "voicecmd_wake_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_panic",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "soft, intimate",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "stopped. you're safe.",
+        "audio": "voicecmd_panic_1.mp3"
+      },
+      {
+        "text": "everything's off. you're safe, pet.",
+        "audio": "voicecmd_panic_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_bubbles_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "bubbles. as you asked.",
+        "audio": "voicecmd_bubbles_on_1.mp3"
+      },
+      {
+        "text": "bubbles incoming. earn them, pet.",
+        "audio": "voicecmd_bubbles_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_bubbles_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "bubbles off.",
+        "audio": "voicecmd_bubbles_off_1.mp3"
+      },
+      {
+        "text": "enough bubbles, pet.",
+        "audio": "voicecmd_bubbles_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_video_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "watch. don't look away.",
+        "audio": "voicecmd_video_on_1.mp3"
+      },
+      {
+        "text": "eyes on the screen, pet.",
+        "audio": "voicecmd_video_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_video_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "off it goes.",
+        "audio": "voicecmd_video_off_1.mp3"
+      },
+      {
+        "text": "enough watching, pet.",
+        "audio": "voicecmd_video_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_flash_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "flashes on. sink.",
+        "audio": "voicecmd_flash_on_1.mp3"
+      },
+      {
+        "text": "watch the flashes, pet. don't resist.",
+        "audio": "voicecmd_flash_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_flash_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "controlling",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "flashes off.",
+        "audio": "voicecmd_flash_off_1.mp3"
+      },
+      {
+        "text": "enough, pet. eyes rest.",
+        "audio": "voicecmd_flash_off_2.mp3"
+      }
+    ]
   }
 ]
