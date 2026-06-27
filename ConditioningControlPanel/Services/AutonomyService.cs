@@ -338,6 +338,28 @@ namespace ConditioningControlPanel.Services
                     "Voice Test — No Mantras");
                 return;
             }
+            // Privacy gate: the mic must never open until the user has accepted the consent dialog.
+            // Every other voice entry point gates on this; this dev/test button is no exception.
+            // Prompt here (once everything else is ready) and bail unless consent is actually granted.
+            if (App.Settings?.Current?.MicConsentGiven != true)
+            {
+                try
+                {
+                    var dlg = new MicConsentDialog { Owner = Application.Current?.MainWindow };
+                    var ok = dlg.ShowDialog() == true && dlg.ConsentGiven;
+                    if (!ok || App.Settings?.Current?.MicConsentGiven != true)
+                    {
+                        App.Logger?.Information("AutonomyService: TestVoiceCommand — mic consent declined, not opening mic");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Warning("AutonomyService: TestVoiceCommand consent dialog failed: {E}", ex.Message);
+                    return;
+                }
+            }
+
             App.Logger?.Information("AutonomyService: TestVoiceCommand invoked manually");
             TriggerSpokenMantra();
         }
