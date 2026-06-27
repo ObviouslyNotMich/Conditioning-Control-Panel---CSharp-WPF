@@ -1,5 +1,131 @@
 [
   {
+    "id": "egg_avatar_pop_flash",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "a flash, hiding. stand still, pet... i'll pop it for you.", "audio": "egg_avatar_pop_flash_1.mp3" },
+      { "text": "let me get this one, little one. eyes open for the flash.", "audio": "egg_avatar_pop_flash_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_subliminal",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "words you won't notice. i'll pop this one for you, pet.", "audio": "egg_avatar_pop_subliminal_1.mp3" },
+      { "text": "a whisper for that empty head. hold still, little one... popping it.", "audio": "egg_avatar_pop_subliminal_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_pink",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one drowns the screen in pink. i'll pop it for you, pet.", "audio": "egg_avatar_pop_pink_1.mp3" },
+      { "text": "let me pop this, little one... everything goes pink whether you like it or not.", "audio": "egg_avatar_pop_pink_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_spiral",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "a spiral. you know what it does. i'll pop it for you, pet... watch.", "audio": "egg_avatar_pop_spiral_1.mp3" },
+      { "text": "let me pop this one, little one. eyes on the spin. don't look away.", "audio": "egg_avatar_pop_spiral_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_braindrain",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one empties you out. i'll pop it for you, pet. don't fight the fog.", "audio": "egg_avatar_pop_braindrain_1.mp3" },
+      { "text": "let me pop this, little one... and let that head go nice and blank.", "audio": "egg_avatar_pop_braindrain_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_video",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "a video. good. i'll pop this one for you, pet... and you'll watch all of it.", "audio": "egg_avatar_pop_video_1.mp3" },
+      { "text": "let me pop this, little one. screen's about to fill. don't blink.", "audio": "egg_avatar_pop_video_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_gifrain",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one floods the screen. i'll pop it for you, pet... drink it in.", "audio": "egg_avatar_pop_gifrain_1.mp3" },
+      { "text": "let me pop this, little one. they'll pour down. just keep looking.", "audio": "egg_avatar_pop_gifrain_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_glitch",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "a glitch. let it tear through. i'll pop this one for you, pet.", "audio": "egg_avatar_pop_glitch_1.mp3" },
+      { "text": "let me pop this, little one... and let the static do the thinking.", "audio": "egg_avatar_pop_glitch_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_generic",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "you left this one too long, pet. i'll pop it for you.", "audio": "egg_avatar_pop_generic_1.mp3" },
+      { "text": "let me, little one. this one's mine to pop.", "audio": "egg_avatar_pop_generic_2.mp3" }
+    ]
+  },
+  {
     "id": "session_start_recent",
     "trigger": "SessionStarted",
     "conditions": {

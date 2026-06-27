@@ -2131,6 +2131,14 @@ namespace ConditioningControlPanel.Models
             get => _bubbleTriggerVariants;
             set { _bubbleTriggerVariants = value ?? new List<string>(); OnPropertyChanged(); }
         }
+        // Easter egg: when an effect bubble lingers >4s, a 10% roll sends the companion to glide over,
+        // narrate the effect, and pop it for you (50% louder). Gated under BubbleTriggersEnabled.
+        private bool _bubbleAvatarEggEnabled = true;
+        public bool BubbleAvatarEggEnabled
+        {
+            get => _bubbleAvatarEggEnabled;
+            set { _bubbleAvatarEggEnabled = value; OnPropertyChanged(); }
+        }
 
         // ---- Chaos Mode (effect-bubbles roguelite, Lab) ----
         private bool _chaosModeEnabled = true;
