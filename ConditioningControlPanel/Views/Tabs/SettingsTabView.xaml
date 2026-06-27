@@ -10,6 +10,7 @@
              d:DesignHeight="450" d:DesignWidth="800">
         <Grid>
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="84"/>
             <ColumnDefinition Width="640"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
@@ -18,11 +19,261 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-    
+
+        <!-- ============================================================ -->
+        <!-- PREMIUM QUICK-TOGGLE RAIL (col 0). Quick on/off for gated     -->
+        <!-- features. Greyed with a lock (doubles as an ad) when the      -->
+        <!-- user is not a logged-in patron.                               -->
+        <!-- ============================================================ -->
+        <Border x:Name="PremiumRail" x:FieldModifier="internal" Grid.Column="0" Grid.Row="0" Margin="5,5,0,5"
+                Background="{DynamicResource ElevatedSurfaceBrush}" BorderBrush="{DynamicResource GlassBorderBrush}"
+                BorderThickness="1" CornerRadius="12">
+            <Border.Resources>
+                <Style x:Key="PremiumChipStyle" TargetType="Button">
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="Margin" Value="0,0,0,5"/>
+                    <Setter Property="Height" Value="46"/>
+                    <Setter Property="Background" Value="{DynamicResource AccentTintedBgBrush}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="cb" Background="{TemplateBinding Background}"
+                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1"
+                                        CornerRadius="9" Padding="2,3">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="cb" Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                        <Setter TargetName="cb" Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+                <Style x:Key="RailMiniBtn" TargetType="Button">
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="mb" Background="{DynamicResource AccentTintedBgBrush}"
+                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1"
+                                        CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="mb" Property="Background" Value="{DynamicResource TransparentPinkBrush}"/>
+                                        <Setter TargetName="mb" Property="BorderBrush" Value="{DynamicResource PinkBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Border.Resources>
+            <Grid>
+                <StackPanel x:Name="PremiumRailContent" x:FieldModifier="internal" Margin="4,6,4,6">
+                    <TextBlock Text="PREMIUM" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource SecondaryBrush}"
+                               TextAlignment="Center" Margin="0,0,0,6"/>
+                    <Button x:Name="ChipTakeover" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipTakeover_Click" ToolTip="Takeover — the companion triggers effects on her own">
+                        <StackPanel>
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                                <Border CornerRadius="6" ClipToBounds="True">
+                                    <Image Source="pack://application:,,,/Resources/features/takeover.png"
+                                           Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
+                                <Ellipse x:Name="DotTakeover" x:FieldModifier="internal" Width="8" Height="8"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Fill="#555555"
+                                         Stroke="#1A1A2E" StrokeThickness="1"/>
+                            </Grid>
+                            <TextBlock Text="Takeover" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ChipAwareness" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipAwareness_Click" ToolTip="Awareness — reacts to what's on your screen">
+                        <StackPanel>
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                                <Border CornerRadius="6" ClipToBounds="True">
+                                    <Image Source="pack://application:,,,/Resources/features/awareness.png"
+                                           Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
+                                <Ellipse x:Name="DotAwareness" x:FieldModifier="internal" Width="8" Height="8"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Fill="#555555"
+                                         Stroke="#1A1A2E" StrokeThickness="1"/>
+                            </Grid>
+                            <TextBlock Text="Awareness" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ChipHaptics" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipHaptics_Click" ToolTip="Haptics — connect a toy">
+                        <StackPanel>
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                                <Border CornerRadius="6" ClipToBounds="True">
+                                    <Image Source="pack://application:,,,/Resources/features/vibe.png"
+                                           Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
+                                <Ellipse x:Name="DotHaptics" x:FieldModifier="internal" Width="8" Height="8"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Fill="#555555"
+                                         Stroke="#1A1A2E" StrokeThickness="1"/>
+                            </Grid>
+                            <TextBlock Text="Haptics" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ChipVoice" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipVoice_Click" ToolTip="She's Listening — turn on voice control (&quot;Hey Bambi&quot;) and the mic">
+                        <StackPanel>
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                                <Border CornerRadius="6" ClipToBounds="True" Background="#2A1A3A">
+                                    <Image Source="{Binding Source='🎙️', Converter={StaticResource EmojiToImageSource}}"
+                                           Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <Ellipse x:Name="DotVoice" x:FieldModifier="internal" Width="8" Height="8"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Fill="#555555"
+                                         Stroke="#1A1A2E" StrokeThickness="1"/>
+                            </Grid>
+                            <TextBlock Text="Voice" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- Lockdown — launcher with +/- duration and a live countdown -->
+                    <Border Margin="0,0,0,5" Background="{DynamicResource AccentTintedBgBrush}"
+                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" CornerRadius="9" Padding="2,3"
+                            ToolTip="Lockdown — locks you in for the set time (panic key disabled)">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Border CornerRadius="4" ClipToBounds="True" Width="14" Height="14" Margin="0,0,4,0">
+                                    <Image Source="pack://application:,,,/Resources/lockdown_icon.png"
+                                           Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
+                                <TextBlock Text="Lockdown" FontSize="9" Foreground="White" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Grid x:Name="LockdownSetRow" x:FieldModifier="internal" Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" x:Name="BtnLockdownMinus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="−" FontSize="13" Width="18" Height="18" Click="BtnLockdownMinus_Click"/>
+                                <TextBlock Grid.Column="1" x:Name="TxtLockdownMins" x:FieldModifier="internal" Text="15m" FontSize="10"
+                                           Foreground="White" VerticalAlignment="Center" TextAlignment="Center"/>
+                                <Button Grid.Column="2" x:Name="BtnLockdownPlus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="＋" FontSize="11" Width="18" Height="18" Click="BtnLockdownPlus_Click"/>
+                            </Grid>
+                            <Button x:Name="BtnLockdownGo" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                    Content="Lock in" FontSize="9" Height="16" Margin="0,3,0,0" Click="BtnLockdownGo_Click"/>
+                            <TextBlock x:Name="TxtLockdownCountdown" x:FieldModifier="internal" Visibility="Collapsed"
+                                       FontSize="12" FontWeight="Bold" Foreground="#FF6B6B" TextAlignment="Center" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Blink Trainer — launcher with +/- duration and countdown -->
+                    <Border Margin="0,0,0,5" Background="{DynamicResource AccentTintedBgBrush}"
+                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" CornerRadius="9" Padding="2,3"
+                            ToolTip="Blink Trainer — webcam blink-gated visuals">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Border CornerRadius="4" ClipToBounds="True" Width="14" Height="14" Margin="0,0,4,0">
+                                    <Image Source="pack://application:,,,/Resources/features/blink_trainer.png"
+                                           Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
+                                <TextBlock Text="Blink" FontSize="9" Foreground="White" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Grid x:Name="BlinkSetRow" x:FieldModifier="internal" Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" x:Name="BtnBlinkMinus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="−" FontSize="13" Width="18" Height="18" Click="BtnBlinkMinus_Click"/>
+                                <TextBlock Grid.Column="1" x:Name="TxtBlinkMins" x:FieldModifier="internal" Text="10m" FontSize="10"
+                                           Foreground="White" VerticalAlignment="Center" TextAlignment="Center"/>
+                                <Button Grid.Column="2" x:Name="BtnBlinkPlus" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                        Content="＋" FontSize="11" Width="18" Height="18" Click="BtnBlinkPlus_Click"/>
+                            </Grid>
+                            <Button x:Name="BtnBlinkGo" x:FieldModifier="internal" Style="{StaticResource RailMiniBtn}"
+                                    Content="Start" FontSize="9" Height="16" Margin="0,3,0,0" Click="BtnBlinkGo_Click"/>
+                            <TextBlock x:Name="TxtBlinkCountdown" x:FieldModifier="internal" Visibility="Collapsed"
+                                       FontSize="12" FontWeight="Bold" Foreground="#7FD8FF" TextAlignment="Center" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Remote — opens a flyout to compose + start a remote session -->
+                    <Button x:Name="ChipRemote" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipRemote_Click" ToolTip="Remote Control — let someone drive your session">
+                        <StackPanel>
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                                <Border CornerRadius="6" ClipToBounds="True">
+                                    <Image Source="pack://application:,,,/Resources/features/remote_control.png"
+                                           Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Border>
+                                <Ellipse x:Name="DotRemote" x:FieldModifier="internal" Width="8" Height="8"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Fill="#555555"
+                                         Stroke="#1A1A2E" StrokeThickness="1"/>
+                            </Grid>
+                            <TextBlock Text="Remote" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- VerticalOffset lifts the flyout up: ChipRemote is the last rail item and
+                         sits low on screen, so a top-aligned flyout otherwise clips the bottom
+                         Start button against the taskbar / screen edge. -->
+                    <Popup x:Name="RemoteFlyout" x:FieldModifier="internal" PlacementTarget="{Binding ElementName=ChipRemote}"
+                           Placement="Right" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="4" VerticalOffset="-60">
+                        <Border Background="{DynamicResource ElevatedSurfaceBrush}" BorderBrush="{DynamicResource PinkBrush}"
+                                BorderThickness="1" CornerRadius="10" Padding="10" Width="226">
+                            <StackPanel>
+                                <TextBlock Text="Go available" FontWeight="Bold" Foreground="White" FontSize="13" Margin="0,0,0,6"/>
+                                <TextBlock Text="Difficulty" Foreground="{DynamicResource SecondaryBrush}" FontSize="10"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,8">
+                                    <RadioButton x:Name="RemoteDiffEasy" x:FieldModifier="internal" GroupName="RemoteDiff" Content="Easy" Foreground="White" Margin="0,0,10,0"/>
+                                    <RadioButton x:Name="RemoteDiffMed" x:FieldModifier="internal" GroupName="RemoteDiff" Content="Medium" IsChecked="True" Foreground="White" Margin="0,0,10,0"/>
+                                    <RadioButton x:Name="RemoteDiffHard" x:FieldModifier="internal" GroupName="RemoteDiff" Content="Hard" Foreground="White"/>
+                                </StackPanel>
+                                <CheckBox x:Name="RemoteShareCheck" x:FieldModifier="internal" Content="Share in Available Subjects"
+                                          Foreground="White" FontSize="11" Margin="0,0,0,6"/>
+                                <TextBlock Text="Message" Foreground="{DynamicResource SecondaryBrush}" FontSize="10"/>
+                                <TextBox x:Name="RemoteMessageBox" x:FieldModifier="internal" MaxLength="80" Height="40"
+                                         TextWrapping="Wrap" AcceptsReturn="True" Margin="0,2,0,6"/>
+                                <TextBlock Text="Tags (up to 5)" Foreground="{DynamicResource SecondaryBrush}" FontSize="10"/>
+                                <WrapPanel x:Name="RemoteTagPanel" x:FieldModifier="internal" Margin="0,2,0,8">
+                                    <ToggleButton Content="Bimbo" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Drone" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Trance" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Fem" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Submission" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Degrade" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Audio OK" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Soft" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Lockdown OK" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                    <ToggleButton Content="Chastity" FontSize="10" Padding="5,1" Margin="0,0,3,3"/>
+                                </WrapPanel>
+                                <Button x:Name="BtnRemoteStart" x:FieldModifier="internal" Content="Start Remote"
+                                        Click="BtnRemoteStart_Click" Style="{StaticResource PinkButton}"
+                                        Background="{DynamicResource AccentGradientBrush}" Height="30" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                </StackPanel>
+                <!-- Patron lock overlay (also serves as the ad) -->
+                <Border x:Name="PremiumRailLock" x:FieldModifier="internal" Visibility="Collapsed"
+                        Background="#B31A1A2E" CornerRadius="12" Cursor="Hand"
+                        ToolTip="Premium features — unlock with Patreon">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <helpers:EmojiTextBlock Text="🔒" FontSize="20" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Patron" FontSize="10" Foreground="White" TextAlignment="Center" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
         <!-- ============================================================ -->
         <!-- VELVET MOSAIC DASHBOARD - 4x4 feature card grid (col 0)       -->
         <!-- ============================================================ -->
-        <Grid Grid.Column="0" Grid.Row="0" x:Name="VelvetFeatureGrid" x:FieldModifier="internal" Margin="5">
+        <Grid Grid.Column="1" Grid.Row="0" x:Name="VelvetFeatureGrid" x:FieldModifier="internal" Margin="5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -124,7 +375,7 @@
         <!-- referenced by MainWindow.xaml.cs until the full rewire is    -->
         <!-- complete. Phase 6+ will delete this block.                   -->
         <!-- ============================================================ -->
-        <Grid x:Name="LegacyDashboardHost" x:FieldModifier="internal" Visibility="Collapsed">
+        <Grid x:Name="LegacyDashboardHost" x:FieldModifier="internal" Grid.Column="1" Grid.Row="0" Visibility="Collapsed">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="330"/>
             <ColumnDefinition Width="360"/>
@@ -578,8 +829,8 @@
         </Grid>
         <!-- /LegacyDashboardHost -->
     
-        <!-- RIGHT HALF (was col 2, now col 1 — Browser / Audio / Quick Links) -->
-        <Grid Grid.Column="1" Grid.Row="0" Margin="5">
+        <!-- RIGHT HALF (Browser / Audio / Quick Links) — col 2 (after premium rail + feature grid) -->
+        <Grid Grid.Column="2" Grid.Row="0" Margin="5">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -596,6 +847,7 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
@@ -755,8 +1007,28 @@
                             </Button.Style>
                             <helpers:EmojiTextBlock x:Name="TxtWebcamTracking" x:FieldModifier="internal" Text="{loc:Str btn_browser_webcam_tracking_off}"/>
                         </Button>
+                        <!-- Mute browser audio toggle (BambiCloud / HypnoTube video) -->
+                        <Button Grid.Column="5" x:Name="BtnMuteBrowser" x:FieldModifier="internal"
+                                Click="BtnMuteBrowser_Click" Cursor="Hand"
+                                ToolTip="Mute / unmute browser audio (BambiCloud / HypnoTube)"
+                                Background="Transparent" BorderThickness="0" Padding="5,2" Margin="4,0,0,0"
+                                VerticalAlignment="Center">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#55FF69B4"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <helpers:EmojiTextBlock x:Name="TxtBrowserMute" x:FieldModifier="internal" Text="🔊" FontSize="13"/>
+                        </Button>
                         <!-- Pop Out button -->
-                        <Button Grid.Column="5" x:Name="BtnPopOutBrowser" x:FieldModifier="internal" Content="{loc:Str btn_pop_out}"
+                        <Button Grid.Column="6" x:Name="BtnPopOutBrowser" x:FieldModifier="internal" Content="{loc:Str btn_pop_out}"
                                 Click="BtnPopOutBrowser_Click"
                                 ToolTip="{loc:Str tooltip_pop_out_browser_to_resizable_window}"
                                 FontSize="9" Padding="6,3" VerticalAlignment="Center">
@@ -1131,7 +1403,7 @@
         <!-- VELVET MOSAIC HELPER BUTTON ROW - full width, under both     -->
         <!-- the feature grid AND the right half.                         -->
         <!-- ============================================================ -->
-        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="VelvetHelperButtonRow"
+        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" x:Name="VelvetHelperButtonRow"
               Height="30" Margin="5,4,5,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -1259,8 +1531,8 @@
             </Button>
         </Grid>
 
-        <!-- Scrolling Marquee Banner - row 2, spans both columns -->
-        <Border x:Name="MarqueeBanner" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+        <!-- Scrolling Marquee Banner - row 2, spans all columns -->
+        <Border x:Name="MarqueeBanner" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
                 Background="#1A0A1A" BorderBrush="{DynamicResource DarkPinkBrush}" BorderThickness="2"
                 CornerRadius="8" Height="48" Margin="5,5,5,0" ClipToBounds="True">
             <Border.Effect>

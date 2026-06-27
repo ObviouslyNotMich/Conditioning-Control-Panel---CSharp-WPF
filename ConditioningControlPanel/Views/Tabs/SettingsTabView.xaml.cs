@@ -72,6 +72,71 @@ namespace ConditioningControlPanel.Views.Tabs
             if (Window.GetWindow(this) is MainWindow mw)
                 mw.BtnPopOutBrowser_Click(sender, e);
         }
+        private void BtnMuteBrowser_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.BtnMuteBrowser_Click(sender, e);
+        }
+        private void ChipTakeover_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumChip_Click(PremiumFeature.Takeover);
+        }
+        private void ChipAwareness_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumChip_Click(PremiumFeature.Awareness);
+        }
+        private void ChipHaptics_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumChip_Click(PremiumFeature.Haptics);
+        }
+        private void ChipVoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumChip_Click(PremiumFeature.Voice);
+        }
+        private void BtnLockdownMinus_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumLockdownAdjust(-5);
+        }
+        private void BtnLockdownPlus_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumLockdownAdjust(5);
+        }
+        private void BtnLockdownGo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumLockdownActivate();
+        }
+        private void BtnBlinkMinus_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumBlinkAdjust(-5);
+        }
+        private void BtnBlinkPlus_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumBlinkAdjust(5);
+        }
+        private void BtnBlinkGo_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumBlinkToggle();
+        }
+        private void ChipRemote_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumRemoteOpenFlyout();
+        }
+        private void BtnRemoteStart_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw)
+                mw.PremiumRemoteStart();
+        }
         private void BtnQuickLogout_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw)

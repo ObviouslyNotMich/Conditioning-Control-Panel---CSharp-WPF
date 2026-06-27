@@ -293,6 +293,187 @@ namespace ConditioningControlPanel
             App.Autonomy?.TestTrigger();
         }
 
+        internal void BtnTestVoice_Click(object sender, RoutedEventArgs e)
+        {
+            App.Autonomy?.TestVoiceCommand();
+        }
+
+        internal void ChkAutonomyVoice_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+
+            var turningOn = BambiTakeoverTab.ChkAutonomyVoice.IsChecked == true;
+
+            // First time enabling: require explicit mic consent. If declined, revert the toggle.
+            if (turningOn && !s.MicConsentGiven)
+            {
+                var dlg = new MicConsentDialog { Owner = this };
+                var ok = dlg.ShowDialog() == true && dlg.ConsentGiven;
+                if (!ok)
+                {
+                    var wasLoading = _isLoading;
+                    _isLoading = true;                       // suppress the re-fired Changed
+                    BambiTakeoverTab.ChkAutonomyVoice.IsChecked = false;
+                    _isLoading = wasLoading;
+                    return;
+                }
+            }
+
+            s.AutonomyCanTriggerVoiceCommand = turningOn;
+            App.Settings?.Save();
+
+            // Friendly heads-up if they enabled it but the engine can't run yet.
+            if (turningOn && App.Speech?.IsAvailable != true && BambiTakeoverTab.TxtAutonomyVoiceHint != null)
+            {
+                BambiTakeoverTab.TxtAutonomyVoiceHint.Text =
+                    App.Speech == null || !Services.Speech.SpeechService.HasCaptureDevice
+                        ? "No microphone detected — connect one to use this."
+                        : "Speech model not installed yet — voice prompts stay off until it is.";
+            }
+            else if (BambiTakeoverTab.TxtAutonomyVoiceHint != null)
+            {
+                BambiTakeoverTab.TxtAutonomyVoiceHint.Text = "Offline mic. Opens only when she prompts you.";
+            }
+        }
+
+        internal void ChkAutonomyResume_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.AutonomyResumeOnStartup = BambiTakeoverTab.ChkAutonomyResumeOnStartup.IsChecked == true;
+            App.Settings?.Save();
+        }
+
+        internal void ChkSpeechWakeWord_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+
+            var turningOn = BambiTakeoverTab.ChkSpeechWakeWord.IsChecked == true;
+
+            if (turningOn)
+            {
+                // Mic consent first (shared with the prompt-only path).
+                if (!s.MicConsentGiven)
+                {
+                    var dlg = new MicConsentDialog { Owner = this };
+                    var ok = dlg.ShowDialog() == true && dlg.ConsentGiven;
+                    if (!ok) { RevertToggle(BambiTakeoverTab.ChkSpeechWakeWord); return; }
+                }
+
+                // Always-on mic is more invasive than the prompt-only path — get an explicit OK.
+                var confirm = MessageBox.Show(this,
+                    "Wake word keeps the microphone open continuously while Takeover is running so she can hear you call her.\n\n" +
+                    "Everything stays offline — audio is processed on your device and never recorded or sent anywhere.\n\n" +
+                    "Turn on always-on listening?",
+                    "Always-on microphone",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (confirm != MessageBoxResult.Yes) { RevertToggle(BambiTakeoverTab.ChkSpeechWakeWord); return; }
+            }
+
+            s.SpeechWakeWordEnabled = turningOn;
+            App.Settings?.Save();
+            App.Autonomy?.RefreshVoiceInputModes();
+            UpdateVoiceModeHints();
+        }
+
+        internal void TxtSpeechWakeWords_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            var text = BambiTakeoverTab.TxtSpeechWakeWords.Text?.Trim();
+            s.SpeechWakeWords = string.IsNullOrWhiteSpace(text) ? "hey bambi" : text;
+            if (string.IsNullOrWhiteSpace(text)) BambiTakeoverTab.TxtSpeechWakeWords.Text = "hey bambi";
+            App.Settings?.Save();
+            // Restart the loop so new phrases take effect immediately.
+            App.Autonomy?.RefreshVoiceInputModes();
+        }
+
+        internal void ChkSpeechPushToTalk_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+
+            var turningOn = BambiTakeoverTab.ChkSpeechPushToTalk.IsChecked == true;
+            if (turningOn && !s.MicConsentGiven)
+            {
+                var dlg = new MicConsentDialog { Owner = this };
+                var ok = dlg.ShowDialog() == true && dlg.ConsentGiven;
+                if (!ok) { RevertToggle(BambiTakeoverTab.ChkSpeechPushToTalk); return; }
+            }
+
+            s.SpeechPushToTalkEnabled = turningOn;
+            App.Settings?.Save();
+            App.Autonomy?.RefreshVoiceInputModes();
+            UpdateVoiceModeHints();
+        }
+
+        private bool _capturingPttKey;
+
+        internal void BtnSetPttKey_Click(object sender, RoutedEventArgs e)
+        {
+            if (_capturingPttKey) return;
+            _capturingPttKey = true;
+            BambiTakeoverTab.BtnSetPttKey.Content = "Press a key…";
+            PreviewKeyDown += CapturePttKey;
+        }
+
+        private void CapturePttKey(object sender, KeyEventArgs e)
+        {
+            if (!_capturingPttKey) return;
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            // Ignore lone modifier presses — wait for a real key.
+            if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
+                    or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.None)
+                return;
+
+            e.Handled = true;
+            _capturingPttKey = false;
+            PreviewKeyDown -= CapturePttKey;
+
+            var s = App.Settings?.Current;
+            if (s != null)
+            {
+                s.SpeechPushToTalkKey = key.ToString();
+                App.Settings?.Save();
+                App.Autonomy?.RefreshVoiceInputModes();
+            }
+            BambiTakeoverTab.TxtPttKey.Text = key.ToString();
+            BambiTakeoverTab.BtnSetPttKey.Content = "Set key…";
+        }
+
+        /// <summary>Refresh the small grey availability hints under the voice toggles.</summary>
+        private void UpdateVoiceModeHints()
+        {
+            if (BambiTakeoverTab?.TxtAutonomyVoiceHint == null) return;
+            var available = App.Speech?.IsAvailable == true;
+            if (!available)
+            {
+                BambiTakeoverTab.TxtAutonomyVoiceHint.Text =
+                    App.Speech == null || !Services.Speech.SpeechService.HasCaptureDevice
+                        ? "No microphone detected — connect one to use this."
+                        : "Speech model not installed yet — voice prompts stay off until it is.";
+            }
+            else
+            {
+                BambiTakeoverTab.TxtAutonomyVoiceHint.Text = "Offline mic. Opens only when she prompts you.";
+            }
+        }
+
+        private void RevertToggle(System.Windows.Controls.CheckBox box)
+        {
+            var wasLoading = _isLoading;
+            _isLoading = true;                 // suppress the re-fired Changed
+            box.IsChecked = false;
+            _isLoading = wasLoading;
+        }
+
         internal void BtnForceStartAutonomy_Click(object sender, RoutedEventArgs e)
         {
             App.Autonomy?.ForceStart();

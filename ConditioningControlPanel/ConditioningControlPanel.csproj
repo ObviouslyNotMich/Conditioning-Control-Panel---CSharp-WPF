@@ -68,6 +68,15 @@
     <!-- Audio Control -->
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+
+    <!-- Offline speech recognition (Takeover "repeat after me" mechanic).
+         Vosk = local, closed-grammar STT; native libvosk ships in the package's
+         runtimes/win-x64 and extracts via IncludeNativeLibrariesForSelfExtract for
+         single-file. The acoustic MODEL is NOT in the package — it's dropped into
+         Resources\Models\vosk\ (see Content include below) and resolved at runtime by
+         Services/Speech/SpeechService.cs. No model on disk => SpeechService no-ops.
+         Privacy contract: audio stays on device, never transmitted, never written to disk. -->
+    <PackageReference Include="Vosk" Version="0.3.38" />
     <PackageReference Include="OllamaSharp" Version="5.4.16" />
     
     <!-- Logging -->

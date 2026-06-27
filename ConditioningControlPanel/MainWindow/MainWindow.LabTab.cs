@@ -64,6 +64,37 @@ namespace ConditioningControlPanel
         // unhook in OnClosing alongside the debug subscriptions above.
         private Action<WebcamTrackingState>? _onPillStateChanged;
 
+        // Mic-active pill in the title bar — visible whenever ANY feature has a SpeechService
+        // capture session open (Takeover voice, Voice Lock Cards…). Stored handler so we can
+        // unhook in OnClosing. ListeningChanged fires off the capture thread → marshal to UI.
+        private EventHandler<bool>? _onMicListeningChanged;
+
+        private void WireMicActivePill()
+        {
+            if (App.Speech == null || _onMicListeningChanged != null) return;
+
+            void Update(bool listening)
+            {
+                if (MicActivePill != null)
+                    MicActivePill.Visibility = listening ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            _onMicListeningChanged = (_, listening) => RunOnUi(() => Update(listening));
+            App.Speech.ListeningChanged += _onMicListeningChanged;
+            // Reflect current state on wire-up — a session may already be open.
+            Update(App.Speech.IsListening);
+        }
+
+        private void MicActivePill_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Click is the privacy stop affordance — same intent as the camera pill. Fully disarm the
+            // offline mic so it genuinely stays off (and the dashboard Voice dot reflects it): clears
+            // wake-word + push-to-talk, cuts live capture, tears down the loop/hook. Also drop any open
+            // Voice Lock Card to typed solve so the lock still holds.
+            try { DisarmVoiceMic(); } catch { }
+            try { LockCardWindow.DisableVoiceForAll(); } catch { }
+        }
+
         private void WireWebcamActivePill()
         {
             if (App.Webcam == null || _onPillStateChanged != null) return;

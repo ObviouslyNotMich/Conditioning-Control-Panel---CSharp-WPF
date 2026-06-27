@@ -642,8 +642,11 @@
 
                 <!-- title (drag region) — neon logo wordmark, centered above the buttons -->
                 <StackPanel Grid.Row="0" x:Name="MenuTitleBar" Background="Transparent">
-                    <Image x:Name="MenuLogo" Stretch="Uniform" HorizontalAlignment="Center"
-                           MaxHeight="224" Margin="0,48,0,0" SnapsToDevicePixels="True"/>
+                    <!-- neon wordmark rendered in Skia so the authored glint FX is true additive
+                         light on the logo's real pixels — transparent surface, no box around it -->
+                    <skia:SKElement x:Name="MenuLogoFx" IsHitTestVisible="False"
+                                    Width="314" Height="224" HorizontalAlignment="Center"
+                                    Margin="0,48,0,0" PaintSurface="MenuLogoFx_PaintSurface"/>
                     <TextBlock Text="· the dollhouse ·" Foreground="{StaticResource Pink}" FontFamily="Consolas"
                                FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                 </StackPanel>

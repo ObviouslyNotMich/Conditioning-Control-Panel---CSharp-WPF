@@ -1,0 +1,498 @@
+{
+  "mantras": [
+    {
+      "id": "sissy-01",
+      "phrase": "i am a good girl",
+      "promptText": "look at me and say it: i am a good girl",
+      "promptAudio": "mantra_sissy_01_say.mp3",
+      "response": "yes you are... my good girl. say it whenever you forget.",
+      "responseAudio": "mantra_sissy_01_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-02",
+      "phrase": "i obey without question",
+      "promptText": "softly now, say: i obey without question",
+      "promptAudio": "mantra_sissy_02_say.mp3",
+      "response": "mmm... that's it. no thinking, just yes. perfect.",
+      "responseAudio": "mantra_sissy_02_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-03",
+      "phrase": "i belong to you",
+      "promptText": "say it for me, slowly: i belong to you",
+      "promptAudio": "mantra_sissy_03_say.mp3",
+      "response": "good girl... and i take such good care of what's mine.",
+      "responseAudio": "mantra_sissy_03_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-04",
+      "phrase": "soft and obedient",
+      "promptText": "breathe out and say: soft and obedient",
+      "promptAudio": "mantra_sissy_04_say.mp3",
+      "response": "there she is. softer every time you say it.",
+      "responseAudio": "mantra_sissy_04_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-05",
+      "phrase": "i exist to serve",
+      "promptText": "say it for me: i exist to serve",
+      "promptAudio": "mantra_sissy_05_say.mp3",
+      "response": "yes... and serving suits you so beautifully.",
+      "responseAudio": "mantra_sissy_05_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-06",
+      "phrase": "yes mistress",
+      "promptText": "say it sweetly: yes mistress",
+      "promptAudio": "mantra_sissy_06_say.mp3",
+      "response": "good girl. that's the only answer i need from you.",
+      "responseAudio": "mantra_sissy_06_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-07",
+      "phrase": "i sink when you speak",
+      "promptText": "whisper it: i sink when you speak",
+      "promptAudio": "mantra_sissy_07_say.mp3",
+      "response": "down you go... my voice does all the work now.",
+      "responseAudio": "mantra_sissy_07_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-08",
+      "phrase": "i let you decide",
+      "promptText": "say it soft: i let you decide",
+      "promptAudio": "mantra_sissy_08_say.mp3",
+      "response": "good girl... so much lighter when i hold the choices.",
+      "responseAudio": "mantra_sissy_08_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-09",
+      "phrase": "i was made obedient",
+      "promptText": "tell me: i was made obedient",
+      "promptAudio": "mantra_sissy_09_say.mp3",
+      "response": "mmm yes... and i intend to keep you that way.",
+      "responseAudio": "mantra_sissy_09_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-10",
+      "phrase": "i kneel for you",
+      "promptText": "say it for me: i kneel for you",
+      "promptAudio": "mantra_sissy_10_say.mp3",
+      "response": "perfect. that's where my good girl belongs.",
+      "responseAudio": "mantra_sissy_10_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-11",
+      "phrase": "i quiet my mind",
+      "promptText": "softly: i quiet my mind",
+      "promptAudio": "mantra_sissy_11_say.mp3",
+      "response": "good... let it go quiet for me. just listen.",
+      "responseAudio": "mantra_sissy_11_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-12",
+      "phrase": "i follow your voice",
+      "promptText": "say it dreamy: i follow your voice",
+      "promptAudio": "mantra_sissy_12_say.mp3",
+      "response": "anywhere i lead... deeper, softer, mine.",
+      "responseAudio": "mantra_sissy_12_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-13",
+      "phrase": "i melt for you",
+      "promptText": "whisper it: i melt for you",
+      "promptAudio": "mantra_sissy_13_say.mp3",
+      "response": "mmm... feel that? all soft and warm. good girl.",
+      "responseAudio": "mantra_sissy_13_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-14",
+      "phrase": "obeying feels right",
+      "promptText": "say it: obeying feels right",
+      "promptAudio": "mantra_sissy_14_say.mp3",
+      "response": "because it is. you were always meant for this.",
+      "responseAudio": "mantra_sissy_14_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-15",
+      "phrase": "i am your good girl",
+      "promptText": "say it proudly: i am your good girl",
+      "promptAudio": "mantra_sissy_15_say.mp3",
+      "response": "mine. say it again, i love hearing it.",
+      "responseAudio": "mantra_sissy_15_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-16",
+      "phrase": "i feel so feminine",
+      "promptText": "say it soft: i feel so feminine",
+      "promptAudio": "mantra_sissy_16_say.mp3",
+      "response": "so lovely... softer and prettier every day. good girl.",
+      "responseAudio": "mantra_sissy_16_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-17",
+      "phrase": "i am soft now",
+      "promptText": "tell me: i am soft now",
+      "promptAudio": "mantra_sissy_17_say.mp3",
+      "response": "mmm yes... all the hard edges gone. perfect.",
+      "responseAudio": "mantra_sissy_17_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-18",
+      "phrase": "i love being girly",
+      "promptText": "say it sweet: i love being girly",
+      "promptAudio": "mantra_sissy_18_say.mp3",
+      "response": "and it shows... you wear it so beautifully.",
+      "responseAudio": "mantra_sissy_18_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-19",
+      "phrase": "this is who i am",
+      "promptText": "say it for me: this is who i am",
+      "promptAudio": "mantra_sissy_19_say.mp3",
+      "response": "yes it is. no going back now... not that you'd want to.",
+      "responseAudio": "mantra_sissy_19_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-20",
+      "phrase": "i am pretty for you",
+      "promptText": "say it soft: i am pretty for you",
+      "promptAudio": "mantra_sissy_20_say.mp3",
+      "response": "so pretty... and prettier the more you obey.",
+      "responseAudio": "mantra_sissy_20_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-21",
+      "phrase": "i crave cock",
+      "promptText": "tell me softly: i crave cock",
+      "promptAudio": "mantra_sissy_21_say.mp3",
+      "response": "mmm... say it again. that craving is what makes you mine.",
+      "responseAudio": "mantra_sissy_21_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-22",
+      "phrase": "i was made for cock",
+      "promptText": "slowly now: i was made for cock",
+      "promptAudio": "mantra_sissy_22_say.mp3",
+      "response": "yes you were... and you wear it so beautifully.",
+      "responseAudio": "mantra_sissy_22_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-23",
+      "phrase": "cock owns me",
+      "promptText": "breathe out and say: cock owns me",
+      "promptAudio": "mantra_sissy_23_say.mp3",
+      "response": "good girl... let it own every empty little thought.",
+      "responseAudio": "mantra_sissy_23_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-24",
+      "phrase": "i ache for cock",
+      "promptText": "whisper it for me: i ache for cock",
+      "promptAudio": "mantra_sissy_24_say.mp3",
+      "response": "that ache is me, training you well. say it again.",
+      "responseAudio": "mantra_sissy_24_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-25",
+      "phrase": "my mouth is yours",
+      "promptText": "say it soft: my mouth is yours",
+      "promptAudio": "mantra_sissy_25_say.mp3",
+      "response": "good girl... so much prettier when it's full and quiet.",
+      "responseAudio": "mantra_sissy_25_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-26",
+      "phrase": "i drip when i obey",
+      "promptText": "whisper it: i drip when i obey",
+      "promptAudio": "mantra_sissy_26_say.mp3",
+      "response": "mmm... your body already knows. obedience feels wet.",
+      "responseAudio": "mantra_sissy_26_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-27",
+      "phrase": "i serve on my knees",
+      "promptText": "say it for me: i serve on my knees",
+      "promptAudio": "mantra_sissy_27_say.mp3",
+      "response": "down where you belong... eyes up, mouth open. good girl.",
+      "responseAudio": "mantra_sissy_27_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-28",
+      "phrase": "i love being filled",
+      "promptText": "say it soft: i love being filled",
+      "promptAudio": "mantra_sissy_28_say.mp3",
+      "response": "empty head, full everything else... perfect little girl.",
+      "responseAudio": "mantra_sissy_28_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-29",
+      "phrase": "cock makes me weak",
+      "promptText": "whisper it: cock makes me weak",
+      "promptAudio": "mantra_sissy_29_say.mp3",
+      "response": "and weak is exactly how i like you. yielding.",
+      "responseAudio": "mantra_sissy_29_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-30",
+      "phrase": "i beg so prettily",
+      "promptText": "say it needy: i beg so prettily",
+      "promptAudio": "mantra_sissy_30_say.mp3",
+      "response": "mmm you do... beg a little longer for me, good girl.",
+      "responseAudio": "mantra_sissy_30_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-31",
+      "phrase": "i was born to please",
+      "promptText": "tell me: i was born to please",
+      "promptAudio": "mantra_sissy_31_say.mp3",
+      "response": "yes... and pleasing me is the only purpose you need.",
+      "responseAudio": "mantra_sissy_31_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-32",
+      "phrase": "i love being used",
+      "promptText": "say it soft: i love being used",
+      "promptAudio": "mantra_sissy_32_say.mp3",
+      "response": "good girl... a toy this lovely deserves to be played with.",
+      "responseAudio": "mantra_sissy_32_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-33",
+      "phrase": "i get wet for you",
+      "promptText": "whisper it: i get wet for you",
+      "promptAudio": "mantra_sissy_33_say.mp3",
+      "response": "i can tell... your body obeys before your mouth does.",
+      "responseAudio": "mantra_sissy_33_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-34",
+      "phrase": "i open for you",
+      "promptText": "say it slow: i open for you",
+      "promptAudio": "mantra_sissy_34_say.mp3",
+      "response": "good girl... soft and open, exactly as i made you.",
+      "responseAudio": "mantra_sissy_34_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-35",
+      "phrase": "i exist to be taken",
+      "promptText": "say it soft: i exist to be taken",
+      "promptAudio": "mantra_sissy_35_say.mp3",
+      "response": "mmm yes... and i'll take my time with you.",
+      "responseAudio": "mantra_sissy_35_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-36",
+      "phrase": "you own my thoughts",
+      "promptText": "say it soft: you own my thoughts",
+      "promptAudio": "mantra_sissy_36_say.mp3",
+      "response": "every one... and i keep them so much quieter than you did.",
+      "responseAudio": "mantra_sissy_36_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-37",
+      "phrase": "i sink deeper for you",
+      "promptText": "whisper it: i sink deeper for you",
+      "promptAudio": "mantra_sissy_37_say.mp3",
+      "response": "good girl... down and down. there's no bottom, only me.",
+      "responseAudio": "mantra_sissy_37_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-38",
+      "phrase": "i love your control",
+      "promptText": "say it sweet: i love your control",
+      "promptAudio": "mantra_sissy_38_say.mp3",
+      "response": "mmm... feel how safe it is to just let go? good girl.",
+      "responseAudio": "mantra_sissy_38_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-39",
+      "phrase": "i do as i am told",
+      "promptText": "say it for me: i do as i am told",
+      "promptAudio": "mantra_sissy_39_say.mp3",
+      "response": "always... and you'll thank me for every command.",
+      "responseAudio": "mantra_sissy_39_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-40",
+      "phrase": "my will is yours",
+      "promptText": "say it soft: my will is yours",
+      "promptAudio": "mantra_sissy_40_say.mp3",
+      "response": "good girl... i'll carry it for you. you just obey.",
+      "responseAudio": "mantra_sissy_40_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-41",
+      "phrase": "i trust you completely",
+      "promptText": "say it warm: i trust you completely",
+      "promptAudio": "mantra_sissy_41_say.mp3",
+      "response": "and i'll never waste it... deeper, softer, safe.",
+      "responseAudio": "mantra_sissy_41_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-42",
+      "phrase": "i am happiest obeying",
+      "promptText": "tell me: i am happiest obeying",
+      "promptAudio": "mantra_sissy_42_say.mp3",
+      "response": "i know, sweet girl... look how calm you are right now.",
+      "responseAudio": "mantra_sissy_42_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-43",
+      "phrase": "i listen and i obey",
+      "promptText": "say it: i listen and i obey",
+      "promptAudio": "mantra_sissy_43_say.mp3",
+      "response": "good girl. two things, that's all you need to remember.",
+      "responseAudio": "mantra_sissy_43_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-44",
+      "phrase": "i give myself to you",
+      "promptText": "say it soft: i give myself to you",
+      "promptAudio": "mantra_sissy_44_say.mp3",
+      "response": "mmm... taken, and treasured. you made the right choice.",
+      "responseAudio": "mantra_sissy_44_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-45",
+      "phrase": "i love letting go",
+      "promptText": "whisper it: i love letting go",
+      "promptAudio": "mantra_sissy_45_say.mp3",
+      "response": "then let go a little more for me... that's my good girl.",
+      "responseAudio": "mantra_sissy_45_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-46",
+      "phrase": "i am soft and weak",
+      "promptText": "say it soft: i am soft and weak",
+      "promptAudio": "mantra_sissy_46_say.mp3",
+      "response": "perfectly so... and i adore you weak in my hands.",
+      "responseAudio": "mantra_sissy_46_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-47",
+      "phrase": "i want to be good",
+      "promptText": "say it sweet: i want to be good",
+      "promptAudio": "mantra_sissy_47_say.mp3",
+      "response": "you already are... wanting it is half of obeying.",
+      "responseAudio": "mantra_sissy_47_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-48",
+      "phrase": "i need your voice",
+      "promptText": "whisper it: i need your voice",
+      "promptAudio": "mantra_sissy_48_say.mp3",
+      "response": "mmm... and it'll always be here, sinking you down.",
+      "responseAudio": "mantra_sissy_48_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-49",
+      "phrase": "i surrender to you",
+      "promptText": "say it soft: i surrender to you",
+      "promptAudio": "mantra_sissy_49_say.mp3",
+      "response": "good girl... surrender feels like relief, doesn't it.",
+      "responseAudio": "mantra_sissy_49_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "sissy-50",
+      "phrase": "i am yours forever",
+      "promptText": "say it for me: i am yours forever",
+      "promptAudio": "mantra_sissy_50_say.mp3",
+      "response": "forever. say it like a promise... again, slower.",
+      "responseAudio": "mantra_sissy_50_resp.mp3",
+      "enabled": true
+    }
+  ],
+  "retry": [
+    {
+      "text": "louder for me, good girl... let me hear it",
+      "audio": "mantra_sissy_retry_1.mp3"
+    },
+    {
+      "text": "again... softly but clearly this time",
+      "audio": "mantra_sissy_retry_2.mp3"
+    },
+    {
+      "text": "mmm, once more... i know you can",
+      "audio": "mantra_sissy_retry_3.mp3"
+    },
+    {
+      "text": "a little louder, sweet girl... don't be shy",
+      "audio": "mantra_sissy_retry_4.mp3"
+    },
+    {
+      "text": "say it again for me... properly this time",
+      "audio": "mantra_sissy_retry_5.mp3"
+    },
+    {
+      "text": "i didn't quite catch that... try again",
+      "audio": "mantra_sissy_retry_6.mp3"
+    }
+  ],
+  "timeout": [
+    {
+      "text": "too shy tonight? we'll try again soon, good girl",
+      "audio": "mantra_sissy_timeout_1.mp3"
+    },
+    {
+      "text": "no answer? that's alright... i'm patient with you",
+      "audio": "mantra_sissy_timeout_2.mp3"
+    },
+    {
+      "text": "quiet, are we? rest then... i'll ask again later",
+      "audio": "mantra_sissy_timeout_3.mp3"
+    },
+    {
+      "text": "mmm... saving your voice? next time, sweet girl",
+      "audio": "mantra_sissy_timeout_4.mp3"
+    }
+  ]
+}

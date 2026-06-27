@@ -1766,9 +1766,7 @@ public partial class ChaosHubWindow : Window
         MenuLeftCol.Visibility = Visibility.Visible;
         MenuArtPanel.Visibility = Visibility.Visible;
         MenuOptions.Visibility = Visibility.Collapsed;
-        if (MenuLogo.Source == null)   // neon wordmark above the buttons (cached load, once)
-            MenuLogo.Source = ChaosArt.TryLoad(ChaosArt.FilePath("menu_logo.png"));
-        RefreshTopBar();   // keep the menu chips current
+        RefreshTopBar();   // keep the menu chips current (logo wordmark renders in MenuLogoFx, Skia)
         StartMenuIntro();
         StartMenuFog();
         StartFlipbook();
@@ -2185,6 +2183,14 @@ public partial class ChaosHubWindow : Window
     private float _introClock;
     private bool _introActive;
 
+    // ---- logo wordmark glint (separate scene: menu_logo.png + menu_logo_fx.png, tuned by
+    // menu_logo_fx.json; rendered in MenuLogoFx as additive light on the logo's real pixels) ----
+    private SKImage? _logoImg, _logoFx, _logoBloom;
+    private (float nx, float ny, float w)[] _logoTwSpots = System.Array.Empty<(float, float, float)>();
+    private float _lGlowI = 1f, _lGlowF = 1f, _lTwkI = 1f, _lTwkF = 1f, _lShI = 1f, _lShF = 1f;
+    private readonly List<Tw> _logoTw = new();
+    private float _logoTwAccum, _logoSweepClock;
+
     private static SKImage? LoadSk(string? path)
     {
         try
@@ -2223,6 +2229,33 @@ public partial class ChaosHubWindow : Window
         _rToA ??= ChanToAlpha(0); _gToA ??= ChanToAlpha(1); _bToA ??= ChanToAlpha(2);
         LoadFxTuning();
         BuildAllBlooms();
+        LoadMenuLogoFx();
+    }
+
+    /// <summary>Load the logo wordmark + its authored glint mask + tuning (its own files so it never
+    /// clobbers the character-art FX). Drawn in MenuLogoFx, transparent — no box around the logo.</summary>
+    private void LoadMenuLogoFx()
+    {
+        _rToA ??= ChanToAlpha(0); _gToA ??= ChanToAlpha(1); _bToA ??= ChanToAlpha(2);
+        _logoImg = LoadSk(ChaosArt.FilePath("menu_logo.png"));
+        var fxp = ChaosArt.FilePath("menu_logo_fx.png");
+        _logoFx = LoadSk(fxp);
+        _logoTwSpots = ExtractSpots(fxp, 1);   // green channel = twinkle anchors
+        try
+        {
+            var p = ChaosArt.FilePath("menu_logo_fx.json");
+            if (p != null && File.Exists(p))
+            {
+                var o = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(p));
+                float Get(string fx, string k, float def) => (float?)o[fx]?[k] ?? def;
+                _lGlowI = Get("glow", "intensity", 1f); _lGlowF = Get("glow", "frequency", 1f);
+                _lTwkI = Get("twinkle", "intensity", 1f); _lTwkF = Get("twinkle", "frequency", 1f);
+                _lShI = Get("sheen", "intensity", 1f); _lShF = Get("sheen", "frequency", 1f);
+            }
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChaosHub.LoadMenuLogoFx tuning: {E}", ex.Message); }
+        _logoBloom?.Dispose();
+        _logoBloom = BuildBloom(_logoImg, _logoFx);
     }
 
     /// <summary>Colour filter: output white with alpha = the given source channel (0=R,1=G,2=B).
@@ -2309,8 +2342,9 @@ public partial class ChaosHubWindow : Window
         }
         _breathClock += MenuDt;
         if (_introActive) { _introClock += MenuDt; if (_introClock >= IntroDur) _introActive = false; }
-        if (fx) { StepFogPuffs(); StepTwinkles(); }
+        if (fx) { StepFogPuffs(); StepTwinkles(); StepLogoTwinkles(); }
         MenuFog.InvalidateVisual();
+        MenuLogoFx.InvalidateVisual();
     }
 
     private void StepTwinkles()
@@ -2356,11 +2390,125 @@ public partial class ChaosHubWindow : Window
         return new SKRect((ew - dw) / 2f, (eh - dh) / 2f, (ew + dw) / 2f, (eh + dh) / 2f);
     }
 
+    /// <summary>Uniform "contain" fit (whole image visible, centered, never cropped) — used for the
+    /// logo so the full wordmark shows on a transparent surface.</summary>
+    private static SKRect ContainRect(SKImage img, SKImageInfo info)
+    {
+        float ew = info.Width, eh = info.Height, iw = img.Width, ih = img.Height;
+        float s = Math.Min(ew / iw, eh / ih);
+        float dw = iw * s, dh = ih * s;
+        return new SKRect((ew - dw) / 2f, (eh - dh) / 2f, (ew + dw) / 2f, (eh + dh) / 2f);
+    }
+
+    /// <summary>Paint the logo wordmark + authored glint FX on a fully transparent surface (no box).
+    /// FX gate on Enhanced FX; with it off (or no mask) the logo just shows plainly.</summary>
+    private void MenuLogoFx_PaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+    {
+        var canvas = e.Surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        var info = e.Info;
+        if (_logoImg == null || info.Width <= 0 || info.Height <= 0) return;
+
+        var rect = ContainRect(_logoImg, info);
+        using (var p = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High })
+            canvas.DrawImage(_logoImg, rect, p);
+
+        if (App.Settings?.Current?.ChaosSkiaFxEnabled == true)
+        {
+            try { DrawLogoFx(canvas, rect); }
+            catch (Exception ex) { App.Logger?.Debug("ChaosHub.DrawLogoFx: {E}", ex.Message); }
+        }
+    }
+
+    /// <summary>Step the logo's twinkle particles (same model as the character art, separate state).</summary>
+    private void StepLogoTwinkles()
+    {
+        _logoSweepClock += MenuDt;
+        if (_logoTwSpots.Length > 0)
+        {
+            _logoTwAccum -= MenuDt;
+            int maxn = Math.Max(1, (int)Math.Round(3 * _lTwkI));
+            if (_logoTwAccum <= 0f)
+            {
+                _logoTwAccum = (0.35f + (float)_rng.NextDouble() * 0.45f) / Math.Max(0.05f, _lTwkF);
+                if (_logoTw.Count < maxn)
+                {
+                    float total = 0; foreach (var s in _logoTwSpots) total += s.w + 0.05f;
+                    float pick = (float)_rng.NextDouble() * total; var hs = _logoTwSpots[0];
+                    foreach (var s in _logoTwSpots) { pick -= s.w + 0.05f; if (pick <= 0) { hs = s; break; } }
+                    double r = _rng.NextDouble();
+                    var col = r < 0.55 ? new SKColor(255, 255, 255) : r < 0.8 ? new SKColor(255, 230, 176) : new SKColor(255, 199, 230);
+                    _logoTw.Add(new Tw
+                    {
+                        Nx = hs.nx, Ny = hs.ny, Age = 0,
+                        Life = 0.7f + (float)_rng.NextDouble() * 0.45f,
+                        Size = 6f + (float)_rng.NextDouble() * 8f,
+                        Col = col,
+                    });
+                }
+            }
+        }
+        for (int i = _logoTw.Count - 1; i >= 0; i--)
+        {
+            var t = _logoTw[i]; t.Age += MenuDt;
+            if (t.Age >= t.Life) _logoTw.RemoveAt(i); else _logoTw[i] = t;
+        }
+    }
+
+    /// <summary>Authored glint over the logo: breathing glow bloom, a masked sheen sweep, and twinkle
+    /// pops — single static frame (no crossfade). Mirrors the painter preview, tuned by menu_logo_fx.json.</summary>
+    private void DrawLogoFx(SKCanvas canvas, SKRect rect)
+    {
+        float t = _breathClock;
+
+        if (_lGlowI > 0.001f && _logoBloom != null)
+        {
+            float pulse = (0.42f + 0.22f * (float)Math.Sin(t * 1.6 * _lGlowF)) * _lGlowI;
+            DrawBloom(canvas, rect, _logoBloom, pulse);
+        }
+
+        if (_bToA != null && _lShI > 0.001f && _logoFx != null)
+        {
+            float period = SweepPeriodBase / Math.Max(0.05f, _lShF);
+            float ph = _logoSweepClock % period;
+            if (ph < SweepDur)
+            {
+                float pp = ph / SweepDur;
+                float env = (float)Math.Sin(Math.PI * pp);
+                float center = -0.15f + 1.3f * pp;
+                DrawSheen(canvas, rect, _logoFx, center, 0.5f * env * _lShI);
+            }
+        }
+
+        if (_logoTw.Count > 0 && _lTwkI > 0.001f)
+        {
+            float surf = rect.Height / 240f;   // twinkle size scaled to the logo
+            using var paint = new SKPaint { IsAntialias = true, BlendMode = SKBlendMode.Plus };
+            foreach (var tw in _logoTw)
+            {
+                float env = (float)Math.Sin(Math.PI * (tw.Age / tw.Life)) * _lTwkI;
+                if (env <= 0.01f) continue;
+                float cx = rect.Left + tw.Nx * rect.Width;
+                float cy = rect.Top + tw.Ny * rect.Height;
+                float r = tw.Size * surf * (0.7f + 0.3f * env);
+                using (var glow = SKShader.CreateRadialGradient(new SKPoint(cx, cy), r * 2.4f,
+                    new[] { tw.Col.WithAlpha((byte)(Math.Clamp(env, 0, 1) * 150)), tw.Col.WithAlpha(0) }, null, SKShaderTileMode.Clamp))
+                {
+                    paint.Shader = glow; canvas.DrawCircle(cx, cy, r * 2.4f, paint);
+                }
+                paint.Shader = null;
+                paint.Color = SKColors.White.WithAlpha((byte)(Math.Clamp(env, 0, 1) * 220));
+                canvas.DrawCircle(cx, cy, r * 0.45f, paint);
+            }
+        }
+    }
+
     /// <summary>Bake a frame's glow pixels (art × glow-channel), blurred, into an SKImage. Cached per
     /// frame so the glow can crossfade between poses instead of hard-swapping at the transition.</summary>
-    private SKImage? MakeBloom(int idx)
+    private SKImage? MakeBloom(int idx) => BuildBloom(FrameImage(idx), FxMask(idx));
+
+    private SKImage? BuildBloom(SKImage? src, SKImage? mask)
     {
-        var src = FrameImage(idx); var mask = FxMask(idx);
         if (src == null || mask == null || _rToA == null) return null;
         try
         {
@@ -2462,6 +2610,9 @@ public partial class ChaosHubWindow : Window
         _skStill?.Dispose(); _skStill = null;
         _fxStill?.Dispose(); _fxStill = null;
         _bloomStill?.Dispose(); _bloomStill = null;
+        _logoImg?.Dispose(); _logoImg = null;
+        _logoFx?.Dispose(); _logoFx = null;
+        _logoBloom?.Dispose(); _logoBloom = null;
     }
 
     private void MenuFog_PaintSurface(object? sender, SKPaintSurfaceEventArgs e)

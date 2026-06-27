@@ -26,7 +26,8 @@ namespace ConditioningControlPanel.Services
         BouncingText,
         BubbleCount,
         WebVideo,
-        WallpaperShuffle
+        WallpaperShuffle,
+        SpokenMantra
     }
 
     /// <summary>
@@ -73,7 +74,7 @@ namespace ConditioningControlPanel.Services
     /// The avatar can trigger effects on her own based on idle time, random intervals,
     /// context awareness, and time of day.
     /// </summary>
-    public class AutonomyService : IDisposable
+    public partial class AutonomyService : IDisposable
     {
         // Timers
         private DispatcherTimer? _idleTimer;
@@ -96,6 +97,13 @@ namespace ConditioningControlPanel.Services
         private bool _bubblesPulseActive = false;
         private bool _bouncingTextPulseActive = false;
         private bool _webVideoActive = false; // Blocks all actions while web video plays fullscreen
+
+        /// <summary>
+        /// True while a fullscreen browser/HypnoTube web video is on screen. The mandatory
+        /// VideoService scheduler reads this so it won't stack a mandatory video (and its audio)
+        /// on top of a web video — and vice versa (BUG-XRFQH4AHDN).
+        /// </summary>
+        public bool IsWebVideoActive => _webVideoActive;
         private int _webVideoWatchdogGeneration = 0; // Invalidates stale watchdog callbacks
         private HashSet<string> _shownWebVideos = new(); // Track shown videos to avoid repeats
         // Separate generation counters for each pulse type to avoid cross-invalidation
@@ -115,6 +123,13 @@ namespace ConditioningControlPanel.Services
         // Events
         public event EventHandler<AutonomyActionEventArgs>? ActionTriggered;
         public event EventHandler<string>? AnnouncementMade;
+
+        /// <summary>Raised when Takeover arms (true) or disarms (false), so the UI orb/state can follow.</summary>
+        public event EventHandler<bool>? EnabledChanged;
+        /// <summary>Raised when a "say it for me" voice prompt begins, carrying the target phrase.</summary>
+        public event EventHandler<string>? VoicePromptStarted;
+        /// <summary>Raised when a voice prompt resolves, carrying its result.</summary>
+        public event EventHandler<Services.Speech.PhraseResult>? VoicePromptFinished;
 
         // Announcement phrases by action type
         private readonly Dictionary<AutonomyActionType, string[]> _announcementPhrases = new()
@@ -296,6 +311,38 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
+        /// Fire the "say it for me" voice action on demand, bypassing the weighted picker and the
+        /// _isEnabled gate (dev/test affordance). Still requires the speech engine to be available
+        /// and the avatar to be present; surfaces a friendly message if not.
+        /// </summary>
+        public void TestVoiceCommand()
+        {
+            if (App.Speech?.IsAvailable != true)
+            {
+                System.Windows.MessageBox.Show(
+                    "Speech isn't available.\n\nDrop a Vosk model into Resources/Models/vosk/ (see the README there) and make sure a microphone is connected, then try again.",
+                    "Voice Test — Not Available");
+                return;
+            }
+            if (App.AvatarWindow == null)
+            {
+                System.Windows.MessageBox.Show(
+                    "The companion avatar needs to be visible for the voice prompt. Show the avatar, then try again.",
+                    "Voice Test — No Avatar");
+                return;
+            }
+            if (App.MantraVoice?.HasMantras() != true)
+            {
+                System.Windows.MessageBox.Show(
+                    "No spoken mantras are available for the active mod.\n\nAdd a mantras.json under the mod's companion_audio folder, then try again.",
+                    "Voice Test — No Mantras");
+                return;
+            }
+            App.Logger?.Information("AutonomyService: TestVoiceCommand invoked manually");
+            TriggerSpokenMantra();
+        }
+
+        /// <summary>
         /// Force start the service (for debugging) - bypasses all checks
         /// </summary>
         public void ForceStart()
@@ -358,6 +405,15 @@ namespace ConditioningControlPanel.Services
                 return;
             }
 
+            // Re-entrancy guard: Start() has three entry points (toggle / startup / panic-restart)
+            // plus remote/chat paths. If we're already running, do nothing rather than spin up a
+            // second set of timers on top of the live ones.
+            if (_isEnabled)
+            {
+                App.Logger?.Information("AutonomyService: Start() ignored — already running");
+                return;
+            }
+
             _isEnabled = true;
             _lastUserActivity = DateTime.Now;
             _lastActionTime = DateTime.MinValue;
@@ -367,6 +423,11 @@ namespace ConditioningControlPanel.Services
             StartRandomTimer();
             StartHeartbeatTimer();
             UpdateMood();
+
+            // Arm the opt-in user-driven mic modes (wake-word / push-to-talk) if configured.
+            RefreshVoiceInputModes();
+
+            try { EnabledChanged?.Invoke(this, true); } catch { }
 
             App.Logger?.Information("AutonomyService: Started successfully! Timers: Idle={IdleRunning}, Random={RandomRunning}",
                 _idleTimer?.IsEnabled == true,
@@ -400,6 +461,10 @@ namespace ConditioningControlPanel.Services
             _forceTestMode = false; // Reset test mode
             StopAllTimers();
 
+            // NOTE: the mic modes (wake word / push-to-talk) are NOT torn down here anymore — they're
+            // decoupled from Takeover and owned by "She's Listening". Re-arm/disarm follows their own
+            // toggles. (Full teardown still happens on Dispose and via StopVoiceInput / the privacy pill.)
+
             // Restore any active pulse settings (spiral, pink filter, etc.) before cleanup
             CancelActivePulses();
 
@@ -409,6 +474,8 @@ namespace ConditioningControlPanel.Services
             _bubblesPulseActive = false;
             _bouncingTextPulseActive = false;
             _globalPulseGeneration++; // Invalidate ALL pending pulse callbacks
+
+            try { EnabledChanged?.Invoke(this, false); } catch { }
 
             App.Logger?.Information("AutonomyService: Stopped");
         }
@@ -879,13 +946,32 @@ namespace ConditioningControlPanel.Services
             if (settings.AutonomyCanTriggerBouncingText)
                 candidates.Add((AutonomyActionType.BouncingText, 15));
 
-            // Web video - plays random HypnoTube video fullscreen in browser
-            if (settings.AutonomyCanTriggerWebVideo && !_webVideoActive)
+            // Web video - plays random HypnoTube video fullscreen in browser.
+            // Exclude while a mandatory video is on screen so we pick a different action
+            // rather than stacking two videos (BUG-XRFQH4AHDN).
+            if (settings.AutonomyCanTriggerWebVideo && !_webVideoActive && App.Video?.IsPlaying != true)
                 candidates.Add((AutonomyActionType.WebVideo, 20));
 
             // Wallpaper shuffle - subtle desktop wallpaper change
             if (settings.AutonomyCanTriggerWallpaper)
                 candidates.Add((AutonomyActionType.WallpaperShuffle, 10));
+
+            // Spoken mantra - "say it for me" (offline speech). Self-gating: only ever a candidate
+            // when the speech engine is actually available (model + mic), the user consented to the
+            // mic, AND the active mod ships mantra content — so it's purely additive: no engine or no
+            // content => it simply never appears.
+            // When the user opted into wake-word or push-to-talk, the mic only opens on her own
+            // initiative — so we suppress the surprise auto-trigger ("overrides auto-listen").
+            if (settings.AutonomyCanTriggerVoiceCommand
+                && settings.MicConsentGiven
+                && !settings.SpeechWakeWordEnabled
+                && !settings.SpeechPushToTalkEnabled
+                && App.Speech?.IsAvailable == true
+                && App.Speech?.IsListening != true
+                && !_voiceBusy
+                && App.AvatarWindow != null
+                && App.MantraVoice?.HasMantras() == true)
+                candidates.Add((AutonomyActionType.SpokenMantra, 18));
 
             // Note: BubbleCount removed from autonomy - too disruptive and unreliable
 
@@ -983,6 +1069,30 @@ namespace ConditioningControlPanel.Services
             }
         }
 
+        /// <summary>
+        /// Display label for the on-screen takeover cue, or <c>null</c> to suppress it.
+        /// Comment is suppressed — it's just the avatar giggling, not a screen effect.
+        /// </summary>
+        private static string? TakeoverEffectLabel(AutonomyActionType t) => t switch
+        {
+            AutonomyActionType.Flash            => "FLASH",
+            AutonomyActionType.Video            => "VIDEO",
+            AutonomyActionType.Subliminal       => "SUBLIMINAL",
+            AutonomyActionType.BrainDrainPulse  => "BRAIN DRAIN",
+            AutonomyActionType.StartBubbles     => "BUBBLES",
+            AutonomyActionType.MindWipe         => "MIND WIPE",
+            AutonomyActionType.LockCard         => "LOCK CARD",
+            AutonomyActionType.SpiralPulse      => "SPIRAL",
+            AutonomyActionType.PinkFilterPulse  => "PINK FILTER",
+            AutonomyActionType.BouncingText     => "BOUNCING TEXT",
+            AutonomyActionType.BubbleCount      => "BUBBLE COUNT",
+            AutonomyActionType.WebVideo         => "WEB VIDEO",
+            AutonomyActionType.WallpaperShuffle => "WALLPAPER",
+            AutonomyActionType.SpokenMantra     => "MANTRA",
+            AutonomyActionType.Comment          => null,   // avatar giggle — no banner
+            _                                   => null,
+        };
+
         private void PerformAction(AutonomyActionType actionType, AutonomyTriggerSource source, string? context)
         {
             App.Logger?.Information("AutonomyService: PerformAction starting - {Action}", actionType);
@@ -994,6 +1104,15 @@ namespace ConditioningControlPanel.Services
                     // Mark that autonomy is triggering this action (for Cult Bunny XP bonus)
                     IsActionInProgress = true;
                     App.Logger?.Information("AutonomyService: Executing action {Action}...", actionType);
+
+                    // On-screen cue so a takeover-driven effect is visibly distinct from an
+                    // ordinary engine effect. Fires for every effect except Comment (just a giggle).
+                    try
+                    {
+                        var cue = TakeoverEffectLabel(actionType);
+                        if (cue != null) TakeoverAnnouncerOverlay.Announce(cue);
+                    }
+                    catch (Exception cueEx) { App.Logger?.Debug("AutonomyService: takeover cue failed: {E}", cueEx.Message); }
 
                     switch (actionType)
                     {
@@ -1097,6 +1216,10 @@ namespace ConditioningControlPanel.Services
                             TriggerWebVideoFullscreen();
                             break;
 
+                        case AutonomyActionType.SpokenMantra:
+                            TriggerSpokenMantra();
+                            break;
+
                         case AutonomyActionType.WallpaperShuffle:
                             if (App.Wallpaper != null)
                             {
@@ -1194,6 +1317,16 @@ namespace ConditioningControlPanel.Services
             if (_webVideoActive)
             {
                 App.Logger?.Information("AutonomyService: Web video already active, skipping");
+                return;
+            }
+
+            // Don't stack a fullscreen web video on top of a mandatory video that's already
+            // playing — that's the doubled video + doubled audio users reported (BUG-XRFQH4AHDN).
+            // The reverse (mandatory over web) is guarded in VideoService's scheduler and
+            // TriggerVideoSafely().
+            if (App.Video?.IsPlaying == true)
+            {
+                App.Logger?.Information("AutonomyService: Mandatory video playing, skipping web video to avoid stacked playback");
                 return;
             }
 
@@ -1610,6 +1743,132 @@ namespace ConditioningControlPanel.Services
             }
         }
 
+        /// <summary>
+        /// Spoken Mantra — she voices an in-theme line that asks you to repeat a phrase, opens the mic
+        /// once she's finished speaking, and answers with the entry's bespoke response. Per-mod content
+        /// comes from <see cref="MantraVoiceService"/>. Fully additive and self-protecting: bails if
+        /// speech isn't available, the mic is busy, or the active mod ships no mantras.
+        /// </summary>
+        private void TriggerSpokenMantra()
+        {
+            if (App.Speech?.IsAvailable != true || App.AvatarWindow == null)
+            {
+                App.Logger?.Information("AutonomyService: SpokenMantra skipped — speech unavailable");
+                return;
+            }
+            if (App.MantraVoice?.HasMantras() != true)
+            {
+                App.Logger?.Information("AutonomyService: SpokenMantra skipped — no mantras for active mod");
+                return;
+            }
+            // All four initiators (auto timer / wake-word / push-to-talk / dev test) funnel through
+            // RequestVoiceCommand so the mic's single-session guard is never violated.
+            RequestVoiceCommand();
+        }
+
+        private async Task RunSpokenMantraAsync()
+        {
+            try
+            {
+                var mantra = App.MantraVoice?.NextMantra();
+                if (mantra == null)
+                {
+                    App.Logger?.Information("AutonomyService: SpokenMantra — no mantra to ask");
+                    return;
+                }
+
+                var phrase = mantra.Phrase;
+                try { VoicePromptStarted?.Invoke(this, phrase); } catch { }
+
+                // She delivers the whole prompt (voiced if the clip ships, else text-only). Marshaled to
+                // the UI thread since the funnel may invoke us off-thread (wake-word / PTT).
+                var promptAudio = App.MantraVoice?.ResolveAudio(mantra.PromptAudio);
+                Speak(mantra.PromptText, promptAudio);
+
+                // CRITICAL: open the mic only AFTER she finishes saying the phrase — otherwise the
+                // recognizer hears her own delivery and self-matches. Wait for the clip's measured
+                // duration (+ a beat), then spin briefly until the avatar reports it's done speaking.
+                var dur = App.MantraVoice?.GetAudioDuration(promptAudio);
+                var settleMs = dur.HasValue ? (int)dur.Value.TotalMilliseconds + 600 : 1400;
+                await Task.Delay(settleMs).ConfigureAwait(false);
+                for (int i = 0; i < 40 && (App.AvatarWindow?.IsSpeaking ?? false); i++)
+                    await Task.Delay(75).ConfigureAwait(false);
+
+                var result = await App.Speech!.RecognizePhraseAsync(
+                    phrase, new Services.Speech.RecognizeOptions { Timeout = TimeSpan.FromSeconds(8) })
+                    .ConfigureAwait(false);
+
+                // One gentle retry when she heard you but you were too quiet.
+                if (!result.Matched && result.LoudEnough == false && result.Score >= 0.45 && !result.Unavailable)
+                {
+                    SpeakLine(App.MantraVoice?.GetRetry(), "Louder for me~ say it like you mean it.");
+                    await Task.Delay(900).ConfigureAwait(false);
+                    for (int i = 0; i < 40 && (App.AvatarWindow?.IsSpeaking ?? false); i++)
+                        await Task.Delay(75).ConfigureAwait(false);
+                    result = await App.Speech!.RecognizePhraseAsync(
+                        phrase, new Services.Speech.RecognizeOptions { Timeout = TimeSpan.FromSeconds(8) })
+                        .ConfigureAwait(false);
+                }
+
+                if (result.Unavailable)
+                {
+                    App.Logger?.Information("AutonomyService: SpokenMantra — speech went unavailable mid-action");
+                    return;
+                }
+
+                try { VoicePromptFinished?.Invoke(this, result); } catch { }
+
+                if (result.Matched)
+                {
+                    // Bespoke voiced success response for this exact mantra.
+                    var respAudio = App.MantraVoice?.ResolveAudio(mantra.ResponseAudio);
+                    Speak(string.IsNullOrWhiteSpace(mantra.Response) ? "Good girl~" : mantra.Response, respAudio);
+                    App.Mantra?.TryCompleteMantra();
+                    App.Logger?.Information("AutonomyService: SpokenMantra matched '{Phrase}' (score={Score:0.00}, conf={Conf:0.00})",
+                        phrase, result.Score, result.Confidence);
+                }
+                else if (result.TimedOut && string.IsNullOrWhiteSpace(result.Transcript))
+                {
+                    SpeakLine(App.MantraVoice?.GetTimeout(), "Too shy? I'll ask again later~");
+                    App.Logger?.Information("AutonomyService: SpokenMantra timed out (no speech) for '{Phrase}'", phrase);
+                }
+                else
+                {
+                    SpeakLine(App.MantraVoice?.GetRetry(), "Mmm, not quite. Next time say it just for me~");
+                    App.Logger?.Information("AutonomyService: SpokenMantra miss for '{Phrase}' — heard '{Heard}' (score={Score:0.00})",
+                        phrase, result.Transcript, result.Score);
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning("AutonomyService: SpokenMantra failed: {Error}", ex.Message);
+            }
+
+            // Play a shared retry/timeout line (voiced if it ships audio), else fall back to plain text.
+            void SpeakLine(Models.MantraLine? line, string fallback)
+            {
+                if (line != null && !string.IsNullOrWhiteSpace(line.Text))
+                    Speak(line.Text, App.MantraVoice?.ResolveAudio(line.Audio));
+                else
+                    Speak(fallback, null);
+            }
+
+            void Speak(string text, string? audioPath)
+            {
+                if (Application.Current?.Dispatcher == null) return;
+                Application.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    try
+                    {
+                        // Voiced when a clip resolved (bark voice path); text-only otherwise.
+                        App.AvatarWindow?.GigglePriority(text, playSound: audioPath != null, aiGenerated: false,
+                            phraseAudioPath: audioPath, barkVoice: audioPath != null);
+                    }
+                    catch { }
+                });
+            }
+        }
+
         #endregion
 
         #region Announcements
@@ -1721,6 +1980,8 @@ namespace ConditioningControlPanel.Services
             _disposed = true;
 
             Stop();
+            // Stop() no longer tears down the mic (it's decoupled from Takeover) — but shutdown must.
+            StopVoiceInputModes();
             GC.SuppressFinalize(this);
         }
 

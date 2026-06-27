@@ -161,9 +161,10 @@ namespace ConditioningControlPanel.Services
                     var phrase = customPhrase ?? enabledPhrases[_random.Next(enabledPhrases.Count)];
                     var repeats = customRepeats >= 0 ? customRepeats : settings.LockCardRepeats;
                     var strict = customStrict || settings.LockCardStrict;
+                    var voice = settings.LockCardVoiceMode;
 
                     // Show on all monitors with synced input
-                    LockCardWindow.ShowOnAllMonitors(phrase, repeats, strict, isTest);
+                    LockCardWindow.ShowOnAllMonitors(phrase, repeats, strict, isTest, voice);
 
                     _lastShown = DateTime.Now;
 
