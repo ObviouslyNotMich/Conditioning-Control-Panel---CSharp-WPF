@@ -157,11 +157,25 @@ namespace ConditioningControlPanel.Services
 
         private void StartWakeLoop()
         {
-            if (_wakeLoopTask is { IsCompleted: false }) return; // already running
-            _wakeLoopCts = new CancellationTokenSource();
-            var ct = _wakeLoopCts.Token;
+            // A live (not-stopped) loop already running? Leave it. StopWakeLoop nulls _wakeLoopCts, so a
+            // non-null cts alongside an unfinished task means a loop that is still actively listening.
+            if (_wakeLoopCts != null && _wakeLoopTask is { IsCompleted: false }) return;
+
+            var previous = _wakeLoopTask; // may be a just-cancelled loop still draining its native listen
+            var cts = new CancellationTokenSource();
+            _wakeLoopCts = cts;
+            var ct = cts.Token;
             App.Logger?.Information("AutonomyService: wake-word loop starting (words: {Words})", string.Join(" / ", WakeWords()));
-            _wakeLoopTask = Task.Run(() => WakeLoopAsync(ct), ct);
+
+            // Chain off any draining predecessor so two wake loops never overlap on the single-session
+            // recognizer. A fast disarm→re-arm used to spin up a SECOND loop (it called the recognizer
+            // directly, bypassing the funnel) and violate the one-session guarantee; awaiting the old
+            // loop first also avoids the "stuck off after a quick toggle" case.
+            _wakeLoopTask = Task.Run(async () =>
+            {
+                if (previous != null) { try { await previous.ConfigureAwait(false); } catch { } }
+                await WakeLoopAsync(ct).ConfigureAwait(false);
+            }, ct);
         }
 
         private void StopWakeLoop()
@@ -173,7 +187,8 @@ namespace ConditioningControlPanel.Services
             }
             catch { }
             _wakeLoopCts = null;
-            _wakeLoopTask = null; // the loop observes the token and unwinds on its own
+            // Do NOT null _wakeLoopTask: StartWakeLoop chains the next loop off it so a draining loop and
+            // a freshly-armed one can't overlap on the mic. It clears itself once WakeLoopAsync returns.
         }
 
         private async Task WakeLoopAsync(CancellationToken loopCt)
@@ -311,11 +326,14 @@ namespace ConditioningControlPanel.Services
         {
             if (key != PushToTalkKey()) return;
             if (_voiceBusy) return;
-            if (!_isEnabled || App.Speech?.IsAvailable != true) return;
+            // Decoupled from Takeover (_isEnabled), exactly like the wake-word loop — the button works
+            // whenever PTT is armed + the engine is available, not only while a takeover is running.
+            if (App.Speech?.IsAvailable != true) return;
             App.Logger?.Information("AutonomyService: push-to-talk pressed");
-            // OnPushToTalkKey runs on the low-level hook thread, which must return fast — marshal
-            // to the UI thread without blocking the hook.
-            DispatcherHelper.RunOnUI(() => RequestVoiceCommand(allowCommands: true));
+            // Behave EXACTLY like a "Hey Bambi" wake: speak the same acknowledgement, show the same
+            // listening bubble, then run the command/mantra funnel. OnWakeWordHeard does its own UI
+            // marshalling, but we're on the low-level hook thread (must return fast), so hop off it.
+            DispatcherHelper.RunOnUI(OnWakeWordHeard);
         }
     }
 }

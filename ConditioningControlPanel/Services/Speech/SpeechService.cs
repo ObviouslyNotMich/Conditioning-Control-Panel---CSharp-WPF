@@ -227,126 +227,158 @@ namespace ConditioningControlPanel.Services.Speech
                 return PhraseResult.NotAvailable;
             }
 
-            var matchThreshold = options.MatchThreshold ?? SettingDouble("SpeechMatchThreshold", 0.62);
-            var loudnessThreshold = options.LoudnessThreshold ?? SettingDouble("SpeechLoudnessThreshold", 0.04);
-            var normalizedTarget = Normalize(target);
-
-            var tcs = new TaskCompletionSource<PhraseResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-            WaveInEvent? mic = null;
-            VoskRecognizer? rec = null;
-            double peakRms = 0;
-            var done = 0;
-
-            void Finish(PhraseResult r)
-            {
-                if (Interlocked.Exchange(ref done, 1) != 0) return;
-                tcs.TrySetResult(r);
-            }
-
-            PhraseResult Evaluate(string transcript, double confidence, bool timedOut)
-            {
-                var heard = Normalize(transcript);
-                var score = Similarity(normalizedTarget, heard);
-                var loud = peakRms >= loudnessThreshold;
-                return new PhraseResult
-                {
-                    Transcript = transcript?.Trim() ?? "",
-                    Score = score,
-                    Confidence = confidence,
-                    LoudEnough = loud,
-                    Matched = !timedOut && score >= matchThreshold && loud,
-                    TimedOut = timedOut
-                };
-            }
-
+            // The guard is now held. Wrap the whole session in an outer try/finally so it is ALWAYS
+            // released — a throw during setup (before the inner try) would otherwise leave the flag at
+            // 1 and brick the mic for the rest of the run (every later recognize returns NotAvailable).
             try
             {
-                rec = BuildRecognizer(grammarPhrases);
-                rec.SetWords(true);
+                var matchThreshold = options.MatchThreshold ?? SettingDouble("SpeechMatchThreshold", 0.62);
+                var loudnessThreshold = options.LoudnessThreshold ?? SettingDouble("SpeechLoudnessThreshold", 0.04);
+                var normalizedTarget = Normalize(target);
 
-                mic = new WaveInEvent
-                {
-                    DeviceNumber = ResolveDeviceNumber(),
-                    WaveFormat = new WaveFormat(SampleRate, 16, 1),
-                    BufferMilliseconds = 50
-                };
-
-                mic.DataAvailable += (_, e) =>
-                {
-                    if (Volatile.Read(ref done) != 0) return;
-                    try
-                    {
-                        peakRms = Math.Max(peakRms, Rms(e.Buffer, e.BytesRecorded));
-                        RaiseLevel(Rms(e.Buffer, e.BytesRecorded));
-
-                        if (rec!.AcceptWaveform(e.Buffer, e.BytesRecorded))
-                        {
-                            var (text, conf) = ParseResult(rec.Result());
-                            if (!string.IsNullOrWhiteSpace(text))
-                            {
-                                var result = Evaluate(text, conf, timedOut: false);
-                                // For a discrete phrase we accept the first finalized utterance; for
-                                // wake-word spotting we keep listening until we actually match.
-                                if (!isWakeWord || result.Matched)
-                                    Finish(result);
-                            }
-                        }
-                        else
-                        {
-                            var partial = ParsePartial(rec.PartialResult());
-                            if (!string.IsNullOrWhiteSpace(partial)) RaisePartial(partial);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        App.Logger?.Error(ex, "SpeechService: capture callback failed");
-                        Finish(Evaluate("", 0, timedOut: true));
-                    }
-                };
-                mic.RecordingStopped += (_, _) => { /* surfaced via Finish paths */ };
-
-                // Link the caller's token with a session-scoped source so the UI can stop us
-                // mid-capture (StopListening) no matter what token the caller passed.
-                _activeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                using var ctReg = _activeCts.Token.Register(() => Finish(Evaluate("", 0, timedOut: true)));
-
+                var tcs = new TaskCompletionSource<PhraseResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+                WaveInEvent? mic = null;
+                VoskRecognizer? rec = null;
+                // VoskRecognizer is NOT thread-safe. The capture thread (DataAvailable) and the timeout
+                // timer thread both call into it, and the awaiting thread disposes it at teardown.
+                // _recLock serializes EVERY native recognizer call AND its disposal so we can never touch
+                // a freed handle (which throws an uncatchable native AccessViolation).
+                var recLock = new object();
+                double peakRms = 0;
+                var done = 0;
                 CancellationTokenSource? timeoutCts = null;
-                if (options.Timeout != Timeout.InfiniteTimeSpan)
+
+                void Finish(PhraseResult r)
                 {
-                    timeoutCts = new CancellationTokenSource(options.Timeout);
-                    timeoutCts.Token.Register(() =>
-                    {
-                        // On timeout, flush whatever Vosk has buffered as a last chance to match.
-                        try
-                        {
-                            var (text, conf) = ParseResult(rec!.FinalResult());
-                            Finish(Evaluate(text, conf, timedOut: string.IsNullOrWhiteSpace(text)));
-                        }
-                        catch { Finish(Evaluate("", 0, timedOut: true)); }
-                    });
+                    if (Interlocked.Exchange(ref done, 1) != 0) return;
+                    tcs.TrySetResult(r);
                 }
 
-                IsListening = true;
-                mic.StartRecording();
+                PhraseResult Evaluate(string transcript, double confidence, bool timedOut)
+                {
+                    var heard = Normalize(transcript);
+                    var score = Similarity(normalizedTarget, heard);
+                    var loud = peakRms >= loudnessThreshold;
+                    return new PhraseResult
+                    {
+                        Transcript = transcript?.Trim() ?? "",
+                        Score = score,
+                        Confidence = confidence,
+                        LoudEnough = loud,
+                        Matched = !timedOut && score >= matchThreshold && loud,
+                        TimedOut = timedOut
+                    };
+                }
 
-                var final = await tcs.Task.ConfigureAwait(false);
-                timeoutCts?.Dispose();
-                return final;
-            }
-            catch (Exception ex)
-            {
-                App.Logger?.Error(ex, "SpeechService: session setup failed");
-                return PhraseResult.NotAvailable;
+                try
+                {
+                    rec = BuildRecognizer(grammarPhrases);
+                    rec.SetWords(true);
+
+                    mic = new WaveInEvent
+                    {
+                        DeviceNumber = ResolveDeviceNumber(),
+                        WaveFormat = new WaveFormat(SampleRate, 16, 1),
+                        BufferMilliseconds = 50
+                    };
+
+                    mic.DataAvailable += (_, e) =>
+                    {
+                        if (Volatile.Read(ref done) != 0) return;
+                        try
+                        {
+                            double rms = Rms(e.Buffer, e.BytesRecorded);
+                            peakRms = Math.Max(peakRms, rms);
+                            RaiseLevel(rms);
+
+                            // Serialize recognizer access with teardown: never call into a disposed handle.
+                            lock (recLock)
+                            {
+                                if (Volatile.Read(ref done) != 0 || rec == null) return;
+                                if (rec.AcceptWaveform(e.Buffer, e.BytesRecorded))
+                                {
+                                    var (text, conf) = ParseResult(rec.Result());
+                                    if (!string.IsNullOrWhiteSpace(text))
+                                    {
+                                        var result = Evaluate(text, conf, timedOut: false);
+                                        // For a discrete phrase we accept the first finalized utterance; for
+                                        // wake-word spotting we keep listening until we actually match.
+                                        if (!isWakeWord || result.Matched)
+                                            Finish(result);
+                                    }
+                                }
+                                else
+                                {
+                                    var partial = ParsePartial(rec.PartialResult());
+                                    if (!string.IsNullOrWhiteSpace(partial)) RaisePartial(partial);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            App.Logger?.Error(ex, "SpeechService: capture callback failed");
+                            Finish(Evaluate("", 0, timedOut: true));
+                        }
+                    };
+                    mic.RecordingStopped += (_, _) => { /* surfaced via Finish paths */ };
+
+                    // Link the caller's token with a session-scoped source so the UI can stop us
+                    // mid-capture (StopListening) no matter what token the caller passed.
+                    _activeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    using var ctReg = _activeCts.Token.Register(() => Finish(Evaluate("", 0, timedOut: true)));
+
+                    if (options.Timeout != Timeout.InfiniteTimeSpan)
+                    {
+                        timeoutCts = new CancellationTokenSource(options.Timeout);
+                        timeoutCts.Token.Register(() =>
+                        {
+                            // On timeout, flush whatever Vosk has buffered as a last chance to match —
+                            // but only under the recognizer lock and while the handle is still alive.
+                            try
+                            {
+                                lock (recLock)
+                                {
+                                    if (Volatile.Read(ref done) != 0 || rec == null) { Finish(Evaluate("", 0, timedOut: true)); return; }
+                                    var (text, conf) = ParseResult(rec.FinalResult());
+                                    Finish(Evaluate(text, conf, timedOut: string.IsNullOrWhiteSpace(text)));
+                                }
+                            }
+                            catch { Finish(Evaluate("", 0, timedOut: true)); }
+                        });
+                    }
+
+                    IsListening = true;
+                    mic.StartRecording();
+
+                    return await tcs.Task.ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Error(ex, "SpeechService: session setup failed");
+                    return PhraseResult.NotAvailable;
+                }
+                finally
+                {
+                    IsListening = false;
+                    // Mark done so no in-flight/late callback enters the recognizer, stop the mic (ends
+                    // DataAvailable delivery), THEN dispose the recognizer under the same lock its callers
+                    // take — guaranteeing no native call races the free.
+                    Interlocked.Exchange(ref done, 1);
+                    try { mic?.StopRecording(); } catch { }
+                    try { mic?.Dispose(); } catch { }
+                    lock (recLock)
+                    {
+                        try { rec?.Dispose(); } catch { }
+                        rec = null;
+                    }
+                    try { timeoutCts?.Dispose(); } catch { }
+                    try { _activeCts?.Dispose(); } catch { }
+                    _activeCts = null;
+                    RaiseLevel(0);
+                }
             }
             finally
             {
-                IsListening = false;
-                try { mic?.StopRecording(); } catch { }
-                try { mic?.Dispose(); } catch { }
-                try { rec?.Dispose(); } catch { }
-                try { _activeCts?.Dispose(); } catch { }
-                _activeCts = null;
-                RaiseLevel(0);
                 Interlocked.Exchange(ref _sessionActive, 0);
             }
         }
