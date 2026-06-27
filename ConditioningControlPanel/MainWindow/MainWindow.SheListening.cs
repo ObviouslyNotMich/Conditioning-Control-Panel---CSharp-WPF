@@ -61,6 +61,7 @@ namespace ConditioningControlPanel
             ChkSpeechWakeWord_Changed(sender, e);
             MirrorCheck(BambiTakeoverTab.ChkSpeechWakeWord, SheListeningTab.ChkSL_WakeWord);
             RefreshSheListeningStatus();
+            RefreshPremiumRail();
         }
 
         internal void SL_WakeWords_LostFocus(object sender, RoutedEventArgs e)
@@ -84,6 +85,77 @@ namespace ConditioningControlPanel
             ChkSpeechPushToTalk_Changed(sender, e);
             MirrorCheck(BambiTakeoverTab.ChkSpeechPushToTalk, SheListeningTab.ChkSL_PushToTalk);
             RefreshSheListeningStatus();
+            RefreshPremiumRail();
+        }
+
+        /// <summary>
+        /// True when the offline mic is actually armed: consent given AND at least one input mode
+        /// (wake word or push-to-talk) is on. This is the "She's Listening" master on/off state —
+        /// fully independent of Takeover.
+        /// </summary>
+        internal bool MicIsArmed()
+        {
+            var s = App.Settings?.Current;
+            return s != null && s.MicConsentGiven
+                   && (s.SpeechWakeWordEnabled || s.SpeechPushToTalkEnabled);
+        }
+
+        /// <summary>
+        /// Master mic switch for She's Listening (and the dashboard Voice chip). Off→On: consent,
+        /// then enable the wake word by default (so she actually listens) and arm. On→Off: disable
+        /// both input modes and cut any in-flight capture. Independent of Takeover.
+        /// </summary>
+        internal void ToggleVoiceMic()
+        {
+            var s = App.Settings?.Current;
+            if (s == null) return;
+
+            if (MicIsArmed()) { DisarmVoiceMic(); return; }
+
+            // Arm: consent, then default to the wake word so "she's listening" means something.
+            if (App.Speech?.IsAvailable != true)
+            {
+                MessageBox.Show(this,
+                    Services.Speech.SpeechService.HasCaptureDevice
+                        ? "The offline speech model isn't installed yet, so the mic can't start."
+                        : "No microphone detected — connect one to use voice control.",
+                    "She's Listening", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (!s.MicConsentGiven)
+            {
+                var dlg = new MicConsentDialog { Owner = this };
+                if (!(dlg.ShowDialog() == true && dlg.ConsentGiven)) return;
+            }
+            if (!s.SpeechWakeWordEnabled && !s.SpeechPushToTalkEnabled)
+                s.SpeechWakeWordEnabled = true;
+            App.Settings?.Save();
+            App.Autonomy?.RefreshVoiceInputModes();
+
+            RefreshSheListeningTab(); // reload the sub-toggles + status
+            RefreshPremiumRail();     // keep the dashboard Voice dot honest
+        }
+
+        /// <summary>
+        /// Fully turn the offline mic OFF and keep it off: clear the continuous input modes (wake word
+        /// + push-to-talk) so nothing re-arms it, cut any in-flight capture, then repaint the dashboard
+        /// dot + She's Listening. Shared by the master Stop button and the title-bar privacy pill so
+        /// both genuinely disarm (not just pause) and the UI stays honest.
+        /// </summary>
+        internal void DisarmVoiceMic()
+        {
+            var s = App.Settings?.Current;
+            if (s != null)
+            {
+                s.SpeechWakeWordEnabled = false;
+                s.SpeechPushToTalkEnabled = false;
+                App.Settings?.Save();
+            }
+            try { App.Speech?.StopListening(); } catch { }
+            try { App.Autonomy?.StopVoiceInput(); } catch { }
+
+            if (SheListeningTab != null) RefreshSheListeningTab();
+            RefreshPremiumRail();
         }
 
         internal void SL_SetPttKey_Click(object sender, RoutedEventArgs e)
@@ -147,13 +219,22 @@ namespace ConditioningControlPanel
             RefreshPremiumGate(SheListeningTab.SheListeningGate);
         }
 
-        /// <summary>Update the status strip: mic readiness + whether Takeover is running.</summary>
+        /// <summary>Update the hero: mic readiness / armed state + the master Start/Stop button.</summary>
         private void RefreshSheListeningStatus()
         {
             if (SheListeningTab?.SL_StatusTitle == null) return;
 
             var available = App.Speech?.IsAvailable == true;
-            var running = App.Autonomy?.IsEnabled == true;
+            var armed = available && MicIsArmed();
+
+            if (SheListeningTab.BtnSL_MicMaster != null)
+            {
+                SheListeningTab.BtnSL_MicMaster.IsEnabled = available;
+                SheListeningTab.BtnSL_MicMaster.Content = armed ? "■  Stop listening" : "▶  Start listening";
+                SheListeningTab.BtnSL_MicMaster.Foreground = armed
+                    ? new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0xB0))
+                    : new SolidColorBrush(Color.FromRgb(0x90, 0xEE, 0x90));
+            }
 
             if (!available)
             {
@@ -166,17 +247,17 @@ namespace ConditioningControlPanel
                 return;
             }
 
-            if (running)
+            if (armed)
             {
                 SheListeningTab.SL_StatusDot.Fill = new SolidColorBrush(Color.FromRgb(0x90, 0xEE, 0x90));
                 SheListeningTab.SL_StatusTitle.Text = "She's listening";
-                SheListeningTab.SL_StatusSub.Text = "Takeover is running — call her, then say a command.";
+                SheListeningTab.SL_StatusSub.Text = "The mic is open. Call her, then say a command.";
             }
             else
             {
                 SheListeningTab.SL_StatusDot.Fill = new SolidColorBrush(Color.FromRgb(0xFF, 0xC1, 0x07));
-                SheListeningTab.SL_StatusTitle.Text = "Ready — start Takeover";
-                SheListeningTab.SL_StatusSub.Text = "Voice commands and the wake word listen while Takeover is running.";
+                SheListeningTab.SL_StatusTitle.Text = "Mic off";
+                SheListeningTab.SL_StatusSub.Text = "Tap Start listening so she can hear you. Works with or without Takeover.";
             }
         }
     }

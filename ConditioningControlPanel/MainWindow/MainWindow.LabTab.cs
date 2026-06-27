@@ -87,12 +87,11 @@ namespace ConditioningControlPanel
 
         private void MicActivePill_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // Click is the privacy stop affordance — same intent as the camera pill. Cut the live
-            // capture, then stop the things that would reopen it so the mic genuinely stays off:
-            //  - the Takeover wake-word loop / push-to-talk hook,
-            //  - any open Voice Lock Card (dropped to typed solve so the lock still holds).
-            try { App.Speech?.StopListening(); } catch { }
-            try { App.Autonomy?.StopVoiceInput(); } catch { }
+            // Click is the privacy stop affordance — same intent as the camera pill. Fully disarm the
+            // offline mic so it genuinely stays off (and the dashboard Voice dot reflects it): clears
+            // wake-word + push-to-talk, cuts live capture, tears down the loop/hook. Also drop any open
+            // Voice Lock Card to typed solve so the lock still holds.
+            try { DisarmVoiceMic(); } catch { }
             try { LockCardWindow.DisableVoiceForAll(); } catch { }
         }
 

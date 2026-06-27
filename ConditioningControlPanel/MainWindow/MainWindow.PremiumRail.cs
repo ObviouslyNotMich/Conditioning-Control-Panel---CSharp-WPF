@@ -7,7 +7,7 @@ using ConditioningControlPanel.Services;
 namespace ConditioningControlPanel
 {
     /// <summary>Features surfaced as quick-toggle chips on the dashboard premium rail.</summary>
-    public enum PremiumFeature { Takeover, Awareness, Haptics, Lockdown, Blink, Remote }
+    public enum PremiumFeature { Takeover, Awareness, Haptics, Lockdown, Blink, Remote, Voice }
 
     // Dashboard premium quick-toggle rail (left of the feature grid).
     public partial class MainWindow
@@ -240,6 +240,11 @@ namespace ConditioningControlPanel
                 case PremiumFeature.Haptics:
                     ToggleTabCheckBox(HapticsTab?.ChkHapticsEnabled);
                     break;
+                case PremiumFeature.Voice:
+                    // Quick-start the She's Listening mic via the shared master toggle (consent +
+                    // enable wake word + arm / or disarm). Decoupled from Takeover, so it works alone.
+                    ToggleVoiceMic();
+                    break;
             }
             RefreshPremiumRail();
         }
@@ -278,6 +283,7 @@ namespace ConditioningControlPanel
             SetBlinkActiveUi(App.BlinkTrainer?.IsRunning == true);
 
             SetDot(SettingsTab.DotRemote, RemoteControlTab?.ChkRemoteControlEnabled?.IsChecked == true);
+            SetDot(SettingsTab.DotVoice, MicIsArmed());
         }
 
         private static void SetDot(System.Windows.Shapes.Ellipse? dot, bool on)

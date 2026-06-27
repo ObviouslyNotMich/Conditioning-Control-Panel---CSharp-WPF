@@ -32,7 +32,7 @@
                     <TextBlock Foreground="White" FontSize="15" TextWrapping="Wrap" LineHeight="22" Margin="0,0,0,8"
                                Text="Control the app with your voice — and let her hear you obey. Call her name, ask for an effect, and she does it. She can also prompt you to say things back to her. Everything runs offline on your device: nothing is recorded, nothing is sent."/>
                     <TextBlock Foreground="{DynamicResource TextMutedBrush}" FontSize="13" TextWrapping="Wrap" LineHeight="20"
-                               Text="Voice commands and the wake word work while Takeover is running. The safety word stops everything at any time."/>
+                               Text="Hit Start listening and she's on — works whether or not Takeover is running. The safety word stops everything at any time."/>
                 </StackPanel>
             </Border>
 
@@ -56,6 +56,8 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="18"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid Grid.Column="0" Width="64" Height="64" VerticalAlignment="Center">
                                     <Ellipse x:Name="SL_StatusDot" x:FieldModifier="internal" Width="64" Height="64" Fill="#3A3A52"
@@ -69,6 +71,12 @@
                                     <TextBlock x:Name="SL_StatusSub" x:FieldModifier="internal" Text=""
                                                Foreground="#9090A8" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0"/>
                                 </StackPanel>
+                                <!-- Master mic switch: start/stop voice control independent of Takeover -->
+                                <Button x:Name="BtnSL_MicMaster" x:FieldModifier="internal" Grid.Column="4"
+                                        Content="▶  Start listening" Background="#2A1A3A" Foreground="#90EE90"
+                                        FontWeight="Bold" FontSize="15" Padding="22,12" VerticalAlignment="Center"
+                                        Click="BtnSL_MicMaster_Click"
+                                        ToolTip="Turn the offline mic on or off — wake word (&quot;Hey Bambi&quot;) + voice commands. Works whether or not Takeover is running."/>
                             </Grid>
                         </Border>
 
@@ -91,10 +99,10 @@
                                 <Border Height="1" Background="#2E2E48" Margin="0,10"/>
 
                                 <!-- Wake word -->
-                                <Grid Margin="0,2" ToolTip="When on, she listens continuously for her name while Takeover is active and prompts you when she hears it. The mic stays open (still fully offline). Needs mic consent.">
+                                <Grid Margin="0,2" ToolTip="When on, she listens continuously for her name and prompts you when she hears it. The mic stays open (still fully offline). Needs mic consent.">
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="👂 Wake word — call her by name" FontSize="12" Foreground="#CCC"/>
-                                        <TextBlock Text="Always-on mic while Takeover runs. Say it to summon her." FontSize="10" Foreground="#888"/>
+                                        <TextBlock Text="Always-on mic. Say it to summon her." FontSize="10" Foreground="#888"/>
                                     </StackPanel>
                                     <CheckBox x:Name="ChkSL_WakeWord" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkSL_WakeWord_Changed" Unchecked="ChkSL_WakeWord_Changed"/>
                                 </Grid>
@@ -182,8 +190,8 @@
                                        FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
                         </StackPanel>
 
-                        <TextBlock Text="1. Start Takeover" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,2"/>
-                        <TextBlock Text="Voice commands and the wake word listen while Takeover is running." Foreground="{DynamicResource TextMutedBrush}"
+                        <TextBlock Text="1. Start listening" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,2"/>
+                        <TextBlock Text="Tap Start listening (here or the dashboard Voice chip) to turn the mic on. No need to start Takeover." Foreground="{DynamicResource TextMutedBrush}"
                                    FontSize="12" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12"/>
 
                         <TextBlock Text="2. Call her, then ask" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,2"/>

@@ -158,6 +158,7 @@ namespace ConditioningControlPanel
                     SettingsTab.Visibility = Visibility.Visible;
                     AnimateTabIn(SettingsTab);
                     BtnSettings.Style = activeStyle;
+                    RefreshPremiumRail(); // recompute chip dots (incl. Voice) from live state on every show
                     break;
 
                 case "presets":
@@ -177,6 +178,7 @@ namespace ConditioningControlPanel
                     SettingsTab.Visibility = Visibility.Visible;
                     AnimateTabIn(SettingsTab);
                     BtnSettings.Style = activeStyle;
+                    RefreshPremiumRail();
                     break;
 
                 case "quests":

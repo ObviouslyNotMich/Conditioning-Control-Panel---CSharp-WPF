@@ -37,6 +37,10 @@ namespace ConditioningControlPanel.Views.Tabs
         {
             if (Window.GetWindow(this) is MainWindow mw) mw.SL_SetPttKey_Click(sender, e);
         }
+        private void BtnSL_MicMaster_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw) mw.ToggleVoiceMic();
+        }
         private void BtnSL_TestMantra_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw) mw.BtnTestVoice_Click(sender, e);

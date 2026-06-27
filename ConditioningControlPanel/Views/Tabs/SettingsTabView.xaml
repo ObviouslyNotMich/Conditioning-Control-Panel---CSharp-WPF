@@ -125,6 +125,21 @@
                             <TextBlock Text="Haptics" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Button>
+                    <Button x:Name="ChipVoice" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
+                            Click="ChipVoice_Click" ToolTip="She's Listening — turn on voice control (&quot;Hey Bambi&quot;) and the mic">
+                        <StackPanel>
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                                <Border CornerRadius="6" ClipToBounds="True" Background="#2A1A3A">
+                                    <Image Source="{Binding Source='🎙️', Converter={StaticResource EmojiToImageSource}}"
+                                           Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <Ellipse x:Name="DotVoice" x:FieldModifier="internal" Width="8" Height="8"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Fill="#555555"
+                                         Stroke="#1A1A2E" StrokeThickness="1"/>
+                            </Grid>
+                            <TextBlock Text="Voice" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Button>
                     <!-- Lockdown — launcher with +/- duration and a live countdown -->
                     <Border Margin="0,0,0,5" Background="{DynamicResource AccentTintedBgBrush}"
                             BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" CornerRadius="9" Padding="2,3"
