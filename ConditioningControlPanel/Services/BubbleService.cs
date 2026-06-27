@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -642,9 +643,9 @@ public class BubbleService : IDisposable
                 var screen = screens[_random.Next(screens.Length)];
                 // Outside sessions, bubbles are always clickable (no UI toggle exists for this setting)
                 var isClickable = App.IsSessionRunning ? settings.BubblesClickable : true;
-                var bubble = new Bubble(screen, _bubbleImage, _random, OnPop, OnMiss, OnDestroy, isClickable);
+                var bubble = CreateAmbientBubble(screen, isClickable);
                 _bubbles.Add(bubble);
-                
+
                 App.Logger?.Debug("Spawned bubble, total: {Count}", _bubbles.Count);
             }
             catch (Exception ex)
@@ -689,7 +690,7 @@ public class BubbleService : IDisposable
 
                 var screen = screens[_random.Next(screens.Length)];
                 var isClickable = App.IsSessionRunning ? settings.BubblesClickable : true;
-                var bubble = new Bubble(screen, _bubbleImage, _random, OnPop, OnMiss, OnDestroy, isClickable);
+                var bubble = CreateAmbientBubble(screen, isClickable);
                 _bubbles.Add(bubble);
 
                 App.Logger?.Debug("SpawnOnce: spawned trigger bubble, total: {Count}", _bubbles.Count);
@@ -701,7 +702,12 @@ public class BubbleService : IDisposable
         });
     }
 
-    private void OnPop(Bubble bubble)
+    private void OnPop(Bubble bubble) => AwardAmbientPop(bubble);
+
+    /// <summary>The standard ambient-pop reward: lucky roll, pop sound, XP, achievement, haptic.
+    /// Shared by plain bubbles (<see cref="OnPop"/>) and trigger bubbles (whose benign-pop path
+    /// doesn't run OnPop), so a trigger bubble pays exactly like a normal pop on top of its effect.</summary>
+    private void AwardAmbientPop(Bubble bubble)
     {
         // Roll for lucky bubble (5% chance for 10x XP if skill unlocked)
         var multiplier = App.SkillTree?.RollLuckyBubble() ?? 1;
@@ -724,6 +730,68 @@ public class BubbleService : IDisposable
 
         // Haptic feedback with combo system
         _ = App.Haptics?.BubblePopAsync();
+    }
+
+    // ======================= Trigger Bubbles =======================
+    // Opt-in: a configurable share of ambient bubbles spawn as Chaos effect bubbles that fire
+    // their payload ON POP (benign — no fuse/defuse). They keep the full chaos look (variant
+    // sprite/tint/label) but render per-window and pay the normal ambient pop reward.
+
+    /// <summary>Roll whether the next ambient bubble should be an effect bubble, and if so build
+    /// its (benign) spec. Returns null for a plain bubble.</summary>
+    private EffectBubbleSpec? RollTriggerSpec()
+    {
+        var s = App.Settings?.Current;
+        if (s?.BubbleTriggersEnabled != true) return null;
+        var ids = s.BubbleTriggerVariants;
+        if (ids == null || ids.Count == 0) return null;
+        if (_random.Next(100) >= Math.Clamp(s.BubbleTriggerChance, 0, 100)) return null;
+        return BuildTriggerSpec(ids[_random.Next(ids.Count)]);
+    }
+
+    /// <summary>Build a benign effect-bubble spec for one trigger id. The six standard ids reuse
+    /// the chaos variant table; "glitch" is the full-screen GIF/image wash (~30%) on glitch.png.</summary>
+    private EffectBubbleSpec? BuildTriggerSpec(string id)
+    {
+        try
+        {
+            // Trigger effects linger longer than the brisk chaos cadence (user feedback:
+            // pink filter / glitch wash were too quick on the calm dashboard).
+            const double LINGER = 2.5;
+            if (id == "glitch")
+            {
+                return new EffectBubbleSpec
+                {
+                    VariantId = "glitch",   // loads assets/Chaos/bubbles/glitch.png
+                    Payload = new OverlayPayload("braindrain", braindrainOpacity: 0.30) { Strength = 60, DurationMult = LINGER },
+                    SizePx = 200,
+                    Tint = System.Windows.Media.Color.FromRgb(0x9A, 0x40, 0xFF),
+                    Label = "GLITCH",
+                    IsLive = false,
+                    FuseMs = 0,
+                    Motion = ChaosMotion.FloatUp,
+                    TreatLifeMs = 7000,
+                };
+            }
+            var v = ChaosBubbleVariants.All.FirstOrDefault(x => x.Id == id);
+            if (v == null) return null;
+            var spec = ChaosBubbleVariants.Build(v, intensity: 0.3, motionOverride: ChaosMotion.FloatUp, ambient: true);
+            if (spec.Payload != null) spec.Payload.DurationMult = LINGER;   // longer-lasting overlays/flashes
+            return spec;
+        }
+        catch (Exception ex) { App.Logger?.Debug("BuildTriggerSpec({Id}): {E}", id, ex.Message); return null; }
+    }
+
+    /// <summary>Construct an ambient bubble — plain, or (rolled) an effect bubble that fires on pop.</summary>
+    private Bubble CreateAmbientBubble(System.Windows.Forms.Screen screen, bool isClickable)
+    {
+        var spec = RollTriggerSpec();
+        if (spec == null)
+            return new Bubble(screen, _bubbleImage, _random, OnPop, OnMiss, OnDestroy, isClickable);
+        return new Bubble(screen, _bubbleImage, _random, onPop: null, onMiss: OnMiss, onDestroy: OnDestroy,
+                          isClickable: isClickable, spec: spec,
+                          onBenignPop: b => { AwardAmbientPop(b); try { b.Spec?.Payload?.Fire(); } catch { } },
+                          forceWindowMode: true);
     }
 
     private void OnMiss(Bubble bubble)
@@ -2120,7 +2188,7 @@ internal class Bubble
                   Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null,
                   Func<Bubble, bool>? canChannelDefuse = null, Action<Bubble, string>? onChannelBroken = null,
                   Action<Bubble>? onTeaseTouched = null, Action<Bubble>? onTeaseDenied = null,
-                  Action<Bubble>? onBrittleShattered = null)
+                  Action<Bubble>? onBrittleShattered = null, bool forceWindowMode = false)
     {
         _random = random;
         _onPop = onPop;
@@ -2198,6 +2266,13 @@ internal class Bubble
             _speed *= Math.Clamp(1.4 - (_size - 150) / 220.0, 0.6, 1.4);
         if (spec != null) _speed *= Math.Max(0.1, spec.SpeedMult);   // golden bubbles fly
         if (spec != null) _speed *= ChaosTuning.CHAOS_SPEED_MULT;    // chaos pace bump: travel farther before rotting
+        // Dashboard speed slider: up to +100% travel for the ambient game (plain + trigger
+        // bubbles), leaving chaos pacing alone (chaos bubbles carry a spec but not forceWindowMode).
+        if (spec == null || forceWindowMode)
+        {
+            int speedBoost = App.Settings?.Current?.BubbleSpeedBoost ?? 0;
+            if (speedBoost > 0) _speed *= 1.0 + Math.Clamp(speedBoost, 0, 100) / 100.0;
+        }
         _animType = random.Next(4);
         _wobbleOffset = random.NextDouble() * 100;
         _angle = random.Next(360);
@@ -2392,7 +2467,9 @@ internal class Bubble
         // Every per-bubble property below is (re)set on each reuse so a recycled shell carries
         // no state from its previous bubble.
         // Shared-host A/B (chaos bubbles only): one Canvas host instead of a Window per bubble.
-        _useHost = spec != null && (App.Settings?.Current?.ChaosBubbleSharedHost ?? false);
+        // forceWindowMode pins per-window rendering for dashboard trigger bubbles — the shared
+        // ChaosBubbleHostOverlay only exists during a real chaos run.
+        _useHost = spec != null && !forceWindowMode && (App.Settings?.Current?.ChaosBubbleSharedHost ?? false);
 
         // Quantized window side (per-window mode); also a harmless notional size in host mode.
         double winNeed = Math.Max(_size, _hitSize) + _winPad * 2;

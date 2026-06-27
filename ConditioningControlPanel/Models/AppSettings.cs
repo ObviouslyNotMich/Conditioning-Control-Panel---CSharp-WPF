@@ -2102,6 +2102,36 @@ namespace ConditioningControlPanel.Models
             set { _bubblesClickable = value; OnPropertyChanged(); }
         }
 
+        // ---- Trigger Bubbles (ambient bubbles that fire a Chaos effect on pop) ----
+        private bool _bubbleTriggersEnabled = false;
+        public bool BubbleTriggersEnabled
+        {
+            get => _bubbleTriggersEnabled;
+            set { _bubbleTriggersEnabled = value; OnPropertyChanged(); }
+        }
+        private int _bubbleTriggerChance = 10;   // percent of spawns that carry an effect
+        public int BubbleTriggerChance
+        {
+            get => _bubbleTriggerChance;
+            set { _bubbleTriggerChance = Math.Clamp(value, 0, 50); OnPropertyChanged(); }
+        }
+        private int _bubbleSpeedBoost = 0;   // 0..100 % extra travel speed for on-screen bubbles
+        public int BubbleSpeedBoost
+        {
+            get => _bubbleSpeedBoost;
+            set { _bubbleSpeedBoost = Math.Clamp(value, 0, 100); OnPropertyChanged(); }
+        }
+        // Which effect types are in the pool (equal odds among the picked ids).
+        // Ids map to ChaosBubbleVariants ("htlink" == Cascade/Gif Rain); "glitch" is the
+        // full-screen GIF wash faced with glitch.png — built dashboard-side, not a chaos variant.
+        private List<string> _bubbleTriggerVariants = new()
+            { "flash", "subliminal", "pink", "spiral", "glitch", "htlink", "video" };
+        public List<string> BubbleTriggerVariants
+        {
+            get => _bubbleTriggerVariants;
+            set { _bubbleTriggerVariants = value ?? new List<string>(); OnPropertyChanged(); }
+        }
+
         // ---- Chaos Mode (effect-bubbles roguelite, Lab) ----
         private bool _chaosModeEnabled = true;
         public bool ChaosModeEnabled

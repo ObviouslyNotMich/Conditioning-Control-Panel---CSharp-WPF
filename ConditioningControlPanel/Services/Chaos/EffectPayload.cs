@@ -42,6 +42,10 @@ public abstract class EffectPayload
     /// <summary>0..100, scaled from bubble size at spawn. Drives effect intensity.</summary>
     public int Strength { get; set; }
 
+    /// <summary>Per-instance multiplier on this payload's time-based duration(s). 1.0 = nominal.
+    /// Dashboard trigger bubbles raise it so effects linger longer than the brisk chaos cadence.</summary>
+    public double DurationMult { get; set; } = 1.0;
+
     /// <summary>
     /// Global multiplier on time-based payload durations (flashes/overlays linger). Set &gt;1 by
     /// the darter slow-mo power-up so "images last longer" while time is slowed; restored to 1
@@ -73,7 +77,7 @@ public sealed class FlashPayload : EffectPayload
             int amount = Scale(1, 3);
             // Was 250–700ms — flashes barely registered mid-run. Long enough to actually
             // be seen (plus the fade tail), still well under the bubble cadence.
-            int duration = (int)(Scale(900, 2000) * GlobalDurationMult);
+            int duration = (int)(Scale(900, 2000) * GlobalDurationMult * DurationMult);
             // Chaos-run flashes read better big: +50% over the original 45–95 band.
             int size = Scale(68, 143);
             App.Flash?.TriggerFlashOnce(amount, duration, size, suppressHaptic: false);
@@ -99,7 +103,15 @@ public sealed class SubliminalPayload : EffectPayload
 public sealed class OverlayPayload : EffectPayload
 {
     private readonly string _kind;
-    public OverlayPayload(string overlayKind) => _kind = overlayKind;
+    private readonly double? _braindrainOpacity;
+    // braindrainOpacity: when set, the braindrain wash uses this opacity (0..1) for the
+    // computed duration instead of its faint ~10%/10s default. Used by the dashboard "glitch"
+    // trigger bubble (~30%); null keeps chaos's original faint wash untouched.
+    public OverlayPayload(string overlayKind, double? braindrainOpacity = null)
+    {
+        _kind = overlayKind;
+        _braindrainOpacity = braindrainOpacity;
+    }
 
     public override string DisplayName => _kind;
     public override EffectBubblePayloadKind Kind => EffectBubblePayloadKind.Overlay;
@@ -108,11 +120,12 @@ public sealed class OverlayPayload : EffectPayload
     {
         try
         {
-            int duration = (int)(Scale(1500, 4500) * GlobalDurationMult);
+            int duration = (int)(Scale(1500, 4500) * GlobalDurationMult * DurationMult);
             if (_kind == "braindrain")
             {
-                // braindrain = a faint full-screen wash of a random flash-pool image (~10s @ 10%).
-                ChaosFlashOverlay.Show();
+                // braindrain = a full-screen wash of a random flash-pool image/gif.
+                if (_braindrainOpacity is double o) ChaosFlashOverlay.Show(duration, o);  // glitch: ~30%
+                else ChaosFlashOverlay.Show();                                            // chaos: faint ~10%/10s default
             }
             else
             {
