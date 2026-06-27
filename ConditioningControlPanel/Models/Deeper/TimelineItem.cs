@@ -23,6 +23,39 @@ namespace ConditioningControlPanel.Models.Deeper
         public const string Bubble     = "bubble";
         public const string Subliminal = "subliminal";
         public const string Overlay    = "overlay";
+        // Voice prompt: shows an on-screen cue and listens (offline Vosk) for the
+        // user to say a target phrase, scoring it and giving correct/incorrect
+        // feedback for N reps before releasing the band. Band-capable.
+        public const string Speak      = "speak";
+    }
+
+    /// <summary>How a <see cref="EffectTypes.Speak"/> cue is presented on screen.</summary>
+    public enum SpeakCueMode
+    {
+        /// <summary>Flash the cue text repeatedly at a fixed interval (subliminal style).</summary>
+        Intermittent,
+        /// <summary>Keep the cue text on top of the screen until the prompt completes.</summary>
+        Persistent
+    }
+
+    /// <summary>When a <see cref="EffectTypes.Speak"/> prompt is considered done.</summary>
+    public enum SpeakCompletion
+    {
+        /// <summary>Listen for the band's duration; partial credit, never holds playback.</summary>
+        Duration,
+        /// <summary>Hold the region (per <see cref="SpeakHoldMode"/>) until the required reps are met.</summary>
+        UntilSatisfied
+    }
+
+    /// <summary>What playback does while an "until satisfied" Speak prompt waits for the user.</summary>
+    public enum SpeakHoldMode
+    {
+        /// <summary>Loop back to the region start as the playhead reaches its end.</summary>
+        LoopRegion,
+        /// <summary>Pause playback at the region end until satisfied, then resume.</summary>
+        Pause,
+        /// <summary>Let the video play on; the cue just persists (soft target).</summary>
+        KeepPlaying
     }
 
     /// <summary>
@@ -64,6 +97,9 @@ namespace ConditioningControlPanel.Models.Deeper
             {
                 EffectTypes.Overlay => EffectActivation.Region,
                 EffectTypes.Haptic  => EffectActivation.Region,
+                // Speak prompts run across the whole band (Start on entry, Stop on
+                // exit) so the cue/listen session spans the region.
+                EffectTypes.Speak   => EffectActivation.Region,
                 _                   => EffectActivation.Duration
             };
         }
@@ -159,6 +195,39 @@ namespace ConditioningControlPanel.Models.Deeper
         // Bubble-specific.
         [JsonProperty("effect_max_bubbles")]
         public int EffectMaxBubbles { get; set; } = 3;
+
+        // Speak-specific (voice prompt). All additive + NullValueHandling.Ignore so
+        // old files are untouched; the runtime falls back to sane defaults.
+        [JsonProperty("effect_speak_target", NullValueHandling = NullValueHandling.Ignore)]
+        public string? EffectSpeakTarget { get; set; }
+
+        // On-screen cue text. Null/empty => "Say {target}".
+        [JsonProperty("effect_speak_cue", NullValueHandling = NullValueHandling.Ignore)]
+        public string? EffectSpeakCue { get; set; }
+
+        [JsonProperty("effect_speak_cue_mode", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public SpeakCueMode EffectSpeakCueMode { get; set; } = SpeakCueMode.Intermittent;
+
+        [JsonProperty("effect_speak_cue_interval_ms")]
+        public int EffectSpeakCueIntervalMs { get; set; } = 250;
+
+        [JsonProperty("effect_speak_required_reps")]
+        public int EffectSpeakRequiredReps { get; set; } = 1;
+
+        [JsonProperty("effect_speak_completion", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public SpeakCompletion EffectSpeakCompletion { get; set; } = SpeakCompletion.UntilSatisfied;
+
+        [JsonProperty("effect_speak_hold_mode", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public SpeakHoldMode EffectSpeakHoldMode { get; set; } = SpeakHoldMode.LoopRegion;
+
+        [JsonProperty("effect_speak_correct", NullValueHandling = NullValueHandling.Ignore)]
+        public string? EffectSpeakCorrectMessage { get; set; }
+
+        [JsonProperty("effect_speak_incorrect", NullValueHandling = NullValueHandling.Ignore)]
+        public string? EffectSpeakIncorrectMessage { get; set; }
 
         // -- Rule-only fields (Kind == Rule) --------------------------------------
 

@@ -45,6 +45,7 @@ namespace ConditioningControlPanel.Views.Deeper
                 [EffectTypes.Bubble]     = "#5CC8FF",
                 [EffectTypes.Subliminal] = "#FF69B4",
                 [EffectTypes.Overlay]    = "#5CFFB7",
+                [EffectTypes.Speak]      = "#FF8A5C",
             };
 
         // -- Right-click context menu --------------------------------------------
@@ -114,6 +115,7 @@ namespace ConditioningControlPanel.Views.Deeper
         private void CtxAddEffectBubble_Click(object sender, RoutedEventArgs e)     => AddEffectAt(EffectTypes.Bubble, _rightClickSeconds);
         private void CtxAddEffectSubliminal_Click(object sender, RoutedEventArgs e) => AddEffectAt(EffectTypes.Subliminal, _rightClickSeconds);
         private void CtxAddEffectOverlay_Click(object sender, RoutedEventArgs e)    => AddEffectAt(EffectTypes.Overlay, _rightClickSeconds);
+        private void CtxAddEffectSpeak_Click(object sender, RoutedEventArgs e)      => AddEffectAt(EffectTypes.Speak, _rightClickSeconds);
 
         private void CtxAddRuleTimeReached_Click(object sender, RoutedEventArgs e)    => AddRuleAt(TriggerTypes.TimeReached, _rightClickSeconds);
         private void CtxAddRuleBandEntered_Click(object sender, RoutedEventArgs e)    => AddRuleAt(TriggerTypes.RegionEntered, _rightClickSeconds);
@@ -173,6 +175,7 @@ namespace ConditioningControlPanel.Views.Deeper
                     EffectTypes.Overlay => 3000,
                     EffectTypes.Subliminal => 200,
                     EffectTypes.Flash => 800,
+                    EffectTypes.Speak => 6000,
                     _ => 1000
                 };
                 var item = new TimelineItem
@@ -190,6 +193,17 @@ namespace ConditioningControlPanel.Views.Deeper
                     EffectPlaySound = true,
                     Color = EffectColors.TryGetValue(effectType, out var c) ? c : null
                 };
+                if (effectType == EffectTypes.Speak)
+                {
+                    item.EffectSpeakTarget = "YES";
+                    item.EffectSpeakCueMode = SpeakCueMode.Intermittent;
+                    item.EffectSpeakCueIntervalMs = 250;
+                    item.EffectSpeakRequiredReps = 1;
+                    item.EffectSpeakCompletion = SpeakCompletion.UntilSatisfied;
+                    item.EffectSpeakHoldMode = SpeakHoldMode.LoopRegion;
+                    item.EffectSpeakCorrectMessage = "good girl";
+                    item.EffectSpeakIncorrectMessage = "try again";
+                }
                 _enhancement.TimelineItems.Add(item);
                 MarkDirty();
                 RebuildEffectVisuals();
@@ -588,6 +602,21 @@ namespace ConditioningControlPanel.Views.Deeper
                         SliderOverlayOpacityEnd.Value = ramp ? _selectedEffect.EffectOpacityEnd!.Value : _selectedEffect.EffectOpacity;
                         ApplyOverlayRampVisibility(ramp);
                         break;
+                    case EffectTypes.Speak:
+                        SpeakEffectEditor.Visibility = Visibility.Visible;
+                        TxtSpeakStart.Text = _selectedEffect.Start.ToString("0.##", CultureInfo.InvariantCulture);
+                        TxtSpeakLength.Text = (_selectedEffect.EffectDurationMs / 1000.0).ToString("0.##", CultureInfo.InvariantCulture);
+                        TxtSpeakTarget.Text = _selectedEffect.EffectSpeakTarget ?? "";
+                        TxtSpeakCue.Text = _selectedEffect.EffectSpeakCue ?? "";
+                        TxtSpeakInterval.Text = _selectedEffect.EffectSpeakCueIntervalMs.ToString(CultureInfo.InvariantCulture);
+                        TxtSpeakCorrect.Text = _selectedEffect.EffectSpeakCorrectMessage ?? "";
+                        TxtSpeakIncorrect.Text = _selectedEffect.EffectSpeakIncorrectMessage ?? "";
+                        SelectComboByTag(CmbSpeakCueMode, _selectedEffect.EffectSpeakCueMode.ToString());
+                        SelectComboByTag(CmbSpeakReps, Math.Clamp(_selectedEffect.EffectSpeakRequiredReps, 1, 5).ToString(CultureInfo.InvariantCulture));
+                        SelectComboByTag(CmbSpeakCompletion, _selectedEffect.EffectSpeakCompletion.ToString());
+                        SelectComboByTag(CmbSpeakHold, _selectedEffect.EffectSpeakHoldMode.ToString());
+                        ApplySpeakConditionalVisibility();
+                        break;
                     default:
                         if (SelectedPlaceholder != null) SelectedPlaceholder.Visibility = Visibility.Visible;
                         break;
@@ -605,6 +634,7 @@ namespace ConditioningControlPanel.Views.Deeper
             if (BubbleEffectEditor != null) BubbleEffectEditor.Visibility = Visibility.Collapsed;
             if (SubliminalEffectEditor != null) SubliminalEffectEditor.Visibility = Visibility.Collapsed;
             if (OverlayEffectEditor != null) OverlayEffectEditor.Visibility = Visibility.Collapsed;
+            if (SpeakEffectEditor != null) SpeakEffectEditor.Visibility = Visibility.Collapsed;
         }
 
         private void SelectOverlayKindCombo(string? kind)
@@ -621,6 +651,69 @@ namespace ConditioningControlPanel.Views.Deeper
             CmbOverlayKind.SelectedIndex = 0;
         }
 
+        // -- Speak effect combos --------------------------------------------------
+
+        private static void SelectComboByTag(ComboBox? combo, string? tag)
+        {
+            if (combo == null) return;
+            foreach (ComboBoxItem cbi in combo.Items)
+            {
+                if ((cbi.Tag as string) == tag) { combo.SelectedItem = cbi; return; }
+            }
+            if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+        }
+
+        private static string? SelectedTag(ComboBox combo)
+            => (combo.SelectedItem as ComboBoxItem)?.Tag as string;
+
+        // Interval row is only meaningful for intermittent cues; hold-mode row only for
+        // "until satisfied" completion.
+        private void ApplySpeakConditionalVisibility()
+        {
+            if (_selectedEffect == null) return;
+            bool intermittent = _selectedEffect.EffectSpeakCueMode == SpeakCueMode.Intermittent;
+            if (LblSpeakInterval != null) LblSpeakInterval.Visibility = intermittent ? Visibility.Visible : Visibility.Collapsed;
+            if (TxtSpeakInterval != null) TxtSpeakInterval.Visibility = intermittent ? Visibility.Visible : Visibility.Collapsed;
+
+            bool untilSatisfied = _selectedEffect.EffectSpeakCompletion == SpeakCompletion.UntilSatisfied;
+            if (LblSpeakHold != null) LblSpeakHold.Visibility = untilSatisfied ? Visibility.Visible : Visibility.Collapsed;
+            if (CmbSpeakHold != null) CmbSpeakHold.Visibility = untilSatisfied ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void CmbSpeakCueMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            if (Enum.TryParse<SpeakCueMode>(SelectedTag(CmbSpeakCueMode), out var mode))
+                _selectedEffect.EffectSpeakCueMode = mode;
+            ApplySpeakConditionalVisibility();
+            MarkDirty();
+        }
+
+        private void CmbSpeakReps_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            if (int.TryParse(SelectedTag(CmbSpeakReps), NumberStyles.Integer, CultureInfo.InvariantCulture, out var reps))
+                _selectedEffect.EffectSpeakRequiredReps = Math.Clamp(reps, 1, 5);
+            MarkDirty();
+        }
+
+        private void CmbSpeakCompletion_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            if (Enum.TryParse<SpeakCompletion>(SelectedTag(CmbSpeakCompletion), out var c))
+                _selectedEffect.EffectSpeakCompletion = c;
+            ApplySpeakConditionalVisibility();
+            MarkDirty();
+        }
+
+        private void CmbSpeakHold_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressEffectFieldSync || _selectedEffect == null) return;
+            if (Enum.TryParse<SpeakHoldMode>(SelectedTag(CmbSpeakHold), out var h))
+                _selectedEffect.EffectSpeakHoldMode = h;
+            MarkDirty();
+        }
+
         // -- Effect editor field syncing ------------------------------------------
 
         private void EffectField_TextChanged(object sender, TextChangedEventArgs e)
@@ -631,7 +724,8 @@ namespace ConditioningControlPanel.Views.Deeper
                 if (sender == TxtFlashDuration && TryParseInt(TxtFlashDuration.Text, out var fd))
                     _selectedEffect.EffectDurationMs = Math.Max(50, fd);
                 else if ((sender == TxtFlashStart || sender == TxtBubbleStart
-                          || sender == TxtSubliminalStart || sender == TxtOverlayStart)
+                          || sender == TxtSubliminalStart || sender == TxtOverlayStart
+                          || sender == TxtSpeakStart)
                          && TryParseDouble(((TextBox)sender).Text, out var es))
                     _selectedEffect.Start = Math.Clamp(es, 0, _totalSeconds > 0 ? _totalSeconds : double.MaxValue);
                 else if (sender == TxtBubbleWindow && TryParseDouble(TxtBubbleWindow.Text, out var bw))
@@ -642,6 +736,18 @@ namespace ConditioningControlPanel.Views.Deeper
                     _selectedEffect.EffectDurationMs = Math.Max(50, sd);
                 else if (sender == TxtOverlayDuration && TryParseInt(TxtOverlayDuration.Text, out var od))
                     _selectedEffect.EffectDurationMs = Math.Max(50, od);
+                else if (sender == TxtSpeakLength && TryParseDouble(TxtSpeakLength.Text, out var sl))
+                    _selectedEffect.EffectDurationMs = (int)Math.Max(500, sl * 1000);
+                else if (sender == TxtSpeakTarget)
+                    _selectedEffect.EffectSpeakTarget = TxtSpeakTarget.Text;
+                else if (sender == TxtSpeakCue)
+                    _selectedEffect.EffectSpeakCue = TxtSpeakCue.Text;
+                else if (sender == TxtSpeakInterval && TryParseInt(TxtSpeakInterval.Text, out var si))
+                    _selectedEffect.EffectSpeakCueIntervalMs = Math.Max(80, si);
+                else if (sender == TxtSpeakCorrect)
+                    _selectedEffect.EffectSpeakCorrectMessage = TxtSpeakCorrect.Text;
+                else if (sender == TxtSpeakIncorrect)
+                    _selectedEffect.EffectSpeakIncorrectMessage = TxtSpeakIncorrect.Text;
 
                 // Mirror EffectDurationMs into Duration so the timeline segment
                 // width stays in sync with the textbox value.

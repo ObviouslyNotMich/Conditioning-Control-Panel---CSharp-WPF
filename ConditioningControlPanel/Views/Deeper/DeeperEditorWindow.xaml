@@ -228,6 +228,7 @@
                 <MenuItem Header="Bubble" Click="CtxAddEffectBubble_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
                 <MenuItem Header="Subliminal" Click="CtxAddEffectSubliminal_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
                 <MenuItem Header="Overlay" Click="CtxAddEffectOverlay_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
+                <MenuItem Header="Speak (voice)" Click="CtxAddEffectSpeak_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
             </MenuItem>
             <MenuItem Header="Add Rule" Style="{StaticResource TimelineCtxMenuItem}"
                       Foreground="{DynamicResource DeeperAccentBrush}" FontWeight="Bold">
@@ -282,6 +283,7 @@
             <MenuItem Header="Bubble" Click="CtxAddEffectBubble_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
             <MenuItem Header="Subliminal" Click="CtxAddEffectSubliminal_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
             <MenuItem Header="Overlay" Click="CtxAddEffectOverlay_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
+            <MenuItem Header="Speak (voice)" Click="CtxAddEffectSpeak_Click" Style="{StaticResource TimelineCtxMenuItem}"/>
         </ContextMenu>
         <Style x:Key="EditorTextBox" TargetType="TextBox">
             <Setter Property="Background" Value="{DynamicResource PanelBgBrush}"/>
@@ -1603,6 +1605,86 @@
                                     ToolTip="Opacity at the end of the region."
                                     Foreground="{DynamicResource DeeperAccentBrush}"
                                     ValueChanged="SliderOverlayOpacityEnd_ValueChanged"/>
+                            <Button Content="Delete" Click="BtnDeleteEffect_Click"
+                                    ToolTip="{loc:Str deeper_editor_tip_effect_delete}"
+                                    Background="{DynamicResource DangerBrush}" Foreground="White"
+                                    BorderThickness="0" Padding="10,6" Cursor="Hand"
+                                    HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel x:Name="SpeakEffectEditor" Visibility="Collapsed">
+                            <TextBlock Text="Speak (voice prompt)" Style="{StaticResource EditorLabel}"/>
+                            <TextBlock Text="Prompts the user to say a phrase out loud and listens (offline mic). Needs mic consent; skips silently if unavailable."
+                                       Foreground="{DynamicResource TextDimBrush}" FontSize="10"
+                                       TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="{loc:Str deeper_editor_effect_start}" Style="{StaticResource EditorLabel}"/>
+                            <TextBox x:Name="TxtSpeakStart" Style="{StaticResource EditorTextBox}"
+                                     ToolTip="{loc:Str deeper_editor_tt_effect_start}"
+                                     TextChanged="EffectField_TextChanged"/>
+                            <TextBlock Text="Region length (s)" Style="{StaticResource EditorLabel}"/>
+                            <TextBox x:Name="TxtSpeakLength" Style="{StaticResource EditorTextBox}"
+                                     ToolTip="How long this voice-prompt band runs on the timeline."
+                                     TextChanged="EffectField_TextChanged"/>
+                            <TextBlock Text="Phrase to say (max 24 chars)" Style="{StaticResource EditorLabel}"/>
+                            <TextBox x:Name="TxtSpeakTarget" Style="{StaticResource EditorTextBox}"
+                                     MaxLength="24"
+                                     ToolTip="The word/short phrase the user must say, e.g. YES. Keep it short for reliable recognition."
+                                     TextChanged="EffectField_TextChanged"/>
+                            <TextBlock Text="On-screen cue (blank = &quot;Say {phrase}&quot;)" Style="{StaticResource EditorLabel}"/>
+                            <TextBox x:Name="TxtSpeakCue" Style="{StaticResource EditorTextBox}"
+                                     MaxLength="40"
+                                     ToolTip="The text shown on screen. Leave blank to auto-use 'Say {phrase}'."
+                                     TextChanged="EffectField_TextChanged"/>
+                            <TextBlock Text="Cue style" Style="{StaticResource EditorLabel}"/>
+                            <ComboBox x:Name="CmbSpeakCueMode" Style="{StaticResource EditorComboBox}"
+                                      ItemContainerStyle="{StaticResource EditorComboBoxItem}"
+                                      ToolTip="Intermittent flashes the cue repeatedly; Persistent keeps it on top until done."
+                                      SelectionChanged="CmbSpeakCueMode_SelectionChanged">
+                                <ComboBoxItem Content="Intermittent (flash)" Tag="Intermittent"/>
+                                <ComboBoxItem Content="Persistent (stay on top)" Tag="Persistent"/>
+                            </ComboBox>
+                            <TextBlock x:Name="LblSpeakInterval" Text="Flash interval (ms)" Style="{StaticResource EditorLabel}"/>
+                            <TextBox x:Name="TxtSpeakInterval" Style="{StaticResource EditorTextBox}"
+                                     ToolTip="How often the cue flashes (intermittent only)."
+                                     TextChanged="EffectField_TextChanged"/>
+                            <TextBlock Text="Times to say it correctly" Style="{StaticResource EditorLabel}"/>
+                            <ComboBox x:Name="CmbSpeakReps" Style="{StaticResource EditorComboBox}"
+                                      ItemContainerStyle="{StaticResource EditorComboBoxItem}"
+                                      ToolTip="How many correct reps are required (1–5)."
+                                      SelectionChanged="CmbSpeakReps_SelectionChanged">
+                                <ComboBoxItem Content="1" Tag="1"/>
+                                <ComboBoxItem Content="2" Tag="2"/>
+                                <ComboBoxItem Content="3" Tag="3"/>
+                                <ComboBoxItem Content="4" Tag="4"/>
+                                <ComboBoxItem Content="5" Tag="5"/>
+                            </ComboBox>
+                            <TextBlock Text="Completion" Style="{StaticResource EditorLabel}"/>
+                            <ComboBox x:Name="CmbSpeakCompletion" Style="{StaticResource EditorComboBox}"
+                                      ItemContainerStyle="{StaticResource EditorComboBoxItem}"
+                                      ToolTip="Until satisfied holds the region until they say it; For the region just listens for the band's length."
+                                      SelectionChanged="CmbSpeakCompletion_SelectionChanged">
+                                <ComboBoxItem Content="Until satisfied" Tag="UntilSatisfied"/>
+                                <ComboBoxItem Content="For the region (soft)" Tag="Duration"/>
+                            </ComboBox>
+                            <TextBlock x:Name="LblSpeakHold" Text="While waiting…" Style="{StaticResource EditorLabel}"/>
+                            <ComboBox x:Name="CmbSpeakHold" Style="{StaticResource EditorComboBox}"
+                                      ItemContainerStyle="{StaticResource EditorComboBoxItem}"
+                                      ToolTip="What playback does while waiting for the user (until satisfied only)."
+                                      SelectionChanged="CmbSpeakHold_SelectionChanged">
+                                <ComboBoxItem Content="Loop the region" Tag="LoopRegion"/>
+                                <ComboBoxItem Content="Pause the video" Tag="Pause"/>
+                                <ComboBoxItem Content="Keep playing" Tag="KeepPlaying"/>
+                            </ComboBox>
+                            <TextBlock Text="Praise (on correct)" Style="{StaticResource EditorLabel}"/>
+                            <TextBox x:Name="TxtSpeakCorrect" Style="{StaticResource EditorTextBox}"
+                                     MaxLength="40"
+                                     ToolTip="Flashed after each correct rep, e.g. 'good girl'."
+                                     TextChanged="EffectField_TextChanged"/>
+                            <TextBlock Text="Scold (on miss)" Style="{StaticResource EditorLabel}"/>
+                            <TextBox x:Name="TxtSpeakIncorrect" Style="{StaticResource EditorTextBox}"
+                                     MaxLength="40"
+                                     ToolTip="Flashed after a wrong/too-quiet attempt, e.g. 'try again'."
+                                     TextChanged="EffectField_TextChanged"/>
                             <Button Content="Delete" Click="BtnDeleteEffect_Click"
                                     ToolTip="{loc:Str deeper_editor_tip_effect_delete}"
                                     Background="{DynamicResource DangerBrush}" Foreground="White"

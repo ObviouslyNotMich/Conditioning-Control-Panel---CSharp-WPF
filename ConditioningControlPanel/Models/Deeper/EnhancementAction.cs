@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
 namespace ConditioningControlPanel.Models.Deeper
@@ -183,6 +184,46 @@ namespace ConditioningControlPanel.Models.Deeper
         // Bubble.
         [JsonProperty("max_bubbles")]
         public int MaxBubbles { get; set; } = 3;
+
+        // Speak (voice prompt). Mirrors TimelineItem's effect_speak_* fields.
+        [JsonProperty("speak_target", NullValueHandling = NullValueHandling.Ignore)]
+        public string? SpeakTarget { get; set; }
+
+        [JsonProperty("speak_cue", NullValueHandling = NullValueHandling.Ignore)]
+        public string? SpeakCue { get; set; }
+
+        [JsonProperty("speak_cue_mode", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public SpeakCueMode SpeakCueMode { get; set; } = SpeakCueMode.Intermittent;
+
+        [JsonProperty("speak_cue_interval_ms")]
+        public int SpeakCueIntervalMs { get; set; } = 250;
+
+        [JsonProperty("speak_required_reps")]
+        public int SpeakRequiredReps { get; set; } = 1;
+
+        [JsonProperty("speak_completion", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public SpeakCompletion SpeakCompletion { get; set; } = SpeakCompletion.UntilSatisfied;
+
+        [JsonProperty("speak_hold_mode", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public SpeakHoldMode SpeakHoldMode { get; set; } = SpeakHoldMode.LoopRegion;
+
+        [JsonProperty("speak_correct", NullValueHandling = NullValueHandling.Ignore)]
+        public string? SpeakCorrectMessage { get; set; }
+
+        [JsonProperty("speak_incorrect", NullValueHandling = NullValueHandling.Ignore)]
+        public string? SpeakIncorrectMessage { get; set; }
+
+        // Runtime-only region bounds (seconds) so a band-mode Speak session can
+        // implement its hold behavior (loop/pause near the region end). Set by
+        // BandEffect.BuildAction; null for one-shot rule fires.
+        [JsonIgnore]
+        public double? SpeakRegionStartSec { get; set; }
+
+        [JsonIgnore]
+        public double? SpeakRegionEndSec { get; set; }
 
         // Runtime-only routing for band-mode effects. See TriggerHapticAction.Phase.
         [JsonIgnore]
