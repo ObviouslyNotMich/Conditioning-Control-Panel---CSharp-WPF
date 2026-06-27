@@ -94,6 +94,12 @@ namespace ConditioningControlPanel
             {
                 App.Autonomy?.Stop();
             }
+            // Keep the Takeover tab's Start/Stop button in sync. This handler fires when
+            // the feature is toggled from anywhere that flips ChkAutonomyEnabled (the premium
+            // rail chip, etc.); without this the tab button stays stuck on "Stop". Treat the
+            // patreon-missing case as off, since the service was just stopped above.
+            UpdateAutonomyButtonState(isEnabled && hasPatreon);
+
             App.Logger?.Information("Autonomy Mode toggled: {Enabled} (Engine running: {EngineRunning}, Patreon: {Patreon})",
                 isEnabled, _isRunning, hasPatreon);
 
