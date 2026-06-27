@@ -549,6 +549,9 @@ public class BubbleService : IDisposable
     private void TryTriggerAvatarBubbleEgg()
     {
         if (_avatarEggActive) return;
+        // Ambient pop-game only. A chaos run's treats are also _isTreat-with-payload, so without this
+        // the egg would claim/freeze a chaos bubble mid-run and pop it through the chaos callback.
+        if (_chaosActive) return;
         var s = App.Settings?.Current;
         if (s?.BubbleAvatarEggEnabled != true || s.BubbleTriggersEnabled != true) return;
         if (App.Video?.IsPlaying == true) return;                       // a fullscreen video covers the bubbles
@@ -2256,8 +2259,10 @@ internal class Bubble
     /// <summary>Loudness multiplier the benign-pop path applies to the pop sound (1 for user pops).</summary>
     internal float AvatarPopVolumeMult => _avatarPopVolumeMult;
 
-    /// <summary>Companion claims this bubble: pause its treat-life + freeze its drift + ignore user pops.</summary>
-    internal void ClaimForAvatar() => _claimedByAvatar = true;
+    /// <summary>Companion claims this bubble: pause its treat-life + freeze its drift + ignore user pops.
+    /// Also clears the death-telegraph ramp (a 5s treat is already fading at the 4s claim point) so the
+    /// bubble reads as healthy while she glides over and pops it.</summary>
+    internal void ClaimForAvatar() { _claimedByAvatar = true; _dangerFactor = 0; }
     /// <summary>Release the claim — drift + remaining treat-life resume on the next frame.</summary>
     internal void ReleaseAvatarClaim() => _claimedByAvatar = false;
     /// <summary>The scripted avatar pop: louder, and allowed through the claim-pop guard.</summary>
