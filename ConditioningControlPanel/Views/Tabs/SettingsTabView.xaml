@@ -77,7 +77,7 @@
                 </Style>
             </Border.Resources>
             <Grid>
-                <StackPanel Margin="4,6,4,6">
+                <StackPanel x:Name="PremiumRailContent" x:FieldModifier="internal" Margin="4,6,4,6">
                     <TextBlock Text="PREMIUM" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource SecondaryBrush}"
                                TextAlignment="Center" Margin="0,0,0,6"/>
                     <Button x:Name="ChipTakeover" x:FieldModifier="internal" Style="{StaticResource PremiumChipStyle}"
@@ -203,8 +203,11 @@
                             <TextBlock Text="Remote" FontSize="9" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Button>
+                    <!-- VerticalOffset lifts the flyout up: ChipRemote is the last rail item and
+                         sits low on screen, so a top-aligned flyout otherwise clips the bottom
+                         Start button against the taskbar / screen edge. -->
                     <Popup x:Name="RemoteFlyout" x:FieldModifier="internal" PlacementTarget="{Binding ElementName=ChipRemote}"
-                           Placement="Right" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="4">
+                           Placement="Right" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="4" VerticalOffset="-60">
                         <Border Background="{DynamicResource ElevatedSurfaceBrush}" BorderBrush="{DynamicResource PinkBrush}"
                                 BorderThickness="1" CornerRadius="10" Padding="10" Width="226">
                             <StackPanel>
@@ -242,7 +245,7 @@
                 </StackPanel>
                 <!-- Patron lock overlay (also serves as the ad) -->
                 <Border x:Name="PremiumRailLock" x:FieldModifier="internal" Visibility="Collapsed"
-                        Background="#E01A1A2E" CornerRadius="12" Cursor="Hand"
+                        Background="#B31A1A2E" CornerRadius="12" Cursor="Hand"
                         ToolTip="Premium features — unlock with Patreon">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <helpers:EmojiTextBlock Text="🔒" FontSize="20" HorizontalAlignment="Center"/>

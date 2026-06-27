@@ -259,6 +259,12 @@ namespace ConditioningControlPanel
             if (SettingsTab.PremiumRailLock != null)
                 SettingsTab.PremiumRailLock.Visibility = premium ? Visibility.Collapsed : Visibility.Visible;
 
+            // Block the chips when not entitled. The lighter lock overlay provides the
+            // greyed/locked visual (and ghosts the feature images through); disabling the
+            // content makes it non-clickable even if the overlay hit-test is ever bypassed.
+            if (SettingsTab.PremiumRailContent != null)
+                SettingsTab.PremiumRailContent.IsEnabled = premium;
+
             SetDot(SettingsTab.DotTakeover, BambiTakeoverTab?.ChkAutonomyEnabled?.IsChecked == true);
             SetDot(SettingsTab.DotAwareness, AwarenessTab?.ChkAwarenessMaster?.IsChecked == true);
             SetDot(SettingsTab.DotHaptics, HapticsTab?.ChkHapticsEnabled?.IsChecked == true);
