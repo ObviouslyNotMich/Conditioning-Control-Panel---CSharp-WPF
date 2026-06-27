@@ -34,6 +34,11 @@ namespace ConditioningControlPanel.Services
 
         private GlobalKeyboardHook? _pttHook;
 
+        // The exact wake-ack line just spoken (picked once in OnWakeWordHeard), handed to the listen
+        // window so its "she's listening" dots bubble shows the same words you hear. Consumed (cleared)
+        // by TryHandleVoiceCommandAsync; the push-to-talk path leaves it null and picks its own text.
+        private string? _pendingWakeAckText;
+
         /// <summary>Whether the user has armed a self-initiated mic mode (and so the mic only opens on demand).</summary>
         public bool UserDrivenVoiceArmed
         {
@@ -225,29 +230,35 @@ namespace ConditioningControlPanel.Services
 
         private void OnWakeWordHeard()
         {
+            // Pick the wake acknowledgement once (PickVoiceLine locks internally, so off-UI is fine):
+            // voiced manifest variant when available (rotates, avoiding immediate repeats), else a plain
+            // per-mod line, text-only. Picking here (not inside the dispatch) lets us hand the SAME line
+            // to the listen window so the dots bubble reads exactly what she just said.
+            var voiced = App.Bark?.PickVoiceLine("voicecmd_wake");
+            string ack;
+            string? audio = null;
+            if (voiced is { } line && !string.IsNullOrWhiteSpace(line.Text))
+            {
+                ack = line.Text;
+                audio = line.Audio;
+            }
+            else
+            {
+                ack = ModKey() switch
+                {
+                    "bambi" => "mmm? you called for me~",
+                    "circe" => "you called. i'm listening.",
+                    _       => "yes, lovely? i'm right here~",
+                };
+            }
+
+            // Hand the exact spoken text to the listen window (read == heard).
+            _pendingWakeAckText = ack;
+
             DispatcherHelper.RunOnUI(() =>
             {
                 try
                 {
-                    // Per-mod wake acknowledgement: voiced manifest variant when available (rotates,
-                    // avoiding immediate repeats), else a plain per-mod line, text-only.
-                    var voiced = App.Bark?.PickVoiceLine("voicecmd_wake");
-                    string ack;
-                    string? audio = null;
-                    if (voiced is { } line && !string.IsNullOrWhiteSpace(line.Text))
-                    {
-                        ack = line.Text;
-                        audio = line.Audio;
-                    }
-                    else
-                    {
-                        ack = ModKey() switch
-                        {
-                            "bambi" => "mmm? you called for me~",
-                            "circe" => "you called. i'm listening.",
-                            _       => "yes, lovely? i'm right here~",
-                        };
-                    }
                     App.AvatarWindow?.GigglePriority(ack, playSound: audio != null, aiGenerated: false,
                         phraseAudioPath: audio, barkVoice: audio != null);
                 }

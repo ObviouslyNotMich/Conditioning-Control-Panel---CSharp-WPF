@@ -177,13 +177,23 @@ namespace ConditioningControlPanel.Services
                 if (grammar.Count == 0) return false;
 
                 // Keep the speech bubble up with animated dots so the user can see she's waiting for a
-                // command for the whole listen window (covers both "Hey Bambi" and push-to-talk).
-                var listeningLine = ModKey() switch
+                // command for the whole listen window (covers both "Hey Bambi" and push-to-talk). Show
+                // the SAME line she just spoke as the wake ack (handed over from OnWakeWordHeard) so you
+                // read what you heard; on the push-to-talk path there's no spoken ack, so pick a wake
+                // line's text (text-only) as the prompt.
+                var listeningLine = Interlocked.Exchange(ref _pendingWakeAckText, null);
+                if (string.IsNullOrWhiteSpace(listeningLine))
                 {
-                    "bambi" => "mmm? i'm listening~",
-                    "circe" => "i'm listening.",
-                    _       => "i'm listening, good girl~",
-                };
+                    var wl = App.Bark?.PickVoiceLine("voicecmd_wake");
+                    listeningLine = (wl is { } l && !string.IsNullOrWhiteSpace(l.Text))
+                        ? l.Text
+                        : ModKey() switch
+                        {
+                            "bambi" => "mmm? i'm listening~",
+                            "circe" => "i'm listening.",
+                            _       => "i'm listening, good girl~",
+                        };
+                }
                 if (Application.Current?.Dispatcher != null)
                     _ = Application.Current.Dispatcher.InvokeAsync(() =>
                         { try { App.AvatarWindow?.ShowListeningBubble(listeningLine); } catch { } });
