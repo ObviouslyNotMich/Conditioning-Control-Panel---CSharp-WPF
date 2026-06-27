@@ -658,6 +658,11 @@ namespace ConditioningControlPanel
             }
             
             _closeTimer?.Stop();
+            // Stop the voice-solve loop for good: StopVoiceSolve() only clears _voiceListening, but the
+            // loop's condition is `while (!_isCompleted && _voiceMode)`. Closing an unsolved card (legal
+            // in non-strict mode) would otherwise leave a zombie loop re-grabbing the mic every ~10s and
+            // writing UI state to a dead window. Mirror FallBackToTextMidSession and drop _voiceMode.
+            _voiceMode = false;
             StopVoiceSolve();
             _allWindows.Remove(this);
             base.OnClosing(e);
