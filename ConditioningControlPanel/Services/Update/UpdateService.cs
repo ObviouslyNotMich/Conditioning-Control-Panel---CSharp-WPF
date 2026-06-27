@@ -20,55 +20,67 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.1.7";
+        public const string AppVersion = "6.2.0";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.1.7 - Down the Rabbit Hole
+        public const string CurrentPatchNotes = @"v6.2.0 - She Can Hear You Now
 
-🐇 THE RABBIT HOLE - A REAL FRONT DOOR
-- New ""Down the Rabbit Hole"" main menu: neon logo, soundtrack, pink fog, an
-  animated intro reveal and a How-to-Play tutorial overlay.
-- Prettier play: pops burst into coloured light, snaps and field effects send
-  ripples blooming outward, round bubbles shine like glass, and the score
-  multiplier glows brighter the higher it climbs.
-- E-Stim lightning, the rabbit's sparkle trail and the Rabbit-Caller glow are all
-  rebuilt as soft, bloomed light, with a consistent colour language across boons,
-  tiles and banners.
-- New ""Enhanced FX"" and ""Keep on top"" toggles, and the layer stays pinned so it
-  won't sink when you click away.
+🎤 SHE'S LISTENING (new tab, Patreon)
+- ""Hey Bambi"" wake word: say her name and she perks up and listens (only while
+  active).
+- Push-to-talk: hold a hotkey (default F8) to talk to her any time, no wake word
+  needed.
+- 500+ ways to phrase the commands: toggle subliminals, spiral, pink filter,
+  bubbles, mind wipe, pop-quiz or triggers, or ask her to ""flash me"", ""lock me"",
+  ""freeze"", ""count for me"", ""go deeper"", ""again"". Say ""what can I say?"" for help.
+- She talks back: spoken wake-greeting and voiced confirmations, themed per mod.
+- 100% offline: every word is processed on your own PC, nothing sent anywhere.
+- Consent-first: a clear opt-in the first time, OFF by default, and a real disarm
+  that actually cuts the mic (not just pauses it).
 
-⚡ SMOOTHER & STEADIER
-- Big performance pass: dense waves of bubbles, bouncing text and DVD logos no
-  longer hitch the game, and the companion no longer freezes or stutters while
-  it's busy.
-- The companion no longer disappears or blanks out between animations or
-  mid-sentence, and tucks into the bottom-left when a run starts.
+🎴 VOICE LOCK CARDS
+- Say the phrase out loud to clear a lock card instead of typing it, with a live
+  mic meter and instant feedback (typing always works as a fallback).
 
-🤖 BRING YOUR OWN AI
-- New OpenAI-compatible provider: point your companion at any OpenAI-style
-  endpoint (local models, other backends), with diagnostics, a sampler-settings
-  popup and a test-connection check.
+🗣️ SPOKEN MANTRAS (Patreon)
+- She prompts a mantra, you say it back, she responds. 50 per mod, fully voiced.
 
-🔗 LOGIN & CATALOGUE
-- Log in with SubscribeStar alongside the existing options, with a more reliable
-  browser hand-off so sign-in can't fail silently.
-- New Community Catalogue card in Presets: browse and import community presets &
-  sessions, and share your own.
+🎬 DEEPER GOES VOICE
+- The voice features are in the timeline editor now too: a new ""Speak (voice)""
+  effect pauses a video and asks you to say a phrase out loud, with feedback and
+  a rep counter before it lets you continue.
 
-🎯 QUESTS
-- Refreshed quest pool: 20 free + 20 patron quests, with all the artwork bundled
-  in the app.
+🌀 TAKEOVER REWORK
+- A much-needed overhaul: when she takes over, the screen now shows you what's
+  happening (the takeover text + effect) instead of leaving you guessing.
+- New voice control hooks, extra functions, a glowing/sparkling/shaking cue, and
+  a pile of takeover bugs squashed (start/stop reliability, mic handoff and more).
 
-🔧 FIXES & STABILITY
-- Subliminals: fixed the previous phrase flashing alongside the next one.
-- The companion window no longer steals focus and cancels your typing.
-- The title-bar X now fully closes the app; a cloud restore no longer wipes your
-  per-mod phrase lists; bouncing-text edits persist across restarts.
-- Flash, Brain Drain, multi-monitor, webcam calibration and assets-tree
-  hardening, plus rare-crash guards across async handlers.
+🫧 TRIGGER BUBBLES
+- New dashboard minigame: a slice of your ambient bubbles become ""trigger""
+  bubbles that fire an effect when popped (flash, subliminal, pink filter, spiral,
+  glitch, GIF rain or video), with the same XP/sound/haptic feedback and a new
+  bubble Speed slider. Keep an eye out, your companion might want to play too...
+
+⚡ DASHBOARD QUICK ACTIONS
+- Quick-toggle rail: one-tap chips for Takeover, Awareness, Haptics and Voice,
+  plus launchers for Lockdown, Blink Trainer and Remote. (Patreon)
+- Jump Right In randomizes a fun setup and starts in one tap, Remember snapshots
+  and recalls your setup any time, and there's a browser mute toggle for
+  HypnoTube audio.
+
+🎭 COMPANION
+- The avatar no longer goes blank or freezes when swapping reactions or emotes,
+  and there are hundreds of new voicelines so Sissy and Circe match Bambi (plus
+  fresh idle chatter and previously-silent moments now voiced).
+
+🔧 FIXES
+- Log Out now fully logs out SubscribeStar too (premium can't survive a logout).
+- Videos fill the whole second monitor on mixed-DPI setups, mandatory and browser
+  videos no longer stack, and the autonomy interval slider is accurate now.
 
 Season: Juicy June";
 
