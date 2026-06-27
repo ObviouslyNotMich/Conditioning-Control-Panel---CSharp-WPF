@@ -52,7 +52,7 @@ namespace ConditioningControlPanel.Features
                     "builtin-locked" => "Circe",
                     _ => "your companion"
                 };
-                TxtTriggerEggHint.Text = $"careful — {persona} loves these… leave one drifting too long and she might pop it for you~";
+                TxtTriggerEggHint.Text = $"careful — {persona} loves these…";
 
                 ChkTriggers.IsChecked = s.BubbleTriggersEnabled;
                 TriggerOptionsPanel.Visibility = s.BubbleTriggersEnabled
