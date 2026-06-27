@@ -3458,15 +3458,30 @@ namespace ConditioningControlPanel.Models
 
         private bool _autonomyCanTriggerVoiceCommand = true;
         /// <summary>
-        /// Allow the "say it for me" voice action during Takeover. Only ever fires when the
-        /// speech engine is actually available (model + mic) and mic consent is given, so it's
-        /// safe to leave on; it self-disables otherwise.
+        /// Takeover "Surprise me with mantras": let the autonomy scheduler auto-prompt a spoken
+        /// mantra during Takeover. Only ever fires when the speech engine is available (model + mic),
+        /// mic consent is given, and the user isn't already driving the mic (wake/PTT). Self-disables
+        /// otherwise. The on-demand mantra capability lives separately in <see cref="SpokenMantrasEnabled"/>.
         /// </summary>
         [JsonProperty]
         public bool AutonomyCanTriggerVoiceCommand
         {
             get => _autonomyCanTriggerVoiceCommand;
             set { _autonomyCanTriggerVoiceCommand = value; OnPropertyChanged(); }
+        }
+
+        private bool _spokenMantrasEnabled = false;
+        /// <summary>
+        /// "She's Listening" on-demand spoken mantras: when on, a wake-word / push-to-talk turn that
+        /// doesn't match a voice command falls back to a mantra, and the Test affordance works. The
+        /// Takeover *surprise* auto-trigger is the separate <see cref="AutonomyCanTriggerVoiceCommand"/>.
+        /// Independent of Takeover — the mic features are decoupled from it.
+        /// </summary>
+        [JsonProperty]
+        public bool SpokenMantrasEnabled
+        {
+            get => _spokenMantrasEnabled;
+            set { _spokenMantrasEnabled = value; OnPropertyChanged(); }
         }
 
         private bool _micConsentGiven = false;

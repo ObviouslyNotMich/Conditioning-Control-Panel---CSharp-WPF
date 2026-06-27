@@ -158,6 +158,46 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Takeover-active indicator — visible whenever AutonomyService.IsEnabled is true.
+                         Toggled from SetTakeoverActiveUi(). Stop UI lives on the Bambi Takeover tab. -->
+                    <Border x:Name="TakeoverActivePill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#5A2E7A" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0"
+                            ToolTip="Takeover is active.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="#C9A0FF" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#C9A0FF" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Text="Takeover active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Microphone-active indicator — visible whenever SpeechService.IsListening is true
+                         (any feature: Takeover "Hey Bambi"/push-to-talk/mantras, Voice Lock Cards…).
+                         Same privacy posture as the camera pill: if we're taking mic input we show it.
+                         Click to stop all mic capture. -->
+                    <Border x:Name="MicActivePill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#7A4A14" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="MicActivePill_Click"
+                            ToolTip="Microphone is active. Click to stop listening.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="#FFA726" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#FFA726" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Text="Mic active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Camera-active indicator — visible whenever WebcamTrackingService.IsRunning is true.
                          Click to stop tracking. -->
                     <Border x:Name="WebcamActivePill"
@@ -789,6 +829,21 @@
                                             </StackPanel>
                                         </DockPanel>
                                     </Button>
+                                    <Button x:Name="BtnSubSheListening" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubSheListening_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeSheListening"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='🎙️', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock Text="She's Listening" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
                                     <Button x:Name="BtnSubHaptics" Style="{StaticResource ExclusivesSubmenuButton}"
                                             Click="BtnSubHaptics_Click">
                                         <DockPanel LastChildFill="True">
@@ -1047,6 +1102,10 @@
         <!-- Blink Trainer Tab — Patreon premium feature, flagship webcam experience.
              Promoted from Lab Webcam Games card in v5.9.8. Phase A: scaffold + header only. -->
         <views:BlinkTrainerTabView x:Name="BlinkTrainerTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
+        <!-- She's Listening Tab — voice control Exclusive (offline mic commands + spoken mantras) -->
+        <views:SheListeningTabView x:Name="SheListeningTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
 
 
 

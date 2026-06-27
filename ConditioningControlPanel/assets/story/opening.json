@@ -18,7 +18,8 @@
       "text": "The bubbles start to drift up from the dark. The beat picks up.",
       "background": "output/chaos_scenes/dollhouse_background.png",
       "characters": [],
-      "bubble": { "cx": 0.5, "cy": 0.86 }
+      "bubble": { "cx": 0.5, "cy": 0.86 },
+      "transition": { "type": "slide_left", "ms": 450 }
     },
     {
       "id": "p_pop1",
@@ -51,7 +52,8 @@
       "text": "good. the song's over… for now. but you're deeper than you were.",
       "background": "output/chaos_scenes/dollhouse_background.png",
       "characters": [],
-      "bubble": { "cx": 0.5, "cy": 0.84 }
+      "bubble": { "cx": 0.5, "cy": 0.84 },
+      "transition": { "type": "crossfade", "ms": 600 }
     }
   ]
 }

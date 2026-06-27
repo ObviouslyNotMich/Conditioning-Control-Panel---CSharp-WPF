@@ -53,9 +53,12 @@ namespace ConditioningControlPanel.Services
         {
             try
             {
+                // NOTE: deliberately NOT gated on _isEnabled (Takeover running). The mic features
+                // (wake word / push-to-talk / voice commands) are decoupled from Takeover — they
+                // arm from their own toggles + consent + an available engine, so "Hey Bambi" works
+                // even with Takeover off. Their home UI is the "She's Listening" Exclusive.
                 var s = App.Settings?.Current;
-                bool baseOk = _isEnabled
-                              && !_disposed
+                bool baseOk = !_disposed
                               && s?.MicConsentGiven == true
                               && App.Speech?.IsAvailable == true;
 
@@ -81,14 +84,33 @@ namespace ConditioningControlPanel.Services
             StopPushToTalk();
         }
 
+        /// <summary>
+        /// User-initiated "stop the mic" (the privacy pill). Cuts any in-flight capture and tears
+        /// down the wake-word loop and push-to-talk hook so the mic won't reopen until re-armed.
+        /// Leaves the rest of Takeover running — this is about the microphone, not the takeover.
+        /// </summary>
+        public void StopVoiceInput()
+        {
+            try
+            {
+                App.Speech?.StopListening();
+                StopVoiceInputModes();
+            }
+            catch (Exception ex) { App.Logger?.Warning(ex, "AutonomyService: StopVoiceInput failed"); }
+        }
+
         // ── Serialized voice-prompt entry point ───────────────────────────────
 
         /// <summary>
         /// The single funnel every voice initiator uses. Claims the mic, frees the wake loop if it
         /// was holding it, waits for the capture session to release, then runs one prompt. Re-entrant
         /// calls are dropped while one is already in flight.
+        ///
+        /// <paramref name="allowCommands"/>: user-initiated paths (wake-word / push-to-talk) first
+        /// listen for a "Hey Bambi" voice command and only fall back to a mantra if none is heard;
+        /// the auto-scheduler and dev test pass false so they always deliver a mantra.
         /// </summary>
-        private async void RequestVoiceCommand()
+        private async void RequestVoiceCommand(bool allowCommands = false)
         {
             if (App.Speech?.IsAvailable != true || App.AvatarWindow == null) return;
             // Atomically claim the mic; bail if a prompt is already in flight.
@@ -100,7 +122,17 @@ namespace ConditioningControlPanel.Services
                 for (int i = 0; i < 24 && App.Speech?.IsListening == true; i++)
                     await Task.Delay(25).ConfigureAwait(false);
 
-                await RunVoiceCommandAsync().ConfigureAwait(false);
+                // Voice-command layer first (only on user-initiated paths). On a match we're done; on
+                // no-match the wake/PTT turn falls back to a mantra ONLY if on-demand mantras are on.
+                if (allowCommands)
+                {
+                    if (await TryHandleVoiceCommandAsync().ConfigureAwait(false))
+                        return;
+                    if (App.Settings?.Current?.SpokenMantrasEnabled != true)
+                        return; // commands only; no mantra fallback when on-demand mantras are off
+                }
+
+                await RunSpokenMantraAsync().ConfigureAwait(false);
             }
             catch (Exception ex) { App.Logger?.Warning(ex, "AutonomyService: RequestVoiceCommand failed"); }
             finally { Volatile.Write(ref _voiceBusyFlag, 0); }
@@ -207,7 +239,7 @@ namespace ConditioningControlPanel.Services
                 }
                 catch { }
             });
-            RequestVoiceCommand();
+            RequestVoiceCommand(allowCommands: true);
         }
 
         // ── Push-to-talk ──────────────────────────────────────────────────────
@@ -258,7 +290,7 @@ namespace ConditioningControlPanel.Services
             App.Logger?.Information("AutonomyService: push-to-talk pressed");
             // OnPushToTalkKey runs on the low-level hook thread, which must return fast — marshal
             // to the UI thread without blocking the hook.
-            DispatcherHelper.RunOnUI(() => RequestVoiceCommand());
+            DispatcherHelper.RunOnUI(() => RequestVoiceCommand(allowCommands: true));
         }
     }
 }

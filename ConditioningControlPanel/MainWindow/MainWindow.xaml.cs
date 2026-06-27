@@ -1996,6 +1996,9 @@ namespace ConditioningControlPanel
             // Title-bar camera-active indicator
             WireWebcamActivePill();
 
+            // Title-bar microphone-active indicator (privacy parity with the camera pill)
+            WireMicActivePill();
+
             // Movable loading splash shown while the webcam engine starts up
             InstallWebcamLoadingSplash();
 

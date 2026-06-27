@@ -131,6 +131,7 @@ namespace ConditioningControlPanel
                 }
                 BlinkTrainerTab.Visibility = Visibility.Collapsed;
             }
+            if (SheListeningTab != null) SheListeningTab.Visibility = Visibility.Collapsed;
 
             // Reset all button styles to inactive. activeStyle is the primary-nav-only v6 variant —
             // quest sub-tabs and roadmap tracks use TabButtonActive directly (see lines further down).
@@ -313,6 +314,12 @@ namespace ConditioningControlPanel
                     BlinkTrainerTab.Visibility = Visibility.Visible;
                     AnimateTabIn(BlinkTrainerTab);
                     RefreshBlinkTrainerTab();
+                    break;
+
+                case "shelistening":
+                    SheListeningTab.Visibility = Visibility.Visible;
+                    AnimateTabIn(SheListeningTab);
+                    RefreshSheListeningTab();
                     break;
 
             }

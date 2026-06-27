@@ -6,9 +6,17 @@
         ShowInTaskbar="False" Background="Black"
         KeyDown="OnKeyDown" MouseLeftButtonDown="OnClick" Cursor="Hand">
     <Grid x:Name="Root" Background="Black">
-        <Image x:Name="BgImage" Stretch="UniformToFill"/>
-        <Canvas x:Name="StageCanvas" ClipToBounds="True"/>
-        <!-- Tiny corner hint so the tester knows how to advance / quit. -->
+        <!-- Two stage layers so transitions (fade/crossfade/slide) can show old + new at once. -->
+        <Grid x:Name="LayerA">
+            <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
+            <Image x:Name="BgA" Stretch="UniformToFill"/>
+            <Canvas x:Name="StageA" ClipToBounds="True"/>
+        </Grid>
+        <Grid x:Name="LayerB">
+            <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
+            <Image x:Name="BgB" Stretch="UniformToFill"/>
+            <Canvas x:Name="StageB" ClipToBounds="True"/>
+        </Grid>
         <TextBlock Text="click / space ▸    esc to quit"
                    Foreground="#66FFFFFF" FontSize="12" FontFamily="Consolas"
                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,10"/>

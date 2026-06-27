@@ -605,6 +605,26 @@ namespace ConditioningControlPanel
         }
 
         /// <summary>
+        /// Stop voice solving on every open lock card (the mic privacy pill): drop each voice-mode
+        /// card to typed solve so the microphone closes but the lock still has to be solved. The
+        /// card is never force-closed here — that would let the user escape the lock.
+        /// </summary>
+        public static void DisableVoiceForAll()
+        {
+            foreach (var window in new List<LockCardWindow>(_allWindows))
+            {
+                try
+                {
+                    window.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (window._voiceMode) window.FallBackToTextMidSession();
+                    }));
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>
         /// Force close all lock card windows (used by panic button)
         /// </summary>
         public static void ForceCloseAll()

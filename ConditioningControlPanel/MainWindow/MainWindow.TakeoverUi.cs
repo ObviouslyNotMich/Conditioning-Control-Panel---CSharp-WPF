@@ -59,6 +59,10 @@ namespace ConditioningControlPanel
 
         private void SetTakeoverActiveUi(bool active)
         {
+            // Title-bar status pill — always reflects on/off, even when the Takeover tab isn't built yet.
+            if (TakeoverActivePill != null)
+                TakeoverActivePill.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+
             var tab = BambiTakeoverTab;
             if (tab == null) return;
 

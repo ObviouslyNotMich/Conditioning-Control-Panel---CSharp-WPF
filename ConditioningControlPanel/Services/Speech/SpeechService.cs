@@ -68,6 +68,10 @@ namespace ConditioningControlPanel.Services.Speech
         // Only one capture session may run at a time.
         private int _sessionActive; // 0/1 via Interlocked.
 
+        // The current session's cancellation, exposed so a UI "stop the mic" affordance (the
+        // privacy pill) can cut an in-flight capture. Linked to the caller's token; null when idle.
+        private CancellationTokenSource? _activeCts;
+
         /// <summary>Streaming partial hypotheses while a window is open ("I'm hearing ___").</summary>
         public event EventHandler<string>? PartialTranscript;
         /// <summary>Live input loudness, 0..1 RMS, for a level meter.</summary>
@@ -102,6 +106,17 @@ namespace ConditioningControlPanel.Services.Speech
                 EnsureModel();
                 return _model != null;
             }
+        }
+
+        /// <summary>
+        /// Cancel any in-flight capture session immediately (UI "stop the mic" / privacy pill).
+        /// Closes the open mic so <see cref="IsListening"/> flips false. No-op when idle. Continuous
+        /// callers (the wake loop, lock-card voice solve) must also be told to stop arming, or they
+        /// simply reopen the mic on the next iteration.
+        /// </summary>
+        public void StopListening()
+        {
+            try { _activeCts?.Cancel(); } catch { }
         }
 
         /// <summary>Whether the OS reports at least one audio capture device.</summary>
@@ -174,6 +189,16 @@ namespace ConditioningControlPanel.Services.Speech
         /// </summary>
         public Task<PhraseResult> RecognizePhraseAsync(string target, RecognizeOptions? options = null, CancellationToken ct = default)
             => RunGrammarSessionAsync(target, new[] { target }, options, isWakeWord: false, ct);
+
+        /// <summary>
+        /// Listen once and return the best-effort transcript constrained to <paramref name="phrases"/>
+        /// (a closed command set, e.g. the "Hey Bambi" voice-command grammar). Unlike
+        /// <see cref="RecognizePhraseAsync"/> this does not judge against one target — the caller
+        /// inspects <see cref="PhraseResult.Transcript"/> (and <see cref="PhraseResult.LoudEnough"/>)
+        /// and routes it to an intent itself (e.g. via <see cref="Similarity"/>). Never throws.
+        /// </summary>
+        public Task<PhraseResult> RecognizeOneOfAsync(IReadOnlyList<string> phrases, RecognizeOptions? options = null, CancellationToken ct = default)
+            => RunGrammarSessionAsync(phrases.Count > 0 ? phrases[0] : "", phrases, options, isWakeWord: false, ct);
 
         /// <summary>
         /// Listen until one of <paramref name="wakeWords"/> is heard or the token cancels.
@@ -280,9 +305,10 @@ namespace ConditioningControlPanel.Services.Speech
                 };
                 mic.RecordingStopped += (_, _) => { /* surfaced via Finish paths */ };
 
-                using var ctReg = ct.CanBeCanceled
-                    ? ct.Register(() => Finish(Evaluate("", 0, timedOut: true)))
-                    : default;
+                // Link the caller's token with a session-scoped source so the UI can stop us
+                // mid-capture (StopListening) no matter what token the caller passed.
+                _activeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                using var ctReg = _activeCts.Token.Register(() => Finish(Evaluate("", 0, timedOut: true)));
 
                 CancellationTokenSource? timeoutCts = null;
                 if (options.Timeout != Timeout.InfiniteTimeSpan)
@@ -318,6 +344,8 @@ namespace ConditioningControlPanel.Services.Speech
                 try { mic?.StopRecording(); } catch { }
                 try { mic?.Dispose(); } catch { }
                 try { rec?.Dispose(); } catch { }
+                try { _activeCts?.Dispose(); } catch { }
+                _activeCts = null;
                 RaiseLevel(0);
                 Interlocked.Exchange(ref _sessionActive, 0);
             }

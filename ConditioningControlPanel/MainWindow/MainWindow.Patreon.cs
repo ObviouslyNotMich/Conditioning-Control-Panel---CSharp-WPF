@@ -120,6 +120,12 @@ namespace ConditioningControlPanel
             ShowTab("blinktrainer");
         }
 
+        private void BtnSubSheListening_Click(object sender, RoutedEventArgs e)
+        {
+            CloseExclusivesSubmenu();
+            ShowTab("shelistening");
+        }
+
         /// <summary>
         /// Updates "Premium" badges on the Exclusives submenu items based on the
         /// user's current subscription state. Called whenever the popup opens.
@@ -134,6 +140,7 @@ namespace ConditioningControlPanel
             if (SubBadgeAwareness != null) SubBadgeAwareness.Visibility = badgeVis;
             if (SubBadgeLockdown != null) SubBadgeLockdown.Visibility = badgeVis;
             if (SubBadgeBlinkTrainer != null) SubBadgeBlinkTrainer.Visibility = badgeVis;
+            if (SubBadgeSheListening != null) SubBadgeSheListening.Visibility = badgeVis;
         }
 
         /// <summary>
@@ -236,6 +243,7 @@ namespace ConditioningControlPanel
             RefreshPremiumGate(RemoteControlTab.RemoteControlGate);
             RefreshPremiumGate(AwarenessTab.AwarenessGate);
             RefreshPremiumGate(LockdownTab.LockdownGate);
+            if (SheListeningTab != null) RefreshPremiumGate(SheListeningTab.SheListeningGate);
             RefreshBecomeASubjectCta();
             // Blink Trainer uses its own gate refresh (also re-resolves stage
             // mode + status state since premium loss/gain flips the resolver

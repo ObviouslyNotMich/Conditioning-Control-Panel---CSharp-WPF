@@ -325,6 +325,7 @@ namespace ConditioningControlPanel
         public static CatalogueLookupService CatalogueLookup { get; private set; } = null!;
         public static LockdownService Lockdown { get; private set; } = null!;
         public static MantraService Mantra { get; private set; } = null!;
+        public static MantraVoiceService MantraVoice { get; private set; } = null!;
         public static ModService Mods { get; private set; } = null!;
         public static BugReportService BugReport { get; private set; } = null!;
         public static WallpaperService? Wallpaper { get; private set; }
@@ -1337,6 +1338,9 @@ namespace ConditioningControlPanel
             // Initialize mantra lab service
             Mantra = new MantraService();
 
+            // Spoken Mantras (Takeover voice mechanic) — loads per-mod mantras.json on demand.
+            MantraVoice = new MantraVoiceService();
+
             // Initialize wallpaper override service
             Wallpaper = new WallpaperService();
 
@@ -1411,6 +1415,11 @@ namespace ConditioningControlPanel
             // Same problem hits anywhere code does `Application.Current.MainWindow as MainWindow`
             // — popups, feature controls, etc. Expose a stable static reference.
             MainWindowRef = mainWindow;
+
+            // Arm the offline mic features (wake word / push-to-talk) at startup if the user left them
+            // on. They're decoupled from Takeover ("She's Listening" owns them), so they no longer wait
+            // for Takeover to start. No-op unless consent is given and the speech engine is available.
+            try { Autonomy?.RefreshVoiceInputModes(); } catch (Exception ex) { Logger?.Warning(ex, "Startup RefreshVoiceInputModes failed"); }
 
             // First-instance "Open with CCP" dispatch: replay parsed --play/--edit
             // args once MainWindow is fully loaded so the player/editor windows

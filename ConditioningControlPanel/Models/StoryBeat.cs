@@ -27,11 +27,23 @@ namespace ConditioningControlPanel.Models
         [JsonProperty("bubble")] public BubblePos Bubble { get; set; } = new();
         [JsonProperty("characters")] public List<StoryCharacter> Characters { get; set; } = new();
 
+        /// <summary>How this beat enters from the previous one. Absent = a default fade.</summary>
+        [JsonProperty("transition")] public BeatTransition? Transition { get; set; }
+
         /// <summary>Present only on a popping-session beat.</summary>
         [JsonProperty("session")] public PoppingSession? Session { get; set; }
 
         [JsonIgnore] public bool IsPoppingSession =>
             string.Equals(BeatType, "popping_session", StringComparison.OrdinalIgnoreCase) && Session != null;
+    }
+
+    /// <summary>How a beat transitions in. Type: cut | fade (through black) | crossfade |
+    /// slide_left | slide_right. Ms = total duration. Honoured by both StoryRunnerWindow and the
+    /// Python VN editor's preview so authoring matches the real experience.</summary>
+    public sealed class BeatTransition
+    {
+        [JsonProperty("type")] public string Type { get; set; } = "fade";
+        [JsonProperty("ms")] public double Ms { get; set; } = 300;
     }
 
     public sealed class BubblePos

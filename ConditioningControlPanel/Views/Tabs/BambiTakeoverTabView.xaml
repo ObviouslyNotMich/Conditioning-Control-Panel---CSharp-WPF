@@ -247,16 +247,18 @@
                         </Border>
                     </Expander>
 
-                    <!-- ============ SUBSECTION 3b: VOICE & SESSION ============ -->
+                    <!-- ============ SUBSECTION 3b: MANTRAS & SESSION ============ -->
                     <Border Background="{DynamicResource SurfaceBgBrush}" BorderBrush="#2E2E48"
                             BorderThickness="1" CornerRadius="10" Padding="20,16" Margin="0,0,0,14">
                         <StackPanel>
-                            <TextBlock Text="Voice &amp; session" Foreground="{DynamicResource PinkBrush}"
+                            <TextBlock Text="Mantras &amp; session" Foreground="{DynamicResource PinkBrush}"
                                        FontSize="13" FontWeight="Bold" Margin="0,0,0,10"/>
-                            <Grid Margin="0,2" ToolTip="She asks you to say a phrase out loud and listens for it — fully offline. First time on asks for mic consent.">
+                            <!-- Surprise mantras = the Takeover auto-trigger (AutonomyCanTriggerVoiceCommand).
+                                 The on-demand mantra capability + all mic controls live in "She's Listening". -->
+                            <Grid Margin="0,2" ToolTip="During Takeover she'll occasionally ask you to repeat a phrase, listen for it offline, then give a custom response. First time on asks for mic consent. (On-demand mantras + the mic live in She's Listening.)">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="🎤 Voice — say it back to me" FontSize="12" Foreground="#CCC"/>
-                                    <TextBlock x:Name="TxtAutonomyVoiceHint" x:FieldModifier="internal" Text="Offline mic. Opens only when she prompts you." FontSize="10" Foreground="#888"/>
+                                    <TextBlock Text="🎤 Surprise me with mantras" FontSize="12" Foreground="#CCC"/>
+                                    <TextBlock x:Name="TxtAutonomyVoiceHint" x:FieldModifier="internal" Text="During Takeover she'll now and then ask you to repeat a phrase. Suppressed while you're driving the mic yourself." FontSize="10" Foreground="#888"/>
                                 </StackPanel>
                                 <CheckBox x:Name="ChkAutonomyVoice" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkAutonomyVoice_Changed" Unchecked="ChkAutonomyVoice_Changed"/>
                             </Grid>
@@ -271,46 +273,26 @@
 
                             <Border Height="1" Background="#2E2E48" Margin="0,10"/>
 
-                            <!-- Wake word: always-on "Hey Bambi" while Takeover is active -->
-                            <Grid Margin="0,2" ToolTip="When on, she listens continuously for her name while Takeover is active and prompts you when she hears it. The mic stays open (still fully offline). Needs mic consent.">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="👂 Wake word — call her by name" FontSize="12" Foreground="#CCC"/>
-                                    <TextBlock Text="Always-on mic while Takeover runs. Say it to summon her." FontSize="10" Foreground="#888"/>
+                            <!-- Pointer: the mic controls moved to the She's Listening exclusive -->
+                            <Border Background="#22FF69B4" CornerRadius="6" Padding="12,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Width="18" Height="18" VerticalAlignment="Top" Margin="0,1,10,0"
+                                           Source="{Binding Source='🎙️', Converter={StaticResource EmojiToImageSource}}"/>
+                                    <TextBlock Foreground="{DynamicResource PinkBrush}" FontSize="12" TextWrapping="Wrap" LineHeight="17" MaxWidth="520"
+                                               Text="Mic &amp; voice control — wake word (&quot;Hey Bambi&quot;), push-to-talk and spoken commands — now live in the She's Listening exclusive. They work whether or not Takeover is running."/>
                                 </StackPanel>
-                                <CheckBox x:Name="ChkSpeechWakeWord" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkSpeechWakeWord_Changed" Unchecked="ChkSpeechWakeWord_Changed"/>
-                            </Grid>
-                            <Grid Margin="22,4,0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Phrases" FontSize="10" Foreground="#888" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBox x:Name="TxtSpeechWakeWords" x:FieldModifier="internal" Grid.Column="1" FontSize="11" Foreground="#DDD" Background="#1A1A2E" BorderBrush="#2E2E48" BorderThickness="1" Padding="6,3"
-                                         Text="hey bambi" LostFocus="TxtSpeechWakeWords_LostFocus"
-                                         ToolTip="Comma-separated wake phrases (e.g. hey bambi, hey bimbo). Short common-word phrases recognize best."/>
-                            </Grid>
+                            </Border>
 
-                            <Border Height="1" Background="#2E2E48" Margin="0,10"/>
-
-                            <!-- Push-to-talk: summon a voice prompt with a system-wide key -->
-                            <Grid Margin="0,2" ToolTip="When on, a key you choose summons a voice prompt on demand (works even when the app isn't focused). Best for noisy rooms — overrides the surprise auto-prompt.">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="🎙 Push-to-talk — summon with a key" FontSize="12" Foreground="#CCC"/>
-                                    <TextBlock Text="Press your key to make her prompt you. No surprise mic." FontSize="10" Foreground="#888"/>
-                                </StackPanel>
-                                <CheckBox x:Name="ChkSpeechPushToTalk" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Checked="ChkSpeechPushToTalk_Changed" Unchecked="ChkSpeechPushToTalk_Changed"/>
-                            </Grid>
-                            <Grid Margin="22,4,0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Key" FontSize="10" Foreground="#888" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="TxtPttKey" x:FieldModifier="internal" Grid.Column="1" Text="F8" FontSize="11" FontWeight="Bold" Foreground="#90EE90" VerticalAlignment="Center"/>
-                                <Button x:Name="BtnSetPttKey" Grid.Column="2" Content="Set key…" FontSize="11" Padding="10,3" Background="#3A2A4A" Foreground="#DDD" BorderThickness="0"
-                                        Click="BtnSetPttKey_Click" ToolTip="Click, then press the key you want to use for push-to-talk."/>
-                            </Grid>
+                            <!-- Hidden source-of-truth for the mic toggles: the visible controls live in
+                                 SheListeningTabView, which mirrors onto these so the existing handlers,
+                                 settings load, and Takeover state all keep working unchanged. -->
+                            <StackPanel x:Name="TakeoverVoiceInputLegacy" x:FieldModifier="internal" Visibility="Collapsed">
+                                <CheckBox x:Name="ChkSpeechWakeWord" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" Checked="ChkSpeechWakeWord_Changed" Unchecked="ChkSpeechWakeWord_Changed"/>
+                                <TextBox x:Name="TxtSpeechWakeWords" x:FieldModifier="internal" Text="hey bambi" LostFocus="TxtSpeechWakeWords_LostFocus"/>
+                                <CheckBox x:Name="ChkSpeechPushToTalk" x:FieldModifier="internal" Style="{StaticResource ToggleStyle}" Checked="ChkSpeechPushToTalk_Changed" Unchecked="ChkSpeechPushToTalk_Changed"/>
+                                <TextBlock x:Name="TxtPttKey" x:FieldModifier="internal" Text="F8"/>
+                                <Button x:Name="BtnSetPttKey" Content="Set key…" Click="BtnSetPttKey_Click"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -328,8 +310,8 @@
                             <Button Grid.Column="1" Content="{loc:Str btn_test}" Background="{DynamicResource PinkBrush}" Foreground="White" FontWeight="Bold" FontSize="13"
                                     Padding="14,8" Click="BtnTestAutonomy_Click" ToolTip="{loc:Str tooltip_test_action}"/>
                             <!-- Dev/test affordance for the new offline "repeat after me" voice action (pass-2 UI will relocate this). -->
-                            <Button x:Name="BtnTestVoice" Grid.Column="3" Content="🎤 Test voice" Background="#3A2A4A" Foreground="#90EE90" FontWeight="Bold" FontSize="13"
-                                    Padding="14,8" Click="BtnTestVoice_Click" ToolTip="Fire the 'say it for me' voice action now (requires a Vosk model in Resources/Models/vosk and a mic)."/>
+                            <Button x:Name="BtnTestVoice" Grid.Column="3" Content="🎤 Test mantra" Background="#3A2A4A" Foreground="#90EE90" FontWeight="Bold" FontSize="13"
+                                    Padding="14,8" Click="BtnTestVoice_Click" ToolTip="Fire a spoken mantra now (requires a Vosk model in Resources/Models/vosk, a mic, and mantra content for the active mod)."/>
                         </Grid>
                     </Border>
     
