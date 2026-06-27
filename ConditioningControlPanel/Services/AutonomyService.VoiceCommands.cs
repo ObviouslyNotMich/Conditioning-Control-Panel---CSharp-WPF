@@ -56,10 +56,12 @@ namespace ConditioningControlPanel.Services
             public string? VoiceRuleId;
         }
 
-        // Minimum fuzzy similarity (grammar-constrained, so a real hit scores ~1.0). Raised from 0.62
-        // in v2: the grammar is much larger now, so a slightly tighter gate avoids a misheard word
-        // snapping onto a near-neighbour ("stop the video" vs "stop the spiral").
-        private const double VoiceCommandMatchThreshold = 0.68;
+        // Minimum fuzzy similarity (grammar-constrained, so a real hit scores ~1.0). Kept at 0.62:
+        // a higher gate mostly costs legitimate recognitions (a 3-word alias missing one word scores
+        // 0.667), and it does NOT prevent cross-talk — near-neighbours ("stop the video" vs "stop the
+        // spiral") collide at Vosk's acoustic layer at ~1.0, below this check. Distinct phrasing, not a
+        // tighter threshold, is what keeps commands apart; this gate only rejects [unk]/garbage.
+        private const double VoiceCommandMatchThreshold = 0.62;
 
         // After a successful command we keep listening for a few quick follow-ups (no wake word needed)
         // so you can stack "bubbles ... flashes ... deeper" in one breath. Capped so it always winds down.
@@ -152,6 +154,7 @@ namespace ConditioningControlPanel.Services
                 Aliases = new[] { "pause the video", "pause video", "pause this video" },
                 Execute = () => App.Video?.PausePrimary(),
                 TerseAck = true,
+                NoChain = true,
                 Confirm = new()
                 {
                     ["bambi"] = "video on hold~ hehe",
@@ -165,6 +168,7 @@ namespace ConditioningControlPanel.Services
                 Aliases = new[] { "resume the video", "play the video", "unpause the video", "continue the video" },
                 Execute = () => App.Video?.PlayPrimary(),
                 TerseAck = true,
+                NoChain = true,
                 Confirm = new()
                 {
                     ["bambi"] = "playing again~ watch!",
@@ -568,6 +572,7 @@ namespace ConditioningControlPanel.Services
                 Aliases = new[] { "pause", "pause the session", "pause everything", "hold on" },
                 Execute = () => App.MainWindowRef?.PauseSessionFromRemote(),
                 TerseAck = true,
+                NoChain = true,
                 Confirm = new()
                 {
                     ["bambi"] = "paused~ take your time, cutie!",
@@ -581,6 +586,7 @@ namespace ConditioningControlPanel.Services
                 Aliases = new[] { "resume", "resume the session", "continue", "keep going", "unpause" },
                 Execute = () => App.MainWindowRef?.ResumeSessionFromRemote(),
                 TerseAck = true,
+                NoChain = true,
                 Confirm = new()
                 {
                     ["bambi"] = "back to it~ yay!",
@@ -593,9 +599,13 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "mute",
-                Aliases = new[] { "quiet", "be quiet", "mute", "silence", "shush", "hush" },
+                // Deliberately NO bare "quiet" alias: Vosk can emit the near-homophone "quiet" when the
+                // user says "quieter" (a different, non-destructive command), which would hard-mute ALL
+                // audio. "be quiet" keeps the intent reachable without the one-word collision.
+                Aliases = new[] { "be quiet", "mute", "silence", "shush", "hush" },
                 Execute = () => App.KillAllAudio(),
                 TerseAck = true,
+                NoChain = true,
                 Confirm = new()
                 {
                     ["bambi"] = "shh~ okayy!",
@@ -609,6 +619,7 @@ namespace ConditioningControlPanel.Services
                 Aliases = new[] { "louder", "turn it up", "volume up", "more volume" },
                 Execute = () => { var s = App.Settings?.Current; if (s != null) s.MasterVolume += 15; },
                 TerseAck = true,
+                NoChain = true,
                 Confirm = new()
                 {
                     ["bambi"] = "louder~ okayy!",
@@ -622,6 +633,7 @@ namespace ConditioningControlPanel.Services
                 Aliases = new[] { "quieter", "turn it down", "volume down", "less volume", "lower the volume" },
                 Execute = () => { var s = App.Settings?.Current; if (s != null) s.MasterVolume -= 15; },
                 TerseAck = true,
+                NoChain = true,
                 Confirm = new()
                 {
                     ["bambi"] = "quieter~ hehe okay!",
@@ -731,8 +743,13 @@ namespace ConditioningControlPanel.Services
                 // non-command turn (silence / no-match / a final command), or after the cap.
                 for (int i = 0; i < MaxChainedCommands; i++)
                 {
-                    if (await ListenForCommandAsync(chained: true).ConfigureAwait(false) != VoiceCmdOutcome.Handled)
-                        break;
+                    var next = await ListenForCommandAsync(chained: true).ConfigureAwait(false);
+                    if (next == VoiceCmdOutcome.Handled) continue;
+                    // An explicit "give me a mantra" as a follow-up should still deliver a mantra, exactly
+                    // like a first-turn request — fall through to the caller's mantra flow instead of being
+                    // swallowed by the already-handled return.
+                    if (next == VoiceCmdOutcome.Mantra) return false;
+                    break; // silence / no-match / a final command ends the chain
                 }
                 return true;
             }
@@ -758,6 +775,11 @@ namespace ConditioningControlPanel.Services
                 var intents = VoiceCommandIntents;
                 var grammar = intents.SelectMany(i => i.Aliases).Distinct().ToList();
                 if (grammar.Count == 0) return VoiceCmdOutcome.Silence;
+
+                // On a chained follow-up, let the previous command's confirmation bubble stay up for a
+                // beat before we replace it with the "anything else?" listening dots — otherwise the
+                // confirmation is overwritten within a frame and never read.
+                if (chained) await Task.Delay(1400).ConfigureAwait(false);
 
                 // Keep the speech bubble up with animated dots for the whole listen window. On the first
                 // turn show the SAME line just spoken as the wake ack (handed over from OnWakeWordHeard)
