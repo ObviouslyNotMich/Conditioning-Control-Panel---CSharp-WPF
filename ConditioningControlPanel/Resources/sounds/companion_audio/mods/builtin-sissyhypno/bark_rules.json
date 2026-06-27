@@ -1,5 +1,131 @@
 [
   {
+    "id": "egg_avatar_pop_flash",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "ooh, a little flash hiding in there... let me pop it for you, sweetie.", "audio": "egg_avatar_pop_flash_1.mp3" },
+      { "text": "this one's got a flash for you, lovely... hold still, i've got it.", "audio": "egg_avatar_pop_flash_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_subliminal",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "there's a little message tucked in here... let me pop it for you, sweetie.", "audio": "egg_avatar_pop_subliminal_1.mp3" },
+      { "text": "mmm, a subliminal one. i'll open it... let it slip right in, lovely.", "audio": "egg_avatar_pop_subliminal_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_pink",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one paints everything pink... let me pop it for you, sweetie.", "audio": "egg_avatar_pop_pink_1.mp3" },
+      { "text": "mmm, a pink wash hiding here. i'll pop it... sink into the color, lovely.", "audio": "egg_avatar_pop_pink_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_spiral",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "hypnotic",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "ooh, a spiral tucked in here... let me pop it, sweetie, and let it pull you.", "audio": "egg_avatar_pop_spiral_1.mp3" },
+      { "text": "this one spins for you, lovely... hold still, i'll pop it... down you go.", "audio": "egg_avatar_pop_spiral_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_braindrain",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "dreamy",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one softens everything... let me pop it for you, sweetie, and just drift.", "audio": "egg_avatar_pop_braindrain_1.mp3" },
+      { "text": "mmm, a foggy one hiding here. i'll pop it... let your thoughts go quiet, lovely.", "audio": "egg_avatar_pop_braindrain_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_video",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "inviting",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "mmm, i love the video ones... let me pop this for you, sweetie. eyes up.", "audio": "egg_avatar_pop_video_1.mp3" },
+      { "text": "ooh, a little video hiding in here. i'll pop it... sit back and watch, lovely.", "audio": "egg_avatar_pop_video_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_gifrain",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "playful",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one rains little loops everywhere... let me pop it for you, sweetie.", "audio": "egg_avatar_pop_gifrain_1.mp3" },
+      { "text": "mmm, a cascade hiding here. i'll pop it... let them wash over you, lovely.", "audio": "egg_avatar_pop_gifrain_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_glitch",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "intense",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one scrambles everything... let me pop it for you, sweetie.", "audio": "egg_avatar_pop_glitch_1.mp3" },
+      { "text": "mmm, a glitch tucked in here. i'll pop it... let it shake something loose, lovely.", "audio": "egg_avatar_pop_glitch_2.mp3" }
+    ]
+  },
+  {
+    "id": "egg_avatar_pop_generic",
+    "trigger": "AvatarBubbleEgg",
+    "priority": 200,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "teasing",
+    "class": "easter_egg",
+    "variant_pool": [
+      { "text": "this one's lingered long enough... let me pop it for you, sweetie.", "audio": "egg_avatar_pop_generic_1.mp3" },
+      { "text": "mmm, allow me, lovely... i'll pop this one for you.", "audio": "egg_avatar_pop_generic_2.mp3" }
+    ]
+  },
+  {
     "id": "session_start_recent",
     "trigger": "SessionStarted",
     "conditions": {
