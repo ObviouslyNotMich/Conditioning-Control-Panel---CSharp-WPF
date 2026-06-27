@@ -695,6 +695,10 @@ namespace ConditioningControlPanel
 
                     // Take over any in-flight bubble cleanly (continuous visibility, no gap).
                     StopThinkingAnimation();
+                    // Stop the wake-ack's typewriter — otherwise its ticks (and the end-of-type
+                    // PopulateSpeechBubble) keep re-rendering TxtSpeech and overwrite our dots,
+                    // and the dots Run ends up detached from the bubble so it never shows.
+                    StopTypewriter();
                     _isWaitingForAi = false;
                     _isShowingAiBubble = false;
                     _speechQueue.Clear();
