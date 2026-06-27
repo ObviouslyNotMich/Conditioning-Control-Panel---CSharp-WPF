@@ -72,6 +72,37 @@ namespace ConditioningControlPanel.Services
 
         private static List<VoiceCommandIntent>? _voiceCommandIntents;
 
+        // ── Alias expansion ────────────────────────────────────────────────────
+        // Toggle features share a wide, consistent spoken vocabulary so natural phrasings all land.
+        // (The v1 intents notably lacked the bare "<noun> on" / "<noun> off" form, so "bubbles off"
+        // scored ~0 and fell through — these templates always include it.) `bare` = the noun without an
+        // article ("bubbles"); `the` = with an article ("the bubbles"); `extra` appends bespoke phrasings.
+        // Deduped; the odd ungrammatical combo ("show me spiral") is harmless — Vosk only has to match
+        // what a user might actually say, and unsaid phrasings just never fire.
+        private static string[] OnAliases(string bare, string the, params string[] extra)
+        {
+            var list = new List<string>
+            {
+                $"{bare} on", $"turn on {the}", $"turn {the} on", $"start {the}", $"start {bare}",
+                $"begin {the}", $"show me {bare}", $"show me {the}", $"give me {bare}", $"give me {the}",
+                $"i want {bare}", $"bring up {the}", $"enable {bare}",
+            };
+            list.AddRange(extra);
+            return list.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+
+        private static string[] OffAliases(string bare, string the, params string[] extra)
+        {
+            var list = new List<string>
+            {
+                $"{bare} off", $"turn off {the}", $"turn {the} off", $"stop {the}", $"stop {bare}",
+                $"end {the}", $"no more {bare}", $"hide {the}", $"get rid of {the}", $"kill {the}",
+                $"cut {the}", $"enough {bare}", $"disable {bare}",
+            };
+            list.AddRange(extra);
+            return list.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+
         /// <summary>The command set. Built lazily; Execute closures call the static App services.</summary>
         private static List<VoiceCommandIntent> VoiceCommandIntents => _voiceCommandIntents ??= new()
         {
@@ -80,7 +111,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "panic",
-                Aliases = new[] { "red", "stop everything", "stop it all", "shut it all down", "safe word", "i'm done" },
+                Aliases = new[] { "red", "stop everything", "stop it all", "shut it all down", "safe word", "i'm done", "make it all stop", "make it stop", "everything off", "turn everything off", "kill everything", "that's too much", "i need to stop", "all stop", "emergency stop" },
                 Execute = () => App.MainWindowRef?.TriggerPanicFromRemote(),
                 VoiceRuleId = "voicecmd_panic",
                 NoChain = true,
@@ -97,7 +128,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "bubbles_on",
-                Aliases = new[] { "show me some bubbles", "show me bubbles", "more bubbles", "turn on the bubbles", "start the bubbles", "give me bubbles" },
+                Aliases = OnAliases("bubbles", "the bubbles", "show me some bubbles", "more bubbles"),
                 Execute = () => App.Bubbles?.Start(bypassLevelCheck: true),
                 VoiceRuleId = "voicecmd_bubbles_on",
                 Confirm = new()
@@ -110,7 +141,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "bubbles_off",
-                Aliases = new[] { "stop the bubbles", "no more bubbles", "stop bubbles", "turn off the bubbles" },
+                Aliases = OffAliases("bubbles", "the bubbles"),
                 Execute = () => App.Bubbles?.Stop(),
                 VoiceRuleId = "voicecmd_bubbles_off",
                 Confirm = new()
@@ -125,7 +156,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "video_on",
-                Aliases = new[] { "show me a video", "play a video", "play a hypnotube video", "play hypnotube", "give me a video" },
+                Aliases = new[] { "show me a video", "play a video", "play a hypnotube video", "play hypnotube", "give me a video", "i want a video", "put on a video", "play me a video", "start a video", "play video", "video on", "show me a clip" },
                 Execute = () => App.Video?.TriggerVideo(),
                 VoiceRuleId = "voicecmd_video_on",
                 Confirm = new()
@@ -138,7 +169,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "video_off",
-                Aliases = new[] { "stop the video", "stop video", "no more videos", "turn off the video" },
+                Aliases = OffAliases("video", "the video", "no more videos", "stop playing"),
                 Execute = () => App.Video?.Stop(),
                 VoiceRuleId = "voicecmd_video_off",
                 Confirm = new()
@@ -151,7 +182,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "video_pause",
-                Aliases = new[] { "pause the video", "pause video", "pause this video" },
+                Aliases = new[] { "pause the video", "pause video", "pause this video", "pause the clip", "hold the video" },
                 Execute = () => App.Video?.PausePrimary(),
                 TerseAck = true,
                 NoChain = true,
@@ -165,7 +196,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "video_resume",
-                Aliases = new[] { "resume the video", "play the video", "unpause the video", "continue the video" },
+                Aliases = new[] { "resume the video", "play the video", "unpause the video", "continue the video", "resume video", "play the clip", "keep playing", "continue playing" },
                 Execute = () => App.Video?.PlayPrimary(),
                 TerseAck = true,
                 NoChain = true,
@@ -181,7 +212,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "flash_on",
-                Aliases = new[] { "show me flashes", "start the flashes", "turn on flashes", "flash for me" },
+                Aliases = OnAliases("flashes", "the flashes", "flash for me"),
                 Execute = () => App.Flash?.Start(),
                 VoiceRuleId = "voicecmd_flash_on",
                 Confirm = new()
@@ -194,7 +225,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "flash_off",
-                Aliases = new[] { "stop the flashes", "stop flashing", "no more flashes", "turn off flashes" },
+                Aliases = OffAliases("flashes", "the flashes", "stop flashing"),
                 Execute = () => App.Flash?.Stop(),
                 VoiceRuleId = "voicecmd_flash_off",
                 Confirm = new()
@@ -207,7 +238,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "flash_once",
-                Aliases = new[] { "flash me", "one flash", "give me a flash", "flash once" },
+                Aliases = new[] { "flash me", "one flash", "give me a flash", "flash once", "just one flash", "quick flash", "a single flash", "one quick flash" },
                 Execute = () => App.Flash?.TriggerFlash(),
                 VoiceRuleId = "voicecmd_flash_once",
                 Confirm = new()
@@ -222,7 +253,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "subliminals_on",
-                Aliases = new[] { "show me subliminals", "turn on subliminals", "start the subliminals", "subliminals on" },
+                Aliases = OnAliases("subliminals", "the subliminals"),
                 Execute = () => App.Subliminal?.Start(),
                 VoiceRuleId = "voicecmd_subliminals_on",
                 Confirm = new()
@@ -235,7 +266,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "subliminals_off",
-                Aliases = new[] { "stop the subliminals", "turn off subliminals", "no more subliminals", "subliminals off" },
+                Aliases = OffAliases("subliminals", "the subliminals"),
                 Execute = () => App.Subliminal?.Stop(),
                 VoiceRuleId = "voicecmd_subliminals_off",
                 Confirm = new()
@@ -250,7 +281,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "bouncing_on",
-                Aliases = new[] { "turn on the bouncing text", "start the bouncing text", "show me bouncing text", "bouncing text on" },
+                Aliases = OnAliases("bouncing text", "the bouncing text"),
                 Execute = () => App.BouncingText?.Start(),
                 VoiceRuleId = "voicecmd_bouncing_on",
                 Confirm = new()
@@ -263,7 +294,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "bouncing_off",
-                Aliases = new[] { "turn off the bouncing text", "stop the bouncing text", "no more bouncing text", "bouncing text off" },
+                Aliases = OffAliases("bouncing text", "the bouncing text"),
                 Execute = () => App.BouncingText?.Stop(),
                 VoiceRuleId = "voicecmd_bouncing_off",
                 Confirm = new()
@@ -278,7 +309,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "spiral_on",
-                Aliases = new[] { "show me the spiral", "turn on the spiral", "start the spiral", "spiral on" },
+                Aliases = OnAliases("spiral", "the spiral"),
                 Execute = () => App.Overlay?.ShowOverlaySustained("spiral", 0.5),
                 VoiceRuleId = "voicecmd_spiral_on",
                 Confirm = new()
@@ -291,7 +322,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "spiral_off",
-                Aliases = new[] { "hide the spiral", "turn off the spiral", "stop the spiral", "spiral off" },
+                Aliases = OffAliases("spiral", "the spiral"),
                 Execute = () => App.Overlay?.HideOverlaySustained("spiral"),
                 VoiceRuleId = "voicecmd_spiral_off",
                 Confirm = new()
@@ -306,7 +337,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "pink_on",
-                Aliases = new[] { "turn on the pink filter", "show me the pink filter", "pink filter on", "make it pink" },
+                Aliases = OnAliases("pink filter", "the pink filter", "make it pink", "go pink"),
                 Execute = () => App.Overlay?.ShowOverlaySustained("pink", 0.4),
                 VoiceRuleId = "voicecmd_pink_on",
                 Confirm = new()
@@ -319,7 +350,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "pink_off",
-                Aliases = new[] { "turn off the pink filter", "hide the pink filter", "pink filter off" },
+                Aliases = OffAliases("pink filter", "the pink filter", "make it normal"),
                 Execute = () => App.Overlay?.HideOverlaySustained("pink"),
                 VoiceRuleId = "voicecmd_pink_off",
                 Confirm = new()
@@ -334,7 +365,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "mindwipe_on",
-                Aliases = new[] { "turn on mind wipe", "start the mind wipe", "mind wipe on" },
+                Aliases = OnAliases("mind wipe", "the mind wipe"),
                 Execute = () => App.MindWipe?.Start(30.0, (App.Settings?.Current?.MindWipeVolume ?? 50) / 100.0),
                 VoiceRuleId = "voicecmd_mindwipe_on",
                 Confirm = new()
@@ -347,7 +378,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "mindwipe_off",
-                Aliases = new[] { "turn off mind wipe", "stop the mind wipe", "mind wipe off" },
+                Aliases = OffAliases("mind wipe", "the mind wipe"),
                 Execute = () => App.MindWipe?.Stop(),
                 VoiceRuleId = "voicecmd_mindwipe_off",
                 Confirm = new()
@@ -360,7 +391,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "wipe_once",
-                Aliases = new[] { "wipe my mind", "wipe me", "empty my head", "blank my mind" },
+                Aliases = new[] { "wipe my mind", "wipe me", "empty my head", "blank my mind", "wipe my brain", "clear my mind", "empty my mind", "erase my thoughts" },
                 Execute = () => App.MindWipe?.TriggerOnce(),
                 VoiceRuleId = "voicecmd_wipe_once",
                 Confirm = new()
@@ -375,7 +406,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "lockcard_on",
-                Aliases = new[] { "turn on lock cards", "start lock card mode", "lock card mode on", "enable lock cards" },
+                Aliases = OnAliases("lock cards", "the lock cards", "lock card mode on", "lock card mode"),
                 Execute = () => App.LockCard?.Start(),
                 VoiceRuleId = "voicecmd_lockcard_on",
                 Confirm = new()
@@ -388,7 +419,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "lockcard_off",
-                Aliases = new[] { "turn off lock cards", "stop lock card mode", "lock card mode off", "disable lock cards" },
+                Aliases = OffAliases("lock cards", "the lock cards", "lock card mode off"),
                 Execute = () => App.LockCard?.Stop(),
                 VoiceRuleId = "voicecmd_lockcard_off",
                 Confirm = new()
@@ -401,7 +432,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "lock_once",
-                Aliases = new[] { "lock me", "lock card now", "give me a lock card", "show me a lock card" },
+                Aliases = new[] { "lock me", "lock card now", "give me a lock card", "show me a lock card", "a lock card", "one lock card", "lock me up", "lock me down" },
                 Execute = () => App.LockCard?.ShowLockCard(),
                 VoiceRuleId = "voicecmd_lock_once",
                 Confirm = new()
@@ -416,7 +447,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "popquiz_on",
-                Aliases = new[] { "turn on pop quizzes", "start pop quiz mode", "pop quiz mode on", "enable pop quizzes" },
+                Aliases = OnAliases("pop quizzes", "pop quizzes", "pop quiz mode on", "pop quiz mode"),
                 Execute = () => App.PopQuiz?.Start(),
                 VoiceRuleId = "voicecmd_popquiz_on",
                 Confirm = new()
@@ -429,7 +460,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "popquiz_off",
-                Aliases = new[] { "turn off pop quizzes", "stop pop quiz mode", "pop quiz mode off", "disable pop quizzes" },
+                Aliases = OffAliases("pop quizzes", "pop quizzes", "pop quiz mode off"),
                 Execute = () => App.PopQuiz?.Stop(),
                 VoiceRuleId = "voicecmd_popquiz_off",
                 Confirm = new()
@@ -442,7 +473,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "quiz_once",
-                Aliases = new[] { "quiz me", "quiz me now", "give me a quiz", "test me" },
+                Aliases = new[] { "quiz me", "quiz me now", "give me a quiz", "test me", "pop quiz", "quiz time", "ask me a question", "give me a question" },
                 Execute = () => App.PopQuiz?.ShowPopQuiz(),
                 VoiceRuleId = "voicecmd_quiz_once",
                 Confirm = new()
@@ -457,7 +488,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "keyword_on",
-                Aliases = new[] { "turn on keyword triggers", "start keyword triggers", "keyword triggers on", "enable keyword triggers" },
+                Aliases = OnAliases("keyword triggers", "the keyword triggers", "trigger words on"),
                 Execute = () => App.KeywordTriggers?.Start(),
                 VoiceRuleId = "voicecmd_keyword_on",
                 Confirm = new()
@@ -470,7 +501,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "keyword_off",
-                Aliases = new[] { "turn off keyword triggers", "stop keyword triggers", "keyword triggers off", "disable keyword triggers" },
+                Aliases = OffAliases("keyword triggers", "the keyword triggers", "trigger words off"),
                 Execute = () => App.KeywordTriggers?.Stop(),
                 VoiceRuleId = "voicecmd_keyword_off",
                 Confirm = new()
@@ -485,7 +516,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "count_once",
-                Aliases = new[] { "count for me", "count the bubbles", "give me a counting game", "make me count" },
+                Aliases = new[] { "count for me", "count the bubbles", "give me a counting game", "make me count", "let me count", "counting game", "time to count", "i want to count" },
                 Execute = () => App.BubbleCount?.TriggerGame(),
                 VoiceRuleId = "voicecmd_count_once",
                 Confirm = new()
@@ -498,7 +529,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "freeze_once",
-                Aliases = new[] { "freeze", "freeze me", "freeze for me", "bambi freeze" },
+                Aliases = new[] { "freeze", "freeze me", "freeze for me", "bambi freeze", "freeze now", "hold still", "stay still", "don't move" },
                 Execute = () => App.Subliminal?.TriggerBambiFreeze(),
                 VoiceRuleId = "voicecmd_freeze_once",
                 Confirm = new()
@@ -511,7 +542,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "shake_once",
-                Aliases = new[] { "shake the screen", "shake it", "shake me", "earthquake" },
+                Aliases = new[] { "shake the screen", "shake it", "shake me", "earthquake", "shake things up", "make it shake", "shake everything", "shake the room" },
                 Execute = () => App.ScreenShake?.Shake(60, 1200),
                 VoiceRuleId = "voicecmd_shake_once",
                 Confirm = new()
@@ -526,7 +557,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "deeper",
-                Aliases = new[] { "deeper", "go deeper", "take me deeper", "sink deeper", "drop deeper" },
+                Aliases = new[] { "deeper", "go deeper", "take me deeper", "sink deeper", "drop deeper", "deeper now", "further down", "take me down", "drop me down", "make me go deeper", "i want to go deeper" },
                 Execute = () => App.BrainDrain?.Start(bypassLevelCheck: true),
                 VoiceRuleId = "voicecmd_deeper",
                 Confirm = new()
@@ -541,7 +572,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "takeover_on",
-                Aliases = new[] { "take over", "take control", "you're in charge", "take over for me" },
+                Aliases = new[] { "take over", "take control", "you're in charge", "take over for me", "you take over", "take the wheel", "you drive", "you're in control", "control me", "i give up control" },
                 Execute = () => App.Autonomy?.Start(),
                 VoiceRuleId = "voicecmd_takeover_on",
                 Confirm = new()
@@ -554,7 +585,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "takeover_off",
-                Aliases = new[] { "stop taking over", "stop the takeover", "you can stop now", "give me control back", "stop taking control" },
+                Aliases = new[] { "stop taking over", "stop the takeover", "you can stop now", "give me control back", "stop taking control", "i want control back", "let me drive", "give me back control", "take over off", "release control" },
                 Execute = () => App.Autonomy?.Stop(),
                 VoiceRuleId = "voicecmd_takeover_off",
                 Confirm = new()
@@ -569,7 +600,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "pause",
-                Aliases = new[] { "pause", "pause the session", "pause everything", "hold on" },
+                Aliases = new[] { "pause", "pause the session", "pause everything", "hold on", "pause please", "pause it", "wait", "hold up", "take a break", "one moment", "give me a moment" },
                 Execute = () => App.MainWindowRef?.PauseSessionFromRemote(),
                 TerseAck = true,
                 NoChain = true,
@@ -583,7 +614,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "resume",
-                Aliases = new[] { "resume", "resume the session", "continue", "keep going", "unpause" },
+                Aliases = new[] { "resume", "resume the session", "continue", "keep going", "unpause", "carry on", "go on", "let's continue", "back to it", "resume please", "continue the session" },
                 Execute = () => App.MainWindowRef?.ResumeSessionFromRemote(),
                 TerseAck = true,
                 NoChain = true,
@@ -602,7 +633,7 @@ namespace ConditioningControlPanel.Services
                 // Deliberately NO bare "quiet" alias: Vosk can emit the near-homophone "quiet" when the
                 // user says "quieter" (a different, non-destructive command), which would hard-mute ALL
                 // audio. "be quiet" keeps the intent reachable without the one-word collision.
-                Aliases = new[] { "be quiet", "mute", "silence", "shush", "hush" },
+                Aliases = new[] { "be quiet", "mute", "silence", "shush", "hush", "mute it", "mute everything", "quiet please", "stop the sound", "stop the audio", "no sound", "kill the sound", "turn off the sound" },
                 Execute = () => App.KillAllAudio(),
                 TerseAck = true,
                 NoChain = true,
@@ -616,7 +647,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "louder",
-                Aliases = new[] { "louder", "turn it up", "volume up", "more volume" },
+                Aliases = new[] { "louder", "turn it up", "volume up", "more volume", "turn up the volume", "crank it up", "louder please", "make it louder", "raise the volume", "pump it up" },
                 Execute = () => { var s = App.Settings?.Current; if (s != null) s.MasterVolume += 15; },
                 TerseAck = true,
                 NoChain = true,
@@ -630,7 +661,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "quieter",
-                Aliases = new[] { "quieter", "turn it down", "volume down", "less volume", "lower the volume" },
+                Aliases = new[] { "quieter", "turn it down", "volume down", "less volume", "lower the volume", "turn down the volume", "quieter please", "make it quieter", "not so loud", "softer", "tone it down" },
                 Execute = () => { var s = App.Settings?.Current; if (s != null) s.MasterVolume -= 15; },
                 TerseAck = true,
                 NoChain = true,
@@ -646,7 +677,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "stop_listening",
-                Aliases = new[] { "stop listening", "stop the mic", "turn off the mic", "you can stop listening", "mic off" },
+                Aliases = new[] { "stop listening", "stop the mic", "turn off the mic", "you can stop listening", "mic off", "stop the microphone", "turn off the microphone", "microphone off", "stop hearing me", "close the mic", "mute the mic" },
                 Execute = () => App.Autonomy?.StopVoiceInput(),
                 TerseAck = true,
                 NoChain = true,
@@ -663,7 +694,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "replay",
-                Aliases = new[] { "again", "one more", "do it again", "one more time", "more", "harder" },
+                Aliases = new[] { "again", "one more", "do it again", "one more time", "more", "harder", "repeat", "repeat that", "do that again", "once more", "encore" },
                 IsReplay = true,
                 Repeatable = false,
                 Confirm = new()
@@ -678,7 +709,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "help",
-                Aliases = new[] { "what can i say", "what can you do", "help", "commands", "what can i ask for", "what are my options" },
+                Aliases = new[] { "what can i say", "what can you do", "help", "commands", "what can i ask for", "what are my options", "what are the commands", "what should i say", "list commands", "what do you understand" },
                 TerseAck = true,
                 Repeatable = false,
                 Confirm = new()
@@ -693,7 +724,7 @@ namespace ConditioningControlPanel.Services
             new VoiceCommandIntent
             {
                 Name = "mantra",
-                Aliases = new[] { "give me a mantra", "make me say it", "i want a mantra", "let me say something" },
+                Aliases = new[] { "give me a mantra", "make me say it", "i want a mantra", "let me say something", "say a mantra", "mantra please", "give me something to say", "let me speak" },
                 IsMantra = true,
             },
         };
