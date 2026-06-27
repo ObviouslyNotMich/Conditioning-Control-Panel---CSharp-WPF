@@ -637,11 +637,13 @@ namespace ConditioningControlPanel.Services
             }
             else
             {
-                // Normal mode: use settings with variance
+                // Normal mode: jitter ±~33% AROUND the configured interval, so the slider value is the
+                // midpoint (e.g. 30 → 20–40s, 60 → 40–80s). Tightened from the old 0.5–1.5× spread,
+                // which let a 60s setting fire as early as 30s.
                 var baseSeconds = settings.AutonomyRandomIntervalSeconds;
-                var variance = 0.5 + _random.NextDouble(); // 0.5 to 1.5
+                var variance = (2.0 / 3.0) + _random.NextDouble() * (2.0 / 3.0); // 0.667 to 1.333
                 actualSeconds = baseSeconds * variance;
-                modeInfo = $"base: {baseSeconds}s";
+                modeInfo = $"base: {baseSeconds}s (±33%)";
             }
 
             _randomTimer?.Stop();
