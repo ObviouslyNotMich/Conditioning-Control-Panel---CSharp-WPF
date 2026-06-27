@@ -68,7 +68,7 @@
                         <TextBlock x:Name="TxtSpeed" Text="+0%" HorizontalAlignment="Right"
                                    Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
                     </Grid>
-                    <Slider x:Name="SliderSpeed" Minimum="0" Maximum="100" Value="0"
+                    <Slider x:Name="SliderSpeed" Minimum="0" Maximum="500" Value="0"
                             ValueChanged="SliderSpeed_Changed"/>
                     <TextBlock Text="How fast bubbles travel across the screen"
                                Foreground="{DynamicResource TextMutedBrush}" FontSize="10"

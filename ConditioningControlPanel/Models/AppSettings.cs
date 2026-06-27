@@ -2115,11 +2115,11 @@ namespace ConditioningControlPanel.Models
             get => _bubbleTriggerChance;
             set { _bubbleTriggerChance = Math.Clamp(value, 0, 50); OnPropertyChanged(); }
         }
-        private int _bubbleSpeedBoost = 0;   // 0..100 % extra travel speed for on-screen bubbles
+        private int _bubbleSpeedBoost = 0;   // 0..500 % extra travel speed for on-screen bubbles
         public int BubbleSpeedBoost
         {
             get => _bubbleSpeedBoost;
-            set { _bubbleSpeedBoost = Math.Clamp(value, 0, 100); OnPropertyChanged(); }
+            set { _bubbleSpeedBoost = Math.Clamp(value, 0, 500); OnPropertyChanged(); }
         }
         // Which effect types are in the pool (equal odds among the picked ids).
         // Ids map to ChaosBubbleVariants ("htlink" == Cascade/Gif Rain); "glitch" is the

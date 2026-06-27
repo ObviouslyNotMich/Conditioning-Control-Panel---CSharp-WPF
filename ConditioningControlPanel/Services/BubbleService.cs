@@ -2266,12 +2266,13 @@ internal class Bubble
             _speed *= Math.Clamp(1.4 - (_size - 150) / 220.0, 0.6, 1.4);
         if (spec != null) _speed *= Math.Max(0.1, spec.SpeedMult);   // golden bubbles fly
         if (spec != null) _speed *= ChaosTuning.CHAOS_SPEED_MULT;    // chaos pace bump: travel farther before rotting
-        // Dashboard speed slider: up to +100% travel for the ambient game (plain + trigger
-        // bubbles), leaving chaos pacing alone (chaos bubbles carry a spec but not forceWindowMode).
+        // Dashboard speed slider: up to +500% travel (6x) for the ambient game — BOTH plain and
+        // trigger bubbles — leaving chaos pacing alone (chaos bubbles carry a spec but not
+        // forceWindowMode).
         if (spec == null || forceWindowMode)
         {
             int speedBoost = App.Settings?.Current?.BubbleSpeedBoost ?? 0;
-            if (speedBoost > 0) _speed *= 1.0 + Math.Clamp(speedBoost, 0, 100) / 100.0;
+            if (speedBoost > 0) _speed *= 1.0 + Math.Clamp(speedBoost, 0, 500) / 100.0;
         }
         _animType = random.Next(4);
         _wobbleOffset = random.NextDouble() * 100;
