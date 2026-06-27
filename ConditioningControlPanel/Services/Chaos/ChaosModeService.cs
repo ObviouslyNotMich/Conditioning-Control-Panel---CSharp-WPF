@@ -33,13 +33,6 @@ public sealed class ChaosModeService
     /// static readonly (not const) so the guards don't fold to unreachable-code warnings.</summary>
     public static readonly bool StoryModeEnabled = false;
 
-    /// <summary>True while the in-app VN runner (StoryRunnerWindow) owns the screen for a story
-    /// "popping session" arc — from opening the runner until it closes, across the VN beats AND the
-    /// session(s) between them. While set: the floating companion is hidden+muted by the STORY (the
-    /// per-run chaos avatar logic stands down — see AvatarTubeWindow.SetChaosRunActive), and unscripted
-    /// mandatory videos are suppressed so the deterministic session isn't interrupted. Set by the runner.</summary>
-    public static bool StoryUiActive { get; set; }
-
     /// <summary>The play mode chosen on the Lab card. The pick moved here from the in-hub picker, so
     /// this is the single source of truth that <see cref="StartRun"/> reads. Defaults to Free Desktop
     /// (the pre-Story behaviour); <see cref="StartRun"/> forces Free Desktop anyway while
@@ -77,11 +70,6 @@ public sealed class ChaosModeService
     private bool _paused;        // boon draft on screen (clock + spawns held)
     private bool _manualPaused;  // user hit pause
     private int _pendingWave;
-    /// <summary>Set by the in-app VN runner before a story popping session; invoked once the run ends
-    /// (true = ran the full song, false = cut short / aborted) so the story can advance. Fired and
-    /// cleared in <see cref="CleanupAfterRun"/>.</summary>
-    public Action<bool>? OnStoryRunComplete;
-    private bool _lastStoryRunFull;   // captured in EndRun, read when firing OnStoryRunComplete
     private bool _endingSoonFired;     // T-10s "the hole is closing" beat, once per run
     private bool _finalLoopAnnounced;  // FINAL LOOP banner, once per run (Relapse can't re-fire it)
     private bool _rippleTeachOffered;  // ready-cue teach line, at most once per run until first cast
@@ -298,21 +286,6 @@ public sealed class ChaosModeService
 
     // ============================ start / countdown ============================
 
-    /// <summary>
-    /// Launch a story "popping session": a deterministic, song-synced descent driven by
-    /// <see cref="ChaosMusicalDirector"/>. The VN runner passes the session block and pre-resolved
-    /// asset paths plus a completion callback (true = ran the full song, false = cut short/aborted).
-    /// No boon drafts, curses or meta-progression; no results overlay — control returns to the story.
-    /// </summary>
-    public void StartStoryRun(Models.PoppingSession session, string? backgroundPath, string songPath,
-        string? envelopePath, Action<bool>? onComplete)
-    {
-        if (_active) { onComplete?.Invoke(false); return; }
-        var cfg = ChaosMusicalDirector.Prepare(session, backgroundPath, songPath, envelopePath);
-        OnStoryRunComplete = onComplete;
-        StartRun(cfg);
-    }
-
     public void StartRun(ChaosRunConfig? config = null, bool isRestart = false)
     {
         if (_active) return;
@@ -436,7 +409,7 @@ public sealed class ChaosModeService
 
         // Loadout: a pre-equipped start boon enters the run already active (before wave 1).
         // The scripted first descent falls in bare — no start boon, whatever a stale save says.
-        var equipped = (_state.Config.ScriptedFirstRun || _state.Config.ScriptedStoryRun) ? null : ChaosMeta.State.EquippedStartBoon;
+        var equipped = _state.Config.ScriptedFirstRun ? null : ChaosMeta.State.EquippedStartBoon;
         if (!string.IsNullOrEmpty(equipped))
         {
             var boon = ChaosBoonPool.All.FirstOrDefault(b => b.Id == equipped);
@@ -450,12 +423,12 @@ public sealed class ChaosModeService
             }
         }
         // Welcome Shower equipped as the start boon: the very first GO! gets its treat dump too.
-        if (_state.WelcomeShowerEnabled && !_state.Config.ScriptedStoryRun) SpawnWelcomeShower();
+        if (_state.WelcomeShowerEnabled) SpawnWelcomeShower();
 
         // Lifetime boons (Skills/Accessories/Utility): apply active ones at their level, then
         // mirror them into the HUD strip as icons. The pre-run glance is over: the loadout
         // locks in and the pinned-open panel folds away.
-        if (!_state.Config.ScriptedStoryRun) ChaosMeta.ApplyLifetimeBoons(_state);
+        ChaosMeta.ApplyLifetimeBoons(_state);
         RefreshSidebarLoadout();
         _hud?.SetPreRunExpanded(false);
         // Pocket Watch gates ALL timekeeping: the sidebar run clock + fill bar only show with the charm.
@@ -480,14 +453,12 @@ public sealed class ChaosModeService
         _invulnUntilUtc = DateTime.MinValue;
         _teaseDeniedThisRun = 0;
         _teaseDeniedStreakBarked = false;
-        // Happy path: the scripted-run director resets its beat trackers with the run. A story popping
-        // session is driven by ChaosMusicalDirector instead — leave the happy path dormant (its state
-        // stays null so its Tick no-ops).
-        if (!_state.Config.ScriptedStoryRun) ChaosHappyPath.OnRunStarted(_state, this);
+        // Happy path: the scripted-run director resets its beat trackers with the run.
+        ChaosHappyPath.OnRunStarted(_state, this);
 
         // First descent since the verb changed: one quiet line so the hold isn't a mystery.
         // The scripted run 1 holds this back — ChaosHappyPath fires it at the lone-threat beat.
-        if (!ChaosMeta.State.SeenDefuseTutorial && !_state.Config.ScriptedFirstRun && !_state.Config.ScriptedStoryRun)
+        if (!ChaosMeta.State.SeenDefuseTutorial && !_state.Config.ScriptedFirstRun)
         {
             ChaosMeta.State.SeenDefuseTutorial = true;
             ChaosMeta.Save();
@@ -528,22 +499,12 @@ public sealed class ChaosModeService
         _spawnTimer.Tick += SpawnTick;
         _spawnTimer.Start();
 
-        // A story popping session is deterministic: the Madam stays out of it, and the backdrop is the
-        // scene's own plate (not the depth map). The musical director starts the song + custom backdrop.
-        if (_state.Config.ScriptedStoryRun)
-        {
-            _pendingDepthVCard = false;
-            ChaosMusicalDirector.OnRunStarted(_state, this);
-        }
-        else
-        {
-            // Narrative layer (the Madam) + per-zone backdrop. Both gated on their settings internally;
-            // the backdrop spawns no window when off, so classic Chaos keeps its desktop click-through.
-            ChaosNarrativeHooks.OnRunStarted();
-            _pendingDepthVCard = false;
-            ChaosBackdropService.Show(_state.ActIndex);
-            ChaosNarrativeHooks.OnMoment("run_start", BuildNarrativeCtx());
-        }
+        // Narrative layer (the Madam) + per-zone backdrop. Both gated on their settings internally;
+        // the backdrop spawns no window when off, so classic Chaos keeps its desktop click-through.
+        ChaosNarrativeHooks.OnRunStarted();
+        _pendingDepthVCard = false;
+        ChaosBackdropService.Show(_state.ActIndex);
+        ChaosNarrativeHooks.OnMoment("run_start", BuildNarrativeCtx());
 
         // Arm crash diagnostics: fresh peak, baseline sample, and the sentinel goes live for THIS run.
         _peakNativeMb = 0; _memSampleTick = 0;
@@ -978,7 +939,7 @@ public sealed class ChaosModeService
         // offers it once per (non-scripted) run. FireRipple sets the flag for good. The few
         // seconds of air keep it clear of the GO/start-mantra announces.
         if (!ChaosMeta.State.SeenRippleTeach && !_rippleTeachOffered && elapsed > 6
-            && _state.RippleReady && !_state.Config.ScriptedFirstRun && !_state.Config.ScriptedStoryRun)
+            && _state.RippleReady && !_state.Config.ScriptedFirstRun)
         {
             _rippleTeachOffered = true;
             ChaosAnnouncerOverlay.Announce("🌊 THE RIPPLE — right-click near the bubbles", ChaosAnnounceKind.PowerUp,
@@ -990,11 +951,10 @@ public sealed class ChaosModeService
         TickActiveToys(dt);           // toy cooldowns + the VibePopping buzz window
         ChaosLessonHooks.SampleCursor();   // the_pull lesson: cheap, self-disabling once learned
         ChaosHappyPath.Tick(dt);           // happy path: scripted teach beats (no-op past run 2)
-        ChaosMusicalDirector.Tick(dt);     // story popping session: envelope spawn + song-timed events (no-op otherwise)
 
         // Once-ever gentle teach the FIRST time focus dips under a snap's price, before the
         // harsh NO FOCUS lesson ever gets the chance: how focus refills, what it buys.
-        if (!ChaosMeta.State.SeenFocusTip && _spawning && _state.Focus < ChaosTuning.DEFUSE_COST && !_state.Config.ScriptedStoryRun)
+        if (!ChaosMeta.State.SeenFocusTip && _spawning && _state.Focus < ChaosTuning.DEFUSE_COST)
         {
             ChaosMeta.State.SeenFocusTip = true;
             ChaosMeta.Save();
@@ -1004,7 +964,7 @@ public sealed class ChaosModeService
 
         // Once-ever heat teach: the first time the burn visibly climbs, name the orange bar —
         // otherwise "lust" only ever explains itself in a hover tooltip.
-        if (!ChaosMeta.State.SeenHeatTeach && _state.Heat >= 0.15 && !_state.Config.ScriptedStoryRun)
+        if (!ChaosMeta.State.SeenHeatTeach && _state.Heat >= 0.15)
         {
             ChaosMeta.State.SeenHeatTeach = true;
             ChaosMeta.Save();
@@ -3131,18 +3091,6 @@ public sealed class ChaosModeService
         try { _fx?.Close(); } catch { }
         _fx = null;
 
-        // Story popping session: deterministic and diegetic — no XP/Sparks/meta payout and no results/PB
-        // card. Close the overlay (→ CleanupAfterRun) which stops the song and hands control back to the
-        // VN runner via OnStoryRunComplete.
-        if (_state.Config.ScriptedStoryRun)
-        {
-            _lastStoryRunFull = ranFullCourse;
-            _hud?.Close(); _hud = null;
-            App.Bubbles?.Resume();
-            _overlay?.Close();
-            return;
-        }
-
         double durMin = Math.Max(1, _state.RunDurationSec) / 60.0;
         double capBase = 250.0 * durMin * _state.Config.DifficultyMult;
         double baseXp = Math.Min(_state.Score, capBase);
@@ -3229,7 +3177,6 @@ public sealed class ChaosModeService
         try { ChaosPopText.ShutdownPool(); } catch { }
         App.AvatarWindow?.SetChaosRunActive(false);   // restore the avatar's normal attached z-order
         ChaosHappyPath.OnRunEnded();   // the script never outlives its run (idempotent)
-        ChaosMusicalDirector.OnRunEnded();   // stop the story song + drop its run-scoped state (idempotent)
         ChaosNarrativeHooks.OnRunEnded();   // drop the Madam's run-scoped state + any duck
         _runTimer = null;
         _spawnTimer = null;
@@ -3248,17 +3195,5 @@ public sealed class ChaosModeService
         _lessonCardPaused = false;
         _lessonCardsAfterDraft = false;
         _pendingLessonCards.Clear();
-
-        // Story popping session: hand control back to the VN runner (true = ran the full song, false =
-        // cut short / aborted). Fire-and-clear so it never double-invokes; deferred so the story advances
-        // after this teardown fully unwinds.
-        var storyCb = OnStoryRunComplete;
-        OnStoryRunComplete = null;
-        if (storyCb != null)
-        {
-            bool full = _lastStoryRunFull;
-            _lastStoryRunFull = false;
-            Application.Current?.Dispatcher.BeginInvoke(new Action(() => { try { storyCb(full); } catch (Exception ex) { App.Logger?.Debug("OnStoryRunComplete: {E}", ex.Message); } }));
-        }
     }
 }

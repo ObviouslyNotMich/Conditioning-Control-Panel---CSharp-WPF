@@ -168,16 +168,6 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <!-- Story (the "half musical" opening): opening.json + bundled scene/character art + songs and
-         their baked loudness envelopes. Resolved at runtime by Services/Story/StoryAssets.cs from
-         AppContext.BaseDirectory\assets\story\. Remove from the default None glob first so the no-copy
-         None item doesn't suppress this Content copy (same gotcha as the Chaos art above). -->
-    <None Remove="assets\story\**\*.json;assets\story\**\*.png;assets\story\**\*.mp3;assets\story\**\*.wav;assets\story\**\*.ogg" />
-    <Content Include="assets\story\**\*.json;assets\story\**\*.png;assets\story\**\*.mp3;assets\story\**\*.wav;assets\story\**\*.ogg">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
   </ItemGroup>
 
   <!-- WebView2Loader.dll must be on disk - the WebView2 SDK loads it outside .NET's single-file extraction -->

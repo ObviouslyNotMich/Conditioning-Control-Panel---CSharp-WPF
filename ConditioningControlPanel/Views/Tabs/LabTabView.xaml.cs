@@ -23,30 +23,6 @@ namespace ConditioningControlPanel.Views.Tabs
                 RbChaosStory.IsChecked = true;
             else
                 RbChaosFreeDesktop.IsChecked = true;
-
-            // Dev-only entry to the in-app VN runner — hidden unless the preview flag is on.
-            BtnPlayOpening.Visibility = App.Settings?.Current?.StoryPreviewEnabled == true
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
-        }
-
-        private void ChkStoryPreview_Changed(object sender, RoutedEventArgs e)
-        {
-            if (BtnPlayOpening == null) return;
-            BtnPlayOpening.Visibility = ChkStoryPreview.IsChecked == true
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
-        }
-
-        private void BtnPlayOpening_Click(object sender, RoutedEventArgs e)
-        {
-            try { ConditioningControlPanel.StoryRunnerWindow.Launch(Window.GetWindow(this)); }
-            catch (Exception ex)
-            {
-                App.Logger?.Error(ex, "Play Opening failed");
-                MessageBox.Show("Couldn't start the opening:\n\n" + ex.Message, "The Rabbit Hole",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
         }
 
         // Records the Lab-card play-mode pick (read by ChaosModeService.StartRun for every launch

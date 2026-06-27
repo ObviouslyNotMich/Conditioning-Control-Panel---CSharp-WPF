@@ -1110,43 +1110,9 @@ namespace ConditioningControlPanel
         /// clutter the immersive scene, so we hide it for the run. Free Desktop has no story characters —
         /// the companion IS the on-screen character, so keep it floating over the desktop.
         /// </summary>
-        // ---- story arc: the in-app VN runner hides + mutes the companion for the whole opening ----
-        private bool _storyUiActive;
-        private bool _storyPrevMuted;
-        private Visibility _storyPrevVisibility = Visibility.Visible;
-
-        /// <summary>The story runner (StoryRunnerWindow) takes the companion fully off-screen and muted
-        /// for the duration of the opening — detached/floating during a session would clutter the scene.
-        /// Remembers and restores the prior visibility + avatar-mute state on exit.</summary>
-        public void SetStoryUiActive(bool active)
-        {
-            if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => SetStoryUiActive(active))); return; }
-            if (_storyUiActive == active) return;
-            _storyUiActive = active;
-            try
-            {
-                if (active)
-                {
-                    _storyPrevVisibility = Visibility;
-                    _storyPrevMuted = _isMuted;
-                    SetMuteAvatar(true);
-                    Visibility = Visibility.Hidden;
-                }
-                else
-                {
-                    SetMuteAvatar(_storyPrevMuted);
-                    Visibility = _storyPrevVisibility;
-                }
-            }
-            catch { /* window may be tearing down */ }
-        }
-
         public void SetChaosRunActive(bool active)
         {
             if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => SetChaosRunActive(active))); return; }
-            // The story arc owns the companion (hidden+muted) across its sessions — let it, so the
-            // per-run detach/park/reattach below doesn't surface a floating widget mid-story.
-            if (Services.Chaos.ChaosModeService.StoryUiActive) return;
             if (_chaosRunActive == active) return;
             _chaosRunActive = active;
             try

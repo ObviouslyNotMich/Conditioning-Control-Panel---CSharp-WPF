@@ -129,26 +129,6 @@
                                     </Style>
                                 </Button.Resources>
                             </Button>
-                            <!-- Dev-only entry to the in-app VN runner (the "half musical" opening). The
-                                 checkbox flips AppSettings.StoryPreviewEnabled; the button shows only while on. -->
-                            <CheckBox x:Name="ChkStoryPreview" Content="🎬 Story preview (dev)"
-                                      IsChecked="{Binding Source={x:Static local:App.Settings}, Path=Current.StoryPreviewEnabled, Mode=TwoWay}"
-                                      Checked="ChkStoryPreview_Changed" Unchecked="ChkStoryPreview_Changed"
-                                      Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Cursor="Hand"
-                                      HorizontalAlignment="Right" Margin="0,10,0,0"
-                                      ToolTip="Reveal the in-app Rabbit Hole opening runner (VN beats + song-synced popping sessions)"/>
-                            <Button x:Name="BtnPlayOpening" Content="🎬 Play Opening (preview)" Cursor="Hand"
-                                    Visibility="Collapsed"
-                                    Background="Transparent" Foreground="{DynamicResource PinkBrush}" FontWeight="SemiBold" FontSize="12"
-                                    BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1" Padding="14,6" Margin="0,8,0,0"
-                                    HorizontalAlignment="Right" ToolTip="Play the Rabbit Hole opening (VN beats + song-synced popping sessions)"
-                                    Click="BtnPlayOpening_Click">
-                                <Button.Resources>
-                                    <Style TargetType="Border">
-                                        <Setter Property="CornerRadius" Value="9"/>
-                                    </Style>
-                                </Button.Resources>
-                            </Button>
                             <CheckBox Content="Announcements"
                                       IsChecked="{Binding Source={x:Static local:App.Settings}, Path=Current.ChaosAnnouncerEnabled, Mode=TwoWay}"
                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Cursor="Hand"

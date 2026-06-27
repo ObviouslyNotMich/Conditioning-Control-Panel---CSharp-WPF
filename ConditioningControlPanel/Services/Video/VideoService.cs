@@ -638,15 +638,6 @@ namespace ConditioningControlPanel.Services
                 return;
             }
 
-            // Story arc in progress: a deterministic, song-synced popping session must not be interrupted
-            // by an unscripted mandatory video (it flashed over the backdrop, ended instantly, and left the
-            // main window over the scene). Drop it — scripted story videos will get their own event type.
-            if (Services.Chaos.ChaosModeService.StoryUiActive)
-            {
-                App.Logger?.Information("VideoService: TriggerVideo dropped - story arc active");
-                return;
-            }
-
             // Chaos gif rain in flight: a mandatory video opening over a falling cascade is the
             // proven UI-thread killer (AppHangB1 2026-06-10). Drop the trigger outright — never
             // queue it. Chaos's own video bubbles are already gated upstream while the rain

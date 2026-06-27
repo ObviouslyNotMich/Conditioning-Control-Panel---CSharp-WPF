@@ -52,8 +52,6 @@ internal static class ChaosBackdropService
 
     private static Window? _active;
     private static SKElement? _sk;
-    private static Image? _sceneImg;            // the scene plate: a static, GPU-composited WPF layer
-    private const int FxW = 640, FxH = 360;     // FX render resolution (stretched to full screen by a Viewbox)
     private static int _currentDepth = -1;
     private static ImageSource? _currentArtSource;   // current scene plate (no FX) for story-card reuse
 
@@ -106,40 +104,11 @@ internal static class ChaosBackdropService
         try { SetDepth(depth); } catch (Exception ex) { App.Logger?.Debug("ChaosBackdropService.SwapTo: {E}", ex.Message); }
     }
 
-    /// <summary>
-    /// Show an ARBITRARY story-chosen image as the backdrop, bypassing the depth→scene map AND the
-    /// <see cref="Enabled"/> gate (a story "popping session" always wants its plate, regardless of the
-    /// Narrative/Backdrop settings or play mode). Optionally pass an authored <c>{stem}_fx.png</c> glint
-    /// mask alongside; without one the scene just shows plainly. Used by <see cref="ChaosMusicalDirector"/>.
-    /// </summary>
-    public static void ShowCustom(string imagePath, string? fxPath = null)
-    {
-        if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
-        {
-            App.Logger?.Warning("ChaosBackdropService.ShowCustom: missing image {P}", imagePath);
-            return;
-        }
-        try
-        {
-            if (_active == null) Build();
-            _currentDepth = -999;   // custom sentinel: a later depth SwapTo won't early-out against it
-            // Auto-find an authored glint mask next to the plate ({stem}_fx.png) when none was passed.
-            if (string.IsNullOrEmpty(fxPath))
-            {
-                var guess = Path.Combine(Path.GetDirectoryName(imagePath) ?? "",
-                    Path.GetFileNameWithoutExtension(imagePath) + "_fx.png");
-                if (File.Exists(guess)) fxPath = guess;
-            }
-            SetArt(imagePath, fxPath, LoadWpf(imagePath));
-        }
-        catch (Exception ex) { App.Logger?.Warning("ChaosBackdropService.ShowCustom failed: {E}", ex.Message); }
-    }
-
     public static void CloseActive()
     {
         try { _timer?.Stop(); } catch { }
         try { _active?.Close(); } catch { }
-        _active = null; _sk = null; _sceneImg = null; _currentDepth = -1; _currentArtSource = null;
+        _active = null; _sk = null; _currentDepth = -1; _currentArtSource = null;
         DisposeSkia();
     }
 
@@ -149,33 +118,24 @@ internal static class ChaosBackdropService
         var scene = SceneFor(depth);
 
         // WPF source for story-card reuse (scene art only).
-        var cardSource = ChaosArt.Resolve("backdrops", scene)
-                         ?? ChaosArt.Resolve("backdrops", "depth" + depth);
+        _currentArtSource = ChaosArt.Resolve("backdrops", scene)
+                            ?? ChaosArt.Resolve("backdrops", "depth" + depth);
 
         // Skia scene + authored FX.
         var artPath = ChaosArt.PathFor("backdrops", scene) ?? ChaosArt.FilePath($"backdrops/depth{depth}.png");
         var fxPath = ChaosArt.FilePath($"backdrops/{scene}_fx.png");
-        SetArt(artPath, fxPath, cardSource);
-    }
 
-    /// <summary>Point the static scene layer at a plate and (re)build the authored FX. The scene is a
-    /// WPF image (composited once); only the low-res FX overlay animates. Shared by depth swaps
-    /// (<see cref="SetDepth"/>) and arbitrary story backdrops (<see cref="ShowCustom"/>).</summary>
-    private static void SetArt(string? artPath, string? fxPath, ImageSource? sceneSource)
-    {
-        _currentArtSource = sceneSource;
-        if (_sceneImg != null) _sceneImg.Source = sceneSource;   // static GPU layer — no per-frame cost
-
-        _art?.Dispose(); _art = LoadSk(artPath);                 // kept only to bake the bloom
+        _artOut?.Dispose(); _artOut = _art;          // outgoing plate for the crossfade
+        _art = LoadSk(artPath);
         _fx?.Dispose(); _fx = LoadSk(fxPath);
-        _twSpots = ExtractSpots(fxPath, 1);                      // green channel = twinkle anchors
+        _twSpots = ExtractSpots(fxPath, 1);          // green channel = twinkle anchors
         _rToA ??= ChanToAlpha(0); _bToA ??= ChanToAlpha(2);
         _bloom?.Dispose(); _bloom = BuildBloom(_art, _fx);
         LoadFxTuning();
         _tw.Clear(); _twAccum = 0f; _sweep = 0f;
-        _fadeT = 0f; _fading = true;                             // fade the FX in (scene shows immediately)
+        _fadeT = _artOut != null ? 0f : 1f; _fading = _artOut != null;
 
-        if (_active != null) _active.Opacity = 1.0;
+        if (_active != null) _active.Opacity = App.Settings?.Current?.BackdropOpacity ?? 0.55;
         EnsureTimer();
         _sk?.InvalidateVisual();
     }
@@ -210,31 +170,16 @@ internal static class ChaosBackdropService
 
     private static void Build()
     {
-        // Layer 1: the scene plate as a STATIC WPF image — GPU-composited once, zero per-frame cost,
-        // full resolution (crisp). The old design re-rastered the full-screen scene through CPU Skia
-        // every frame, which is what actually lagged the descent.
-        _sceneImg = new Image { Stretch = Stretch.UniformToFill, IsHitTestVisible = false };
-
-        // Layer 2: the authored FX (glow/twinkle/sheen) as a LOW-RES Skia overlay stretched to fill by a
-        // Viewbox. The FX are soft additive light, so 640x360 upscaled reads identically while the per-
-        // frame Skia raster + upload shrinks ~9x. Transparent background so the scene shows through.
-        _sk = new SKElement { Width = FxW, Height = FxH, IsHitTestVisible = false };
+        _sk = new SKElement { IsHitTestVisible = false };
         _sk.PaintSurface += OnPaint;
-        var fxBox = new Viewbox { Stretch = Stretch.Fill, IsHitTestVisible = false, Child = _sk };
-
         var grid = new Grid();
-        grid.Children.Add(_sceneImg);
-        grid.Children.Add(fxBox);
+        grid.Children.Add(_sk);
 
-        // OPAQUE so WPF GPU-composites it. AllowsTransparency=true is the expensive path — it forces a
-        // per-frame full-screen CPU blit (UpdateLayeredWindow) that starved the bubble/effect render
-        // thread under load (the "super laggy story session"). The backdrop fully covers the screen (the
-        // scene IS the floor of the descent), so we never needed transparency; FX still animate on top.
         _active = new Window
         {
             WindowStyle = WindowStyle.None,
-            AllowsTransparency = false,
-            Background = Brushes.Black,
+            AllowsTransparency = true,
+            Background = Brushes.Black,    // covers the desktop under the (semi-opaque) window
             Topmost = false,               // proven: sits under every topmost bubble/overlay window
             ShowInTaskbar = false,
             ShowActivated = false,
@@ -245,30 +190,41 @@ internal static class ChaosBackdropService
             Top = 0,
             Width = SystemParameters.PrimaryScreenWidth,
             Height = SystemParameters.PrimaryScreenHeight,
-            Opacity = 1.0,
+            Opacity = App.Settings?.Current?.BackdropOpacity ?? 0.55,
             Content = grid,
         };
         _active.SourceInitialized += (_, _) => ApplyExStyles(_active);
         _active.Closed += (_, _) => { _timer?.Stop(); };
         _active.Show();
-        App.Logger?.Information("ChaosBackdropService window up (non-topmost, click-absorbing, opaque + Skia FX)");
+        App.Logger?.Information("ChaosBackdropService window up (non-topmost, click-absorbing, Skia FX)");
     }
 
     // ============================ Skia rendering ============================
 
-    // FX-ONLY layer: the scene is a separate static WPF image below this. We clear to transparent and
-    // paint just the authored additive light over the full (low-res) surface, which the Viewbox stretches
-    // to full screen. No per-frame scene raster → the descent stays smooth.
     private static void OnPaint(object? sender, SKPaintSurfaceEventArgs e)
     {
         var canvas = e.Surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
+        canvas.Clear(SKColors.Black);
         var info = e.Info;
-        if (info.Width <= 0 || info.Height <= 0 || !FxOn) return;
+        if (_art == null || info.Width <= 0 || info.Height <= 0) return;
 
-        var rect = new SKRect(0, 0, info.Width, info.Height);
-        try { DrawAuthoredFx(canvas, rect); }
-        catch (Exception ex) { App.Logger?.Debug("ChaosBackdrop.DrawAuthoredFx: {E}", ex.Message); }
+        bool fx = FxOn;
+        var rect = CoverRect(_art, info);
+
+        canvas.Save();
+        if (fx) ApplyBreath(canvas, info);
+
+        // scene plate (crossfade the outgoing → incoming on a depth swap)
+        using (var p = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High })
+        {
+            if (_fading && _artOut != null)
+                canvas.DrawImage(_artOut, CoverRect(_artOut, info), p);
+            p.Color = SKColors.White.WithAlpha((byte)(Math.Clamp(_fadeT, 0f, 1f) * 255));
+            canvas.DrawImage(_art, rect, p);
+        }
+
+        if (fx) { try { DrawAuthoredFx(canvas, rect); } catch (Exception ex) { App.Logger?.Debug("ChaosBackdrop.DrawAuthoredFx: {E}", ex.Message); } }
+        canvas.Restore();
     }
 
     /// <summary>Very gentle breathing scale + drift so the plate feels alive behind the field. Subtler
@@ -388,23 +344,6 @@ internal static class ChaosBackdropService
     }
 
     // ---- shared Skia helpers (ported from the menu glint renderer) ----
-
-    /// <summary>Load an absolute image path as a frozen WPF bitmap for the static scene layer.</summary>
-    private static ImageSource? LoadWpf(string? path)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.UriSource = new Uri(path!, UriKind.Absolute);
-            bmp.EndInit();
-            bmp.Freeze();
-            return bmp;
-        }
-        catch { return null; }
-    }
 
     private static SKImage? LoadSk(string? path)
     {
