@@ -97,7 +97,7 @@
                                 <Ellipse x:Name="OrbCore" x:FieldModifier="internal" Width="58" Height="58" Fill="#3A3A52"
                                          Stroke="#5A4A6A" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 <Image Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Source="{Binding Source='🎤', Converter={StaticResource EmojiToImageSource}}"/>
+                                       Source="{Binding Source='🌀', Converter={StaticResource EmojiToImageSource}}"/>
                             </Grid>
                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                 <TextBlock x:Name="TxtTakeoverStatus" x:FieldModifier="internal" Text="○ DORMANT"
