@@ -28,6 +28,8 @@ namespace ConditioningControlPanel
         private bool _isCompleted = false;
         private DispatcherTimer? _closeTimer;
         private bool _voiceListening = false;
+        private System.Threading.CancellationTokenSource? _voiceCts; // cancels the in-flight recognize on close/panic/privacy
+        private bool _evictedAutonomy = false; // we stood the "Hey Bambi" wake/PTT mic down and must restore it
         
         // Multi-monitor support
         private readonly bool _isPrimary;
@@ -480,12 +482,29 @@ namespace ConditioningControlPanel
         {
             if (_voiceListening || !_voiceMode) return;
             _voiceListening = true;
+
+            // The mic is single-owner. If the always-on "Hey Bambi" wake/PTT loop is armed it holds the
+            // mic forever, so every RecognizePhraseAsync here comes back Unavailable and the card could
+            // never be solved by voice. Stand it down for the life of the card; we re-arm it per settings
+            // on teardown (mirrors SpeakPromptSession).
+            try
+            {
+                if (App.Autonomy?.UserDrivenVoiceArmed == true)
+                {
+                    App.Autonomy.StopVoiceInput();
+                    _evictedAutonomy = true;
+                    App.Logger?.Information("LockCardWindow: claimed mic from Autonomy wake/PTT for voice solve");
+                }
+            }
+            catch (Exception ex) { App.Logger?.Debug("LockCardWindow: evict Autonomy failed: {E}", ex.Message); }
+
+            _voiceCts = new System.Threading.CancellationTokenSource();
             if (App.Speech != null)
             {
                 App.Speech.LevelChanged += OnVoiceLevel;
                 App.Speech.PartialTranscript += OnVoicePartial;
             }
-            _ = RunVoiceSolveLoopAsync();
+            _ = RunVoiceSolveLoopAsync(_voiceCts.Token);
         }
 
         private void StopVoiceSolve()
@@ -497,20 +516,44 @@ namespace ConditioningControlPanel
                 App.Speech.LevelChanged -= OnVoiceLevel;
                 App.Speech.PartialTranscript -= OnVoicePartial;
             }
+            // Cut any in-flight recognize so the mic closes immediately on close / panic / privacy pill,
+            // instead of staying hot until the 10s listen window expires.
+            try { _voiceCts?.Cancel(); } catch { }
+            try { if (App.Speech?.IsListening == true) App.Speech.StopListening(); } catch { }
+            try { _voiceCts?.Dispose(); } catch { }
+            _voiceCts = null;
+            RestoreAutonomyVoice();
         }
 
-        private async Task RunVoiceSolveLoopAsync()
+        // Hand the mic back to the "Hey Bambi" wake/PTT loop if we stood it down. Idempotent.
+        private void RestoreAutonomyVoice()
+        {
+            if (!_evictedAutonomy) return;
+            _evictedAutonomy = false;
+            try { App.Autonomy?.RefreshVoiceInputModes(); }
+            catch (Exception ex) { App.Logger?.Debug("LockCardWindow: restore Autonomy failed: {E}", ex.Message); }
+        }
+
+        private async Task RunVoiceSolveLoopAsync(System.Threading.CancellationToken ct)
         {
             int consecutiveUnavailable = 0;
             try
             {
-                while (!_isCompleted && _voiceMode)
+                // If we just stood Autonomy down, give its capture session a beat to release the mic
+                // before our first listen (mirrors AutonomyService.RequestVoiceCommand).
+                if (_evictedAutonomy)
+                {
+                    for (int i = 0; i < 24 && App.Speech?.IsListening == true && !ct.IsCancellationRequested; i++)
+                        await Task.Delay(25, ct);
+                }
+
+                while (!_isCompleted && _voiceMode && !ct.IsCancellationRequested)
                 {
                     if (App.Speech?.IsAvailable != true)
                     {
                         // Engine/mic vanished mid-session — degrade to typing so we never trap.
                         if (++consecutiveUnavailable > 6) { FallBackToTextMidSession(); break; }
-                        await Task.Delay(500);
+                        await Task.Delay(500, ct);
                         continue;
                     }
 
@@ -518,16 +561,20 @@ namespace ConditioningControlPanel
                     try
                     {
                         res = await App.Speech.RecognizePhraseAsync(
-                            _phrase, new RecognizeOptions { Timeout = TimeSpan.FromSeconds(10) });
+                            _phrase, new RecognizeOptions { Timeout = TimeSpan.FromSeconds(10) }, ct);
                     }
+                    catch (OperationCanceledException) { break; }
                     catch { res = PhraseResult.NotAvailable; }
 
-                    if (_isCompleted || !_voiceMode) break;
+                    if (_isCompleted || !_voiceMode || ct.IsCancellationRequested) break;
 
                     if (res.Unavailable)
                     {
-                        // Another capture session briefly held the mic — just retry.
-                        await Task.Delay(350);
+                        // Mic held by another session (e.g. a wake loop we couldn't evict). If we can
+                        // never get it, don't trap the user on a card unsolvable by voice — degrade to
+                        // typing after a few tries (the Unavailable path must count toward the fallback).
+                        if (++consecutiveUnavailable > 6) { FallBackToTextMidSession(); break; }
+                        await Task.Delay(350, ct);
                         continue;
                     }
                     consecutiveUnavailable = 0;
@@ -538,14 +585,14 @@ namespace ConditioningControlPanel
                         SetVoiceState("✓ Yes~", VoiceGreen);
                         RegisterSuccessfulRepeat();
                         if (_isCompleted) break;
-                        await Task.Delay(700);
+                        await Task.Delay(700, ct);
                         SetVoiceState("🎤 Listening…", VoicePink);
                     }
                     else if (!res.LoudEnough && res.Score >= 0.45)
                     {
                         SetVoiceHeard(res.Transcript);
                         SetVoiceState("🔊 Louder…", VoiceAmber);
-                        await Task.Delay(800);
+                        await Task.Delay(800, ct);
                         SetVoiceState("🎤 Listening…", VoicePink);
                     }
                     else if (res.TimedOut && string.IsNullOrWhiteSpace(res.Transcript))
@@ -556,11 +603,12 @@ namespace ConditioningControlPanel
                     {
                         SetVoiceHeard(res.Transcript);
                         SetVoiceState("✗ Again, slower…", VoiceAmber);
-                        await Task.Delay(800);
+                        await Task.Delay(800, ct);
                         SetVoiceState("🎤 Listening…", VoicePink);
                     }
                 }
             }
+            catch (OperationCanceledException) { /* cancelled on close / panic / privacy pill */ }
             catch (Exception ex) { App.Logger?.Warning("LockCardWindow: voice solve loop failed: {Error}", ex.Message); }
             finally { StopVoiceSolve(); }
         }
