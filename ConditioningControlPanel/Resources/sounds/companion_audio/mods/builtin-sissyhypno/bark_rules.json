@@ -8190,7 +8190,7 @@
   {
     "id": "idle_quip_3",
     "trigger": "Idle",
-    "conditions": {},
+    "conditions": { "webcam_running_eq": true },
     "priority": 50,
     "cooldown_ms": 0,
     "repeatable": true,
@@ -10253,6 +10253,182 @@
       {
         "text": "five times it asked, five times you said no. careful, princess. that kind of discipline makes me want to try harder.",
         "audio": "rh_tease_denied_streak_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_wake",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "yes, lovely? i'm right here~",
+        "audio": "voicecmd_wake_1.mp3"
+      },
+      {
+        "text": "mmm? you called, sweetie~",
+        "audio": "voicecmd_wake_2.mp3"
+      },
+      {
+        "text": "i'm here. tell me what you need~",
+        "audio": "voicecmd_wake_3.mp3"
+      },
+      {
+        "text": "ready when you are, good girl~",
+        "audio": "voicecmd_wake_4.mp3"
+      },
+      {
+        "text": "yes? speak up for me, lovely~",
+        "audio": "voicecmd_wake_5.mp3"
+      },
+      {
+        "text": "i'm listening... go on~",
+        "audio": "voicecmd_wake_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_panic",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, soft",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "shh... everything's off. you're safe now, good girl.",
+        "audio": "voicecmd_panic_1.mp3"
+      },
+      {
+        "text": "all stopped, lovely. breathe. you're safe.",
+        "audio": "voicecmd_panic_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_bubbles_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "mmm, bubbles for my good girl~",
+        "audio": "voicecmd_bubbles_on_1.mp3"
+      },
+      {
+        "text": "here come the bubbles, lovely~ pop them for me.",
+        "audio": "voicecmd_bubbles_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_bubbles_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "all done, good girl.",
+        "audio": "voicecmd_bubbles_off_1.mp3"
+      },
+      {
+        "text": "bubbles away, lovely. rest now.",
+        "audio": "voicecmd_bubbles_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_video_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "eyes on the screen for me~",
+        "audio": "voicecmd_video_on_1.mp3"
+      },
+      {
+        "text": "watch closely, lovely... let it sink in.",
+        "audio": "voicecmd_video_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_video_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "that's enough watching, good girl.",
+        "audio": "voicecmd_video_off_1.mp3"
+      },
+      {
+        "text": "eyes off now, lovely. rest.",
+        "audio": "voicecmd_video_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_flash_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "let it wash over you~",
+        "audio": "voicecmd_flash_on_1.mp3"
+      },
+      {
+        "text": "eyes open, lovely... let the flashes take you.",
+        "audio": "voicecmd_flash_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_flash_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm, inviting",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "rest your eyes, good girl.",
+        "audio": "voicecmd_flash_off_1.mp3"
+      },
+      {
+        "text": "flashes off, lovely. soft now.",
+        "audio": "voicecmd_flash_off_2.mp3"
       }
     ]
   }

@@ -229,13 +229,27 @@ namespace ConditioningControlPanel.Services
             {
                 try
                 {
-                    App.AvatarWindow?.GigglePriority(
-                        _random.Next(3) switch
+                    // Per-mod wake acknowledgement: voiced manifest variant when available (rotates,
+                    // avoiding immediate repeats), else a plain per-mod line, text-only.
+                    var voiced = App.Bark?.PickVoiceLine("voicecmd_wake");
+                    string ack;
+                    string? audio = null;
+                    if (voiced is { } line && !string.IsNullOrWhiteSpace(line.Text))
+                    {
+                        ack = line.Text;
+                        audio = line.Audio;
+                    }
+                    else
+                    {
+                        ack = ModKey() switch
                         {
-                            0 => "Mmm? You called for me~",
-                            1 => "Yes? I'm right here~",
-                            _ => "Good girl… I'm listening~"
-                        }, false, aiGenerated: false);
+                            "bambi" => "mmm? you called for me~",
+                            "circe" => "you called. i'm listening.",
+                            _       => "yes, lovely? i'm right here~",
+                        };
+                    }
+                    App.AvatarWindow?.GigglePriority(ack, playSound: audio != null, aiGenerated: false,
+                        phraseAudioPath: audio, barkVoice: audio != null);
                 }
                 catch { }
             });

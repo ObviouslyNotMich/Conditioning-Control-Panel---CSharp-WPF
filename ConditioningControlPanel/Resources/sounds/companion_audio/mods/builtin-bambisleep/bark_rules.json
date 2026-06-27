@@ -8139,7 +8139,7 @@
   {
     "id": "idle_observe_4",
     "trigger": "Idle",
-    "conditions": {},
+    "conditions": { "webcam_running_eq": true },
     "priority": 50,
     "cooldown_ms": 0,
     "repeatable": true,
@@ -10075,7 +10075,7 @@
   {
     "id": "idle_quip_6",
     "trigger": "Idle",
-    "conditions": {},
+    "conditions": { "webcam_running_eq": true },
     "priority": 50,
     "cooldown_ms": 0,
     "repeatable": true,
@@ -10551,7 +10551,7 @@
   {
     "id": "idle_quip_34",
     "trigger": "Idle",
-    "conditions": {},
+    "conditions": { "webcam_running_eq": true },
     "priority": 50,
     "cooldown_ms": 0,
     "repeatable": true,
@@ -11679,6 +11679,182 @@
       {
         "text": "five times it asked, five times you said no! careful... that kind of discipline makes me wanna try harder.",
         "audio": "rh_tease_denied_streak_1.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_wake",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "mmm? you called for me~",
+        "audio": "voicecmd_wake_1.mp3"
+      },
+      {
+        "text": "yes? bambi's right here~",
+        "audio": "voicecmd_wake_2.mp3"
+      },
+      {
+        "text": "ooh, you need me? hehe~",
+        "audio": "voicecmd_wake_3.mp3"
+      },
+      {
+        "text": "ready when you are, silly~",
+        "audio": "voicecmd_wake_4.mp3"
+      },
+      {
+        "text": "yeah? what is it, cutie~",
+        "audio": "voicecmd_wake_5.mp3"
+      },
+      {
+        "text": "i'm listening, good girl~",
+        "audio": "voicecmd_wake_6.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_panic",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "warm",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "okay okay! all stop~ you're safe, cutie",
+        "audio": "voicecmd_panic_1.mp3"
+      },
+      {
+        "text": "shh, all gone~ you're okay, good girl",
+        "audio": "voicecmd_panic_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_bubbles_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "yay! bubbles~ pop pop pop!",
+        "audio": "voicecmd_bubbles_on_1.mp3"
+      },
+      {
+        "text": "bubbles bubbles bubbles~ pop 'em all!",
+        "audio": "voicecmd_bubbles_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_bubbles_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "aww, no more bubbles~ okayy!",
+        "audio": "voicecmd_bubbles_off_1.mp3"
+      },
+      {
+        "text": "all done popping~ hehe",
+        "audio": "voicecmd_bubbles_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_video_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "ooh a video! watch closely~",
+        "audio": "voicecmd_video_on_1.mp3"
+      },
+      {
+        "text": "eyes on the screen, good girl~",
+        "audio": "voicecmd_video_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_video_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "video's gone~ hehe",
+        "audio": "voicecmd_video_off_1.mp3"
+      },
+      {
+        "text": "all done watching~ okayy!",
+        "audio": "voicecmd_video_off_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_flash_on",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "flashy flashy~ don't blink!",
+        "audio": "voicecmd_flash_on_1.mp3"
+      },
+      {
+        "text": "ooh pretty flashes~ let 'em in!",
+        "audio": "voicecmd_flash_on_2.mp3"
+      }
+    ]
+  },
+  {
+    "id": "voicecmd_flash_off",
+    "trigger": "VoiceCommand",
+    "priority": 300,
+    "cooldown_ms": 0,
+    "repeatable": true,
+    "scope": "session",
+    "mood": "delighted, playful",
+    "class": "normal",
+    "variant_pool": [
+      {
+        "text": "okayy, no more flashes~",
+        "audio": "voicecmd_flash_off_1.mp3"
+      },
+      {
+        "text": "flashes all gone~ hehe",
+        "audio": "voicecmd_flash_off_2.mp3"
       }
     ]
   }
