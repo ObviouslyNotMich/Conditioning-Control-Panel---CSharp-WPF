@@ -196,6 +196,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
         private readonly IOverlayService _overlay;
         private readonly IHapticsService _haptics;
         private readonly IBubbleService _bubbles;
+        private readonly ISpeakPromptHost? _speakHost;
 
         // Per-EffectId tracking for band-mode effects. Lets Stop hide the right
         // overlay kind and Restart re-issue a haptic with its previously dispatched
@@ -220,7 +221,8 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             IOverlayService overlay,
             IHapticsService haptics,
             IBubbleService bubbles,
-            ILogger<RealActionDispatcher>? logger = null)
+            ILogger<RealActionDispatcher>? logger = null,
+            ISpeakPromptHost? speakHost = null)
         {
             _environment = environment ?? throw new ArgumentNullException(nameof(environment));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -231,6 +233,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             _haptics = haptics ?? throw new ArgumentNullException(nameof(haptics));
             _bubbles = bubbles ?? throw new ArgumentNullException(nameof(bubbles));
             _logger = logger;
+            _speakHost = speakHost;
         }
 
         public async Task DispatchAsync(EnhancementAction action, EnhancementDispatchContext ctx, CancellationToken ct = default)
@@ -261,7 +264,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
                         break;
 
                     case TriggerEffectAction effect:
-                        await DispatchTriggerEffect(effect);
+                        await DispatchTriggerEffect(effect, ctx.Source);
                         break;
 
                     case ScreenShakeAction shake:
@@ -355,7 +358,7 @@ namespace ConditioningControlPanel.Core.Services.Deeper
             }
         }
 
-        private async Task DispatchTriggerEffect(TriggerEffectAction effect)
+        private async Task DispatchTriggerEffect(TriggerEffectAction effect, IPlaybackTimeSource? source = null)
         {
             try
             {
@@ -397,6 +400,14 @@ namespace ConditioningControlPanel.Core.Services.Deeper
 
                     case EffectTypes.Overlay:
                         DispatchOverlayEffect(effect);
+                        break;
+
+                    case EffectTypes.Speak:
+                        // Deeper "say it for me" voice prompt — routed to the head's host (cue + recognizer).
+                        if (effect.Phase == EffectPhase.Stop)
+                            _speakHost?.StopSpeak(effect.EffectId);
+                        else
+                            _speakHost?.StartSpeak(effect, source);
                         break;
 
                     default:

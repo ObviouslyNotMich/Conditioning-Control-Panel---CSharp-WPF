@@ -432,6 +432,7 @@ public partial class MainWindowViewModel : ObservableObject
             GetTab<AnimationsTabViewModel>() ?? new AnimationsTabViewModel(),
             GetTab<CompanionHubTabViewModel>() ?? new CompanionHubTabViewModel(),
             GetTab<CompanionTabViewModel>() ?? new CompanionTabViewModel(),
+            GetTab<SheListeningTabViewModel>() ?? new SheListeningTabViewModel(),
             GetTab<ProfileTabViewModel>() ?? new ProfileTabViewModel(),
             GetTab<LabTabViewModel>() ?? new LabTabViewModel(),
             GetTab<BlinkTrainerTabViewModel>() ?? new BlinkTrainerTabViewModel(),

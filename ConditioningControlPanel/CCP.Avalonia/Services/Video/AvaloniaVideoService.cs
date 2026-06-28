@@ -64,6 +64,14 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     private CancellationTokenSource? _cts;
     private DispatcherTimer? _scheduledTimer;
     private DispatcherTimer? _safetyTimer;
+    // Hard cap on a single mandatory video's runtime (VideoMaxDurationSeconds). When it fires the
+    // video is stopped and the overlay torn down — it never chains into another video. This is the
+    // "max length" contract: no mandatory video may stay on screen longer than the cap, even if a
+    // too-long clip slipped through the (cold-cache) duration filter.
+    private DispatcherTimer? _maxDurationTimer;
+    // True while any video (mandatory compositor layer, multi-monitor, or window) is on screen.
+    // Guards the scheduler so it never preempts a playing video with the next scheduled one.
+    private bool _isVideoActive;
     private VideoOverlayWindow? _currentWindow;
     private string? _currentRetryPath;
     private bool _currentStrictMode;
@@ -279,6 +287,25 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         _cts = new CancellationTokenSource();
         RefreshVideosPath();
         ScheduleNext();
+
+        // Prewarm duration metadata in the background so the min/max duration filter becomes
+        // authoritative once parsed (the cache persists to disk, so later runs are instant). Until
+        // warm, the runtime max-duration cutoff still guarantees the cap for any too-long clip.
+        string[] prewarmSnapshot;
+        lock (_sync) { prewarmSnapshot = _videoFiles.ToArray(); }
+        if (_metadataCache != null && prewarmSnapshot.Length > 0)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _metadataCache.PrewarmAsync(prewarmSnapshot);
+                    Dispatcher.UIThread.Post(() => { if (IsRunning) RefreshVideosPath(); });
+                }
+                catch { /* best-effort */ }
+            });
+        }
+
         _logger?.LogInformation("AvaloniaVideoService started (videos: {Count})", _videoFiles.Count);
     }
 
@@ -454,6 +481,14 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         _scheduledTimer = StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
         {
             if (!IsRunning) return;
+            // Never preempt a video that is already on screen (mandatory or chaos): let it finish
+            // (or hit the max-duration cutoff) and wait for the next interval. Without this guard
+            // the scheduler would tear down the current video and play another on top of it.
+            if (_isVideoActive)
+            {
+                ScheduleNext();
+                return;
+            }
             try
             {
                 var s = _settings.Current;
@@ -505,6 +540,11 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         if (_isDisposed) return;
         CleanupInternal(notifyEnded: false);
 
+        // Mark the slot active (for the scheduler's in-flight guard) and arm the hard cap so no
+        // mandatory video can overrun VideoMaxDurationSeconds. Both are cleared in CleanupInternal.
+        _isVideoActive = true;
+        StartMaxDurationTimer();
+
         _compositor?.Start();
         _mandatoryVideoLayer?.PlayVideo(filePath, withAudio: true, loop: false);
 
@@ -541,6 +581,10 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     {
         if (_isDisposed) return;
         CleanupInternal(notifyEnded: false);
+
+        // Chaos/URL-triggered videos are not subject to the mandatory-video max cap, but they must
+        // still mark the slot active so the scheduler doesn't preempt them mid-playback.
+        _isVideoActive = true;
 
         _compositor?.Start();
         _videoLayer?.PlayVideo(url, withAudio: true, loop: false);
@@ -704,6 +748,25 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         {
             if (_currentWindow == null) return;
             _logger?.LogWarning("AvaloniaVideoService: safety timeout triggered, forcing cleanup");
+            CleanupInternal(notifyEnded: true);
+        });
+    }
+
+    /// <summary>
+    /// Arms a one-shot cutoff at <see cref="ConditioningControlPanel.Core.Models.AppSettings.VideoMaxDurationSeconds"/>
+    /// so no single mandatory video can overrun the cap — even if a too-long clip slipped through the
+    /// (cold-cache) duration filter or the source is longer than expected. When it fires the video is
+    /// stopped and the overlay torn down (desktop freed); it never chains into another video. No-op
+    /// when the cap is 0 (disabled).
+    /// </summary>
+    private void StartMaxDurationTimer()
+    {
+        _maxDurationTimer?.Stop();
+        var max = _settings.Current?.VideoMaxDurationSeconds ?? 0;
+        if (max <= 0) return;
+        _maxDurationTimer = StartOneShotTimer(TimeSpan.FromSeconds(Math.Max(1, max)), () =>
+        {
+            _logger?.LogInformation("AvaloniaVideoService: max-duration cutoff ({Max}s) reached — stopping video", max);
             CleanupInternal(notifyEnded: true);
         });
     }
@@ -1011,6 +1074,9 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         _attentionTimer = null;
         _safetyTimer?.Stop();
         _safetyTimer = null;
+        _maxDurationTimer?.Stop();
+        _maxDurationTimer = null;
+        _isVideoActive = false;
 
         lock (_attentionTargets)
         {

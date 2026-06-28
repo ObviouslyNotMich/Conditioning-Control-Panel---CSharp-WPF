@@ -432,7 +432,8 @@ public interface IAvatarWindowService
     void SetPose(int poseNumber);
     void OpenChatWindow();
     void Giggle(string? text = null);
-    void GigglePriority(string text, bool playSound = true, bool aiGenerated = false);
+    void GigglePriority(string text, bool playSound = true, bool aiGenerated = false,
+        string? phraseAudioPath = null, bool barkVoice = false);
 }
 
 public interface IBarkService

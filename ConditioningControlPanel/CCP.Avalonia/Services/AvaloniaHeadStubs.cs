@@ -1406,12 +1406,13 @@ public sealed class AvaloniaAvatarWindowService : IAvatarWindowService
         }
     }
 
-    public void GigglePriority(string text, bool playSound = true, bool aiGenerated = false)
+    public void GigglePriority(string text, bool playSound = true, bool aiGenerated = false,
+        string? phraseAudioPath = null, bool barkVoice = false)
     {
         try
         {
             EnsureWindow();
-            _window?.GigglePriority(text, playSound, aiGenerated);
+            _window?.GigglePriority(text, playSound, aiGenerated, phraseAudioPath, barkVoice);
         }
         catch (Exception ex)
         {

@@ -63,7 +63,8 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _mouseHook = mouseHook;
         _logger = logger;
         _bubbleEngineLogger = bubbleEngineLogger;
-        _ambientEngine = new BubbleEngine(screens, settings, this, pointerState, bubbleEngineLogger);
+        _ambientEngine = new BubbleEngine(screens, settings, this, pointerState, bubbleEngineLogger,
+            effectPayloadFactory: ConditioningControlPanel.Avalonia.Chaos.AvaloniaEffectPayloadFactory.ForVariant);
         _ambientEngine.OnBubblePopped += OnEngineBubblePopped;
         _ambientEngine.EchoSplitRequested += OnEchoSplitRequested;
         _bubbleLayer = compositor != null ? new BubbleLayer() : null;

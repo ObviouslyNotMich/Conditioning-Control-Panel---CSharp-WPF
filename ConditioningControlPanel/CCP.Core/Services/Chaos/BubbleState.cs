@@ -57,6 +57,12 @@ public sealed class BubbleState
     /// <summary>Chaos spec attached to this bubble, or null for ambient bubbles.</summary>
     public ChaosBubbleSpec? Spec { get; init; }
 
+    /// <summary>
+    /// Trigger Bubbles: an effect payload fired when this ambient bubble is popped. Non-null only
+    /// when the user has enabled Trigger Bubbles and the per-bubble roll selected an effect variant.
+    /// </summary>
+    public EffectPayload? EffectPayload { get; set; }
+
     /// <summary>Remaining fuse time in milliseconds for live chaos bubbles.</summary>
     public double FuseRemainingMs { get; set; }
 

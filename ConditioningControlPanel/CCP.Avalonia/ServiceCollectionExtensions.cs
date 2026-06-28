@@ -28,6 +28,8 @@ using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Core.Services.BugReport;
 using ConditioningControlPanel.Avalonia.Services.Moderation;
+using ConditioningControlPanel.Avalonia.Services.Speech;
+using ConditioningControlPanel.Core.Services.Speech;
 using ConditioningControlPanel.Avalonia.Compositor;
 using ConditioningControlPanel.Avalonia.Compositor.Layers;
 using ConditioningControlPanel.Avalonia.Services.Avatar;
@@ -133,6 +135,27 @@ public static class ServiceCollectionExtensions
 
         // Unified compositor engine (replaces multi-window overlay architecture)
         services.AddSingleton<CompositorEngine>();
+
+        // Offline speech recognition seam. Default = no-op (unavailable); the Windows head
+        // overrides with the real Vosk/NAudio implementation in App.ConfigurePlatformServices.
+        services.AddSingleton<ISpeechRecognitionService, NullSpeechService>();
+
+        // Bark-manifest slice: voiced lines for the "Hey Bambi" wake ack + voice-command
+        // confirmations (loads the active mod's bark ruleset; PickVoiceLine + ResolveModAudio).
+        services.AddSingleton<ConditioningControlPanel.Core.Services.Bark.IBarkManifestService,
+                              ConditioningControlPanel.Core.Services.Bark.BarkManifestService>();
+
+        // Spoken-mantra dataset for the Takeover "say it for me" fallback. Audio-duration provider
+        // defaults to no-op; the Windows head overrides it with NAudio.
+        services.AddSingleton<ConditioningControlPanel.Core.Platform.IAudioDurationProvider,
+                              ConditioningControlPanel.Core.Platform.NullAudioDurationProvider>();
+        services.AddSingleton<ConditioningControlPanel.Core.Services.Mantra.IMantraVoiceService,
+                              ConditioningControlPanel.Core.Services.Mantra.MantraVoiceService>();
+
+        // Deeper "speak" effect host (cue + offline recognition + feedback). Flows into the
+        // RealActionDispatcher's optional ISpeakPromptHost param.
+        services.AddSingleton<ConditioningControlPanel.Core.Services.Deeper.ISpeakPromptHost,
+                              ConditioningControlPanel.Avalonia.Services.Deeper.AvaloniaSpeakPromptHost>();
 
         // Core services that are safe to register as singletons today.
         services.AddSingleton<IPromptService, PromptService>();
@@ -265,6 +288,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AwarenessTabViewModel>();
         services.AddSingleton<LabTabViewModel>();
         services.AddTransient<BlinkTrainerTabViewModel>();
+        services.AddTransient<SheListeningTabViewModel>();
         services.AddTransient<RemoteControlTabViewModel>();
         services.AddTransient<AvailableSubjectsTabViewModel>();
         services.AddTransient<ProfileTabViewModel>();

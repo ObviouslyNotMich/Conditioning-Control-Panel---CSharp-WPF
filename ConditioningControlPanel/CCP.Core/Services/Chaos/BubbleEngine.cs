@@ -77,18 +77,24 @@ public sealed class BubbleEngine
     private readonly List<PlayerRipple> _playerRipples = new();
     private double _rabbitTrailSec;
 
+    // Trigger Bubbles: head-supplied factory mapping an effect-variant id → a firable payload.
+    // Null = feature unavailable (the roll in SpawnBubble then no-ops).
+    private readonly Func<string, EffectPayload?>? _effectPayloadFactory;
+
     public BubbleEngine(
         IScreenProvider screenProvider,
         ISettingsService settings,
         IBubbleRenderer renderer,
         IPointerState pointerState,
-        ILogger<BubbleEngine>? logger = null)
+        ILogger<BubbleEngine>? logger = null,
+        Func<string, EffectPayload?>? effectPayloadFactory = null)
     {
         _screenProvider = screenProvider;
         _settings = settings;
         _renderer = renderer;
         _pointerState = pointerState;
         _logger = logger;
+        _effectPayloadFactory = effectPayloadFactory;
     }
 
     public bool IsRunning => _isRunning;
@@ -318,6 +324,11 @@ public sealed class BubbleEngine
         }
 
         bubble.IsPopping = true;
+        // Trigger Bubbles: a gated ambient effect bubble fires its payload on pop.
+        if (bubble.EffectPayload is { } payload)
+        {
+            try { payload.Fire(); } catch { }
+        }
         _renderer.Pop(bubble, () =>
         {
             _bubbles.Remove(bubble);
@@ -1311,7 +1322,26 @@ public sealed class BubbleEngine
             Clickable = _settings.Current.BubblesClickable
         };
 
+        state.EffectPayload = RollTriggerPayload();
+
         _bubbles.Add(state);
         _renderer.Create(state);
+    }
+
+    /// <summary>
+    /// Trigger Bubbles roll: when enabled, a configurable share of ambient bubbles become effect
+    /// bubbles that fire a payload on pop. Gated entirely on BubbleTriggersEnabled (default off), so
+    /// this is a no-op for the normal pop game. Ported from the WPF BubbleService.RollTriggerSpec.
+    /// </summary>
+    private EffectPayload? RollTriggerPayload()
+    {
+        if (_effectPayloadFactory == null) return null;
+        var s = _settings.Current;
+        if (s?.BubbleTriggersEnabled != true) return null;
+        var ids = s.BubbleTriggerVariants;
+        if (ids == null || ids.Count == 0) return null;
+        if (_random.Next(100) >= Math.Clamp(s.BubbleTriggerChance, 0, 100)) return null;
+        var id = ids[_random.Next(ids.Count)];
+        try { return _effectPayloadFactory(id); } catch { return null; }
     }
 }

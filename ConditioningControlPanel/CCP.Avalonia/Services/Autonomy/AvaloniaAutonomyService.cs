@@ -24,7 +24,7 @@ namespace ConditioningControlPanel.Avalonia.Services.Autonomy;
 /// cross-platform effect services. Mobile heads are excluded because overlays
 /// and multi-window effects are not supported there.
 /// </summary>
-public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
+public sealed partial class AvaloniaAutonomyService : IAutonomyService, IDisposable
 {
     private readonly ISettingsService _settings;
     private readonly IInteractionQueueService _interactionQueue;
@@ -45,6 +45,13 @@ public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
     private readonly IOverlayService? _overlay;
     private readonly IWallpaperProvider? _wallpaper;
     private readonly IAvatarWindowService? _avatar;
+
+    // Voice ("Hey Bambi") dependencies — see AvaloniaAutonomyService.Voice.cs for the wake loop + dispatch.
+    private readonly ConditioningControlPanel.Core.Services.Speech.ISpeechRecognitionService? _speech;
+    private readonly ConditioningControlPanel.Core.Services.Bark.IBarkManifestService? _barkManifest;
+    private readonly ConditioningControlPanel.Core.Services.Mantra.IMantraVoiceService? _mantraVoice;
+    private readonly ConditioningControlPanel.IKeywordTriggerService? _keywordTriggers;
+    private readonly ConditioningControlPanel.Core.Services.Quiz.IPopQuizService? _popQuiz;
 
     private bool _isEnabled;
     private bool _forceTestMode;
@@ -106,6 +113,11 @@ public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
         IOverlayService? overlay = null,
         IWallpaperProvider? wallpaper = null,
         IAvatarWindowService? avatar = null,
+        ConditioningControlPanel.Core.Services.Speech.ISpeechRecognitionService? speech = null,
+        ConditioningControlPanel.Core.Services.Bark.IBarkManifestService? barkManifest = null,
+        ConditioningControlPanel.Core.Services.Mantra.IMantraVoiceService? mantraVoice = null,
+        ConditioningControlPanel.IKeywordTriggerService? keywordTriggers = null,
+        ConditioningControlPanel.Core.Services.Quiz.IPopQuizService? popQuiz = null,
         ILogger<AvaloniaAutonomyService>? logger = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -124,6 +136,11 @@ public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
         _overlay = overlay;
         _wallpaper = wallpaper;
         _avatar = avatar;
+        _speech = speech;
+        _barkManifest = barkManifest;
+        _mantraVoice = mantraVoice;
+        _keywordTriggers = keywordTriggers;
+        _popQuiz = popQuiz;
         _logger = logger;
     }
 
@@ -158,6 +175,10 @@ public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
             settings.AutonomyIdleTriggerEnabled,
             settings.AutonomyRandomTriggerEnabled,
             settings.AutonomyRandomIntervalSeconds);
+
+        // Arm the "Hey Bambi" wake loop if mic consent is given + the engine is available. Voice is
+        // otherwise decoupled from Takeover (the She's Listening UI also calls RefreshVoiceInputModes).
+        RefreshVoiceInputModes();
     }
 
     public void Stop()
@@ -732,6 +753,7 @@ public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        StopVoiceInput();
         Stop();
     }
 }

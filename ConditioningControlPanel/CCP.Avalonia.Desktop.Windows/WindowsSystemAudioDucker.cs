@@ -37,37 +37,48 @@ public sealed class WindowsSystemAudioDucker : ISystemAudioDucker, IDisposable
 
             try
             {
-                using var device = GetDefaultRenderDevice();
-                if (device is null)
-                    return;
-
-                var sessionManager = device.AudioSessionManager;
-                sessionManager.RefreshSessions();
-
                 var ownProcessId = (uint)Environment.ProcessId;
-                var sessions = sessionManager.Sessions;
 
-                for (int i = 0; i < sessions.Count; i++)
+                // Duck across ALL active render endpoints, not just the default device, so audio
+                // routed to a secondary output still gets ducked (parity with WPF bug #415 fix).
+                foreach (var device in GetActiveRenderDevices())
                 {
-                    try
+                    using (device)
                     {
-                        using var session = sessions[i];
-                        if (ShouldSkipSession(session, ownProcessId))
-                            continue;
+                        try
+                        {
+                            var sessionManager = device.AudioSessionManager;
+                            sessionManager.RefreshSessions();
+                            var sessions = sessionManager.Sessions;
 
-                        var volume = session.SimpleAudioVolume;
-                        var pid = session.GetProcessID;
+                            for (int i = 0; i < sessions.Count; i++)
+                            {
+                                try
+                                {
+                                    using var session = sessions[i];
+                                    if (ShouldSkipSession(session, ownProcessId))
+                                        continue;
 
-                        // Preserve the first observed volume per process; do not overwrite
-                        // if Duck() is called repeatedly.
-                        if (!_originalVolumes.ContainsKey(pid))
-                            _originalVolumes[pid] = volume.Volume;
+                                    var volume = session.SimpleAudioVolume;
+                                    var pid = session.GetProcessID;
 
-                        volume.Volume = DuckVolume;
-                    }
-                    catch
-                    {
-                        // Individual sessions can become invalid at any time; skip them.
+                                    // Preserve the first observed volume per process; do not overwrite
+                                    // if Duck() is called repeatedly.
+                                    if (!_originalVolumes.ContainsKey(pid))
+                                        _originalVolumes[pid] = volume.Volume;
+
+                                    volume.Volume = DuckVolume;
+                                }
+                                catch
+                                {
+                                    // Individual sessions can become invalid at any time; skip them.
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // A single endpoint's session manager may be unavailable; skip it.
+                        }
                     }
                 }
 
@@ -89,27 +100,35 @@ public sealed class WindowsSystemAudioDucker : ISystemAudioDucker, IDisposable
 
             try
             {
-                using var device = GetDefaultRenderDevice();
-                if (device is not null)
+                foreach (var device in GetActiveRenderDevices())
                 {
-                    var sessionManager = device.AudioSessionManager;
-                    sessionManager.RefreshSessions();
-
-                    var sessions = sessionManager.Sessions;
-                    for (int i = 0; i < sessions.Count; i++)
+                    using (device)
                     {
                         try
                         {
-                            using var session = sessions[i];
-                            var pid = session.GetProcessID;
-                            if (_originalVolumes.TryGetValue(pid, out var originalVolume))
+                            var sessionManager = device.AudioSessionManager;
+                            sessionManager.RefreshSessions();
+                            var sessions = sessionManager.Sessions;
+                            for (int i = 0; i < sessions.Count; i++)
                             {
-                                session.SimpleAudioVolume.Volume = originalVolume;
+                                try
+                                {
+                                    using var session = sessions[i];
+                                    var pid = session.GetProcessID;
+                                    if (_originalVolumes.TryGetValue(pid, out var originalVolume))
+                                    {
+                                        session.SimpleAudioVolume.Volume = originalVolume;
+                                    }
+                                }
+                                catch
+                                {
+                                    // Session may have exited; ignore.
+                                }
                             }
                         }
                         catch
                         {
-                            // Session may have exited; ignore.
+                            // A single endpoint's session manager may be unavailable; skip it.
                         }
                     }
                 }
@@ -139,16 +158,26 @@ public sealed class WindowsSystemAudioDucker : ISystemAudioDucker, IDisposable
         }
     }
 
-    private MMDevice? GetDefaultRenderDevice()
+    /// <summary>
+    /// All active render endpoints — not just the default multimedia device. A user who routes
+    /// their browser / media player to a secondary output would otherwise never get ducked, since
+    /// those sessions live on a different device's session manager (parity with WPF bug #415).
+    /// The caller disposes each returned device.
+    /// </summary>
+    private List<MMDevice> GetActiveRenderDevices()
     {
+        var list = new List<MMDevice>();
         try
         {
-            return _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            var endpoints = _enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
+            for (int i = 0; i < endpoints.Count; i++)
+                list.Add(endpoints[i]);
         }
         catch
         {
-            return null;
+            // Enumeration may fail in odd configs; fall back to no devices (fail open).
         }
+        return list;
     }
 
     private static bool ShouldSkipSession(AudioSessionControl session, uint ownProcessId)

@@ -135,8 +135,12 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
             return;
         }
 
+        // Self-close only if the main window is genuinely gone (app closing / shutdown).
+        // Gate on IsLoaded, NOT IsVisible: a minimized / backgrounded / tray-hidden main window is
+        // still alive, and a voice-triggered quiz ("Hey Bambi, quiz me") is topmost so it should
+        // stay up even when the app isn't in the foreground. (Parity with WPF PopQuizWindow fix.)
         var mainWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        if (mainWindow == null || !mainWindow.IsVisible)
+        if (mainWindow == null || !mainWindow.IsLoaded)
         {
             CleanupAndClose();
             return;

@@ -1,5 +1,6 @@
 using LibVLCSharp.Shared;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace ConditioningControlPanel.Avalonia.Compositor.Layers;
 
@@ -15,5 +16,11 @@ public sealed class MandatoryVideoLayer : VideoLayer
 
     public MandatoryVideoLayer(LibVLC libVlc, ILogger? logger = null)
         : base(libVlc, logger)
-    { }
+    {
+        // A mandatory video must fully occlude the screen so the user cannot reach the desktop
+        // through the letterbox bars when the monitor's aspect ratio differs from the clip
+        // (e.g. a landscape clip on a portrait monitor). White fills the bars opaquely and reads
+        // as an attention-grabbing backdrop.
+        BackgroundColor = SKColors.White;
+    }
 }

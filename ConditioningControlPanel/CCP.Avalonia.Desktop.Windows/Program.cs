@@ -69,6 +69,10 @@ class Program
             services.AddSingleton<IAudioWaveformProvider, NAudioWaveformProvider>();
             services.AddSingleton<IWebcamService, AvaloniaWebcamTrackingService>();
             services.AddSingleton<IScreenOcrService, AvaloniaScreenOcrService>();
+            // Real offline speech engine (Vosk + NAudio); overrides the shared NullSpeechService.
+            services.AddSingleton<ConditioningControlPanel.Core.Services.Speech.ISpeechRecognitionService, WindowsSpeechService>();
+            // NAudio clip-duration reader (overrides the no-op) so the mantra/voice layer waits for speech to finish.
+            services.AddSingleton<ConditioningControlPanel.Core.Platform.IAudioDurationProvider, NAudioDurationProvider>();
             services.AddDesktopSecretStore();
             services.AddSingleton<ISingleInstanceService>(singleInstance);
 

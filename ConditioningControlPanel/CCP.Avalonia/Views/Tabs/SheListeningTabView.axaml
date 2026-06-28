@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ConditioningControlPanel.Avalonia.ViewModels.Tabs"
+             xmlns:sp="using:ConditioningControlPanel.Core.Services.Speech"
+             xmlns:sys="using:System"
+             x:Class="ConditioningControlPanel.Avalonia.Views.Tabs.SheListeningTabView"
+             x:DataType="vm:SheListeningTabViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
+      <TextBlock Text="She's Listening" FontSize="22" FontWeight="Bold"/>
+      <TextBlock Text="Offline voice control — spoken mantras and the &quot;Hey Bambi&quot; voice commands. Audio stays on your device; it is never recorded or sent."
+                 Opacity="0.7" TextWrapping="Wrap"/>
+
+      <Border Background="#22000000" CornerRadius="6" Padding="10">
+        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap"/>
+      </Border>
+
+      <CheckBox Content="I consent to microphone input (offline only)" IsChecked="{Binding MicConsentGiven}"/>
+      <CheckBox Content="Wake word — listen for &quot;Hey Bambi&quot;" IsChecked="{Binding WakeWordEnabled}"/>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="Wake words" VerticalAlignment="Center" Width="90"/>
+        <TextBox Text="{Binding WakeWords}" Width="340" Watermark="hey bambi, bambi"/>
+      </StackPanel>
+
+      <CheckBox Content="Push-to-talk (key binding coming soon)" IsChecked="{Binding PushToTalkEnabled}"/>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="Microphone" VerticalAlignment="Center" Width="90"/>
+        <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" Width="340">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="sp:SpeechInputDevice">
+              <TextBlock Text="{Binding Name}"/>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Content="Refresh" Command="{Binding RefreshDevicesCommand}"/>
+      </StackPanel>
+
+      <Button Content="Stop the mic" Command="{Binding StopMicCommand}" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+
+      <TextBlock Text="Try saying:" FontWeight="Bold" Margin="0,10,0,0"/>
+      <ItemsControl ItemsSource="{Binding CommandHints}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="sys:String">
+            <TextBlock Text="{Binding}" Opacity="0.85" Margin="8,1"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

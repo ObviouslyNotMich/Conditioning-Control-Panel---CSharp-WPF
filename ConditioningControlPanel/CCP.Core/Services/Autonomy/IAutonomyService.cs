@@ -26,6 +26,15 @@ public interface IAutonomyService
     /// <summary>Stops autonomous mode and cancels active pulses.</summary>
     void Stop();
 
+    /// <summary>True when the user has armed a self-initiated mic mode (wake word or push-to-talk).</summary>
+    bool UserDrivenVoiceArmed { get; }
+
+    /// <summary>Reconcile the "Hey Bambi" wake-word loop with current settings (consent + engine + toggles).</summary>
+    void RefreshVoiceInputModes();
+
+    /// <summary>User-initiated "stop the mic": cut any capture and tear down the wake-word loop.</summary>
+    void StopVoiceInput();
+
     /// <summary>Force-starts autonomous mode in test mode (short intervals), bypassing checks.</summary>
     void ForceStart();
 

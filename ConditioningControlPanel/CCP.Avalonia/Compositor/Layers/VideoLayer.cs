@@ -41,9 +41,19 @@ public class VideoLayer : BaseLayer, IDisposable
     private SKBitmap? _currentBitmap;
     private readonly object _frameLock = new();
     private bool _firstFrameLogged;
+    private bool _loop;
 
     public override int ZIndex => CompositorLayers.Video;
     public override bool IsActive => _bufferValid && _frameBuffer != IntPtr.Zero;
+
+    /// <summary>
+    /// Opaque color used to fill the monitor around a letterboxed video so the desktop never
+    /// shows through the bars. Defaults to black (conventional letterbox).
+    /// <see cref="MandatoryVideoLayer"/> overrides this so a mandatory video fully occludes the
+    /// screen even when the monitor's aspect ratio differs from the clip (e.g. a landscape clip
+    /// on a portrait monitor) — a mandatory video must never expose the desktop.
+    /// </summary>
+    protected SKColor BackgroundColor { get; set; } = SKColors.Black;
 
     public event EventHandler? VideoStarted;
     public event EventHandler? VideoEnded;
@@ -75,6 +85,7 @@ public class VideoLayer : BaseLayer, IDisposable
             _videoWidth = DefaultVideoWidth;
             _videoHeight = DefaultVideoHeight;
             _videoPitch = _videoWidth * 4;
+            _loop = loop;
             var size = _videoPitch * _videoHeight;
 
             lock (_bufferLock)
@@ -112,6 +123,7 @@ public class VideoLayer : BaseLayer, IDisposable
         _bufferValid = false;
         _frameReady = false;
         _firstFrameLogged = false;
+        _loop = false;
         _renderTimer.Stop();
 
         var player = _player;
@@ -154,6 +166,14 @@ public class VideoLayer : BaseLayer, IDisposable
         Dispatcher.UIThread.Post(() =>
         {
             VideoEnded?.Invoke(this, EventArgs.Empty);
+            // Auto-close: a one-shot clip must release the screen when it finishes. Otherwise
+            // the layer lingers on its final frame — IsActive stays true while the last decoded
+            // bitmap is still set — and the desktop stays blocked. A looping clip is exempt: it
+            // is driven by input-repeat and replayed by LibVLC rather than reaching a real end.
+            // Stop() clears the frame and deactivates the layer, so the compositor drops it next
+            // frame and (if nothing else is active) tears its windows down, freeing the desktop.
+            if (!_loop)
+                Stop();
         });
     }
 
@@ -256,6 +276,12 @@ public class VideoLayer : BaseLayer, IDisposable
         lock (_frameLock)
         {
             if (_currentBitmap == null) return;
+
+            // Fill the entire monitor with an opaque background before drawing the letterboxed
+            // video, so the desktop never shows through the bars. Essential when the monitor's
+            // aspect ratio differs from the clip (e.g. a landscape clip on a portrait screen).
+            using (var bg = new SKPaint { Color = BackgroundColor })
+                canvas.DrawRect(ToSkRect(bounds), bg);
 
             // Preserve aspect ratio (Uniform stretch) inside the monitor bounds.
             var frameW = (float)_videoWidth;

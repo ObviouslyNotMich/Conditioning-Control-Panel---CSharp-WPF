@@ -115,6 +115,9 @@
   <DataTemplate x:Key="{x:Type tabs:CompanionTabViewModel}" DataType="tabs:CompanionTabViewModel">
     <tabViews:CompanionTabView />
   </DataTemplate>
+  <DataTemplate x:Key="{x:Type tabs:SheListeningTabViewModel}" DataType="tabs:SheListeningTabViewModel">
+    <tabViews:SheListeningTabView />
+  </DataTemplate>
   <DataTemplate x:Key="{x:Type tabs:BambiTakeoverTabViewModel}" DataType="tabs:BambiTakeoverTabViewModel">
     <tabViews:BambiTakeoverTabView />
   </DataTemplate>
