@@ -580,9 +580,7 @@ namespace ConditioningControlPanel.Services
 
                 if (savedVolumes != null && savedVolumes.Count > 0 && _deviceEnumerator != null)
                 {
-                    var device = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    var sessionManager = device.AudioSessionManager;
-                    var sessions = sessionManager.Sessions;
+                    var sessions = CollectRenderSessions();
 
                     int restoredCount = 0;
                     for (int i = 0; i < sessions.Count; i++)
@@ -782,9 +780,7 @@ namespace ConditioningControlPanel.Services
                 try
                 {
                     var currentProcessId = Environment.ProcessId;
-                    var device = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    var sessionManager = device.AudioSessionManager;
-                    var sessions = sessionManager.Sessions;
+                    var sessions = CollectRenderSessions();
 
                     // Check if we should exclude BambiCloud (WebView2) from ducking
                     var excludeWebView2 = App.Settings?.Current?.ExcludeBambiCloudFromDucking ?? true;
@@ -911,9 +907,7 @@ namespace ConditioningControlPanel.Services
 
                 try
                 {
-                    var device = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    var sessionManager = device.AudioSessionManager;
-                    var sessions = sessionManager.Sessions;
+                    var sessions = CollectRenderSessions();
 
                     var restored = new HashSet<int>();
                     var nameToCurrentPid = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -1053,6 +1047,44 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
+        /// Collect audio sessions across ALL active render endpoints — not just the default
+        /// multimedia device. A user who routes their browser / media player to a secondary
+        /// output would otherwise never get ducked, since those sessions live on a different
+        /// device's session manager (bug #415).
+        /// </summary>
+        private List<AudioSessionControl> CollectRenderSessions()
+        {
+            var result = new List<AudioSessionControl>();
+            if (_deviceEnumerator == null) return result;
+
+            try
+            {
+                var endpoints = _deviceEnumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
+                for (int d = 0; d < endpoints.Count; d++)
+                {
+                    try
+                    {
+                        var sessions = endpoints[d].AudioSessionManager.Sessions;
+                        for (int i = 0; i < sessions.Count; i++)
+                        {
+                            try { result.Add(sessions[i]); } catch { /* session ended mid-enumeration */ }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Logger?.Debug("[Ducking] Failed to enumerate sessions for a render endpoint: {Error}", ex.Message);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Debug("[Ducking] Failed to enumerate render endpoints: {Error}", ex.Message);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Periodically called while ducked to catch new audio sessions (e.g. Discord notification,
         /// Steam ping) that didn't exist when Duck() ran. Without this, those play un-ducked.
         /// </summary>
@@ -1066,8 +1098,7 @@ namespace ConditioningControlPanel.Services
                 {
                     var currentProcessId = Environment.ProcessId;
                     var excludeWebView2 = App.Settings?.Current?.ExcludeBambiCloudFromDucking ?? true;
-                    var device = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    var sessions = device.AudioSessionManager.Sessions;
+                    var sessions = CollectRenderSessions();
 
                     int newlyDucked = 0;
                     for (int i = 0; i < sessions.Count; i++)
@@ -1142,8 +1173,7 @@ namespace ConditioningControlPanel.Services
 
                 try
                 {
-                    var device = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    var sessions = device.AudioSessionManager.Sessions;
+                    var sessions = CollectRenderSessions();
                     var restored = new List<int>();
 
                     // Build PID-by-name index so we can match a stored PID to a new PID for the same app
