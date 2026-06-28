@@ -26,6 +26,12 @@
       <CheckBox Content="Push-to-talk (key binding coming soon)" IsChecked="{Binding PushToTalkEnabled}"/>
 
       <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="Mic sensitivity" VerticalAlignment="Center" Width="90"/>
+        <Slider Minimum="0" Maximum="100" Value="{Binding MicSensitivity}" Width="240" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding MicSensitivity, StringFormat={}{0}%}" VerticalAlignment="Center" Opacity="0.7"/>
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
         <TextBlock Text="Microphone" VerticalAlignment="Center" Width="90"/>
         <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" Width="340">
           <ComboBox.ItemTemplate>

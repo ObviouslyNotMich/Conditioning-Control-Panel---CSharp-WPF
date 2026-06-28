@@ -32,6 +32,8 @@ public partial class SheListeningTabViewModel : TabItemViewModel
     [ObservableProperty] private SpeechInputDevice? _selectedDevice;
     [ObservableProperty] private bool _engineAvailable;
     [ObservableProperty] private string _statusText = "";
+    /// <summary>Mic sensitivity 0-100% (inverted loudness gate). Bound to SpeechLoudnessThreshold.</summary>
+    [ObservableProperty] private int _micSensitivity;
 
     public ObservableCollection<SpeechInputDevice> Devices { get; } = new();
 
@@ -79,6 +81,7 @@ public partial class SheListeningTabViewModel : TabItemViewModel
             WakeWordEnabled = s.SpeechWakeWordEnabled;
             WakeWords = string.IsNullOrWhiteSpace(s.SpeechWakeWords) ? "hey bambi" : s.SpeechWakeWords;
             PushToTalkEnabled = s.SpeechPushToTalkEnabled;
+            MicSensitivity = ThresholdToSens(s.SpeechLoudnessThreshold);
             EngineAvailable = _speech?.IsAvailable ?? false;
             StatusText = EngineAvailable
                 ? "Offline voice engine ready."
@@ -108,6 +111,8 @@ public partial class SheListeningTabViewModel : TabItemViewModel
     partial void OnWakeWordEnabledChanged(bool value) => Apply(s => s.SpeechWakeWordEnabled = value);
     partial void OnPushToTalkEnabledChanged(bool value) => Apply(s => s.SpeechPushToTalkEnabled = value);
     partial void OnWakeWordsChanged(string value) => Apply(s => s.SpeechWakeWords = value?.Trim() ?? "");
+    partial void OnMicSensitivityChanged(int value)
+        => Apply(s => s.SpeechLoudnessThreshold = SensToThreshold(value));
     partial void OnSelectedDeviceChanged(SpeechInputDevice? value)
     {
         if (value is { } d) Apply(s => s.SpeechInputDeviceIndex = d.Index);
@@ -126,4 +131,13 @@ public partial class SheListeningTabViewModel : TabItemViewModel
         }
         catch (System.Exception ex) { _logger?.LogDebug(ex, "SheListeningTab: failed to apply a voice setting"); }
     }
+
+    // ── mic-sensitivity <-> loudness-threshold conversion (WPF parity) ──
+    // The slider shows a percentage (higher = more sensitive = lower threshold).
+    private const double LoudThrAtMinSens = 0.045; // slider 0%  (least sensitive)
+    private const double LoudThrAtMaxSens = 0.004; // slider 100% (most sensitive)
+    private static double SensToThreshold(double sens)
+        => LoudThrAtMinSens - (LoudThrAtMinSens - LoudThrAtMaxSens) * (System.Math.Clamp(sens, 0, 100) / 100.0);
+    private static int ThresholdToSens(double thr)
+        => (int)System.Math.Round(System.Math.Clamp((LoudThrAtMinSens - thr) / (LoudThrAtMinSens - LoudThrAtMaxSens) * 100.0, 0, 100));
 }

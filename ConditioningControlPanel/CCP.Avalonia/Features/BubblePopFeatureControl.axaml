@@ -56,7 +56,7 @@
         </Grid>
         <Slider x:Name="SliderFreq"
                 Minimum="1"
-                Maximum="15"
+                Maximum="60"
                 Value="5"
                 TickFrequency="1"
                 IsSnapToTickEnabled="True"
