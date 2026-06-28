@@ -35,7 +35,7 @@ public class UpdateService : IUpdateService, IDisposable
     public bool IsDownloading { get; private set; }
 
     /// <inheritdoc />
-    public string CurrentVersion => "6.2.1";
+    public string CurrentVersion => "6.2.2";
 
     public UpdateService(IUpdateInstaller installer, ISettingsService settingsService, ILogger<UpdateService>? logger = null)
     {

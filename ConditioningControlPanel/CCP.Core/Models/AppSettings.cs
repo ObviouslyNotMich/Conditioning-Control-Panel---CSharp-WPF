@@ -3593,7 +3593,7 @@ namespace ConditioningControlPanel.Models
         /// 0.015. One-shot — once relaxed (or once a user picks their own value via a future UI), it
         /// never re-fires.
         /// </summary>
-        internal void MigrateLoudnessThreshold()
+        public void MigrateLoudnessThreshold()
         {
             if (_loudnessThresholdRelaxed) return;
             if (_speechLoudnessThreshold >= 0.035 && _speechLoudnessThreshold <= 0.045)
