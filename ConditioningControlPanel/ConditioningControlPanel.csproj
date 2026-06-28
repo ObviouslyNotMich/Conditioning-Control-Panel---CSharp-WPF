@@ -77,6 +77,18 @@
          Services/Speech/SpeechService.cs. No model on disk => SpeechService no-ops.
          Privacy contract: audio stays on device, never transmitted, never written to disk. -->
     <PackageReference Include="Vosk" Version="0.3.38" />
+
+    <!-- Dedicated offline wake-word engine for "Hey Bambi" (sherpa-onnx keyword spotting, Apache-2.0,
+         fully local, NO API key). Vosk STT can't reliably spot a custom out-of-vocabulary name (its
+         grammar ctor throws on the OOV token and it falls back to the free recognizer, mis-hearing the
+         name ~half the time). sherpa-onnx KWS is an open-vocabulary spotter: the keyword is given as a
+         subword-token sequence in keywords.txt — no retraining, no dictionary limit. It runs ONLY the
+         wake stage; post-wake command/mantra capture stays on Vosk. The KWS MODEL is a drop-in under
+         Resources\Models\sherpa-kws\ (see that folder's README); absent => the wake loop transparently
+         falls back to the Vosk wake path, so nothing breaks if it isn't installed. The .runtime.win-x64
+         dep carries the native lib. Privacy: identical to Vosk — audio stays on device, never sent. -->
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.3" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.win-x64" Version="1.13.3" />
     <PackageReference Include="OllamaSharp" Version="5.4.16" />
     
     <!-- Logging -->

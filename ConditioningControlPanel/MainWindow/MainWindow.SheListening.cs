@@ -102,6 +102,100 @@ namespace ConditioningControlPanel
             App.Settings?.Save();
         }
 
+        private bool _calibratingWake;
+
+        /// <summary>
+        /// Tune the wake word to the user's own voice + mic. Frees the mic (stops the wake loop), records a
+        /// few spoken "Hey Bambi"s via <see cref="Services.Speech.SherpaWakeService.CalibrateAsync"/>, stores
+        /// the chosen sensitivity, then re-arms. Live progress + the result land in the status line.
+        /// </summary>
+        internal async void SL_Calibrate_Click(object sender, RoutedEventArgs e)
+        {
+            if (_calibratingWake || SheListeningTab == null) return;
+            var wake = App.WakeWord;
+            if (wake == null || !wake.IsConfigured)
+            {
+                MessageBox.Show(this, "The offline wake-word model isn't installed yet, so there's nothing to calibrate.",
+                    "Calibrate wake word", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            if (!s.MicConsentGiven)
+            {
+                var dlg = new MicConsentDialog { Owner = this };
+                if (!(dlg.ShowDialog() == true && dlg.ConsentGiven)) return;
+            }
+
+            _calibratingWake = true;
+            var btn = SheListeningTab.BtnSL_Calibrate;
+            var lbl = SheListeningTab.TxtSL_WakeEngineStatus;
+            if (btn != null) btn.IsEnabled = false;
+
+            // Free the single capture session: stop the wake loop / PTT so calibration owns the mic.
+            try { App.Autonomy?.StopVoiceInput(); } catch { }
+            for (int i = 0; i < 20 && App.WakeWord?.IsListening == true; i++) await Task.Delay(25);
+
+            if (lbl != null)
+            {
+                lbl.Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xA0, 0xFF));
+                lbl.Text = "Listening… say “Hey Bambi” 5 times, pausing between each.";
+            }
+
+            var progress = new Progress<Services.Speech.SherpaWakeService.CalibrationProgress>(p =>
+            {
+                if (lbl == null) return;
+                lbl.Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xA0, 0xFF));
+                lbl.Text = p.Phase == "analyze"
+                    ? "Got it — finding your best sensitivity…"
+                    : $"Listening… say “Hey Bambi” clearly  ({p.Captured}/{p.Target})";
+            });
+
+            Services.Speech.SherpaWakeService.CalibrationResult result;
+            try { result = await wake.CalibrateAsync(5, progress); }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "Wake calibration failed");
+                result = new Services.Speech.SherpaWakeService.CalibrationResult { Message = "Calibration failed — see logs." };
+            }
+
+            if (lbl != null)
+            {
+                lbl.Foreground = result.Success
+                    ? new SolidColorBrush(Color.FromRgb(0x90, 0xEE, 0x90))
+                    : new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0xB0));
+                lbl.Text = result.Message;
+            }
+
+            // Re-arm from settings (the wake loop reconciles + the engine rebuilds at the new sensitivity).
+            try { App.Autonomy?.RefreshVoiceInputModes(); } catch { }
+            UpdateMicPill();
+
+            if (btn != null) btn.IsEnabled = true;
+            _calibratingWake = false;
+        }
+
+        /// <summary>Repaint the reliable-wake (sherpa-onnx KWS) status line: model present + active, or what's missing.</summary>
+        private void RefreshWakeEngineStatus()
+        {
+            var lbl = SheListeningTab?.TxtSL_WakeEngineStatus;
+            if (lbl == null) return;
+            // NOTE: do NOT call ResetInitState() here. IsAvailable already lazily inits, and a model
+            // dropped in while running is auto-detected (its files change the fingerprint). Forcing a
+            // reset on every tab paint used to dispose the engine mid-wake-session and crash the native
+            // decode. ResetInitState now also no-ops during an active session as a backstop.
+            if (App.WakeWord?.IsAvailable == true)
+            {
+                lbl.Text = "✓ Active — open-source 'Hey Bambi' wake engine installed.";
+                lbl.Foreground = new SolidColorBrush(Color.FromRgb(0x90, 0xEE, 0x90));
+                return;
+            }
+            lbl.Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+            lbl.Text = App.WakeWord?.IsConfigured == true
+                ? "Model found but the engine didn't start — see logs. Using the built-in recognizer."
+                : "Drop the sherpa-onnx KWS model into Resources\\Models\\sherpa-kws\\ to enable (see the README there).";
+        }
+
         /// <summary>
         /// True when the offline mic is actually armed: consent given AND at least one input mode
         /// (wake word or push-to-talk) is on. This is the "She's Listening" master on/off state —
@@ -148,6 +242,7 @@ namespace ConditioningControlPanel
 
             RefreshSheListeningTab(); // reload the sub-toggles + status
             RefreshPremiumRail();     // keep the dashboard Voice dot honest
+            UpdateMicPill();          // privacy pill: wake word is now armed → mic is open
         }
 
         /// <summary>
@@ -170,6 +265,7 @@ namespace ConditioningControlPanel
 
             if (SheListeningTab != null) RefreshSheListeningTab();
             RefreshPremiumRail();
+            UpdateMicPill();          // privacy pill: mic fully disarmed → pill off
         }
 
         internal void SL_SetPttKey_Click(object sender, RoutedEventArgs e)
@@ -230,6 +326,7 @@ namespace ConditioningControlPanel
             }
             finally { _isLoading = wasLoading; }
 
+            RefreshWakeEngineStatus();
             PopulateSlMicDevices();
             RefreshSheListeningStatus();
             RefreshPremiumGate(SheListeningTab.SheListeningGate);
@@ -300,6 +397,8 @@ namespace ConditioningControlPanel
         /// <summary>Update the hero: mic readiness / armed state + the master Start/Stop button.</summary>
         private void RefreshSheListeningStatus()
         {
+            UpdateMicPill(); // arm/disarm via the wake/PTT toggles flows through here — keep the pill honest
+
             if (SheListeningTab?.SL_StatusTitle == null) return;
 
             var available = App.Speech?.IsAvailable == true;

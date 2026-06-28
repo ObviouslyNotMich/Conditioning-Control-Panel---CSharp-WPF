@@ -137,7 +137,29 @@
                                     <TextBlock Grid.Column="0" Text="Phrases" FontSize="10" Foreground="#888" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <TextBox x:Name="TxtSL_WakeWords" x:FieldModifier="internal" Grid.Column="1" FontSize="11" Foreground="#DDD" Background="#1A1A2E" BorderBrush="#2E2E48" BorderThickness="1" Padding="6,3"
                                              Text="hey bambi" LostFocus="TxtSL_WakeWords_LostFocus"
-                                             ToolTip="Comma-separated wake phrases (e.g. hey bambi, hey bimbo). Short common-word phrases recognize best."/>
+                                             ToolTip="Comma-separated wake phrases (e.g. hey bambi, hey bimbo). Short common-word phrases recognize best. Used by the built-in recognizer; the reliable wake engine below listens for the trained 'Hey Bambi' instead."/>
+                                </Grid>
+
+                                <!-- Reliable wake (sherpa-onnx KWS) — open-source, offline, no key; far better at the OOV name "Bambi" -->
+                                <Grid Margin="22,6,0,2" ToolTip="Optional but recommended. Drop the open-source sherpa-onnx keyword-spotting model into Resources\Models\sherpa-kws\ to use a purpose-built wake-word engine — much more reliable than the built-in recognizer for her name, fully offline, no account or key. Without it, the built-in recognizer is used. See the README in that folder.">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="✨ Reliable wake" FontSize="10" Foreground="#C9A0FF" VerticalAlignment="Center"/>
+                                                <TextBlock Text="open-source, offline, no key" FontSize="9" Foreground="#777" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                            </StackPanel>
+                                            <TextBlock x:Name="TxtSL_WakeEngineStatus" x:FieldModifier="internal" FontSize="10" Foreground="#888" Margin="0,3,0,0" TextWrapping="Wrap"
+                                                       Text="Drop the sherpa-onnx KWS model into Resources\Models\sherpa-kws\ to enable (see the README there)."/>
+                                        </StackPanel>
+                                        <Button x:Name="BtnSL_Calibrate" x:FieldModifier="internal" Grid.Column="1" Content="🎚 Calibrate" FontSize="11" Padding="10,4" Margin="8,0,0,0"
+                                                VerticalAlignment="Top" Background="#3A2A4A" Foreground="#C9A0FF" BorderThickness="0" Cursor="Hand"
+                                                Click="BtnSL_Calibrate_Click"
+                                                ToolTip="Tune the wake word to your own voice and mic — say 'Hey Bambi' a few times and it finds the right sensitivity. Re-run any time (new mic, noisy room)."/>
+                                    </Grid>
                                 </Grid>
 
                                 <Border Height="1" Background="#2E2E48" Margin="0,10"/>

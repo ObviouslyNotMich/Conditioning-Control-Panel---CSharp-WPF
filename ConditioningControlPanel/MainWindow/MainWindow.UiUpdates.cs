@@ -239,6 +239,10 @@ namespace ConditioningControlPanel
         /// </summary>
         private void UpdateStatPills()
         {
+            // Privacy backstop: keep the mic pill honest on the timer even if some state change slipped
+            // past the event-driven UpdateMicPill() calls. Cheap (one visibility set) and self-healing.
+            UpdateMicPill();
+
             if (App.SkillTree == null) return;
 
             // Pink Hours: Total Conditioning Time (5 points - tier 1)
