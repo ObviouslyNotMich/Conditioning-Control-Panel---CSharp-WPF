@@ -3587,6 +3587,20 @@ namespace ConditioningControlPanel.Models
             set { _speechPushToTalkKey = string.IsNullOrWhiteSpace(value) ? "F8" : value; OnPropertyChanged(); }
         }
 
+        private bool _speechHeadphonesMode = false;
+        /// <summary>
+        /// "I use headphones" — when on, the avatar's own voice can't bleed into the mic, so the command
+        /// listener allows barge-in: it skips the wait-until-she's-quiet echo guard and opens the mic even
+        /// while she's still talking. Off (default, safe for speakers) keeps the half-duplex guard so the
+        /// recognizer never hears her own voice as a bogus command.
+        /// </summary>
+        [JsonProperty]
+        public bool SpeechHeadphonesMode
+        {
+            get => _speechHeadphonesMode;
+            set { _speechHeadphonesMode = value; OnPropertyChanged(); }
+        }
+
         #endregion
 
         #region Lab — Wallpaper Override

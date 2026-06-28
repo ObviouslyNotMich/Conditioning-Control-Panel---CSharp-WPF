@@ -696,7 +696,17 @@ namespace ConditioningControlPanel.Services
         /// </summary>
         private async Task<bool> TryHandleVoiceCommandAsync()
         {
+            // Tier 0 — listen first (the dots bubble is already up; nothing has been spoken). This short
+            // primary window catches "hey bambi <command>" said in one breath or after a brief pause.
             var outcome = await ListenForCommandAsync().ConfigureAwait(false);
+
+            // Stayed silent? NOW she speaks the wake ack out loud ("you called?") and opens a longer
+            // window — the "called her, then took a beat to think" path.
+            if (outcome == VoiceCmdOutcome.Silence)
+            {
+                SpeakPendingWakeAck();
+                outcome = await ListenForCommandAsync(isReprompt: true).ConfigureAwait(false);
+            }
 
             // Heard something loud that didn't match — give one polite "say that again?" before giving up.
             if (outcome == VoiceCmdOutcome.NoMatch)
@@ -726,12 +736,36 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
-        /// One command-listen window: show the listening bubble, run a grammar-constrained recognition,
-        /// fuzzy-match it to an intent, and (on a hit) execute + confirm. <paramref name="chained"/> uses
-        /// a shorter window and an "anything else?" prompt; <paramref name="isRetry"/> shows a "say that
-        /// again?" prompt after a near-miss.
+        /// Speak the wake acknowledgement stashed by OnWakeWordHeard ("you called?"). Tier 0 only does
+        /// this AFTER the primary listen times out in silence — the spoken re-prompt before the second,
+        /// longer listen window. No-op if nothing is stashed.
         /// </summary>
-        private async Task<VoiceCmdOutcome> ListenForCommandAsync(bool chained = false, bool isRetry = false)
+        private void SpeakPendingWakeAck()
+        {
+            var text = _pendingWakeAckText;
+            var audio = _pendingWakeAckAudio;
+            if (string.IsNullOrWhiteSpace(text)) return;
+            if (Application.Current?.Dispatcher == null) return;
+            _ = Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    App.AvatarWindow?.GigglePriority(text, playSound: audio != null, aiGenerated: false,
+                        phraseAudioPath: audio, barkVoice: audio != null);
+                }
+                catch { }
+            });
+        }
+
+        /// <summary>
+        /// One command-listen window: show the listening bubble, run a grammar-constrained recognition,
+        /// fuzzy-match it to an intent, and (on a hit) execute + confirm. The default (primary) turn is a
+        /// short Tier 0 onset window opened with no spoken ack. <paramref name="isReprompt"/> is the longer
+        /// window after she's said "you called?" out loud; <paramref name="chained"/> uses a shorter window
+        /// and an "anything else?" prompt; <paramref name="isRetry"/> shows a "say that again?" prompt after
+        /// a near-miss.
+        /// </summary>
+        private async Task<VoiceCmdOutcome> ListenForCommandAsync(bool chained = false, bool isRetry = false, bool isReprompt = false)
         {
             try
             {
@@ -746,15 +780,15 @@ namespace ConditioningControlPanel.Services
                 // confirmation is overwritten within a frame and never read.
                 if (chained) await Task.Delay(1400).ConfigureAwait(false);
 
-                // Keep the speech bubble up with animated dots for the whole listen window. On the first
-                // turn show the SAME line just spoken as the wake ack (handed over from OnWakeWordHeard)
-                // so you read what you heard; on push-to-talk / retry / chain there's a tailored prompt.
+                // Keep the speech bubble up with animated dots for the whole listen window. The primary and
+                // re-prompt turns show the wake-ack words (read == heard); the primary shows them silently
+                // as the dots cue, the re-prompt has just spoken them aloud. Retry/chain use tailored text.
                 string? listeningLine;
                 if (isRetry) listeningLine = RetryPrompt();
                 else if (chained) listeningLine = ChainPrompt();
                 else
                 {
-                    listeningLine = Interlocked.Exchange(ref _pendingWakeAckText, null);
+                    listeningLine = _pendingWakeAckText;
                     if (string.IsNullOrWhiteSpace(listeningLine))
                     {
                         var wl = App.Bark?.PickVoiceLine("voicecmd_wake");
@@ -765,18 +799,32 @@ namespace ConditioningControlPanel.Services
                     _ = Application.Current.Dispatcher.InvokeAsync(() =>
                         { try { App.AvatarWindow?.ShowListeningBubble(listeningLine); } catch { } });
 
-                // Echo guard: she just spoke (the wake ack on the first turn, the previous command's
-                // confirmation on a chained turn). On speakers — not headphones — an immediately-open
-                // mic captures her own voice and matches it as a bogus command. Hold the recogniser
-                // until her clip finishes, then a short tail for the speaker echo to decay. The dots
-                // bubble is already up, so she visibly "keeps listening" through the wait.
-                await WaitForAvatarQuietAsync(waitForStart: !chained && !isRetry).ConfigureAwait(false);
+                // Echo guard (Tier 0/1). Only needed when she JUST spoke and the user might be on speakers:
+                //   • primary turn: nothing was spoken (silent dots) — open the mic immediately, no wait.
+                //   • re-prompt:    she just said the ack aloud — wait for her clip + a short echo tail.
+                //   • chained:      the previous command's confirmation may still be playing.
+                //   • retry:        a near-miss is never spoken — nothing to wait for.
+                //   • headphones mode: her voice can't bleed in, so allow barge-in and never wait.
+                bool sheJustSpoke = isReprompt || chained;
+                bool headphones = App.Settings?.Current?.SpeechHeadphonesMode == true;
+                if (sheJustSpoke && !headphones)
+                    await WaitForAvatarQuietAsync(waitForStart: isReprompt).ConfigureAwait(false);
+
+                // Window sizing (Tier 0). Primary + re-prompt use a short *onset* deadline — you have that
+                // long to START talking; once you do, the generous hard cap lets you finish (Vosk usually
+                // finalizes on the trailing pause well before then). So "hey bambi … <beat> … command"
+                // isn't clipped, yet dead air still bounces to the spoken "you called?" re-prompt quickly.
+                // Chained follow-ups and the near-miss retry stay simple hard windows.
+                RecognizeOptions opts =
+                    chained    ? new RecognizeOptions { Timeout = TimeSpan.FromSeconds(4) } :
+                    isRetry    ? new RecognizeOptions { Timeout = TimeSpan.FromSeconds(6) } :
+                    isReprompt ? new RecognizeOptions { Timeout = TimeSpan.FromSeconds(8), OnsetTimeout = TimeSpan.FromSeconds(4) } :
+                                 new RecognizeOptions { Timeout = TimeSpan.FromSeconds(8), OnsetTimeout = TimeSpan.FromSeconds(2.5) };
 
                 PhraseResult res;
                 try
                 {
-                    res = await App.Speech.RecognizeOneOfAsync(
-                        grammar, new RecognizeOptions { Timeout = TimeSpan.FromSeconds(chained ? 4 : 6) }).ConfigureAwait(false);
+                    res = await App.Speech.RecognizeOneOfAsync(grammar, opts).ConfigureAwait(false);
                 }
                 finally
                 {

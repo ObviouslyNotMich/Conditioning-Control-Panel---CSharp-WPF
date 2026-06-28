@@ -2780,12 +2780,21 @@ public partial class ChaosHubWindow : Window
     // Resources/sounds/chaos/menu_theme.mp3 loops under the main menu with a 2s fade in/out (fades
     // out when leaving the menu for the dollhouse / a descent). The 🔊/🔇 chip toggles + persists mute.
 
+    // Ceiling for the menu theme BEFORE the app's master volume is applied. The actual MediaPlayer
+    // volume is always this (or the fade target) scaled by MasterVolume, so the soundtrack tracks the
+    // master slider like every other audio source instead of blasting at a fixed level.
     private const double MenuMusicVol = 0.5;
     private MediaPlayer? _music;
     private DispatcherTimer? _musicFade;
     private double _fadeFrom, _fadeTo;
     private int _fadeStep, _fadeSteps;
     private Action? _fadeDone;
+    private double _musicLevel;   // logical target (0..MenuMusicVol), pre master-volume scaling
+    private System.ComponentModel.PropertyChangedEventHandler? _masterVolHandler;
+
+    /// <summary>The app's master volume as a 0..1 multiplier (defaults to full if settings are missing).</summary>
+    private static double MasterScale()
+        => System.Math.Clamp((App.Settings?.Current?.MasterVolume ?? 100) / 100.0, 0.0, 1.0);
 
     private void StartMenuMusic()
     {
@@ -2799,6 +2808,7 @@ public partial class ChaosHubWindow : Window
                 _music.MediaEnded += (_, _) => { try { if (_music != null) { _music.Position = TimeSpan.Zero; _music.Play(); } } catch { } };
                 _music.Open(new Uri(path, UriKind.Absolute));
                 _music.Volume = 0;
+                HookMasterVolume();
             }
             bool muted = App.Settings?.Current?.ChaosMenuMusicMuted == true;
             UpdateMuteIcon(muted);
@@ -2817,15 +2827,22 @@ public partial class ChaosHubWindow : Window
     private void DisposeMenuMusic()
     {
         _musicFade?.Stop();
+        UnhookMasterVolume();
         try { _music?.Stop(); _music?.Close(); } catch { }
         _music = null;
     }
 
-    /// <summary>Ramp the music volume to a target over <paramref name="secs"/> (50ms steps).</summary>
-    private void FadeMusicTo(double target, double secs, Action? onDone = null)
+    /// <summary>
+    /// Ramp the music volume toward <paramref name="level"/> (a logical 0..MenuMusicVol target, before
+    /// master-volume scaling) over <paramref name="secs"/> (50ms steps). The fade target is baked with
+    /// the current <see cref="MasterScale"/>; <see cref="ApplyMasterVolumeToMusic"/> keeps it honest if
+    /// the master slider moves mid-fade.
+    /// </summary>
+    private void FadeMusicTo(double level, double secs, Action? onDone = null)
     {
         if (_music == null) return;
-        _fadeFrom = _music.Volume; _fadeTo = target;
+        _musicLevel = level;
+        _fadeFrom = _music.Volume; _fadeTo = Math.Clamp(level * MasterScale(), 0, 1);
         _fadeSteps = Math.Max(1, (int)(secs / 0.05)); _fadeStep = 0; _fadeDone = onDone;
         if (_musicFade == null)
         {
@@ -2846,6 +2863,34 @@ public partial class ChaosHubWindow : Window
             _musicFade?.Stop();
             var d = _fadeDone; _fadeDone = null; d?.Invoke();
         }
+    }
+
+    /// <summary>Listen for master-volume changes so the soundtrack re-scales live while it's open.</summary>
+    private void HookMasterVolume()
+    {
+        if (_masterVolHandler != null || App.Settings?.Current == null) return;
+        _masterVolHandler = (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConditioningControlPanel.Models.AppSettings.MasterVolume))
+                ApplyMasterVolumeToMusic();
+        };
+        App.Settings.Current.PropertyChanged += _masterVolHandler;
+    }
+
+    private void UnhookMasterVolume()
+    {
+        if (_masterVolHandler == null) return;
+        try { if (App.Settings?.Current != null) App.Settings.Current.PropertyChanged -= _masterVolHandler; } catch { }
+        _masterVolHandler = null;
+    }
+
+    /// <summary>Re-apply the current master volume to the music: re-target an in-flight fade, else set directly.</summary>
+    private void ApplyMasterVolumeToMusic()
+    {
+        if (_music == null) return;
+        double target = Math.Clamp(_musicLevel * MasterScale(), 0, 1);
+        if (_musicFade?.IsEnabled == true) _fadeTo = target;
+        else { try { _music.Volume = target; } catch { } }
     }
 
     private void UpdateMuteIcon(bool muted)

@@ -37,9 +37,21 @@ namespace ConditioningControlPanel.Views.Tabs
         {
             if (Window.GetWindow(this) is MainWindow mw) mw.SL_SetPttKey_Click(sender, e);
         }
+        private void ChkSL_Headphones_Changed(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw) mw.SL_Headphones_Changed(sender, e);
+        }
         private void BtnSL_MicMaster_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw) mw.ToggleVoiceMic();
+        }
+        private void CmbSL_MicDevice_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw) mw.SL_MicDevice_SelectionChanged(sender, e);
+        }
+        private void BtnSL_MicRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw) mw.SL_MicRefresh_Click(sender, e);
         }
         private void BtnSL_TestMantra_Click(object sender, RoutedEventArgs e)
         {

@@ -37,6 +37,12 @@ namespace ConditioningControlPanel.Services.Speech
     {
         /// <summary>Hard cap on the listen window.</summary>
         public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(8);
+        /// <summary>
+        /// Optional speech-onset deadline. If set, the listen ends early (as silence) when no speech has
+        /// begun by this point — but once the user starts talking, the full <see cref="Timeout"/> applies
+        /// so a late-starting utterance isn't clipped. Null => the hard cap is the only limit.
+        /// </summary>
+        public TimeSpan? OnsetTimeout { get; init; }
         /// <summary>Minimum fuzzy similarity (0..1) to count as a match. Null => settings/default.</summary>
         public double? MatchThreshold { get; init; }
         /// <summary>Minimum peak RMS loudness (0..1) to count as "said out loud". Null => settings/default.</summary>
@@ -127,6 +133,35 @@ namespace ConditioningControlPanel.Services.Speech
                 try { return WaveInEvent.DeviceCount > 0; }
                 catch { return false; }
             }
+        }
+
+        /// <summary>A selectable microphone. Index -1 = the Windows default capture device.</summary>
+        public readonly record struct InputDevice(int Index, string Name);
+
+        /// <summary>
+        /// Enumerate WaveIn capture devices for the mic picker, with friendly names from
+        /// <see cref="WaveInEvent.GetCapabilities"/>. The first entry is always the Windows
+        /// default (index -1); real devices follow in WaveIn order. The value stored in
+        /// AppSettings.SpeechInputDeviceIndex is one of these <see cref="InputDevice.Index"/> values,
+        /// and <see cref="ResolveDeviceNumber"/> consumes it on the next capture session.
+        /// </summary>
+        public static IReadOnlyList<InputDevice> EnumerateInputDevices()
+        {
+            var list = new List<InputDevice> { new(-1, "System default") };
+            try
+            {
+                int count = WaveInEvent.DeviceCount;
+                for (int i = 0; i < count; i++)
+                {
+                    string name;
+                    try { name = WaveInEvent.GetCapabilities(i).ProductName; }
+                    catch { name = ""; }
+                    if (string.IsNullOrWhiteSpace(name)) name = $"Device {i}";
+                    list.Add(new InputDevice(i, name));
+                }
+            }
+            catch { }
+            return list;
         }
 
         /// <summary>Directory we expect the Vosk model to live in (drop the unpacked model here).</summary>
@@ -246,7 +281,9 @@ namespace ConditioningControlPanel.Services.Speech
                 var recLock = new object();
                 double peakRms = 0;
                 var done = 0;
+                var speechStarted = 0; // flips to 1 on the first above-threshold frame (speech onset)
                 CancellationTokenSource? timeoutCts = null;
+                CancellationTokenSource? onsetCts = null;
 
                 void Finish(PhraseResult r)
                 {
@@ -290,6 +327,10 @@ namespace ConditioningControlPanel.Services.Speech
                             double rms = Rms(e.Buffer, e.BytesRecorded);
                             peakRms = Math.Max(peakRms, rms);
                             RaiseLevel(rms);
+
+                            // Speech onset: once we hear an above-threshold frame, cancel the onset deadline
+                            // so a late-starting utterance gets the full window instead of being cut off.
+                            if (rms >= loudnessThreshold) Volatile.Write(ref speechStarted, 1);
 
                             // Serialize recognizer access with teardown: never call into a disposed handle.
                             lock (recLock)
@@ -347,6 +388,18 @@ namespace ConditioningControlPanel.Services.Speech
                         });
                     }
 
+                    // Onset deadline: if no speech has begun by then, end early as silence. Once a frame
+                    // crosses the loudness threshold (speechStarted), this is a no-op and the hard cap rules.
+                    if (options.OnsetTimeout is { } onset && onset != Timeout.InfiniteTimeSpan)
+                    {
+                        onsetCts = new CancellationTokenSource(onset);
+                        onsetCts.Token.Register(() =>
+                        {
+                            if (Volatile.Read(ref speechStarted) != 0) return; // they began talking — let it run
+                            Finish(Evaluate("", 0, timedOut: true));
+                        });
+                    }
+
                     IsListening = true;
                     mic.StartRecording();
 
@@ -372,6 +425,7 @@ namespace ConditioningControlPanel.Services.Speech
                         rec = null;
                     }
                     try { timeoutCts?.Dispose(); } catch { }
+                    try { onsetCts?.Dispose(); } catch { }
                     try { _activeCts?.Dispose(); } catch { }
                     _activeCts = null;
                     RaiseLevel(0);

@@ -89,6 +89,20 @@ namespace ConditioningControlPanel
         }
 
         /// <summary>
+        /// Headphones / barge-in preference (AppSettings.SpeechHeadphonesMode). When on, the command
+        /// listener skips the wait-until-she's-quiet echo guard so you can talk over her. Pure preference —
+        /// no consent prompt, no mic re-arm needed; the listener reads it on the next turn.
+        /// </summary>
+        internal void SL_Headphones_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading || SheListeningTab == null) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.SpeechHeadphonesMode = SheListeningTab.ChkSL_Headphones.IsChecked == true;
+            App.Settings?.Save();
+        }
+
+        /// <summary>
         /// True when the offline mic is actually armed: consent given AND at least one input mode
         /// (wake word or push-to-talk) is on. This is the "She's Listening" master on/off state —
         /// fully independent of Takeover.
@@ -211,12 +225,76 @@ namespace ConditioningControlPanel
                     SheListeningTab.TxtSL_WakeWords.Text = string.IsNullOrWhiteSpace(s.SpeechWakeWords) ? "hey bambi" : s.SpeechWakeWords;
                     SheListeningTab.ChkSL_PushToTalk.IsChecked = s.SpeechPushToTalkEnabled && s.MicConsentGiven;
                     SheListeningTab.TxtSL_PttKey.Text = string.IsNullOrWhiteSpace(s.SpeechPushToTalkKey) ? "F8" : s.SpeechPushToTalkKey;
+                    SheListeningTab.ChkSL_Headphones.IsChecked = s.SpeechHeadphonesMode;
                 }
             }
             finally { _isLoading = wasLoading; }
 
+            PopulateSlMicDevices();
             RefreshSheListeningStatus();
             RefreshPremiumGate(SheListeningTab.SheListeningGate);
+        }
+
+        /// <summary>Guards the mic-device combo while we rebuild it, so re-populating doesn't fire the handler.</summary>
+        private bool _slMicPopulating;
+
+        /// <summary>
+        /// Fill the microphone picker with the available capture devices (index -1 = system default)
+        /// and select the one stored in <see cref="Models.AppSettings.SpeechInputDeviceIndex"/>. Mirrors
+        /// the webcam picker on the Lab tab. Safe to call repeatedly (e.g. on tab show / Refresh).
+        /// </summary>
+        private void PopulateSlMicDevices()
+        {
+            var combo = SheListeningTab?.CmbSL_MicDevice;
+            if (combo == null) return;
+
+            int saved = App.Settings?.Current?.SpeechInputDeviceIndex ?? -1;
+            _slMicPopulating = true;
+            try
+            {
+                combo.Items.Clear();
+                ComboBoxItem? toSelect = null;
+                foreach (var dev in Services.Speech.SpeechService.EnumerateInputDevices())
+                {
+                    var item = new ComboBoxItem { Content = dev.Name, Tag = dev.Index };
+                    combo.Items.Add(item);
+                    if (dev.Index == saved) toSelect = item;
+                }
+                // Fall back to "System default" if the saved device is gone (unplugged / reordered).
+                combo.SelectedItem = toSelect ?? (combo.Items.Count > 0 ? combo.Items[0] : null);
+            }
+            finally { _slMicPopulating = false; }
+        }
+
+        /// <summary>
+        /// User picked a microphone. Persist the index; <see cref="Services.Speech.SpeechService.ResolveDeviceNumber"/>
+        /// reads it the next time the mic opens. If we're listening right now, cut the in-flight session and
+        /// re-arm so the new device takes effect immediately.
+        /// </summary>
+        internal void SL_MicDevice_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_slMicPopulating || _isLoading || SheListeningTab == null) return;
+            if (SheListeningTab.CmbSL_MicDevice?.SelectedItem is not ComboBoxItem item) return;
+            if (item.Tag is not int idx) return;
+
+            var s = App.Settings?.Current;
+            if (s == null || s.SpeechInputDeviceIndex == idx) return;
+            s.SpeechInputDeviceIndex = idx;
+            App.Settings?.Save();
+
+            // Apply live: stop the current capture so the wake loop reopens on the new device, then reconcile.
+            if (MicIsArmed())
+            {
+                try { App.Speech?.StopListening(); } catch { }
+                try { App.Autonomy?.RefreshVoiceInputModes(); } catch { }
+            }
+        }
+
+        /// <summary>Re-scan connected microphones (devices may have been plugged in since the tab opened).</summary>
+        internal void SL_MicRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            PopulateSlMicDevices();
+            RefreshSheListeningStatus();
         }
 
         /// <summary>Update the hero: mic readiness / armed state + the master Start/Stop button.</summary>

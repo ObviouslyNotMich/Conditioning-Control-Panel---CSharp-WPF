@@ -34,10 +34,12 @@ namespace ConditioningControlPanel.Services
 
         private GlobalKeyboardHook? _pttHook;
 
-        // The exact wake-ack line just spoken (picked once in OnWakeWordHeard), handed to the listen
-        // window so its "she's listening" dots bubble shows the same words you hear. Consumed (cleared)
-        // by TryHandleVoiceCommandAsync; the push-to-talk path leaves it null and picks its own text.
+        // The wake-ack line picked once in OnWakeWordHeard. Tier 0 listens BEFORE speaking, so this is
+        // NOT spoken on wake — it is stashed so (a) the primary listen's dots bubble can read the same
+        // words, and (b) the command driver can speak it aloud as the "you called?" re-prompt if you
+        // stay silent. Audio is the matching clip for the active mod (null = text-only).
         private string? _pendingWakeAckText;
+        private string? _pendingWakeAckAudio;
 
         /// <summary>Whether the user has armed a self-initiated mic mode (and so the mic only opens on demand).</summary>
         public bool UserDrivenVoiceArmed
@@ -245,10 +247,17 @@ namespace ConditioningControlPanel.Services
 
         private void OnWakeWordHeard()
         {
-            // Pick the wake acknowledgement once (PickVoiceLine locks internally, so off-UI is fine):
-            // voiced manifest variant when available (rotates, avoiding immediate repeats), else a plain
-            // per-mod line, text-only. Picking here (not inside the dispatch) lets us hand the SAME line
-            // to the listen window so the dots bubble reads exactly what she just said.
+            // Tier 0 — listen BEFORE speaking, the way Alexa/Google do: on wake they flash a "listening"
+            // cue and open the mic in the same instant; a spoken re-prompt ("you called?") only comes
+            // AFTER you stay silent. So here we DON'T speak the ack — we stash it, pop the dots bubble for
+            // instant "I'm listening" feedback, and open the command mic right away. Because nothing is
+            // speaking, there's no avatar voice to bleed into the open mic, so:
+            //   • "hey bambi, show me bubbles" (one breath) and "hey bambi" … <short pause> … "command"
+            //     both land in the primary listen window and run with no wait.
+            //   • only if you say nothing does the command driver speak the stashed ack and listen again.
+            //
+            // Pick once here (PickVoiceLine locks internally, so off-UI is fine): voiced manifest variant
+            // when available (rotates, avoiding immediate repeats), else a plain per-mod line, text-only.
             var voiced = App.Bark?.PickVoiceLine("voicecmd_wake");
             string ack;
             string? audio = null;
@@ -267,17 +276,15 @@ namespace ConditioningControlPanel.Services
                 };
             }
 
-            // Hand the exact spoken text to the listen window (read == heard).
+            // Stash for the listen window (dots bubble text) and the on-silence re-prompt (spoken there).
             _pendingWakeAckText = ack;
+            _pendingWakeAckAudio = audio;
 
+            // Instant visual "I'm listening" — dots, no speech. The listen window re-shows this too, but
+            // popping it now covers the brief funnel hand-off so the cue appears the moment she's woken.
             DispatcherHelper.RunOnUI(() =>
             {
-                try
-                {
-                    App.AvatarWindow?.GigglePriority(ack, playSound: audio != null, aiGenerated: false,
-                        phraseAudioPath: audio, barkVoice: audio != null);
-                }
-                catch { }
+                try { App.AvatarWindow?.ShowListeningBubble(ack); } catch { }
             });
             RequestVoiceCommand(allowCommands: true);
         }
@@ -330,9 +337,9 @@ namespace ConditioningControlPanel.Services
             // whenever PTT is armed + the engine is available, not only while a takeover is running.
             if (App.Speech?.IsAvailable != true) return;
             App.Logger?.Information("AutonomyService: push-to-talk pressed");
-            // Behave EXACTLY like a "Hey Bambi" wake: speak the same acknowledgement, show the same
-            // listening bubble, then run the command/mantra funnel. OnWakeWordHeard does its own UI
-            // marshalling, but we're on the low-level hook thread (must return fast), so hop off it.
+            // Behave EXACTLY like a "Hey Bambi" wake: pop the listening dots, open the mic immediately,
+            // and only speak the ack if you stay silent (Tier 0, all in OnWakeWordHeard). OnWakeWordHeard
+            // marshals its own UI work, but we're on the low-level hook thread (must return fast), so hop off it.
             DispatcherHelper.RunOnUI(OnWakeWordHeard);
         }
     }
