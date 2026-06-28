@@ -20,13 +20,13 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.2.0";
+        public const string AppVersion = "6.2.1";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.2.0 - She Can Hear You Now
+        public const string CurrentPatchNotes = @"v6.2.1 - She Can Hear You Now
 
 🎤 SHE'S LISTENING (new tab, Patreon)
 - ""Hey Bambi"" wake word: say her name and she perks up and listens (only while
@@ -81,6 +81,9 @@ namespace ConditioningControlPanel.Services
 - Log Out now fully logs out SubscribeStar too (premium can't survive a logout).
 - Videos fill the whole second monitor on mixed-DPI setups, mandatory and browser
   videos no longer stack, and the autonomy interval slider is accurate now.
+- Voice polish since the 6.2.0 preview: steadier wake-word detection, one-breath
+  commands, a mic input-device picker and a Webcam & Mic pill, plus pop quizzes no
+  longer close themselves in the background and audio ducks on every output device.
 
 Season: Juicy June";
 
