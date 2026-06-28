@@ -69,9 +69,14 @@ namespace ConditioningControlPanel
                     return;
                 }
 
-                // Self-close if main window is gone (closed or minimized to tray)
-                var mainWindow = Application.Current?.MainWindow;
-                if (mainWindow == null || !mainWindow.IsVisible)
+                // Self-close only if the main window is genuinely gone (app closing / shutdown).
+                // Use the stable App.MainWindowRef — Application.Current.MainWindow is unreliable
+                // here (it resolves to null when the window is hidden to tray). And gate on IsLoaded,
+                // NOT IsVisible: a minimized / backgrounded main window is still alive, and a
+                // voice-triggered quiz ("Hey Bambi, quiz me") is topmost so it should stay up even
+                // when the app isn't in the foreground.
+                var mainWindow = App.MainWindowRef;
+                if (mainWindow == null || !mainWindow.IsLoaded)
                 {
                     CleanupAndClose();
                     return;
