@@ -20,13 +20,13 @@ namespace ConditioningControlPanel.Services
         /// <summary>
         /// Current application version - UPDATE THIS WHEN BUMPING VERSION
         /// </summary>
-        public const string AppVersion = "6.2.1";
+        public const string AppVersion = "6.2.2";
 
         /// <summary>
         /// Patch notes for the current version - UPDATE THIS WHEN BUMPING VERSION
         /// These are shown in the update dialog and can be used when GitHub release notes are unavailable.
         /// </summary>
-        public const string CurrentPatchNotes = @"v6.2.1 - She Can Hear You Now
+        public const string CurrentPatchNotes = @"v6.2.2 - She Can Hear You Now
 
 🎤 SHE'S LISTENING (new tab, Patreon)
 - ""Hey Bambi"" wake word: say her name and she perks up and listens (only while
@@ -84,6 +84,10 @@ namespace ConditioningControlPanel.Services
 - Voice polish since the 6.2.0 preview: steadier wake-word detection, one-breath
   commands, a mic input-device picker and a Webcam & Mic pill, plus pop quizzes no
   longer close themselves in the background and audio ducks on every output device.
+- ""Hey Bambi"" hears you far more reliably now: a new offline wake engine with
+  per-user calibration and a mic sensitivity slider so she catches her name.
+- Smoother dashboard bubbles: a new shared-host render path keeps the bubble game
+  fluid even when lots of bubbles are on screen at once.
 
 Season: Juicy June";
 
