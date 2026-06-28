@@ -2081,7 +2081,20 @@ namespace ConditioningControlPanel.Models
         public int BubblesFrequency
         {
             get => _bubblesFrequency;
-            set { _bubblesFrequency = Math.Clamp(value, 1, 15); OnPropertyChanged(); }
+            set { _bubblesFrequency = Math.Clamp(value, 1, 60); OnPropertyChanged(); }
+        }
+        private bool _bubbleSharedHost = false;
+        /// <summary>Render the ambient dashboard bubbles as visuals on ONE shared click-through host
+        /// window (Canvas-positioned, pops via the global mouse hook) instead of one top-level layered
+        /// Window per bubble — the same hyper-optimized path the chaos field uses (see
+        /// <see cref="ChaosBubbleSharedHost"/>). The per-window path repositions every bubble via
+        /// SetWindowPos each frame, which saturates the UI thread and makes clicks register late under a
+        /// dense field (raised spawn rate / higher concurrent cap). Default OFF until proven, exactly how
+        /// the chaos host shipped; falls back to the proven per-window path when off.</summary>
+        public bool BubbleSharedHost
+        {
+            get => _bubbleSharedHost;
+            set { _bubbleSharedHost = value; OnPropertyChanged(); }
         }
         private int _bubblesVolume = 50;
         public int BubblesVolume

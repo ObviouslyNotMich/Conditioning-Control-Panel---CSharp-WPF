@@ -34,7 +34,7 @@
                         <TextBlock x:Name="TxtFreq" Text="5" HorizontalAlignment="Right"
                                    Foreground="{DynamicResource PinkBrush}" FontSize="13" FontWeight="SemiBold"/>
                     </Grid>
-                    <Slider x:Name="SliderFreq" Minimum="1" Maximum="15" Value="5"
+                    <Slider x:Name="SliderFreq" Minimum="1" Maximum="60" Value="5"
                             ValueChanged="SliderFreq_Changed"/>
                     <TextBlock Text="{loc:Str tooltip_bubble_spawn_rate}"
                                Foreground="{DynamicResource TextMutedBrush}" FontSize="10"
@@ -74,6 +74,28 @@
                                Foreground="{DynamicResource TextMutedBrush}" FontSize="10"
                                TextWrapping="Wrap" Margin="0,4,0,0"/>
                 </StackPanel>
+            </Border>
+
+            <!-- Solid mode: render all bubbles on one shared host (the DTRH/Chaos path) for stability
+                 under a dense field (high spawn rate / many on screen at once). -->
+            <Border Background="{DynamicResource SurfaceBgBrush}"
+                    BorderBrush="{DynamicResource GlassBorderBrush}"
+                    BorderThickness="1" CornerRadius="10" Padding="16,12" Margin="0,10,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="Solid mode (many bubbles)" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBlock Text="Uses the Rabbit Hole's optimized renderer so the field stays smooth with lots of bubbles. Lifts the on-screen cap. Turn off to use the classic one-window-per-bubble mode. Takes effect when bubbles restart."
+                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" x:Name="ChkSolidMode"
+                              Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                              Checked="ChkSolidMode_Changed" Unchecked="ChkSolidMode_Changed"/>
+                </Grid>
             </Border>
 
             <!-- Trigger Bubbles: a share of bubbles fire a Chaos effect when popped -->

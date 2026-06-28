@@ -22,7 +22,17 @@ namespace ConditioningControlPanel.Services;
 /// </summary>
 public class BubbleService : IDisposable
 {
-    private const int MAX_BUBBLES = 3;
+    private const int MAX_BUBBLES = 3;          // per-window fallback cap (SetWindowPos-bound — keep small)
+    private const int MAX_BUBBLES_HOST = 40;    // shared-host cap: a dense ambient field is cheap on the Canvas
+    /// <summary>Concurrent ambient cap. The per-window path stays at 3 (each move is a SetWindowPos);
+    /// the shared-host path repositions via batched Canvas.SetLeft/Top, so it carries a dense field.</summary>
+    private int MaxAmbientBubbles => _ambientHost ? MAX_BUBBLES_HOST : MAX_BUBBLES;
+    // ---- Ambient shared-host (dashboard dense field) ----
+    // Mirrors the chaos shared-host path so the dashboard bubble game stays solid at a high spawn
+    // rate / concurrent cap. Gated by AppSettings.BubbleSharedHost; latched for the Start->Stop session.
+    // When off, ambient bubbles keep the proven per-window path and none of this engages.
+    private bool _ambientHost;
+    private Services.GlobalMouseHook? _ambientHook;
     private readonly List<Bubble> _bubbles = new();
     private readonly Random _random = new();
     private DispatcherTimer? _spawnTimer;
@@ -153,6 +163,10 @@ public class BubbleService : IDisposable
 
         // Pre-load bubble image
         LoadBubbleImage();
+
+        // Stand up the shared host (if enabled) BEFORE the first synchronous spawn below, so that
+        // bubble's Add() finds the host already up. EnsureCreated creates synchronously on the UI thread.
+        BeginAmbientHostIfEnabled();
 
         // Start spawning bubbles based on frequency setting
         var intervalMs = 60000.0 / Math.Max(1, frequency ?? settings.BubblesFrequency); // frequency per minute
@@ -448,6 +462,9 @@ public class BubbleService : IDisposable
             // don't leave their tether lines hanging over the draft table.
             if (_boundTetherKeys.Count > 0 || _boundFirstResolved.Count > 0) ClearBoundState();
             if (ChaosBubbleCentersSnapshot.Length > 0) ChaosBubbleCentersSnapshot = Array.Empty<Point>();
+            // Don't leave a stale disc behind once the field empties — a hook click would otherwise be
+            // swallowed where a bubble just was, with nothing to pop.
+            if (ChaosClickDiscsSnapshot.Length > 0) ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
             return;
         }
 
@@ -486,20 +503,27 @@ public class BubbleService : IDisposable
             foreach (var b in _bubbles)
                 if (b.IsAlive && b.Spec != null) centers.Add(b.CenterPx);
             ChaosBubbleCentersSnapshot = centers.ToArray();
-
-            // Shared-host pop targets: hit discs (physical px) for the mouse-hook swallow decision.
-            if (_sharedHost)
-            {
-                var discs = new List<(double, double, double, bool)>(_bubbles.Count);
-                foreach (var b in _bubbles)
-                    if (b.HostHitClickable) { var d = b.HitDiscPx; discs.Add((d.X, d.Y, d.R, b.NeedsHoldDefuse)); }
-                ChaosClickDiscsSnapshot = discs.ToArray();
-            }
         }
-        else
+        else if (ChaosBubbleCentersSnapshot.Length > 0)
         {
-            if (ChaosBubbleCentersSnapshot.Length > 0) ChaosBubbleCentersSnapshot = Array.Empty<Point>();
-            if (ChaosClickDiscsSnapshot.Length > 0) ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
+            ChaosBubbleCentersSnapshot = Array.Empty<Point>();
+        }
+
+        // Shared-host pop targets: hit discs (physical px) for the mouse-hook swallow decision. Now
+        // maintained for BOTH the chaos field and the ambient dashboard host. Only HOST-rendered bubbles
+        // go in: a per-window bubble keeps its own WPF click handler and must never also be popped through
+        // the hook (double-pop). UsesHost is the invariant that keeps every chaos/ambient x host/per-window
+        // combination correct (e.g. chaos running per-window while the ambient host is up).
+        if (_chaosActive || _ambientHost)
+        {
+            var discs = new List<(double, double, double, bool)>(_bubbles.Count);
+            foreach (var b in _bubbles)
+                if (b.UsesHost && b.HostHitClickable) { var d = b.HitDiscPx; discs.Add((d.X, d.Y, d.R, b.NeedsHoldDefuse)); }
+            ChaosClickDiscsSnapshot = discs.ToArray();
+        }
+        else if (ChaosClickDiscsSnapshot.Length > 0)
+        {
+            ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
         }
     }
 
@@ -510,7 +534,9 @@ public class BubbleService : IDisposable
     /// OnRippleRightDown contract.</summary>
     public bool OnSharedHostLeftDown(Point px)
     {
-        if (!_chaosActive || !_sharedHost) return false;
+        // Either owner of the shared host may be live: a chaos run, or the ambient dashboard field.
+        // The disc snapshot only ever holds host-rendered bubbles, so this is correct for both.
+        if (!_chaosActive && !_ambientHost) return false;
         var discs = ChaosClickDiscsSnapshot;
         bool hit = false, needsHold = false;
         foreach (var d in discs)
@@ -535,7 +561,8 @@ public class BubbleService : IDisposable
         for (int i = _bubbles.Count - 1; i >= 0; i--)
         {
             var b = _bubbles[i];
-            if (b.HostHitClickable && b.ContainsPx(px)) { b.HostHookPop(); return; }
+            // UsesHost guards against hook-popping a per-window bubble (which owns a WPF click handler).
+            if (b.UsesHost && b.HostHitClickable && b.ContainsPx(px)) { b.HostHookPop(); return; }
         }
     }
 
@@ -679,10 +706,50 @@ public class BubbleService : IDisposable
         // Pop all remaining bubbles
         PopAllBubbles();
 
+        // Tear down the shared host + hook (releases our ref; the host survives if chaos still holds one).
+        EndAmbientHost();
+
         // Update Discord presence back to idle (unless another activity takes over)
         App.DiscordRpc?.SetIdleActivity();
 
         App.Logger?.Information("BubbleService stopped");
+    }
+
+    /// <summary>Stand up the ambient shared-host overlay + its left-click hook when BubbleSharedHost is
+    /// on. Idempotent for the running session. The host is ref-counted, so it coexists with a chaos run
+    /// that takes its own reference.</summary>
+    private void BeginAmbientHostIfEnabled()
+    {
+        if (_ambientHost) return;
+        if (App.Settings?.Current?.BubbleSharedHost != true) return;
+        _ambientHost = true;
+        Bubble.AmbientHostActive = true;
+        ChaosBubbleHostOverlay.EnsureCreated();
+        try
+        {
+            // Ambient pops ride a global left-click hook exactly like the chaos field. It self-suppresses
+            // while a chaos run is active (chaos owns its own _rippleHook there), so a single click never
+            // pops twice; during a chaos run the ambient field is paused + cleared anyway.
+            _ambientHook = new Services.GlobalMouseHook
+            {
+                LeftDown = px => !_chaosActive && OnSharedHostLeftDown(px)
+            };
+            _ambientHook.Start();
+        }
+        catch (Exception ex) { App.Logger?.Debug("Ambient bubble hook start: {E}", ex.Message); }
+    }
+
+    /// <summary>Release the ambient host reference + dispose the ambient hook. Safe to call when the
+    /// host was never started.</summary>
+    private void EndAmbientHost()
+    {
+        if (!_ambientHost) return;
+        _ambientHost = false;
+        Bubble.AmbientHostActive = false;
+        try { _ambientHook?.Dispose(); } catch { }
+        _ambientHook = null;
+        ChaosBubbleHostOverlay.CloseActive();
+        if (ChaosClickDiscsSnapshot.Length > 0) ChaosClickDiscsSnapshot = Array.Empty<(double, double, double, bool)>();
     }
 
     public void RefreshFrequency()
@@ -756,7 +823,7 @@ public class BubbleService : IDisposable
     private void SpawnBubble()
     {
         if (!_isRunning) return;
-        if (_bubbles.Count >= MAX_BUBBLES)
+        if (_bubbles.Count >= MaxAmbientBubbles)
         {
             App.Logger?.Debug("Max bubbles reached, skipping spawn");
             return;
@@ -1904,6 +1971,11 @@ internal class Bubble
     // on every spawn; the value never changes for a given monitor during a run.
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, double> s_dpiCache = new();
 
+    /// <summary>Set by BubbleService while the ambient dashboard shared host is standing (Start->Stop).
+    /// Lets an ambient bubble (spec == null) opt into shared-host rendering the same way a chaos bubble
+    /// does, but driven by the AppSettings.BubbleSharedHost flag instead of the chaos one.</summary>
+    internal static bool AmbientHostActive;
+
     /// <summary>A hidden, reset transparent window shell — recycled or freshly built. UI thread only.</summary>
     private static Window RentWindow()
     {
@@ -2296,6 +2368,11 @@ internal class Bubble
 
     // ---- Shared-host pop hit-testing (mouse-hook path; see BubbleService.OnSharedHostLeftDown) ----
 
+    /// <summary>True when this bubble renders on the shared Canvas host (vs. its own pooled layered
+    /// window). The hook-pop path targets ONLY host bubbles; per-window bubbles keep their WPF handler,
+    /// so this is the guard that prevents a double-pop across the two render paths.</summary>
+    internal bool UsesHost => _useHost;
+
     /// <summary>This bubble is currently a valid left-click pop target.</summary>
     internal bool HostHitClickable => _isClickable && _isAlive && !_isDestroyed && !_isPopping && !_claimedByAvatar;
 
@@ -2650,7 +2727,12 @@ internal class Bubble
         // Shared-host A/B (chaos bubbles only): one Canvas host instead of a Window per bubble.
         // forceWindowMode pins per-window rendering for dashboard trigger bubbles — the shared
         // ChaosBubbleHostOverlay only exists during a real chaos run.
-        _useHost = spec != null && !forceWindowMode && (App.Settings?.Current?.ChaosBubbleSharedHost ?? false);
+        // Chaos effect bubbles ride the host under ChaosBubbleSharedHost; ambient dashboard bubbles
+        // (spec == null) ride it under BubbleSharedHost while the ambient host is standing. Either way
+        // forceWindowMode (dashboard trigger bubbles) pins per-window rendering.
+        bool chaosHost = spec != null && (App.Settings?.Current?.ChaosBubbleSharedHost ?? false);
+        bool ambientHost = spec == null && AmbientHostActive && (App.Settings?.Current?.BubbleSharedHost ?? false);
+        _useHost = !forceWindowMode && (chaosHost || ambientHost);
 
         // Quantized window side (per-window mode); also a harmless notional size in host mode.
         double winNeed = Math.Max(_size, _hitSize) + _winPad * 2;
