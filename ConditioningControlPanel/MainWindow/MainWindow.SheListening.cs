@@ -322,6 +322,13 @@ namespace ConditioningControlPanel
                     SheListeningTab.ChkSL_PushToTalk.IsChecked = s.SpeechPushToTalkEnabled && s.MicConsentGiven;
                     SheListeningTab.TxtSL_PttKey.Text = string.IsNullOrWhiteSpace(s.SpeechPushToTalkKey) ? "F8" : s.SpeechPushToTalkKey;
                     SheListeningTab.ChkSL_Headphones.IsChecked = s.SpeechHeadphonesMode;
+                    if (SheListeningTab.SldSL_MicSensitivity != null)
+                    {
+                        double sens = ThresholdToSens(s.SpeechLoudnessThreshold);
+                        SheListeningTab.SldSL_MicSensitivity.Value = sens;
+                        if (SheListeningTab.TxtSL_MicSensitivity != null)
+                            SheListeningTab.TxtSL_MicSensitivity.Text = $"{(int)Math.Round(sens)}%";
+                    }
                 }
             }
             finally { _isLoading = wasLoading; }
@@ -392,6 +399,33 @@ namespace ConditioningControlPanel
         {
             PopulateSlMicDevices();
             RefreshSheListeningStatus();
+        }
+
+        // "Mic sensitivity" slider <-> loudness gate. Slider 0..100 maps INVERSELY to the RMS threshold:
+        // 100% = most sensitive (lowest threshold, softest speech OK), 0% = strictest (must speak up).
+        // Useful gate range only — far below this is room noise, far above rejects normal speech.
+        private const double LoudThrAtMinSens = 0.045; // slider 0%
+        private const double LoudThrAtMaxSens = 0.004; // slider 100%
+
+        private static double SensToThreshold(double sens)
+            => LoudThrAtMinSens - (LoudThrAtMinSens - LoudThrAtMaxSens) * (Math.Clamp(sens, 0, 100) / 100.0);
+        private static double ThresholdToSens(double thr)
+            => Math.Clamp((LoudThrAtMinSens - thr) / (LoudThrAtMinSens - LoudThrAtMaxSens) * 100.0, 0, 100);
+
+        /// <summary>
+        /// Mic-sensitivity slider: tunes the loudness gate (<see cref="Models.AppSettings.SpeechLoudnessThreshold"/>)
+        /// that decides whether a recognized command/mantra was "said out loud". Applies live — the next
+        /// listen reads the new value. Does NOT touch the wake word (that's calibration).
+        /// </summary>
+        internal void SL_MicSensitivity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_isLoading || SheListeningTab == null) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.SpeechLoudnessThreshold = SensToThreshold(e.NewValue);
+            App.Settings?.Save();
+            if (SheListeningTab.TxtSL_MicSensitivity != null)
+                SheListeningTab.TxtSL_MicSensitivity.Text = $"{(int)Math.Round(e.NewValue)}%";
         }
 
         /// <summary>Update the hero: mic readiness / armed state + the master Start/Stop button.</summary>

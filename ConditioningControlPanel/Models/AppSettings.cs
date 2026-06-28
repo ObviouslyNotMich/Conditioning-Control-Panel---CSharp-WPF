@@ -3544,10 +3544,10 @@ namespace ConditioningControlPanel.Models
 
         // Was 0.04, which proved too high: it rejected normal-volume speech that Vosk had ALREADY
         // recognized as "too quiet" (the avatar would ask you to be louder, or silently drop a matched
-        // command). 0.015 (~-36 dBFS) still sits comfortably above room tone (~0.003-0.008) but lets a
-        // normal speaking voice through. Existing users at the old default are relaxed by
-        // MigrateLoudnessThreshold() on load.
-        private double _speechLoudnessThreshold = 0.015;
+        // command). 0.010 (~-40 dBFS) still sits above typical room tone (~0.003-0.008) but lets a soft
+        // speaking voice through. Users tune it live via the "Mic sensitivity" slider (She's Listening);
+        // existing users at the old 0.04 default are relaxed by MigrateLoudnessThreshold() on load.
+        private double _speechLoudnessThreshold = 0.010;
         /// <summary>Minimum peak RMS loudness (0..1) for a phrase to count as "said out loud".</summary>
         [JsonProperty]
         public double SpeechLoudnessThreshold
