@@ -3587,6 +3587,19 @@ namespace ConditioningControlPanel.Models
             set { _speechPushToTalkKey = string.IsNullOrWhiteSpace(value) ? "F8" : value; OnPropertyChanged(); }
         }
 
+        private double _speechWakeMatchThreshold = 0.6;
+        /// <summary>
+        /// Fuzzy-match strictness (0..1) for the "Hey Bambi" wake word. Lower = wakes more easily (good
+        /// because "bambi" is out-of-vocabulary for the offline model, so it transcribes loosely); higher
+        /// = fewer false wakes. Default 0.6 — was effectively 0.8, which missed ~half of real wakes.
+        /// </summary>
+        [JsonProperty]
+        public double SpeechWakeMatchThreshold
+        {
+            get => _speechWakeMatchThreshold;
+            set { _speechWakeMatchThreshold = Math.Clamp(value, 0.3, 0.95); OnPropertyChanged(); }
+        }
+
         private bool _speechHeadphonesMode = false;
         /// <summary>
         /// "I use headphones" — when on, the avatar's own voice can't bleed into the mic, so the command

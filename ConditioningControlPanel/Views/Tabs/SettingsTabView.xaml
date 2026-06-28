@@ -1438,7 +1438,7 @@
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Image Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0"
                                        Source="{Binding Source='📷', Converter={StaticResource EmojiToImageSource}}"/>
-                                <helpers:EmojiTextBlock Text="{loc:Str blink_trainer_section_webcam}" Foreground="White" VerticalAlignment="Center"/>
+                                <TextBlock Text="Webcam &amp; Mic" Foreground="White" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>

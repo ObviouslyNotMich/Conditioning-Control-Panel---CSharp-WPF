@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using ConditioningControlPanel.Helpers;
+using ConditioningControlPanel.Services.Speech;
 
 namespace ConditioningControlPanel.Services
 {
@@ -157,6 +158,41 @@ namespace ConditioningControlPanel.Services
                       .ToList();
         }
 
+        // "bambi" (and friends) aren't English dictionary words, so the offline model can't spell them
+        // reliably — it returns close-but-not-exact tokens or dumps the name into [unk]. Feeding the
+        // decoder these acoustically-plausible spellings as extra grammar targets lets it return a full
+        // phrase that fuzzy-matches the canonical wake word. Only the trailing name token is varied.
+        private static readonly Dictionary<string, string[]> WakeNameVariants =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["bambi"]  = new[] { "bambi", "bamby", "bambie", "bambee", "bombi", "bambit" },
+                ["bimbo"]  = new[] { "bimbo", "bimba", "bimbow", "bimboh" },
+                ["bambis"] = new[] { "bambis", "bambies" },
+            };
+
+        /// <summary>
+        /// Expand the user's wake phrases with phonetic spellings of any OOV name token (e.g. "hey bambi"
+        /// -> "hey bambi/bamby/bambie/..."). Canonical phrases stay FIRST so the recognizer's match target
+        /// (its words[0]) remains the real wake word; the variants only widen what the decoder can return.
+        /// </summary>
+        private static List<string> ExpandWakeVariants(IReadOnlyList<string> phrases)
+        {
+            var outp = new List<string>(phrases);
+            foreach (var phrase in phrases)
+            {
+                var toks = phrase.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (toks.Length == 0) continue;
+                if (!WakeNameVariants.TryGetValue(toks[^1], out var variants)) continue;
+                var prefix = toks.Length > 1 ? string.Join(' ', toks[..^1]) + " " : "";
+                foreach (var v in variants)
+                {
+                    var cand = prefix + v;
+                    if (!outp.Contains(cand, StringComparer.OrdinalIgnoreCase)) outp.Add(cand);
+                }
+            }
+            return outp;
+        }
+
         private void StartWakeLoop()
         {
             // A live (not-stopped) loop already running? Leave it. StopWakeLoop nulls _wakeLoopCts, so a
@@ -212,6 +248,19 @@ namespace ConditioningControlPanel.Services
                         await Task.Delay(500, loopCt).ConfigureAwait(false);
                         continue;
                     }
+                    // Widen the grammar with phonetic spellings of the OOV name so the decoder can lock on;
+                    // canonical phrases stay first so the match still scores against the real wake word.
+                    var grammar = ExpandWakeVariants(words);
+                    // Also admit the command vocabulary so a chained "hey bambi <command>" is transcribed
+                    // in one breath (the command audio is consumed by THIS recognizer — a later listen would
+                    // miss it). These never widen what counts as a wake (matching is prefix-vs-wake-word);
+                    // they only let us read a trailing command from the wake transcript.
+                    try
+                    {
+                        foreach (var alias in VoiceCommandIntents.SelectMany(i => i.Aliases))
+                            if (!grammar.Contains(alias, StringComparer.OrdinalIgnoreCase)) grammar.Add(alias);
+                    }
+                    catch { }
 
                     string? heard = null;
                     using (var waitCts = CancellationTokenSource.CreateLinkedTokenSource(loopCt))
@@ -219,7 +268,7 @@ namespace ConditioningControlPanel.Services
                         _wakeWaitCts = waitCts;
                         try
                         {
-                            heard = await App.Speech!.WaitForWakeWordAsync(words, waitCts.Token).ConfigureAwait(false);
+                            heard = await App.Speech!.WaitForWakeWordAsync(grammar, waitCts.Token).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException) { /* normal on stop/interrupt */ }
                         catch (Exception ex)
@@ -234,7 +283,7 @@ namespace ConditioningControlPanel.Services
                     if (!string.IsNullOrWhiteSpace(heard))
                     {
                         App.Logger?.Information("AutonomyService: wake word heard ('{Heard}')", heard);
-                        OnWakeWordHeard();
+                        OnWakeWordHeard(heard);
                         // Let the prompt claim the mic before we loop back and re-grab it.
                         await Task.Delay(400, loopCt).ConfigureAwait(false);
                     }
@@ -245,8 +294,15 @@ namespace ConditioningControlPanel.Services
             App.Logger?.Information("AutonomyService: wake-word loop ended");
         }
 
-        private void OnWakeWordHeard()
+        private void OnWakeWordHeard(string? heard = null)
         {
+            // One-breath chaining: if the wake utterance already carried a command ("hey bambi show me
+            // bubbles"), run it directly. That command audio was consumed by the wake recognizer, so a
+            // separate listen pass would miss it — this is the only place we can catch it. When there's no
+            // trailing command (bare "hey bambi", or push-to-talk which passes null) we fall through to the
+            // Tier 0 listen flow below.
+            if (TryHandleInlineCommand(heard)) return;
+
             // Tier 0 — listen BEFORE speaking, the way Alexa/Google do: on wake they flash a "listening"
             // cue and open the mic in the same instant; a spoken re-prompt ("you called?") only comes
             // AFTER you stay silent. So here we DON'T speak the ack — we stash it, pop the dots bubble for
@@ -287,6 +343,62 @@ namespace ConditioningControlPanel.Services
                 try { App.AvatarWindow?.ShowListeningBubble(ack); } catch { }
             });
             RequestVoiceCommand(allowCommands: true);
+        }
+
+        /// <summary>
+        /// Parse a command that rode in on the wake utterance ("hey bambi show me bubbles") and, if one
+        /// fuzzy-matches an intent, run it immediately — no second listen window. Returns true when a
+        /// command was executed. Strips the leading wake phrase (any phonetic variant) first; bare wake
+        /// (no remainder) and unmatched tails return false so the caller runs the normal listen flow.
+        /// </summary>
+        private bool TryHandleInlineCommand(string? heard)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(heard)) return false;
+                var tokens = SpeechService.Normalize(heard).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (tokens.Length == 0) return false;
+
+                // Drop the wake prefix: pick the longest wake variant whose leading tokens fuzzy-match.
+                int drop = 0;
+                foreach (var v in ExpandWakeVariants(WakeWords()))
+                {
+                    var vt = SpeechService.Normalize(v).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (vt.Length == 0 || vt.Length > tokens.Length || vt.Length <= drop) continue;
+                    var lead = string.Join(' ', tokens.Take(vt.Length));
+                    if (SpeechService.Similarity(string.Join(' ', vt), lead) >= 0.6) drop = vt.Length;
+                }
+                if (drop == 0) return false;                       // wake prefix not found — let the flow handle it
+                var remainder = string.Join(' ', tokens.Skip(drop)).Trim();
+                if (remainder.Length == 0) return false;           // bare wake, no chained command
+
+                // Fuzzy-match the remainder to an intent (same scoring as the listen path).
+                VoiceCommandIntent? best = null; double bestScore = 0;
+                foreach (var intent in VoiceCommandIntents)
+                    foreach (var alias in intent.Aliases)
+                    {
+                        var s = SpeechService.Similarity(SpeechService.Normalize(alias), remainder);
+                        if (s > bestScore) { bestScore = s; best = intent; }
+                    }
+                if (best == null || bestScore < VoiceCommandMatchThreshold) return false;
+                // Mantra / "again" need the listen-flow context — defer those to the normal path.
+                if (best.IsMantra || best.IsReplay) return false;
+
+                App.Logger?.Information(
+                    "AutonomyService: inline voice command '{Name}' from wake utterance (remainder '{Rem}', score {Score:0.00})",
+                    best.Name, remainder, bestScore);
+
+                var toRun = best;
+                if (Application.Current?.Dispatcher != null)
+                    _ = Application.Current.Dispatcher.InvokeAsync(() => ExecuteIntentAndConfirm(toRun));
+                if (best.Repeatable) _lastVoiceIntent = best;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                App.Logger?.Warning(ex, "AutonomyService: TryHandleInlineCommand failed");
+                return false;
+            }
         }
 
         // ── Push-to-talk ──────────────────────────────────────────────────────
@@ -340,7 +452,7 @@ namespace ConditioningControlPanel.Services
             // Behave EXACTLY like a "Hey Bambi" wake: pop the listening dots, open the mic immediately,
             // and only speak the ack if you stay silent (Tier 0, all in OnWakeWordHeard). OnWakeWordHeard
             // marshals its own UI work, but we're on the low-level hook thread (must return fast), so hop off it.
-            DispatcherHelper.RunOnUI(OnWakeWordHeard);
+            DispatcherHelper.RunOnUI(() => OnWakeWordHeard());
         }
     }
 }

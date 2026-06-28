@@ -244,7 +244,7 @@ namespace ConditioningControlPanel.Services.Speech
             var words = wakeWords?.Where(w => !string.IsNullOrWhiteSpace(w)).Select(Normalize).Distinct().ToList()
                         ?? new List<string>();
             if (words.Count == 0) return null;
-            var res = await RunGrammarSessionAsync(words[0], words, new RecognizeOptions { Timeout = Timeout.InfiniteTimeSpan, MatchThreshold = 0.8 }, isWakeWord: true, ct)
+            var res = await RunGrammarSessionAsync(words[0], words, new RecognizeOptions { Timeout = Timeout.InfiniteTimeSpan, MatchThreshold = SettingDouble("SpeechWakeMatchThreshold", 0.6) }, isWakeWord: true, ct)
                 .ConfigureAwait(false);
             return res.Matched ? (string.IsNullOrEmpty(res.Transcript) ? words[0] : res.Transcript) : null;
         }
@@ -295,6 +295,16 @@ namespace ConditioningControlPanel.Services.Speech
                 {
                     var heard = Normalize(transcript);
                     var score = Similarity(normalizedTarget, heard);
+                    // Wake spotting: also score the LEADING tokens (as many as the wake phrase has) so a
+                    // command chained in the same breath ("hey bambi show me bubbles") doesn't drag the
+                    // whole-string similarity below threshold. The caller parses the trailing command.
+                    if (isWakeWord && !string.IsNullOrEmpty(normalizedTarget))
+                    {
+                        var tn = normalizedTarget.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                        var hh = heard.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (hh.Length > tn)
+                            score = Math.Max(score, Similarity(normalizedTarget, string.Join(' ', hh.Take(tn))));
+                    }
                     var loud = peakRms >= loudnessThreshold;
                     return new PhraseResult
                     {
