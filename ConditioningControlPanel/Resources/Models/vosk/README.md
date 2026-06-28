@@ -10,10 +10,25 @@ fires. No crash, no prompt.
 
 ## Which model
 
-Ship the small English model — it's ~40 MB and fast enough for closed-grammar verification, which
-is all the "repeat after me" mechanic needs:
+Two options (both support the runtime grammar JSON we build in `SpeechService.BuildRecognizer`):
 
-- `vosk-model-small-en-us-0.15`  (https://alphacephei.com/vosk/models)
+- **`vosk-model-en-us-0.22-lgraph`** (~128 MB) — **recommended.** Much more accurate acoustic model,
+  so command/grammar recognition is noticeably more reliable than the small model. Still supports
+  the dynamic grammar constructor (it's the `-lgraph` / large-graph variant).
+- `vosk-model-small-en-us-0.15` (~40 MB) — the original lightweight model; fine but less accurate.
+
+Get either from <https://alphacephei.com/vosk/models>.
+
+> ⚠️ Do **not** ship the full `vosk-model-en-us-0.22` (1.8 GB). Its static HCLG graph **ignores the
+> grammar JSON** we pass, so closed-command recognition silently degrades to open dictation. Only the
+> small and `-lgraph` models honour the grammar.
+
+You can drop the lgraph model in **alongside** the old small folder — `ResolveModelDir()` ranks
+`lgraph` ahead of `small`, so the upgrade is picked automatically without deleting the old one first.
+
+> Wake word: "Hey Bambi" is out-of-vocabulary for any Vosk model, so a model upgrade improves
+> commands but not wake reliability. The dedicated sherpa-onnx KWS spotter (`../sherpa-kws/`,
+> open-source + offline + no key) handles wake; Vosk is the fallback when it isn't installed.
 
 ## How to install it
 

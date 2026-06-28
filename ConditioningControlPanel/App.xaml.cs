@@ -306,6 +306,8 @@ namespace ConditioningControlPanel
         public static AutonomyService Autonomy { get; private set; } = null!;
         /// <summary>Offline speech recognition (Takeover "repeat after me"). May be unavailable (no model/mic); callers check IsAvailable.</summary>
         public static Services.Speech.SpeechService Speech { get; private set; } = null!;
+        /// <summary>Offline "Hey Bambi" wake-word spotter (sherpa-onnx KWS, no key). Unavailable until the model is dropped into Resources\Models\sherpa-kws\; the wake loop falls back to Vosk when so.</summary>
+        public static Services.Speech.SherpaWakeService WakeWord { get; private set; } = null!;
         public static InteractionQueueService InteractionQueue { get; private set; } = null!;
         public static ContentPackService ContentPacks { get; private set; } = null!;
         public static CompanionService Companion { get; private set; } = null!;
@@ -1276,6 +1278,11 @@ namespace ConditioningControlPanel
             // Constructor is a no-op; the mic only opens during an explicit listen window, and the
             // service reports IsAvailable=false (no model on disk / no capture device) instead of throwing.
             Speech = new Services.Speech.SpeechService();
+
+            // Initialize the sherpa-onnx wake-word spotter ("Hey Bambi"). No-op ctor; reports
+            // IsAvailable=false until the KWS model is dropped into Resources\Models\sherpa-kws\,
+            // in which case the wake loop prefers it over the Vosk free-recognizer path. No API key.
+            WakeWord = new Services.Speech.SherpaWakeService();
 
             // Initialize content packs service
             ContentPacks = new ContentPackService();

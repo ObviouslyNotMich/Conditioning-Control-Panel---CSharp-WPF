@@ -64,25 +64,46 @@ namespace ConditioningControlPanel
         // unhook in OnClosing alongside the debug subscriptions above.
         private Action<WebcamTrackingState>? _onPillStateChanged;
 
-        // Mic-active pill in the title bar — visible whenever ANY feature has a SpeechService
-        // capture session open (Takeover voice, Voice Lock Cards…). Stored handler so we can
-        // unhook in OnClosing. ListeningChanged fires off the capture thread → marshal to UI.
-        private EventHandler<bool>? _onMicListeningChanged;
+        // Mic-active pill in the title bar — the privacy indicator. Visible whenever the microphone is
+        // (or, for an always-on wake word, continuously is) physically open: any Vosk capture session
+        // (commands / Voice Lock Cards / mantras), the sherpa wake mic, OR the whole time wake word is
+        // armed. Stored handlers so we can unhook in OnClosing. Both events fire off the capture thread
+        // → marshal to the UI thread.
+        private EventHandler<bool>? _onMicListeningChanged;   // App.Speech (Vosk capture)
+        private EventHandler<bool>? _onWakeListeningChanged;  // App.WakeWord (sherpa wake mic)
 
         private void WireMicActivePill()
         {
-            if (App.Speech == null || _onMicListeningChanged != null) return;
+            if (_onMicListeningChanged != null) return; // already wired
 
-            void Update(bool listening)
+            if (App.Speech != null)
             {
-                if (MicActivePill != null)
-                    MicActivePill.Visibility = listening ? Visibility.Visible : Visibility.Collapsed;
+                _onMicListeningChanged = (_, _) => RunOnUi(UpdateMicPill);
+                App.Speech.ListeningChanged += _onMicListeningChanged;
             }
+            if (App.WakeWord != null)
+            {
+                _onWakeListeningChanged = (_, _) => RunOnUi(UpdateMicPill);
+                App.WakeWord.ListeningChanged += _onWakeListeningChanged;
+            }
+            UpdateMicPill();
+        }
 
-            _onMicListeningChanged = (_, listening) => RunOnUi(() => Update(listening));
-            App.Speech.ListeningChanged += _onMicListeningChanged;
-            // Reflect current state on wire-up — a session may already be open.
-            Update(App.Speech.IsListening);
+        /// <summary>
+        /// Honest mic privacy posture: light the title-bar pill whenever the microphone is reachable.
+        /// That's any live capture (Vosk command/lock-card/mantra OR the sherpa wake mic), AND — because
+        /// an enabled wake word holds the mic open in a tight always-on loop — the entire time the wake
+        /// word is armed (consent + wake enabled). Push-to-talk alone does NOT keep the mic open, so it
+        /// only lights the pill during its actual capture window. Call this from the listening events and
+        /// from every arm/disarm path so "mic on" and "pill on" can never diverge.
+        /// </summary>
+        internal void UpdateMicPill()
+        {
+            if (MicActivePill == null) return;
+            var s = App.Settings?.Current;
+            bool wakeContinuous = s?.MicConsentGiven == true && s.SpeechWakeWordEnabled;
+            bool capturing = App.Speech?.IsListening == true || App.WakeWord?.IsListening == true;
+            MicActivePill.Visibility = (wakeContinuous || capturing) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void MicActivePill_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)

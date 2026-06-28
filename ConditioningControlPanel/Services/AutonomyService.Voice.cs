@@ -248,27 +248,39 @@ namespace ConditioningControlPanel.Services
                         await Task.Delay(500, loopCt).ConfigureAwait(false);
                         continue;
                     }
-                    // Widen the grammar with phonetic spellings of the OOV name so the decoder can lock on;
-                    // canonical phrases stay first so the match still scores against the real wake word.
-                    var grammar = ExpandWakeVariants(words);
-                    // Also admit the command vocabulary so a chained "hey bambi <command>" is transcribed
-                    // in one breath (the command audio is consumed by THIS recognizer — a later listen would
-                    // miss it). These never widen what counts as a wake (matching is prefix-vs-wake-word);
-                    // they only let us read a trailing command from the wake transcript.
-                    try
-                    {
-                        foreach (var alias in VoiceCommandIntents.SelectMany(i => i.Aliases))
-                            if (!grammar.Contains(alias, StringComparer.OrdinalIgnoreCase)) grammar.Add(alias);
-                    }
-                    catch { }
+                    // Prefer the dedicated sherpa-onnx KWS spotter when the model is installed — it nails
+                    // the OOV name "Bambi" that the Vosk free recognizer only catches ~half the time. It
+                    // spots the keyword ONLY (no transcript), so a one-breath "hey bambi <command>" isn't
+                    // read here; the Tier 0 listen that OnWakeWordHeard opens catches the command instead.
+                    bool useKws = App.WakeWord?.IsAvailable == true;
 
-                    string? heard = null;
+                    // Vosk fallback grammar: phonetic spellings of the OOV name (canonical first so the
+                    // match scores against the real wake word) plus the command vocabulary, so a chained
+                    // "hey bambi <command>" is transcribed in one breath (that audio is consumed by THIS
+                    // recognizer — a later listen would miss it). Only built when the KWS engine isn't used.
+                    List<string>? grammar = null;
+                    if (!useKws)
+                    {
+                        grammar = ExpandWakeVariants(words);
+                        try
+                        {
+                            foreach (var alias in VoiceCommandIntents.SelectMany(i => i.Aliases))
+                                if (!grammar.Contains(alias, StringComparer.OrdinalIgnoreCase)) grammar.Add(alias);
+                        }
+                        catch { }
+                    }
+
+                    string? heard = null; // Vosk transcript (may carry an inline command)
+                    bool kwsHit = false;  // sherpa-onnx KWS fired (keyword only)
                     using (var waitCts = CancellationTokenSource.CreateLinkedTokenSource(loopCt))
                     {
                         _wakeWaitCts = waitCts;
                         try
                         {
-                            heard = await App.Speech!.WaitForWakeWordAsync(grammar, waitCts.Token).ConfigureAwait(false);
+                            if (useKws)
+                                kwsHit = await App.WakeWord!.WaitForWakeAsync(waitCts.Token).ConfigureAwait(false);
+                            else
+                                heard = await App.Speech!.WaitForWakeWordAsync(grammar!, waitCts.Token).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException) { /* normal on stop/interrupt */ }
                         catch (Exception ex)
@@ -280,7 +292,13 @@ namespace ConditioningControlPanel.Services
                     }
 
                     if (loopCt.IsCancellationRequested) break;
-                    if (!string.IsNullOrWhiteSpace(heard))
+                    if (kwsHit)
+                    {
+                        App.Logger?.Information("AutonomyService: wake word heard (sherpa-onnx KWS)");
+                        OnWakeWordHeard();   // no transcript -> Tier 0 listen flow, like push-to-talk
+                        await Task.Delay(400, loopCt).ConfigureAwait(false);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(heard))
                     {
                         App.Logger?.Information("AutonomyService: wake word heard ('{Heard}')", heard);
                         OnWakeWordHeard(heard);

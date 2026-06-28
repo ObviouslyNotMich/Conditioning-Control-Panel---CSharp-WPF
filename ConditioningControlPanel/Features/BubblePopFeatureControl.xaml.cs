@@ -43,6 +43,7 @@ namespace ConditioningControlPanel.Features
                 TxtVolume.Text = $"{s.BubblesVolume}%";
                 SliderSpeed.Value = s.BubbleSpeedBoost;
                 TxtSpeed.Text = $"+{s.BubbleSpeedBoost}%";
+                ChkSolidMode.IsChecked = s.BubbleSharedHost;
 
                 // Easter-egg hint (companion auto-pops a lingering effect bubble) — name the active persona.
                 var persona = App.Mods?.ActiveModId switch
@@ -137,6 +138,23 @@ namespace ConditioningControlPanel.Features
             TxtSpeed.Text = $"+{v}%";
             s.BubbleSpeedBoost = v;
             App.Settings?.Save();
+        }
+
+        private void ChkSolidMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            s.BubbleSharedHost = ChkSolidMode.IsChecked ?? false;
+            App.Settings?.Save();
+
+            // The render path is latched per Start->Stop session, so bounce a live bubble service to
+            // pick up the new mode (no-op when bubbles aren't currently running).
+            if (App.IsEngineRunning && s.BubblesEnabled && App.Bubbles?.IsRunning == true)
+            {
+                App.Bubbles.Stop();
+                App.Bubbles.Start();
+            }
         }
 
         private void ChkTriggers_Changed(object sender, RoutedEventArgs e)

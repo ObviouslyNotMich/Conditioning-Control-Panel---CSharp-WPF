@@ -29,6 +29,10 @@ namespace ConditioningControlPanel.Views.Tabs
         {
             if (Window.GetWindow(this) is MainWindow mw) mw.SL_WakeWords_LostFocus(sender, e);
         }
+        private void BtnSL_Calibrate_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw) mw.SL_Calibrate_Click(sender, e);
+        }
         private void ChkSL_PushToTalk_Changed(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw) mw.SL_PushToTalk_Changed(sender, e);
@@ -52,6 +56,10 @@ namespace ConditioningControlPanel.Views.Tabs
         private void BtnSL_MicRefresh_Click(object sender, RoutedEventArgs e)
         {
             if (Window.GetWindow(this) is MainWindow mw) mw.SL_MicRefresh_Click(sender, e);
+        }
+        private void SldSL_MicSensitivity_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (Window.GetWindow(this) is MainWindow mw) mw.SL_MicSensitivity_Changed(sender, e);
         }
         private void BtnSL_TestMantra_Click(object sender, RoutedEventArgs e)
         {

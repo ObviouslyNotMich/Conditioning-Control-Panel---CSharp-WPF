@@ -2092,7 +2092,20 @@ namespace ConditioningControlPanel.Models
         public int BubblesFrequency
         {
             get => _bubblesFrequency;
-            set { _bubblesFrequency = Math.Clamp(value, 1, 15); OnPropertyChanged(); }
+            set { _bubblesFrequency = Math.Clamp(value, 1, 60); OnPropertyChanged(); }
+        }
+        private bool _bubbleSharedHost = false;
+        /// <summary>Render the ambient dashboard bubbles as visuals on ONE shared click-through host
+        /// window (Canvas-positioned, pops via the global mouse hook) instead of one top-level layered
+        /// Window per bubble — the same hyper-optimized path the chaos field uses (see
+        /// <see cref="ChaosBubbleSharedHost"/>). The per-window path repositions every bubble via
+        /// SetWindowPos each frame, which saturates the UI thread and makes clicks register late under a
+        /// dense field (raised spawn rate / higher concurrent cap). Default OFF until proven, exactly how
+        /// the chaos host shipped; falls back to the proven per-window path when off.</summary>
+        public bool BubbleSharedHost
+        {
+            get => _bubbleSharedHost;
+            set { _bubbleSharedHost = value; OnPropertyChanged(); }
         }
         private int _bubblesVolume = 50;
         public int BubblesVolume
@@ -3551,13 +3564,77 @@ namespace ConditioningControlPanel.Models
             set { _speechMatchThreshold = Math.Clamp(value, 0.1, 1.0); OnPropertyChanged(); }
         }
 
-        private double _speechLoudnessThreshold = 0.04;
+        // Was 0.04, which proved too high: it rejected normal-volume speech that Vosk had ALREADY
+        // recognized as "too quiet" (the avatar would ask you to be louder, or silently drop a matched
+        // command). 0.010 (~-40 dBFS) still sits above typical room tone (~0.003-0.008) but lets a soft
+        // speaking voice through. Users tune it live via the "Mic sensitivity" slider (She's Listening);
+        // existing users at the old 0.04 default are relaxed by MigrateLoudnessThreshold() on load.
+        private double _speechLoudnessThreshold = 0.010;
         /// <summary>Minimum peak RMS loudness (0..1) for a phrase to count as "said out loud".</summary>
         [JsonProperty]
         public double SpeechLoudnessThreshold
         {
             get => _speechLoudnessThreshold;
             set { _speechLoudnessThreshold = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
+        }
+
+        private bool _loudnessThresholdRelaxed;
+        /// <summary>One-shot guard for <see cref="MigrateLoudnessThreshold"/> so a future explicit choice sticks.</summary>
+        [JsonProperty]
+        public bool LoudnessThresholdRelaxed
+        {
+            get => _loudnessThresholdRelaxed;
+            set { _loudnessThresholdRelaxed = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Relax the legacy 0.04 loudness gate to the gentler default for existing users. Nobody set
+        /// 0.04 deliberately (there's no UI for it), so any value parked at the old default is bumped to
+        /// 0.015. One-shot — once relaxed (or once a user picks their own value via a future UI), it
+        /// never re-fires.
+        /// </summary>
+        internal void MigrateLoudnessThreshold()
+        {
+            if (_loudnessThresholdRelaxed) return;
+            if (_speechLoudnessThreshold >= 0.035 && _speechLoudnessThreshold <= 0.045)
+                _speechLoudnessThreshold = 0.015;
+            _loudnessThresholdRelaxed = true;
+        }
+
+        private double _speechWakeThreshold = 0.15;
+        /// <summary>
+        /// sherpa KWS trigger threshold (0..1) for the "Hey Bambi" wake word — the config-level
+        /// KeywordsThreshold applied to every keyword line. Lower = wakes more easily (fewer misses,
+        /// more false wakes). Default 0.15 is recall-biased; the in-app wake calibration overwrites this
+        /// with a value tuned to the user's own voice + mic. Per-user, so it survives the keyword set.
+        /// </summary>
+        [JsonProperty]
+        public double SpeechWakeThreshold
+        {
+            get => _speechWakeThreshold;
+            set { _speechWakeThreshold = Math.Clamp(value, 0.02, 0.6); OnPropertyChanged(); }
+        }
+
+        private double _speechWakeBoost = 2.0;
+        /// <summary>sherpa KWS keyword boost (KeywordsScore) for the wake word. Higher = easier to fire.</summary>
+        [JsonProperty]
+        public double SpeechWakeBoost
+        {
+            get => _speechWakeBoost;
+            set { _speechWakeBoost = Math.Clamp(value, 0.0, 5.0); OnPropertyChanged(); }
+        }
+
+        private bool _speechWakeDiagnostics;
+        /// <summary>
+        /// Dev/diagnostic: when on, the sherpa wake spotter logs capture start/stop and a periodic mic
+        /// level (peak RMS) + frame count, so we can tell from the log whether the mic is actually
+        /// capturing and how loud speech is reaching it. Off by default (it's chatty).
+        /// </summary>
+        [JsonProperty]
+        public bool SpeechWakeDiagnostics
+        {
+            get => _speechWakeDiagnostics;
+            set { _speechWakeDiagnostics = value; OnPropertyChanged(); }
         }
 
         private bool _speechWakeWordEnabled = false;

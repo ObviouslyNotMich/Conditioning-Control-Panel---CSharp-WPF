@@ -203,15 +203,34 @@ namespace ConditioningControlPanel.Services.Speech
 
         /// <summary>
         /// A valid Vosk model dir contains both an "am" and a "conf" folder. Accept either the
-        /// model root itself or a single nested folder (the way the official zips unpack).
+        /// model root itself or a nested folder (the way the official zips unpack). When more than
+        /// one model is present (e.g. the old small model left alongside a freshly-dropped lgraph
+        /// one), prefer the more accurate model — lgraph over a generic name over the small model —
+        /// so simply dropping the upgrade in picks it up without deleting the old folder first.
+        /// NOTE: only the small and "-lgraph" models support the runtime grammar JSON we build in
+        /// <see cref="BuildRecognizer"/>; the full (non-lgraph) 0.22 model ignores grammar, so don't
+        /// ship that one here.
         /// </summary>
         private static string? ResolveModelDir()
         {
             if (!Directory.Exists(ModelRoot)) return null;
-            if (LooksLikeModel(ModelRoot)) return ModelRoot;
+
+            var candidates = new List<string>();
+            if (LooksLikeModel(ModelRoot)) candidates.Add(ModelRoot);
             foreach (var sub in Directory.EnumerateDirectories(ModelRoot))
-                if (LooksLikeModel(sub)) return sub;
-            return null;
+                if (LooksLikeModel(sub)) candidates.Add(sub);
+            if (candidates.Count == 0) return null;
+            if (candidates.Count == 1) return candidates[0];
+
+            // Rank: lgraph (best, grammar-capable) > anything not "small" > small.
+            static int Rank(string dir)
+            {
+                var name = Path.GetFileName(dir).ToLowerInvariant();
+                if (name.Contains("lgraph")) return 2;
+                if (!name.Contains("small")) return 1;
+                return 0;
+            }
+            return candidates.OrderByDescending(Rank).First();
         }
 
         private static bool LooksLikeModel(string dir) =>
@@ -268,7 +287,7 @@ namespace ConditioningControlPanel.Services.Speech
             try
             {
                 var matchThreshold = options.MatchThreshold ?? SettingDouble("SpeechMatchThreshold", 0.62);
-                var loudnessThreshold = options.LoudnessThreshold ?? SettingDouble("SpeechLoudnessThreshold", 0.04);
+                var loudnessThreshold = options.LoudnessThreshold ?? SettingDouble("SpeechLoudnessThreshold", 0.015);
                 var normalizedTarget = Normalize(target);
 
                 var tcs = new TaskCompletionSource<PhraseResult>(TaskCreationOptions.RunContinuationsAsynchronously);

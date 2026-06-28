@@ -136,6 +136,10 @@ namespace ConditioningControlPanel.Services
                         // Migrate legacy ContentMode-based settings to mod-based settings
                         settings.MigrateFromContentModeToMod();
 
+                        // Relax the old 0.04 mic loudness gate (too high — rejected normal speech) for
+                        // existing users to the gentler default. One-shot.
+                        settings.MigrateLoudnessThreshold();
+
                         return settings;
                     }
                 }

@@ -25,32 +25,40 @@ namespace ConditioningControlPanel;
 public sealed class ChaosBubbleHostOverlay : Window
 {
     private static ChaosBubbleHostOverlay? _active;
+    private static int _refCount;
     private readonly Canvas _canvas;
 
     public static bool IsReady => _active != null;
 
-    /// <summary>Create + show the host at run start (shared-host mode only).</summary>
+    /// <summary>Take a reference on the host, creating + showing it if this is the first owner. Each
+    /// call must be balanced by exactly one <see cref="CloseActive"/>; the window only dies at the last
+    /// release. Creates synchronously when already on the UI thread (so a same-tick spawn finds the host
+    /// up), else marshals the create.</summary>
     public static void EnsureCreated()
     {
+        System.Threading.Interlocked.Increment(ref _refCount);
         try
         {
             var disp = Application.Current?.Dispatcher;
             if (disp == null || disp.HasShutdownStarted) return;
-            disp.BeginInvoke(() =>
-            {
-                try
-                {
-                    if (_active == null)
-                    {
-                        _active = new ChaosBubbleHostOverlay();
-                        ((Window)_active).Show();
-                        ChaosWindowZ.RaiseAboveVideo(_active);
-                    }
-                }
-                catch (Exception ex) { App.Logger?.Debug("ChaosBubbleHost.EnsureCreated: {E}", ex.Message); }
-            });
+            if (disp.CheckAccess()) { CreateNow(); return; }
+            disp.BeginInvoke(() => CreateNow());
         }
         catch { }
+    }
+
+    private static void CreateNow()
+    {
+        try
+        {
+            if (_active == null)
+            {
+                _active = new ChaosBubbleHostOverlay();
+                ((Window)_active).Show();
+                ChaosWindowZ.RaiseAboveVideo(_active);
+            }
+        }
+        catch (Exception ex) { App.Logger?.Debug("ChaosBubbleHost.EnsureCreated: {E}", ex.Message); }
     }
 
     /// <summary>Add a bubble visual to the host (UI thread). No-op if the host isn't up.</summary>
@@ -81,9 +89,13 @@ public sealed class ChaosBubbleHostOverlay : Window
     /// <summary>Re-stack the live host above a mandatory video (see ChaosWindowZ). UI thread only.</summary>
     public static void RaiseActive() => ChaosWindowZ.RaiseTopmost(_active);
 
-    /// <summary>Instant teardown (run end / shutdown) — the only place this hwnd dies.</summary>
+    /// <summary>Release one reference. The hwnd is torn down (run end / shutdown) only when the LAST
+    /// owner releases — a chaos run ending must not close a host the ambient game still holds.</summary>
     public static void CloseActive()
     {
+        int n = System.Threading.Interlocked.Decrement(ref _refCount);
+        if (n > 0) return;                                                  // another owner still needs it
+        if (n < 0) { System.Threading.Interlocked.Exchange(ref _refCount, 0); return; }   // unbalanced — clamp
         try
         {
             var disp = Application.Current?.Dispatcher;

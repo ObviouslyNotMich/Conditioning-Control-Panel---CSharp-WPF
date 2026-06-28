@@ -180,6 +180,11 @@ namespace ConditioningControlPanel
                     App.Speech.ListeningChanged -= _onMicListeningChanged;
                     _onMicListeningChanged = null;
                 }
+                if (_onWakeListeningChanged != null && App.WakeWord != null)
+                {
+                    App.WakeWord.ListeningChanged -= _onWakeListeningChanged;
+                    _onWakeListeningChanged = null;
+                }
                 if (_onRapidBlinkRecal != null && App.Webcam != null)
                 {
                     App.Webcam.OnBlink -= _onRapidBlinkRecal;
