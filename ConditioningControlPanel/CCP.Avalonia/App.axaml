@@ -172,6 +172,36 @@
       </Style>
     </ControlTheme>
 
+    <!-- Premium quick-toggle chip used by the dashboard left rail (v6.2.1 Dashboard Quick Actions).
+         A small vertical icon-and-label chip with a pointerover highlight that matches the WPF
+         PremiumChipStyle accent. Uses Avalonia v12 ControlTheme + :pointerover selector. -->
+    <ControlTheme x:Key="PremiumChipButton" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource AccentTintedBgBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="2,3" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PinkBrush}" />
+      </Style>
+    </ControlTheme>
+
     <!-- Platform capability badge used by feature controls to explain degraded options -->
     <ControlTheme x:Key="PlatformInfoBadge" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource TransparentPinkBrush}" />

@@ -62,6 +62,7 @@ public partial class SettingsTabView : UserControl
         InitializeMarquee();
         AttachEmbeddedBrowser();
         WireBrowserFullscreenEvents();
+        InitPremiumRail();
 
         var themeService = App.Services?.GetService<AvaloniaThemeService>();
         if (themeService != null)
@@ -72,6 +73,8 @@ public partial class SettingsTabView : UserControl
     {
         _marqueeTimer?.Stop();
         _marqueeTimer = null;
+
+        ShutdownPremiumRail();
 
         UnwireBrowserFullscreenEvents();
         ExitBrowserFullscreen();

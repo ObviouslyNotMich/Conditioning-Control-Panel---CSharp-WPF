@@ -18,8 +18,148 @@
                   VerticalScrollBarVisibility="Auto">
       <Grid RowDefinitions="*,Auto,Auto">
 
-        <!-- Velvet mosaic dashboard: 4x4 feature cards on the left, browser/audio/quick-links on the right -->
-        <Grid Grid.Row="0" ColumnDefinitions="640,*">
+        <!-- Velvet mosaic dashboard: PREMIUM QUICK-TOGGLE RAIL on the far left, then 4x4 feature
+             cards, then browser/audio/quick-links on the right. Port of the WPF SettingsTabView
+             col-0 rail (v6.2.1 "Dashboard Quick Actions"). Takeover/Awareness toggle their service
+             in place; the rest jump to their dedicated tab. Whole rail is locked behind the
+             PremiumRailLock overlay when the user is not a logged-in patron. -->
+        <Grid Grid.Row="0" ColumnDefinitions="84,*">
+
+        <!-- PREMIUM QUICK-TOGGLE RAIL -->
+        <Border Grid.Column="0" Margin="5,5,0,5"
+                Background="{DynamicResource ElevatedSurfaceBrush}"
+                BorderBrush="{DynamicResource GlassBorderBrush}"
+                BorderThickness="1" CornerRadius="12">
+          <Grid>
+            <StackPanel x:Name="PremiumRailContent" Margin="4,6,4,6" Spacing="5">
+              <TextBlock Text="PREMIUM" FontSize="9" FontWeight="Bold"
+                         Foreground="{DynamicResource SecondaryBrush}"
+                         HorizontalAlignment="Center" Margin="0,0,0,4" />
+
+              <!-- Takeover: toggle AutonomyService (Start/Stop) -->
+              <Button Theme="{StaticResource PremiumChipButton}" Click="ChipTakeover_Click"
+                      ToolTip.Tip="Takeover — the companion triggers effects on her own">
+                <StackPanel HorizontalAlignment="Center">
+                  <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                    <TextBlock Text="🎭" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="DotTakeover" Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Fill="#555555" Stroke="#1A1A2E" StrokeThickness="1" />
+                  </Grid>
+                  <TextBlock Text="Takeover" FontSize="9" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </Button>
+
+              <!-- Awareness: toggle AwarenessService (Start/Stop) -->
+              <Button Theme="{StaticResource PremiumChipButton}" Click="ChipAwareness_Click"
+                      ToolTip.Tip="Awareness — reacts to what's on your screen">
+                <StackPanel HorizontalAlignment="Center">
+                  <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                    <TextBlock Text="👁" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="DotAwareness" Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Fill="#555555" Stroke="#1A1A2E" StrokeThickness="1" />
+                  </Grid>
+                  <TextBlock Text="Awareness" FontSize="9" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </Button>
+
+              <!-- Haptics: launcher to the Haptics tab (connect/consent flow lives there) -->
+              <Button Theme="{StaticResource PremiumChipButton}" Click="ChipHaptics_Click"
+                      ToolTip.Tip="Haptics — connect a toy">
+                <StackPanel HorizontalAlignment="Center">
+                  <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                    <TextBlock Text="💜" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="DotHaptics" Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Fill="#555555" Stroke="#1A1A2E" StrokeThickness="1" />
+                  </Grid>
+                  <TextBlock Text="Haptics" FontSize="9" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </Button>
+
+              <!-- Voice (She's Listening): launcher to the She's Listening tab (mic consent lives there) -->
+              <Button Theme="{StaticResource PremiumChipButton}" Click="ChipVoice_Click"
+                      ToolTip.Tip="She's Listening — turn on voice control (“Hey Bambi”) and the mic">
+                <StackPanel HorizontalAlignment="Center">
+                  <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                    <TextBlock Text="🎤" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="DotVoice" Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Fill="#555555" Stroke="#1A1A2E" StrokeThickness="1" />
+                  </Grid>
+                  <TextBlock Text="Voice" FontSize="9" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </Button>
+
+              <!-- Lockdown: launcher to the Lockdown tab (double-warning activate flow lives there) -->
+              <Button Theme="{StaticResource PremiumChipButton}" Click="ChipLockdown_Click"
+                      ToolTip.Tip="Lockdown — locks you in for the set time (panic key disabled)">
+                <StackPanel HorizontalAlignment="Center">
+                  <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                    <TextBlock Text="🔒" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="DotLockdown" Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Fill="#555555" Stroke="#1A1A2E" StrokeThickness="1" />
+                  </Grid>
+                  <TextBlock Text="Lockdown" FontSize="9" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </Button>
+
+              <!-- Blink Trainer: launcher to the Blink Trainer tab (webcam consent + start flow lives there) -->
+              <Button Theme="{StaticResource PremiumChipButton}" Click="ChipBlink_Click"
+                      ToolTip.Tip="Blink Trainer — webcam blink-gated visuals">
+                <StackPanel HorizontalAlignment="Center">
+                  <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                    <TextBlock Text="💫" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="DotBlink" Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Fill="#555555" Stroke="#1A1A2E" StrokeThickness="1" />
+                  </Grid>
+                  <TextBlock Text="Blink" FontSize="9" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </Button>
+
+              <!-- Remote: launcher to the Remote Control tab (login + waiver + start flow lives there) -->
+              <Button Theme="{StaticResource PremiumChipButton}" Click="ChipRemote_Click"
+                      ToolTip.Tip="Remote Control — let someone drive your session">
+                <StackPanel HorizontalAlignment="Center">
+                  <Grid Width="24" Height="24" HorizontalAlignment="Center">
+                    <TextBlock Text="🎮" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Ellipse x:Name="DotRemote" Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Fill="#555555" Stroke="#1A1A2E" StrokeThickness="1" />
+                  </Grid>
+                  <TextBlock Text="Remote" FontSize="9" Foreground="White"
+                             TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+
+            <!-- Patron lock overlay: shown when the user is not premium. Doubles as an ad for the
+                 gated features; greys the chips through and (via IsEnabled on PremiumRailContent)
+                 makes them non-clickable. -->
+            <Border x:Name="PremiumRailLock" IsVisible="True"
+                    Background="#CC0E0E1A" CornerRadius="12"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    IsHitTestVisible="False">
+              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                <TextBlock Text="🔒" FontSize="22" HorizontalAlignment="Center" />
+                <TextBlock Text="Premium" FontSize="9" FontWeight="Bold" Foreground="#C9A0D0"
+                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
+
+        <!-- Velvet mosaic dashboard: 4x4 feature cards, then browser/audio/quick-links on the right -->
+        <Grid Grid.Column="1" ColumnDefinitions="640,*">
 
         <!-- Feature card grid -->
         <Grid Grid.Column="0"
@@ -398,7 +538,8 @@
             </Grid>
           </Border>
         </Grid>
-      </Grid>
+        </Grid>
+        </Grid>
 
       <!-- Helper button row -->
       <Grid Grid.Row="1" Margin="5,12,5,0" ColumnDefinitions="*,10,*,10,*,10,*">
