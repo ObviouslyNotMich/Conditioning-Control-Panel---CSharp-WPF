@@ -23,6 +23,7 @@ using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Sessions;
 using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Core.Services.Update;
+using ConditioningControlPanel.Core.Services.Video;
 using ConditioningControlPanel.Core.Services.Webcam;
 using Session = ConditioningControlPanel.Models.Session;
 
@@ -55,7 +56,10 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly IWebcamService? _webcamService;
     private readonly ICompanionService? _companionService;
     private readonly IAudioPlayer? _audioPlayer;
+    private readonly ISfxPlayer? _sfxPlayer;
+    private readonly IMultiMonitorVideoService? _multiMonitor;
 
+    private string? _lastBrowserUrl;
     private DispatcherTimer? _clockTimer;
     private DispatcherTimer? _sessionProgressTimer;
     private DispatcherTimer? _conditioningTimeTimer;
@@ -107,6 +111,8 @@ public partial class MainWindowViewModel : ObservableObject
         _webcamService = services.GetService<IWebcamService>();
         _companionService = services.GetService<ICompanionService>();
         _audioPlayer = services.GetService<IAudioPlayer>();
+        _sfxPlayer = services.GetService<ISfxPlayer>();
+        _multiMonitor = services.GetService<IMultiMonitorVideoService>();
 
         InitializeTabs();
         UpdateHeaderFromSettings();
@@ -723,21 +729,8 @@ public partial class MainWindowViewModel : ObservableObject
     {
         try
         {
-            var soundPaths = new[]
-            {
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "lvup.mp3"),
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "lvlup.mp3"),
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "sounds", "lvlup.mp3"),
-            };
-
-            var soundPath = soundPaths.FirstOrDefault(File.Exists);
-            if (soundPath == null)
-            {
-                _logger?.LogDebug("Level up sound not found in any of: {Paths}", string.Join(", ", soundPaths));
-                return;
-            }
-
-            await (_audioPlayer?.PlayAsync(soundPath) ?? Task.CompletedTask);
+            await Task.Yield();
+            _sfxPlayer?.Play("lvup", 0.7f);
         }
         catch (Exception ex)
         {
@@ -758,10 +751,36 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_browserHost == null) return;
 
+        _browserHost.Navigated += (_, uri) => _lastBrowserUrl = uri.ToString();
+
         _browserHost.FullscreenChanged += (_, isFullscreen) =>
         {
             Dispatcher.UIThread.Post(() => BrowserFullscreenOverlayVisible = isFullscreen);
+
+            // On Windows, route direct-media fullscreen video to the multi-monitor mirror
+            // service. HTML pages (e.g. HypnoTube) remain in the browser; extracting their
+            // actual video stream is left to a future enhancement.
+            if (!OperatingSystem.IsWindows() || _multiMonitor == null) return;
+
+            if (isFullscreen && IsDirectVideoUrl(_lastBrowserUrl))
+            {
+                _multiMonitor.PlayUrl(_lastBrowserUrl!);
+            }
+            else if (!isFullscreen)
+            {
+                _multiMonitor.Stop();
+            }
         };
+    }
+
+    private static bool IsDirectVideoUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+
+        var path = uri.AbsolutePath;
+        var directExtensions = new[] { ".mp4", ".webm", ".mkv", ".avi", ".mov", ".m4v", ".flv", ".m3u8", ".m3u" };
+        return directExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
     }
 
     private void SubscribeUpdateEvents()

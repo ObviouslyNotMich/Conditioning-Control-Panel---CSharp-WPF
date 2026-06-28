@@ -28,6 +28,8 @@ using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Services.SessionLog;
 using ConditioningControlPanel.Core.Services.BugReport;
 using ConditioningControlPanel.Avalonia.Services.Moderation;
+using ConditioningControlPanel.Avalonia.Compositor;
+using ConditioningControlPanel.Avalonia.Compositor.Layers;
 using ConditioningControlPanel.Avalonia.Services.Avatar;
 using ConditioningControlPanel.Avalonia.Services.Auth;
 using ConditioningControlPanel.Core.Services.Avatar;
@@ -118,7 +120,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPlatformCapabilities, AvaloniaPlatformCapabilities>();
 
         // Dialog service needs a way to reach the current TopLevel at call time.
-        services.AddSingleton<IDialogService>(_ => new AvaloniaDialogService(() => GetCurrentTopLevel()));
+        services.AddSingleton<IDialogService>(sp => new AvaloniaDialogService(
+            () => GetCurrentTopLevel(),
+            sp.GetService<CompositorEngine>()));
 
         // Overlay surface is a Window, so a new instance per consumer is safer than a singleton.
         services.AddTransient<IOverlaySurface, AvaloniaOverlaySurface>();
@@ -127,14 +131,19 @@ public static class ServiceCollectionExtensions
         // not registered globally. Consumers should create AvaloniaVideoSurface directly:
         //   var surface = new AvaloniaVideoSurface(videoView);
 
+        // Unified compositor engine (replaces multi-window overlay architecture)
+        services.AddSingleton<CompositorEngine>();
+
         // Core services that are safe to register as singletons today.
         services.AddSingleton<IPromptService, PromptService>();
         services.AddSingleton<IPromptValidator, PromptValidator>();
         services.AddSingleton<IModerationGuard, ModerationGuard>();
         services.AddSingleton<IOllamaSetupService, OllamaSetupService>();
         services.AddLogging(builder => builder.AddSerilog());
-        
-        services.AddSingleton<AvaloniaDualMonitorVideoService>();
+
+        services.AddSingleton<VideoMetadataCache>();
+        services.AddSingleton<AvaloniaMultiMonitorVideoService>();
+        services.AddSingleton<IMultiMonitorVideoService>(sp => sp.GetRequiredService<AvaloniaMultiMonitorVideoService>());
         services.AddSingleton<IAiService, AvaloniaQuizAiService>();
         services.AddTransient<IQuizService, QuizService>();
 

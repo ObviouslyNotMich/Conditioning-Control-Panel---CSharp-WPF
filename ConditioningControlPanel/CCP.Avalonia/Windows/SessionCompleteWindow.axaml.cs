@@ -167,30 +167,10 @@ LoadRandomCard();
     {
         try
         {
-            var env = App.Services?.GetService<IAppEnvironment>();
-            var player = App.Services?.GetService<IAudioPlayer>();
-            if (player == null || env == null) return;
-
-            var soundPaths = new[]
-            {
-                Path.Combine(env.BaseDirectory, "Resources", "sounds", "lvup.mp3"),
-                Path.Combine(env.BaseDirectory, "Resources", "lvlup.mp3"),
-                Path.Combine(env.BaseDirectory, "assets", "sounds", "lvlup.mp3"),
-            };
-
-            var soundPath = soundPaths.FirstOrDefault(File.Exists);
-            if (soundPath == null) return;
-
             var settings = App.Services?.GetService<ConditioningControlPanel.Core.Services.Settings.ISettingsService>()?.Current;
             var masterVolume = (settings?.MasterVolume ?? 100) / 100.0;
-            var curvedVolume = Math.Pow(masterVolume, 1.5) * 0.35;
-            player.SetVolume(Math.Clamp(curvedVolume, 0.01, 1.0));
-
-            _ = Task.Run(async () =>
-            {
-                try { await player.PlayAsync(soundPath); }
-                catch (Exception ex) { _logger?.LogInformation("Failed to play completion sound: {Error}", ex.Message); }
-            });
+            var volume = (float)(Math.Pow(masterVolume, 1.5) * 0.35);
+            App.Services?.GetService<ISfxPlayer>()?.Play("lvup", volume);
         }
         catch (Exception ex)
         {

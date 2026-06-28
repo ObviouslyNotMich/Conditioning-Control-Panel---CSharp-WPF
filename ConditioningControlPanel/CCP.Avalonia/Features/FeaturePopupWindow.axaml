@@ -4,15 +4,15 @@
         xmlns:loc="clr-namespace:ConditioningControlPanel.Avalonia.Localization;assembly=CCP.Avalonia"
         x:Class="ConditioningControlPanel.Avalonia.Features.FeaturePopupWindow"
         Title="{loc:Str title_feature_popup}"
-        Width="520"
-        Height="640"
-        MinWidth="420"
-        MinHeight="360"
-        WindowStartupLocation="CenterOwner"
-        WindowDecorations="None"
-        CanResize="False"
-        ShowInTaskbar="False"
-        Background="#0F0F1A"
+         Width="520"
+         MinWidth="420"
+         MinHeight="480"
+         SizeToContent="Height"
+         WindowStartupLocation="CenterOwner"
+         WindowDecorations="None"
+         CanResize="False"
+         ShowInTaskbar="False"
+        Background="{DynamicResource DarkerBgBrush}"
              x:DataType="{x:Type local:FeaturePopupWindow}">
 
   <Border BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1">
@@ -20,8 +20,8 @@
 
       <!-- Title bar -->
       <Border Grid.Row="0"
-              Background="{DynamicResource PanelBgBrush}"
-              BorderBrush="{DynamicResource PinkBrush}"
+              Background="{DynamicResource ElevatedSurfaceBrush}"
+              BorderBrush="{DynamicResource GlassBorderBrush}"
               BorderThickness="0,0,0,1"
               PointerPressed="TitleBar_PointerPressed">
         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -32,9 +32,7 @@
                   Height="28"
                   Margin="14,10,10,10"
                   CornerRadius="6"
-                  BorderBrush="{DynamicResource PinkBrush}"
-                  BorderThickness="1"
-                  Background="Transparent">
+                  Background="{DynamicResource TransparentPinkBrush}">
             <Grid>
               <Image x:Name="ImgIcon"
                      Width="20"
@@ -69,11 +67,11 @@
             <Button.Styles>
               <Style Selector="Button">
                 <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Foreground" Value="#888888" />
+                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
               </Style>
               <Style Selector="Button:pointerover">
                 <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}" />
+                <Setter Property="Foreground" Value="White" />
               </Style>
             </Button.Styles>
           </Button>
@@ -83,7 +81,7 @@
 
       <!-- Content host -->
       <ScrollViewer Grid.Row="1"
-                    VerticalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Visible"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="16">
         <ContentControl x:Name="ContentHost" />

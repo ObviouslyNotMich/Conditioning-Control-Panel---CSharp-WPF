@@ -14,7 +14,7 @@
             CornerRadius="10"
             Padding="16,12"
             Margin="0,0,0,10">
-      <Grid ColumnDefinitions="*,Auto">
+      <Grid ColumnDefinitions="*,Auto,Auto">
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center">
           <TextBlock Text="{loc:Str setting_enable_mandatory_videos}"
@@ -27,8 +27,16 @@
                      TextWrapping="Wrap"
                      Margin="0,2,0,0" />
         </StackPanel>
+        <Button Grid.Column="1"
+                Content="{loc:Str btn_test_2}"
+                Theme="{StaticResource OutlineButton}"
+                Click="BtnTestVideo_Click"
+                VerticalAlignment="Center"
+                Margin="0,0,12,0"
+                Padding="10,5"
+                ToolTip.Tip="{loc:Str tooltip_play_a_random_video_now_to_test}" />
         <ToggleSwitch x:Name="ChkEnable"
-                      Grid.Column="1"
+                      Grid.Column="2"
                       VerticalAlignment="Center"
                       IsCheckedChanged="ChkEnable_Changed" />
       </Grid>
@@ -272,10 +280,6 @@
         </Grid>
       </StackPanel>
     </Border>
-
-    <Button Content="{loc:Str btn_test_2}"
-            Theme="{StaticResource OutlineButton}"
-            Click="BtnTestVideo_Click" />
   </StackPanel>
 
 </UserControl>

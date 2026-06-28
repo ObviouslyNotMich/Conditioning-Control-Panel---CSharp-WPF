@@ -28,7 +28,7 @@ public interface IOverlayService
     void PulseOverlays();
 
     /// <summary>Restart overlays when the monitor configuration changes.</summary>
-    void RefreshForDualMonitorChange();
+    void RefreshForMultiMonitorChange();
 
     /// <summary>Show an overlay ad-hoc for a fixed duration, then hide it.</summary>
     void ShowOverlayTimed(string kind, int durationMs, double opacity);
@@ -44,4 +44,10 @@ public interface IOverlayService
 
     /// <summary>Pre-decode the configured spiral GIF off the UI thread to avoid hitches.</summary>
     void WarmSpiralCache();
+
+    /// <summary>Called when a topmost window (e.g. mandatory video) opens, so overlays can defer expensive re-pins.</summary>
+    void NotifyTopWindowOpened();
+
+    /// <summary>Called when a topmost window (e.g. mandatory video) closes, so overlays can re-assert their z-order.</summary>
+    void NotifyTopWindowClosed();
 }

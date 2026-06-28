@@ -12,7 +12,9 @@ using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Localization;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Help;
 using ConditioningControlPanel.Core.Services.Settings;
+using ConditioningControlPanel.Core.Services.Video;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -30,6 +32,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
     private readonly IBrowserHost? _browserHost;
     private readonly IAudioPlayer? _audioPlayer;
     private readonly IAudioDeviceService? _audioDeviceService;
+    private readonly IVideoService? _videoService;
     private bool _populatingAudioOutputs;
 
     /// <summary>
@@ -48,7 +51,8 @@ public partial class SettingsTabViewModel : TabItemViewModel
         ILogger<SettingsTabViewModel> logger,
         IBrowserHost browserHost,
         IAudioPlayer audioPlayer,
-        IAudioDeviceService audioDeviceService) : base("settings", "Dashboard", "📊")
+        IAudioDeviceService audioDeviceService,
+        IVideoService? videoService = null) : base("settings", "Dashboard", "📊")
     {
         _settingsService = settingsService;
         _dialogService = dialogService;
@@ -56,6 +60,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         _browserHost = browserHost;
         _audioPlayer = audioPlayer;
         _audioDeviceService = audioDeviceService;
+        _videoService = videoService;
         _audioOutputDevices = new ObservableCollection<AudioDeviceInfo>();
         RefreshAudioOutputDevices();
         RefreshFromSettings();
@@ -71,11 +76,50 @@ public partial class SettingsTabViewModel : TabItemViewModel
             or nameof(AppSettings.IsSeason0Og))
         {
             RefreshLoginState();
+            return;
+        }
+
+        // Mirror any feature enable/disable that was changed from a feature popup
+        // (or elsewhere) back onto the dashboard card bindings.
+        if (e.PropertyName is nameof(AppSettings.FlashEnabled)
+            or nameof(AppSettings.SubliminalEnabled)
+            or nameof(AppSettings.SpiralEnabled)
+            or nameof(AppSettings.PinkFilterEnabled)
+            or nameof(AppSettings.BubblesEnabled)
+            or nameof(AppSettings.LockCardEnabled)
+            or nameof(AppSettings.MandatoryVideosEnabled)
+            or nameof(AppSettings.BubbleCountEnabled)
+            or nameof(AppSettings.BouncingTextEnabled)
+            or nameof(AppSettings.MindWipeEnabled)
+            or nameof(AppSettings.BrainDrainEnabled))
+        {
+            RefreshFromSettings();
         }
     }
 
     [ObservableProperty]
     private bool _isHelpOverlayVisible;
+
+    [ObservableProperty]
+    private string _helpOverlayTitle = Loc.Get("title_help");
+
+    [ObservableProperty]
+    private string _helpOverlayIcon = "?";
+
+    [ObservableProperty]
+    private string _helpOverlayWhatItDoes = "";
+
+    [ObservableProperty]
+    private string _helpOverlayHowItWorks = "";
+
+    [ObservableProperty]
+    private System.Collections.Generic.List<string> _helpOverlayTips = new();
+
+    [ObservableProperty]
+    private bool _helpOverlayHasTips;
+
+    [ObservableProperty]
+    private bool _helpOverlayHasHowItWorks;
 
     [ObservableProperty]
     private bool _isLoggedIn;
@@ -278,6 +322,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         _settingsService.Current.MasterVolume = value;
         MasterVolumeText = $"{value}%";
         _audioPlayer?.SetVolume(value / 100.0);
+        _videoService?.UpdateVolume();
         Save();
     }
 
@@ -292,6 +337,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         if (_settingsService?.Current == null) return;
         _settingsService.Current.VideoVolume = value;
         VideoVolumeText = $"{value}%";
+        _videoService?.UpdateVolume();
         Save();
     }
 
@@ -338,6 +384,7 @@ public partial class SettingsTabViewModel : TabItemViewModel
         _settingsService.Current.AudioOutputDeviceId = id;
         _settingsService.Current.AudioOutputDeviceName = name;
         _audioDeviceService?.SetPreferredDevice(id);
+        _videoService?.UpdateVolume();
         Save();
         _logger?.LogInformation("Audio output device set to '{Name}' (id={Id})",
             string.IsNullOrEmpty(name) ? "System default" : name,
@@ -583,6 +630,32 @@ public partial class SettingsTabViewModel : TabItemViewModel
     }
 
     [RelayCommand]
+    private void ShowHelpSection(string? sectionId)
+    {
+        if (string.IsNullOrWhiteSpace(sectionId))
+        {
+            ShowHelpOverlay();
+            return;
+        }
+
+        var content = HelpContentService.GetContent(sectionId);
+        if (content == null)
+        {
+            _logger?.LogWarning("Help section not found: {SectionId}", sectionId);
+            return;
+        }
+
+        HelpOverlayTitle = $"{content.Icon} {content.Title}";
+        HelpOverlayWhatItDoes = content.WhatItDoes;
+        HelpOverlayHowItWorks = content.HowItWorks;
+        HelpOverlayTips = content.Tips ?? new System.Collections.Generic.List<string>();
+        HelpOverlayHasTips = content.HasTips;
+        HelpOverlayHasHowItWorks = content.HasHowItWorks;
+        IsHelpOverlayVisible = true;
+        _logger?.LogInformation("Help overlay opened for section {SectionId}", sectionId);
+    }
+
+    [RelayCommand]
     private void HideHelpOverlay()
     {
         IsHelpOverlayVisible = false;
@@ -766,8 +839,22 @@ public partial class SettingsTabViewModel : TabItemViewModel
     private async Task PopOutBrowserAsync()
     {
         if (_settingsService?.Current?.OfflineMode == true) return;
-        await OpenBrowserAsync(null);
-        _logger?.LogInformation("Browser pop-out requested");
+
+        var targetUrl = ResolveBrowserUrl(null);
+        IsBambiCloudSelected = targetUrl.Contains("bambicloud.com", StringComparison.OrdinalIgnoreCase);
+
+        try
+        {
+            _logger?.LogInformation("Browser pop-out requested for {Url}", targetUrl);
+            await (_browserHost?.PopOutAsync(new Uri(targetUrl)) ?? Task.CompletedTask);
+            BrowserStatusText = Loc.Get("label_connected");
+            BrowserInitialized = true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to pop-out browser to {Url}", targetUrl);
+            BrowserStatusText = Loc.Get("label_failed");
+        }
     }
 
     #endregion

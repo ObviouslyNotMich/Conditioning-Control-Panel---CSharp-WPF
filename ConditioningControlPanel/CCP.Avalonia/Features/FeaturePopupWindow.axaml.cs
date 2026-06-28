@@ -20,9 +20,31 @@ public partial class FeaturePopupWindow : Window
         InitializeComponent();
     }
 
-    public FeaturePopupWindow(Control content, string title, IImage? icon = null, string? glyph = null)
+    ~FeaturePopupWindow()
+    {
+        try
+        {
+            Opened -= OnOpened;
+            KeyDown -= OnKeyDown;
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Creates a themed feature popup centered on its owner window.
+    /// </summary>
+    /// <param name="content">The feature control to host inside the popup.</param>
+    /// <param name="title">Title shown in the title bar and window chrome.</param>
+    /// <param name="icon">Optional icon image displayed next to the title.</param>
+    /// <param name="glyph">Optional emoji/text glyph used when no icon is supplied.</param>
+    /// <param name="owner">Optional owner window used to center the popup via <see cref="WindowStartupLocation" />.</param>
+    public FeaturePopupWindow(Control content, string title, IImage? icon = null, string? glyph = null, Window? owner = null)
         : this()
     {
+        if (owner is not null)
+        {
+            Owner = owner;
+        }
 
         TxtTitle.Text = title;
         Title = title; // also set Window.Title for accessibility
@@ -47,7 +69,25 @@ public partial class FeaturePopupWindow : Window
 
         ContentHost.Content = content;
 
+        Opened += OnOpened;
         KeyDown += OnKeyDown;
+    }
+
+    private void OnOpened(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (Screens.Primary is { } screen)
+            {
+                var maxHeight = screen.WorkingArea.Height * 0.9;
+                if (maxHeight > 0)
+                {
+                    MaxHeight = maxHeight;
+                    InvalidateMeasure();
+                }
+            }
+        }
+        catch { }
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

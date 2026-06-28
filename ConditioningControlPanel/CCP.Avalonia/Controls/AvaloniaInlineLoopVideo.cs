@@ -176,7 +176,10 @@ public sealed class AvaloniaInlineLoopVideo : IDisposable
             var dest = framebuffer.Address;
             var src = _frameBuffer.ToPointer();
             var dst = dest.ToPointer();
-            Buffer.MemoryCopy(src, dst, _w * _h * 4, _w * _h * 4);
+            int rowBytes = framebuffer.RowBytes;
+            int copyBytes = (int)Math.Min(_w * 4, rowBytes) * (int)_h;
+            Buffer.MemoryCopy(src, dst, copyBytes, copyBytes);
+            _image.InvalidateVisual();
         }
         catch (Exception ex)
         {

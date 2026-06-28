@@ -1,101 +1,136 @@
-using System.Reflection;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Platform;
+using LibVLCSharp.Shared;
 
 namespace ConditioningControlPanel.Avalonia.Platform;
 
 /// <summary>
 /// One-shot SFX player for the Avalonia head.
-/// Resolves files under assets/sfx/ and Resources/; on Windows it tries to play via NAudio
-/// if the assembly is already loaded (no new NuGet packages), otherwise no-op.
+/// Resolves files via <see cref="AvaloniaModResourceResolver"/> (active mod override first,
+/// then the embedded <c>Resources/sounds/</c> copy) and plays them through a dedicated
+/// LibVLC <see cref="MediaPlayer"/> so short effects can overlap speech/audio.
+/// Supports both .wav and .mp3, matching the WPF asset layout.
 /// </summary>
 public sealed class AvaloniaSfxPlayer : ISfxPlayer
 {
+    private readonly ILibVlcProvider _libVlcProvider;
+    private readonly AvaloniaModResourceResolver _resolver;
+    private readonly IAudioDeviceService? _audioDeviceService;
     private readonly ILogger<AvaloniaSfxPlayer>? _logger;
-    private readonly Dictionary<string, string?> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Random _random = new();
 
-    public AvaloniaSfxPlayer(ILogger<AvaloniaSfxPlayer>? logger = null)
+    public AvaloniaSfxPlayer(
+        ILibVlcProvider libVlcProvider,
+        AvaloniaModResourceResolver resolver,
+        IAudioDeviceService? audioDeviceService = null,
+        ILogger<AvaloniaSfxPlayer>? logger = null)
     {
+        _libVlcProvider = libVlcProvider;
+        _resolver = resolver;
+        _audioDeviceService = audioDeviceService;
         _logger = logger;
     }
 
     public void Play(string name, float volume = 0.6f)
     {
         if (string.IsNullOrWhiteSpace(name)) return;
-        if (!OperatingSystem.IsWindows()) return;
 
         var path = ResolvePath(name);
-        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        {
+            _logger?.LogDebug("SFX path not found for {Name}", name);
+            return;
+        }
 
-        _ = Task.Run(() => PlayWithNaudio(path, Math.Clamp(volume, 0f, 1f)));
+        _ = Task.Run(() => PlayWithLibVlc(path, Math.Clamp(volume, 0f, 1f)));
     }
 
     private string? ResolvePath(string name)
     {
-        if (_cache.TryGetValue(name, out var cached)) return cached;
+        var normalized = name.Trim().Replace('\\', '/');
+        string relative;
 
-        var roots = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "assets", "sfx"),
-            Path.Combine(AppContext.BaseDirectory, "Resources")
-        };
+        // Logical SFX names map to the same files the WPF head uses.
+        // Randomize each call so pops, chimes and giggles stay varied.
+        var lowered = normalized.ToLowerInvariant();
+        if (lowered == "pop")
+            relative = $"bubbles/Pop{_random.Next(1, 4)}.mp3";
+        else if (lowered == "chime")
+            relative = $"chime{_random.Next(1, 4)}.mp3";
+        else if (lowered == "giggle")
+            relative = $"giggle{_random.Next(1, 9)}.mp3";
+        else
+            relative = normalized;
 
-        string? found = null;
-        foreach (var root in roots)
-        {
-            var path = Path.Combine(root, name + ".wav");
-            if (File.Exists(path))
-            {
-                found = path;
-                break;
-            }
-        }
+        if (Path.HasExtension(relative))
+            return _resolver.ResolveAudioPath(relative);
 
-        _cache[name] = found;
-        return found;
+        return _resolver.ResolveAudioPath(relative + ".mp3")
+               ?? _resolver.ResolveAudioPath(relative + ".wav");
     }
 
-    private void PlayWithNaudio(string path, float volume)
+    private void PlayWithLibVlc(string path, float volume)
     {
+        MediaPlayer? player = null;
+        Media? media = null;
         try
         {
-            var asm = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => string.Equals(a.GetName().Name, "NAudio", StringComparison.OrdinalIgnoreCase))
-                ?? Assembly.Load("NAudio");
-
-            var waveOutType = asm.GetType("NAudio.Wave.WaveOutEvent");
-            var readerType = asm.GetType("NAudio.Wave.WaveFileReader");
-            var playbackStateType = asm.GetType("NAudio.Wave.PlaybackState");
-            if (waveOutType == null || readerType == null || playbackStateType == null) return;
-
-            var waveOut = Activator.CreateInstance(waveOutType);
-            using var reader = (IDisposable?)Activator.CreateInstance(readerType, path);
-            if (waveOut == null || reader == null) return;
-
-            waveOutType.GetMethod("Init")?.Invoke(waveOut, new object?[] { reader });
-            readerType.GetProperty("Volume")?.SetValue(reader, volume);
-            waveOutType.GetMethod("Play")?.Invoke(waveOut, null);
-
-            var playbackStateProp = waveOutType.GetProperty("PlaybackState");
-            if (playbackStateProp != null)
+            var libVlc = _libVlcProvider.Value;
+            // Use FromType.FromPath so LibVLC treats the string as a local file,
+            // not an MRL/URI that may be parsed differently in v12.
+            media = new Media(libVlc, path, FromType.FromPath);
+            player = new MediaPlayer(libVlc)
             {
-                // Wait for playback to finish before disposing.
-                while (true)
-                {
-                    var state = playbackStateProp.GetValue(waveOut);
-                    if (state?.ToString() == "Stopped") break;
-                    Thread.Sleep(50);
-                }
-            }
-            else
+                Volume = (int)(volume * 100)
+            };
+            ApplyPreferredDevice(player);
+            player.Play(media);
+
+            // Short sound effects: wait for playback to finish or error.
+            var sw = Stopwatch.StartNew();
+            const int maxWaitMs = 8000;
+            const int spinMs = 30;
+            // Give LibVLC a moment to leave the idle state before polling.
+            Thread.Sleep(spinMs);
+            while (player.State != VLCState.Ended
+                   && player.State != VLCState.Error
+                   && player.State != VLCState.Stopped
+                   && sw.ElapsedMilliseconds < maxWaitMs)
             {
-                Thread.Sleep(500);
+                Thread.Sleep(spinMs);
             }
 
-            (waveOut as IDisposable)?.Dispose();
+            if (player.State == VLCState.Error)
+                _logger?.LogDebug("SFX playback entered error state for {Path}", path);
         }
         catch (Exception ex)
         {
             _logger?.LogDebug(ex, "AvaloniaSfxPlayer failed for {Path}", path);
+        }
+        finally
+        {
+            player?.Stop();
+            player?.Dispose();
+            media?.Dispose();
+        }
+    }
+
+    private void ApplyPreferredDevice(MediaPlayer player)
+    {
+        try
+        {
+            var deviceId = _audioDeviceService?.GetDefaultOutputDeviceId();
+            if (!string.IsNullOrEmpty(deviceId))
+                player.SetOutputDevice(deviceId);
+        }
+        catch
+        {
+            // Device selection is best-effort.
         }
     }
 }

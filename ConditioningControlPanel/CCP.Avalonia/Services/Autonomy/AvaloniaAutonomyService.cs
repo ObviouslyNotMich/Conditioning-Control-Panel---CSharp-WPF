@@ -177,6 +177,7 @@ public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
 
         UnsubscribeInputHook();
         CancelActivePulses();
+        _webVideoActive = false;
 
         _logger?.LogInformation("AvaloniaAutonomyService stopped");
     }
@@ -578,6 +579,8 @@ public sealed class AvaloniaAutonomyService : IAutonomyService, IDisposable
 
         try
         {
+            // On Windows this is routed by AvaloniaVideoService to IMultiMonitorVideoService
+            // for single-stream mirroring; on other platforms it keeps the per-window path.
             _video.VideoEnded += OnWebVideoEnded;
             _video.PlayUrl(selected.Value);
             _logger?.LogInformation("AvaloniaAutonomyService: Playing web video '{Name}' at {Url}", selected.Key, selected.Value);

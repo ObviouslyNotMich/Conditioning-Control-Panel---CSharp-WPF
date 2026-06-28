@@ -211,28 +211,12 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
 
     private static void PlayChime()
     {
-        var logger = App.Services.GetRequiredService<ILogger<PopQuizWindow>>();
         try
         {
-            var env = App.Services?.GetService<IAppEnvironment>();
-            var player = App.Services?.GetService<IAudioPlayer>();
-            if (player == null) return;
-
-            var soundsPath = env != null
-                ? Path.Combine(env.BaseDirectory, "Resources", "sounds")
-                : Path.Combine(AppContext.BaseDirectory, "Resources", "sounds");
-
-            var files = new[] { "chime1.mp3", "chime2.mp3", "chime3.mp3" };
-            var file = files[_random.Next(files.Length)];
-            var path = Path.Combine(soundsPath, file);
-            if (!File.Exists(path)) return;
-
             var settings = App.Services?.GetService<ISettingsService>()?.Current;
             var master = (settings?.MasterVolume ?? 100) / 100.0;
-            var volume = Math.Pow(master * 0.5, 1.5);
-
-            player.SetVolume(Math.Clamp(volume, 0.01, 1.0));
-            _ = player.PlayAsync(path);
+            var volume = (float)Math.Pow(master * 0.5, 1.5);
+            App.Services?.GetService<ISfxPlayer>()?.Play("chime", volume);
         }
         catch (Exception ex)
         {

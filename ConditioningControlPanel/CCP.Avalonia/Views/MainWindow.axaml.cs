@@ -324,6 +324,13 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
+        // Prevent re-entrant shutdown from ExitApplicationAsync calling desktop.Shutdown().
+        if (e.IsProgrammatic)
+        {
+            try { _avatarTubeWindow?.Close(); } catch { /* best effort */ }
+            return;
+        }
+
         // Unless the user holds Shift or the view model is forcing shutdown,
         // minimize to tray instead of closing.
         if (DataContext is MainWindowViewModel { IsEngineRunning: true } vm)
@@ -333,14 +340,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!e.IsProgrammatic)
-        {
-            e.Cancel = true;
-            WindowState = WindowState.Minimized;
-            return;
-        }
-
-        try { _avatarTubeWindow?.Close(); } catch { /* best effort */ }
+        e.Cancel = true;
+        WindowState = WindowState.Minimized;
     }
 
     private async void BugReport_Click(object? sender, RoutedEventArgs e)

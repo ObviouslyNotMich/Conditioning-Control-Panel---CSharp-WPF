@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using ConditioningControlPanel.Avalonia.Helpers;
 
@@ -55,6 +56,11 @@ public partial class FeatureCard : UserControl
         AvaloniaProperty.RegisterDirect<FeatureCard, string?>(
             nameof(HelpSectionId), o => o.HelpSectionId, (o, v) => o.HelpSectionId = v);
 
+    private bool _canTest;
+    public static readonly DirectProperty<FeatureCard, bool> CanTestProperty =
+        AvaloniaProperty.RegisterDirect<FeatureCard, bool>(
+            nameof(CanTest), o => o.CanTest, (o, v) => o.CanTest = v);
+
     private string? _iconUri;
     public static readonly DirectProperty<FeatureCard, string?> IconUriProperty =
         AvaloniaProperty.RegisterDirect<FeatureCard, string?>(
@@ -65,6 +71,12 @@ public partial class FeatureCard : UserControl
 
     public static readonly RoutedEvent<RoutedEventArgs> ToggleRequestedEvent =
         RoutedEvent.Register<FeatureCard, RoutedEventArgs>(nameof(ToggleRequested), RoutingStrategies.Bubble);
+
+    public static readonly RoutedEvent<RoutedEventArgs> TestRequestedEvent =
+        RoutedEvent.Register<FeatureCard, RoutedEventArgs>(nameof(TestRequested), RoutingStrategies.Bubble);
+
+    public static readonly RoutedEvent<RoutedEventArgs> HelpRequestedEvent =
+        RoutedEvent.Register<FeatureCard, RoutedEventArgs>(nameof(HelpRequested), RoutingStrategies.Bubble);
 
     public string Title
     {
@@ -118,6 +130,16 @@ public partial class FeatureCard : UserControl
     }
 
     /// <summary>
+    /// When true, the right-click context menu exposes a "Test" option in addition
+    /// to the toggle. The dashboard wires this to a feature-specific test action.
+    /// </summary>
+    public bool CanTest
+    {
+        get => _canTest;
+        set => SetAndRaise(CanTestProperty, ref _canTest, value);
+    }
+
+    /// <summary>
     /// Optional legacy pack:// or avares:// URI for the card background image.
     /// When set, this is loaded and assigned to <see cref="Icon"/>.
     /// </summary>
@@ -142,6 +164,25 @@ public partial class FeatureCard : UserControl
     {
         add => AddHandler(ToggleRequestedEvent, value);
         remove => RemoveHandler(ToggleRequestedEvent, value);
+    }
+
+    /// <summary>
+    /// Raised when the user selects "Test" from the right-click context menu.
+    /// Only available when <see cref="CanTest"/> is true.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs> TestRequested
+    {
+        add => AddHandler(TestRequestedEvent, value);
+        remove => RemoveHandler(TestRequestedEvent, value);
+    }
+
+    /// <summary>
+    /// Raised when the user clicks the "?" help button on the card.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs> HelpRequested
+    {
+        add => AddHandler(HelpRequestedEvent, value);
+        remove => RemoveHandler(HelpRequestedEvent, value);
     }
 
     static FeatureCard()
@@ -260,9 +301,41 @@ public partial class FeatureCard : UserControl
         // can't really be "on" even if the underlying setting is true.
         var showActive = IsActive && !IsLocked;
         ActiveBorder.IsVisible = showActive;
-        RootBorder.BoxShadow = showActive
-            ? new BoxShadows(new BoxShadow { Blur = 18, Color = Application.Current?.Resources["TransparentPink50"] is Color c ? c : Colors.Transparent })
-            : new BoxShadows(new BoxShadow { Blur = 18, Color = Colors.Transparent });
+
+        if (showActive)
+        {
+            RootBorder.BorderBrush = FindBrush("PinkBrush");
+            RootBorder.BorderThickness = new Thickness(2.5);
+            RootBorder.BoxShadow = new BoxShadows(new BoxShadow
+            {
+                Blur = 20,
+                Spread = 2,
+                Color = FindColor("TransparentPink50")
+            });
+        }
+        else
+        {
+            RootBorder.BorderBrush = FindBrush("GlassBorderBrush") ?? FindBrush("PanelAccentBrush");
+            RootBorder.BorderThickness = new Thickness(1);
+            RootBorder.BoxShadow = new BoxShadows(new BoxShadow { Blur = 18, Color = Colors.Transparent });
+        }
+    }
+
+    private static IBrush? FindBrush(string key)
+    {
+        if (Application.Current?.Resources.TryGetResource(key, ThemeVariant.Default, out var value) == true && value is IBrush brush)
+            return brush;
+        return null;
+    }
+
+    private static Color FindColor(string key)
+    {
+        if (Application.Current?.Resources.TryGetResource(key, ThemeVariant.Default, out var value) == true)
+        {
+            if (value is Color c) return c;
+            if (value is ISolidColorBrush b) return b.Color;
+        }
+        return Colors.Transparent;
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -276,12 +349,48 @@ public partial class FeatureCard : UserControl
         if (point.Properties.PointerUpdateKind == PointerUpdateKind.RightButtonPressed && !IsLocked)
         {
             e.Handled = true;
-            RaiseEvent(new RoutedEventArgs(ToggleRequestedEvent, this));
+            // Shift+right-click or CanTest shows context menu; plain right-click toggles directly
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) || CanTest)
+            {
+                OpenContextMenu();
+            }
+            else
+            {
+                RaiseEvent(new RoutedEventArgs(ToggleRequestedEvent, this));
+            }
         }
         else
         {
             RaiseEvent(new RoutedEventArgs(ClickEvent, this));
         }
+    }
+
+    private void BtnHelp_Click(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        RaiseEvent(new RoutedEventArgs(HelpRequestedEvent, this));
+    }
+
+    private void OpenContextMenu()
+    {
+        var menu = new ContextMenu();
+
+        var toggleHeader = IsActive
+            ? Core.Localization.LocalizationManager.Instance.Get("btn_disable") ?? "Turn off"
+            : Core.Localization.LocalizationManager.Instance.Get("btn_enable") ?? "Turn on";
+        var toggleItem = new MenuItem { Header = toggleHeader };
+        toggleItem.Click += (_, _) => RaiseEvent(new RoutedEventArgs(ToggleRequestedEvent, this));
+        menu.Items.Add(toggleItem);
+
+        if (CanTest)
+        {
+            var testHeader = Core.Localization.LocalizationManager.Instance.Get("btn_test_2") ?? "Test";
+            var testItem = new MenuItem { Header = testHeader };
+            testItem.Click += (_, _) => RaiseEvent(new RoutedEventArgs(TestRequestedEvent, this));
+            menu.Items.Add(testItem);
+        }
+
+        menu.Open(this);
     }
 
     private static bool IsDescendantOf(Visual? node, Visual ancestor)

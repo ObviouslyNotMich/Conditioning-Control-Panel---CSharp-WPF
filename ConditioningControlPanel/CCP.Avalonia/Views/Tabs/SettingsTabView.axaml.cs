@@ -12,6 +12,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ConditioningControlPanel;
+using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Avalonia.Features;
 using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Avalonia.Services.Theme;
@@ -49,13 +50,18 @@ public partial class SettingsTabView : UserControl
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        DataContextChanged += OnDataContextChanged;
         AddHandler(FeatureCard.ToggleRequestedEvent, OnFeatureCardToggleRequested);
+        AddHandler(FeatureCard.TestRequestedEvent, OnFeatureCardTestRequested);
+        AddHandler(FeatureCard.HelpRequestedEvent, OnFeatureCardHelpRequested);
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
         LoadLogo();
         InitializeMarquee();
+        AttachEmbeddedBrowser();
+        WireBrowserFullscreenEvents();
 
         var themeService = App.Services?.GetService<AvaloniaThemeService>();
         if (themeService != null)
@@ -67,9 +73,19 @@ public partial class SettingsTabView : UserControl
         _marqueeTimer?.Stop();
         _marqueeTimer = null;
 
+        UnwireBrowserFullscreenEvents();
+        ExitBrowserFullscreen();
+
         var themeService = App.Services?.GetService<AvaloniaThemeService>();
         if (themeService != null)
             themeService.ThemeChanged -= OnThemeChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        UnwireBrowserFullscreenEvents();
+        AttachEmbeddedBrowser();
+        WireBrowserFullscreenEvents();
     }
 
     private void OnThemeChanged(object? sender, EventArgs e)
@@ -209,15 +225,11 @@ public partial class SettingsTabView : UserControl
         _activePopup?.Close();
 
         var card = cardSource as FeatureCard;
-        var popup = new FeaturePopupWindow(content, title, card?.Icon, glyph)
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var popup = new FeaturePopupWindow(content, title, card?.Icon, glyph, owner)
         {
             ShowInTaskbar = false
         };
-
-        if (TopLevel.GetTopLevel(this) is Window owner)
-        {
-            popup.Position = owner.Position;
-        }
 
         popup.Closed += (_, __) =>
         {
@@ -428,21 +440,211 @@ public partial class SettingsTabView : UserControl
         }
     }
 
+    private void OnFeatureCardHelpRequested(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is not FeatureCard card) return;
+        if (string.IsNullOrWhiteSpace(card.HelpSectionId)) return;
+
+        if (DataContext is ViewModels.Tabs.SettingsTabViewModel vm)
+            vm.ShowHelpSectionCommand.Execute(card.HelpSectionId);
+
+        e.Handled = true;
+    }
+
+    private async void OnFeatureCardTestRequested(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is not FeatureCard card) return;
+        if (card.Title != LocalizationManager.Instance.Get("feature_title_mandatory_video")) return;
+
+        try
+        {
+            var video = App.Services?.GetService<IVideoService>();
+            var interactionQueue = App.Services?.GetService<IInteractionQueueService>();
+            var dialogService = App.Services?.GetRequiredService<IDialogService>();
+            var logger = App.Services?.GetRequiredService<ILogger<SettingsTabView>>();
+
+            if (video?.IsPlaying == true)
+            {
+                var proceed = await dialogService.ShowConfirmationAsync(
+                    LocalizationManager.Instance.Get("title_confirm"),
+                    LocalizationManager.Instance.Get("msg_video_test_already_playing"));
+                if (!proceed) return;
+
+                logger.LogWarning("Dashboard test video: force reset requested");
+                video.ForceCleanup();
+                interactionQueue?.ForceReset();
+            }
+
+            if (interactionQueue is { IsBusy: true })
+            {
+                var proceed = await dialogService.ShowConfirmationAsync(
+                    LocalizationManager.Instance.Get("title_confirm"),
+                    LocalizationManager.Instance.Get("msg_video_test_queue_busy"));
+                if (!proceed) return;
+
+                video?.ForceCleanup();
+                interactionQueue.ForceReset();
+            }
+
+            video?.TriggerVideo();
+        }
+        catch (Exception ex)
+        {
+            App.Services?.GetRequiredService<ILogger<SettingsTabView>>().LogError(ex, "Dashboard test video failed");
+        }
+    }
+
     private void BrowserLoadingText_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is not ViewModels.Tabs.SettingsTabViewModel vm)
             return;
 
-        // Ask the platform browser host for an Avalonia control.  If it returns one,
-        // replace the placeholder text with the embedded browser; otherwise leave the
-        // placeholder in place and let the host open a window or system browser.
-        if (vm.BrowserHost?.CreateBrowserControl() is Control browserControl)
-        {
-            BrowserContainer.Child = browserControl;
-        }
-
+        // The embedded control is attached automatically on Windows. On platforms where
+        // embedding is unavailable, the placeholder remains and clicking it triggers navigation
+        // through the platform fallback (system browser or popup window).
         vm.InitializeBrowserCommand.Execute(null);
     }
+
+    #region Embedded browser reparenting
+
+    private Control? _browserControl;
+    private Window? _browserFullscreenWindow;
+    private bool _browserFullscreenEventsWired;
+
+    /// <summary>
+    /// Requests an embedded browser control from the view-model and places it inside the
+    /// dashboard's <see cref="BrowserContainer"/>. No-op if the platform host does not
+    /// support visual embedding (e.g. Linux/macOS fallback) or the control is already attached.
+    /// </summary>
+    private void AttachEmbeddedBrowser()
+    {
+        if (_browserControl != null)
+            return;
+
+        if (DataContext is not ViewModels.Tabs.SettingsTabViewModel vm)
+            return;
+
+        if (vm.BrowserHost?.CreateBrowserControl() is not Control control)
+            return;
+
+        _browserControl = control;
+        BrowserContainer.Child = control;
+    }
+
+    private void WireBrowserFullscreenEvents()
+    {
+        if (_browserFullscreenEventsWired)
+            return;
+        if (DataContext is not ViewModels.Tabs.SettingsTabViewModel vm)
+            return;
+        if (vm.BrowserHost == null)
+            return;
+
+        vm.BrowserHost.FullscreenChanged += OnBrowserFullscreenChanged;
+        _browserFullscreenEventsWired = true;
+    }
+
+    private void UnwireBrowserFullscreenEvents()
+    {
+        if (!_browserFullscreenEventsWired)
+            return;
+        if (DataContext is not ViewModels.Tabs.SettingsTabViewModel vm)
+            return;
+        if (vm.BrowserHost == null)
+            return;
+
+        vm.BrowserHost.FullscreenChanged -= OnBrowserFullscreenChanged;
+        _browserFullscreenEventsWired = false;
+    }
+
+    private void OnBrowserFullscreenChanged(object? sender, bool fullscreen)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (fullscreen)
+                EnterBrowserFullscreen();
+            else
+                ExitBrowserFullscreen();
+        });
+    }
+
+    /// <summary>
+    /// Reparents the embedded browser control into a fullscreen Avalonia window when the
+    /// hosted page requests HTML5 fullscreen (e.g. a video fullscreen button).
+    /// </summary>
+    private void EnterBrowserFullscreen()
+    {
+        if (_browserControl == null || _browserFullscreenWindow != null)
+            return;
+
+        var window = new Window
+        {
+            WindowDecorations = WindowDecorations.None,
+            WindowState = WindowState.FullScreen,
+            Background = new SolidColorBrush(Colors.Black),
+            Topmost = true,
+            ShowInTaskbar = false,
+            CanResize = false,
+            Content = new Panel { Background = new SolidColorBrush(Colors.Black) }
+        };
+
+        var container = (Panel)window.Content;
+        BrowserContainer.Child = null;
+        container.Children.Add(_browserControl);
+
+        window.Closed += OnBrowserFullscreenWindowClosed;
+        _browserFullscreenWindow = window;
+        window.Show();
+    }
+
+    /// <summary>
+    /// Restores the embedded browser control from the fullscreen window back into the
+    /// dashboard's <see cref="BrowserContainer"/>.
+    /// </summary>
+    private void ExitBrowserFullscreen()
+    {
+        var window = _browserFullscreenWindow;
+        if (window == null)
+            return;
+
+        _browserFullscreenWindow = null;
+        window.Closed -= OnBrowserFullscreenWindowClosed;
+
+        if (window.Content is Panel container && _browserControl != null)
+        {
+            container.Children.Remove(_browserControl);
+            BrowserContainer.Child = _browserControl;
+        }
+
+        try { window.Close(); }
+        catch { /* window may already be closing */ }
+    }
+
+    /// <summary>
+    /// Handles the fullscreen window being closed directly (e.g. Alt+F4) by returning the
+    /// browser control to the dashboard and asking the host to leave fullscreen.
+    /// </summary>
+    private void OnBrowserFullscreenWindowClosed(object? sender, EventArgs e)
+    {
+        if (_browserFullscreenWindow == null)
+            return; // Already handled by ExitBrowserFullscreen.
+
+        _browserFullscreenWindow = null;
+
+        if (sender is Window window && window.Content is Panel container && _browserControl != null)
+        {
+            container.Children.Remove(_browserControl);
+            BrowserContainer.Child = _browserControl;
+        }
+
+        // If the browser still believes it is fullscreen, request exit via script.
+        if (DataContext is ViewModels.Tabs.SettingsTabViewModel vm && vm.BrowserHost is { IsFullscreen: true })
+        {
+            _ = vm.BrowserHost.ExecuteScriptAsync("document.exitFullscreen?.().catch(()=>{});");
+        }
+    }
+
+    #endregion
 
     private void VelvetBtnWebcam_Click(object? sender, RoutedEventArgs e)
     {

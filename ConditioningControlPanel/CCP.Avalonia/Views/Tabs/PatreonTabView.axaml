@@ -20,10 +20,12 @@
       <!-- Header -->
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Grid.Column="0" Spacing="2">
-          <TextBlock Text="{loc:Str label_patreon_exclusives}"
-                     FontSize="24"
-                     FontWeight="Bold"
-                     Foreground="{DynamicResource TextLightBrush}" />
+          <Border BoxShadow="0 0 20 0 #80FF69B4">
+            <TextBlock Text="{loc:Str label_patreon_exclusives}"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource TextLightBrush}" />
+          </Border>
           <TextBlock Text="{loc:Str label_premium_features_for_supporters}"
                      FontSize="14"
                      Opacity="0.8"
@@ -263,10 +265,12 @@
           </StackPanel>
 
           <StackPanel Grid.Column="1" Spacing="8">
-            <TextBlock Text="{loc:Str section_support_development}"
-                       FontSize="14"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource PinkBrush}" />
+            <Border BoxShadow="0 0 20 0 #80FF69B4">
+              <TextBlock Text="{loc:Str section_support_development}"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource PinkBrush}" />
+            </Border>
             <TextBlock Text="{loc:Str patreon_support_card_body}"
                        TextWrapping="Wrap"
                        Opacity="0.9" />

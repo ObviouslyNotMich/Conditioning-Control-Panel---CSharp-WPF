@@ -1,6 +1,8 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Chaos;
+using ConditioningControlPanel.Avalonia.Compositor;
+using ConditioningControlPanel.Avalonia.Compositor.Layers;
 using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Avalonia.Platform;
 using ConditioningControlPanel.Avalonia.Services.Overlays;
@@ -27,6 +29,8 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     private readonly BubbleEngine _ambientEngine;
     private readonly Dictionary<Guid, AvaloniaBubbleWindow> _windows = new();
 
+    private readonly BubbleLayer? _bubbleLayer;
+
     private BubbleEngine? _chaosEngine;
     private SharedHostBubbleRenderer? _sharedHostRenderer;
     private bool _sharedHost;
@@ -48,7 +52,8 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         IPointerState pointerState,
         IMouseHook mouseHook,
         ILogger<AvaloniaBubbleService>? logger = null,
-        ILogger<BubbleEngine>? bubbleEngineLogger = null)
+        ILogger<BubbleEngine>? bubbleEngineLogger = null,
+        CompositorEngine? compositor = null)
     {
         _settings = settings;
         _screens = screens;
@@ -61,6 +66,9 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _ambientEngine = new BubbleEngine(screens, settings, this, pointerState, bubbleEngineLogger);
         _ambientEngine.OnBubblePopped += OnEngineBubblePopped;
         _ambientEngine.EchoSplitRequested += OnEchoSplitRequested;
+        _bubbleLayer = compositor != null ? new BubbleLayer() : null;
+        if (_bubbleLayer != null)
+            compositor?.RegisterLayer(_bubbleLayer);
     }
 
     public bool IsRunning => _ambientEngine.IsRunning;
@@ -488,6 +496,12 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         {
             if (_windows.ContainsKey(state.Id)) return;
 
+            _bubbleLayer?.AddBubble(
+                state.Id, state.X, state.Y, state.Size, state.Opacity, state.Scale,
+                state.Spec?.Label,
+                state.Spec is { } s ? (s.TintR, s.TintG, s.TintB) : null,
+                state.Clickable);
+
             var window = new AvaloniaBubbleWindow(_bubbleBitmap, state.Size);
             ApplyVisualState(window, state);
             window.Bubble.StateId = state.Id;
@@ -509,7 +523,6 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             try
             {
                 window.Show();
-                OverlayZ.Register(window, OverlayZ.Layer.Bubbles);
             }
             catch (Exception ex)
             {
@@ -523,6 +536,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         RunOnUi(() =>
         {
+            _bubbleLayer?.UpdateBubble(state.Id, state.X, state.Y, state.Opacity, state.Scale);
             if (!_windows.TryGetValue(state.Id, out var window)) return;
             ApplyVisualState(window, state);
         });
@@ -532,6 +546,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         RunOnUi(() =>
         {
+            _bubbleLayer?.SetLabel(id, label);
             if (!_windows.TryGetValue(id, out var window)) return;
             window.Bubble.SetLabel(label);
         });
@@ -541,6 +556,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         RunOnUi(() =>
         {
+            _bubbleLayer?.SetFuse(id, fraction);
             if (!_windows.TryGetValue(id, out var window)) return;
             window.Bubble.SetFuse(fraction);
         });
@@ -550,6 +566,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         RunOnUi(() =>
         {
+            _bubbleLayer?.RemoveBubble(state.Id);
             if (!_windows.Remove(state.Id, out var window))
             {
                 onComplete();
@@ -568,6 +585,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         RunOnUi(() =>
         {
+            _bubbleLayer?.RemoveBubble(id);
             if (!_windows.Remove(id, out var window)) return;
             window.CloseWindow();
         });
@@ -648,7 +666,6 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
             try
             {
                 ghost.Show();
-                OverlayZ.Register(ghost, OverlayZ.Layer.Bubbles);
                 ghost.Bubble.FadeOut(250.0, () => ghost.CloseWindow());
             }
             catch (Exception ex)

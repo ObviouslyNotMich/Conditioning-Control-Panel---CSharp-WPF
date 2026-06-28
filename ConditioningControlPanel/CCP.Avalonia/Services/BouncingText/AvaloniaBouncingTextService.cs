@@ -2,15 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Avalonia.Helpers;
-using ConditioningControlPanel.Avalonia.Services.Overlays;
+using ConditioningControlPanel.Avalonia.Compositor;
+using ConditioningControlPanel.Avalonia.Compositor.Layers;
+using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.BouncingText;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
@@ -20,8 +18,7 @@ namespace ConditioningControlPanel.Avalonia.Services.BouncingText;
 
 /// <summary>
 /// Avalonia implementation of the bouncing-text effect engine.
-/// Renders a DVD-screensaver-style phrase that drifts across the desktop,
-/// bounces off edges, awards XP, and tracks corner-hit achievements.
+/// Renders a DVD-screensaver-style phrase via the unified compositor layer.
 /// </summary>
 public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposable
 {
@@ -37,7 +34,8 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
     private readonly ILogger<AvaloniaBouncingTextService>? _logger;
     private readonly Random _random = new();
     private readonly object _sync = new();
-    private readonly List<BouncingTextWindow> _windows = new();
+    private readonly CompositorEngine? _compositor;
+    private readonly BouncingTextLayer? _bouncingTextLayer;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(33) };
 
     private string _currentText = "";
@@ -58,13 +56,18 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         IScreenProvider screens,
         IAchievementService achievements,
         IProgressionService progression,
-        ILogger<AvaloniaBouncingTextService>? logger = null)
+        ILogger<AvaloniaBouncingTextService>? logger = null,
+        CompositorEngine? compositor = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
         _achievements = achievements ?? throw new ArgumentNullException(nameof(achievements));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
         _logger = logger;
+        _compositor = compositor;
+        _bouncingTextLayer = compositor != null ? new BouncingTextLayer() : null;
+        if (_bouncingTextLayer != null)
+            _compositor?.RegisterLayer(_bouncingTextLayer);
         _timer.Tick += Animate;
     }
 
@@ -103,7 +106,18 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
 
         _currentColor = GetRandomColor();
 
-        CreateWindows(settings.DualMonitorEnabled);
+        // Set layer bounds and add text
+        if (_bouncingTextLayer != null)
+        {
+            _bouncingTextLayer.MinX = _minX;
+            _bouncingTextLayer.MinY = _minY;
+            _bouncingTextLayer.MaxX = _maxX;
+            _bouncingTextLayer.MaxY = _maxY;
+            _bouncingTextLayer.Clear();
+            _bouncingTextLayer.AddText(_currentText, _currentColor, _currentFontSize, _currentOpacity / 100.0);
+            _bouncingTextLayer.UpdatePosition(0, _posX, _posY);
+        }
+
         _timer.Start();
 
         _logger?.LogInformation("AvaloniaBouncingTextService started - Text: {Text}, Size: {W}x{H}", _currentText, _textWidth, _textHeight);
@@ -111,19 +125,10 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
 
     public void Stop()
     {
-        if (!IsRunning && _windows.Count == 0) return;
+        if (!IsRunning) return;
         IsRunning = false;
         _timer.Stop();
-
-        lock (_sync)
-        {
-            foreach (var window in _windows)
-            {
-                try { window.Close(); } catch { }
-            }
-            _windows.Clear();
-        }
-
+        _bouncingTextLayer?.Clear();
         _logger?.LogInformation("AvaloniaBouncingTextService stopped");
     }
 
@@ -145,23 +150,11 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         {
             _currentFontSize = newFontSize;
             MeasureTextSize();
-            lock (_sync)
-            {
-                foreach (var window in _windows)
-                    window.UpdateFontSize(_currentFontSize);
-            }
         }
 
         var newOpacity = settings.BouncingTextOpacity;
         if (newOpacity != _currentOpacity)
-        {
             _currentOpacity = newOpacity;
-            lock (_sync)
-            {
-                foreach (var window in _windows)
-                    window.UpdateOpacity(_currentOpacity);
-            }
-        }
     }
 
     private void SelectRandomText(List<string>? pool = null)
@@ -216,23 +209,6 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
         _minY = screens.Min(s => s.Bounds.Y / s.Scaling);
         _maxX = screens.Max(s => (s.Bounds.X + s.Bounds.Width) / s.Scaling);
         _maxY = screens.Max(s => (s.Bounds.Y + s.Bounds.Height) / s.Scaling);
-    }
-
-    private void CreateWindows(bool dualMonitor)
-    {
-        var screens = GetScreens(dualMonitor);
-        lock (_sync)
-        {
-            foreach (var screen in screens)
-            {
-                var window = new BouncingTextWindow(screen, _currentFontSize, _currentOpacity);
-                window.Show();
-                OverlayZ.Register(window, OverlayZ.Layer.BouncingText);
-                _windows.Add(window);
-            }
-            UpdateWindowsText();
-            UpdateWindowsPosition();
-        }
     }
 
     private void Animate(object? sender, EventArgs e)
@@ -309,13 +285,13 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             {
                 SelectRandomText();
                 MeasureTextSize();
+                _bouncingTextLayer?.Clear();
+                _bouncingTextLayer?.AddText(_currentText, _currentColor, _currentFontSize, _currentOpacity / 100.0);
             }
-
-            UpdateWindowsText();
         }
 
-        // Relative z-order is owned by OverlayZ (the shared coordinator); no per-service re-pinning.
-        UpdateWindowsPosition();
+        // Update compositor layer position
+        _bouncingTextLayer?.UpdatePosition(0, _posX, _posY);
     }
 
     private bool IsNearCorner(double left, double top, double right, double bottom)
@@ -324,24 +300,6 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
             || (right >= _maxX - CORNER_TOLERANCE && top <= _minY + CORNER_TOLERANCE)
             || (left <= _minX + CORNER_TOLERANCE && bottom >= _maxY - CORNER_TOLERANCE)
             || (right >= _maxX - CORNER_TOLERANCE && bottom >= _maxY - CORNER_TOLERANCE);
-    }
-
-    private void UpdateWindowsText()
-    {
-        lock (_sync)
-        {
-            foreach (var window in _windows)
-                window.UpdateText(_currentText, _currentColor);
-        }
-    }
-
-    private void UpdateWindowsPosition()
-    {
-        lock (_sync)
-        {
-            foreach (var window in _windows)
-                window.UpdatePosition(_posX, _posY, _textWidth, _textHeight);
-        }
     }
 
     private Color GetRandomColor()
@@ -380,114 +338,5 @@ public sealed class AvaloniaBouncingTextService : IBouncingTextService, IDisposa
     public void Dispose()
     {
         Stop();
-    }
-
-    private sealed class BouncingTextWindow : Window
-    {
-        private readonly TextBlock _textBlock;
-        private readonly ScreenInfo _screen;
-
-        public BouncingTextWindow(ScreenInfo screen, int fontSize, int opacity)
-        {
-            _screen = screen;
-
-            WindowDecorations = WindowDecorations.None;
-            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
-            Background = Brushes.Transparent;
-            Topmost = true;
-            ShowInTaskbar = false;
-            CanResize = false;
-            ShowActivated = false;
-            Focusable = false;
-            IsHitTestVisible = false;
-
-            this.ConstrainToScreen(screen);
-
-            _textBlock = new TextBlock
-            {
-                FontSize = fontSize,
-                FontWeight = FontWeight.Bold,
-                Foreground = Brushes.HotPink,
-                Opacity = opacity / 100.0
-            };
-
-            var canvas = new Canvas();
-            canvas.Children.Add(_textBlock);
-            Content = canvas;
-
-            Opened += (_, _) => ApplyPlatformStyles();
-        }
-
-        public void UpdateText(string text, Color color)
-        {
-            _textBlock.Text = text;
-            _textBlock.Foreground = new SolidColorBrush(color);
-        }
-
-        public void UpdateFontSize(int fontSize)
-        {
-            _textBlock.FontSize = fontSize;
-        }
-
-        public void UpdateOpacity(int opacity)
-        {
-            _textBlock.Opacity = opacity / 100.0;
-        }
-
-        public void UpdatePosition(double globalX, double globalY, double textWidth, double textHeight)
-        {
-            var scale = _screen.Scaling > 0 ? _screen.Scaling : 1.0;
-            var localX = globalX - _screen.Bounds.X / scale;
-            var localY = globalY - _screen.Bounds.Y / scale;
-            Canvas.SetLeft(_textBlock, localX);
-            Canvas.SetTop(_textBlock, localY);
-            _textBlock.IsVisible = true;
-        }
-
-        private void ApplyPlatformStyles()
-        {
-            if (!OperatingSystem.IsWindows()) return;
-            try
-            {
-                var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                if (hwnd == IntPtr.Zero) return;
-
-                var exStyle = (uint)GetWindowLong(hwnd, GWL_EXSTYLE).ToInt64();
-                exStyle |= WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
-                SetWindowLong(hwnd, GWL_EXSTYLE, new IntPtr(exStyle));
-                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
-            }
-            catch { }
-        }
-
-        private const int GWL_EXSTYLE = -20;
-        private const uint WS_EX_TRANSPARENT = 0x00000020;
-        private const uint WS_EX_TOOLWINDOW = 0x00000080;
-        private const uint WS_EX_NOACTIVATE = 0x08000000;
-        private const uint WS_EX_LAYERED = 0x00080000;
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOACTIVATE = 0x0010;
-        private const uint SWP_FRAMECHANGED = 0x0020;
-        private const uint SWP_SHOWWINDOW = 0x0040;
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-
-        [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
-        private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
-        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
-        private static extern IntPtr GetWindowLong64(IntPtr hWnd, int nIndex);
-        private static IntPtr GetWindowLong(IntPtr hWnd, int nIndex)
-            => IntPtr.Size == 4 ? GetWindowLong32(hWnd, nIndex) : GetWindowLong64(hWnd, nIndex);
-
-        [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
-        private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
-        private static extern IntPtr SetWindowLong64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-        private static IntPtr SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
-            => IntPtr.Size == 4 ? SetWindowLong32(hWnd, nIndex, dwNewLong) : SetWindowLong64(hWnd, nIndex, dwNewLong);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
     }
 }

@@ -67,12 +67,7 @@ public partial class QuizWindow : Window
         Loc.Get("quiz_loading_10")
     };
 
-    private static readonly string[] GiggleFiles = new[]
-    {
-        "giggle1.MP3", "giggle2.MP3", "giggle3.MP3", "giggle4.MP3",
-        "giggle5.mp3", "giggle6.wav", "giggle7.mp3", "giggle8.mp3"
-    };
-    private static readonly string[] ChimeFiles = new[] { "chime1.mp3", "chime2.mp3", "chime3.mp3" };
+
 
     private static readonly (string Question, string Answer)[] TrickQuestions = new[]
     {
@@ -845,62 +840,23 @@ _loadingDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(4
         TxtLoadingDots.Text = Loc.Get("label_generating_3") + new string('.', _loadingDotCount);
     }
 
-    private static string GetSoundsPath()
-    {
-        var env = App.Services?.GetService<IAppEnvironment>();
-        return env != null
-            ? IOPath.Combine(env.BaseDirectory, "Resources", "sounds")
-            : IOPath.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds");
-    }
+    private static void PlayRandomGiggle() => PlaySfx("giggle", 0.5f);
+    private static void PlayRandomChime() => PlaySfx("chime", 0.5f);
+    private static void PlayResultSound() => PlaySfx("result", 1.0f);
 
-    private static double GetAudioVolume(double multiplier = 1.0)
+    private static void PlaySfx(string name, float multiplier)
     {
-        var settings = App.Services?.GetService<ISettingsService>()?.Current;
-        var master = (settings?.MasterVolume ?? 100) / 100.0;
-        return Math.Pow(master * multiplier, 1.5);
-    }
-
-    private static async void PlaySoundAsync(string path, double volume)
-    {
-        var logger = App.Services.GetRequiredService<ILogger<QuizWindow>>();
         try
         {
-            var player = App.Services?.GetService<IAudioPlayer>();
-            if (player == null || !File.Exists(path)) return;
-            player.SetVolume(Math.Clamp(volume, 0.01, 1.0));
-            await player.PlayAsync(path);
+            var settings = App.Services?.GetService<ISettingsService>()?.Current;
+            var master = (settings?.MasterVolume ?? 100) / 100.0;
+            var volume = (float)Math.Pow(master * multiplier, 1.5);
+            App.Services?.GetService<ISfxPlayer>()?.Play(name, volume);
         }
         catch (Exception ex)
         {
             App.Services?.GetRequiredService<ILogger<QuizWindow>>().LogInformation("Quiz audio playback failed: {Error}", ex.Message);
         }
-    }
-
-    private static void PlayRandomGiggle()
-    {
-        var soundsPath = GetSoundsPath();
-        var file = GiggleFiles[_random.Next(GiggleFiles.Length)];
-        var path = IOPath.Combine(soundsPath, file);
-        if (File.Exists(path))
-            PlaySoundAsync(path, GetAudioVolume(0.5));
-    }
-
-    private static void PlayRandomChime()
-    {
-        var soundsPath = GetSoundsPath();
-        var file = ChimeFiles[_random.Next(ChimeFiles.Length)];
-        var path = IOPath.Combine(soundsPath, file);
-        if (File.Exists(path))
-            PlaySoundAsync(path, GetAudioVolume(0.5));
-    }
-
-    private static void PlayResultSound()
-    {
-        var soundsPath = GetSoundsPath();
-        var path =
-IOPath.Combine(soundsPath, "result.mp3");
-        if (File.Exists(path))
-            PlaySoundAsync(path, GetAudioVolume());
     }
 
     private static void TriggerRandomEffect()

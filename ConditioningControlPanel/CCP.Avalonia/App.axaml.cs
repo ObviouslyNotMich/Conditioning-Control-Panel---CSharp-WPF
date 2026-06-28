@@ -7,6 +7,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using ConditioningControlPanel.Avalonia.Infrastructure;
+using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Avalonia.ViewModels;
 using ConditioningControlPanel.Avalonia.Views;
 using ConditioningControlPanel.Core.Platform;

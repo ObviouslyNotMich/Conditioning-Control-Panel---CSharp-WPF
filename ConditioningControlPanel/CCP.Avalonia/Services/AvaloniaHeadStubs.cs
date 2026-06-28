@@ -12,6 +12,11 @@ using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Chaos;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Models;
+using ConditioningControlPanel.Core.Services.BouncingText;
+using ConditioningControlPanel.Core.Services.Flash;
+using ConditioningControlPanel.Core.Services.Overlays;
+using ConditioningControlPanel.Core.Services.Subliminal;
+using ConditioningControlPanel.Core.Services.Video;
 using Microsoft.Extensions.DependencyInjection;
 using AvaloniaChaosTuning = ConditioningControlPanel.Avalonia.Chaos.ChaosTuning;
 using ChaosNarrativeContext = ConditioningControlPanel.Core.Services.Chaos.ChaosNarrativeContext;
@@ -31,6 +36,13 @@ public sealed class AvaloniaChaosService : IChaosService
     private readonly IInputHook? _inputHook;
     private readonly IMouseHook? _mouseHook;
     private readonly IPointerState? _pointerState;
+    private readonly IFlashService? _flash;
+    private readonly ISubliminalService? _subliminal;
+    private readonly IVideoService? _video;
+    private readonly IOverlayService? _overlayService;
+    private readonly IBouncingTextService? _bouncingText;
+    private readonly IBrowserHost? _browserHost;
+    private readonly IModService? _modService;
     private readonly Random _rng = new();
 
     private bool _active;
@@ -72,7 +84,14 @@ public sealed class AvaloniaChaosService : IChaosService
         ILogger<AvaloniaChaosService>? logger = null,
         IInputHook? inputHook = null,
         IMouseHook? mouseHook = null,
-        IPointerState? pointerState = null)
+        IPointerState? pointerState = null,
+        IFlashService? flash = null,
+        ISubliminalService? subliminal = null,
+        IVideoService? video = null,
+        IOverlayService? overlayService = null,
+        IBouncingTextService? bouncingText = null,
+        IBrowserHost? browserHost = null,
+        IModService? modService = null)
     {
         _bubbles = bubbles;
         _settings = settings;
@@ -81,6 +100,13 @@ public sealed class AvaloniaChaosService : IChaosService
         _inputHook = inputHook;
         _mouseHook = mouseHook;
         _pointerState = pointerState;
+        _flash = flash;
+        _subliminal = subliminal;
+        _video = video;
+        _overlayService = overlayService;
+        _bouncingText = bouncingText;
+        _browserHost = browserHost;
+        _modService = modService;
         AvaloniaChaosCatalogs.EnsureInitialized();
     }
 
@@ -441,6 +467,16 @@ public sealed class AvaloniaChaosService : IChaosService
         ChaosLessonHooks.OnTreatPopped(spec.VariantId);
         ChaosNarrativeHooks.OnFirstPop(BuildNarrativeContext(depth: _waveIndex));
 
+        // Special pickups
+        if (spec.IsFreeze) { ActivateFreeze(); _state.PushEvent("❄ the field holds still"); }
+        if (spec.IsHeart) { _state.Shields++; _state.PushEvent("💖 +1 resistance"); }
+        if (spec.IsDroplet)
+        {
+            int gold = 3 + _rng.Next(5);
+            ChaosMeta.AddGold(gold);
+            _state.PushEvent($"✧ +{gold} gold");
+        }
+
         if (spec.IsGolden)
         {
             int gold = 12 + _rng.Next(13);
@@ -448,6 +484,9 @@ public sealed class AvaloniaChaosService : IChaosService
             _state.PushEvent($"{ChaosGlyphs.Gold} +{gold} gold");
             ChaosHappyPath.OnGoldFirstSeen();
         }
+
+        // Fire the bubble's payload (flash, subliminal, overlay, etc.)
+        FirePayload(spec);
 
         double focusGain = spec.IsGolden ? AvaloniaChaosTuning.FocusPerGolden : AvaloniaChaosTuning.FocusPerPop;
         double basePay = 100 * (_state.DifficultyMult) * (1 + _state.Heat);
@@ -491,6 +530,10 @@ public sealed class AvaloniaChaosService : IChaosService
     {
         if (_state == null) return;
         _state.Detonated++;
+
+        // Fire the bubble's payload (the punishment for letting the fuse expire)
+        FirePayload(spec);
+
         ChaosLessonHooks.OnDetonation();
         ChaosNarrativeHooks.OnFirstDetonation(BuildNarrativeContext(depth: _waveIndex));
 
@@ -509,6 +552,41 @@ public sealed class AvaloniaChaosService : IChaosService
 
         _state.Heat = Math.Max(0, _state.Heat - 0.15);
         UpdateStateText();
+    }
+
+    /// <summary>Build an effect payload from a bubble spec's PayloadKind.</summary>
+    private static EffectPayload? BuildPayload(ChaosBubbleSpec spec)
+    {
+        try
+        {
+            EffectPayload payload;
+            switch (spec.PayloadKind)
+            {
+                case "flash": payload = new FlashPayload(); break;
+                case "subliminal": payload = new SubliminalPayload(); break;
+                case "pink": payload = new OverlayPayload("pink_filter"); break;
+                case "spiral": payload = new OverlayPayload("spiral"); break;
+                case "braindrain": payload = new OverlayPayload("braindrain"); break;
+                case "bambifreeze": payload = new BambiFreezePayload(); break;
+                case "video": payload = new VideoPayload(); break;
+                case "htlink": payload = new GifCascadePayload(); break;
+                default: payload = new FlashPayload(); break;
+            }
+
+            double size = spec.SizePx;
+            const double sizeMin = 150;
+            const double sizeMax = 320;
+            int strength = (int)Math.Round(Math.Clamp((size - sizeMin) / (sizeMax - sizeMin), 0, 1) * 100);
+            payload.Strength = strength;
+            return payload;
+        }
+        catch { return null; }
+    }
+
+    private static void FirePayload(ChaosBubbleSpec spec)
+    {
+        var payload = BuildPayload(spec);
+        payload?.Fire();
     }
 
     /// <summary>Focus cost for one channel (Bound halves pay half each).</summary>
@@ -1402,12 +1480,12 @@ public sealed class AvaloniaBarkService : IBarkService
     }
 }
 
-/// <summary>Video state for the Avalonia head, backed by the dual-monitor video service.</summary>
+/// <summary>Video state for the Avalonia head, backed by the multi-monitor video service.</summary>
 public sealed class AvaloniaVideoInfo : IVideoInfo
 {
-    private readonly AvaloniaDualMonitorVideoService? _videoService;
+    private readonly AvaloniaMultiMonitorVideoService? _videoService;
 
-    public AvaloniaVideoInfo(AvaloniaDualMonitorVideoService? videoService = null)
+    public AvaloniaVideoInfo(AvaloniaMultiMonitorVideoService? videoService = null)
     {
         _videoService = videoService;
     }

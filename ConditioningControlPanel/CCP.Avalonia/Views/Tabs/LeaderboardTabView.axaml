@@ -138,6 +138,7 @@
                           Height="40"
                           CornerRadius="20"
                           Background="{DynamicResource TransparentPinkBrush}"
+                          BoxShadow="0 0 15 0 #FFFF69B4"
                           VerticalAlignment="Center"
                           Margin="0,0,12,0">
                     <TextBlock Text="{Binding Rank, Converter={StaticResource RankToGlyphConverter}}"
@@ -159,6 +160,7 @@
                       <Border Background="#22FF69B4"
                               CornerRadius="8"
                               Padding="6,2"
+                              BoxShadow="0 0 12 0 #FFFF69B4"
                               IsVisible="{Binding IsOnline}">
                         <TextBlock Text="🟢 Online"
                                    FontSize="10"

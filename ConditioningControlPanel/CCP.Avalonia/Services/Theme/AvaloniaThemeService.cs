@@ -104,6 +104,25 @@ public sealed class AvaloniaThemeService : IDisposable
         SetBrush(res, "PreviewBgBrush", previewBgColor);
         SetBrush(res, "PanelBgTransparentBrush", panelBgTransparent);
 
+        // Semantic surface, border, and text colors derived from the active palette.
+        var elevatedSurfaceColor = Lighten(panelColor, 0.10);
+        var glassBorderColor = Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF);
+        var textLightColor = Color.FromRgb(0xFF, 0xFF, 0xFF);
+        var textMutedColor = Blend(textLightColor, panelColor, 0.55);
+        var dangerColor = Color.Parse("#FFE53935");
+
+        SetColor(res, "ElevatedSurface", elevatedSurfaceColor);
+        SetColor(res, "GlassBorder", glassBorderColor);
+        SetColor(res, "TextLight", textLightColor);
+        SetColor(res, "TextMuted", textMutedColor);
+        SetColor(res, "Danger", dangerColor);
+
+        SetBrush(res, "ElevatedSurfaceBrush", elevatedSurfaceColor);
+        SetBrush(res, "GlassBorderBrush", glassBorderColor);
+        SetBrush(res, "TextLightBrush", textLightColor);
+        SetBrush(res, "TextMutedBrush", textMutedColor);
+        SetBrush(res, "DangerBrush", dangerColor);
+
         // Accent colors and brushes.
         SetColor(res, "PinkColor", accent);
         SetColor(res, "DarkPink", dark);

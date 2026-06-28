@@ -44,6 +44,7 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
     private readonly IWallpaperProvider? _wallpaper;
     private readonly IBrowserHost? _browserHost;
     private readonly ISessionLogService? _sessionLog;
+    private readonly IMultiMonitorVideoService? _multiMonitor;
     private readonly ILogger<AvaloniaRemoteCommandExecutor>? _logger;
 
     private bool _remoteBrowserVideoActive;
@@ -66,6 +67,7 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         IWallpaperProvider? wallpaper = null,
         IBrowserHost? browserHost = null,
         ISessionLogService? sessionLog = null,
+        IMultiMonitorVideoService? multiMonitor = null,
         ILogger<AvaloniaRemoteCommandExecutor>? logger = null)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
@@ -85,6 +87,7 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         _wallpaper = wallpaper;
         _browserHost = browserHost;
         _sessionLog = sessionLog;
+        _multiMonitor = multiMonitor;
         _logger = logger;
     }
 
@@ -246,8 +249,20 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
                 if (!string.IsNullOrWhiteSpace(htUrl) && IsEligibleHtUrl(htUrl))
                 {
                     _logger?.LogInformation("[RemoteControl] play_hypnotube id={Id}", TryExtractHtVideoId(htUrl));
-                    _remoteBrowserVideoActive = true;
-                    _ = _browserHost?.NavigateAsync(new Uri(htUrl));
+
+                    // On Windows, route direct media URLs through the single-stream multi-monitor
+                    // mirroring service. HypnoTube HTML pages still use the embedded browser.
+                    if (OperatingSystem.IsWindows() && _multiMonitor != null && IsDirectVideoUrl(htUrl))
+                    {
+                        _remoteBrowserVideoActive = true;
+                        _multiMonitor.PlaybackEnded += OnRemoteVideoEnded;
+                        _multiMonitor.PlayUrl(htUrl);
+                    }
+                    else
+                    {
+                        _remoteBrowserVideoActive = true;
+                        _ = _browserHost?.NavigateAsync(new Uri(htUrl));
+                    }
                 }
                 else
                 {
@@ -479,12 +494,16 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         _overlay?.RefreshOverlays();
     }
 
+
+
     private void StopBrowserVideoInternal()
     {
         if (!_remoteBrowserVideoActive) return;
         _remoteBrowserVideoActive = false;
         try
         {
+            _multiMonitor?.Stop();
+            if (_multiMonitor != null) _multiMonitor.PlaybackEnded -= OnRemoteVideoEnded;
             _ = _browserHost?.NavigateAsync(new Uri("about:blank"));
             _logger?.LogInformation("[RemoteControl] Stopped remote browser video");
         }
@@ -492,6 +511,23 @@ public sealed class AvaloniaRemoteCommandExecutor : IRemoteCommandExecutor
         {
             _logger?.LogDebug("StopBrowserVideo failed: {Error}", ex.Message);
         }
+    }
+
+    private void OnRemoteVideoEnded(object? sender, EventArgs e)
+    {
+        if (_multiMonitor != null)
+            _multiMonitor.PlaybackEnded -= OnRemoteVideoEnded;
+        _remoteBrowserVideoActive = false;
+    }
+
+    private static bool IsDirectVideoUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+
+        var path = uri.AbsolutePath;
+        var directExtensions = new[] { ".mp4", ".webm", ".mkv", ".avi", ".mov", ".m4v", ".flv", ".m3u8", ".m3u" };
+        return directExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
     }
 
     private void Save()

@@ -12,15 +12,19 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using ConditioningControlPanel;
+using ConditioningControlPanel.Avalonia.Compositor;
+using ConditioningControlPanel.Avalonia.Compositor.Layers;
 using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Avalonia.Services.Overlays;
 using ConditioningControlPanel.Core.Platform;
+using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Progression;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Video;
 using ConditioningControlPanel.Models;
 using LibVLCSharp.Avalonia;
 using LibVLCSharp.Shared;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ConditioningControlPanel.Avalonia.Services.Video;
 
@@ -37,18 +41,24 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     private readonly IAppEnvironment _environment;
     private readonly IScreenProvider _screens;
     private readonly IInteractionQueueService _interactionQueue;
+    private readonly IOverlayService? _overlay;
     private readonly LibVLC _libVlc;
+    private readonly VideoMetadataCache _metadataCache;
     private readonly IAudioDeviceService? _audioDeviceService;
     private readonly IModService? _mods;
     private readonly IAchievementService? _achievements;
     private readonly IProgressionService? _progression;
     private readonly ILogger<AvaloniaVideoService>? _logger;
+    private readonly IMultiMonitorVideoService? _multiMonitor;
     private readonly Random _random = new();
     private readonly object _sync = new();
     private readonly List<string> _videoFiles = new();
     private readonly List<FloatingText> _attentionTargets = new();
     private readonly List<double> _attentionSpawnTimes = new();
     private readonly List<Window> _messageWindows = new();
+    private readonly CompositorEngine? _compositor;
+    private readonly VideoLayer? _videoLayer;
+    private readonly MandatoryVideoLayer? _mandatoryVideoLayer;
     private readonly List<VideoOverlayWindow> _secondaryWindows = new();
 
     private CancellationTokenSource? _cts;
@@ -65,6 +75,17 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     private int _attentionPenalties;
     private DispatcherTimer? _attentionTimer;
     private bool _isDisposed;
+    private bool _codecWarningShown;
+
+    // ---- chaos random-segment mode (one-shot) ----
+    // The NEXT triggered video jumps to a random position leaving at least _segmentSec of
+    // runway (the chaos 15s cap then ends it — so the player sees a random 15s slice, not
+    // always the opening). One shared fraction keeps multi-monitor mirrors in sync. Armed
+    // immediately before TriggerVideo by the chaos VideoPayload; disarmed in CloseAll.
+    private double _segmentSec;
+    private double _segmentFraction;
+    private DateTime _segmentArmedAtUtc = DateTime.MinValue;
+    private bool SegmentArmed => (DateTime.UtcNow - _segmentArmedAtUtc).TotalSeconds < 30;
 
     public AvaloniaVideoService(
         ISettingsService settings,
@@ -72,22 +93,51 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         IScreenProvider screens,
         IInteractionQueueService interactionQueue,
         LibVLC libVlc,
+        VideoMetadataCache metadataCache,
         IAudioDeviceService? audioDeviceService = null,
         IModService? mods = null,
         IAchievementService? achievements = null,
         IProgressionService? progression = null,
-        ILogger<AvaloniaVideoService>? logger = null)
+        ILogger<AvaloniaVideoService>? logger = null,
+        IOverlayService? overlay = null,
+        IMultiMonitorVideoService? multiMonitor = null,
+        CompositorEngine? compositor = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _screens = screens ?? throw new ArgumentNullException(nameof(screens));
         _interactionQueue = interactionQueue ?? throw new ArgumentNullException(nameof(interactionQueue));
         _libVlc = libVlc ?? throw new ArgumentNullException(nameof(libVlc));
+        SharedLibVLC = _libVlc;
+        _metadataCache = metadataCache ?? throw new ArgumentNullException(nameof(metadataCache));
         _audioDeviceService = audioDeviceService;
         _mods = mods;
         _achievements = achievements;
         _progression = progression;
         _logger = logger;
+        _overlay = overlay;
+        _multiMonitor = multiMonitor;
+        _compositor = compositor;
+        _videoLayer = compositor != null ? new VideoLayer(libVlc, _logger) : null;
+        _mandatoryVideoLayer = compositor != null ? new MandatoryVideoLayer(libVlc, _logger) : null;
+        if (_videoLayer != null)
+        {
+            _compositor?.RegisterLayer(_videoLayer);
+            _videoLayer.VideoStarted += (_, _) => VideoStarted?.Invoke(this, EventArgs.Empty);
+            _videoLayer.VideoEnded += (_, _) => VideoEnded?.Invoke(this, EventArgs.Empty);
+        }
+        if (_mandatoryVideoLayer != null)
+        {
+            _compositor?.RegisterLayer(_mandatoryVideoLayer);
+            _mandatoryVideoLayer.VideoStarted += (_, _) => VideoStarted?.Invoke(this, EventArgs.Empty);
+            _mandatoryVideoLayer.VideoEnded += (_, _) => VideoEnded?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (_multiMonitor != null)
+        {
+            _multiMonitor.PlaybackStarted += OnMultiMonitorPlaybackStarted;
+            _multiMonitor.PlaybackEnded += OnMultiMonitorPlaybackEnded;
+        }
 
         RefreshVideosPath();
     }
@@ -97,6 +147,119 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     public string? LastVideoTitle => string.IsNullOrEmpty(_currentRetryPath) ? null : Path.GetFileNameWithoutExtension(_currentRetryPath);
     public string? LastVideoPath => _currentRetryPath;
     public int PlaythroughFailCount => _attentionPenalties;
+
+    /// <summary>
+    /// Primary (audio-bearing) media player, or null if no video is playing.
+    /// Exposed for the Deeper EnhancementEngine to read playback time and
+    /// drive Seek/Pause. Treat as read-only — the engine should not mutate
+    /// state outside of Seek/Pause/Play helpers below.
+    /// </summary>
+    public MediaPlayer? PrimaryMediaPlayer => _currentWindow?.MediaPlayer;
+
+    /// <summary>
+    /// Primary video window (audio monitor), or null if no video is playing.
+    /// Used to compute screen-space video rect for gaze-target rules.
+    /// </summary>
+    public Window? PrimaryVideoWindow => _currentWindow;
+
+    /// <summary>
+    /// The shared LibVLC instance used by this service (used by BubbleCountWindow and others).
+    /// Set by the constructor from the injected instance.
+    /// </summary>
+    public static LibVLC SharedLibVLC { get; private set; } = null!;
+
+    /// <summary>
+    /// Cache of per-video duration metadata. Used by the min/max duration filter in LoadVideoFiles.
+    /// </summary>
+    public VideoMetadataCache MetadataCache => _metadataCache;
+
+    /// <summary>
+    /// Current primary-player playback time in milliseconds, or -1 if none.
+    /// </summary>
+    public long GetCurrentPlaybackTimeMs()
+    {
+        try { return PrimaryMediaPlayer?.Time ?? -1; }
+        catch { return -1; }
+    }
+
+    /// <summary>
+    /// Seek the primary player to the given absolute time. No-op if no
+    /// video is active or the player rejects the seek (LibVLC will silently
+    /// ignore for non-seekable streams).
+    /// </summary>
+    public void SeekPrimary(long ms)
+    {
+        try
+        {
+            var p = PrimaryMediaPlayer;
+            if (p == null) return;
+            if (!p.IsSeekable) return;
+            p.Time = Math.Max(0, ms);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug("AvaloniaVideoService.SeekPrimary failed: {Error}", ex.Message);
+        }
+    }
+
+    /// <summary>Pause the primary player. No-op if none.</summary>
+    public void PausePrimary()
+    {
+        try { PrimaryMediaPlayer?.Pause(); }
+        catch (Exception ex) { _logger?.LogDebug("AvaloniaVideoService.PausePrimary failed: {Error}", ex.Message); }
+    }
+
+    /// <summary>Resume the primary player. No-op if none.</summary>
+    public void PlayPrimary()
+    {
+        try { PrimaryMediaPlayer?.Play(); }
+        catch (Exception ex) { _logger?.LogDebug("AvaloniaVideoService.PlayPrimary failed: {Error}", ex.Message); }
+    }
+
+    /// <summary>
+    /// Chaos: make the next video start at a random position with at least
+    /// <paramref name="segmentSec"/> seconds left to play.
+    /// </summary>
+    public void ArmRandomSegment(double segmentSec)
+    {
+        _segmentSec = Math.Max(1, segmentSec);
+        _segmentFraction = Random.Shared.NextDouble();
+        _segmentArmedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Snapshot of currently-active attention targets that should respond
+    /// to Focus Gaze dwells. Returns empty when VideoGazeClickEnabled is
+    /// off. Caller iterates in reverse for topmost-first selection.
+    /// </summary>
+    internal IReadOnlyList<FloatingText> GetGazeTargets()
+    {
+        if (_settings.Current?.VideoGazeClickEnabled != true)
+            return Array.Empty<FloatingText>();
+        lock (_attentionTargets)
+        {
+            return _attentionTargets.ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Programmatic equivalent of a mouse click on an attention target.
+    /// Runs the same idempotent Hit() pipeline (sound, onHit callback,
+    /// fade). Safe to call against a target that's already been hit or
+    /// destroyed.
+    /// </summary>
+    internal void GazeClick(FloatingText target)
+    {
+        if (target == null) return;
+        target.Hit();
+    }
+
+    /// <summary>
+    /// Raised when the primary player's playback position advances.
+    /// Argument is current time in milliseconds. Fires from LibVLC's
+    /// internal thread; subscribers must marshal to the UI thread.
+    /// </summary>
+    public event Action<long>? PrimaryPlaybackTimeMsChanged;
 
     public event EventHandler? VideoAboutToStart;
     public event EventHandler? VideoStarted;
@@ -184,6 +347,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
 
     private void LoadVideoFiles()
     {
+        List<string> files;
         lock (_sync)
         {
             _videoFiles.Clear();
@@ -193,6 +357,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 Path.Combine(_environment.BaseDirectory, "Resources", "videos")
             };
 
+            files = new List<string>();
             foreach (var folder in folders)
             {
                 if (!Directory.Exists(folder)) continue;
@@ -200,13 +365,54 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 {
                     try
                     {
-                        _videoFiles.AddRange(Directory.GetFiles(folder, $"*{ext}", SearchOption.AllDirectories)
+                        files.AddRange(Directory.GetFiles(folder, $"*{ext}", SearchOption.AllDirectories)
                             .Where(f => IsPathSafe(f, _environment.EffectiveAssetsPath) || IsPathSafe(f, _environment.BaseDirectory)));
                     }
                     catch { }
                 }
             }
         }
+
+        files = ApplyDurationFilter(files);
+
+        lock (_sync)
+        {
+            _videoFiles.Clear();
+            _videoFiles.AddRange(files);
+        }
+    }
+
+    /// <summary>
+    /// Filters videos by <see cref="AppSettings.VideoMinDurationSeconds"/> and
+    /// <see cref="AppSettings.VideoMaxDurationSeconds"/> using the on-disk metadata
+    /// cache. Videos with no cached duration are included and parsed in the background
+    /// so they are filtered correctly on the next refresh.
+    /// </summary>
+    private List<string> ApplyDurationFilter(List<string> files)
+    {
+        var settings = _settings.Current;
+        var minSec = settings?.VideoMinDurationSeconds ?? 0;
+        var maxSec = settings?.VideoMaxDurationSeconds ?? 0;
+        if ((minSec <= 0 && maxSec <= 0) || _metadataCache == null)
+            return files;
+
+        var beforeCount = files.Count;
+        var filtered = files.Where(f =>
+        {
+            var dur = _metadataCache.TryGetDuration(f);
+            if (dur == null)
+            {
+                _ = _metadataCache.GetOrComputeDurationAsync(f);
+                return true;
+            }
+            if (minSec > 0 && dur.Value < minSec) return false;
+            if (maxSec > 0 && dur.Value > maxSec) return false;
+            return true;
+        }).ToList();
+
+        _logger?.LogDebug("AvaloniaVideoService: {Before} -> {After} after duration filter [{Min}s, {Max}s]",
+            beforeCount, filtered.Count, minSec, maxSec);
+        return filtered;
     }
 
     private static bool IsPathSafe(string path, string allowedBasePath)
@@ -275,6 +481,16 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         Dispatcher.UIThread.Invoke(() => PlayFile(file, strict));
     }
 
+    public void UpdateVolume()
+    {
+        _currentWindow?.ApplyAudioSettings();
+        if (_multiMonitor?.IsPlaying == true)
+        {
+            _multiMonitor.SetVolume(LibVlcAudioHelper.GetEffectiveVolume(_settings.Current));
+            _multiMonitor.SetAudioOutputDevice(_settings.Current?.AudioOutputDeviceId);
+        }
+    }
+
     private string? PickRandomVideo()
     {
         lock (_sync)
@@ -289,15 +505,36 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         if (_isDisposed) return;
         CleanupInternal(notifyEnded: false);
 
-        _interactionQueue.TryStart("Video", () =>
+        _compositor?.Start();
+        _mandatoryVideoLayer?.PlayVideo(filePath, withAudio: true, loop: false);
+
+        // When the unified compositor is available it already renders the video layer
+        // on every monitor, so the pink filter and other overlays sit on top. Skip the
+        // legacy multi-monitor windows to avoid them covering the compositor.
+        if (OperatingSystem.IsWindows() && _multiMonitor != null && _mandatoryVideoLayer == null)
         {
-            var screen = GetPrimaryScreen();
-            var volume = (_settings.Current?.MasterVolume ?? 50) / 100.0;
-            _currentWindow = CreateWindow(screen, filePath, fromUrl: false, volume, strictMode);
-            _currentWindow.Show();
-            OverlayZ.Register(_currentWindow, OverlayZ.Layer.Video);
-            SpawnSecondaryWindows(filePath, fromUrl: false, strictMode);
-        });
+            _interactionQueue.TryStart("Video", () =>
+            {
+                _multiMonitor.PlayFile(filePath);
+                _multiMonitor.SetVolume(LibVlcAudioHelper.GetEffectiveVolume(_settings.Current));
+                _multiMonitor.SetAudioOutputDevice(_settings.Current?.AudioOutputDeviceId);
+            });
+            return;
+        }
+
+        // Fallback per-window path only when neither compositor nor multi-monitor service is available.
+        if (_mandatoryVideoLayer == null)
+        {
+            _interactionQueue.TryStart("Video", () =>
+            {
+                var screen = GetPrimaryScreen();
+                _currentWindow = CreateWindow(screen, filePath, fromUrl: false, strictMode);
+                _currentWindow.Show();
+                SpawnSecondaryWindows(filePath, fromUrl: false, strictMode);
+                // Disarm random segment now that a video is playing
+                _segmentArmedAtUtc = DateTime.MinValue;
+            });
+        }
     }
 
     private void PlayUrlCore(string url)
@@ -305,14 +542,47 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         if (_isDisposed) return;
         CleanupInternal(notifyEnded: false);
 
-        _interactionQueue.TryStart("Video", () =>
+        _compositor?.Start();
+        _videoLayer?.PlayVideo(url, withAudio: true, loop: false);
+
+        // When the unified compositor is available it already renders the video layer
+        // on every monitor, so the pink filter and other overlays sit on top. Skip the
+        // legacy multi-monitor windows to avoid them covering the compositor.
+        if (OperatingSystem.IsWindows() && _multiMonitor != null && _videoLayer == null)
         {
-            var screen = GetPrimaryScreen();
-            var volume = (_settings.Current?.MasterVolume ?? 50) / 100.0;
-            _currentWindow = CreateWindow(screen, url, fromUrl: true, volume, strictMode: false);
-            _currentWindow.Show();
-            OverlayZ.Register(_currentWindow, OverlayZ.Layer.Video);
-            SpawnSecondaryWindows(url, fromUrl: true, strictMode: false);
+            _interactionQueue.TryStart("Video", () =>
+            {
+                _multiMonitor.PlayUrl(url);
+                _multiMonitor.SetVolume(LibVlcAudioHelper.GetEffectiveVolume(_settings.Current));
+                _multiMonitor.SetAudioOutputDevice(_settings.Current?.AudioOutputDeviceId);
+            });
+            return;
+        }
+
+        // Fallback per-window path only when neither compositor nor multi-monitor service is available.
+        if (_videoLayer == null)
+        {
+            _interactionQueue.TryStart("Video", () =>
+            {
+                var screen = GetPrimaryScreen();
+                _currentWindow = CreateWindow(screen, url, fromUrl: true, strictMode: false);
+                _currentWindow.Show();
+                SpawnSecondaryWindows(url, fromUrl: true, strictMode: false);
+            });
+        }
+    }
+
+    private void OnMultiMonitorPlaybackStarted(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() => VideoStarted?.Invoke(this, EventArgs.Empty));
+    }
+
+    private void OnMultiMonitorPlaybackEnded(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            try { _interactionQueue.Complete("Video"); } catch { }
+            VideoEnded?.Invoke(this, EventArgs.Empty);
         });
     }
 
@@ -330,10 +600,9 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             foreach (var screen in allScreens)
             {
                 if (screen == primary) continue;
-                var win = new VideoOverlayWindow(_libVlc, screen, source, fromUrl, 0, strictMode, () => { }, _logger, withAudio: false);
+                var win = new VideoOverlayWindow(_settings, _libVlc, screen, source, fromUrl, strictMode, () => { }, _logger, withAudio: false, isPrimary: false);
                 _secondaryWindows.Add(win);
                 win.Show();
-                OverlayZ.Register(win, OverlayZ.Layer.Video);
             }
 
             _logger?.LogInformation("AvaloniaVideoService: spawned {Count} secondary video window(s)", _secondaryWindows.Count);
@@ -344,7 +613,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         }
     }
 
-    private VideoOverlayWindow CreateWindow(ScreenInfo screen, string source, bool fromUrl, double volume, bool strictMode)
+    private VideoOverlayWindow CreateWindow(ScreenInfo screen, string source, bool fromUrl, bool strictMode)
     {
         _currentRetryPath = fromUrl ? null : source;
         _currentStrictMode = strictMode;
@@ -355,7 +624,36 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         _attentionSpawnTimes.Clear();
         lock (_attentionTargets) { _attentionTargets.Clear(); }
 
-        var win = new VideoOverlayWindow(_libVlc, screen, source, fromUrl, volume, strictMode, () => { }, _logger);
+        // Check if segment is armed (30s window)
+        var isSegmentArmed = (DateTime.UtcNow - _segmentArmedAtUtc).TotalSeconds < 30 && _segmentSec > 0;
+        var segFraction = isSegmentArmed ? _segmentFraction : 0;
+
+        var win = new VideoOverlayWindow(
+            _settings,
+            _libVlc,
+            screen,
+            source,
+            fromUrl,
+            strictMode,
+            () => { },
+            _logger,
+            withAudio: true,
+            isPrimary: true,
+            onCodecWarning: onWarning =>
+            {
+                if (onWarning && !_codecWarningShown)
+                {
+                    _codecWarningShown = true;
+                    _logger?.LogWarning("AvaloniaVideoService: codec warning — video may not play correctly. Verify libvlc runtime.");
+                }
+            },
+            onPositionChanged: ms =>
+            {
+                try { PrimaryPlaybackTimeMsChanged?.Invoke(ms); } catch { /* no-op if no subscribers */ }
+            },
+            segmentArmed: isSegmentArmed,
+            segmentFraction: segFraction,
+            segmentSec: isSegmentArmed ? _segmentSec : 0);
         win.VideoStarted += OnVideoWindowStarted;
         win.VideoEnded += OnVideoWindowEnded;
         return win;
@@ -365,6 +663,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
     {
         _videoStartTime = DateTime.Now;
         VideoStarted?.Invoke(this, EventArgs.Empty);
+        _overlay?.NotifyTopWindowOpened();
 
         var settings = _settings.Current;
         if (settings == null) return;
@@ -394,6 +693,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
 
     private void OnVideoWindowEnded()
     {
+        _overlay?.NotifyTopWindowClosed();
         OnVideoEnded();
     }
 
@@ -705,6 +1005,8 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
 
     private void CleanupInternal(bool notifyEnded)
     {
+        _multiMonitor?.Stop();
+
         _attentionTimer?.Stop();
         _attentionTimer = null;
         _safetyTimer?.Stop();
@@ -724,6 +1026,9 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         }
         _secondaryWindows.Clear();
 
+        _videoLayer?.Stop();
+        _mandatoryVideoLayer?.Stop();
+
         if (_currentWindow != null)
         {
             try
@@ -734,6 +1039,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             }
             catch { }
             _currentWindow = null;
+            _overlay?.NotifyTopWindowClosed();
         }
 
         _currentStrictMode = false;
@@ -782,40 +1088,58 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         if (_isDisposed) return;
         _isDisposed = true;
         Stop();
+
+        if (_multiMonitor != null)
+        {
+            _multiMonitor.PlaybackStarted -= OnMultiMonitorPlaybackStarted;
+            _multiMonitor.PlaybackEnded -= OnMultiMonitorPlaybackEnded;
+        }
     }
 
     private sealed class VideoOverlayWindow : Window
     {
+        private readonly ISettingsService _settings;
         private readonly LibVLC _libVlc;
         private readonly string _source;
         private readonly bool _fromUrl;
-        private readonly double _volume;
         private readonly bool _strictMode;
         private readonly Action _onClosed;
         private readonly VideoView _videoView;
         private readonly ILogger<AvaloniaVideoService>? _logger;
         private readonly bool _withAudio;
+        private readonly bool _isPrimary;
+        private readonly Action<bool>? _onCodecWarning;
+        private readonly Action<long>? _onPositionChanged;
+        private readonly bool _segmentArmed;
+        private readonly double _segmentFraction;
+        private readonly double _segmentSec;
         private MediaPlayer? _mediaPlayer;
         private Media? _media;
         private bool _isPlaying;
 
-        public VideoOverlayWindow(LibVLC libVlc, ScreenInfo screen, string source, bool fromUrl, double volume, bool strictMode, Action onClosed, ILogger<AvaloniaVideoService>? logger, bool withAudio = true)
+        public VideoOverlayWindow(ISettingsService settings, LibVLC libVlc, ScreenInfo screen, string source, bool fromUrl, bool strictMode, Action onClosed, ILogger<AvaloniaVideoService>? logger, bool withAudio = true, bool isPrimary = false, Action<bool>? onCodecWarning = null, Action<long>? onPositionChanged = null, bool segmentArmed = false, double segmentFraction = 0, double segmentSec = 0)
         {
+            _settings = settings;
             _libVlc = libVlc;
             _source = source;
             _fromUrl = fromUrl;
-            _volume = volume;
             _strictMode = strictMode;
             _onClosed = onClosed;
             _logger = logger;
             _withAudio = withAudio;
+            _isPrimary = isPrimary;
+            _onCodecWarning = onCodecWarning;
+            _onPositionChanged = onPositionChanged;
+            _segmentArmed = segmentArmed;
+            _segmentFraction = segmentFraction;
+            _segmentSec = segmentSec;
 
             WindowDecorations = WindowDecorations.None;
-            Topmost = true;
+            Topmost = false;
             ShowInTaskbar = false;
             CanResize = false;
             ShowActivated = false;
-            WindowState = WindowState.FullScreen;
+            WindowState = WindowState.Normal;
 
             this.ConstrainToScreen(screen);
 
@@ -835,6 +1159,8 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         public bool IsPlaying => _isPlaying;
         public MediaPlayer? MediaPlayer => _mediaPlayer;
 
+        public void ApplyAudioSettings() => _mediaPlayer?.ApplyAudioSettings(_settings.Current, _withAudio, _logger);
+
         public event Action? VideoStarted;
         public event Action? VideoEnded;
 
@@ -846,10 +1172,14 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 {
                     EnableHardwareDecoding = true
                 };
-                _mediaPlayer.Volume = _withAudio ? (int)(_volume * 100) : 0;
+                _mediaPlayer.ApplyAudioSettings(_settings.Current, _withAudio, _logger);
                 _mediaPlayer.EndReached += OnEndReached;
                 _mediaPlayer.LengthChanged += OnLengthChanged;
                 _mediaPlayer.Playing += OnPlaying;
+                if (_isPrimary)
+                {
+                    _mediaPlayer.PositionChanged += OnPrimaryPositionChanged;
+                }
 
                 _media = _fromUrl
                     ? new Media(_libVlc, new Uri(_source))
@@ -857,18 +1187,57 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
 
                 _videoView.MediaPlayer = _mediaPlayer;
                 _mediaPlayer.Play(_media);
+
+                // Apply random-segment seek if chaos armed (must run before first frame decodes)
+                if (_isPrimary && _segmentArmed && _segmentSec > 0)
+                {
+                    try
+                    {
+                        var length = _mediaPlayer?.Length ?? 0;
+                        if (length > 0)
+                        {
+                            var targetMs = (long)(_segmentFraction * (length - _segmentSec * 1000));
+                            if (targetMs >= 0)
+                            {
+                                if (_mediaPlayer != null)
+                            {
+                                _mediaPlayer.Time = Math.Max(0, targetMs);
+                            }
+                            }
+                        }
+                    }
+                    catch { /* no-op on seek failure */ }
+                }
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "AvaloniaVideoService: failed to start video {Source}", _source);
+                OnCodecWarningIfNeeded();
                 Close();
             }
+        }
+
+        private void OnCodecWarningIfNeeded()
+        {
+            if (!_isPrimary || _onCodecWarning == null) return;
+            _onCodecWarning(true);
         }
 
         private void OnPlaying(object? sender, EventArgs e)
         {
             _isPlaying = true;
+            // Re-apply audio settings once playback is active; some LibVLC aout backends
+            // only honor volume/output-device changes after the audio stream has started.
+            _mediaPlayer?.ApplyAudioSettings(_settings.Current, _withAudio, _logger);
             VideoStarted?.Invoke();
+        }
+
+        private void OnPrimaryPositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e)
+        {
+            if (_isPrimary && _onPositionChanged != null)
+            {
+                Dispatcher.UIThread.Post(() => _onPositionChanged((long)(_mediaPlayer?.Time * 1000 ?? -1)));
+            }
         }
 
         private void OnLengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
@@ -931,19 +1300,11 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         }
     }
 
-    private sealed class FloatingText
+    internal sealed class FloatingText
     {
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOACTIVATE = 0x0010;
-        private const uint SWP_SHOWWINDOW = 0x0040;
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_TOOLWINDOW = 0x00000080;
         private const int WS_EX_APPWINDOW = 0x00040000;
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -963,8 +1324,6 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         private readonly double _width, _height;
         private bool _dead;
         private bool _clicked;
-        private IntPtr _hwnd;
-        private int _tickCount;
 
         public FloatingText(LibVLC libVlc, IAudioDeviceService? audioDeviceService, IAppEnvironment environment, AppSettings settings, ScreenInfo screen, string text, int size, Action onHit)
         {
@@ -1109,23 +1468,11 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
                 if (_y < _minY) { _y = _minY; _vy = Math.Abs(_vy); }
                 if (_y + _height > _maxY) { _y = _maxY - _height; _vy = -Math.Abs(_vy); }
                 _win.Position = new PixelPoint((int)_x, (int)_y);
-
-                _tickCount++;
-                if (_tickCount >= 2 && _hwnd != IntPtr.Zero)
-                {
-                    _tickCount = 0;
-                    SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-                }
             };
 
             _win.Opened += (s, e) =>
             {
                 ApplyToolWindowStyle(_win);
-                _hwnd = _win.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                if (_hwnd != IntPtr.Zero)
-                {
-                    SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-                }
                 _timer.Start();
             };
 
@@ -1134,11 +1481,8 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
 
         public void BringToFront()
         {
-            if (_dead || _hwnd == IntPtr.Zero) return;
-            try
-            {
-                SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            }
+            if (_dead) return;
+            try { _win.Topmost = true; }
             catch { }
         }
 
@@ -1150,7 +1494,7 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
             try { _win.Close(); } catch { }
         }
 
-        private void Hit()
+        internal void Hit()
         {
             if (_clicked || _dead) return;
             _clicked = true;
@@ -1179,33 +1523,8 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         {
             try
             {
-                var soundsPath = Path.Combine(_baseDirectory, "Resources", "sounds", "bubbles");
-                var popFiles = new[] { "Pop.mp3", "Pop2.mp3", "Pop3.mp3" };
-                var chosen = popFiles[Random.Shared.Next(popFiles.Length)];
-                var popPath = Path.Combine(soundsPath, chosen);
-                if (!File.Exists(popPath)) return;
-
-                _ = Task.Run(() =>
-                {
-                    try
-                    {
-                        using var player = new MediaPlayer(_libVlc);
-                        var deviceId = _audioDeviceService?.GetDefaultOutputDeviceId();
-                        if (!string.IsNullOrEmpty(deviceId))
-                        {
-                            try { player.SetOutputDevice(deviceId); } catch { }
-                        }
-                        player.Volume = (int)(60 * _masterVolume);
-                        using var media = new Media(_libVlc, popPath, FromType.FromPath);
-                        player.Play(media);
-                        var sw = System.Diagnostics.Stopwatch.StartNew();
-                        while (player.IsPlaying && sw.ElapsedMilliseconds < 3000)
-                        {
-                            Thread.Sleep(50);
-                        }
-                    }
-                    catch { }
-                });
+                var volume = (float)(0.6 * _masterVolume);
+                App.Services?.GetService<ISfxPlayer>()?.Play("pop", volume);
             }
             catch { }
         }

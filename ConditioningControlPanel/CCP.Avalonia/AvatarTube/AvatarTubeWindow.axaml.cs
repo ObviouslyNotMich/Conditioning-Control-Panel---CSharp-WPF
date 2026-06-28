@@ -1348,9 +1348,13 @@ _parentWindow = parentWindow;
         }
 
         // ===== Audio =====
-        private string BubbleSoundPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "bubble_pop.wav");
-        private string GiggleSoundPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "giggle.wav");
-        private string PopSoundPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "pop.wav");
+        private string? BubbleSoundPath() => _resourceResolver?.ResolveAudioPath("bubbles/Pop.mp3");
+        private string? GiggleSoundPath()
+        {
+            var n = _random.Next(1, 9);
+            return _resourceResolver?.ResolveAudioPath($"giggle{n}.mp3");
+        }
+        private string? PopSoundPath() => _resourceResolver?.ResolveAudioPath("bubbles/Pop.mp3");
 
         private void PlayFallbackBubbleSound() => PlayAudio(BubbleSoundPath(), 0.5);
         private void PlayGiggleSound() => PlayAudio(GiggleSoundPath(), 0.6);
@@ -1358,7 +1362,7 @@ _parentWindow = parentWindow;
         private void PlayPhraseAudio(string path) => PlayAudio(path, 0.8);
         private void PlayAvatarPopSound() => PlayAudio(PopSoundPath(), 0.5);
 
-        private void PlayAudio(string path, double volume)
+        private void PlayAudio(string? path, double volume)
         {
             if (_audioPlayer == null || string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
             try

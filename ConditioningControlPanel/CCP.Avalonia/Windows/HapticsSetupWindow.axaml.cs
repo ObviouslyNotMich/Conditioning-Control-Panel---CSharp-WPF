@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using ConditioningControlPanel.Avalonia.Helpers;
 using ConditioningControlPanel.Core.Localization;
 
 using IModService = ConditioningControlPanel.IModService;
@@ -40,11 +41,10 @@ _mods = App.Services.GetRequiredService<IModService>();
     {
         try
         {
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            LoadImage(ImgLovenseStep1, Path.Combine(baseDir, "Resources", "haptics_guide", "lovense_step1.png"));
-            LoadImage(ImgLovenseStep2, Path.Combine(baseDir, "Resources", "haptics_guide", "lovense_step2.png"));
-            LoadImage(ImgButtplugStep1, Path.Combine(baseDir, "Resources", "haptics_guide", "buttplug_step1.png"));
-            LoadImage(ImgButtplugStep2, Path.Combine(baseDir, "Resources", "haptics_guide", "buttplug_step2.png"));
+            LoadImage(ImgLovenseStep1, "haptics_guide/lovense_step1.png");
+            LoadImage(ImgLovenseStep2, "haptics_guide/lovense_step2.png");
+            LoadImage(ImgButtplugStep1, "haptics_guide/buttplug_step1.png");
+            LoadImage(ImgButtplugStep2, "haptics_guide/buttplug_step2.png");
         }
         catch (Exception ex)
         {
@@ -52,16 +52,14 @@ _mods = App.Services.GetRequiredService<IModService>();
         }
     }
 
-    private static void LoadImage(Image image, string path)
+    private static void LoadImage(Image image, string resourcePath)
     {
-        if (File.Exists(path))
+        try
         {
-            try
-            {
-                image.Source = new Bitmap(path);
-            }
-            catch { /* ignore invalid image */ }
+            var bitmap = AvaloniaBitmapHelper.LoadResource(resourcePath);
+            if (bitmap != null) image.Source = bitmap;
         }
+        catch { /* ignore invalid image */ }
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

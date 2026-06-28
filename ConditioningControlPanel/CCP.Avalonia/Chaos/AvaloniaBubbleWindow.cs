@@ -63,15 +63,21 @@ public sealed partial class AvaloniaBubbleWindow : Window
         _bubble.SetFuse(fuseFraction);
     }
 
-    /// <summary>Closes the window on the UI thread.</summary>
+    /// <summary>Closes the window on the UI thread. Hides first to avoid focus transfer.</summary>
     public void CloseWindow()
     {
         try
         {
+            void DoClose()
+            {
+                try { Hide(); } catch { }
+                try { Close(); } catch { }
+            }
+
             if (Dispatcher.UIThread.CheckAccess())
-                Close();
+                DoClose();
             else
-                Dispatcher.UIThread.Post(Close);
+                Dispatcher.UIThread.Post(DoClose);
         }
         catch
         {

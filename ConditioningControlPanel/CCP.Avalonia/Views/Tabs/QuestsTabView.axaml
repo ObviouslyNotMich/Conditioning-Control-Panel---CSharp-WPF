@@ -33,22 +33,31 @@
                   Padding="20,14"
                   BorderThickness="1"
                   BorderBrush="{DynamicResource PanelAccentBrush}">
-            <TextBlock Text="{Binding SeasonTitle}"
-                       FontSize="28"
-                       FontWeight="ExtraBold"
-                       FontStyle="Italic"
-                       HorizontalAlignment="Center"
-                       TextAlignment="Center">
-              <TextBlock.Foreground>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                  <GradientStop Color="{DynamicResource PinkColor}" Offset="0.0" />
-                  <GradientStop Color="#DA70D6" Offset="0.25" />
-                  <GradientStop Color="{DynamicResource DarkPinkColor}" Offset="0.5" />
-                  <GradientStop Color="#DA70D6" Offset="0.75" />
-                  <GradientStop Color="{DynamicResource PinkColor}" Offset="1.0" />
-                </LinearGradientBrush>
-              </TextBlock.Foreground>
-            </TextBlock>
+            <Grid>
+              <TextBlock Text="{Binding SeasonTitle}"
+                         FontSize="28"
+                         FontWeight="ExtraBold"
+                         FontStyle="Italic"
+                         HorizontalAlignment="Center"
+                         TextAlignment="Center">
+                <TextBlock.Foreground>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="{DynamicResource PinkColor}" Offset="0.0" />
+                    <GradientStop Color="#DA70D6" Offset="0.25" />
+                    <GradientStop Color="{DynamicResource DarkPinkColor}" Offset="0.5" />
+                    <GradientStop Color="#DA70D6" Offset="0.75" />
+                    <GradientStop Color="{DynamicResource PinkColor}" Offset="1.0" />
+                  </LinearGradientBrush>
+                </TextBlock.Foreground>
+              </TextBlock>
+              <Border BoxShadow="0 0 15 0 #99FF69B4"
+                      HorizontalAlignment="Center"
+                      IsHitTestVisible="False"
+                      Margin="0,-36,0,0"
+                      VerticalAlignment="Top"
+                      Width="300"
+                      Height="40" />
+            </Grid>
           </Border>
 
           <!-- Header -->

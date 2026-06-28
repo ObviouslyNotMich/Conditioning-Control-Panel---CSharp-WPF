@@ -176,8 +176,11 @@ public partial class FlashFeatureControl : UserControl
     private void ChkCorruption_Changed(object? sender, RoutedEventArgs e)
     {
         if (_isLoading || _settings.Current == null) return;
-        _settings.Current.CorruptionMode = ChkCorruption.IsChecked ?? false;
+        var newValue = ChkCorruption.IsChecked ?? false;
+        _logger?.LogDebug("ChkCorruption_Changed: setting CorruptionMode from {Old} to {New}", _settings.Current.CorruptionMode, newValue);
+        _settings.Current.CorruptionMode = newValue;
         _settings.Save();
+        _logger?.LogDebug("ChkCorruption_Changed: settings saved, CorruptionMode is now {Value}", _settings.Current.CorruptionMode);
     }
 
     private void ChkHydraLinked_Changed(object? sender, RoutedEventArgs e)

@@ -2,18 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ConditioningControlPanel;
-using ConditioningControlPanel.Avalonia.Helpers;
-using ConditioningControlPanel.Avalonia.Services.Overlays;
+using ConditioningControlPanel.Avalonia.Compositor;
+using ConditioningControlPanel.Avalonia.Compositor.Layers;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Flash;
 using ConditioningControlPanel.Core.Services.Progression;
@@ -24,9 +21,9 @@ namespace ConditioningControlPanel.Avalonia.Services.Flash;
 
 /// <summary>
 /// Avalonia implementation of the flash-image effect engine.
-/// Spawns topmost transparent overlay windows at a configurable frequency, loads
-/// images from the user's assets folder, supports click-to-close, and implements
-/// the hydra multiplication mode from the WPF engine.
+/// Spawns images via the unified compositor layer at a configurable frequency,
+/// loads images from the user's assets folder, supports click-to-close, and
+/// implements the hydra multiplication mode.
 /// </summary>
 public sealed class AvaloniaFlashService : IFlashService, IDisposable
 {
@@ -43,8 +40,11 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     private readonly ILogger<AvaloniaFlashService>? _logger;
     private readonly Random _random = new();
     private readonly object _sync = new();
-    private readonly List<FlashOverlayWindow> _activeWindows = new();
+    private readonly CompositorEngine? _compositor;
+    private readonly FlashLayer? _flashLayer;
+    private readonly IMouseHook? _mouseHook;
     private readonly Dictionary<string, (List<string> files, DateTime lastScan)> _fileCache = new();
+    private readonly Dictionary<Guid, FlashClickData> _clickData = new();
 
     private string _imagesPath = "";
     private CancellationTokenSource? _cts;
@@ -59,7 +59,9 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         IScreenProvider screens,
         IAchievementService achievements,
         IProgressionService progression,
-        ILogger<AvaloniaFlashService>? logger = null)
+        ILogger<AvaloniaFlashService>? logger = null,
+        CompositorEngine? compositor = null,
+        IMouseHook? mouseHook = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
@@ -67,6 +69,11 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         _achievements = achievements ?? throw new ArgumentNullException(nameof(achievements));
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
         _logger = logger;
+        _compositor = compositor;
+        _mouseHook = mouseHook;
+        _flashLayer = compositor != null ? new FlashLayer() : null;
+        if (_flashLayer != null)
+            _compositor?.RegisterLayer(_flashLayer);
 
         RefreshImagesPath();
     }
@@ -94,11 +101,22 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             return;
         }
 
+        var settings = _settings.Current;
+        if (settings == null) return;
+
         IsRunning = true;
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
-        RefreshImagesPath();
-        ScheduleNextFlash();
+        _noImagesWarningShown = false;
+
+        // Install mouse hook for flash click detection
+        if (_mouseHook != null && settings.FlashClickable)
+        {
+            _mouseHook.LeftButtonDown += OnMouseLeftDown;
+            try { _mouseHook.Install(); } catch { }
+        }
+
+        ScheduleNext();
         _logger?.LogInformation("AvaloniaFlashService started, images path: {Path}", _imagesPath);
     }
 
@@ -110,121 +128,69 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         _scheduledTimer?.Stop();
         _scheduledTimer = null;
 
-        try { _cts?.Cancel(); } catch (ObjectDisposedException) { }
+        _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
 
-        CloseAllWindows();
+        // Uninstall mouse hook
+        if (_mouseHook != null)
+        {
+            _mouseHook.LeftButtonDown -= OnMouseLeftDown;
+            try { _mouseHook.Uninstall(); } catch { }
+        }
+
+        // Clear all flash items from the compositor layer
+        _flashLayer?.Clear();
+        lock (_sync) { _clickData.Clear(); }
+
         _logger?.LogInformation("AvaloniaFlashService stopped");
-    }
-
-    public void RefreshSchedule()
-    {
-        if (!IsRunning) return;
-        ScheduleNextFlash();
-    }
-
-    public void RefreshImagesPath()
-    {
-        _imagesPath = Path.Combine(_environment.EffectiveAssetsPath, "images");
-        try { Directory.CreateDirectory(_imagesPath); } catch { /* best effort */ }
-        ClearFileCache();
-        _logger?.LogInformation("AvaloniaFlashService: images path refreshed to {Path}", _imagesPath);
-    }
-
-    public void ClearFileCache()
-    {
-        lock (_fileCache) { _fileCache.Clear(); }
-    }
-
-    public void LoadAssets()
-    {
-        ClearFileCache();
-        _logger?.LogInformation("AvaloniaFlashService: assets reloaded");
     }
 
     public void TriggerFlash()
     {
-        if (!IsRunning || _isBusy) return;
+        if (!IsRunning) return;
+
+        var settings = _settings.Current;
+        if (settings == null) return;
+
+        if (_isBusy) return;
         _isBusy = true;
-        _ = Task.Run(LoadAndShowImages);
-    }
 
-    public void TriggerFlashOnce(string? imagePath, int durationMs, bool playSound, bool suppressHaptic)
-    {
         try
         {
-            if (_isBusy)
+            FlashAboutToDisplay?.Invoke(this, EventArgs.Empty);
+
+            var data = PickImageData();
+            if (data == null)
             {
-                _logger?.LogDebug("AvaloniaFlashService: one-shot flash skipped - busy");
+                if (!_noImagesWarningShown)
+                {
+                    _logger?.LogWarning("AvaloniaFlashService: no images found at {Path}", _imagesPath);
+                    _noImagesWarningShown = true;
+                }
                 return;
             }
 
-            _isBusy = true;
-            RefreshImagesPath();
-            var settings = _settings.Current;
-            _ = Task.Run(async () => await ShowOneShotAsync(imagePath, durationMs, playSound, suppressHaptic, settings));
-        }
-        catch (Exception ex)
-        {
-            _isBusy = false;
-            _logger?.LogError(ex, "AvaloniaFlashService: one-shot flash failed");
-        }
-    }
+            _noImagesWarningShown = false;
+            lock (_lastDisplayedImagePaths) { _lastDisplayedImagePaths.Add(data.FilePath); }
 
-    private async Task ShowOneShotAsync(string? imagePath, int durationMs, bool playSound, bool suppressHaptic, AppSettings? settings)
-    {
-        try
-        {
-            string? path = null;
-            if (!string.IsNullOrWhiteSpace(imagePath))
+            var hydraLimit = Math.Min(settings.HydraLimit, 20);
+            var count = Math.Min(settings.SimultaneousImages, hydraLimit);
+
+            if (count <= 1)
             {
-                path = File.Exists(imagePath) ? imagePath : Path.Combine(_imagesPath, imagePath);
+                SpawnFlash(data, settings, 0);
             }
-
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            else
             {
-                var candidates = GetNextImages(1);
-                path = candidates.FirstOrDefault();
-            }
-
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-            {
-                _logger?.LogWarning("AvaloniaFlashService: no image available for one-shot flash");
-                return;
-            }
-
-            var data = await LoadImageAsync(path);
-            if (data == null) return;
-
-            var monitor = PickMonitor(settings ?? new AppSettings(), null);
-            var scale = (settings?.ImageScale ?? 100) / 100.0;
-            var geometry = CalculateGeometry(data.Width, data.Height, monitor, scale);
-            data.Geometry = geometry;
-            data.Monitor = monitor;
-
-            var lifetimeMs = durationMs > 0
-                ? durationMs
-                : Math.Max(1000, (settings?.FlashDuration ?? 1) * 1000 + 1000);
-            var maxOpacity = Math.Clamp(settings?.FlashOpacity ?? 80, 10, 100) / 100.0;
-
-            Dispatcher.UIThread.Invoke(() =>
-            {
-                try
+                for (int i = 0; i < count; i++)
                 {
-                    SpawnFlashWindow(data, settings ?? new AppSettings(), lifetimeMs, 0, maxOpacity, oneShot: true);
-                    _achievements.TrackFlashImage();
-                    _progression.AddXP(4, XPSource.Flash);
+                    var copy = i == 0 ? data : PickImageData();
+                    if (copy != null) SpawnFlash(copy, settings, i);
                 }
-                catch (Exception ex)
-                {
-                    _logger?.LogError(ex, "AvaloniaFlashService: failed to show one-shot flash");
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, "AvaloniaFlashService: one-shot flash load failed");
+            }
+
+            FlashDisplayed?.Invoke(this, EventArgs.Empty);
         }
         finally
         {
@@ -232,154 +198,29 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
         }
     }
 
-    private void ScheduleNextFlash()
+    public void RefreshImagesPath()
     {
-        if (!IsRunning) return;
-
         var settings = _settings.Current;
-        if (settings == null || !settings.FlashEnabled)
+        if (settings == null) return;
+
+        var assets = _environment.EffectiveAssetsPath ?? "";
+        var newPath = Path.Combine(assets, "images");
+        if (newPath != _imagesPath)
         {
-            _logger?.LogDebug("AvaloniaFlashService: flashes disabled or settings unavailable");
-            return;
-        }
-
-        _scheduledTimer?.Stop();
-
-        var baseFreq = Math.Max(1, settings.FlashFrequency);
-        var baseInterval = 3600.0 / baseFreq;
-        var variance = baseInterval * 0.3;
-        var interval = baseInterval + (_random.NextDouble() * variance * 2 - variance);
-        interval = Math.Max(3, interval);
-
-        _scheduledTimer = StartOneShotTimer(TimeSpan.FromSeconds(interval), () =>
-        {
-            if (IsRunning && !_isBusy)
-            {
-                TriggerFlash();
-            }
-            ScheduleNextFlash();
-        });
-    }
-
-    private async Task LoadAndShowImages()
-    {
-        try
-        {
-            var settings = _settings.Current;
-            if (settings == null) { _isBusy = false; return; }
-
-            var imagePaths = GetNextImages(settings.SimultaneousImages);
-            if (imagePaths.Count == 0)
-            {
-                if (!_noImagesWarningShown)
-                {
-                    _logger?.LogWarning("AvaloniaFlashService: no images found in {Path}", _imagesPath);
-                    _noImagesWarningShown = true;
-                }
-                _isBusy = false;
-                return;
-            }
-
-            _logger?.LogInformation("AvaloniaFlashService: displaying {Count} flash image(s)", imagePaths.Count);
-            FlashAboutToDisplay?.Invoke(this, EventArgs.Empty);
-
-            await Task.Delay(1000, _cts?.Token ?? default);
-
-            var scale = settings.ImageScale / 100.0;
-            var tasks = imagePaths.Select(p => LoadImageAsync(p)).ToArray();
-            var results = await Task.WhenAll(tasks);
-            var loaded = results.Where(r => r != null).Cast<LoadedImageData>().ToList();
-
-            if (loaded.Count == 0) { _isBusy = false; return; }
-
-            Dispatcher.UIThread.Invoke(() => ShowImages(loaded, false, 0));
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, "AvaloniaFlashService: error loading flash images");
-            _isBusy = false;
+            _imagesPath = newPath;
+            lock (_fileCache) { _fileCache.Clear(); }
+            _logger?.LogInformation("AvaloniaFlashService: images path refreshed to {Path}", _imagesPath);
         }
     }
 
-    private async Task<LoadedImageData?> LoadImageAsync(string path)
+    private void SpawnFlash(ImageData data, AppSettings settings, int hydraGeneration, int remainingMs = -1)
     {
-        try
-        {
-            if (!File.Exists(path)) return null;
-            return await Task.Run(() =>
-            {
-                try
-                {
-                    using var stream = File.OpenRead(path);
-                    var bitmap = new Bitmap(stream);
-                    return new LoadedImageData
-                    {
-                        FilePath = path,
-                        Bitmap = bitmap,
-                        Width = bitmap.PixelSize.Width,
-                        Height = bitmap.PixelSize.Height
-                    };
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogDebug("AvaloniaFlashService: could not load image {Path}: {Error}", path, ex.Message);
-                    return null;
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogDebug("AvaloniaFlashService: could not load image {Path}: {Error}", path, ex.Message);
-            return null;
-        }
-    }
-
-    private void ShowImages(List<LoadedImageData> images, bool isMultiplication, int hydraGeneration)
-    {
-        if (!IsRunning) { if (!isMultiplication) _isBusy = false; return; }
-
-        var settings = _settings.Current;
-        if (settings == null) { if (!isMultiplication) _isBusy = false; return; }
-
-        var lifetimeMs = settings.FlashDuration * 1000 + 1000;
-        var maxOpacity = Math.Clamp(settings.FlashOpacity, 10, 100) / 100.0;
-
-        var displayedPaths = new List<string>();
-        for (int i = 0; i < images.Count; i++)
-        {
-            var data = images[i];
-            SpawnFlashWindow(data, settings, lifetimeMs, hydraGeneration, maxOpacity);
-            displayedPaths.Add(data.FilePath);
-        }
-
-        lock (_lastDisplayedImagePaths)
-        {
-            _lastDisplayedImagePaths.Clear();
-            _lastDisplayedImagePaths.AddRange(displayedPaths);
-        }
-
-        FlashDisplayed?.Invoke(this, EventArgs.Empty);
-        _achievements.TrackFlashImage();
-        if (!isMultiplication)
-        {
-            _progression.AddXP(4, XPSource.Flash);
-            _isBusy = false;
-        }
-    }
-
-    private void SpawnFlashWindow(LoadedImageData data, AppSettings settings, int lifetimeMs, int hydraGeneration, double maxOpacity, bool oneShot = false)
-    {
-        if (!IsRunning && !oneShot) return;
-
-        lock (_sync)
-        {
-            if (_activeWindows.Count >= MAX_CONCURRENT_FLASH) return;
-        }
+        if (!IsRunning && !data.OneShot) return;
 
         var geom = data.Geometry;
         var monitor = data.Monitor;
 
-        // Avoid overlap with existing windows
+        // Avoid overlap with existing flashes
         for (int attempt = 0; attempt < 10; attempt++)
         {
             if (!IsOverlapping(geom.X, geom.Y, geom.Width, geom.Height)) break;
@@ -392,56 +233,305 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
             };
         }
 
-        var window = new FlashOverlayWindow(
-            geom, data, settings.FlashClickable, lifetimeMs, hydraGeneration, monitor,
-            maxOpacity, OnFlashClicked);
+        var bitmap = data.Bitmap;
+        if (bitmap == null) return;
 
-        // Reap on ANY close path (timeout fade-out, click, or Stop) — not just click. Without this,
-        // self-closed windows lingered in _activeWindows forever, leaking their bitmaps and (once 10
-        // had accumulated) silently blocking all new flashes via the MAX_CONCURRENT_FLASH cap.
-        window.Closed += (_, _) => { lock (_sync) { _activeWindows.Remove(window); } };
+        var maxOpacity = settings.FlashOpacity / 100.0;
+        var lifetimeMs = remainingMs > 0 ? remainingMs : Math.Max(500, (int)(settings.FlashDuration * 1000));
+        var id = _flashLayer?.Spawn(data.FilePath, bitmap, geom.X, geom.Y, geom.Width, geom.Height, maxOpacity, lifetimeMs, settings.FlashClickable);
 
-        try
+        if (id.HasValue && id.Value != Guid.Empty)
         {
-            window.Show();
-            ApplyWindowStyles(window, settings.FlashClickable);
-            OverlayZ.Register(window, OverlayZ.Layer.Flash);
-
-            lock (_sync) { _activeWindows.Add(window); }
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogDebug("AvaloniaFlashService: failed to show flash window: {Error}", ex.Message);
-            window.Close();
+            lock (_sync)
+            {
+                _clickData[id.Value] = new FlashClickData(
+                    data.FilePath, lifetimeMs, hydraGeneration, monitor, settings.FlashClickable);
+            }
         }
     }
 
-    private void OnFlashClicked(FlashOverlayWindow window)
+    private void OnMouseLeftDown(object? sender, HookPoint e)
+    {
+        if (!IsRunning) return;
+        var settings = _settings.Current;
+        if (settings == null || !settings.FlashClickable) return;
+
+        var item = _flashLayer?.HitTest(e.X, e.Y);
+        if (item == null)
+        {
+            _logger?.LogDebug("Flash click: no item at {X},{Y}", e.X, e.Y);
+            return;
+        }
+
+        FlashClickData? data;
+        lock (_sync)
+        {
+            if (!_clickData.TryGetValue(item.Id, out data))
+            {
+                _logger?.LogDebug("Flash click: item {Id} not found in _clickData", item.Id);
+                return;
+            }
+            _clickData.Remove(item.Id);
+        }
+
+        _flashLayer?.RemoveItem(item);
+        FlashClicked?.Invoke(this, EventArgs.Empty);
+        _logger?.LogDebug("Flash clicked: item {Id} removed, CorruptionMode={Corruption}, HydraLimit={Limit}",
+            item.Id, settings.CorruptionMode, settings.HydraLimit);
+
+        if (settings.CorruptionMode)
+        {
+            var maxHydra = Math.Min(settings.HydraLimit, 20);
+            int currentCount;
+            lock (_sync) { currentCount = _clickData.Count; }
+
+            _logger?.LogDebug("Flash hydra: currentCount={Current}, maxHydra={Max}, canMultiply={Can}",
+                currentCount, maxHydra, currentCount + 1 < maxHydra);
+
+            if (currentCount + 1 < maxHydra)
+            {
+                var remainingMs = Math.Max(1000, (int)(data.ExpiresAt - DateTime.Now).TotalMilliseconds);
+                TriggerMultiplication(maxHydra, currentCount, data.OriginalLifetimeMs, remainingMs, data.HydraGeneration, data.Monitor);
+            }
+        }
+    }
+
+    private void TriggerMultiplication(int maxHydra, int currentCount, int originalLifetimeMs, int remainingMs, int hydraGeneration, ImageGeometry monitor)
+    {
+        var settings = _settings.Current;
+        if (settings == null)
+        {
+            _logger?.LogDebug("TriggerMultiplication: settings is null");
+            return;
+        }
+
+        var multiplier = Math.Min(2, maxHydra - currentCount - 1);
+        _logger?.LogDebug("TriggerMultiplication: spawning {Multiplier} items (maxHydra={Max}, currentCount={Count})",
+            multiplier, maxHydra, currentCount);
+
+        for (int i = 0; i < multiplier; i++)
+        {
+            var data = PickImageData();
+            if (data == null)
+            {
+                _logger?.LogDebug("TriggerMultiplication: PickImageData returned null");
+                continue;
+            }
+            data.OneShot = true;
+            data.Geometry = new ImageGeometry
+            {
+                X = (int)(monitor.X + _random.Next(0, Math.Max(1, (int)(monitor.Width - 200)))),
+                Y = (int)(monitor.Y + _random.Next(0, Math.Max(1, (int)(monitor.Height - 200)))),
+                Width = data.Geometry.Width,
+                Height = data.Geometry.Height
+            };
+            SpawnFlash(data, settings, hydraGeneration + 1, remainingMs);
+        }
+    }
+
+    private bool IsOverlapping(double x, double y, double w, double h)
+    {
+        lock (_sync)
+        {
+            foreach (var kvp in _clickData)
+            {
+                var item = _flashLayer?.HitTest(x + w / 2, y + h / 2);
+                if (item != null) return true;
+            }
+        }
+        return false;
+    }
+
+    private ImageData? PickImageData()
+    {
+        var files = GetImageFiles();
+        if (files.Count == 0) return null;
+
+        var path = files[_random.Next(files.Count)];
+        try
+        {
+            var bitmap = new Bitmap(path);
+            var monitor = GetRandomMonitor();
+            var scale = Math.Min(1.0, Math.Min(
+                monitor.Width / (bitmap.PixelSize.Width / monitor.Scaling),
+                monitor.Height / (bitmap.PixelSize.Height / monitor.Scaling)));
+            var w = (int)(bitmap.PixelSize.Width / monitor.Scaling * scale);
+            var h = (int)(bitmap.PixelSize.Height / monitor.Scaling * scale);
+            var x = (int)(monitor.X + _random.Next(0, Math.Max(1, (int)(monitor.Width - w))));
+            var y = (int)(monitor.Y + _random.Next(0, Math.Max(1, (int)(monitor.Height - h))));
+
+            return new ImageData
+            {
+                FilePath = path,
+                Bitmap = bitmap,
+                Geometry = new ImageGeometry { X = x, Y = y, Width = w, Height = h },
+                Monitor = monitor
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug("AvaloniaFlashService: failed to load image {Path}: {Error}", path, ex.Message);
+            return null;
+        }
+    }
+
+    private List<string> GetImageFiles()
+    {
+        lock (_fileCache)
+        {
+            if (_fileCache.TryGetValue(_imagesPath, out var cached) &&
+                (DateTime.UtcNow - cached.lastScan).TotalSeconds < CACHE_EXPIRY_SECONDS)
+            {
+                return cached.files;
+            }
+
+            try
+            {
+                if (!Directory.Exists(_imagesPath))
+                {
+                    _fileCache[_imagesPath] = (new List<string>(), DateTime.UtcNow);
+                    return new List<string>();
+                }
+
+                var files = Directory.GetFiles(_imagesPath, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(f => IMAGE_EXTENSIONS.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                    .ToList();
+
+                _fileCache[_imagesPath] = (files, DateTime.UtcNow);
+                return files;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug("AvaloniaFlashService: failed to scan images: {Error}", ex.Message);
+                _fileCache[_imagesPath] = (new List<string>(), DateTime.UtcNow);
+                return new List<string>();
+            }
+        }
+    }
+
+    private ImageGeometry GetRandomMonitor()
+    {
+        try
+        {
+            var all = _screens.GetAllScreens();
+            if (all.Count == 0)
+                return new ImageGeometry { X = 0, Y = 0, Width = 1920, Height = 1080 };
+
+            var screen = all[_random.Next(all.Count)];
+            return new ImageGeometry
+            {
+                X = screen.Bounds.X / screen.Scaling,
+                Y = screen.Bounds.Y / screen.Scaling,
+                Width = screen.Bounds.Width / screen.Scaling,
+                Height = screen.Bounds.Height / screen.Scaling,
+                Scaling = screen.Scaling
+            };
+        }
+        catch
+        {
+            return new ImageGeometry { X = 0, Y = 0, Width = 1920, Height = 1080 };
+        }
+    }
+
+    private void ScheduleNext()
+    {
+        if (!IsRunning) return;
+
+        var settings = _settings.Current;
+        if (settings == null || !settings.FlashEnabled) return;
+
+        _scheduledTimer?.Stop();
+
+        var freq = Math.Max(1, settings.FlashFrequency);
+        var baseInterval = 3600.0 / freq;
+        var variance = baseInterval * 0.3;
+        var interval = baseInterval + (_random.NextDouble() * variance * 2 - variance);
+        interval = Math.Max(1, interval);
+
+        _scheduledTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(interval) };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            if (!IsRunning) return;
+            var s = _settings.Current;
+            if (s == null || !s.FlashEnabled) return;
+
+            try { TriggerFlash(); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "AvaloniaFlashService: TriggerFlash failed"); }
+            ScheduleNext();
+        };
+        _scheduledTimer.Tick += handler;
+        _scheduledTimer.Start();
+    }
+
+    public void RefreshSchedule()
+    {
+        if (!IsRunning) return;
+        ScheduleNext();
+    }
+
+    public void ClearFileCache()
+    {
+        lock (_fileCache) { _fileCache.Clear(); }
+    }
+
+    public void LoadAssets()
+    {
+        RefreshImagesPath();
+        ClearFileCache();
+    }
+
+    public void TriggerFlashOnce(string? imagePath, int durationMs, bool playSound, bool suppressHaptic)
     {
         if (!IsRunning) return;
 
         var settings = _settings.Current;
         if (settings == null) return;
 
-        lock (_sync)
+        Bitmap? bitmap = null;
+        try
         {
-            if (!_activeWindows.Contains(window)) return;
-            _activeWindows.Remove(window);
+            if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
+            {
+                bitmap = new Bitmap(imagePath);
+            }
+            else
+            {
+                var files = GetImageFiles();
+                if (files.Count > 0)
+                {
+                    var path = files[_random.Next(files.Count)];
+                    bitmap = new Bitmap(path);
+                    imagePath = path;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug("AvaloniaFlashService: failed to load one-shot image: {Error}", ex.Message);
+            return;
         }
 
-        window.Close();
-        FlashClicked?.Invoke(this, EventArgs.Empty);
+        if (bitmap == null) return;
 
-        if (settings.CorruptionMode)
+        var monitor = GetRandomMonitor();
+        var scale = Math.Min(1.0, Math.Min(
+            monitor.Width / (bitmap.PixelSize.Width / monitor.Scaling),
+            monitor.Height / (bitmap.PixelSize.Height / monitor.Scaling)));
+        var w = (int)(bitmap.PixelSize.Width / monitor.Scaling * scale);
+        var h = (int)(bitmap.PixelSize.Height / monitor.Scaling * scale);
+        var x = (int)(monitor.X + _random.Next(0, Math.Max(1, (int)(monitor.Width - w))));
+        var y = (int)(monitor.Y + _random.Next(0, Math.Max(1, (int)(monitor.Height - h))));
+
+        var maxOpacity = settings.FlashOpacity / 100.0;
+        var id = _flashLayer?.Spawn(imagePath, bitmap, x, y, w, h, maxOpacity, durationMs, settings.FlashClickable);
+
+        if (id.HasValue && id.Value != Guid.Empty)
         {
-            var maxHydra = Math.Min(settings.HydraLimit, 20);
-            int currentCount;
-            lock (_sync) { currentCount = _activeWindows.Count; }
-
-            if (currentCount + 1 < maxHydra)
+            lock (_sync)
             {
-                var remainingMs = Math.Max(1000, (int)(window.ExpiresAt - DateTime.Now).TotalMilliseconds);
-                TriggerMultiplication(maxHydra, currentCount, window.OriginalLifetimeMs, remainingMs, window.HydraGeneration, window.Monitor);
+                _clickData[id.Value] = new FlashClickData(
+                    imagePath ?? "", durationMs, 0, monitor, settings.FlashClickable);
             }
         }
     }
@@ -449,510 +539,50 @@ public sealed class AvaloniaFlashService : IFlashService, IDisposable
     public bool GazePop(ConditioningControlPanel.Core.Platform.PixelRect rect)
     {
         if (!IsRunning) return false;
-        if (_settings.Current?.FlashGazePopEnabled != true) return false;
 
-        FlashOverlayWindow? target = null;
+        var item = _flashLayer?.HitTest(rect.X + rect.Width / 2.0, rect.Y + rect.Height / 2.0);
+        if (item == null) return false;
+
         lock (_sync)
         {
-            foreach (var window in _activeWindows)
-            {
-                var scale = window.Monitor.Scaling > 0 ? window.Monitor.Scaling : 1.0;
-                var wx = window.Position.X / scale;
-                var wy = window.Position.Y / scale;
-                var ww = window.Width;
-                var wh = window.Height;
-
-                if (rect.X < wx + ww && rect.X + rect.Width > wx &&
-                    rect.Y < wy + wh && rect.Y + rect.Height > wy)
-                {
-                    target = window;
-                    break;
-                }
-            }
+            _clickData.Remove(item.Id);
         }
-
-        if (target == null) return false;
-        OnFlashClicked(target);
+        _flashLayer?.RemoveItem(item);
+        FlashClicked?.Invoke(this, EventArgs.Empty);
         return true;
-    }
-
-    private async void TriggerMultiplication(int maxHydra, int currentCount, int parentLifetimeMs, int parentRemainingMs, int parentGeneration, MonitorInfo parentMonitor)
-    {
-        try
-        {
-            if (!IsRunning) return;
-            var spaceAvailable = maxHydra - currentCount;
-            var numToSpawn = Math.Min(2, spaceAvailable);
-            if (numToSpawn <= 0) return;
-
-            var settings = _settings.Current;
-            if (settings == null) return;
-
-            var imagePaths = GetNextImages(numToSpawn);
-            if (imagePaths.Count == 0) return;
-
-            var scale = settings.ImageScale / 100.0;
-            var hydraLifetimeMs = settings.HydraLinkedTiming ? parentRemainingMs : parentLifetimeMs;
-            var childGeneration = parentGeneration + 1;
-
-            var tasks = imagePaths.Select(p => LoadImageAsync(p)).ToArray();
-            var results = await Task.WhenAll(tasks);
-            var loaded = new List<LoadedImageData>();
-            foreach (var result in results)
-            {
-                if (result == null) continue;
-                var monitor = PickMonitor(settings, parentMonitor);
-                var geometry = CalculateGeometry(result.Width, result.Height, monitor, scale);
-                result.Geometry = geometry;
-                result.Monitor = monitor;
-                loaded.Add(result);
-            }
-
-            if (loaded.Count > 0)
-            {
-                Dispatcher.UIThread.Invoke(() => ShowImages(loaded, true, childGeneration));
-            }
-            else
-            {
-                _isBusy = false;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, "AvaloniaFlashService: TriggerMultiplication failed");
-        }
-    }
-
-    private void CloseAllWindows()
-    {
-        List<FlashOverlayWindow> copy;
-        lock (_sync)
-        {
-            copy = _activeWindows.ToList();
-            _activeWindows.Clear();
-        }
-        foreach (var window in copy)
-        {
-            try { window.Close(); } catch { }
-        }
-    }
-
-    private List<string> GetNextImages(int count)
-    {
-        lock (_fileCache)
-        {
-            var files = GetMediaFiles(_imagesPath, IMAGE_EXTENSIONS);
-            if (files.Count == 0) return new List<string>();
-            var result = new List<string>(count);
-            for (int i = 0; i < count; i++)
-            {
-                result.Add(files[_random.Next(files.Count)]);
-            }
-            return result;
-        }
-    }
-
-    private List<string> GetMediaFiles(string folder, string[] extensions)
-    {
-        if (!Directory.Exists(folder)) return new List<string>();
-
-        var cacheKey = $"{folder}|{string.Join(",", extensions)}";
-        lock (_fileCache)
-        {
-            if (_fileCache.TryGetValue(cacheKey, out var cached))
-            {
-                var age = (DateTime.UtcNow - cached.lastScan).TotalSeconds;
-                if (age < CACHE_EXPIRY_SECONDS)
-                    return new List<string>(cached.files);
-            }
-        }
-
-        var files = new List<string>();
-        foreach (var ext in extensions)
-        {
-            try
-            {
-                foreach (var file in Directory.GetFiles(folder, $"*{ext}", SearchOption.AllDirectories))
-                {
-                    if (IsPathSafe(file, _environment.EffectiveAssetsPath) || IsPathSafe(file, _environment.UserDataPath))
-                        files.Add(file);
-                }
-            }
-            catch { /* ignore unreadable directories */ }
-        }
-
-        if (_settings.Current?.DisabledAssetPaths.Count > 0)
-        {
-            var basePath = _environment.EffectiveAssetsPath;
-            static string Norm(string p) => p.Replace('\\', '/');
-            var disabled = new HashSet<string>(_settings.Current.DisabledAssetPaths.Select(Norm), StringComparer.OrdinalIgnoreCase);
-            files = files.Where(f =>
-            {
-                var relative = Norm(Path.GetRelativePath(basePath, f));
-                return !disabled.Contains(relative);
-            }).ToList();
-        }
-
-        lock (_fileCache)
-        {
-            _fileCache[cacheKey] = (new List<string>(files), DateTime.UtcNow);
-        }
-        return files;
-    }
-
-    private static bool IsPathSafe(string path, string allowedBasePath)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(path)) return false;
-            var fullPath = Path.GetFullPath(path);
-            var basePath = Path.GetFullPath(allowedBasePath);
-            if (!basePath.EndsWith(Path.DirectorySeparatorChar.ToString()) && !basePath.EndsWith(Path.AltDirectorySeparatorChar.ToString()))
-                basePath += Path.DirectorySeparatorChar;
-            return fullPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private MonitorInfo PickMonitor(AppSettings settings, MonitorInfo? preferred = null)
-    {
-        var candidates = GetMonitors(settings.DualMonitorEnabled);
-        if (preferred != null)
-        {
-            foreach (var m in candidates)
-            {
-                if (m.X == preferred.X && m.Y == preferred.Y && m.Width == preferred.Width && m.Height == preferred.Height)
-                    return m;
-            }
-        }
-        return candidates[_random.Next(candidates.Count)];
-    }
-
-    private List<MonitorInfo> GetMonitors(bool dualMonitor)
-    {
-        var monitors = new List<MonitorInfo>();
-        try
-        {
-            var primary = _screens.GetPrimaryScreen();
-            foreach (var screen in _screens.GetAllScreens())
-            {
-                var scale = screen.Scaling > 0 ? screen.Scaling : 1.0;
-                monitors.Add(new MonitorInfo
-                {
-                    X = screen.Bounds.X / scale,
-                    Y = screen.Bounds.Y / scale,
-                    Width = screen.Bounds.Width / scale,
-                    Height = screen.Bounds.Height / scale,
-                    Scaling = scale,
-                    IsPrimary = screen == primary
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogDebug("AvaloniaFlashService: could not enumerate monitors: {Error}", ex.Message);
-        }
-
-        if (monitors.Count == 0)
-        {
-            monitors.Add(new MonitorInfo { X = 0, Y = 0, Width = 1920, Height = 1080, Scaling = 1.0, IsPrimary = true });
-        }
-
-        if (!dualMonitor)
-        {
-            var primary = monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors[0];
-            return new List<MonitorInfo> { primary };
-        }
-        return monitors;
-    }
-
-    private ImageGeometry CalculateGeometry(int origWidth, int origHeight, MonitorInfo monitor, double userScale)
-    {
-        var baseWidth = monitor.Width * 0.4;
-        var baseHeight = monitor.Height * 0.4;
-        var ratio = Math.Min(baseWidth / origWidth, baseHeight / origHeight) * userScale;
-        var targetWidth = Math.Max(50, (int)(origWidth * ratio));
-        var targetHeight = Math.Max(50, (int)(origHeight * ratio));
-
-        const int edgePadding = 50;
-        var minX = edgePadding;
-        var minY = edgePadding;
-        var maxX = Math.Max(minX + 1, (int)(monitor.Width - targetWidth - edgePadding));
-        var maxY = Math.Max(minY + 1, (int)(monitor.Height - targetHeight - edgePadding));
-
-        return new ImageGeometry
-        {
-            X = (int)(monitor.X + _random.Next(minX, maxX)),
-            Y = (int)(monitor.Y + _random.Next(minY, maxY)),
-            Width = targetWidth,
-            Height = targetHeight
-        };
-    }
-
-    private bool IsOverlapping(int x, int y, int w, int h)
-    {
-        lock (_sync)
-        {
-            foreach (var window in _activeWindows)
-            {
-                try
-                {
-                    var scale = window.Monitor.Scaling > 0 ? window.Monitor.Scaling : 1.0;
-                    var wx = window.Position.X / scale;
-                    var wy = window.Position.Y / scale;
-                    var ww = (int)window.Width;
-                    var wh = (int)window.Height;
-                    var dx = Math.Min(x + w, (int)(wx + ww)) - Math.Max(x, (int)wx);
-                    var dy = Math.Min(y + h, (int)(wy + wh)) - Math.Max(y, (int)wy);
-                    if (dx >= 0 && dy >= 0)
-                    {
-                        var overlapArea = dx * dy;
-                        var windowArea = w * h;
-                        if (overlapArea > windowArea * 0.3) return true;
-                    }
-                }
-                catch { }
-            }
-        }
-        return false;
-    }
-
-    private static void ApplyWindowStyles(Window window, bool clickable)
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        try
-        {
-            var hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-            if (hwnd == IntPtr.Zero) return;
-
-            var exStyle = (uint)GetWindowLong(hwnd, GWL_EXSTYLE).ToInt64();
-            exStyle |= WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
-            if (!clickable) exStyle |= WS_EX_TRANSPARENT;
-            SetWindowLong(hwnd, GWL_EXSTYLE, new IntPtr(exStyle));
-            // Keep z-order untouched (SWP_NOZORDER) — relative depth is owned by OverlayZ.
-            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW | SWP_NOZORDER);
-        }
-        catch
-        {
-            // best-effort styling
-        }
-    }
-
-    private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
-    {
-        var timer = new DispatcherTimer { Interval = dueTime };
-        EventHandler? handler = null;
-        handler = (_, _) =>
-        {
-            timer.Stop();
-            timer.Tick -= handler;
-            callback();
-        };
-        timer.Tick += handler;
-        timer.Start();
-        return timer;
     }
 
     public void Dispose()
     {
         Stop();
+        lock (_sync) { _clickData.Clear(); }
     }
 
-    private const int GWL_EXSTYLE = -20;
-    private const uint WS_EX_LAYERED = 0x00080000;
-    private const uint WS_EX_TOOLWINDOW = 0x00000080;
-    private const uint WS_EX_NOACTIVATE = 0x08000000;
-    private const uint WS_EX_TRANSPARENT = 0x00000020;
-    private const uint SWP_NOMOVE = 0x0002;
-    private const uint SWP_NOSIZE = 0x0001;
-    private const uint SWP_NOACTIVATE = 0x0010;
-    private const uint SWP_FRAMECHANGED = 0x0020;
-    private const uint SWP_SHOWWINDOW = 0x0040;
-    private const uint SWP_NOZORDER = 0x0004;
-
-    [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
-    private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
-    private static extern IntPtr GetWindowLong64(IntPtr hWnd, int nIndex);
-    private static IntPtr GetWindowLong(IntPtr hWnd, int nIndex)
-        => IntPtr.Size == 4 ? GetWindowLong32(hWnd, nIndex) : GetWindowLong64(hWnd, nIndex);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
-    private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
-    private static extern IntPtr SetWindowLong64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-    private static IntPtr SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
-        => IntPtr.Size == 4 ? SetWindowLong32(hWnd, nIndex, dwNewLong) : SetWindowLong64(hWnd, nIndex, dwNewLong);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
-
-    private sealed class LoadedImageData
+    private sealed class ImageData
     {
         public string FilePath { get; set; } = "";
-        public Bitmap Bitmap { get; set; } = null!;
-        public AvaloniaAnimatedGif? Animator { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
+        public Bitmap? Bitmap { get; set; }
         public ImageGeometry Geometry { get; set; } = new();
-        public MonitorInfo Monitor { get; set; } = new();
+        public ImageGeometry Monitor { get; set; } = new();
+        public bool OneShot { get; set; }
     }
 
-    private sealed class ImageGeometry
-    {
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
-    }
-
-    private sealed class MonitorInfo
+    private sealed record ImageGeometry
     {
         public double X { get; set; }
         public double Y { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
         public double Scaling { get; set; } = 1.0;
-        public bool IsPrimary { get; set; }
     }
 
-    private sealed class FlashOverlayWindow : Window
+    private sealed record FlashClickData(
+        string FilePath,
+        int OriginalLifetimeMs,
+        int HydraGeneration,
+        ImageGeometry Monitor,
+        bool Clickable)
     {
-        private readonly Action<FlashOverlayWindow> _onClick;
-        private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(33) };
-        private readonly AvaloniaAnimatedGif? _animator;
-        private readonly Bitmap? _bitmap;
-        private readonly DateTime _expiresAt;
-        private readonly double _maxOpacity;
-        private bool _isFadingOut;
-        private bool _closed;
-
-        public bool IsClickable { get; }
-        public int OriginalLifetimeMs { get; }
-        public int HydraGeneration { get; }
-        public MonitorInfo Monitor { get; }
-        public DateTime ExpiresAt => _expiresAt;
-
-        public FlashOverlayWindow(
-            ImageGeometry geom,
-            LoadedImageData data, bool clickable, int lifetimeMs, int hydraGeneration, MonitorInfo monitor,
-            double maxOpacity, Action<FlashOverlayWindow> onClick)
-        {
-            _onClick = onClick;
-            IsClickable = clickable;
-            OriginalLifetimeMs = lifetimeMs;
-            HydraGeneration = hydraGeneration;
-            Monitor = monitor;
-            _expiresAt = DateTime.Now.AddMilliseconds(lifetimeMs);
-            _maxOpacity = maxOpacity;
-            _animator = data.Animator;
-            _bitmap = data.Bitmap;
-            if (_animator == null && data.FilePath.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
-            {
-                _animator = AvaloniaAnimatedGif.TryCreate(data.FilePath);
-            }
-
-            WindowDecorations = WindowDecorations.None;
-            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
-            Background = Brushes.Transparent;
-            Topmost = true;
-            ShowInTaskbar = false;
-            CanResize = false;
-            ShowActivated = false;
-            Focusable = false;
-            IsHitTestVisible = clickable;
-
-            var scale = monitor.Scaling > 0 ? monitor.Scaling : 1.0;
-            Position = new PixelPoint((int)(geom.X * scale), (int)(geom.Y * scale));
-            Width = geom.Width;
-            Height = geom.Height;
-            Opacity = 0;
-
-            var image = new Image
-            {
-                Source = _animator?.Source ?? data.Bitmap,
-                Stretch = Stretch.Uniform,
-                Width = geom.Width,
-                Height = geom.Height
-            };
-
-            if (_animator != null)
-            {
-                _animator.FrameRendered += (_, _) => image.InvalidateVisual();
-            }
-
-            if (clickable)
-            {
-                image.Cursor = new Cursor(StandardCursorType.Hand);
-                image.PointerPressed += OnPointerPressed;
-            }
-
-            Content = image;
-
-            if (_animator != null)
-            {
-                // Start animation once the window is actually shown so the visual tree
-                // is in place and FrameRendered invalidations are not wasted.
-                Opened += (_, _) => _animator.Start();
-            }
-
-            _timer.Tick += OnTick;
-            _timer.Start();
-        }
-
-        private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            if (!IsClickable) return;
-            var props = e.GetCurrentPoint((Visual?)sender!).Properties;
-            if (props.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed) return;
-            e.Handled = true;
-            _onClick(this);
-        }
-
-        private void OnTick(object? sender, EventArgs e)
-        {
-            if (_closed) return;
-            const double dt = 0.033;
-            var show = DateTime.Now < _expiresAt && !_isFadingOut;
-            var target = show ? _maxOpacity : 0.0;
-            var step = FADE_PER_SEC * dt;
-
-            if (Opacity < target)
-            {
-                Opacity = Math.Min(target, Opacity + step);
-            }
-            else if (Opacity > target)
-            {
-                Opacity = Math.Max(0.0, Opacity - step);
-                if (Opacity <= 0)
-                {
-                    CloseInternal();
-                }
-            }
-        }
-
-        public void BeginFadeOut() => _isFadingOut = true;
-
-        private void CloseInternal()
-        {
-            if (_closed) return;
-            _closed = true;
-            try { Close(); } catch { }
-        }
-
-        protected override void OnClosed(EventArgs e)
-        {
-            base.OnClosed(e);
-            _timer.Stop();
-            _timer.Tick -= OnTick;
-            try { _animator?.Dispose(); } catch { }
-            // Dispose the decoded bitmap deterministically instead of waiting for GC finalization —
-            // the unmanaged Skia surface is what balloons working set under heavy flash churn.
-            try { _bitmap?.Dispose(); } catch { }
-        }
+        public DateTime ExpiresAt { get; } = DateTime.Now.AddMilliseconds(OriginalLifetimeMs);
     }
 }

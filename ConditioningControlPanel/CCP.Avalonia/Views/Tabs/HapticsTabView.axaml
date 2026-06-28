@@ -34,7 +34,8 @@
                 BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="12"
-                Padding="24,20">
+                Padding="24,20"
+                BoxShadow="0 0 20 0 #80FF69B4">
           <Grid ColumnDefinitions="Auto,22,*">
             <Border Grid.Column="0"
                     Width="160"
@@ -73,7 +74,8 @@
                 BorderBrush="{DynamicResource PinkBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
-                Padding="22,18">
+                Padding="22,18"
+                BoxShadow="0 0 20 0 #80FF69B4">
           <StackPanel Spacing="14">
 
             <!-- Header: icon + title + help + master toggle -->

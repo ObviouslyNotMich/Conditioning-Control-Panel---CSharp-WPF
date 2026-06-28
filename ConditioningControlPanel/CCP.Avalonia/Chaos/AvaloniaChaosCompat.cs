@@ -6,6 +6,7 @@ using global::Avalonia;
 using global::Avalonia.Media;
 using global::Avalonia.Media.Imaging;
 using global::Avalonia.Platform;
+using ConditioningControlPanel.Avalonia.Services.Mod;
 using ConditioningControlPanel.Core.Platform;
 using ConditioningControlPanel.Core.Services.Video;
 using ConditioningControlPanel.Models;
@@ -174,18 +175,9 @@ public static class AvaloniaChaosSfx
     {
         try
         {
-            relativePath = relativePath.Replace('/', Path.DirectorySeparatorChar);
-
-            var modService = App.Services?.GetService<global::ConditioningControlPanel.IModService>();
-            var modPath = modService?.ActiveMod?.InstalledPath;
-            if (!string.IsNullOrEmpty(modPath))
-            {
-                var modOverride = Path.Combine(modPath, "resources", "sounds", relativePath);
-                if (File.Exists(modOverride)) return modOverride;
-            }
-
-            var bundled = Path.Combine(AppContext.BaseDirectory, "Resources", "sounds", relativePath);
-            if (File.Exists(bundled)) return bundled;
+            var resolver = App.Services?.GetService<AvaloniaModResourceResolver>();
+            var resolved = resolver?.ResolveAudioPath(relativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!string.IsNullOrEmpty(resolved) && File.Exists(resolved)) return resolved;
         }
         catch { }
         return "";

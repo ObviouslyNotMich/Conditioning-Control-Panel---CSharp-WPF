@@ -11,6 +11,9 @@ public interface IVideoService
     /// <summary>Whether the mandatory video scheduler is currently running.</summary>
     bool IsRunning { get; }
 
+    /// <summary>Whether a video window is currently open and playing.</summary>
+    bool IsPlaying { get; }
+
     /// <summary>Starts the mandatory video scheduler.</summary>
     void Start();
 
@@ -34,6 +37,9 @@ public interface IVideoService
 
     /// <summary>Forcibly cleans up any stuck video windows and resets the interaction queue.</summary>
     void ForceCleanup();
+
+    /// <summary>Re-applies current master/video volume and preferred output device to active playback.</summary>
+    void UpdateVolume();
 
     /// <summary>
     /// The file path of the video most recently started by the scheduler.

@@ -332,7 +332,7 @@ public partial class AppInfoTabViewModel : TabItemViewModel
                 return;
             }
 
-            var videoService = App.Services?.GetService<AvaloniaDualMonitorVideoService>();
+            var videoService = App.Services?.GetService<AvaloniaMultiMonitorVideoService>();
             videoService?.PlayFile(path, 640, 360);
             await Task.Delay(3000);
             videoService?.Stop();

@@ -136,20 +136,9 @@ public partial class SpiralFeatureControl : UserControl
         SpiralLibraryPanel.Children.Clear();
 
         // Built-in spiral (active when SpiralPath is empty / missing).
-        // Prefer a mod override, then the base Resources/spiral.gif on disk.
-        string? defaultThumb = null;
+        // Resolve through the mod resource resolver so mods can override it.
         var resolver = App.Services?.GetService<AvaloniaModResourceResolver>();
-        var modUri = resolver?.ResolveUri("spiral.gif");
-        if (!string.IsNullOrEmpty(modUri) && modUri.StartsWith("file://", StringComparison.Ordinal))
-        {
-            defaultThumb = modUri.Substring(7);
-        }
-        else
-        {
-            var basePath = Path.Combine(AppContext.BaseDirectory, "Resources", "spiral.gif");
-            if (File.Exists(basePath))
-                defaultThumb = basePath;
-        }
+        var defaultThumb = resolver?.ResolveUri("spiral.gif");
 
         SpiralLibraryPanel.Children.Add(BuildSpiralCard("", LocalizationManager.Instance["label_default"], defaultThumb));
 

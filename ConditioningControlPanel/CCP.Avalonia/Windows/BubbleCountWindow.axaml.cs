@@ -506,41 +506,18 @@ public partial class BubbleCountWindow : Window
 
     private void PlayPopSound()
     {
-        _ = Task.Run(() =>
+        try
         {
-            try
-            {
-                if (_libVLC == null) return;
-
-                var soundIndex = _random.Next(3);
-                var soundsPath = Path.Combine(AppContext.BaseDirectory, "Resources", "sounds", "bubbles");
-                var popFiles = new[] { "Pop.mp3", "Pop2.mp3", "Pop3.mp3" };
-                var popPath = Path.Combine(soundsPath, popFiles[soundIndex]);
-
-                if (!File.Exists(popPath)) return;
-
-                using var player = new MediaPlayer(_libVLC);
-                using var media = new Media(_libVLC, popPath, FromType.FromPath);
-
-                var settings = App.Services?.GetService<ISettingsService>()?.Current;
-                var masterVolume = (settings?.MasterVolume ?? 100) / 100.0;
-                var bubblesVolume = (settings?.BubblesVolume ?? 50) / 100.0;
-                var volume = (int)(Math.Pow(masterVolume * bubblesVolume, 1.5) * 100);
-                player.Volume = Math.Clamp(volume, 0, 100);
-
-                player.Play(media);
-
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(2000);
-                    try { player.Stop(); } catch { }
-                });
-            }
-            catch
-            {
-                // Best-effort pop sound.
-            }
-        });
+            var settings = App.Services?.GetService<ISettingsService>()?.Current;
+            var masterVolume = (settings?.MasterVolume ?? 100) / 100.0;
+            var bubblesVolume = (settings?.BubblesVolume ?? 50) / 100.0;
+            var volume = (float)Math.Pow(masterVolume * bubblesVolume, 1.5);
+            App.Services?.GetService<ISfxPlayer>()?.Play("pop", volume);
+        }
+        catch
+        {
+            // Best-effort pop sound.
+        }
     }
 
     private void OnVideoEnded()

@@ -277,12 +277,18 @@ public partial class VideoFeatureControl : UserControl
     {
         try
         {
-            if (_video?.IsRunning == true)
+            // Mirror the WPF safety checks: if a video is actually playing or the
+            // interaction queue is blocked, offer to force-cleanup before testing.
+            if (_video?.IsPlaying == true)
             {
                 var proceed = await _dialogService.ShowConfirmationAsync(
                     Loc.Get("title_confirm"),
                     Loc.Get("msg_video_test_already_playing"));
                 if (!proceed) return;
+
+                _logger?.LogWarning("User requested force reset of stuck video state");
+                _video?.ForceCleanup();
+                _interactionQueue?.ForceReset();
             }
 
             if (_interactionQueue is { IsBusy: true })
@@ -291,14 +297,9 @@ public partial class VideoFeatureControl : UserControl
                     Loc.Get("title_confirm"),
                     Loc.Get("msg_video_test_queue_busy"));
                 if (!proceed) return;
-            }
 
-            if (_session?.State != SessionState.Running)
-            {
-                await _dialogService.ShowMessageAsync(
-                    Loc.Get("title_info"),
-                    Loc.Get("msg_video_test_session_not_running"));
-                return;
+                _video?.ForceCleanup();
+                _interactionQueue.ForceReset();
             }
 
             _video?.TriggerVideo();

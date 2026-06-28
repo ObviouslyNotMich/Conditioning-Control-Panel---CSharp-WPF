@@ -261,13 +261,15 @@
                   IsVisible="{Binding ShowPatronOverlay}"
                   Opacity="0.9"
                   Padding="20">
-            <TextBlock Text="{loc:Str msg_patron_achievements_locked}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource PinkBrush}"
-                       FontWeight="SemiBold"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center" />
+            <Border BoxShadow="0 0 20 0 #80FF69B4">
+              <TextBlock Text="{loc:Str msg_patron_achievements_locked}"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource PinkBrush}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap"
+                         TextAlignment="Center" />
+            </Border>
           </Border>
         </Grid>
       </Border>

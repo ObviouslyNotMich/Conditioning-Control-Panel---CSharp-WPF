@@ -682,7 +682,7 @@ namespace ConditioningControlPanel.Models
             set { _imageScale = Math.Clamp(value, 50, 250); OnPropertyChanged(); }
         }
 
-        private int _flashOpacity = 100; // 10-100%
+        private int _flashOpacity = 80; // 10-100%
         public int FlashOpacity
         {
             get => _flashOpacity;
@@ -2041,7 +2041,7 @@ namespace ConditioningControlPanel.Models
             set { _spiralPath = value ?? ""; OnPropertyChanged(); }
         }
 
-        private int _spiralOpacity = 20; // 0-50%
+        private int _spiralOpacity = 25; // 0-50%
         public int SpiralOpacity
         {
             get => _spiralOpacity;
@@ -2537,7 +2537,7 @@ namespace ConditioningControlPanel.Models
             set { _pinkFilterEnabled = value; OnPropertyChanged(); }
         }
 
-        private int _pinkFilterOpacity = 20; // 0-50%
+        private int _pinkFilterOpacity = 25; // 0-50%
         public int PinkFilterOpacity
         {
             get => _pinkFilterOpacity;

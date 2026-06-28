@@ -16,15 +16,20 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows.Platform;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This implementation prefers embedding WebView2 directly into the Avalonia visual tree via
-/// <see cref="WebView2NativeControlHost"/>.  When <see cref="CreateBrowserControl"/> is called,
-/// the returned Avalonia <see cref="Control"/> can be placed anywhere (e.g. the dashboard's
-/// <c>BrowserContainer</c>).
+/// This implementation embeds WebView2 directly into the Avalonia visual tree via
+/// <see cref="WebView2NativeControlHost"/>. The <see cref="CreateBrowserControl"/> method
+/// returns an Avalonia <see cref="Control"/> that can be placed anywhere (e.g. the dashboard's
+/// <c>BrowserContainer</c>), and <see cref="NavigateAsync(Uri)"/> always loads URLs in that
+/// embedded control.
 /// </para>
 /// <para>
-/// If the embedded control has not been created yet, <see cref="NavigateAsync(Uri)"/> falls back
-/// to a separate WinForms browser window so links still open even when the dashboard control has
-/// never been requested.
+/// The explicit pop-out command (<see cref="PopOutAsync(Uri)"/>) opens a separate WinForms
+/// browser window so users can detach the browser when desired.
+/// </para>
+/// <para>
+/// HTML5 fullscreen is handled by reparenting the embedded <see cref="WebView2NativeControlHost"/>
+/// into a fullscreen Avalonia window. The view is responsible for the actual visual reparenting
+/// when <see cref="FullscreenChanged"/> fires.
 /// </para>
 /// </remarks>
 public sealed class WebView2BrowserHost : IBrowserHost, IDisposable
@@ -51,7 +56,7 @@ public sealed class WebView2BrowserHost : IBrowserHost, IDisposable
     public event EventHandler<bool>? FullscreenChanged;
 
     /// <summary>
-    /// Creates an Avalonia control that hosts WebView2.  The first call initializes the
+    /// Creates an Avalonia control that hosts WebView2. The first call initializes the
     /// embedded WebView2 asynchronously; subsequent calls return the same control instance.
     /// </summary>
     public global::Avalonia.Controls.Control? CreateBrowserControl()
@@ -77,25 +82,47 @@ public sealed class WebView2BrowserHost : IBrowserHost, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Prefer the embedded control if it has already been created.
-        if (_embeddedHost != null)
+        var host = CreateBrowserControl();
+        if (host == null)
         {
-            await EnsureEnvironmentAndInitializeEmbeddedAsync();
-            if (_embeddedHost.WebView?.CoreWebView2 is { } core)
-            {
-                core.Navigate(url.ToString());
-                return;
-            }
+            // Should never happen on Windows, but keep a safe fallback.
+            OpenWithSystemBrowser(url);
+            return;
         }
 
-        // Embedded path unavailable: use a separate WinForms window.
+        try
+        {
+            _environment ??= await CoreWebView2Environment.CreateAsync(userDataFolder: _userDataFolder);
+            await _embeddedHost!.EnsureInitializedAsync(_environment);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to initialize embedded WebView2 for {url}; falling back to popup: {ex.Message}");
+            await PopOutAsync(url);
+            return;
+        }
+
+        if (_embeddedHost?.WebView?.CoreWebView2 is { } core)
+        {
+            core.Navigate(url.ToString());
+        }
+        else
+        {
+            await PopOutAsync(url);
+        }
+    }
+
+    public async Task PopOutAsync(Uri url)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         try
         {
             await EnsureBrowserWindowAsync();
         }
         catch (Exception ex)
         {
-            Process.Start(new ProcessStartInfo { FileName = url.ToString(), UseShellExecute = true });
+            OpenWithSystemBrowser(url);
             throw new InvalidOperationException($"WebView2 is unavailable; opened the system browser instead. {ex.Message}", ex);
         }
 
@@ -181,6 +208,18 @@ public sealed class WebView2BrowserHost : IBrowserHost, IDisposable
                 core.Navigate(e.Uri);
             };
         };
+    }
+
+    private static void OpenWithSystemBrowser(Uri url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url.ToString(), UseShellExecute = true });
+        }
+        catch
+        {
+            // Best-effort fallback; ignore failures to avoid crashing the dashboard.
+        }
     }
 
     public void Dispose()

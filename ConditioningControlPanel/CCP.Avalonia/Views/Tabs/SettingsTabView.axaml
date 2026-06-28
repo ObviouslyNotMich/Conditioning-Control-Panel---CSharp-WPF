@@ -12,12 +12,14 @@
   </Design.DataContext>
 
   <Grid>
-    <Grid RowDefinitions="*,Auto,Auto"
-          IsVisible="{Binding !IsHelpOverlayVisible}"
-          Margin="16">
+    <ScrollViewer IsVisible="{Binding !IsHelpOverlayVisible}"
+                  Margin="16"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <Grid RowDefinitions="*,Auto,Auto">
 
-      <!-- Velvet mosaic dashboard: 4x4 feature cards on the left, browser/audio/quick-links on the right -->
-      <Grid Grid.Row="0" ColumnDefinitions="640,*">
+        <!-- Velvet mosaic dashboard: 4x4 feature cards on the left, browser/audio/quick-links on the right -->
+        <Grid Grid.Row="0" ColumnDefinitions="640,*">
 
         <!-- Feature card grid -->
         <Grid Grid.Column="0"
@@ -42,6 +44,7 @@
                                 IconUri="pack://application:,,,/Resources/features/mandatory_videos.png"
                                 HelpSectionId="Video"
                                 IsActive="{Binding VideoEnabled}"
+                                CanTest="True"
                                 Click="CardVideo_Click" />
           <features:FeatureCard Grid.Row="0" Grid.Column="3"
                                 Title="{loc:Str feature_title_subliminals}"
@@ -133,9 +136,12 @@
                   <TextBlock Text="{loc:Str label_browser}"
                              Foreground="{DynamicResource TextLightBrush}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
                   <Button Content="{loc:Str label_help_symbol}"
+                          Command="{Binding ShowHelpSectionCommand}" CommandParameter="Browser"
                           Background="{DynamicResource TransparentPinkBrush}"
                           Foreground="{DynamicResource TextLightBrush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
                           CornerRadius="11" Padding="0" Width="22" Height="22" Margin="8,0,0,0"
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                          FontSize="11" FontWeight="Bold"
                           ToolTip.Tip="{loc:Str btn_help}" />
                 </StackPanel>
 
@@ -255,9 +261,12 @@
                              Foreground="{DynamicResource TextLightBrush}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Content="{loc:Str label_help_symbol}"
+                            Command="{Binding ShowHelpSectionCommand}" CommandParameter="Audio"
                             Background="{DynamicResource TransparentPinkBrush}"
                             Foreground="{DynamicResource TextLightBrush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
                             CornerRadius="11" Padding="0" Width="22" Height="22" Margin="0,0,8,0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            FontSize="11" FontWeight="Bold"
                             ToolTip.Tip="{loc:Str btn_help}" />
                     <TextBlock Text="{loc:Str label_duck}" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <ToggleSwitch IsChecked="{Binding AudioDuckEnabled, Mode=TwoWay}" />
@@ -316,9 +325,12 @@
                   <TextBlock Text="{loc:Str label_quick_links}"
                              Foreground="{DynamicResource TextLightBrush}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
                   <Button Content="{loc:Str label_help_symbol}"
+                          Command="{Binding ShowHelpSectionCommand}" CommandParameter="QuickLinks"
                           Background="{DynamicResource TransparentPinkBrush}"
                           Foreground="{DynamicResource TextLightBrush}" BorderBrush="{DynamicResource PinkBrush}" BorderThickness="1"
                           CornerRadius="11" Padding="0" Width="22" Height="22"
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                          FontSize="11" FontWeight="Bold"
                           ToolTip.Tip="{loc:Str btn_help}" />
                 </Grid>
 
@@ -406,7 +418,8 @@
 
       <!-- Marquee banner -->
       <Border Grid.Row="2" Background="#1A0A1A" BorderBrush="{DynamicResource DarkPinkBrush}" BorderThickness="2"
-              CornerRadius="8" Height="48" Margin="5,5,5,0" ClipToBounds="True">
+              CornerRadius="8" Height="48" Margin="5,5,5,0" ClipToBounds="True"
+              BoxShadow="0 0 15 0 #80FF1493">
         <Canvas x:Name="MarqueeCanvas">
           <StackPanel x:Name="MarqueeContent" Orientation="Horizontal" Canvas.Top="8">
             <TextBlock x:Name="MarqueeText1"
@@ -422,24 +435,56 @@
         </Canvas>
       </Border>
     </Grid>
+    </ScrollViewer>
 
     <Border Background="{DynamicResource PanelBgBrush}"
             CornerRadius="10"
             Padding="24"
             IsVisible="{Binding IsHelpOverlayVisible}">
-      <StackPanel Spacing="12"
-                  HorizontalAlignment="Center"
-                  VerticalAlignment="Center">
-        <TextBlock Text="{loc:Str title_help}"
+      <Grid RowDefinitions="Auto,*">
+        <TextBlock Grid.Row="0"
+                   Text="{Binding HelpOverlayTitle}"
                    FontSize="20"
                    FontWeight="Bold"
-                   Foreground="{DynamicResource TextLightBrush}" />
-        <TextBlock Text="{loc:Str msg_help_placeholder}"
-                   TextWrapping="Wrap" />
-        <Button Content="{loc:Str btn_close}"
-                Command="{Binding HideHelpOverlayCommand}"
-                HorizontalAlignment="Center" />
-      </StackPanel>
+                   Foreground="{DynamicResource TextLightBrush}"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,12" />
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12" HorizontalAlignment="Stretch" MaxWidth="720">
+            <TextBlock Text="{Binding HelpOverlayWhatItDoes}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextLightBrush}" />
+
+            <StackPanel IsVisible="{Binding HelpOverlayHasTips}" Spacing="6">
+              <TextBlock Text="Tips" FontWeight="Bold" Foreground="{DynamicResource PinkBrush}" />
+              <ItemsControl ItemsSource="{Binding HelpOverlayTips}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="•" Foreground="{DynamicResource PinkBrush}" VerticalAlignment="Top" />
+                      <TextBlock Text="{Binding}" Foreground="{DynamicResource TextLightBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <StackPanel IsVisible="{Binding HelpOverlayHasHowItWorks}" Spacing="6">
+              <TextBlock Text="How it works" FontWeight="Bold" Foreground="{DynamicResource PinkBrush}" />
+              <TextBlock Text="{Binding HelpOverlayHowItWorks}"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource TextLightBrush}" />
+            </StackPanel>
+
+            <Button Content="{loc:Str btn_close}"
+                    Command="{Binding HideHelpOverlayCommand}"
+                    HorizontalAlignment="Center"
+                    Margin="0,12,0,0" />
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
     </Border>
   </Grid>
 

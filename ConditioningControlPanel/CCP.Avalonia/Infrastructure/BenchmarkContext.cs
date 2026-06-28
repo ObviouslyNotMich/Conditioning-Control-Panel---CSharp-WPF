@@ -82,9 +82,13 @@ public static class BenchmarkContext
 
     private static async Task RunMaxIntensityBenchmarkAsync(Window mainWindow, IClassicDesktopStyleApplicationLifetime desktop, CancellationToken cancellationToken)
     {
-        const int DurationMinutes = 3;
-        var duration = TimeSpan.FromMinutes(DurationMinutes);
-        Log.Information("[BENCH] Starting {Duration} max-intensity benchmark (all modules)", duration);
+        // 4-minute max benchmark split into 3 phases:
+        // Phase 1 (0-60s): All effects at max intensity, local video
+        // Phase 2 (60-180s): All effects + web browser video + all layers at full
+        // Phase 3 (180-240s): Chaos mode "down the rabbit hole" at max intensity
+        const int TotalMinutes = 4;
+        var totalDuration = TimeSpan.FromMinutes(TotalMinutes);
+        Log.Information("[BENCH] Starting {TotalMinutes}-minute MAX-INTENSITY benchmark (all modules, all layers, all phases)", TotalMinutes);
 
         var services = App.Services;
         if (services == null)
@@ -109,59 +113,66 @@ public static class BenchmarkContext
         var popQuiz = services.GetService<IPopQuizService>();
         var bubbleCount = services.GetService<IBubbleCountService>();
         var sessionLog = services.GetService<ISessionLogService>();
+        var chaos = services.GetService<IChaosService>();
 
-        // Build a session that has every effect flag flipped on.
+        // Build a session that has EVERY effect flag flipped on at MAX settings.
         var session = new Session
         {
             Id = "max-intensity",
             Name = "Max Intensity Benchmark",
             Icon = "🔥",
-            DurationMinutes = DurationMinutes,
+            DurationMinutes = TotalMinutes,
             IsAvailable = true,
             Source = SessionSource.BuiltIn,
             Settings = new SessionSettings
             {
                 FlashEnabled = true,
-                FlashPerHour = 240,
-                FlashImages = 4,
-                FlashOpacity = 70,
+                FlashPerHour = 300,
+                FlashImages = 9999,
+                FlashOpacity = 80,
                 FlashClickable = true,
                 FlashHydra = true,
                 SubliminalEnabled = true,
-                SubliminalPerMin = 12,
-                SubliminalFrames = 3,
+                SubliminalPerMin = 999,
+                SubliminalFrames = 10,
                 SubliminalOpacity = 80,
                 BouncingTextEnabled = true,
-                BouncingTextSpeed = 6,
-                BouncingTextSize = 100,
+                BouncingTextSpeed = 10,
+                BouncingTextSize = 200,
                 BouncingTextOpacity = 100,
-                BouncingTextPhrases = new List<string> { "MAX", "LOAD", "BENCHMARK", "OVERLAY", "VIDEO" },
+                BouncingTextPhrases = new List<string> { "MAX", "LOAD", "BENCHMARK", "OVERLAY", "VIDEO", "CHAOS", "SPIRAL", "PINK", "TINT", "BUBBLE" },
                 PinkFilterEnabled = true,
-                PinkFilterStartOpacity = 40,
-                PinkFilterEndOpacity = 60,
+                PinkFilterStartOpacity = 25,
+                PinkFilterEndOpacity = 25,
                 SpiralEnabled = true,
-                SpiralOpacity = 30,
+                SpiralOpacity = 25,
                 BrainDrainEnabled = true,
-                BrainDrainStartIntensity = 15,
-                BrainDrainEndIntensity = 30,
+                BrainDrainStartIntensity = 25,
+                BrainDrainEndIntensity = 25,
                 BubblesEnabled = true,
                 BubblesIntermittent = false,
-                BubblesFrequency = 6,
+                BubblesFrequency = 99,
                 BubblesClickable = true,
                 MandatoryVideosEnabled = true,
-                VideosPerHour = 30,
+                VideosPerHour = 9999,
                 LockCardEnabled = true,
-                LockCardFrequency = 6,
+                LockCardFrequency = 99,
                 BubbleCountEnabled = true,
-                BubbleCountFrequency = 6,
+                BubbleCountFrequency = 99,
                 PopQuizEnabled = true,
-                PopQuizFrequency = 6,
+                PopQuizFrequency = 99,
                 MindWipeEnabled = true,
-                MindWipeBaseMultiplier = 2,
-                MindWipeVolume = 50,
+                MindWipeBaseMultiplier = 5,
+                MindWipeVolume = 25,
             },
             Phases = new List<SessionPhase>()
         };
+
+        // Save original settings to restore later
+        var originalSettings = settingsService.Current?.Clone();
+        bool originalStrictLock = settingsService.Current?.StrictLockEnabled ?? false;
+        if (settingsService.Current != null)
+            settingsService.Current.StrictLockEnabled = false;
 
         try
         {
@@ -169,14 +180,12 @@ public static class BenchmarkContext
             orchestrator?.StartEffects(session);
             await sessionService.StartSessionAsync(session, cancellationToken);
 
-            // Force sustained overlays on regardless of ramp settings. Pink + spiral are capped at
-            // 50% (the dashboard max), and brain-drain is kept light, so the layering stays visible
-            // rather than a single opaque sheet. OverlayZ owns the relative z-order.
-            overlay?.ShowOverlaySustained("braindrain", 0.3);
-            overlay?.ShowOverlaySustained("spiral", 0.5);
-            overlay?.ShowOverlaySustained("pink", 0.5);
+            // Force sustained overlays at MAX (100% — full opacity, fully visible)
+            overlay?.ShowOverlaySustained("braindrain", 1.0);
+            overlay?.ShowOverlaySustained("spiral", 0.25);
+            overlay?.ShowOverlaySustained("pink", 0.25);
 
-            // Ensure every individual service is started.
+            // Start every individual service at max.
             TryRun("flash", () => flash?.Start());
             TryRun("video", () => video?.Start());
             TryRun("subliminal", () => subliminal?.Start());
@@ -186,57 +195,66 @@ public static class BenchmarkContext
             TryRun("lock card", () => lockCard?.Start());
             TryRun("pop quiz", () => popQuiz?.Start());
             TryRun("bubble count", () => bubbleCount?.Start());
-
-            // Chaos mode: register no-op callbacks and spawn a constant stream of bubbles.
-            bubbles?.BeginChaosMode(
-                onBenignPop: _ => { },
-                onDefuse: (_, _, _) => { },
-                onDetonate: _ => { });
         }
         catch (Exception ex)
         {
             Log.Error(ex, "[BENCH] Failed to start max-intensity effects");
         }
 
-        // Let effects ramp up for 2 s before measuring.
+        // Let effects ramp up for 2 s before phase 1 measurement.
         await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
 
-        // Force non-strict video playback for the benchmark so the 1-minute video
-        // segment does not wait for an attention-check dismiss.
-        var originalStrictLock = settingsService.Current?.StrictLockEnabled ?? false;
-        if (settingsService.Current != null)
-            settingsService.Current.StrictLockEnabled = false;
+        // ── Phase 1: 0-60s — Everything at max, local video ──
+        Log.Information("[BENCH] === PHASE 1 (0-60s): All effects + local video at MAX ===");
+        var phase1Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var phase1Task = DriveEffectsAsync(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(200),
+            flash, overlay, bubbles, subliminal, video, false, phase1Cts.Token);
+        var phase1Video = RunVideoStressSegmentAsync(TimeSpan.FromMinutes(1), video, false, phase1Cts.Token);
 
-        var frameTask = BenchmarkFrameCounter.MeasureAsync(mainWindow, duration);
-        var cpuTask = BenchmarkCpuSampler.SampleAsync(duration, TimeSpan.FromMilliseconds(250), cancellationToken);
+        // Frame + CPU measurement for full 4 min
+        var frameTask = BenchmarkFrameCounter.MeasureAsync(mainWindow, totalDuration);
+        var cpuTask = BenchmarkCpuSampler.SampleAsync(totalDuration, TimeSpan.FromMilliseconds(250), cancellationToken);
         var memoryCts = new CancellationTokenSource();
-        var memoryTask = SamplePeakMemoryAsync(duration, TimeSpan.FromSeconds(1), memoryCts.Token);
-        var effectTask = DriveEffectsAsync(duration, TimeSpan.FromMilliseconds(1000), flash, overlay, bubbles, subliminal, cancellationToken);
-        var videoTask = RunVideoStressSegmentAsync(TimeSpan.FromMinutes(1), video, cancellationToken);
+        var memoryTask = SamplePeakMemoryAsync(totalDuration, TimeSpan.FromSeconds(1), memoryCts.Token);
 
-        try
-        {
-            await Task.WhenAll(frameTask, cpuTask, memoryTask, effectTask, videoTask);
-        }
-        catch (OperationCanceledException)
-        {
-            Log.Information("[BENCH] Max-intensity benchmark cancelled");
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "[BENCH] Max-intensity benchmark failed");
-        }
-        finally
-        {
-            if (settingsService.Current != null)
-                settingsService.Current.StrictLockEnabled = originalStrictLock;
-        }
+        await Task.WhenAll(phase1Task, phase1Video);
+        phase1Cts.Dispose();
+        Log.Information("[BENCH] === PHASE 1 COMPLETE ===");
+
+        // ── Phase 2 (60-180s): Continue all effects + web browser video ──
+        Log.Information("[BENCH] === PHASE 2 (60-180s): All effects continue + WEB VIDEO ===");
+        var phase2Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var phase2Task = DriveEffectsAsync(TimeSpan.FromMinutes(2), TimeSpan.FromMilliseconds(200),
+            flash, overlay, bubbles, subliminal, video, true, phase2Cts.Token);
+        var phase2Video = RunWebVideoStressSegmentAsync(TimeSpan.FromMinutes(2), video, phase2Cts.Token);
+
+        await Task.WhenAll(phase2Task, phase2Video);
+        phase2Cts.Dispose();
+        Log.Information("[BENCH] === PHASE 2 COMPLETE ===");
+
+        // ── Phase 3: 180-240s — Chaos mode on top of continuing effects ──
+        Log.Information("[BENCH] === PHASE 3 (180-240s): Chaos mode + continuing effects ===");
+        var phase3Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var phase3Task = DriveEffectsAsync(TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(200),
+            flash, overlay, bubbles, subliminal, video, false, phase3Cts.Token);
+        var phase3Video = RunVideoStressSegmentAsync(TimeSpan.FromMinutes(1), video, false, phase3Cts.Token);
+        var phase3Chaos = RunChaosModeAsync(TimeSpan.FromMinutes(1), chaos, phase3Cts.Token);
+
+        await Task.WhenAll(phase3Task, phase3Video, phase3Chaos);
+        phase3Cts.Dispose();
+        Log.Information("[BENCH] === PHASE 3 COMPLETE ===");
+
+        // Wait for remaining measurement tasks
+        try { await Task.WhenAll(frameTask, cpuTask, memoryTask); }
+        catch (OperationCanceledException) { Log.Information("[BENCH] Benchmark cancelled"); }
+        catch (Exception ex) { Log.Error(ex, "[BENCH] Measurement task failed"); }
+        finally { memoryCts.Cancel(); }
 
         var frameResult = frameTask.IsCompletedSuccessfully ? frameTask.Result : null;
         var cpuResult = cpuTask.IsCompletedSuccessfully ? cpuTask.Result : null;
         var memoryResult = memoryTask.IsCompletedSuccessfully ? memoryTask.Result : (WorkingSet: 0L, Peak: 0L, Managed: 0L);
 
-        Report.MaxIntensityDurationSeconds = duration.TotalSeconds;
+        Report.MaxIntensityDurationSeconds = totalDuration.TotalSeconds;
         Report.MaxIntensityFps = frameResult?.AverageFps ?? 0;
         Report.MaxIntensityMinFps = frameResult?.MinimumFps ?? 0;
         Report.MaxIntensityMaxFps = frameResult?.MaximumFps ?? 0;
@@ -247,21 +265,30 @@ public static class BenchmarkContext
         Report.MaxIntensityManagedBytes = memoryResult.Managed;
 
         Log.Information(
-            "[BENCH] Max-intensity ({Duration} min) — AvgFPS={AvgFps:F1}, MinFPS={MinFps:F1}, MaxFPS={MaxFps:F1}, AvgCPU={AvgCpu:F1}%, PeakCPU={PeakCpu:F1}%, WorkingSet={WsMB:F1} MB, Peak={PeakMB:F1} MB, Managed={ManagedMB:F1} MB",
-            DurationMinutes,
+            "[BENCH] Max-intensity ({TotalMinutes} min) — AvgFPS={AvgFps:F1}, MinFPS={MinFps:F1}, MaxFPS={MaxFps:F1}, AvgCPU={AvgCpu:F1}%, PeakCPU={PeakCpu:F1}%, WorkingSet={WsMB:F1} MB, Peak={PeakMB:F1} MB, Managed={ManagedMB:F1} MB",
+            TotalMinutes,
             Report.MaxIntensityFps, Report.MaxIntensityMinFps, Report.MaxIntensityMaxFps,
             Report.MaxIntensityCpuPercent, Report.MaxIntensityPeakCpuPercent,
             Report.MaxIntensityWorkingSetBytes / 1024.0 / 1024.0,
             Report.MaxIntensityPeakWorkingSetBytes / 1024.0 / 1024.0,
             Report.MaxIntensityManagedBytes / 1024.0 / 1024.0);
 
+        // Cleanup
         try
         {
+            if (chaos?.IsRunning == true) chaos.RequestStop();
             sessionService.StopSession(completed: false);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "[BENCH] Failed to stop session after max-intensity benchmark");
+        }
+        finally
+        {
+            if (settingsService.Current != null && originalSettings != null)
+            {
+                settingsService.Current.StrictLockEnabled = originalStrictLock;
+            }
         }
 
         WriteReport();
@@ -275,6 +302,8 @@ public static class BenchmarkContext
         IOverlayService? overlay,
         IBubbleService? bubbles,
         ISubliminalService? subliminal,
+        IVideoService? video,
+        bool useWebVideo,
         CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
@@ -327,9 +356,15 @@ public static class BenchmarkContext
                     }
 
                     // Keep sustained overlays alive in case something clears them (idempotent).
-                    overlay?.ShowOverlaySustained("braindrain", 0.3);
-                    overlay?.ShowOverlaySustained("spiral", 0.5);
-                    overlay?.ShowOverlaySustained("pink", 0.5);
+                    overlay?.ShowOverlaySustained("braindrain", 1.0);
+                    overlay?.ShowOverlaySustained("spiral", 0.25);
+                    overlay?.ShowOverlaySustained("pink", 0.25);
+
+                    // In web video phase, periodically trigger web video
+                    if (useWebVideo && rng.NextDouble() < 0.3)
+                    {
+                        try { video?.PlayUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"); } catch { }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -343,14 +378,21 @@ public static class BenchmarkContext
         }
     }
 
-    private static async Task RunVideoStressSegmentAsync(TimeSpan videoDuration, IVideoService? video, CancellationToken cancellationToken)
+    private static async Task RunVideoStressSegmentAsync(TimeSpan videoDuration, IVideoService? video, bool useWebVideo, CancellationToken cancellationToken)
     {
         if (video == null) return;
 
         try
         {
-            Log.Information("[BENCH] Starting 1-minute video stress segment");
-            await Task.Run(() => video.TriggerVideo(), cancellationToken);
+            Log.Information("[BENCH] Starting {Duration}s video stress segment (web={Web})", videoDuration.TotalSeconds, useWebVideo);
+            if (useWebVideo)
+            {
+                await Task.Run(() => video.PlayUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), cancellationToken);
+            }
+            else
+            {
+                await Task.Run(() => video.TriggerVideo(), cancellationToken);
+            }
 
             await Task.Delay(videoDuration, cancellationToken);
 
@@ -371,6 +413,51 @@ public static class BenchmarkContext
         {
             Log.Debug(ex, "[BENCH] Video stress segment failed");
         }
+    }
+
+    private static async Task RunWebVideoStressSegmentAsync(TimeSpan videoDuration, IVideoService? video, CancellationToken cancellationToken)
+    {
+        if (video == null) return;
+        try
+        {
+            Log.Information("[BENCH] Starting {Duration}s WEB video stress segment", videoDuration.TotalSeconds);
+            await Task.Run(() => video.PlayUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), cancellationToken);
+            await Task.Delay(videoDuration, cancellationToken);
+            await Task.Run(() => { video.ForceCleanup(); video.Stop(); }, cancellationToken);
+            Log.Information("[BENCH] Web video stress segment ended");
+        }
+        catch (OperationCanceledException) { try { video.ForceCleanup(); video.Stop(); } catch { } }
+        catch (Exception ex) { Log.Debug(ex, "[BENCH] Web video stress segment failed"); }
+    }
+
+    private static async Task RunChaosModeAsync(TimeSpan duration, IChaosService? chaos, CancellationToken cancellationToken)
+    {
+        if (chaos == null) return;
+        try
+        {
+            Log.Information("[BENCH] Starting Chaos mode (down the rabbit hole) for {Duration}s", duration.TotalSeconds);
+            var config = new ChaosRunConfig
+            {
+                PlayMode = ChaosPlayMode.FreeDesktop,
+                Difficulty = "Extreme",
+                RunDurationSec = (int)duration.TotalSeconds,
+                WaveCount = 10,
+                DifficultyMult = 2.0,
+                EffectIntensity = 1.0,
+                DartersEnabled = true,
+                AllowCurses = true,
+                BoonDraftEnabled = false,
+                ScreenShakeEnabled = true,
+                ColorFlashesEnabled = true,
+                ShakeIntensity = 1.0,
+            };
+            await Task.Run(() => chaos.StartRun(config), cancellationToken);
+            await Task.Delay(duration, cancellationToken);
+            await Task.Run(() => chaos.RequestStop(), cancellationToken);
+            Log.Information("[BENCH] Chaos mode ended");
+        }
+        catch (OperationCanceledException) { try { chaos?.RequestStop(); } catch { } }
+        catch (Exception ex) { Log.Debug(ex, "[BENCH] Chaos mode failed"); }
     }
 
     private static async Task<(long WorkingSet, long Peak, long Managed)> SamplePeakMemoryAsync(TimeSpan duration, TimeSpan interval, CancellationToken cancellationToken)

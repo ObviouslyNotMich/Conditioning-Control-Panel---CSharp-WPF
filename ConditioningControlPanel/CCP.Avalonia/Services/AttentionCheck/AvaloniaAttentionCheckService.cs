@@ -44,6 +44,7 @@ public sealed class AvaloniaAttentionCheckService : IAttentionCheckService, IDis
     private readonly IProgressionService _progression;
     private readonly ILockCardService _lockCard;
     private readonly IAudioPlayer? _audioPlayer;
+    private readonly ISfxPlayer? _sfxPlayer;
     private readonly ILogger<AvaloniaAttentionCheckService> _logger;
     private readonly Random _rng = new();
 
@@ -73,6 +74,7 @@ public sealed class AvaloniaAttentionCheckService : IAttentionCheckService, IDis
         IProgressionService progression,
         ILockCardService lockCard,
         IAudioPlayer? audioPlayer,
+        ISfxPlayer? sfxPlayer,
         ILogger<AvaloniaAttentionCheckService> logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -82,6 +84,7 @@ public sealed class AvaloniaAttentionCheckService : IAttentionCheckService, IDis
         _progression = progression ?? throw new ArgumentNullException(nameof(progression));
         _lockCard = lockCard ?? throw new ArgumentNullException(nameof(lockCard));
         _audioPlayer = audioPlayer;
+        _sfxPlayer = sfxPlayer;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -232,7 +235,6 @@ public sealed class AvaloniaAttentionCheckService : IAttentionCheckService, IDis
                 sizePx + slackPx * 2);
 
             _activeWindow.Show();
-            ApplyWindowStyles(_activeWindow);
 
             _activeControl.StartPulse();
             _activeControl.SetProgress(0);
@@ -402,29 +404,13 @@ public sealed class AvaloniaAttentionCheckService : IAttentionCheckService, IDis
 
     private void TryPlayPing()
     {
-        if (_audioPlayer == null) return;
-        var pingPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "sounds", "attention_ping.wav");
-        if (!System.IO.File.Exists(pingPath)) return;
-        _ = _audioPlayer.PlayAsync(pingPath);
-    }
-
-    private static void ApplyWindowStyles(Window window)
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        window.Opened += (_, _) =>
+        try
         {
-            try
-            {
-                var hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                if (hwnd == IntPtr.Zero) return;
-                var exStyle = (uint)Win32.GetWindowLong(hwnd, Win32.GWL_EXSTYLE).ToInt64();
-                exStyle |= Win32.WS_EX_TRANSPARENT | Win32.WS_EX_TOOLWINDOW | Win32.WS_EX_NOACTIVATE;
-                Win32.SetWindowLong(hwnd, Win32.GWL_EXSTYLE, new IntPtr((long)exStyle));
-                Win32.SetWindowPos(hwnd, Win32.HWND_TOPMOST, 0, 0, 0, 0,
-                    Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE | Win32.SWP_FRAMECHANGED | Win32.SWP_SHOWWINDOW);
-            }
-            catch { }
-        };
+            var master = (_settings.Current?.MasterVolume ?? 100) / 100.0;
+            var volume = (float)(master * 0.7);
+            _sfxPlayer?.Play("attention_ping", volume);
+        }
+        catch { }
     }
 
     private static DispatcherTimer StartOneShotTimer(TimeSpan dueTime, Action callback)
@@ -452,36 +438,5 @@ public sealed class AvaloniaAttentionCheckService : IAttentionCheckService, IDis
     private static bool Contains(ConditioningControlPanel.Core.Platform.PixelRect rect, double x, double y)
     {
         return x >= rect.X && x <= rect.Right && y >= rect.Y && y <= rect.Bottom;
-    }
-
-    private static class Win32
-    {
-        public const int GWL_EXSTYLE = -20;
-        public const uint WS_EX_TRANSPARENT = 0x00000020;
-        public const uint WS_EX_TOOLWINDOW = 0x00000080;
-        public const uint WS_EX_NOACTIVATE = 0x08000000;
-        public const uint SWP_NOMOVE = 0x0002;
-        public const uint SWP_NOSIZE = 0x0001;
-        public const uint SWP_NOACTIVATE = 0x0010;
-        public const uint SWP_FRAMECHANGED = 0x0020;
-        public const uint SWP_SHOWWINDOW = 0x0040;
-        public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLong")]
-        private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
-        private static extern IntPtr GetWindowLong64(IntPtr hWnd, int nIndex);
-        public static IntPtr GetWindowLong(IntPtr hWnd, int nIndex)
-            => IntPtr.Size == 4 ? GetWindowLong32(hWnd, nIndex) : GetWindowLong64(hWnd, nIndex);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLong")]
-        private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
-        private static extern IntPtr SetWindowLong64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-        public static IntPtr SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
-            => IntPtr.Size == 4 ? SetWindowLong32(hWnd, nIndex, dwNewLong) : SetWindowLong64(hWnd, nIndex, dwNewLong);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
     }
 }

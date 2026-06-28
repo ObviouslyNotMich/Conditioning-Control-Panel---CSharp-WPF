@@ -2252,7 +2252,7 @@ namespace ConditioningControlPanel
             if (_isRunning)
             {
                 // Refresh overlays (pink filter, spiral, brain drain) - restart to add/remove monitor windows
-                App.Overlay.RefreshForDualMonitorChange();
+                App.Overlay.RefreshForMultiMonitorChange();
 
                 // Bouncing text needs restart
                 App.BouncingText.Stop();

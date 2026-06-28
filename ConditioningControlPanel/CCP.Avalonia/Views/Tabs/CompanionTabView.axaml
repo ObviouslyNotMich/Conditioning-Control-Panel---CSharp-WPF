@@ -32,10 +32,12 @@
                   VerticalAlignment="Bottom"
                   Margin="0,0,-60,-100" />
           <StackPanel VerticalAlignment="Center" Margin="24,0">
-            <TextBlock Text="{loc:Str tab_companion_banner_title}"
-                       FontSize="28"
-                       FontWeight="Bold"
-                       Foreground="{DynamicResource TextLightBrush}" />
+            <Border BoxShadow="0 0 20 0 #9370DB80">
+              <TextBlock Text="{loc:Str tab_companion_banner_title}"
+                         FontSize="28"
+                         FontWeight="Bold"
+                         Foreground="{DynamicResource TextLightBrush}" />
+            </Border>
             <TextBlock Text="{loc:Str tab_companion_banner_subtitle}"
                        FontSize="14"
                        Foreground="{DynamicResource TextMutedBrush}"
@@ -51,7 +53,8 @@
               BorderBrush="{DynamicResource PinkBrush}"
               BorderThickness="2"
               CornerRadius="12"
-              Padding="18">
+              Padding="18"
+              BoxShadow="0 0 18 0 #2EFF69B4">
         <Grid ColumnDefinitions="Auto,*">
           <TextBlock Text="🤖"
                      FontSize="48"
@@ -69,9 +72,12 @@
             <TextBlock Text="{Binding ActiveCompanionDescription}"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource TextMutedBrush}" />
-            <TextBlock Text="{Binding ActiveCompanionXpText}"
-                       Foreground="{DynamicResource TextMutedBrush}"
-                       FontSize="12" />
+            <Border BoxShadow="0 0 24 0 #F2FF69B4">
+              <TextBlock Text="{Binding ActiveCompanionXpText}"
+                         Foreground="{DynamicResource PinkBrush}"
+                         FontSize="14"
+                         FontWeight="SemiBold" />
+            </Border>
             <ProgressBar Value="{Binding ActiveCompanionProgress}"
                          Maximum="100"
                          Minimum="0"

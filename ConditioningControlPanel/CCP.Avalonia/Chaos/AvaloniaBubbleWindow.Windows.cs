@@ -5,10 +5,37 @@ namespace ConditioningControlPanel.Avalonia.Chaos;
 
 public sealed partial class AvaloniaBubbleWindow
 {
+    // ---- WM_MOUSEACTIVATE subclassing to prevent focus stealing on click ----
+
+    private const int WM_MOUSEACTIVATE = 0x0021;
+    private const int MA_NOACTIVATE = 3;
+
+    private delegate IntPtr SubclassProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam, nuint uIdSubclass, IntPtr dwRefData);
+
+    [DllImport("comctl32.dll", SetLastError = true)]
+    private static extern bool SetWindowSubclass(IntPtr hWnd, SubclassProc pfnSubclass, nuint uIdSubclass, IntPtr dwRefData);
+
+    [DllImport("comctl32.dll")]
+    private static extern IntPtr DefSubclassProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    private static readonly SubclassProc _bubbleSubclassProc = OnBubbleSubclassProc;
+
+    private static IntPtr OnBubbleSubclassProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam, nuint uIdSubclass, IntPtr dwRefData)
+    {
+        if (msg == WM_MOUSEACTIVATE)
+        {
+            // Prevent the bubble window from being activated when clicked.
+            // The mouse message is still processed (so the bubble remains poppable).
+            return new IntPtr(MA_NOACTIVATE);
+        }
+        return DefSubclassProc(hWnd, msg, wParam, lParam);
+    }
+
+    // ---- Existing platform styles ----
+
     private const int GwlExStyle = -20;
     private const uint WsExToolWindow = 0x00000080;
     private const uint WsExNoActivate = 0x08000000;
-    private const uint WsExTransparent = 0x00000020;
     private const uint WsExLayered = 0x00080000;
 
     private const uint SwpFrameChanged = 0x0020;
@@ -27,6 +54,11 @@ public sealed partial class AvaloniaBubbleWindow
 
         var handle = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         if (handle == IntPtr.Zero) return;
+
+        // Subclass the WndProc to intercept WM_MOUSEACTIVATE and return MA_NOACTIVATE.
+        // This is more reliable than WS_EX_NOACTIVATE applied via SetWindowLong after creation.
+        try { SetWindowSubclass(handle, _bubbleSubclassProc, 1, IntPtr.Zero); }
+        catch { /* subclassing is best-effort */ }
 
         var exStyle = (uint)GetWindowLong(handle, GwlExStyle);
         exStyle |= WsExToolWindow | WsExNoActivate | WsExLayered;

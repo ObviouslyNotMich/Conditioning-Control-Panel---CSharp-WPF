@@ -91,7 +91,8 @@
                       Height="220"
                       BorderThickness="2"
                       ClipToBounds="True"
-                      BorderBrush="{DynamicResource DarkPinkBrush}">
+                      BorderBrush="{DynamicResource DarkPinkBrush}"
+                      BoxShadow="0 0 14 0 #FF1493B3">
                 <Border.Background>
                   <SolidColorBrush Color="#12FFFFFF" />
                 </Border.Background>

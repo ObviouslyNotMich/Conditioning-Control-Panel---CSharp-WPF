@@ -1,6 +1,7 @@
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using ConditioningControlPanel.Avalonia.Compositor;
 using ConditioningControlPanel.Avalonia.Dialogs;
 using ConditioningControlPanel.Core.Platform;
 using MsBox.Avalonia;
@@ -11,14 +12,17 @@ namespace ConditioningControlPanel.Avalonia.Platform;
 /// <summary>
 /// Avalonia dialog service using <see cref="IStorageProvider"/> for file/folder pickers
 /// and MessageBox.Avalonia for message and confirmation boxes.
+/// Temporarily lowers compositor z-order when showing dialogs so they are clickable.
 /// </summary>
 public sealed class AvaloniaDialogService : IDialogService
 {
     private readonly Func<TopLevel?> _getTopLevel;
+    private readonly CompositorEngine? _compositor;
 
-    public AvaloniaDialogService(Func<TopLevel?> getTopLevel)
+    public AvaloniaDialogService(Func<TopLevel?> getTopLevel, CompositorEngine? compositor = null)
     {
         _getTopLevel = getTopLevel;
+        _compositor = compositor;
     }
 
     public async Task ShowMessageAsync(string title, string message, DialogSeverity severity = DialogSeverity.Info)
@@ -26,17 +30,25 @@ public sealed class AvaloniaDialogService : IDialogService
         var top = _getTopLevel();
         var box = MessageBoxManager.GetMessageBoxStandard(title, message, ButtonEnum.Ok, MapIcon(severity));
 
-        switch (top)
+        _compositor?.PushDialogMode();
+        try
         {
-            case Window window:
-                await box.ShowWindowDialogAsync(window);
-                break;
-            case ContentControl control:
-                await box.ShowAsPopupAsync(control);
-                break;
-            default:
-                await box.ShowAsync();
-                break;
+            switch (top)
+            {
+                case Window window:
+                    await box.ShowWindowDialogAsync(window);
+                    break;
+                case ContentControl control:
+                    await box.ShowAsPopupAsync(control);
+                    break;
+                default:
+                    await box.ShowAsync();
+                    break;
+            }
+        }
+        finally
+        {
+            _compositor?.PopDialogMode();
         }
     }
 
@@ -45,14 +57,22 @@ public sealed class AvaloniaDialogService : IDialogService
         var top = _getTopLevel();
         var box = MessageBoxManager.GetMessageBoxStandard(title, message, ButtonEnum.YesNo, Icon.Question);
 
-        var result = top switch
+        _compositor?.PushDialogMode();
+        try
         {
-            Window window => await box.ShowWindowDialogAsync(window),
-            ContentControl control => await box.ShowAsPopupAsync(control),
-            _ => await box.ShowAsync()
-        };
+            var result = top switch
+            {
+                Window window => await box.ShowWindowDialogAsync(window),
+                ContentControl control => await box.ShowAsPopupAsync(control),
+                _ => await box.ShowAsync()
+            };
 
-        return result == ButtonResult.Yes;
+            return result == ButtonResult.Yes;
+        }
+        finally
+        {
+            _compositor?.PopDialogMode();
+        }
     }
 
     public async Task<string?> ShowInputDialogAsync(string title, string message, string? defaultValue = null)
@@ -60,21 +80,27 @@ public sealed class AvaloniaDialogService : IDialogService
         var top = _getTopLevel();
         var dialog = new InputDialog(title, message, defaultValue ?? "");
 
-        if (top is Window window)
+        _compositor?.PushDialogMode();
+        try
         {
-            var accepted = await dialog.ShowDialog<bool>(window);
-            return accepted ? dialog.ResultText : null;
-        }
+            if (top is Window window)
+            {
+                var accepted = await dialog.ShowDialog<bool>(window);
+                return accepted ? dialog.ResultText : null;
+            }
 
-        dialog.Show();
-        var tcs = new TaskCompletionSource<string?>();
-        dialog.Closed += (_, _) =>
+            dialog.Show();
+            var tcs = new TaskCompletionSource<string?>();
+            dialog.Closed += (_, _) =>
+            {
+                tcs.TrySetResult(dialog.ResultText);
+            };
+            return await tcs.Task;
+        }
+        finally
         {
-            // ResultText is set when the dialog is accepted; return it regardless of
-            // how the dialog closed so callers get the typed value if available.
-            tcs.TrySetResult(dialog.ResultText);
-        };
-        return await tcs.Task;
+            _compositor?.PopDialogMode();
+        }
     }
 
     public async Task<IReadOnlyList<string>> ShowOpenFileDialogAsync(
@@ -106,8 +132,16 @@ public sealed class AvaloniaDialogService : IDialogService
             catch { /* best effort */ }
         }
 
-        var result = await top.StorageProvider.OpenFilePickerAsync(options);
-        return result.Select(r => r.Path.LocalPath).ToList();
+        _compositor?.PushDialogMode();
+        try
+        {
+            var result = await top.StorageProvider.OpenFilePickerAsync(options);
+            return result.Select(r => r.Path.LocalPath).ToList();
+        }
+        finally
+        {
+            _compositor?.PopDialogMode();
+        }
     }
 
     public async Task<string?> ShowSaveFileDialogAsync(
@@ -125,8 +159,16 @@ public sealed class AvaloniaDialogService : IDialogService
             FileTypeChoices = MapFilters(filters)
         };
 
-        var result = await top.StorageProvider.SaveFilePickerAsync(options);
-        return result?.Path.LocalPath;
+        _compositor?.PushDialogMode();
+        try
+        {
+            var result = await top.StorageProvider.SaveFilePickerAsync(options);
+            return result?.Path.LocalPath;
+        }
+        finally
+        {
+            _compositor?.PopDialogMode();
+        }
     }
 
     public async Task<string?> ShowOpenFolderDialogAsync(string title)
@@ -135,8 +177,17 @@ public sealed class AvaloniaDialogService : IDialogService
         if (top is null) return null;
 
         var options = new FolderPickerOpenOptions { Title = title };
-        var result = await top.StorageProvider.OpenFolderPickerAsync(options);
-        return result.FirstOrDefault()?.Path.LocalPath;
+
+        _compositor?.PushDialogMode();
+        try
+        {
+            var result = await top.StorageProvider.OpenFolderPickerAsync(options);
+            return result.FirstOrDefault()?.Path.LocalPath;
+        }
+        finally
+        {
+            _compositor?.PopDialogMode();
+        }
     }
 
     private static IReadOnlyList<FilePickerFileType> MapFilters(IReadOnlyList<FileFilter> filters)

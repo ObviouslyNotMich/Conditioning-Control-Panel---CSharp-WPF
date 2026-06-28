@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ConditioningControlPanel;
@@ -8,6 +9,7 @@ using ConditioningControlPanel.Core.Services.MindWipe;
 using ConditioningControlPanel.Core.Services.Overlays;
 using ConditioningControlPanel.Core.Services.Settings;
 using ConditioningControlPanel.Core.Services.Sessions;
+using ConditioningControlPanel.Models;
 
 namespace ConditioningControlPanel.Avalonia.ViewModels.Tabs;
 
@@ -58,6 +60,30 @@ public partial class LevelFeaturesTabViewModel : TabItemViewModel
         _logger = logger;
 
         PlayerLevel = _settingsService?.Current?.PlayerLevel ?? 1;
+
+        if (_settingsService?.Current is INotifyPropertyChanged inpc)
+            inpc.PropertyChanged += OnSettingsPropertyChanged;
+    }
+
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AppSettings.BubbleCountEnabled)
+            or nameof(AppSettings.BouncingTextEnabled)
+            or nameof(AppSettings.MindWipeEnabled)
+            or nameof(AppSettings.BrainDrainEnabled)
+            or nameof(AppSettings.PlayerLevel))
+        {
+            RefreshFeatureState();
+        }
+    }
+
+    private void RefreshFeatureState()
+    {
+        PlayerLevel = _settingsService?.Current?.PlayerLevel ?? PlayerLevel;
+        OnPropertyChanged(nameof(BubbleCountEnabled));
+        OnPropertyChanged(nameof(BouncingTextEnabled));
+        OnPropertyChanged(nameof(MindWipeEnabled));
+        OnPropertyChanged(nameof(BrainDrainEnabled));
     }
 
     private bool IsSessionRunning => _sessionService?.State == SessionState.Running;

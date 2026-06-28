@@ -27,17 +27,20 @@
           <Grid ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Spacing="12" VerticalAlignment="Center">
               <StackPanel Orientation="Horizontal" Spacing="10">
-                <TextBlock Text="{loc:Str lab_hero_title}"
-                           FontSize="26"
-                           FontWeight="Bold"
-                           Foreground="{DynamicResource TextLightBrush}"
-                           VerticalAlignment="Center" />
+                <Border BoxShadow="0 0 20 0 #00FF8880">
+                  <TextBlock Text="{loc:Str lab_hero_title}"
+                             FontSize="26"
+                             FontWeight="Bold"
+                             Foreground="{DynamicResource TextLightBrush}"
+                             VerticalAlignment="Center" />
+                </Border>
                 <Border Background="{DynamicResource TransparentPinkBrush}"
                         BorderBrush="{DynamicResource PinkBrush}"
                         BorderThickness="1"
                         CornerRadius="4"
                         Padding="5,2"
-                        VerticalAlignment="Center">
+                        VerticalAlignment="Center"
+                        BoxShadow="0 0 22 0 #FF69B4B3">
                   <TextBlock Text="{loc:Str lab_hero_new}"
                              FontSize="10"
                              FontWeight="Bold"
@@ -212,13 +215,16 @@
 
         <!-- MIND zone divider -->
         <Grid ColumnDefinitions="Auto,*,Auto">
-          <TextBlock Grid.Column="0"
-                     Text="{loc:Str lab_zone_mind}"
-                     FontSize="12"
-                     FontWeight="Bold"
-                     Foreground="{DynamicResource PinkBrush}"
-                     VerticalAlignment="Center"
-                     Margin="0,0,10,0" />
+          <Border Grid.Column="0"
+                  BoxShadow="0 0 20 0 #99FF69B4"
+                  VerticalAlignment="Center"
+                  Margin="0,0,10,0">
+            <TextBlock Text="{loc:Str lab_zone_mind}"
+                       FontSize="12"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PinkBrush}"
+                       VerticalAlignment="Center" />
+          </Border>
           <Border Grid.Column="1" Height="1" VerticalAlignment="Center">
             <Border.Background>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
@@ -436,13 +442,16 @@
 
         <!-- EYES zone divider -->
         <Grid ColumnDefinitions="Auto,*,Auto">
-          <TextBlock Grid.Column="0"
-                     Text="{loc:Str lab_zone_eyes}"
-                     FontSize="12"
-                     FontWeight="Bold"
-                     Foreground="{DynamicResource PinkBrush}"
-                     VerticalAlignment="Center"
-                     Margin="0,0,10,0" />
+          <Border Grid.Column="0"
+                  BoxShadow="0 0 20 0 #99FF69B4"
+                  VerticalAlignment="Center"
+                  Margin="0,0,10,0">
+            <TextBlock Text="{loc:Str lab_zone_eyes}"
+                       FontSize="12"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PinkBrush}"
+                       VerticalAlignment="Center" />
+          </Border>
           <Border Grid.Column="1" Height="1" VerticalAlignment="Center">
             <Border.Background>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">

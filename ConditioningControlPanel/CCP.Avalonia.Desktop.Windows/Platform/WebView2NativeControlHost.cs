@@ -13,6 +13,11 @@ namespace ConditioningControlPanel.Avalonia.Desktop.Windows.Platform;
 /// The Win32 HWND owned by a WinForms <see cref="Panel"/> is reparented into the
 /// Avalonia window by <see cref="NativeControlHost"/>; WebView2 fills the panel.
 /// </summary>
+/// <remarks>
+/// The underlying WinForms panel and WebView2 are created once and reused when this
+/// control is reparented (e.g. into an HTML5 fullscreen window). They are only disposed
+/// when <see cref="Dispose"/> is called.
+/// </remarks>
 public sealed class WebView2NativeControlHost : NativeControlHost, IDisposable
 {
     private readonly CoreWebView2Environment? _environment;
@@ -63,12 +68,14 @@ public sealed class WebView2NativeControlHost : NativeControlHost, IDisposable
 
     private async Task InitializeCoreAsync(CoreWebView2Environment environment)
     {
-        if (_webView == null)
+        EnsurePanelAndWebViewCreated();
+
+        if (_webView?.CoreWebView2 != null)
             return;
 
         try
         {
-            await _webView.EnsureCoreWebView2Async(environment);
+            await _webView!.EnsureCoreWebView2Async(environment);
             WireEvents(_webView.CoreWebView2);
         }
         catch (Exception)
@@ -81,6 +88,25 @@ public sealed class WebView2NativeControlHost : NativeControlHost, IDisposable
 
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
+        EnsurePanelAndWebViewCreated();
+
+        // Accessing Handle forces creation of the Win32 HWND.  NativeControlHost will
+        // reparent this HWND into the Avalonia window and keep it sized to this control.
+        var handle = _panel!.Handle;
+        return new PlatformHandle(handle, "HWND");
+    }
+
+    protected override void DestroyNativeControlCore(IPlatformHandle control)
+    {
+        // Intentionally no-op: the panel and WebView2 are owned by this instance and
+        // must survive reparenting into a fullscreen window. They are released in Dispose().
+    }
+
+    private void EnsurePanelAndWebViewCreated()
+    {
+        if (_panel != null)
+            return;
+
         _panel = new System.Windows.Forms.Panel();
         _webView = new WebView2
         {
@@ -89,23 +115,8 @@ public sealed class WebView2NativeControlHost : NativeControlHost, IDisposable
         };
         _panel.Controls.Add(_webView);
 
-        // Accessing Handle forces creation of the Win32 HWND.  NativeControlHost will
-        // reparent this HWND into the Avalonia window and keep it sized to this control.
-        var handle = _panel.Handle;
-        return new PlatformHandle(handle, "HWND");
-    }
-
-    protected override void DestroyNativeControlCore(IPlatformHandle control)
-    {
-        if (_webView != null)
-        {
-            UnwireEvents(_webView.CoreWebView2);
-            _webView.Dispose();
-            _webView = null;
-        }
-
-        _panel?.Dispose();
-        _panel = null;
+        // Force HWND creation immediately so the handle is stable across reparenting.
+        _ = _panel.Handle;
     }
 
     private void WireEvents(CoreWebView2? core)

@@ -105,10 +105,13 @@
     </Border>
 
     <!-- Tab content -->
-    <ContentControl Grid.Row="3"
-                    Content="{Binding SelectedTab}"
-                    HorizontalContentAlignment="Stretch"
-                    VerticalContentAlignment="Stretch" />
+    <ScrollViewer Grid.Row="3"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <ContentControl Content="{Binding SelectedTab}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch" />
+    </ScrollViewer>
 
   </Grid>
 

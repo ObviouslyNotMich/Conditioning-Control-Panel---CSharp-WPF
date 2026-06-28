@@ -132,7 +132,6 @@ _progression = App.Services.GetRequiredService<IProgressionService>();
                 primaryWindow = window;
             }
             window.Show();
-            OverlayZ.Register(window, OverlayZ.Layer.LockCard);
         }
 
         primaryWindow?.Activate();
