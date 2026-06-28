@@ -334,6 +334,24 @@ namespace ConditioningControlPanel.Services.Deeper
                     DurationMs = durationMs,
                     Intensity = item.EffectIntensity
                 },
+                // Duration-mode (point-fired) speak prompt — rare, since speak defaults to
+                // Region activation. The session self-scopes to the band's width.
+                EffectTypes.Speak => new TriggerEffectAction
+                {
+                    EffectType = EffectTypes.Speak,
+                    SpeakTarget = item.EffectSpeakTarget,
+                    SpeakCue = item.EffectSpeakCue,
+                    SpeakCueMode = item.EffectSpeakCueMode,
+                    SpeakCueIntervalMs = item.EffectSpeakCueIntervalMs,
+                    SpeakRequiredReps = item.EffectSpeakRequiredReps,
+                    SpeakCompletion = item.EffectSpeakCompletion,
+                    SpeakHoldMode = item.EffectSpeakHoldMode,
+                    SpeakCorrectMessage = item.EffectSpeakCorrectMessage,
+                    SpeakIncorrectMessage = item.EffectSpeakIncorrectMessage,
+                    SpeakRegionStartSec = item.Start,
+                    SpeakRegionEndSec = item.Duration > 0 ? item.Start + item.Duration : (double?)null,
+                    DurationMs = durationMs
+                },
                 _ => null
             };
         }
@@ -998,6 +1016,10 @@ namespace ConditioningControlPanel.Services.Deeper
             public double Start;
             public double Duration;
             public bool IsHaptic;
+            public bool IsSpeak;
+            // Speak payload: the whole item (9 speak fields) is carried by reference so
+            // BuildAction can map it onto a TriggerEffectAction without copying each field.
+            public TimelineItem? SpeakItem;
             // Overlay payload.
             public string? OverlayKind;
             public double Opacity = 0.5;
@@ -1048,6 +1070,18 @@ namespace ConditioningControlPanel.Services.Deeper
                         Intensity = item.EffectIntensity
                     };
                 }
+                if (item.EffectType == EffectTypes.Speak)
+                {
+                    if (string.IsNullOrWhiteSpace(item.EffectSpeakTarget)) return null;
+                    return new BandEffect
+                    {
+                        EffectId = $"item:{item.Id}",
+                        Start = item.Start,
+                        Duration = item.Duration,
+                        IsSpeak = true,
+                        SpeakItem = item
+                    };
+                }
                 return null;
             }
 
@@ -1082,6 +1116,28 @@ namespace ConditioningControlPanel.Services.Deeper
 
             private EnhancementAction BuildAction(EffectPhase phase, int durationMs)
             {
+                if (IsSpeak)
+                {
+                    var it = SpeakItem;
+                    return new TriggerEffectAction
+                    {
+                        EffectType = EffectTypes.Speak,
+                        SpeakTarget = it?.EffectSpeakTarget,
+                        SpeakCue = it?.EffectSpeakCue,
+                        SpeakCueMode = it?.EffectSpeakCueMode ?? Models.Deeper.SpeakCueMode.Intermittent,
+                        SpeakCueIntervalMs = it?.EffectSpeakCueIntervalMs ?? 250,
+                        SpeakRequiredReps = it?.EffectSpeakRequiredReps ?? 1,
+                        SpeakCompletion = it?.EffectSpeakCompletion ?? Models.Deeper.SpeakCompletion.UntilSatisfied,
+                        SpeakHoldMode = it?.EffectSpeakHoldMode ?? Models.Deeper.SpeakHoldMode.LoopRegion,
+                        SpeakCorrectMessage = it?.EffectSpeakCorrectMessage,
+                        SpeakIncorrectMessage = it?.EffectSpeakIncorrectMessage,
+                        // Region bounds drive the session's hold (loop/pause near the end).
+                        SpeakRegionStartSec = Start,
+                        SpeakRegionEndSec = Start + Duration,
+                        Phase = phase,
+                        EffectId = EffectId
+                    };
+                }
                 if (IsHaptic)
                 {
                     return new TriggerHapticAction

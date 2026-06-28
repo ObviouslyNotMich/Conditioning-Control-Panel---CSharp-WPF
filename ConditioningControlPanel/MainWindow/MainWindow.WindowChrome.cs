@@ -175,6 +175,11 @@ namespace ConditioningControlPanel
                     App.Webcam.OnTrackingStateChanged -= _onPillStateChanged;
                     _onPillStateChanged = null;
                 }
+                if (_onMicListeningChanged != null && App.Speech != null)
+                {
+                    App.Speech.ListeningChanged -= _onMicListeningChanged;
+                    _onMicListeningChanged = null;
+                }
                 if (_onRapidBlinkRecal != null && App.Webcam != null)
                 {
                     App.Webcam.OnBlink -= _onRapidBlinkRecal;

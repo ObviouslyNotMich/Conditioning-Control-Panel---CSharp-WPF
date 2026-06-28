@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -31,6 +32,17 @@ public class BubbleService : IDisposable
     private BitmapImage? _bubbleImage;
     private string _assetsPath = "";
     // Per-screen DPI is now computed on demand via Bubble.GetDpiForScreen()
+
+    // ---- Avatar "pops it for you" easter egg (ambient effect bubbles only) ----
+    // When an ambient effect bubble lingers past 4s, a 10% roll sends the companion to glide over,
+    // narrate the effect, pop it 50% louder (firing the payload), then return. One at a time, with a
+    // 60s cooldown so it stays a rare surprise. See TryTriggerAvatarBubbleEgg / RunAvatarBubbleEggAsync.
+    private bool _avatarEggActive;
+    private DateTime _avatarEggCooldownUntil = DateTime.MinValue;
+    private CancellationTokenSource? _eggCts;
+    private const double AVATAR_EGG_AGE_MS = 4000;
+    private const int AVATAR_EGG_CHANCE_PCT = 10;
+    private const double AVATAR_EGG_COOLDOWN_SEC = 60;
 
     public bool IsRunning => _isRunning;
     public bool IsPaused => _isPaused;
@@ -466,6 +478,7 @@ public class BubbleService : IDisposable
 
         TickFieldHazards();   // Size Queen ripples / Aftermath residue / Tail-Plug trails
         TickBoundPairs();     // The Bound: tether lines + the enrage window
+        TryTriggerAvatarBubbleEgg();   // companion "I'll pop this one for you" easter egg
 
         // the Ripple: refresh the hook thread's swallow-decision snapshot (chaos bubbles only).
         if (_chaosActive)
@@ -525,6 +538,129 @@ public class BubbleService : IDisposable
             var b = _bubbles[i];
             if (b.HostHitClickable && b.ContainsPx(px)) { b.HostHookPop(); return; }
         }
+    }
+
+    // ======================= Avatar "I'll pop this one for you" easter egg =======================
+    // Runs in the shared animation tick (UI thread). When an ambient effect bubble has lingered past
+    // 4s, a 10% one-shot roll sends the companion gliding over to narrate + pop it. Skipped while a
+    // fullscreen video is up (we'd be popping an invisible bubble), and rate-limited by a 60s cooldown.
+
+    /// <summary>Per-frame scan: latch the 10% roll on any ambient effect bubble crossing 4s, and if it
+    /// hits, hand the bubble to the companion. One egg at a time; the loop runs on the UI thread.</summary>
+    private void TryTriggerAvatarBubbleEgg()
+    {
+        if (_avatarEggActive) return;
+        // Ambient pop-game only. A chaos run's treats are also _isTreat-with-payload, so without this
+        // the egg would claim/freeze a chaos bubble mid-run and pop it through the chaos callback.
+        if (_chaosActive) return;
+        var s = App.Settings?.Current;
+        if (s?.BubbleAvatarEggEnabled != true || s.BubbleTriggersEnabled != true) return;
+        if (App.Video?.IsPlaying == true) return;                       // a fullscreen video covers the bubbles
+        if (DateTime.UtcNow < _avatarEggCooldownUntil) return;
+        var avatar = App.AvatarWindow;
+        if (avatar?.CanPerformBubbleEgg != true) return;
+
+        for (int i = _bubbles.Count - 1; i >= 0; i--)
+        {
+            var b = _bubbles[i];
+            if (b.RolledForEgg || !b.IsAmbientEffectBubble || b.AgeMs <= AVATAR_EGG_AGE_MS) continue;
+            b.RolledForEgg = true;                                      // one-shot latch at the 4s crossing
+            if (_random.Next(100) < AVATAR_EGG_CHANCE_PCT)
+            {
+                _avatarEggActive = true;
+                RunAvatarBubbleEggAsync(b);
+                break;
+            }
+        }
+    }
+
+    /// <summary>The choreography: claim → detach + glide beside → narrate (bubble + voiceline) →
+    /// pop 50% louder (fires the effect) → glide home. Invoked from the timer tick, so awaits resume
+    /// on the UI thread (WPF DispatcherSynchronizationContext) — no marshaling needed.</summary>
+    private async void RunAvatarBubbleEggAsync(Bubble bubble)
+    {
+        var avatar = App.AvatarWindow;
+        _eggCts?.Dispose();
+        _eggCts = new CancellationTokenSource();
+        var ct = _eggCts.Token;
+        bubble.ClaimForAvatar();
+        try
+        {
+            if (avatar == null) return;
+
+            // 1) glide the companion beside the bubble (auto-detaches if attached; captures restore state)
+            await avatar.GlideToBubbleAsync(bubble.CenterPx, bubble.RadiusPx, ct);
+            if (ct.IsCancellationRequested || !bubble.IsAlive) return;
+
+            // 2) speak the mod-themed, effect-specific line (the avatar narrates what it's about to fire)
+            var line = PickEggVoiceLine(bubble.EffectKindId);
+            avatar.GigglePriority(line.Text, playSound: line.Audio != null, aiGenerated: false,
+                                  phraseAudioPath: line.Audio, barkVoice: line.Audio != null, mood: "playful");
+            await Task.Delay(EstimateSpeechMs(line.Text, line.Audio), ct);
+            if (ct.IsCancellationRequested || !bubble.IsAlive
+                || Application.Current?.Dispatcher?.HasShutdownStarted == true) return;
+
+            // 3) the companion pops it — 50% louder, and the benign callback fires the effect payload
+            bubble.PopByAvatar(1.5f);
+        }
+        catch (OperationCanceledException) { /* run ended / shutdown mid-egg */ }
+        catch (Exception ex) { App.Logger?.Debug("Avatar bubble egg failed: {E}", ex.Message); }
+        finally
+        {
+            bubble.ReleaseAvatarClaim();
+            // 4) send the companion home (re-attach or restore coords); swallow if we're tearing down
+            try { if (avatar != null && Application.Current?.Dispatcher?.HasShutdownStarted != true)
+                      await avatar.ReturnFromBubbleAsync(CancellationToken.None); }
+            catch { }
+            _avatarEggActive = false;
+            _avatarEggCooldownUntil = DateTime.UtcNow + TimeSpan.FromSeconds(AVATAR_EGG_COOLDOWN_SEC);
+        }
+    }
+
+    /// <summary>Teardown hook (Stop / PopAllBubbles): cancel any in-flight egg and release the claim so
+    /// the claimed bubble can actually be cleared (the claim-pop guard would otherwise strand it).</summary>
+    private void CancelAvatarEgg()
+    {
+        try { _eggCts?.Cancel(); } catch { }
+        foreach (var b in _bubbles) if (b.ClaimedByAvatar) b.ReleaseAvatarClaim();
+        _avatarEggActive = false;
+    }
+
+    /// <summary>Map an effect variant id → its mod-themed voiceline (2 variants each), via the bark
+    /// manifest. Falls back to a generic rule, then to inline text if no clip is authored yet.</summary>
+    private (string Text, string? Audio) PickEggVoiceLine(string variantId)
+    {
+        string rule = variantId switch
+        {
+            "flash"      => "egg_avatar_pop_flash",
+            "subliminal" => "egg_avatar_pop_subliminal",
+            "pink"       => "egg_avatar_pop_pink",
+            "spiral"     => "egg_avatar_pop_spiral",
+            "braindrain" => "egg_avatar_pop_braindrain",
+            "video"      => "egg_avatar_pop_video",
+            "htlink"     => "egg_avatar_pop_gifrain",
+            "glitch"     => "egg_avatar_pop_glitch",
+            _            => "egg_avatar_pop_generic",
+        };
+        var pick = App.Bark?.PickVoiceLine(rule) ?? App.Bark?.PickVoiceLine("egg_avatar_pop_generic");
+        if (pick.HasValue) return (pick.Value.Text, pick.Value.Audio);
+        return ("Ooh — let me pop this one for you~", null);
+    }
+
+    /// <summary>Estimate how long to leave the speech bubble up before popping: the clip's real length
+    /// (+ lead-in + tail) when voiced, else a reading-speed estimate from the text.</summary>
+    private static int EstimateSpeechMs(string text, string? audioPath)
+    {
+        try
+        {
+            if (audioPath != null && File.Exists(audioPath))
+            {
+                using var r = new AudioFileReader(audioPath);
+                return (int)Math.Clamp(r.TotalTime.TotalMilliseconds + 900, 1500, 6000);
+            }
+        }
+        catch { }
+        return (int)Math.Clamp((text?.Length ?? 0) * 55 + 600, 1500, 4500);
     }
 
     public void Stop()
@@ -643,9 +779,9 @@ public class BubbleService : IDisposable
                 var screen = screens[_random.Next(screens.Length)];
                 // Outside sessions, bubbles are always clickable (no UI toggle exists for this setting)
                 var isClickable = App.IsSessionRunning ? settings.BubblesClickable : true;
-                var bubble = new Bubble(screen, _bubbleImage, _random, OnPop, OnMiss, OnDestroy, isClickable);
+                var bubble = CreateAmbientBubble(screen, isClickable);
                 _bubbles.Add(bubble);
-                
+
                 App.Logger?.Debug("Spawned bubble, total: {Count}", _bubbles.Count);
             }
             catch (Exception ex)
@@ -690,7 +826,7 @@ public class BubbleService : IDisposable
 
                 var screen = screens[_random.Next(screens.Length)];
                 var isClickable = App.IsSessionRunning ? settings.BubblesClickable : true;
-                var bubble = new Bubble(screen, _bubbleImage, _random, OnPop, OnMiss, OnDestroy, isClickable);
+                var bubble = CreateAmbientBubble(screen, isClickable);
                 _bubbles.Add(bubble);
 
                 App.Logger?.Debug("SpawnOnce: spawned trigger bubble, total: {Count}", _bubbles.Count);
@@ -702,7 +838,12 @@ public class BubbleService : IDisposable
         });
     }
 
-    private void OnPop(Bubble bubble)
+    private void OnPop(Bubble bubble) => AwardAmbientPop(bubble);
+
+    /// <summary>The standard ambient-pop reward: lucky roll, pop sound, XP, achievement, haptic.
+    /// Shared by plain bubbles (<see cref="OnPop"/>) and trigger bubbles (whose benign-pop path
+    /// doesn't run OnPop), so a trigger bubble pays exactly like a normal pop on top of its effect.</summary>
+    private void AwardAmbientPop(Bubble bubble)
     {
         // Roll for lucky bubble (5% chance for 10x XP if skill unlocked)
         var multiplier = App.SkillTree?.RollLuckyBubble() ?? 1;
@@ -712,8 +853,8 @@ public class BubbleService : IDisposable
         var hasSparkleBoost = (App.SkillTree?.GetSparkleBoostTier() ?? 0) > 0 && (App.Settings?.Current?.FlashGlowEnabled ?? true);
         bubble.SetLucky(isLucky, hasSparkleBoost);
 
-        // Play appropriate sound
-        PlayPopSound(isLucky);
+        // Play appropriate sound (the avatar easter-egg pop comes through 50% louder)
+        PlayPopSound(isLucky, bubble.AvatarPopVolumeMult);
 
         // Don't remove here - let the pop animation play, removal happens in OnDestroy
         OnBubblePopped?.Invoke();
@@ -725,6 +866,68 @@ public class BubbleService : IDisposable
 
         // Haptic feedback with combo system
         _ = App.Haptics?.BubblePopAsync();
+    }
+
+    // ======================= Trigger Bubbles =======================
+    // Opt-in: a configurable share of ambient bubbles spawn as Chaos effect bubbles that fire
+    // their payload ON POP (benign — no fuse/defuse). They keep the full chaos look (variant
+    // sprite/tint/label) but render per-window and pay the normal ambient pop reward.
+
+    /// <summary>Roll whether the next ambient bubble should be an effect bubble, and if so build
+    /// its (benign) spec. Returns null for a plain bubble.</summary>
+    private EffectBubbleSpec? RollTriggerSpec()
+    {
+        var s = App.Settings?.Current;
+        if (s?.BubbleTriggersEnabled != true) return null;
+        var ids = s.BubbleTriggerVariants;
+        if (ids == null || ids.Count == 0) return null;
+        if (_random.Next(100) >= Math.Clamp(s.BubbleTriggerChance, 0, 100)) return null;
+        return BuildTriggerSpec(ids[_random.Next(ids.Count)]);
+    }
+
+    /// <summary>Build a benign effect-bubble spec for one trigger id. The six standard ids reuse
+    /// the chaos variant table; "glitch" is the full-screen GIF/image wash (~30%) on glitch.png.</summary>
+    private EffectBubbleSpec? BuildTriggerSpec(string id)
+    {
+        try
+        {
+            // Trigger effects linger longer than the brisk chaos cadence (user feedback:
+            // pink filter / glitch wash were too quick on the calm dashboard).
+            const double LINGER = 2.5;
+            if (id == "glitch")
+            {
+                return new EffectBubbleSpec
+                {
+                    VariantId = "glitch",   // loads assets/Chaos/bubbles/glitch.png
+                    Payload = new OverlayPayload("braindrain", braindrainOpacity: 0.30) { Strength = 60, DurationMult = LINGER },
+                    SizePx = 200,
+                    Tint = System.Windows.Media.Color.FromRgb(0x9A, 0x40, 0xFF),
+                    Label = "GLITCH",
+                    IsLive = false,
+                    FuseMs = 0,
+                    Motion = ChaosMotion.FloatUp,
+                    TreatLifeMs = 7000,
+                };
+            }
+            var v = ChaosBubbleVariants.All.FirstOrDefault(x => x.Id == id);
+            if (v == null) return null;
+            var spec = ChaosBubbleVariants.Build(v, intensity: 0.3, motionOverride: ChaosMotion.FloatUp, ambient: true);
+            if (spec.Payload != null) spec.Payload.DurationMult = LINGER;   // longer-lasting overlays/flashes
+            return spec;
+        }
+        catch (Exception ex) { App.Logger?.Debug("BuildTriggerSpec({Id}): {E}", id, ex.Message); return null; }
+    }
+
+    /// <summary>Construct an ambient bubble — plain, or (rolled) an effect bubble that fires on pop.</summary>
+    private Bubble CreateAmbientBubble(System.Windows.Forms.Screen screen, bool isClickable)
+    {
+        var spec = RollTriggerSpec();
+        if (spec == null)
+            return new Bubble(screen, _bubbleImage, _random, OnPop, OnMiss, OnDestroy, isClickable);
+        return new Bubble(screen, _bubbleImage, _random, onPop: null, onMiss: OnMiss, onDestroy: OnDestroy,
+                          isClickable: isClickable, spec: spec,
+                          onBenignPop: b => { AwardAmbientPop(b); try { b.Spec?.Payload?.Fire(); } catch { } },
+                          forceWindowMode: true);
     }
 
     private void OnMiss(Bubble bubble)
@@ -1483,7 +1686,7 @@ public class BubbleService : IDisposable
         }
     }
 
-    private void PlayPopSound(bool isLucky = false)
+    private void PlayPopSound(bool isLucky = false, float volumeMult = 1f)
     {
         try
         {
@@ -1496,8 +1699,8 @@ public class BubbleService : IDisposable
                 {
                     var masterVolume = App.Settings.Current.MasterVolume / 100f;
                     var bubblesVolume = App.Settings.Current.BubblesVolume / 100f;
-                    var volume = (float)Math.Pow(masterVolume * bubblesVolume, 1.5) * 0.35f;
-                    PlaySoundAsync(chimePath, volume);
+                    var volume = (float)Math.Pow(masterVolume * bubblesVolume, 1.5) * 0.35f * volumeMult;
+                    PlaySoundAsync(chimePath, Math.Min(volume, 1f));
                     App.Logger?.Information("🎉 Lucky Bubble! 20x XP!");
                     return;
                 }
@@ -1512,9 +1715,9 @@ public class BubbleService : IDisposable
             {
                 var masterVolume = App.Settings.Current.MasterVolume / 100f;
                 var bubblesVolume = App.Settings.Current.BubblesVolume / 100f;
-                var volume = (float)Math.Pow(masterVolume * bubblesVolume, 1.5);
+                var volume = (float)Math.Pow(masterVolume * bubblesVolume, 1.5) * volumeMult;
 
-                PlaySoundAsync(popPath, volume);
+                PlaySoundAsync(popPath, Math.Min(volume, 1f));
             }
         }
         catch (Exception ex)
@@ -1613,6 +1816,9 @@ public class BubbleService : IDisposable
 
     public void PopAllBubbles()
     {
+        // Cancel any in-flight avatar easter egg first, so its claim is released and the claimed
+        // bubble doesn't get stranded by the claim-pop guard during teardown.
+        CancelAvatarEgg();
         try
         {
             // Safety check for shutdown scenarios
@@ -1886,6 +2092,15 @@ internal class Bubble
     private double _treatLifeRemainingMs;
     private bool _isDissolving;                    // expired treat: quiet shrink+fade instead of the pop burst
 
+    // ---- avatar easter-egg state (ambient effect bubbles only) ----
+    // When an ambient effect bubble lingers past 4s, the companion may glide over and pop it for
+    // the user. _spawnUtc is REAL wall-clock (unlike _timeAlive, which is a per-frame anim counter).
+    private readonly DateTime _spawnUtc = DateTime.UtcNow;
+    private bool _rolledForEgg;                     // one-shot: the 10% roll fired once at the 4s crossing
+    private bool _claimedByAvatar;                  // the companion owns this bubble: life paused, motion frozen, user-pop suppressed
+    private bool _avatarPopRequested;               // the scripted avatar pop is in flight (bypasses the claim-pop guard)
+    private float _avatarPopVolumeMult = 1f;        // pop-sound loudness multiplier for the avatar pop (1.5 = +50%)
+
     // ---- freeze-bubble state ----
     private readonly bool _isFreeze;               // this bubble is the "good" freeze pickup
     private System.Windows.Shapes.Ellipse? _freezeAura;   // blue halo, pulsed while the field is frozen
@@ -2026,6 +2241,39 @@ internal class Bubble
     /// <summary>The chaos spec this bubble carries (null for ambient pop-game bubbles).</summary>
     public EffectBubbleSpec? Spec => _spec;
 
+    // ---- avatar easter-egg accessors (see RunAvatarBubbleEggAsync) ----
+    /// <summary>An ambient effect bubble: a benign treat carrying a payload that fires on pop
+    /// (flash/subliminal/pink/spiral/braindrain/video/gif-rain/glitch). The companion may pop these.</summary>
+    internal bool IsAmbientEffectBubble =>
+        _isTreat && _spec != null && _spec.Payload != null && !_isDarter && !_isFreeze
+        && _isAlive && !_isDestroyed && !_isPopping;
+    /// <summary>Real wall-clock age in ms (NOT the _timeAlive anim counter).</summary>
+    internal double AgeMs => (DateTime.UtcNow - _spawnUtc).TotalMilliseconds;
+    /// <summary>One-shot latch so the egg's 10% roll happens once, at the 4s crossing.</summary>
+    internal bool RolledForEgg { get => _rolledForEgg; set => _rolledForEgg = value; }
+    /// <summary>True while the companion owns this bubble (life paused, motion frozen, user-pop ignored).</summary>
+    internal bool ClaimedByAvatar => _claimedByAvatar;
+    /// <summary>Pop-burst radius in physical px — lets the avatar land beside, not over, the bubble.</summary>
+    internal double RadiusPx => _size / 2.0 * _dpiScale;
+    /// <summary>The effect variant id (drives the mod-themed voiceline pick).</summary>
+    internal string EffectKindId => _spec?.VariantId ?? "";
+    /// <summary>Loudness multiplier the benign-pop path applies to the pop sound (1 for user pops).</summary>
+    internal float AvatarPopVolumeMult => _avatarPopVolumeMult;
+
+    /// <summary>Companion claims this bubble: pause its treat-life + freeze its drift + ignore user pops.
+    /// Also clears the death-telegraph ramp (a 5s treat is already fading at the 4s claim point) so the
+    /// bubble reads as healthy while she glides over and pops it.</summary>
+    internal void ClaimForAvatar() { _claimedByAvatar = true; _dangerFactor = 0; }
+    /// <summary>Release the claim — drift + remaining treat-life resume on the next frame.</summary>
+    internal void ReleaseAvatarClaim() => _claimedByAvatar = false;
+    /// <summary>The scripted avatar pop: louder, and allowed through the claim-pop guard.</summary>
+    internal void PopByAvatar(float volumeMult)
+    {
+        _avatarPopVolumeMult = volumeMult;
+        _avatarPopRequested = true;
+        Pop();
+    }
+
     /// <summary>Eligible to be swept up by a Chain Reaction pop: any live, un-popped chaos bubble
     /// (darters included — a chained darter counts as a catch and fires its slow-mo). A shielded
     /// Chaperone live is excluded — chains and arcs route around it (its escort conducts fine).</summary>
@@ -2050,7 +2298,7 @@ internal class Bubble
     // ---- Shared-host pop hit-testing (mouse-hook path; see BubbleService.OnSharedHostLeftDown) ----
 
     /// <summary>This bubble is currently a valid left-click pop target.</summary>
-    internal bool HostHitClickable => _isClickable && _isAlive && !_isDestroyed && !_isPopping;
+    internal bool HostHitClickable => _isClickable && _isAlive && !_isDestroyed && !_isPopping && !_claimedByAvatar;
 
     /// <summary>This bubble defuses by a HELD press (the channel), not a single click — so the
     /// shared-host hook must NOT swallow its click: the channel reads the held button via
@@ -2121,7 +2369,7 @@ internal class Bubble
                   Action<Bubble>? onTreatExpired = null, Action<Bubble>? onClickPop = null,
                   Func<Bubble, bool>? canChannelDefuse = null, Action<Bubble, string>? onChannelBroken = null,
                   Action<Bubble>? onTeaseTouched = null, Action<Bubble>? onTeaseDenied = null,
-                  Action<Bubble>? onBrittleShattered = null)
+                  Action<Bubble>? onBrittleShattered = null, bool forceWindowMode = false)
     {
         _random = random;
         _onPop = onPop;
@@ -2199,6 +2447,14 @@ internal class Bubble
             _speed *= Math.Clamp(1.4 - (_size - 150) / 220.0, 0.6, 1.4);
         if (spec != null) _speed *= Math.Max(0.1, spec.SpeedMult);   // golden bubbles fly
         if (spec != null) _speed *= ChaosTuning.CHAOS_SPEED_MULT;    // chaos pace bump: travel farther before rotting
+        // Dashboard speed slider: up to +500% travel (6x) for the ambient game — BOTH plain and
+        // trigger bubbles — leaving chaos pacing alone (chaos bubbles carry a spec but not
+        // forceWindowMode).
+        if (spec == null || forceWindowMode)
+        {
+            int speedBoost = App.Settings?.Current?.BubbleSpeedBoost ?? 0;
+            if (speedBoost > 0) _speed *= 1.0 + Math.Clamp(speedBoost, 0, 500) / 100.0;
+        }
         _animType = random.Next(4);
         _wobbleOffset = random.NextDouble() * 100;
         _angle = random.Next(360);
@@ -2393,7 +2649,9 @@ internal class Bubble
         // Every per-bubble property below is (re)set on each reuse so a recycled shell carries
         // no state from its previous bubble.
         // Shared-host A/B (chaos bubbles only): one Canvas host instead of a Window per bubble.
-        _useHost = spec != null && (App.Settings?.Current?.ChaosBubbleSharedHost ?? false);
+        // forceWindowMode pins per-window rendering for dashboard trigger bubbles — the shared
+        // ChaosBubbleHostOverlay only exists during a real chaos run.
+        _useHost = spec != null && !forceWindowMode && (App.Settings?.Current?.ChaosBubbleSharedHost ?? false);
 
         // Quantized window side (per-window mode); also a harmless notional size in host mode.
         double winNeed = Math.Max(_size, _hitSize) + _winPad * 2;
@@ -2592,13 +2850,16 @@ internal class Bubble
                 return;
             }
         }
-        else if (frozen || _isChanneling)
+        else if (frozen || _isChanneling || _claimedByAvatar)
         {
             // Held in place — no motion, no fuse tick. The visual block below still runs so the
             // blue freeze aura pulses and the impact shudder plays.
             // A defuse channel pins the bubble the same way: the player is holding it, so it
             // must not drift out of its own hit circle mid-hold and break the channel "for free"
             // (at field speed a live escaped a stationary cursor in under the 1s hold).
+            // An avatar-claimed effect bubble is pinned too: its treat-life (decremented in the
+            // travel branch below) freezes, so it can't dissolve out from under the companion
+            // mid-egg, and it stays put for the avatar to land beside and pop.
         }
         else if (_isDarter)
         {
@@ -3164,6 +3425,10 @@ internal class Bubble
     /// </summary>
     private void OnPlayerPress()
     {
+        // Claimed by the companion mid-easter-egg: the user can't pop it out from under her;
+        // only her scripted PopByAvatar gets through (see the Pop() guard).
+        if (_claimedByAvatar) return;
+
         // The Tease: ANY mouse-down is the mistake — click or attempted hold, it triggers.
         // (Hovering never counts; this only runs on a real press.)
         if (_isTease)
@@ -3303,6 +3568,10 @@ internal class Bubble
     public void Pop()
     {
         if (!_isAlive || _isPopping) return;
+        // Claimed by the companion: every pop path is suppressed until SHE pops it via
+        // PopByAvatar (which sets _avatarPopRequested). Keeps stray sweeps/chains/clicks from
+        // firing the effect early while she's gliding over to do it herself.
+        if (_claimedByAvatar && !_avatarPopRequested) return;
         // The Tease is immune to every instant-pop source — sweeps, arcs, chain hops, DVD
         // logos, residue, ripples all slide right off it. Only a direct touch (TouchTease)
         // or its expiry (Denied) ends it.
@@ -3962,7 +4231,7 @@ internal class Bubble
     /// Live chaos bubbles are excluded (2026-06-11 verb rework): defusing is a HELD channel
     /// paid in focus — a gaze dwell would be a free instant snap around the whole economy.
     /// </summary>
-    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable
+    public bool CanGazePop => _isAlive && !_isPopping && !_isDestroyed && _isClickable && !_claimedByAvatar
                               && (_spec == null || (!_spec.IsLive && !_spec.IsTease && !_spec.IsBrittle));
 
     /// <summary>

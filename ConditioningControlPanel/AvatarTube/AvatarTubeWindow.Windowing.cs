@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -1170,6 +1171,97 @@ namespace ConditioningControlPanel
                 }
             }
             catch { /* window may be tearing down */ }
+        }
+
+        // ============================================================
+        // AVATAR "I'LL POP THIS ONE FOR YOU" EASTER EGG
+        // ============================================================
+        // BubbleService drives the choreography; these three members are its hooks. Movement runs in
+        // PHYSICAL pixels via SetWindowPos (the same space as Screen.WorkingArea) so it stays correct
+        // across monitors and mixed DPI — WPF's Left/Top DIP space is non-linear across screens.
+
+        private bool _eggWasAttached;
+        private RECT _eggReturnRect;
+        private bool _eggReturnValid;
+
+        /// <summary>True when the companion can be sent on the bubble-pop easter egg: enabled, shown,
+        /// not hidden for a fullscreen app, with a live handle, and not mid-conversation.</summary>
+        public bool CanPerformBubbleEgg =>
+            App.Settings?.Current?.AvatarEnabled == true
+            && !_hiddenForFullscreen && !_hiddenForChaos
+            && Visibility == Visibility.Visible
+            && _tubeHandle != IntPtr.Zero
+            && !IsCompanionBusy(0);
+
+        /// <summary>Send the companion gliding beside a bubble (physical-px centre + pop radius). Captures
+        /// restore state and auto-detaches if attached. Smooth ~0.4s lerp; cancellable.</summary>
+        public async Task GlideToBubbleAsync(System.Windows.Point centerPx, double radiusPx, CancellationToken ct)
+        {
+            if (!Dispatcher.CheckAccess())
+            { await Dispatcher.InvokeAsync(() => GlideToBubbleAsync(centerPx, radiusPx, ct)).Task.Unwrap(); return; }
+
+            _eggWasAttached = _isAttached;
+            _eggReturnValid = _tubeHandle != IntPtr.Zero && GetWindowRect(_tubeHandle, out _eggReturnRect);
+            if (_isAttached) Detach(silent: true);
+            ReassertTopmost();
+            if (_tubeHandle == IntPtr.Zero || !GetWindowRect(_tubeHandle, out var cur)) return;
+
+            int w = cur.Right - cur.Left, h = cur.Bottom - cur.Top;
+            var screen = System.Windows.Forms.Screen.FromPoint(
+                new System.Drawing.Point((int)centerPx.X, (int)centerPx.Y));
+            var wa = screen.WorkingArea;
+            const int gap = 24;
+            // Sit on whichever side of the bubble has more room: left of it if the bubble hugs the
+            // right half of its screen, else to its right. Never cover the bubble itself.
+            bool placeLeft = centerPx.X > wa.Left + wa.Width / 2.0;
+            int targetX = placeLeft
+                ? (int)(centerPx.X - radiusPx - gap - w)
+                : (int)(centerPx.X + radiusPx + gap);
+            int targetY = (int)(centerPx.Y - h / 2.0);
+            targetX = Math.Clamp(targetX, wa.Left, Math.Max(wa.Left, wa.Right - w));
+            targetY = Math.Clamp(targetY, wa.Top, Math.Max(wa.Top, wa.Bottom - h));
+
+            await GlideToAsync(cur.Left, cur.Top, targetX, targetY, ct);
+        }
+
+        /// <summary>Return the companion to where it began: re-attach if it was attached, else glide back
+        /// to its captured floating position.</summary>
+        public async Task ReturnFromBubbleAsync(CancellationToken ct)
+        {
+            if (!Dispatcher.CheckAccess())
+            { await Dispatcher.InvokeAsync(() => ReturnFromBubbleAsync(ct)).Task.Unwrap(); return; }
+
+            try
+            {
+                if (_eggWasAttached)
+                {
+                    Attach(silent: true);   // UpdatePosition snaps it back to the parent
+                    return;
+                }
+                if (_eggReturnValid && _tubeHandle != IntPtr.Zero && GetWindowRect(_tubeHandle, out var cur))
+                {
+                    await GlideToAsync(cur.Left, cur.Top, _eggReturnRect.Left, _eggReturnRect.Top, CancellationToken.None);
+                }
+            }
+            finally { _eggReturnValid = false; }
+        }
+
+        /// <summary>Lerp the window from one physical-px position to another over ~0.4s (SetWindowPos
+        /// per step). Ease-in-out for a soft glide; honours cancellation between steps.</summary>
+        private async Task GlideToAsync(int fromX, int fromY, int toX, int toY, CancellationToken ct)
+        {
+            const int steps = 14;
+            for (int i = 1; i <= steps; i++)
+            {
+                if (_tubeHandle == IntPtr.Zero) return;
+                double t = i / (double)steps;
+                t = t < 0.5 ? 2 * t * t : 1 - Math.Pow(-2 * t + 2, 2) / 2;   // ease-in-out
+                int x = (int)Math.Round(fromX + (toX - fromX) * t);
+                int y = (int)Math.Round(fromY + (toY - fromY) * t);
+                SetWindowPos(_tubeHandle, IntPtr.Zero, x, y, 0, 0,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                await Task.Delay(28, ct);
+            }
         }
 
         /// <summary>

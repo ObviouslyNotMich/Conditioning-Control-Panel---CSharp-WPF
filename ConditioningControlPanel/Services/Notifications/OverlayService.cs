@@ -20,6 +20,13 @@ public class OverlayService : IDisposable
 {
     private readonly List<Window> _pinkFilterWindows = new();
 
+    // Ad-hoc "timed" overlays (ShowOverlayTimed, e.g. dashboard trigger bubbles) share the
+    // persistent pink/spiral windows. These counters mark a timed overlay as in-flight so the
+    // reconcile loops (RefreshOverlays / UpdateOverlays) don't tear it down a tick later just
+    // because the persistent feature is off. Decremented when the timed overlay's hide fires.
+    private int _timedPinkHolds;
+    private int _timedSpiralHolds;
+
     public OverlayService()
     {
         // Subscribe to settings changes if App.Settings.Current is available
@@ -228,7 +235,7 @@ public class OverlayService : IDisposable
                 else
                     UpdatePinkFilterOpacity();
             }
-            else
+            else if (_timedPinkHolds == 0)   // don't kill an in-flight timed pink overlay
             {
                 StopPinkFilter();
             }
@@ -242,7 +249,7 @@ public class OverlayService : IDisposable
                 else
                     UpdateSpiralOpacity();
             }
-            else
+            else if (_timedSpiralHolds == 0)   // don't kill an in-flight timed spiral overlay
             {
                 StopSpiral();
             }
@@ -376,7 +383,7 @@ public class OverlayService : IDisposable
         {
             StartPinkFilter();
         }
-        else if (!settings.PinkFilterEnabled && _pinkFilterWindows.Count > 0)
+        else if (!settings.PinkFilterEnabled && _pinkFilterWindows.Count > 0 && _timedPinkHolds == 0)
         {
             StopPinkFilter();
         }
@@ -391,7 +398,7 @@ public class OverlayService : IDisposable
             _spiralPath = spiralPath;
             StartSpiral();
         }
-        else if (!settings.SpiralEnabled && _spiralWindows.Count > 0)
+        else if (!settings.SpiralEnabled && _spiralWindows.Count > 0 && _timedSpiralHolds == 0)
         {
             StopSpiral();
         }
@@ -472,7 +479,13 @@ public class OverlayService : IDisposable
 
         Action runShow = () =>
         {
-            try { show(); }
+            try
+            {
+                // Mark the timed overlay in-flight so the reconcile loops leave it alone.
+                if (kind == "pink_filter") _timedPinkHolds++;
+                else if (kind == "spiral") _timedSpiralHolds++;
+                show();
+            }
             catch (Exception ex) { App.Logger?.Debug("ShowOverlayTimed show: {E}", ex.Message); }
         };
         if (dispatcher.CheckAccess()) runShow();
@@ -485,7 +498,26 @@ public class OverlayService : IDisposable
         hideTimer.Tick += (_, _) =>
         {
             hideTimer.Stop();
-            try { hide(); }
+            try
+            {
+                var settings = App.Settings.Current;
+                // Release the hold; only actually tear down when no other timed overlay holds it
+                // AND the persistent feature isn't keeping it on (then the reconciler owns it).
+                if (kind == "pink_filter")
+                {
+                    if (_timedPinkHolds > 0) _timedPinkHolds--;
+                    if (_timedPinkHolds == 0 && !settings.PinkFilterEnabled) hide();
+                }
+                else if (kind == "spiral")
+                {
+                    if (_timedSpiralHolds > 0) _timedSpiralHolds--;
+                    if (_timedSpiralHolds == 0 && !settings.SpiralEnabled) hide();
+                }
+                else
+                {
+                    hide();
+                }
+            }
             catch (Exception ex) { App.Logger?.Debug("ShowOverlayTimed hide: {E}", ex.Message); }
         };
         hideTimer.Start();

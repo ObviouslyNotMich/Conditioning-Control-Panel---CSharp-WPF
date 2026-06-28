@@ -41,6 +41,32 @@ namespace ConditioningControlPanel.Features
                 TxtFreq.Text = s.BubblesFrequency.ToString();
                 SliderVolume.Value = s.BubblesVolume;
                 TxtVolume.Text = $"{s.BubblesVolume}%";
+                SliderSpeed.Value = s.BubbleSpeedBoost;
+                TxtSpeed.Text = $"+{s.BubbleSpeedBoost}%";
+
+                // Easter-egg hint (companion auto-pops a lingering effect bubble) — name the active persona.
+                var persona = App.Mods?.ActiveModId switch
+                {
+                    "builtin-bambisleep" => "Bambi",
+                    "builtin-sissyhypno" => "your bimbo",
+                    "builtin-locked" => "Circe",
+                    _ => "your companion"
+                };
+                TxtTriggerEggHint.Text = $"careful — {persona} loves these…";
+
+                ChkTriggers.IsChecked = s.BubbleTriggersEnabled;
+                TriggerOptionsPanel.Visibility = s.BubbleTriggersEnabled
+                    ? Visibility.Visible : Visibility.Collapsed;
+                SliderTriggerChance.Value = s.BubbleTriggerChance;
+                TxtTriggerChance.Text = $"{s.BubbleTriggerChance}%";
+                var ids = s.BubbleTriggerVariants ?? new System.Collections.Generic.List<string>();
+                ChkTypeFlash.IsChecked = ids.Contains("flash");
+                ChkTypeSubliminal.IsChecked = ids.Contains("subliminal");
+                ChkTypePink.IsChecked = ids.Contains("pink");
+                ChkTypeSpiral.IsChecked = ids.Contains("spiral");
+                ChkTypeGlitch.IsChecked = ids.Contains("glitch");
+                ChkTypeCascade.IsChecked = ids.Contains("htlink");
+                ChkTypeVideo.IsChecked = ids.Contains("video");
             }
             finally { _isLoading = false; }
         }
@@ -49,7 +75,11 @@ namespace ConditioningControlPanel.Features
         {
             if (e.PropertyName == nameof(Models.AppSettings.BubblesEnabled) ||
                 e.PropertyName == nameof(Models.AppSettings.BubblesFrequency) ||
-                e.PropertyName == nameof(Models.AppSettings.BubblesVolume))
+                e.PropertyName == nameof(Models.AppSettings.BubblesVolume) ||
+                e.PropertyName == nameof(Models.AppSettings.BubbleSpeedBoost) ||
+                e.PropertyName == nameof(Models.AppSettings.BubbleTriggersEnabled) ||
+                e.PropertyName == nameof(Models.AppSettings.BubbleTriggerChance) ||
+                e.PropertyName == nameof(Models.AppSettings.BubbleTriggerVariants))
             {
                 Dispatcher.BeginInvoke(new Action(LoadFromSettings));
             }
@@ -95,6 +125,55 @@ namespace ConditioningControlPanel.Features
             var v = (int)e.NewValue;
             TxtVolume.Text = $"{v}%";
             s.BubblesVolume = v;
+            App.Settings?.Save();
+        }
+
+        private void SliderSpeed_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            var v = (int)e.NewValue;
+            TxtSpeed.Text = $"+{v}%";
+            s.BubbleSpeedBoost = v;
+            App.Settings?.Save();
+        }
+
+        private void ChkTriggers_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            var on = ChkTriggers.IsChecked ?? false;
+            s.BubbleTriggersEnabled = on;
+            TriggerOptionsPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            App.Settings?.Save();
+        }
+
+        private void SliderTriggerChance_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            var v = (int)e.NewValue;
+            TxtTriggerChance.Text = $"{v}%";
+            s.BubbleTriggerChance = v;
+            App.Settings?.Save();
+        }
+
+        private void TriggerType_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isLoading) return;
+            var s = App.Settings?.Current;
+            if (s == null) return;
+            if (sender is not CheckBox cb || cb.Tag is not string id) return;
+
+            var ids = new System.Collections.Generic.List<string>(
+                s.BubbleTriggerVariants ?? new System.Collections.Generic.List<string>());
+            var on = cb.IsChecked ?? false;
+            if (on) { if (!ids.Contains(id)) ids.Add(id); }
+            else ids.Remove(id);
+            s.BubbleTriggerVariants = ids;   // reassign so the setter fires change notification
             App.Settings?.Save();
         }
     }

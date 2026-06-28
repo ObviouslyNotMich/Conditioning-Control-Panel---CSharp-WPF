@@ -1045,6 +1045,9 @@ namespace ConditioningControlPanel.Services
             // identically to the file-based mandatory video windows.
             SetupStrictHandlers(win, strict: false);
 
+            // Pin to the monitor's true physical bounds (PerMonitorV2 DPI fix — see
+            // ForceFullScreenBounds; matches the file-based mandatory-video path).
+            ForceFullScreenBounds(win, screen);
             win.Show();
             if (withAudio) win.Activate();
             DisableChildWindowInput(win);
@@ -1083,7 +1086,19 @@ namespace ConditioningControlPanel.Services
                 {
                     if (_isRunning && !_videoPlaying && !_triggerInProgress)
                     {
-                        TriggerVideo();
+                        if (App.Autonomy?.IsWebVideoActive == true)
+                        {
+                            // A fullscreen browser/HypnoTube video is on screen — don't stack a
+                            // mandatory video (and its audio) on top (BUG-XRFQH4AHDN). Nothing
+                            // else re-arms us in this branch (there's no mandatory-video Cleanup
+                            // to follow), so reschedule to retry once the web video has ended.
+                            App.Logger?.Information("VideoService: scheduler tick skipped — web video active; rescheduling");
+                            ScheduleNext();
+                        }
+                        else
+                        {
+                            TriggerVideo();
+                        }
                     }
                     // Cleanup() will call ScheduleNext() when video ends
                 }
@@ -1508,6 +1523,9 @@ namespace ConditioningControlPanel.Services
             // Window is already sized to the full screen bounds, so we don't start small
             // and Maximize — that sequence caused the white-frame flash (#368). A borderless
             // Topmost window at full bounds covers the taskbar just like the maximized one did.
+            // Pin to the monitor's true physical bounds so a secondary monitor with different DPI
+            // scaling gets the full screen instead of a part-width window (see ForceFullScreenBounds).
+            ForceFullScreenBounds(win, screen);
             win.Show();
             if (withAudio) win.Activate();
             DisableChildWindowInput(win);
@@ -2797,8 +2815,51 @@ namespace ConditioningControlPanel.Services
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
+
+        /// <summary>
+        /// Pins a fullscreen video window to the true physical bounds of its target monitor.
+        ///
+        /// The app is PerMonitorV2-DPI-aware (app.manifest). A WPF Window's Left/Top/Width/Height
+        /// set before it's shown are realized in the DPI context of the monitor where the HWND is
+        /// first created (the primary), so when the window lands on a *secondary* monitor whose
+        /// scaling differs, the DIP→physical math is wrong and the window covers only part of that
+        /// screen (mandatory video showing left-aligned at ~half width on the second monitor).
+        ///
+        /// SetWindowPos operates in real screen pixels and is immune to that per-monitor rescaling,
+        /// so we force the exact monitor rect. We apply twice: once on SourceInitialized (HWND now
+        /// exists, before the window is visible) and once on Loaded — moving onto a different-DPI
+        /// monitor fires WM_DPICHANGED, which WPF may answer by resizing the window back toward the
+        /// creation-DPI size, so the second pass re-pins it after layout settles. On uniform-DPI
+        /// setups both passes set the rect the window already has (harmless no-op).
+        /// </summary>
+        private void ForceFullScreenBounds(Window win, Screen screen)
+        {
+            void Apply()
+            {
+                try
+                {
+                    var hwnd = new WindowInteropHelper(win).Handle;
+                    if (hwnd == IntPtr.Zero) return;
+                    var b = screen.Bounds; // physical pixels
+                    SetWindowPos(hwnd, IntPtr.Zero, b.X, b.Y, b.Width, b.Height,
+                        SWP_NOZORDER | SWP_NOACTIVATE);
+                }
+                catch (Exception ex)
+                {
+                    App.Logger?.Debug("VideoService.ForceFullScreenBounds failed: {Error}", ex.Message);
+                }
+            }
+
+            win.SourceInitialized += (_, _) => Apply();
+            win.Loaded += (_, _) => Apply();
+        }
 
         /// <summary>
         /// Marks a fullscreen video window as WS_EX_NOACTIVATE so Windows will never make it the

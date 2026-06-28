@@ -3420,7 +3420,7 @@ namespace ConditioningControlPanel.Views.Deeper
             string[] effectTypes =
             {
                 EffectTypes.Haptic, EffectTypes.Flash, EffectTypes.Bubble,
-                EffectTypes.Subliminal, EffectTypes.Overlay
+                EffectTypes.Subliminal, EffectTypes.Overlay, EffectTypes.Speak
             };
             foreach (var t in effectTypes)
             {
@@ -3469,6 +3469,9 @@ namespace ConditioningControlPanel.Views.Deeper
                         AddIntField(typeFieldsHost, Loc.Get("deeper_editor_action_duration_ms"),
                             te.DurationMs, v => te.DurationMs = Math.Max(50, v));
                         break;
+                    case EffectTypes.Speak:
+                        AddSpeakActionFields(typeFieldsHost, te);
+                        break;
                 }
             }
             RebuildTypeFields();
@@ -3486,6 +3489,12 @@ namespace ConditioningControlPanel.Views.Deeper
                         te.PatternName = "Pulse";
                     if (newType == EffectTypes.Overlay && string.IsNullOrEmpty(te.OverlayKind))
                         te.OverlayKind = OverlayKinds.PinkFilter;
+                    if (newType == EffectTypes.Speak && string.IsNullOrWhiteSpace(te.SpeakTarget))
+                    {
+                        te.SpeakTarget = "YES";
+                        te.SpeakCorrectMessage = "good girl";
+                        te.SpeakIncorrectMessage = "try again";
+                    }
                     RebuildTypeFields();
                     MarkDirty();
                     ScheduleValidation();
@@ -3565,6 +3574,82 @@ namespace ConditioningControlPanel.Views.Deeper
                 if (combo.SelectedItem is ComboBoxItem cbi && cbi.Tag is string k)
                 {
                     te.OverlayKind = k;
+                    MarkDirty();
+                    ScheduleValidation();
+                }
+            };
+            host.Children.Add(combo);
+        }
+
+        // Speak (voice prompt) sub-fields for a rule's TriggerEffect action. Mirrors the
+        // inline SpeakEffectEditor panel but bound to a TriggerEffectAction's flat fields,
+        // so a RegionEntered-triggered rule can fire a one-shot voice prompt.
+        private void AddSpeakActionFields(Panel host, TriggerEffectAction te)
+        {
+            AddSpeakTextField(host, "Phrase to say (max 24)", te.SpeakTarget ?? "", 24, v => te.SpeakTarget = v);
+            AddSpeakTextField(host, "On-screen cue (blank = \"Say {phrase}\")", te.SpeakCue ?? "", 40, v => te.SpeakCue = v);
+
+            // Cue style + interval (interval only matters for intermittent, but keeping it
+            // always-visible avoids a rebuild dance in the rule inspector).
+            AddSpeakEnumCombo(host, "Cue style", te.SpeakCueMode,
+                new[] { (SpeakCueMode.Intermittent, "Intermittent (flash)"), (SpeakCueMode.Persistent, "Persistent (stay on top)") },
+                v => te.SpeakCueMode = v);
+            AddIntField(host, "Flash interval (ms)", te.SpeakCueIntervalMs, v => te.SpeakCueIntervalMs = Math.Max(80, v));
+
+            AddIntField(host, "Times to say it (1–5)", te.SpeakRequiredReps, v => te.SpeakRequiredReps = Math.Clamp(v, 1, 5));
+
+            AddSpeakEnumCombo(host, "Completion", te.SpeakCompletion,
+                new[] { (SpeakCompletion.UntilSatisfied, "Until satisfied"), (SpeakCompletion.Duration, "For the region (soft)") },
+                v => te.SpeakCompletion = v);
+            AddSpeakEnumCombo(host, "While waiting…", te.SpeakHoldMode,
+                new[] { (SpeakHoldMode.LoopRegion, "Loop the region"), (SpeakHoldMode.Pause, "Pause the video"), (SpeakHoldMode.KeepPlaying, "Keep playing") },
+                v => te.SpeakHoldMode = v);
+
+            AddSpeakTextField(host, "Praise (on correct)", te.SpeakCorrectMessage ?? "", 40, v => te.SpeakCorrectMessage = v);
+            AddSpeakTextField(host, "Scold (on miss)", te.SpeakIncorrectMessage ?? "", 40, v => te.SpeakIncorrectMessage = v);
+        }
+
+        private void AddSpeakTextField(Panel host, string label, string value, int maxLength, Action<string> setter)
+        {
+            host.Children.Add(new TextBlock { Text = label, Style = (Style)FindResource("EditorLabel") });
+            var tb = new TextBox
+            {
+                Style = (Style)FindResource("EditorTextBox"),
+                Text = value ?? "",
+                MaxLength = maxLength
+            };
+            tb.TextChanged += (_, _) =>
+            {
+                if (_suppressRuleSync) return;
+                setter(tb.Text ?? "");
+                MarkDirty();
+                ScheduleValidation();
+            };
+            host.Children.Add(tb);
+        }
+
+        private void AddSpeakEnumCombo<TEnum>(Panel host, string label, TEnum current,
+            (TEnum value, string display)[] options, Action<TEnum> setter) where TEnum : struct, Enum
+        {
+            host.Children.Add(new TextBlock { Text = label, Style = (Style)FindResource("EditorLabel") });
+            var combo = new ComboBox
+            {
+                Style = (Style)FindResource("EditorComboBox"),
+                ItemContainerStyle = (Style)FindResource("EditorComboBoxItem")
+            };
+            int sel = 0;
+            for (int i = 0; i < options.Length; i++)
+            {
+                combo.Items.Add(new ComboBoxItem { Content = options[i].display, Tag = options[i].value });
+                if (EqualityComparer<TEnum>.Default.Equals(options[i].value, current)) sel = i;
+            }
+            combo.SelectedIndex = sel;
+            combo.SelectionChanged += (_, _) =>
+            {
+                if (_suppressRuleSync) return;
+                if (combo.SelectedItem is ComboBoxItem cbi && cbi.Tag is TEnum v)
+                {
+                    setter(v);
                     MarkDirty();
                     ScheduleValidation();
                 }

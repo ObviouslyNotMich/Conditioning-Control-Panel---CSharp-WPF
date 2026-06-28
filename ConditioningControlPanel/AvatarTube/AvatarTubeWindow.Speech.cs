@@ -44,6 +44,12 @@ namespace ConditioningControlPanel
         private SpeechSource _lastSpeechSource = SpeechSource.Preset; // Track last speech source for delay calc
         private int _lastSpeechLength = 0; // Track last speech length for delay calc
 
+        // "She's listening" indicator: while a wake-word/push-to-talk listen window is open, the bubble
+        // stays up (no auto-hide timer) with trailing dots animating to show she's waiting for a command.
+        private bool _isListeningBubble = false;
+        private DispatcherTimer? _listeningDotsTimer;
+        private Run? _listeningDotsRun; // the trailing "…" Run we mutate each tick
+
         /// <summary>
         /// Regex to match markdown-style links: [Link Text](url)
         /// Used for clickable links in speech bubbles.
@@ -406,6 +412,16 @@ namespace ConditioningControlPanel
             // An uninterruptible recorded clip owns the bubble — only its own (bypassing) call may render.
             if (_isPlayingUninterruptibleClip && !bypassClipLock) return;
 
+            // A real bubble is taking over the listening indicator (e.g. the command confirmation) —
+            // stop the dots animation and release the listening flag so HideListeningBubble no-ops.
+            if (_isListeningBubble)
+            {
+                _listeningDotsTimer?.Stop();
+                _listeningDotsTimer = null;
+                _listeningDotsRun = null;
+                _isListeningBubble = false;
+            }
+
             // CCBill AI Addendum: show the "AI" badge only when this bubble's text actually came from
             // an AI inference. Canned/preset phrases (including AI-path fallbacks) leave it hidden.
             // The POLICY badge is mutually exclusive — only ShowModerationRefusalBubble shows it.
@@ -499,6 +515,7 @@ namespace ConditioningControlPanel
                 AdjustBubbleSize(plainText);
 
                 // Force layout update before showing to prevent flickering
+                ApplyBubbleBackgroundForMod();
                 SpeechBubble.UpdateLayout();
                 SpeechBubble.Visibility = Visibility.Visible;
 
@@ -598,6 +615,185 @@ namespace ConditioningControlPanel
             {
                 speak(); // AI replies are already gated by inference latency — no lead-in
             }
+        }
+
+        // ── Speech bubble background (per-mod) ────────────────────────────────
+        // Mirrors the XAML BubbleGradient (PatreonDarkPurple #FF8E44AD → DarkerBg #FF121220). The
+        // sissy variant drops the fill alpha so the bubble reads more transparent (the user found the
+        // sissy bubble hard to read); the border + pink text keep full opacity so legibility improves.
+        private const double SissyBubbleAlpha = 0.70; // tunable: sissy bubble fill opacity
+
+        // Sissy's mod accent is a muted purple that goes muddy on the now-transparent fill; give the
+        // text a brighter, higher-contrast tone so it pops. Other mods keep their accent (PinkBrush).
+        private static readonly Brush SissyTextBrush = FreezeBrush(Color.FromRgb(0xFF, 0x9C, 0xE8)); // bright candy pink
+
+        private static Brush FreezeBrush(Color c)
+        {
+            var b = new SolidColorBrush(c);
+            b.Freeze();
+            return b;
+        }
+
+        private static Brush? _defaultBubbleBrush;
+        private static Brush? _sissyBubbleBrush;
+
+        private static LinearGradientBrush BuildBubbleBrush(byte alpha)
+        {
+            var b = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(1, 1),
+            };
+            b.GradientStops.Add(new GradientStop(Color.FromArgb(alpha, 0x8E, 0x44, 0xAD), 0));
+            b.GradientStops.Add(new GradientStop(Color.FromArgb(alpha, 0x12, 0x12, 0x20), 1));
+            b.Freeze();
+            return b;
+        }
+
+        /// <summary>
+        /// Applies per-mod speech-bubble styling. In sissy mod the fill is the more-transparent variant
+        /// and the text uses a brighter high-contrast color so it pops; other mods keep the opaque fill
+        /// and their accent (PinkBrush) text. Cheap and idempotent — called every time the bubble is
+        /// shown, so it always reflects the current mod without mod-change wiring.
+        /// </summary>
+        private void ApplyBubbleBackgroundForMod()
+        {
+            try
+            {
+                _defaultBubbleBrush ??= BuildBubbleBrush(0xFF);
+                _sissyBubbleBrush ??= BuildBubbleBrush((byte)Math.Round(SissyBubbleAlpha * 255));
+
+                var id = App.Mods?.ActiveModId ?? "";
+                bool isSissy = id.IndexOf("sissy", StringComparison.OrdinalIgnoreCase) >= 0;
+                SpeechBubble.Background = isSissy ? _sissyBubbleBrush : _defaultBubbleBrush;
+
+                // Sissy → brighter text; otherwise restore the mod-accent dynamic resource (PinkBrush).
+                if (isSissy)
+                    TxtSpeech.Foreground = SissyTextBrush;
+                else
+                    TxtSpeech.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "PinkBrush");
+            }
+            catch { /* non-fatal — keep whatever brush is set */ }
+        }
+
+        // ── "She's listening" indicator ───────────────────────────────────────
+
+        /// <summary>
+        /// Holds the speech bubble open with animated trailing dots while a wake-word / push-to-talk
+        /// listen window is active, so the user can see she's waiting for a command. Self-contained:
+        /// it bypasses the auto-hide <see cref="_speechTimer"/> and renders the text directly. Leaves
+        /// any in-flight spoken audio (e.g. the wake acknowledgement voiceline) playing.
+        /// </summary>
+        public void ShowListeningBubble(string text)
+        {
+            RunOnAvatar(() =>
+            {
+                try
+                {
+                    // Don't preempt an uninterruptible recorded clip.
+                    if (_isPlayingUninterruptibleClip) return;
+
+                    // Take over any in-flight bubble cleanly (continuous visibility, no gap).
+                    StopThinkingAnimation();
+                    // Stop the wake-ack's typewriter — otherwise its ticks (and the end-of-type
+                    // PopulateSpeechBubble) keep re-rendering TxtSpeech and overwrite our dots,
+                    // and the dots Run ends up detached from the bubble so it never shows.
+                    StopTypewriter();
+                    _isWaitingForAi = false;
+                    _isShowingAiBubble = false;
+                    _speechQueue.Clear();
+                    _speechTimer?.Stop();
+                    _speechDelayTimer?.Stop();
+                    _speechLeadInTimer?.Stop();
+                    _speechLeadInTimer = null;
+                    _isGiggling = false;
+
+                    // Hidden/muted: track nothing to show, but still flag listening so Hide is balanced.
+                    if (_isMuted || !IsAvatarVisibleOnScreen)
+                    {
+                        _isListeningBubble = true;
+                        return;
+                    }
+
+                    // Badges off for the listening indicator.
+                    try
+                    {
+                        if (AiBadge != null) AiBadge.Visibility = Visibility.Collapsed;
+                        if (PolicyBadge != null) PolicyBadge.Visibility = Visibility.Collapsed;
+                    }
+                    catch { }
+
+                    // Chat-history view owns the bubble — swap back to single-message mode.
+                    if (_isShowingChatHistory)
+                    {
+                        _isShowingChatHistory = false;
+                        ChatHistoryView.Visibility = Visibility.Collapsed;
+                        SpeechScroller.Visibility = Visibility.Visible;
+                        SpeechBubble.MaxWidth = 380;
+                    }
+
+                    var baseText = text ?? "";
+                    TxtSpeech.Inlines.Clear();
+                    TxtSpeech.Inlines.Add(new Run(baseText));
+                    _listeningDotsRun = new Run("");
+                    TxtSpeech.Inlines.Add(_listeningDotsRun);
+
+                    AdjustBubbleSize(baseText + "...");
+
+                    _isListeningBubble = true;
+                    ApplyBubbleBackgroundForMod();
+                    SpeechBubble.UpdateLayout();
+                    SpeechBubble.Visibility = Visibility.Visible;
+
+                    if (!(PopQuizWindow.IsOpen || QuizWindow.IsOpen))
+                    {
+                        StartZOrderRefreshTimer();
+                        BringAttachedPairToFront();
+                    }
+
+                    // Animate "" → "." → ".." → "..." so it reads as actively waiting.
+                    _listeningDotsTimer?.Stop();
+                    int step = 0;
+                    _listeningDotsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+                    _listeningDotsTimer.Tick += (s, e) =>
+                    {
+                        if (!_isListeningBubble || _listeningDotsRun == null) return;
+                        step = (step + 1) % 4;
+                        _listeningDotsRun.Text = new string('.', step);
+                    };
+                    _listeningDotsTimer.Start();
+
+                    ResetIdleTimer();
+                }
+                catch (Exception ex) { App.Logger?.Warning(ex, "ShowListeningBubble failed"); }
+            });
+        }
+
+        /// <summary>
+        /// Ends the "she's listening" indicator. Stops the dot animation; if the listening bubble is
+        /// still the one on screen (no real bubble took over), collapses it. No-ops if a confirmation
+        /// or other bubble already replaced it (ShowGiggle clears the flag in that case).
+        /// </summary>
+        public void HideListeningBubble()
+        {
+            RunOnAvatar(() =>
+            {
+                try
+                {
+                    _listeningDotsTimer?.Stop();
+                    _listeningDotsTimer = null;
+                    _listeningDotsRun = null;
+
+                    if (!_isListeningBubble) return; // a real bubble already took over
+                    _isListeningBubble = false;
+
+                    StopZOrderRefreshTimer();
+                    SpeechBubble.Visibility = Visibility.Collapsed;
+                    _lastSpeechEndTime = DateTime.Now;
+                    ProcessNextSpeech();
+                }
+                catch (Exception ex) { App.Logger?.Warning(ex, "HideListeningBubble failed"); }
+            });
         }
 
         private DispatcherTimer? _mutedIndicatorTimer;
@@ -1370,6 +1566,13 @@ namespace ConditioningControlPanel
         }
 
         /// <summary>
+        /// True while a spoken companion clip (wake ack, bark voice, idle line, etc.) is actually
+        /// playing. The voice-command listener polls this to hold the mic open until she's finished,
+        /// so on speakers (not headphones) it doesn't capture her own voice and match it as a command.
+        /// </summary>
+        public bool IsSpeakingAudio => _isSpeakingAudio;
+
+        /// <summary>
         /// The single companion-voice channel. Cuts off whatever is currently speaking, then plays
         /// <paramref name="filePath"/>. Drives <see cref="_isSpeakingAudio"/> for the speaking wobble/mist,
         /// for exactly the clip's duration. All voice paths (bark / event / idle) route through here so two
@@ -1607,6 +1810,7 @@ namespace ConditioningControlPanel
                 AdjustBubbleSize(plainText);
 
                 // Force layout update before showing to prevent flickering
+                ApplyBubbleBackgroundForMod();
                 SpeechBubble.UpdateLayout();
                 SpeechBubble.Visibility = Visibility.Visible;
 
@@ -1993,6 +2197,10 @@ namespace ConditioningControlPanel
         {
             try
             {
+                // Bambi Sleep mode: suppress the canned "hehehe" giggle SFX entirely — it sounds cheap
+                // next to that mod's real voiceline barks, so a clip-less bubble just stays silent.
+                if (IsBambiSleepMod()) return;
+
                 // Use giggle sounds 5-8 for AI responses (reserved for special interactions)
                 var giggleFiles = new[] {
                     "giggle5.mp3", "giggle6.mp3", "giggle7.mp3", "giggle8.mp3"
@@ -2220,6 +2428,13 @@ namespace ConditioningControlPanel
             if (settings == null || App.Bark == null) return;
 
             int streak = settings.CurrentStreak;
+            // Don't touch the latch on a transient/unsynced streak. At app-open CurrentStreak is
+            // synced from achievements/cloud SEPARATELY and reads 0 for a beat before that lands
+            // (the "streak flashes 0 after re-login" race). If we fell through with streak=0 we'd
+            // reset LastAnnouncedStreakMilestone down to 0, and the next launch (streak correct
+            // again) would re-announce the highest passed milestone — that's the "30 days replays
+            // at a 50-day streak" bug. A real 0 streak has no milestone to celebrate anyway, so bail.
+            if (streak <= 0) return;
             int reached = 0;
             foreach (var m in StreakMilestoneDays)
                 if (m <= streak) reached = m;

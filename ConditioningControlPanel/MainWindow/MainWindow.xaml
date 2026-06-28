@@ -8,8 +8,8 @@
         xmlns:local="clr-namespace:ConditioningControlPanel"
         xmlns:views="clr-namespace:ConditioningControlPanel.Views.Tabs"
         Title="Conditioning Control Panel"
-        Height="943" Width="1385"
-        MinHeight="620" MinWidth="978"
+        Height="943" Width="1469"
+        MinHeight="620" MinWidth="1062"
         Background="{DynamicResource DarkerBgBrush}"
         WindowStartupLocation="Manual"
         WindowStyle="None"
@@ -111,7 +111,7 @@
     <!-- Viewbox scales all content proportionally with window size -->
     <Viewbox Stretch="Fill">
         <!-- Design canvas at reference size - wider to fit all header buttons -->
-        <Grid Width="1405" Height="901">
+        <Grid Width="1489" Height="901">
             <Grid.RowDefinitions>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="Auto"/>
@@ -155,6 +155,46 @@
                                      Fill="#B47BFF" Margin="0,0,6,0" VerticalAlignment="Center"/>
                             <TextBlock x:Name="TxtDirectoryStatus" Text="Private only"
                                        Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Takeover-active indicator — visible whenever AutonomyService.IsEnabled is true.
+                         Toggled from SetTakeoverActiveUi(). Stop UI lives on the Bambi Takeover tab. -->
+                    <Border x:Name="TakeoverActivePill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#5A2E7A" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0"
+                            ToolTip="Takeover is active.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="#C9A0FF" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#C9A0FF" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Text="Takeover active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Microphone-active indicator — visible whenever SpeechService.IsListening is true
+                         (any feature: Takeover "Hey Bambi"/push-to-talk/mantras, Voice Lock Cards…).
+                         Same privacy posture as the camera pill: if we're taking mic input we show it.
+                         Click to stop all mic capture. -->
+                    <Border x:Name="MicActivePill"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            Background="#7A4A14" CornerRadius="12" Padding="10,4"
+                            Margin="0,0,12,0"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="MicActivePill_Click"
+                            ToolTip="Microphone is active. Click to stop listening.">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="#FFA726" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#FFA726" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Text="Mic active" Foreground="White" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -526,8 +566,8 @@
                             </Style>
                         </ComboBox.ItemContainerStyle>
                     </ComboBox>
-                    <Button x:Name="BtnUpdateAvailable" Content="{loc:Str btn_v6_1_7_is_out}"
-                            Click="BtnUpdateAvailable_Click" ToolTip="{loc:Str tooltip_v6_1_7_down_the_rabbit_hole}"
+                    <Button x:Name="BtnUpdateAvailable" Content="{loc:Str btn_v6_2_1_is_out}"
+                            Click="BtnUpdateAvailable_Click" ToolTip="{loc:Str tooltip_v6_2_1_she_can_hear_you_now}"
                             FontSize="11" FontWeight="Bold" Cursor="Hand">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -786,6 +826,21 @@
                                                 <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                        Source="{Binding Source='🤖', Converter={StaticResource EmojiToImageSource}}"/>
                                                 <TextBlock x:Name="TxtSubBambiTakeover" Text="{loc:Str tab_takeover}" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                    <Button x:Name="BtnSubSheListening" Style="{StaticResource ExclusivesSubmenuButton}"
+                                            Click="BtnSubSheListening_Click">
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right" x:Name="SubBadgeSheListening"
+                                                    Background="#FF69B4" CornerRadius="8" Padding="6,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="✨" FontSize="9" Foreground="White"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                       Source="{Binding Source='🎙️', Converter={StaticResource EmojiToImageSource}}"/>
+                                                <TextBlock Text="She's Listening" Foreground="White" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </DockPanel>
                                     </Button>
@@ -1049,91 +1104,116 @@
         <views:BlinkTrainerTabView x:Name="BlinkTrainerTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
 
 
+        <!-- She's Listening Tab — voice control Exclusive (offline mic commands + spoken mantras) -->
+        <views:SheListeningTabView x:Name="SheListeningTab" Grid.Row="4" Margin="10,5,10,10" Visibility="Collapsed" />
+
+
 
         <!-- Global Bottom Bar: Start / Save / Exit (Always visible) -->
         <Border Grid.Row="5" Background="{StaticResource PanelBgBrush}" Margin="10,5,10,10" CornerRadius="10" Padding="15,12">
+            <!-- One flat grid so the Start controls and Save/Exit can't collide. Auto
+                 columns (Remember / caret / Pause) take their size first, START flexes,
+                 and Save/Exit share the rest — nothing clips at any window width. -->
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>   <!-- Remember -->
+                    <ColumnDefinition Width="1.5*"/>   <!-- START -->
+                    <ColumnDefinition Width="Auto"/>   <!-- Start-options caret -->
+                    <ColumnDefinition Width="Auto"/>   <!-- Pause (session only) -->
+                    <ColumnDefinition Width="18"/>     <!-- gap between the two groups -->
+                    <ColumnDefinition Width="*"/>      <!-- Save -->
+                    <ColumnDefinition Width="*"/>      <!-- Exit -->
                 </Grid.ColumnDefinitions>
 
                 <!-- Status Text (overlaid on top of buttons, shown when running) -->
-                <TextBlock x:Name="TxtPresetsStatus" Grid.ColumnSpan="2"
+                <TextBlock x:Name="TxtPresetsStatus" Grid.ColumnSpan="7"
                            Text="" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
                            HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,-20,0,0"/>
 
+                <!-- Remember: snapshot current setup / recall it. Right-click to re-save. -->
+                <Button x:Name="BtnRemember" Grid.Column="0" Width="68" Height="50" Margin="0,0,8,0"
+                        Style="{StaticResource PinkButton}" FontSize="20" Click="BtnRemember_Click"
+                        MouseRightButtonUp="BtnRemember_RightClick"
+                        ToolTip="Remember my current setup">
+                    <TextBlock x:Name="TxtRememberIcon" Text="☆" FontSize="24" VerticalAlignment="Center" TextAlignment="Center"/>
+                </Button>
+
                 <!-- START Button (with session timer display) -->
-                <Grid Grid.Column="0" Margin="0,0,8,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="BtnStart" Grid.Column="0" Style="{StaticResource PinkButton}"
-                            Background="{DynamicResource AccentGradientBrush}"
-                            Height="50" FontSize="18" Click="BtnStart_Click"
-                            ToolTip="{loc:Str tooltip_start_stop_the_conditioning_engine}">
-                        <StackPanel x:Name="StartButtonContent" Orientation="Horizontal" Height="24" VerticalAlignment="Center">
-                            <TextBlock x:Name="TxtStartIcon" Text="▶" FontSize="16" Width="20" Margin="0,0,10,0" VerticalAlignment="Center" TextAlignment="Center"/>
-                            <TextBlock x:Name="TxtStartLabel" Text="{loc:Str label_start}" FontSize="18" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <!-- Pause Button (visible only during sessions) -->
-                    <Button x:Name="BtnPauseSession" Grid.Column="1" Width="50" Height="50" Margin="5,0,0,0"
-                            Visibility="Collapsed" Click="BtnPauseSession_Click"
-                            ToolTip="{loc:Str tooltip_pause_session_100_xp_penalty_per_pause}">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="#FFA500"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="FontWeight" Value="Bold"/>
-                                <Setter Property="FontSize" Value="20"/>
-                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="6">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
-                        <TextBlock x:Name="TxtPauseIcon" Text="⏸" FontSize="20"/>
-                    </Button>
-                </Grid>
-                
-                <!-- Save / Exit (other half) -->
-                <Grid Grid.Column="1" Margin="8,0,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Content="{loc:Str btn_save_2}" Style="{StaticResource PinkButton}" 
-                            Height="50" FontSize="16" Margin="0,0,5,0" Click="BtnSave_Click"
-                            ToolTip="{loc:Str tooltip_save_all_settings_to_disk}"/>
-                    <Button Grid.Column="1" Content="{loc:Str btn_exit}" Height="50" FontSize="16" Margin="5,0,0,0" Click="BtnExit_Click"
-                            ToolTip="{loc:Str tooltip_exit_the_application_completely}">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="#FF6B6B"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="FontWeight" Value="Bold"/>
-                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="20,10">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </Grid>
+                <Button x:Name="BtnStart" Grid.Column="1" Style="{StaticResource PinkButton}"
+                        Background="{DynamicResource AccentGradientBrush}"
+                        Height="50" FontSize="18" Click="BtnStart_Click"
+                        ToolTip="{loc:Str tooltip_start_stop_the_conditioning_engine}">
+                    <StackPanel x:Name="StartButtonContent" Orientation="Horizontal" Height="24" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtStartIcon" Text="▶" FontSize="16" Width="20" Margin="0,0,10,0" VerticalAlignment="Center" TextAlignment="Center"/>
+                        <TextBlock x:Name="TxtStartLabel" Text="{loc:Str label_start}" FontSize="18" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Start options caret (Start normally / Jump right in). Its own independent
+                     button: a real width and a gap from START so it doesn't read as a split-button
+                     sliver glued to it. -->
+                <Button x:Name="BtnStartMenu" Grid.Column="2" Width="68" Height="50" Margin="8,0,0,0"
+                        Style="{StaticResource PinkButton}" Background="{DynamicResource AccentGradientBrush}"
+                        FontSize="22" Click="BtnStartMenu_Click"
+                        ToolTip="Start options">
+                    <TextBlock Text="▼" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem x:Name="MenuStartNormal" Header="▶  Start normally" Click="MenuStartNormal_Click"/>
+                            <MenuItem x:Name="MenuJumpRightIn" Header="🎲  Jump right in (randomize + start)" Click="MenuJumpRightIn_Click"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <!-- Pause Button (visible only during sessions) -->
+                <Button x:Name="BtnPauseSession" Grid.Column="3" Width="50" Height="50" Margin="6,0,0,0"
+                        Visibility="Collapsed" Click="BtnPauseSession_Click"
+                        ToolTip="{loc:Str tooltip_pause_session_100_xp_penalty_per_pause}">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#FFA500"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="20"/>
+                            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                    <TextBlock x:Name="TxtPauseIcon" Text="⏸" FontSize="20"/>
+                </Button>
+
+                <!-- Save (col 5) / Exit (col 6); col 4 is the gap -->
+                <Button Grid.Column="5" Content="{loc:Str btn_save_2}" Style="{StaticResource PinkButton}"
+                        Height="50" FontSize="16" Margin="0,0,10,0" Click="BtnSave_Click"
+                        ToolTip="{loc:Str tooltip_save_all_settings_to_disk}"/>
+                <Button Grid.Column="6" Content="{loc:Str btn_exit}" Height="50" FontSize="16" Click="BtnExit_Click"
+                        ToolTip="{loc:Str tooltip_exit_the_application_completely}">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#FF6B6B"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="20,10">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </Grid>
         </Border>
 

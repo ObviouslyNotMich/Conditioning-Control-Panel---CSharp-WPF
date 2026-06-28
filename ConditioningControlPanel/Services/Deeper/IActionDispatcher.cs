@@ -104,6 +104,7 @@ namespace ConditioningControlPanel.Services.Deeper
                 EffectTypes.Bubble     => $"effect bubbles x{te.MaxBubbles} for {te.DurationMs}ms{phaseSuffix}",
                 EffectTypes.Subliminal => $"effect subliminal \"{te.Text}\" for {te.DurationMs}ms{phaseSuffix}",
                 EffectTypes.Overlay    => $"effect overlay {te.OverlayKind} @ {te.Opacity:0.00} for {te.DurationMs}ms{phaseSuffix}",
+                EffectTypes.Speak      => $"effect speak \"{te.SpeakTarget}\" x{te.SpeakRequiredReps}{phaseSuffix}",
                 _ => $"effect {te.EffectType}{phaseSuffix}"
             };
         }
@@ -187,6 +188,8 @@ namespace ConditioningControlPanel.Services.Deeper
         // samples + intensity but a freshly-computed remaining duration.
         private readonly Dictionary<string, string> _overlayBandKind = new();
         private readonly Dictionary<string, BandHapticState> _hapticBandState = new();
+        // Per-EffectId live voice-prompt sessions so band Stop can tear down the right one.
+        private readonly Dictionary<string, SpeakPromptSession> _speakBands = new();
         private readonly object _bandGate = new();
 
         private sealed class BandHapticState
@@ -224,7 +227,7 @@ namespace ConditioningControlPanel.Services.Deeper
                         break;
 
                     case TriggerEffectAction effect:
-                        await DispatchTriggerEffect(effect);
+                        await DispatchTriggerEffect(effect, ctx);
                         break;
 
                     case ScreenShakeAction shake:
@@ -317,7 +320,7 @@ namespace ConditioningControlPanel.Services.Deeper
             }
         }
 
-        private async Task DispatchTriggerEffect(TriggerEffectAction effect)
+        private async Task DispatchTriggerEffect(TriggerEffectAction effect, EnhancementDispatchContext ctx)
         {
             try
             {
@@ -359,6 +362,10 @@ namespace ConditioningControlPanel.Services.Deeper
 
                     case EffectTypes.Overlay:
                         DispatchOverlayEffect(effect);
+                        break;
+
+                    case EffectTypes.Speak:
+                        DispatchSpeakEffect(effect, ctx);
                         break;
 
                     default:
@@ -414,6 +421,58 @@ namespace ConditioningControlPanel.Services.Deeper
                 case EffectPhase.OneShot:
                 default:
                     App.Overlay?.ShowOverlayTimed(kind, effect.DurationMs, effect.Opacity);
+                    break;
+            }
+        }
+
+        // Voice prompt. Band-mode: Start spins up a SpeakPromptSession (cue + listen loop +
+        // hold), Stop tears it down. Restart is a no-op because the session drives its own
+        // loop-back seeks (a seek-back inside the band would otherwise re-enter here). One-shot
+        // (rule-fired) runs a self-scoped session with no EffectId tracking.
+        private void DispatchSpeakEffect(TriggerEffectAction effect, EnhancementDispatchContext ctx)
+        {
+            switch (effect.Phase)
+            {
+                case EffectPhase.Start:
+                {
+                    var session = new SpeakPromptSession(effect, ctx.Source);
+                    SpeakPromptSession? prev = null;
+                    if (!string.IsNullOrEmpty(effect.EffectId))
+                    {
+                        lock (_bandGate)
+                        {
+                            _speakBands.TryGetValue(effect.EffectId!, out prev);
+                            _speakBands[effect.EffectId!] = session;
+                        }
+                    }
+                    prev?.Stop();
+                    session.Start();
+                    break;
+                }
+
+                case EffectPhase.Stop:
+                {
+                    SpeakPromptSession? session = null;
+                    if (!string.IsNullOrEmpty(effect.EffectId))
+                    {
+                        lock (_bandGate)
+                        {
+                            _speakBands.TryGetValue(effect.EffectId!, out session);
+                            _speakBands.Remove(effect.EffectId!);
+                        }
+                    }
+                    session?.Stop();
+                    break;
+                }
+
+                case EffectPhase.Restart:
+                case EffectPhase.Update:
+                    // Session owns its own lifetime across seeks/loops — nothing to do.
+                    break;
+
+                case EffectPhase.OneShot:
+                default:
+                    new SpeakPromptSession(effect, ctx.Source).Start();
                     break;
             }
         }

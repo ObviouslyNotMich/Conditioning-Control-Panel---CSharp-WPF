@@ -10,7 +10,7 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);CCP.Core\**;CCP.Avalonia\**;CCP.Avalonia.Desktop\**;CCP.Avalonia.Desktop.Windows\**;CCP.Avalonia.Desktop.Linux\**;CCP.Avalonia.Desktop.macOS\**;CCP.Avalonia.Android\**;CCP.WindowsOnly\**;tests\**</DefaultItemExcludes>
     <AssemblyName>ConditioningControlPanel</AssemblyName>
     <RootNamespace>ConditioningControlPanel</RootNamespace>
-    <Version>6.1.7</Version>
+    <Version>6.2.1</Version>
     <Company>CodeBambi</Company>
     <Product>Conditioning Control Panel</Product>
     <Description>A professional visual conditioning application with gamification features.</Description>
@@ -76,6 +76,15 @@
     <!-- Audio Control -->
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+
+    <!-- Offline speech recognition (Takeover "repeat after me" mechanic).
+         Vosk = local, closed-grammar STT; native libvosk ships in the package's
+         runtimes/win-x64 and extracts via IncludeNativeLibrariesForSelfExtract for
+         single-file. The acoustic MODEL is NOT in the package — it's dropped into
+         Resources\Models\vosk\ (see Content include below) and resolved at runtime by
+         Services/Speech/SpeechService.cs. No model on disk => SpeechService no-ops.
+         Privacy contract: audio stays on device, never transmitted, never written to disk. -->
+    <PackageReference Include="Vosk" Version="0.3.38" />
     <!-- Logging -->
     <PackageReference Include="Serilog" Version="3.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />

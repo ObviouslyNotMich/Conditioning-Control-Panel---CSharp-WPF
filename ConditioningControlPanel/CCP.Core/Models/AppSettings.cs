@@ -908,6 +908,30 @@ namespace ConditioningControlPanel.Models
             set { _backgroundMusicEnabled = value; OnPropertyChanged(); }
         }
 
+        private bool _browserVideoMuted = false;
+        /// <summary>
+        /// When true, the integrated browser's audio (BambiCloud / HypnoTube video)
+        /// is muted via CoreWebView2.IsMuted. Lets users run their own audio
+        /// alongside CCP without the browser video doubling on top.
+        /// </summary>
+        public bool BrowserVideoMuted
+        {
+            get => _browserVideoMuted;
+            set { _browserVideoMuted = value; OnPropertyChanged(); }
+        }
+
+        private string? _rememberedConfigJson;
+        /// <summary>
+        /// One-slot snapshot for the header "Remember" button — the conditioning
+        /// config (as a Preset) plus the premium toggle states + browser mute.
+        /// Null/empty = nothing remembered yet. Progression/XP are never captured.
+        /// </summary>
+        public string? RememberedConfigJson
+        {
+            get => _rememberedConfigJson;
+            set { _rememberedConfigJson = value; OnPropertyChanged(); }
+        }
+
         // MMDevice ID of the playback endpoint the user wants CCP audio routed to.
         // Empty = system default. Streaming use case: route CCP to a private headset
         // while the stream's default endpoint stays clean.
@@ -2089,6 +2113,44 @@ namespace ConditioningControlPanel.Models
             set { _bubblesClickable = value; OnPropertyChanged(); }
         }
 
+        // ---- Trigger Bubbles (ambient bubbles that fire a Chaos effect on pop) ----
+        private bool _bubbleTriggersEnabled = false;
+        public bool BubbleTriggersEnabled
+        {
+            get => _bubbleTriggersEnabled;
+            set { _bubbleTriggersEnabled = value; OnPropertyChanged(); }
+        }
+        private int _bubbleTriggerChance = 10;   // percent of spawns that carry an effect
+        public int BubbleTriggerChance
+        {
+            get => _bubbleTriggerChance;
+            set { _bubbleTriggerChance = Math.Clamp(value, 0, 50); OnPropertyChanged(); }
+        }
+        private int _bubbleSpeedBoost = 0;   // 0..500 % extra travel speed for on-screen bubbles
+        public int BubbleSpeedBoost
+        {
+            get => _bubbleSpeedBoost;
+            set { _bubbleSpeedBoost = Math.Clamp(value, 0, 500); OnPropertyChanged(); }
+        }
+        // Which effect types are in the pool (equal odds among the picked ids).
+        // Ids map to ChaosBubbleVariants ("htlink" == Cascade/Gif Rain); "glitch" is the
+        // full-screen GIF wash faced with glitch.png — built dashboard-side, not a chaos variant.
+        private List<string> _bubbleTriggerVariants = new()
+            { "flash", "subliminal", "pink", "spiral", "glitch", "htlink", "video" };
+        public List<string> BubbleTriggerVariants
+        {
+            get => _bubbleTriggerVariants;
+            set { _bubbleTriggerVariants = value ?? new List<string>(); OnPropertyChanged(); }
+        }
+        // Easter egg: when an effect bubble lingers >4s, a 10% roll sends the companion to glide over,
+        // narrate the effect, and pop it for you (50% louder). Gated under BubbleTriggersEnabled.
+        private bool _bubbleAvatarEggEnabled = true;
+        public bool BubbleAvatarEggEnabled
+        {
+            get => _bubbleAvatarEggEnabled;
+            set { _bubbleAvatarEggEnabled = value; OnPropertyChanged(); }
+        }
+
         // ---- Chaos Mode (effect-bubbles roguelite, Lab) ----
         private bool _chaosModeEnabled = true;
         public bool ChaosModeEnabled
@@ -2268,6 +2330,7 @@ namespace ConditioningControlPanel.Models
             get => _narrativeModeEnabled;
             set { _narrativeModeEnabled = value; OnPropertyChanged(); }
         }
+
         private bool _backdropEnabled = true;
         /// <summary>Show per-zone backdrop plates under the chaos bubbles. When OFF, no backdrop window
         /// spawns and classic Chaos keeps its desktop click-through behavior exactly.</summary>
@@ -2328,6 +2391,18 @@ namespace ConditioningControlPanel.Models
         {
             get => _lockCardStrict;
             set { _lockCardStrict = value; OnPropertyChanged(); }
+        }
+
+        private bool _lockCardVoiceMode = false; // Solve by speaking the phrase (offline mic) instead of typing
+        /// <summary>
+        /// When true, lock cards are solved by saying the phrase out loud (offline Vosk mic) rather
+        /// than typing it. Falls back to typing automatically if speech isn't available or mic
+        /// consent wasn't given, so the user is never trapped.
+        /// </summary>
+        public bool LockCardVoiceMode
+        {
+            get => _lockCardVoiceMode;
+            set { _lockCardVoiceMode = value; OnPropertyChanged(); }
         }
         
         private Dictionary<string, bool> _lockCardPhrases = new()
@@ -3402,6 +3477,150 @@ namespace ConditioningControlPanel.Models
         {
             get => _autonomyAnnouncementChance;
             set { _autonomyAnnouncementChance = Math.Clamp(value, 0, 100); OnPropertyChanged(); }
+        }
+
+        // ── Takeover start/stop + speech ("repeat after me") ──────────────────────
+
+        private bool _autonomyResumeOnStartup = false;
+        /// <summary>
+        /// Opt-in: re-arm Takeover automatically on app launch. Default OFF — Takeover now
+        /// always starts OFF and the user explicitly turns it on (fixes "it stays on after restart").
+        /// </summary>
+        [JsonProperty]
+        public bool AutonomyResumeOnStartup
+        {
+            get => _autonomyResumeOnStartup;
+            set { _autonomyResumeOnStartup = value; OnPropertyChanged(); }
+        }
+
+        private bool _autonomyCanTriggerVoiceCommand = true;
+        /// <summary>
+        /// Takeover "Surprise me with mantras": let the autonomy scheduler auto-prompt a spoken
+        /// mantra during Takeover. Only ever fires when the speech engine is available (model + mic),
+        /// mic consent is given, and the user isn't already driving the mic (wake/PTT). Self-disables
+        /// otherwise. The on-demand mantra capability lives separately in <see cref="SpokenMantrasEnabled"/>.
+        /// </summary>
+        [JsonProperty]
+        public bool AutonomyCanTriggerVoiceCommand
+        {
+            get => _autonomyCanTriggerVoiceCommand;
+            set { _autonomyCanTriggerVoiceCommand = value; OnPropertyChanged(); }
+        }
+
+        private bool _spokenMantrasEnabled = false;
+        /// <summary>
+        /// "She's Listening" on-demand spoken mantras: when on, a wake-word / push-to-talk turn that
+        /// doesn't match a voice command falls back to a mantra, and the Test affordance works. The
+        /// Takeover *surprise* auto-trigger is the separate <see cref="AutonomyCanTriggerVoiceCommand"/>.
+        /// Independent of Takeover — the mic features are decoupled from it.
+        /// </summary>
+        [JsonProperty]
+        public bool SpokenMantrasEnabled
+        {
+            get => _spokenMantrasEnabled;
+            set { _spokenMantrasEnabled = value; OnPropertyChanged(); }
+        }
+
+        private bool _micConsentGiven = false;
+        /// <summary>
+        /// Explicit consent to open the microphone for the offline "repeat after me" mechanic.
+        /// Never implied — the mic stays closed until this is true.
+        /// </summary>
+        [JsonProperty]
+        public bool MicConsentGiven
+        {
+            get => _micConsentGiven;
+            set { _micConsentGiven = value; OnPropertyChanged(); }
+        }
+
+        private int _speechInputDeviceIndex = -1;
+        /// <summary>WaveIn capture device index, or -1 for the Windows default device.</summary>
+        [JsonProperty]
+        public int SpeechInputDeviceIndex
+        {
+            get => _speechInputDeviceIndex;
+            set { _speechInputDeviceIndex = value; OnPropertyChanged(); }
+        }
+
+        private double _speechMatchThreshold = 0.62;
+        /// <summary>Minimum fuzzy similarity (0..1) for a spoken phrase to count as a match.</summary>
+        [JsonProperty]
+        public double SpeechMatchThreshold
+        {
+            get => _speechMatchThreshold;
+            set { _speechMatchThreshold = Math.Clamp(value, 0.1, 1.0); OnPropertyChanged(); }
+        }
+
+        private double _speechLoudnessThreshold = 0.04;
+        /// <summary>Minimum peak RMS loudness (0..1) for a phrase to count as "said out loud".</summary>
+        [JsonProperty]
+        public double SpeechLoudnessThreshold
+        {
+            get => _speechLoudnessThreshold;
+            set { _speechLoudnessThreshold = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
+        }
+
+        private bool _speechWakeWordEnabled = false;
+        /// <summary>Opt-in always-on "Hey Bambi" wake-word listening (mic stays open). Pass-2 UI.</summary>
+        [JsonProperty]
+        public bool SpeechWakeWordEnabled
+        {
+            get => _speechWakeWordEnabled;
+            set { _speechWakeWordEnabled = value; OnPropertyChanged(); }
+        }
+
+        private string _speechWakeWords = "hey bambi";
+        /// <summary>Comma-separated wake phrases for the opt-in always-on path.</summary>
+        [JsonProperty]
+        public string SpeechWakeWords
+        {
+            get => _speechWakeWords;
+            set { _speechWakeWords = value ?? ""; OnPropertyChanged(); }
+        }
+
+        private bool _speechPushToTalkEnabled = false;
+        /// <summary>Opt-in push-to-talk (overrides auto-listen for noisy rooms). Pass-2 UI.</summary>
+        [JsonProperty]
+        public bool SpeechPushToTalkEnabled
+        {
+            get => _speechPushToTalkEnabled;
+            set { _speechPushToTalkEnabled = value; OnPropertyChanged(); }
+        }
+
+        private string _speechPushToTalkKey = "F8";
+        /// <summary>The key that summons a voice prompt when push-to-talk is on. Parsed as a <see cref="System.Windows.Input.Key"/>.</summary>
+        [JsonProperty]
+        public string SpeechPushToTalkKey
+        {
+            get => _speechPushToTalkKey;
+            set { _speechPushToTalkKey = string.IsNullOrWhiteSpace(value) ? "F8" : value; OnPropertyChanged(); }
+        }
+
+        private double _speechWakeMatchThreshold = 0.6;
+        /// <summary>
+        /// Fuzzy-match strictness (0..1) for the "Hey Bambi" wake word. Lower = wakes more easily (good
+        /// because "bambi" is out-of-vocabulary for the offline model, so it transcribes loosely); higher
+        /// = fewer false wakes. Default 0.6 — was effectively 0.8, which missed ~half of real wakes.
+        /// </summary>
+        [JsonProperty]
+        public double SpeechWakeMatchThreshold
+        {
+            get => _speechWakeMatchThreshold;
+            set { _speechWakeMatchThreshold = Math.Clamp(value, 0.3, 0.95); OnPropertyChanged(); }
+        }
+
+        private bool _speechHeadphonesMode = false;
+        /// <summary>
+        /// "I use headphones" — when on, the avatar's own voice can't bleed into the mic, so the command
+        /// listener allows barge-in: it skips the wait-until-she's-quiet echo guard and opens the mic even
+        /// while she's still talking. Off (default, safe for speakers) keeps the half-duplex guard so the
+        /// recognizer never hears her own voice as a bogus command.
+        /// </summary>
+        [JsonProperty]
+        public bool SpeechHeadphonesMode
+        {
+            get => _speechHeadphonesMode;
+            set { _speechHeadphonesMode = value; OnPropertyChanged(); }
         }
 
         #endregion

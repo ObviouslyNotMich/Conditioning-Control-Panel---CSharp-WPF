@@ -1071,6 +1071,10 @@ namespace ConditioningControlPanel.Services
             switch (field.ToLowerInvariant())
             {
                 case "video_playing": return App.Video?.IsPlaying ?? false;
+                // True only while webcam tracking is actually live (Tracking/FaceLost) — the same
+                // source the OnFaceFound/OnBlink/OnLongStare events fire from. Lets watching/camera-
+                // themed lines on non-webcam triggers (Idle, etc.) gate on the cam actually being on.
+                case "webcam_running": return App.Webcam?.IsRunning ?? false;
                 case "session_running": return _state.SessionRunning;
                 case "setup_idle_sec": return _state.SetupIdleSeconds;
                 case "session_elapsed_sec": return _state.SessionElapsedSeconds;
@@ -1222,6 +1226,43 @@ namespace ConditioningControlPanel.Services
         }
 
         /// <summary>
+        /// Public access to the per-mod voiceline path resolver, for inline voiced bubbles
+        /// (e.g. the "Hey Bambi" wake ack + voice-command confirmations) that render via
+        /// GigglePriority directly rather than through the bark engine.
+        /// </summary>
+        public static string? ResolveModAudio(string? file) => ResolveBarkAudio(file);
+
+        // Last variant index served per voice-line rule, so PickVoiceLine avoids an immediate repeat.
+        private readonly Dictionary<string, int> _lastVoiceIdx = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Pick a variant (display text + resolved per-mod audio path) for the given rule id from the
+        /// ACTIVE mod's loaded ruleset, avoiding an immediate repeat. Lets inline voiced bubbles (the
+        /// "Hey Bambi" wake ack + voice-command confirmations) keep their text single-sourced in the
+        /// bark manifests so the spoken clip always matches the on-screen line. Null when the rule or
+        /// its pool is absent (caller falls back to its own text, unvoiced).
+        /// </summary>
+        public (string Text, string? Audio)? PickVoiceLine(string ruleId)
+        {
+            if (string.IsNullOrWhiteSpace(ruleId)) return null;
+            BarkVariant? v;
+            lock (_gate)
+            {
+                var rule = _rules.AllRules.FirstOrDefault(
+                    r => string.Equals(r.Id, ruleId, StringComparison.OrdinalIgnoreCase));
+                var pool = rule?.VariantPool;
+                if (pool == null || pool.Count == 0) return null;
+
+                var idx = _rng.Next(pool.Count);
+                if (pool.Count > 1 && _lastVoiceIdx.TryGetValue(ruleId, out var last) && idx == last)
+                    idx = (idx + 1) % pool.Count;
+                _lastVoiceIdx[ruleId] = idx;
+                v = pool[idx];
+            }
+            return (v.Text, ResolveBarkAudio(v.Audio));
+        }
+
+        /// <summary>
         /// Resolve a variant's voiceline filename to a full path: active mod's
         /// companion_audio folder first, embedded fallback second. Null if absent/missing.
         /// </summary>
@@ -1260,9 +1301,18 @@ namespace ConditioningControlPanel.Services
             if (pool.Count == 0)
                 return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = "empty-pool" };
 
-            // Safety and guaranteed reactions bypass the gate entirely.
+            // Safety and guaranteed reactions bypass the timing/floor gates entirely.
             bool isSafety = rule.Class == BarkClass.Safety;
             bool bypass = isSafety || guaranteed;
+
+            // One-shot (repeatable=false): fire once per scope. Session is in-memory; tier/lifetime
+            // consult the persisted latch (AppSettings.BarkLifetimeFired). This dedup is NOT bypassed
+            // by `guaranteed` — guaranteed means "ignore timing/floor", not "fire again". Otherwise a
+            // guaranteed lifetime one-shot (e.g. a streak milestone) would replay on every launch if
+            // the caller's own latch ever got reset. Safety barks (Panic) stay exempt — they may
+            // intentionally fire repeatedly and are typically repeatable anyway.
+            if (!isSafety && !rule.Repeatable && AlreadyFiredOnce(rule))
+                return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = $"already-fired ({rule.Scope})" };
 
             if (!bypass)
             {
@@ -1293,11 +1343,6 @@ namespace ConditioningControlPanel.Services
                 bool willPreempt = rule.Class != BarkClass.Normal || rule.Priority >= PriorityBarkThreshold;
                 if (!willPreempt && (App.AvatarWindow?.IsSpeaking ?? false))
                     return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = "speaking" };
-
-                // One-shot (repeatable=false): fire once per scope. Session is in-memory;
-                // tier/lifetime consult the persisted latch (AppSettings.BarkLifetimeFired).
-                if (!rule.Repeatable && AlreadyFiredOnce(rule))
-                    return new GateDecision { WouldFire = false, VariantIndex = -1, Reason = $"already-fired ({rule.Scope})" };
 
                 // Global min-gap.
                 var sinceGlobal = (DateTime.UtcNow - _globalLastFireUtc).TotalMilliseconds;

@@ -105,7 +105,7 @@ namespace ConditioningControlPanel
                 // Logout
                 App.ProfileSync?.StopHeartbeat();
                 App.Patreon.Logout();
-                if (App.Discord?.IsAuthenticated != true)
+                if (App.Discord?.IsAuthenticated != true && App.SubscribeStar?.IsAuthenticated != true)
                 {
                     // No provider left — full logout
                     ClearAccountData();
@@ -176,7 +176,7 @@ namespace ConditioningControlPanel
             {
                 // Logout
                 App.Discord.Logout();
-                if (App.Patreon?.IsAuthenticated != true)
+                if (App.Patreon?.IsAuthenticated != true && App.SubscribeStar?.IsAuthenticated != true)
                 {
                     // No provider left — full logout
                     ClearAccountData();

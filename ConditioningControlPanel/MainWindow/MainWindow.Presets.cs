@@ -920,7 +920,7 @@ namespace ConditioningControlPanel
 
             var popup = new Features.FeaturePopupWindow(
                 control,
-                Localization.Loc.Get("blink_trainer_section_webcam"),
+                "Webcam & Mic",
                 glyph: "📷")
             {
                 Owner = this

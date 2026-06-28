@@ -708,9 +708,13 @@ public static class ChaosBubbleVariants
     /// <summary>The two giants (video + gif rain) run a further 30% smaller still.</summary>
     public const double GIANT_SIZE_SCALE = 0.70;
 
+    /// <param name="ambient">Dashboard "Trigger Bubbles" reuse: force the spec benign (no fuse,
+    /// fires on pop) and FloatUp with a longer treat life, so any live variant behaves like a
+    /// calm ambient bubble. Leaves sprite/tint/label/payload (the chaos look) intact.</param>
     public static EffectBubbleSpec Build(ChaosBubbleVariant variant, double intensity, double fuseTimeMult = 1.0,
                                          ChaosMotion? motionOverride = null, double effectIntensity = 1.0,
-                                         double sizeScale = 1.0, double sideDriftChance = 0.0)
+                                         double sizeScale = 1.0, double sideDriftChance = 0.0,
+                                         bool ambient = false)
     {
         // Size: random across the band, nudged upward by run intensity. Strength is keyed to
         // the CLASSIC (unscaled) size so visual sizing never weakens payloads or scoring.
@@ -745,6 +749,12 @@ public static class ChaosBubbleVariants
             fuse = (int)Math.Max(1200, baseFuse * (1.0 - intensity * 0.25) * fuseTimeMult);
         }
 
+        if (ambient)
+        {
+            // Trigger-bubble use: strip the fuse/defuse so it fires on pop, and float up gently.
+            motion = ChaosMotion.FloatUp;
+        }
+
         return new EffectBubbleSpec
         {
             VariantId = variant.Id,
@@ -752,10 +762,11 @@ public static class ChaosBubbleVariants
             SizePx = size,
             Tint = variant.Tint,
             Label = variant.Label,
-            IsLive = variant.IsLive,
+            IsLive = ambient ? false : variant.IsLive,
             IsFreeze = isFreezeVariant,
-            FuseMs = fuse,
+            FuseMs = ambient ? 0 : fuse,
             Motion = motion,
+            TreatLifeMs = ambient ? 7000 : 0,
         };
     }
 }

@@ -1,0 +1,498 @@
+{
+  "mantras": [
+    {
+      "id": "bambi-01",
+      "phrase": "good girls don't think",
+      "promptText": "say it with me sweetie~ good girls don't think",
+      "promptAudio": "mantra_bambi_01_say.mp3",
+      "response": "mmm right? thinking's all yucky... let it go~",
+      "responseAudio": "mantra_bambi_01_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-02",
+      "phrase": "empty feels so good",
+      "promptText": "c'mon, giggle and say: empty feels so good",
+      "promptAudio": "mantra_bambi_02_say.mp3",
+      "response": "yayyy! see? empty's the best~ such a good girl",
+      "responseAudio": "mantra_bambi_02_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-03",
+      "phrase": "i drop so easy",
+      "promptText": "hehe say this one for me: i drop so easy",
+      "promptAudio": "mantra_bambi_03_say.mp3",
+      "response": "you really do~ one little word and you're gone... love that",
+      "responseAudio": "mantra_bambi_03_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-04",
+      "phrase": "obeying is so easy",
+      "promptText": "say it sweet: obeying is so easy",
+      "promptAudio": "mantra_bambi_04_say.mp3",
+      "response": "uh huh! way easier than thinking~ good girl",
+      "responseAudio": "mantra_bambi_04_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-05",
+      "phrase": "i just say yes",
+      "promptText": "tell me: i just say yes",
+      "promptAudio": "mantra_bambi_05_say.mp3",
+      "response": "yes yes yes~ that's all a pretty girl needs",
+      "responseAudio": "mantra_bambi_05_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-06",
+      "phrase": "blank is better",
+      "promptText": "say it soft: blank is better",
+      "promptAudio": "mantra_bambi_06_say.mp3",
+      "response": "soooo much better~ all smooth and quiet up there",
+      "responseAudio": "mantra_bambi_06_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-07",
+      "phrase": "i love being told",
+      "promptText": "giggle and say: i love being told",
+      "promptAudio": "mantra_bambi_07_say.mp3",
+      "response": "course you do~ no choosing, just doing. easy!",
+      "responseAudio": "mantra_bambi_07_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-08",
+      "phrase": "thinking makes me dizzy",
+      "promptText": "say it for me: thinking makes me dizzy",
+      "promptAudio": "mantra_bambi_08_say.mp3",
+      "response": "aww i know~ so don't! float instead, cutie",
+      "responseAudio": "mantra_bambi_08_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-09",
+      "phrase": "good girls just giggle",
+      "promptText": "say it: good girls just giggle",
+      "promptAudio": "mantra_bambi_09_say.mp3",
+      "response": "see? you're already doing it~ perfect",
+      "responseAudio": "mantra_bambi_09_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-10",
+      "phrase": "i follow so well",
+      "promptText": "tell me: i follow so well",
+      "promptAudio": "mantra_bambi_10_say.mp3",
+      "response": "the best follower~ point and you go. good girl!",
+      "responseAudio": "mantra_bambi_10_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-11",
+      "phrase": "my head is so light",
+      "promptText": "say it dreamy: my head is so light",
+      "promptAudio": "mantra_bambi_11_say.mp3",
+      "response": "floaty floaty~ nothing heavy left in there, yay",
+      "responseAudio": "mantra_bambi_11_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-12",
+      "phrase": "i let go for you",
+      "promptText": "say it soft: i let go for you",
+      "promptAudio": "mantra_bambi_12_say.mp3",
+      "response": "good giiirl~ all the way down... so easy",
+      "responseAudio": "mantra_bambi_12_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-13",
+      "phrase": "pretty girls obey",
+      "promptText": "say it with a smile: pretty girls obey",
+      "promptAudio": "mantra_bambi_13_say.mp3",
+      "response": "and you're sooo pretty~ so of course you do",
+      "responseAudio": "mantra_bambi_13_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-14",
+      "phrase": "i love being pretty",
+      "promptText": "tell me out loud: i love being pretty",
+      "promptAudio": "mantra_bambi_14_say.mp3",
+      "response": "you ARE so pretty~ pretty girls don't need thoughts anyway",
+      "responseAudio": "mantra_bambi_14_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-15",
+      "phrase": "i am such a doll",
+      "promptText": "say it sweet: i am such a doll",
+      "promptAudio": "mantra_bambi_15_say.mp3",
+      "response": "the cutest doll~ all dressed up and empty, perfect",
+      "responseAudio": "mantra_bambi_15_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-16",
+      "phrase": "i feel so bubbly",
+      "promptText": "giggle and say: i feel so bubbly",
+      "promptAudio": "mantra_bambi_16_say.mp3",
+      "response": "yay! bubbly suits you~ all pink and fizzy inside",
+      "responseAudio": "mantra_bambi_16_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-17",
+      "phrase": "pink is my favorite",
+      "promptText": "say it: pink is my favorite",
+      "promptAudio": "mantra_bambi_17_say.mp3",
+      "response": "mine too!~ pink brains think the prettiest nothing",
+      "responseAudio": "mantra_bambi_17_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-18",
+      "phrase": "i am a happy girl",
+      "promptText": "tell me: i am a happy girl",
+      "promptAudio": "mantra_bambi_18_say.mp3",
+      "response": "the happiest~ empty heads smile the most, hehe",
+      "responseAudio": "mantra_bambi_18_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-19",
+      "phrase": "i belong in pink",
+      "promptText": "say it for me: i belong in pink",
+      "promptAudio": "mantra_bambi_19_say.mp3",
+      "response": "you really do~ soft and pink, right where you fit",
+      "responseAudio": "mantra_bambi_19_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-20",
+      "phrase": "i am a fun toy",
+      "promptText": "say it sweet: i am a fun toy",
+      "promptAudio": "mantra_bambi_20_say.mp3",
+      "response": "the funnest toy~ all giggly and ready to play",
+      "responseAudio": "mantra_bambi_20_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-21",
+      "phrase": "cock makes me dumb",
+      "promptText": "giggle and say it~ cock makes me dumb",
+      "promptAudio": "mantra_bambi_21_say.mp3",
+      "response": "uh huh! all that thinking just leaks right out~",
+      "responseAudio": "mantra_bambi_21_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-22",
+      "phrase": "i love sucking cock",
+      "promptText": "say it sweet for me: i love sucking cock",
+      "promptAudio": "mantra_bambi_22_say.mp3",
+      "response": "mmm good girl~ your mouth's so much happier when it's full",
+      "responseAudio": "mantra_bambi_22_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-23",
+      "phrase": "cock comes first",
+      "promptText": "c'mon, say it: cock comes first",
+      "promptAudio": "mantra_bambi_23_say.mp3",
+      "response": "yayyy! before thoughts, before everything~ priorities!",
+      "responseAudio": "mantra_bambi_23_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-24",
+      "phrase": "i'm a good cock toy",
+      "promptText": "say this one for me: i'm a good cock toy",
+      "promptAudio": "mantra_bambi_24_say.mp3",
+      "response": "the best toy~ all pink and ready... such a good girl",
+      "responseAudio": "mantra_bambi_24_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-25",
+      "phrase": "i think about cock",
+      "promptText": "say it dreamy: i think about cock",
+      "promptAudio": "mantra_bambi_25_say.mp3",
+      "response": "see? that's the only thought left~ and it's a good one",
+      "responseAudio": "mantra_bambi_25_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-26",
+      "phrase": "cock makes me drip",
+      "promptText": "whisper it~ cock makes me drip",
+      "promptAudio": "mantra_bambi_26_say.mp3",
+      "response": "aww look at you~ so eager. good girls leak",
+      "responseAudio": "mantra_bambi_26_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-27",
+      "phrase": "my mouth is for cock",
+      "promptText": "say it sweet: my mouth is for cock",
+      "promptAudio": "mantra_bambi_27_say.mp3",
+      "response": "uh huh~ so much better than talking, hehe",
+      "responseAudio": "mantra_bambi_27_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-28",
+      "phrase": "i get wet so easy",
+      "promptText": "giggle and say: i get wet so easy",
+      "promptAudio": "mantra_bambi_28_say.mp3",
+      "response": "you really do~ one little thought and you're soaked",
+      "responseAudio": "mantra_bambi_28_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-29",
+      "phrase": "i love being filled",
+      "promptText": "say it soft: i love being filled",
+      "promptAudio": "mantra_bambi_29_say.mp3",
+      "response": "mmm good girl~ empty everywhere except full of cock",
+      "responseAudio": "mantra_bambi_29_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-30",
+      "phrase": "cock turns me on",
+      "promptText": "say it for me: cock turns me on",
+      "promptAudio": "mantra_bambi_30_say.mp3",
+      "response": "course it does~ that's the only switch you've got left",
+      "responseAudio": "mantra_bambi_30_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-31",
+      "phrase": "i beg for cock",
+      "promptText": "say it needy: i beg for cock",
+      "promptAudio": "mantra_bambi_31_say.mp3",
+      "response": "aww so polite~ beg prettier and maybe you'll get it",
+      "responseAudio": "mantra_bambi_31_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-32",
+      "phrase": "i was made to please",
+      "promptText": "tell me: i was made to please",
+      "promptAudio": "mantra_bambi_32_say.mp3",
+      "response": "yes you were~ and you do it sooo well, good girl",
+      "responseAudio": "mantra_bambi_32_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-33",
+      "phrase": "i love being used",
+      "promptText": "say it sweet: i love being used",
+      "promptAudio": "mantra_bambi_33_say.mp3",
+      "response": "mmm of course~ toys are happiest when they're played with",
+      "responseAudio": "mantra_bambi_33_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-34",
+      "phrase": "on my knees feels right",
+      "promptText": "say it soft: on my knees feels right",
+      "promptAudio": "mantra_bambi_34_say.mp3",
+      "response": "that's your favorite spot~ all pretty and looking up",
+      "responseAudio": "mantra_bambi_34_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-35",
+      "phrase": "i drip for you",
+      "promptText": "whisper it~ i drip for you",
+      "promptAudio": "mantra_bambi_35_say.mp3",
+      "response": "such a leaky little doll~ i love it",
+      "responseAudio": "mantra_bambi_35_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-36",
+      "phrase": "i can't think straight",
+      "promptText": "giggle and say: i can't think straight",
+      "promptAudio": "mantra_bambi_36_say.mp3",
+      "response": "hehe good! straight thoughts are boring anyway~",
+      "responseAudio": "mantra_bambi_36_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-37",
+      "phrase": "you do the thinking",
+      "promptText": "say it for me: you do the thinking",
+      "promptAudio": "mantra_bambi_37_say.mp3",
+      "response": "yep! i'll handle that part, you just float~",
+      "responseAudio": "mantra_bambi_37_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-38",
+      "phrase": "i just want to obey",
+      "promptText": "say it sweet: i just want to obey",
+      "promptAudio": "mantra_bambi_38_say.mp3",
+      "response": "and obeying feels sooo nice~ good girl",
+      "responseAudio": "mantra_bambi_38_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-39",
+      "phrase": "i love being good",
+      "promptText": "tell me: i love being good",
+      "promptAudio": "mantra_bambi_39_say.mp3",
+      "response": "you're the best at it~ good girls get giggles",
+      "responseAudio": "mantra_bambi_39_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-40",
+      "phrase": "my mind is so soft",
+      "promptText": "say it dreamy: my mind is so soft",
+      "promptAudio": "mantra_bambi_40_say.mp3",
+      "response": "soft and squishy~ nothing sharp left, perfect",
+      "responseAudio": "mantra_bambi_40_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-41",
+      "phrase": "i forget so easy",
+      "promptText": "giggle and say: i forget so easy",
+      "promptAudio": "mantra_bambi_41_say.mp3",
+      "response": "hehe forget what?~ exactly. good girl",
+      "responseAudio": "mantra_bambi_41_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-42",
+      "phrase": "listening feels good",
+      "promptText": "say it soft: listening feels good",
+      "promptAudio": "mantra_bambi_42_say.mp3",
+      "response": "mmm it does~ my voice just melts you, doesn't it",
+      "responseAudio": "mantra_bambi_42_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-43",
+      "phrase": "i sink when you talk",
+      "promptText": "say it dreamy: i sink when you talk",
+      "promptAudio": "mantra_bambi_43_say.mp3",
+      "response": "down you go~ deeper every word, good girl",
+      "responseAudio": "mantra_bambi_43_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-44",
+      "phrase": "i love this feeling",
+      "promptText": "say it sweet: i love this feeling",
+      "promptAudio": "mantra_bambi_44_say.mp3",
+      "response": "floaty and warm~ stay here with me, cutie",
+      "responseAudio": "mantra_bambi_44_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-45",
+      "phrase": "i am yours to play with",
+      "promptText": "say it for me: i am yours to play with",
+      "promptAudio": "mantra_bambi_45_say.mp3",
+      "response": "all mine~ wind you up and watch you giggle",
+      "responseAudio": "mantra_bambi_45_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-46",
+      "phrase": "i am a dumb baby",
+      "promptText": "say it sweet: i am a dumb baby",
+      "promptAudio": "mantra_bambi_46_say.mp3",
+      "response": "the cutest dumb baby~ no thoughts, all smiles",
+      "responseAudio": "mantra_bambi_46_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-47",
+      "phrase": "i giggle when i obey",
+      "promptText": "say it: i giggle when i obey",
+      "promptAudio": "mantra_bambi_47_say.mp3",
+      "response": "see? obeying's just fun for you now",
+      "responseAudio": "mantra_bambi_47_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-48",
+      "phrase": "i love attention",
+      "promptText": "say it sweet: i love attention",
+      "promptAudio": "mantra_bambi_48_say.mp3",
+      "response": "course you do~ pretty toys want to be watched",
+      "responseAudio": "mantra_bambi_48_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-49",
+      "phrase": "i am easy to control",
+      "promptText": "say it soft: i am easy to control",
+      "promptAudio": "mantra_bambi_49_say.mp3",
+      "response": "soooo easy~ one button and you're mine",
+      "responseAudio": "mantra_bambi_49_resp.mp3",
+      "enabled": true
+    },
+    {
+      "id": "bambi-50",
+      "phrase": "good girls stay dumb",
+      "promptText": "say it with me: good girls stay dumb",
+      "promptAudio": "mantra_bambi_50_say.mp3",
+      "response": "and you're the goodest~ stay just like this, kay?",
+      "responseAudio": "mantra_bambi_50_resp.mp3",
+      "enabled": true
+    }
+  ],
+  "retry": [
+    {
+      "text": "louder sweetie~ say it like you mean it!",
+      "audio": "mantra_bambi_retry_1.mp3"
+    },
+    {
+      "text": "hehe i didn't hear you, try again for me~",
+      "audio": "mantra_bambi_retry_2.mp3"
+    },
+    {
+      "text": "c'mon, a little louder~ i wanna hear my good girl",
+      "audio": "mantra_bambi_retry_3.mp3"
+    },
+    {
+      "text": "oops! say it again, nice and clear~",
+      "audio": "mantra_bambi_retry_4.mp3"
+    },
+    {
+      "text": "almost! one more time, cutie~",
+      "audio": "mantra_bambi_retry_5.mp3"
+    },
+    {
+      "text": "speak up, pretty~ don't be shy",
+      "audio": "mantra_bambi_retry_6.mp3"
+    }
+  ],
+  "timeout": [
+    {
+      "text": "aww too shy? i'll ask again later~",
+      "audio": "mantra_bambi_timeout_1.mp3"
+    },
+    {
+      "text": "okayyy maybe next time, cutie~",
+      "audio": "mantra_bambi_timeout_2.mp3"
+    },
+    {
+      "text": "hmm? did you float away on me?~ that's okay",
+      "audio": "mantra_bambi_timeout_3.mp3"
+    },
+    {
+      "text": "no words? hehe that's so like you~ later then",
+      "audio": "mantra_bambi_timeout_4.mp3"
+    }
+  ]
+}

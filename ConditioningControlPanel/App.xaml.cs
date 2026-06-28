@@ -304,6 +304,8 @@ namespace ConditioningControlPanel
         public static DualMonitorVideoService DualMonitorVideo { get; private set; } = null!;
         public static ScreenMirrorService ScreenMirror { get; private set; } = null!;
         public static AutonomyService Autonomy { get; private set; } = null!;
+        /// <summary>Offline speech recognition (Takeover "repeat after me"). May be unavailable (no model/mic); callers check IsAvailable.</summary>
+        public static Services.Speech.SpeechService Speech { get; private set; } = null!;
         public static InteractionQueueService InteractionQueue { get; private set; } = null!;
         public static ContentPackService ContentPacks { get; private set; } = null!;
         public static CompanionService Companion { get; private set; } = null!;
@@ -323,6 +325,7 @@ namespace ConditioningControlPanel
         public static CatalogueLookupService CatalogueLookup { get; private set; } = null!;
         public static LockdownService Lockdown { get; private set; } = null!;
         public static MantraService Mantra { get; private set; } = null!;
+        public static MantraVoiceService MantraVoice { get; private set; } = null!;
         public static ModService Mods { get; private set; } = null!;
         public static BugReportService BugReport { get; private set; } = null!;
         public static WallpaperService? Wallpaper { get; private set; }
@@ -350,7 +353,7 @@ namespace ConditioningControlPanel
         /// Whether user is logged in with Patreon, Discord, or email (required for progression tracking).
         /// HasCloudIdentity covers email login (has UnifiedId) and restored sessions.
         /// </summary>
-        public static bool IsLoggedIn => (Patreon?.IsAuthenticated == true) || (Discord?.IsAuthenticated == true) || HasCloudIdentity;
+        public static bool IsLoggedIn => (Patreon?.IsAuthenticated == true) || (Discord?.IsAuthenticated == true) || (SubscribeStar?.IsAuthenticated == true) || HasCloudIdentity;
 
         /// <summary>
         /// Whether a conditioning session is currently running. Set by MainWindow.
@@ -406,7 +409,8 @@ namespace ConditioningControlPanel
                 return Settings?.Current?.UserDisplayName
                     ?? Patreon?.DisplayName
                     ?? Discord?.CustomDisplayName
-                    ?? Discord?.DisplayName;
+                    ?? Discord?.DisplayName
+                    ?? SubscribeStar?.DisplayName;
             }
         }
 
@@ -1268,6 +1272,11 @@ namespace ConditioningControlPanel
             // Initialize autonomy service (companion autonomous behavior - Level 100+)
             Autonomy = new AutonomyService();
 
+            // Initialize offline speech recognition (Takeover "repeat after me").
+            // Constructor is a no-op; the mic only opens during an explicit listen window, and the
+            // service reports IsAvailable=false (no model on disk / no capture device) instead of throwing.
+            Speech = new Services.Speech.SpeechService();
+
             // Initialize content packs service
             ContentPacks = new ContentPackService();
 
@@ -1329,6 +1338,9 @@ namespace ConditioningControlPanel
 
             // Initialize mantra lab service
             Mantra = new MantraService();
+
+            // Spoken Mantras (Takeover voice mechanic) — loads per-mod mantras.json on demand.
+            MantraVoice = new MantraVoiceService();
 
             // Initialize wallpaper override service
             Wallpaper = new WallpaperService();
@@ -1404,6 +1416,11 @@ namespace ConditioningControlPanel
             // Same problem hits anywhere code does `Application.Current.MainWindow as MainWindow`
             // — popups, feature controls, etc. Expose a stable static reference.
             MainWindowRef = mainWindow;
+
+            // Arm the offline mic features (wake word / push-to-talk) at startup if the user left them
+            // on. They're decoupled from Takeover ("She's Listening" owns them), so they no longer wait
+            // for Takeover to start. No-op unless consent is given and the speech engine is available.
+            try { Autonomy?.RefreshVoiceInputModes(); } catch (Exception ex) { Logger?.Warning(ex, "Startup RefreshVoiceInputModes failed"); }
 
             // First-instance "Open with CCP" dispatch: replay parsed --play/--edit
             // args once MainWindow is fully loaded so the player/editor windows
@@ -1574,17 +1591,26 @@ namespace ConditioningControlPanel
                     ProfileSync.StartHeartbeat();
                 }
 
-                // Start autonomy service if it should be enabled
-                // (might have been skipped during LoadSettings if whitelist wasn't loaded yet)
+                // Re-arm Takeover on launch ONLY if the user opted in (AutonomyResumeOnStartup).
+                // Takeover now always starts OFF by default — this fixes "it stays on after a restart".
+                // The enabled+consent flags persist so the toggle remembers its label, but the service
+                // does not auto-run unless resume-on-startup is explicitly turned on.
                 var s = Settings?.Current;
-                if (s != null && s.AutonomyModeEnabled && s.AutonomyConsentGiven)
+                if (s != null && s.AutonomyResumeOnStartup && s.AutonomyModeEnabled && s.AutonomyConsentGiven)
                 {
                     var hasPatreonAccess = s.PatreonTier >= 1 || Patreon?.IsWhitelisted == true;
                     if (hasPatreonAccess && Autonomy?.IsEnabled != true)
                     {
                         Autonomy?.Start();
-                        Logger?.Information("Started autonomy service after Patreon validation");
+                        Logger?.Information("Re-armed Takeover on startup (AutonomyResumeOnStartup opt-in)");
                     }
+                }
+                else if (s != null && s.AutonomyModeEnabled && !s.AutonomyResumeOnStartup)
+                {
+                    // Clear the stale "enabled" flag so the UI shows OFF on a fresh launch and a
+                    // mid-pulse Stop() from a previous run can't leave anything armed.
+                    s.AutonomyModeEnabled = false;
+                    Logger?.Information("Takeover left OFF on startup (resume-on-startup not opted in)");
                 }
             }
             catch (Exception ex)

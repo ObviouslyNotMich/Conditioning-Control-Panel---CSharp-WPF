@@ -83,6 +83,28 @@
                 </Grid>
             </Border>
 
+            <!-- Solve by voice -->
+            <Border Background="{DynamicResource SurfaceBgBrush}"
+                    BorderBrush="{DynamicResource GlassBorderBrush}"
+                    BorderThickness="1" CornerRadius="10" Padding="16,12" Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="🎤 Solve by voice" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="TxtVoiceHint"
+                                   Text="Say the phrase out loud instead of typing it (offline mic). Falls back to typing if no mic."
+                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" x:Name="ChkVoiceMode"
+                              Style="{StaticResource ToggleStyle}" VerticalAlignment="Center"
+                              Checked="ChkVoiceMode_Changed" Unchecked="ChkVoiceMode_Changed"/>
+                </Grid>
+            </Border>
+
             <!-- Actions -->
             <Grid Margin="0,0,0,0">
                 <Grid.ColumnDefinitions>
