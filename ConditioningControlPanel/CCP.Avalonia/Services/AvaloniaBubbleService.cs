@@ -27,7 +27,6 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     private readonly ILogger<AvaloniaBubbleService>? _logger;
     private readonly ILogger<BubbleEngine>? _bubbleEngineLogger;
     private readonly BubbleEngine _ambientEngine;
-    private readonly Dictionary<Guid, AvaloniaBubbleWindow> _windows = new();
 
     private readonly BubbleLayer? _bubbleLayer;
 
@@ -35,6 +34,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     private SharedHostBubbleRenderer? _sharedHostRenderer;
     private bool _sharedHost;
     private Bitmap? _bubbleBitmap;
+    private SkiaSharp.SKImage? _bubbleSkImage;
     private int _mouseHookRefCount;
 
     // ---- active-toy state (Avalonia parity stubs) ----
@@ -70,6 +70,8 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _bubbleLayer = compositor != null ? new BubbleLayer() : null;
         if (_bubbleLayer != null)
             compositor?.RegisterLayer(_bubbleLayer);
+        // The Skia bubble image is decoded in LoadBubbleImage() (called from Start) and handed
+        // to the layer. All bubbles — ambient and chaos — render through this single surface.
     }
 
     public bool IsRunning => _ambientEngine.IsRunning;
@@ -109,6 +111,7 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _chaosEngine = null;
         _sharedHostRenderer = null;
         ReleaseMouseHook();
+        _bubbleLayer?.Clear();
         _bubbleBitmap?.Dispose();
         _bubbleBitmap = null;
     }
@@ -127,28 +130,10 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         int popped = 0;
 
-        // Ambient bubbles first — they share the same window dictionary as chaos bubbles
-        // but have no spec (or a non-live spec via the ambient engine).
-        if (_ambientEngine != null)
+        // Ambient bubbles — UCE single-surface path: hit-test the Skia BubbleLayer.
+        if (_ambientEngine != null && _bubbleLayer != null)
         {
-            List<Guid> ambientHits;
-            lock (_windows)
-            {
-                ambientHits = _windows
-                    .Where(kv => kv.Value.Scaling > 0)
-                    .Where(kv =>
-                    {
-                        var w = kv.Value;
-                        var scale = w.Scaling;
-                        var r = new PixelRect(w.Position.X / scale, w.Position.Y / scale, w.Width, w.Height);
-                        return rectDips.X < r.Right && rectDips.Right > r.X &&
-                               rectDips.Y < r.Bottom && rectDips.Bottom > r.Y;
-                    })
-                    .Select(kv => kv.Key)
-                    .ToList();
-            }
-
-            foreach (var id in ambientHits)
+            foreach (var id in _bubbleLayer.HitTestInRect(rectDips))
             {
                 _logger?.LogDebug("PopBubblesInRect popping ambient bubble {Id}", id);
                 _ambientEngine.PopBubble(id);
@@ -397,30 +382,12 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         if (_ambientEngine == null || !_ambientEngine.IsRunning || _ambientEngine.IsPaused) return;
 
-        AvaloniaBubbleWindow? hit = null;
-        lock (_windows)
+        // UCE single-surface path: hit-test against the Skia BubbleLayer directly.
+        var hit = _bubbleLayer?.HitTest(x, y) ?? Guid.Empty;
+        if (hit != Guid.Empty)
         {
-            foreach (var kv in _windows)
-            {
-                var w = kv.Value;
-                if (w.Scaling <= 0) continue;
-
-                // Window.Position is in physical pixels; Width/Height are DIPs.
-                var rect = new global::Avalonia.Rect(
-                    w.Position.X,
-                    w.Position.Y,
-                    w.Width * w.Scaling,
-                    w.Height * w.Scaling);
-
-                if (rect.Contains(new global::Avalonia.Point(x, y)))
-                    hit = w;
-            }
-        }
-
-        if (hit?.Bubble?.StateId is Guid stateId && stateId != Guid.Empty)
-        {
-            try { _ambientEngine.PopBubble(stateId); }
-            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to pop ambient bubble {StateId}", stateId); }
+            try { _ambientEngine.PopBubble(hit); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Failed to pop ambient bubble {StateId}", hit); }
         }
     }
 
@@ -495,41 +462,17 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     {
         RunOnUi(() =>
         {
-            if (_windows.ContainsKey(state.Id)) return;
+            // Single-surface UCE render path: every bubble lives in the Skia BubbleLayer.
+            // No per-window bubble windows (eliminates the dual-render race + z-fighting).
+            var isChaos = state.Spec != null;
+            var tint = isChaos ? ((byte)state.Spec!.TintR, (byte)state.Spec.TintG, (byte)state.Spec.TintB) : ((byte, byte, byte)?)null;
+            var fuseFraction = state.Spec is { IsLive: true, FuseMs: > 0 }
+                ? Math.Clamp(state.FuseRemainingMs / state.Spec.FuseMs, 0.0, 1.0)
+                : 1.0;
 
             _bubbleLayer?.AddBubble(
                 state.Id, state.X, state.Y, state.Size, state.Opacity, state.Scale,
-                state.Spec?.Label,
-                state.Spec is { } s ? (s.TintR, s.TintG, s.TintB) : null,
-                state.Clickable);
-
-            var window = new AvaloniaBubbleWindow(_bubbleBitmap, state.Size);
-            ApplyVisualState(window, state);
-            window.Bubble.StateId = state.Id;
-
-            // Live chaos bubbles use hold-to-defuse; everything else pops on click.
-            if (state.Spec is { IsLive: true })
-            {
-                var bubbleId = state.Id;
-                window.Bubble.Click += (_, _) => _chaosEngine?.BeginChaosChannel(bubbleId);
-                window.Bubble.BubblePointerReleased += (_, _) => _chaosEngine?.EndChaosChannel(bubbleId);
-            }
-            else
-            {
-                var engine = state.Spec != null ? _chaosEngine : _ambientEngine;
-                window.Click += (_, _) => engine?.PopBubble(state.Id);
-            }
-            _windows[state.Id] = window;
-
-            try
-            {
-                window.Show();
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "Failed to show bubble window");
-                _windows.Remove(state.Id);
-            }
+                state.Spec?.Label, tint, isChaos, fuseFraction, state.Clickable);
         });
     }
 
@@ -538,29 +481,17 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         RunOnUi(() =>
         {
             _bubbleLayer?.UpdateBubble(state.Id, state.X, state.Y, state.Opacity, state.Scale);
-            if (!_windows.TryGetValue(state.Id, out var window)) return;
-            ApplyVisualState(window, state);
         });
     }
 
     void IBubbleRenderer.SetLabel(Guid id, string label)
     {
-        RunOnUi(() =>
-        {
-            _bubbleLayer?.SetLabel(id, label);
-            if (!_windows.TryGetValue(id, out var window)) return;
-            window.Bubble.SetLabel(label);
-        });
+        RunOnUi(() => { _bubbleLayer?.SetLabel(id, label); });
     }
 
     void IBubbleRenderer.SetFuse(Guid id, double fraction)
     {
-        RunOnUi(() =>
-        {
-            _bubbleLayer?.SetFuse(id, fraction);
-            if (!_windows.TryGetValue(id, out var window)) return;
-            window.Bubble.SetFuse(fraction);
-        });
+        RunOnUi(() => { _bubbleLayer?.SetFuse(id, fraction); });
     }
 
     void IBubbleRenderer.Pop(BubbleState state, Action onComplete)
@@ -568,60 +499,13 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         RunOnUi(() =>
         {
             _bubbleLayer?.RemoveBubble(state.Id);
-            if (!_windows.Remove(state.Id, out var window))
-            {
-                onComplete();
-                return;
-            }
-
-            window.Bubble.Pop(() =>
-            {
-                window.CloseWindow();
-                onComplete();
-            });
+            onComplete();
         });
     }
 
     void IBubbleRenderer.Destroy(Guid id)
     {
-        RunOnUi(() =>
-        {
-            _bubbleLayer?.RemoveBubble(id);
-            if (!_windows.Remove(id, out var window)) return;
-            window.CloseWindow();
-        });
-    }
-
-    private void ApplyVisualState(AvaloniaBubbleWindow window, BubbleState state)
-    {
-        string? label = null;
-        (byte r, byte g, byte b)? tint = null;
-        var fuseFraction = 1.0;
-        var isBrittle = false;
-
-        if (state.Spec is { } spec)
-        {
-            label = spec.Label;
-            tint = (spec.TintR, spec.TintG, spec.TintB);
-            fuseFraction = spec.IsLive && spec.FuseMs > 0
-                ? Math.Clamp(state.FuseRemainingMs / spec.FuseMs, 0.0, 1.0)
-                : 1.0;
-            isBrittle = spec.IsBrittle;
-        }
-
-        window.Place(
-            new global::Avalonia.PixelPoint((int)(state.X * state.Scaling), (int)(state.Y * state.Scaling)),
-            state.Size,
-            state.Size,
-            state.Scale,
-            state.Opacity,
-            label,
-            tint,
-            fuseFraction);
-
-        window.Bubble.SetShielded(state.IsShielded);
-        window.Bubble.SetBrittle(isBrittle);
-        window.Scaling = state.Scaling;
+        RunOnUi(() => { _bubbleLayer?.RemoveBubble(id); });
     }
 
     private void LoadBubbleImage()
@@ -630,6 +514,13 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         {
             if (_bubbleBitmap != null) return;
             _bubbleBitmap = AvaloniaBitmapHelper.LoadResource("bubble.png");
+
+            // Decode the same asset as an SKImage for the Skia compositor layer (UCE single-surface path).
+            using var stream = global::Avalonia.Platform.AssetLoader.Open(
+                new Uri("avares://CCP.Avalonia/Assets/bubble.png"));
+            _bubbleSkImage = stream != null ? SkiaSharp.SKImage.FromEncodedData(stream) : null;
+            if (_bubbleSkImage != null)
+                _bubbleLayer?.SetBubbleImage(_bubbleSkImage);
         }
         catch (Exception ex)
         {
@@ -639,41 +530,9 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     private void ShowPrismGhost(ChaosBubbleSpec spec)
     {
-        RunOnUi(() =>
-        {
-            // Locate an existing window for this spec to inherit its position.
-            if (!_windows.TryGetValue(spec.Id, out var sourceWindow))
-                return;
-
-            var size = Math.Max(20.0, spec.SizePx);
-            var ghost = new AvaloniaBubbleWindow(_bubbleBitmap, size);
-
-            string? label = spec.Label;
-            (byte r, byte g, byte b)? tint = (spec.TintR, spec.TintG, spec.TintB);
-
-            ghost.Place(
-                sourceWindow.Position,
-                size,
-                size,
-                1.0,
-                1.0,
-                label,
-                tint,
-                1.0);
-
-            ghost.Bubble.SetShielded(false);
-            ghost.Bubble.SetBrittle(false);
-
-            try
-            {
-                ghost.Show();
-                ghost.Bubble.FadeOut(250.0, () => ghost.CloseWindow());
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "Failed to show prism ghost bubble");
-            }
-        });
+        // Transient visual flourish (a fading clone of a popped Prism chaos bubble).
+        // On the single-surface UCE path there is no per-window ghost; the Skia BubbleLayer
+        // does not animate transient ghosts, so this is a no-op. Gameplay is unaffected.
     }
 
     private void OnEngineBubblePopped()

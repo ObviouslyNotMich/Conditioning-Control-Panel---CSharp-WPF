@@ -77,7 +77,10 @@ public sealed class CompositorEngine : IDisposable
             {
                 var window = new CompositorWindow(screen, this);
                 window.Show();
-                window.ApplyNativeTransparency();
+                // ApplyNativeTransparency is deferred to the window's Opened handler (next
+                // dispatcher tick). Calling SetWindowLong/SetWindowSubclass synchronously right
+                // after Show() races with Avalonia's native window initialization + render thread
+                // startup, causing an intermittent native access violation (0xC0000005).
                 _windows.Add(window);
                 _logger?.LogInformation("CompositorWindow created on {Screen}", screen.Name);
             }
