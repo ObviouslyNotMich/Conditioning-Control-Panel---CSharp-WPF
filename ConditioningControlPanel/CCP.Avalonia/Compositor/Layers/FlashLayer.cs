@@ -147,20 +147,28 @@ public sealed class FlashLayer : BaseLayer
 
     public override void Render(SKCanvas canvas, ConditioningControlPanel.Core.Platform.PixelRect bounds, TimeSpan deltaTime)
     {
-        List<FlashItem> snapshot;
-        lock (_sync) { snapshot = _items.ToList(); }
-
-        foreach (var item in snapshot)
+        // Snapshot each item's current draw state (frame + opacity + transform) under the lock so the
+        // GPU render thread never dereferences an SKImage that SetFrames()/Update() is disposing or
+        // replacing on the UI thread. Drawing is done outside the lock to minimize contention.
+        List<(FlashItem item, SKImage? frame, double opacity, double x, double y, double w, double h)> snapshot;
+        lock (_sync)
         {
-            if (item.Opacity <= 0) continue;
+            snapshot = _items
+                .Where(i => i.Opacity > 0)
+                .Select(i => (i, i.CurrentFrame, i.Opacity, i.X, i.Y, i.Width, i.Height))
+                .ToList();
+        }
+
+        foreach (var entry in snapshot)
+        {
+            var image = entry.frame;
+            if (image == null) continue;
             using var paint = new SKPaint
             {
-                Color = new SKColor(255, 255, 255, (byte)(item.Opacity * 255))
+                Color = new SKColor(255, 255, 255, (byte)(entry.opacity * 255))
             };
-            var dest = new SKRect((float)item.X, (float)item.Y, (float)(item.X + item.Width), (float)(item.Y + item.Height));
-            var image = item.CurrentFrame;
-            if (image != null)
-                canvas.DrawImage(image, dest, paint);
+            var dest = new SKRect((float)entry.x, (float)entry.y, (float)(entry.x + entry.w), (float)(entry.y + entry.h));
+            canvas.DrawImage(image, dest, paint);
         }
     }
 
