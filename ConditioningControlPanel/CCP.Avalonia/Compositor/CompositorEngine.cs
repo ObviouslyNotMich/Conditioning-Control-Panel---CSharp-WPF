@@ -71,26 +71,65 @@ public sealed class CompositorEngine : IDisposable
             screens = new[] { new ScreenInfo("fallback", new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), new ConditioningControlPanel.Core.Platform.PixelRect(0, 0, 1920, 1080), 1.0) };
         }
 
-        foreach (var screen in screens)
-        {
-            try
-            {
-                var window = new CompositorWindow(screen, this);
-                window.Show();
-                // ApplyNativeTransparency is deferred to the window's Opened handler (next
-                // dispatcher tick). Calling SetWindowLong/SetWindowSubclass synchronously right
-                // after Show() races with Avalonia's native window initialization + render thread
-                // startup, causing an intermittent native access violation (0xC0000005).
-                _windows.Add(window);
-                _logger?.LogInformation("CompositorWindow created on {Screen}", screen.Name);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to create CompositorWindow on {Screen}", screen.Name);
-            }
-        }
+        // Create the compositor windows one per dispatcher tick. Creating several transparent
+        // topmost windows (each starting its own native Win32 surface + render thread) in the
+        // same frame races inside Avalonia v12's Win32 platform backend and intermittently
+        // faults with a native access violation (0xC0000005) before managed code runs. Giving
+        // each window a full message-pump cycle to finish its native init eliminates the race.
+        StaggeredCreateWindows(screens);
+    }
 
-        if (_windows.Count > 0)
+    private void StaggeredCreateWindows(IReadOnlyList<ScreenInfo> screens)
+    {
+        if (_disposed || screens.Count == 0) return;
+
+        // Create the first window synchronously so Start() has at least one window up, then
+        // create the remaining windows on staggered DispatcherTimers (~250ms apart). Creating
+        // several transparent topmost windows in the same frame races inside Avalonia v12's
+        // Win32 platform backend and intermittently faults with a native access violation
+        // (0xC0000005) before managed code runs. Spacing them out gives each native window
+        // surface time to fully initialize its render thread.
+        CreateOneWindow(screens[0]);
+        MaybeStartTimer();
+
+        for (int i = 1; i < screens.Count; i++)
+        {
+            var screen = screens[i];
+            var due = TimeSpan.FromMilliseconds(250 * i);
+            var t = new DispatcherTimer { Interval = due };
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                CreateOneWindow(screen);
+                MaybeStartTimer();
+            };
+            t.Start();
+        }
+    }
+
+    private void CreateOneWindow(ScreenInfo screen)
+    {
+        if (_disposed) return;
+        try
+        {
+            var window = new CompositorWindow(screen, this);
+            window.Show();
+            // ApplyNativeTransparency is deferred to the window's Opened handler (next
+            // dispatcher tick). Calling SetWindowLong/SetWindowSubclass synchronously right
+            // after Show() races with Avalonia's native window initialization + render thread
+            // startup, causing an intermittent native access violation (0xC0000005).
+            _windows.Add(window);
+            _logger?.LogInformation("CompositorWindow created on {Screen}", screen.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to create CompositorWindow on {Screen}", screen.Name);
+        }
+    }
+
+    private void MaybeStartTimer()
+    {
+        if (_windows.Count > 0 && !_timer.IsEnabled && !_disposed)
         {
             _lastFrame = DateTime.UtcNow;
             _timer.Start();
