@@ -25,7 +25,17 @@ public sealed class BubbleLayer : BaseLayer, IDisposable
 {
     private readonly List<BubbleItem> _items = new();
     private readonly object _sync = new();
+
+    // The bubble image is decoded ONCE, lazily, on first render and cached for the app lifetime.
+    // It is NEVER replaced or disposed while the app runs. This is critical: an SKImage is a
+    // native Skia handle, and sharing a mutable/disposable SKImage across the UI thread and the
+    // render thread causes a use-after-free (the render thread draws a handle the UI thread just
+    // disposed), which corrupts the native heap and faults with a non-deterministic access
+    // violation (0xC0000005). See AvaloniaUI/Avalonia#13521. An immutable, never-freed native
+    // handle is safe for concurrent reads from any thread, so we treat _bubbleImage as a
+    // write-once cached field with no teardown.
     private SKImage? _bubbleImage;
+    private bool _imageLoadAttempted;
     private bool _disposed;
 
     public override int ZIndex => CompositorLayers.Bubbles;
@@ -35,15 +45,28 @@ public sealed class BubbleLayer : BaseLayer, IDisposable
         get { lock (_sync) { return _items.Count > 0; } }
     }
 
-    /// <summary>Set the shared bubble image (decoded once from bubble.png). Call before spawning.</summary>
-    public void SetBubbleImage(SKImage image)
+    /// <summary>
+    /// Lazily decodes the bubble.png asset into an immutable SKImage cached for the app lifetime.
+    /// Called from the render path. Safe to call from any thread; the decode is gated by
+    /// <see cref="_imageLoadAttempted"/> so it runs at most once. The resulting image is never
+    /// disposed (intentional — see the field comment above) which keeps the native handle valid
+    /// for every subsequent render.
+    /// </summary>
+    private SKImage? EnsureBubbleImage()
     {
-        lock (_sync)
+        if (_bubbleImage != null || _imageLoadAttempted) return _bubbleImage;
+        _imageLoadAttempted = true;
+        try
         {
-            if (_bubbleImage != null && !ReferenceEquals(_bubbleImage, image))
-                _bubbleImage.Dispose();
-            _bubbleImage = image;
+            using var stream = global::Avalonia.Platform.AssetLoader.Open(
+                new Uri("avares://CCP.Avalonia/Assets/bubble.png"));
+            _bubbleImage = stream != null ? SKImage.FromEncodedData(stream) : null;
         }
+        catch
+        {
+            _bubbleImage = null;
+        }
+        return _bubbleImage;
     }
 
     public void AddBubble(Guid id, double x, double y, double size, double opacity, double scale,
@@ -157,7 +180,8 @@ public sealed class BubbleLayer : BaseLayer, IDisposable
         lock (_sync) { snapshot = _items.ToList(); }
         if (snapshot.Count == 0) return;
 
-        var image = _bubbleImage;
+        // Decode-once, immutable, never-freed: safe to read from the render thread.
+        var image = EnsureBubbleImage();
         foreach (var item in snapshot)
         {
             if (item.Opacity <= 0) continue;
@@ -258,8 +282,11 @@ public sealed class BubbleLayer : BaseLayer, IDisposable
         _disposed = true;
         lock (_sync)
         {
-            _bubbleImage?.Dispose();
-            _bubbleImage = null;
+            // NOTE: _bubbleImage is intentionally NOT disposed here. It is an immutable,
+            // write-once cached native handle (see EnsureBubbleImage). Disposing it could free a
+            // native handle the render thread is still drawing (use-after-free → heap corruption,
+            // AvaloniaUI/Avalonia#13521). It leaks exactly one SKImage for the app lifetime, which
+            // is acceptable and far safer than racing on its lifetime.
             _items.Clear();
         }
     }

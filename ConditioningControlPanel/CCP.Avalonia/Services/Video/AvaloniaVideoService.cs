@@ -288,23 +288,14 @@ public sealed class AvaloniaVideoService : IVideoService, IDisposable
         RefreshVideosPath();
         ScheduleNext();
 
-        // Prewarm duration metadata in the background so the min/max duration filter becomes
-        // authoritative once parsed (the cache persists to disk, so later runs are instant). Until
-        // warm, the runtime max-duration cutoff still guarantees the cap for any too-long clip.
-        string[] prewarmSnapshot;
-        lock (_sync) { prewarmSnapshot = _videoFiles.ToArray(); }
-        if (_metadataCache != null && prewarmSnapshot.Length > 0)
-        {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _metadataCache.PrewarmAsync(prewarmSnapshot);
-                    Dispatcher.UIThread.Post(() => { if (IsRunning) RefreshVideosPath(); });
-                }
-                catch { /* best-effort */ }
-            });
-        }
+        // NOTE: The background metadata prewarm (Task.Run → PrewarmAsync over hundreds of files)
+        // was removed because the burst of LibVLC Media.Parse() native preparser threads on a
+        // background task corrupts the native heap during session startup — the fault then
+        // manifests non-deterministically as a 0xC0000005 access violation a few milliseconds
+        // later (e.g. when the bubble service touches the corrupted heap). The runtime
+        // max-duration timer (_maxDurationTimer) still enforces the cap for any too-long clip,
+        // and durations are lazily computed on first actual playback via GetOrComputeDurationAsync
+        // in the filter path, so no functionality is lost — the prewarm was purely an optimization.
 
         _logger?.LogInformation("AvaloniaVideoService started (videos: {Count})", _videoFiles.Count);
     }

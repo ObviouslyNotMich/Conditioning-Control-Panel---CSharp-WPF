@@ -34,7 +34,6 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
     private SharedHostBubbleRenderer? _sharedHostRenderer;
     private bool _sharedHost;
     private Bitmap? _bubbleBitmap;
-    private SkiaSharp.SKImage? _bubbleSkImage;
     private int _mouseHookRefCount;
 
     // ---- active-toy state (Avalonia parity stubs) ----
@@ -70,8 +69,9 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
         _bubbleLayer = compositor != null ? new BubbleLayer() : null;
         if (_bubbleLayer != null)
             compositor?.RegisterLayer(_bubbleLayer);
-        // The Skia bubble image is decoded in LoadBubbleImage() (called from Start) and handed
-        // to the layer. All bubbles — ambient and chaos — render through this single surface.
+        // The Skia bubble image is decoded and owned by BubbleLayer itself (write-once, immutable,
+        // never disposed) to avoid a cross-thread SKImage use-after-free. The service does NOT
+        // create or hand off an SKImage — see AvaloniaUI/Avalonia#13521.
     }
 
     public bool IsRunning => _ambientEngine.IsRunning;
@@ -510,17 +510,15 @@ public sealed class AvaloniaBubbleService : IBubbleService, IAvaloniaBubbleServi
 
     private void LoadBubbleImage()
     {
+        // Only the Avalonia Bitmap (for the legacy shared-host path) is loaded here. The Skia
+        // SKImage used by the compositor BubbleLayer is decoded and owned by the layer itself
+        // (BubbleLayer.EnsureBubbleImage) to avoid a cross-thread use-after-free — sharing an
+        // SKImage between this (UI) thread and the render thread corrupts the native heap
+        // (AvaloniaUI/Avalonia#13521).
         try
         {
             if (_bubbleBitmap != null) return;
             _bubbleBitmap = AvaloniaBitmapHelper.LoadResource("bubble.png");
-
-            // Decode the same asset as an SKImage for the Skia compositor layer (UCE single-surface path).
-            using var stream = global::Avalonia.Platform.AssetLoader.Open(
-                new Uri("avares://CCP.Avalonia/Assets/bubble.png"));
-            _bubbleSkImage = stream != null ? SkiaSharp.SKImage.FromEncodedData(stream) : null;
-            if (_bubbleSkImage != null)
-                _bubbleLayer?.SetBubbleImage(_bubbleSkImage);
         }
         catch (Exception ex)
         {
