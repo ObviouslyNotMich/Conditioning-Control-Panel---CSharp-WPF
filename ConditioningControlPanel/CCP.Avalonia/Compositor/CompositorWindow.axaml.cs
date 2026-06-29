@@ -103,13 +103,15 @@ public partial class CompositorWindow : Window
             SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_NOZORDER);
 
-            bool ok = SetWindowSubclass(hwnd, _hitTestSubclassProc, 0, IntPtr.Zero);
-            _logger?.LogDebug("ApplyNativeTransparency: SetWindowSubclass returned {Ok}", ok);
-            if (!ok)
-            {
-                var err = Marshal.GetLastWin32Error();
-                _logger?.LogWarning("ApplyNativeTransparency: SetWindowSubclass failed, error={Error}", err);
-            }
+            // NOTE: We intentionally do NOT call SetWindowSubclass here. Subclassing the
+            // window proc on an Avalonia-managed HWND races with Avalonia v12's own
+            // window-proc management and intermittently faults with a native access
+            // violation (0xC0000005) on the render thread before the compositor timer
+            // can fire even once. The subclass was only used to force WM_NCHITTEST ->
+            // HTTRANSPARENT and WM_MOUSEACTIVATE -> MA_NOACTIVATE, but those are already
+            // provided by WS_EX_TRANSPARENT + WS_EX_NOACTIVATE respectively, so the
+            // subclass is redundant and removing it is strictly safer.
+            _logger?.LogDebug("ApplyNativeTransparency: applied EXSTYLE (no subclass)");
         }
         catch (Exception ex)
         {
@@ -126,22 +128,10 @@ public partial class CompositorWindow : Window
     {
         Opened -= OnWindowOpened;
 
-        if (OperatingSystem.IsWindows())
-        {
-            try
-            {
-                var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                if (hwnd != IntPtr.Zero)
-                    RemoveWindowSubclass(hwnd, _hitTestSubclassProc, 0);
-            }
-            catch { }
-        }
-
         base.OnClosed(e);
     }
 
     private const int GWL_EXSTYLE = -20;
-    private const int GWL_STYLE = -16;
     private const uint WS_EX_TRANSPARENT = 0x00000020;
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
     private const uint WS_EX_NOACTIVATE = 0x08000000;
@@ -151,51 +141,6 @@ public partial class CompositorWindow : Window
     private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_FRAMECHANGED = 0x0020;
     private const uint SWP_NOZORDER = 0x0004;
-    private const uint WS_DISABLED = 0x08000000;
-
-    private const int WM_NCHITTEST = 0x0084;
-    private const int HTTRANSPARENT = -1;
-    private const int WM_MOUSEACTIVATE = 0x0021;
-    // MA_NOACTIVATE (3): refuse activation but let the mouse message be PROCESSED (not eaten).
-    // MA_NOACTIVATEANDEAT (4) would discard the click — wrong for a click-through overlay and a
-    // cause of the "minimize locks the desktop" bug. Matches AvaloniaBubbleWindow.Windows.cs.
-    private const int MA_NOACTIVATE = 0x0003;
-
-    private delegate IntPtr SubclassProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam, nuint uIdSubclass, IntPtr dwRefData);
-
-    [DllImport("comctl32.dll", SetLastError = true)]
-    private static extern bool SetWindowSubclass(IntPtr hWnd, SubclassProc pfnSubclass, nuint uIdSubclass, IntPtr dwRefData);
-
-    [DllImport("comctl32.dll")]
-    private static extern IntPtr DefSubclassProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("comctl32.dll")]
-    private static extern bool RemoveWindowSubclass(IntPtr hWnd, SubclassProc pfnSubclass, nuint uIdSubclass);
-
-    [DllImport("user32.dll")]
-    private static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
-
-    private static readonly SubclassProc _hitTestSubclassProc = OnHitTestSubclassProc;
-    private static int _hitTestCount;
-    private static DateTime _lastHitTestLog = DateTime.MinValue;
-
-    private static IntPtr OnHitTestSubclassProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam, nuint uIdSubclass, IntPtr dwRefData)
-    {
-        if (msg == WM_NCHITTEST)
-        {
-            _hitTestCount++;
-            if (DateTime.Now - _lastHitTestLog > TimeSpan.FromSeconds(5))
-            {
-                _lastHitTestLog = DateTime.Now;
-                Console.WriteLine($"[CompositorWindow] WM_NCHITTEST handled ({_hitTestCount} total)");
-            }
-            return new IntPtr(HTTRANSPARENT);
-        }
-        if (msg == WM_MOUSEACTIVATE)
-            return new IntPtr(MA_NOACTIVATE);
-
-        return DefSubclassProc(hWnd, msg, wParam, lParam);
-    }
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
     private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
