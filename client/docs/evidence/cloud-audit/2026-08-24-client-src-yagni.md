@@ -1,0 +1,1 @@
+$(cat "/tmp/claude-0/-home-user-Conditioning-Control-Panel---CSharp-WPF/7cbb749c-9146-5194-8b9e-fe6c7a4c6444/scratchpad/audit-report.md")
