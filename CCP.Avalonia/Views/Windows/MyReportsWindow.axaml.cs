@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
@@ -14,7 +13,7 @@ namespace ConditioningControlPanel.Avalonia.Views.Windows
     ///
     /// PORTED from ConditioningControlPanel/Windows/MyReportsWindow.xaml.cs. Deviations:
     ///  - The rows come from AppSettings.RecentBugReports via BugReportService.ParseRecentReports,
-    ///    both still in the WPF head, so LoadRows shows placeholder rows.
+    ///    both still in the WPF head, so LoadRows has no rows and the empty state shows.
     ///  - The per-row Copy click is one handler on the ItemsControl; the row Button carries the
     ///    token in Tag exactly as before.
     /// </summary>
@@ -44,27 +43,12 @@ namespace ConditioningControlPanel.Avalonia.Views.Windows
         private void LoadRows()
         {
             // ponytail: needs AppSettings.RecentBugReports + BugReportService.ParseRecentReports,
-            // wired when they move to Core. Placeholder rows keep the template rendered.
-            var rows = new List<Row>
-            {
-                MakeRow("BUG-0000000001", DateTime.UtcNow, false),
-                MakeRow("BUG-0000000002", DateTime.UtcNow.AddDays(-2), true),
-            };
+            // wired when they move to Core. No source means no rows, so the empty state shows;
+            // the row subtitle is "{local date}  •  {kind}" as in the WPF code-behind.
+            var rows = new List<Row>();
 
             _reportsList.ItemsSource = rows;
             _txtEmpty.IsVisible = rows.Count == 0;
-        }
-
-        private static Row MakeRow(string token, DateTime? timestampUtc, bool isSuggestion)
-        {
-            var kindText = Loc.Get(isSuggestion ? "my_reports_kind_suggestion" : "my_reports_kind_bug");
-            // Stamps are stored in UTC; show them in the user's local time.
-            var dateText = timestampUtc.HasValue ? timestampUtc.Value.ToLocalTime().ToString("g") : string.Empty;
-            return new Row
-            {
-                Token = token,
-                SubtitleText = string.IsNullOrEmpty(dateText) ? kindText : $"{dateText}  •  {kindText}",
-            };
         }
 
         private async void BtnCopyRow_Click(object? sender, RoutedEventArgs e)

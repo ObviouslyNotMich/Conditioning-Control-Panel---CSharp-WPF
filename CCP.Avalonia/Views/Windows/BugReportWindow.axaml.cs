@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
 using ConditioningControlPanel.Localization;
 
 namespace ConditioningControlPanel.Avalonia.Views.Windows
@@ -17,20 +16,18 @@ namespace ConditioningControlPanel.Avalonia.Views.Windows
     /// preview before submitting.
     ///
     /// PORTED from ConditioningControlPanel/Windows/BugReportWindow.xaml.cs. Deviations:
-    ///  - BugReportService still lives in the WPF head, so the draft/preview/submit paths are
-    ///    stubs with placeholder data; the success panel is shown with a placeholder token.
+    ///  - BugReportService still lives in the WPF head, so the draft/preview are placeholder text
+    ///    and Send stays disabled with a "coming soon" status. The 2 s enable timer and the
+    ///    submit/error paths come back with the service. The success panel is reachable only
+    ///    through the internal render hook.
     ///  - Clipboard goes through TopLevel.Clipboard (async).
-    ///  - The error MessageBox path is unreachable until the service is wired.
     /// </summary>
     public partial class BugReportWindow : Window
     {
         /// <summary>Mirrors BugReportService.ReportKind, which is still in the WPF head.</summary>
         public enum ReportKind { Bug, Suggestion }
 
-        private readonly DispatcherTimer _enableTimer;
         private readonly ReportKind _kind;
-        private bool _submitted;
-        private bool _submitting;
 
         private readonly TextBox _txtDescription, _txtSteps, _txtPreview, _txtSuccessToken;
         private readonly TextBlock _txtMetadataSummary, _txtScrubberCounts, _txtStatus, _txtSuccessHeadline,
@@ -67,26 +64,20 @@ namespace ConditioningControlPanel.Avalonia.Views.Windows
 
             ApplyKind();
 
-            _enableTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            _enableTimer.Tick += (_, _) =>
-            {
-                _enableTimer.Stop();
-                if (!_submitting && !_submitted)
-                    _btnSend.IsEnabled = true;
-            };
-
             _txtDescription.TextChanged += (_, _) => RefreshPreview();
             _txtSteps.TextChanged += (_, _) => RefreshPreview();
             _chkIncludeAppLog.IsCheckedChanged += (_, _) => RefreshPreview();
-            _btnSend.Click += (_, _) => BtnSend_Click();
-            _btnCancel.Click += (_, _) => { if (!_submitting) Close(); };
+            _btnCancel.Click += (_, _) => Close();
             this.FindControl<Button>("BtnCopyToken")!.Click += async (_, _) => await CopyTokenAsync();
             _btnSuccessDone.Click += (_, _) => Close();
 
-            // WPF ran this from Loaded. The preview is filled here so the headless render shows
-            // it; the timer and focus wait for the window to actually open.
+            // WPF ran this from Loaded. The preview is filled here so the headless render shows it.
             RefreshPreview();
-            Opened += (_, _) => { _enableTimer.Start(); _txtDescription.Focus(); };
+            // ponytail: needs BugReportService.SubmitAsync, wired when it moves to Core. Until then
+            // Send stays disabled (XAML) and the status line says so; label_coming_soon is the
+            // closest existing key.
+            _txtStatus.Text = Loc.Get("label_coming_soon");
+            Opened += (_, _) => _txtDescription.Focus();
         }
 
         /// <summary>
@@ -131,22 +122,12 @@ namespace ConditioningControlPanel.Avalonia.Views.Windows
                 _txtMetadataSummary.Text;
         }
 
-        private void BtnSend_Click()
+        /// <summary>Render-only: draws the success panel with a placeholder token so
+        /// --render-view can prove it. Nothing is submitted.</summary>
+        internal void ShowSuccessPanelForRender()
         {
-            if (_submitting || _submitted) return;
-            _submitting = true;
-            _btnSend.IsEnabled = false;
-            _btnCancel.IsEnabled = false;
-            _txtStatus.Text = "…";
-
-            // ponytail: needs BugReportService.SubmitAsync, wired when it moves to Core. The
-            // placeholder token below exists so the success panel can be reached and rendered.
-            _submitted = true;
-            var token = "BUG-PLACEHOLDER";
-            var isSuggestion = _kind == ReportKind.Suggestion;
-            ShowSuccessPanel(
-                Loc.GetF(isSuggestion ? "suggestion_success_toast" : "bug_report_success_toast", token),
-                token);
+            const string token = "BUG-0000000000";
+            ShowSuccessPanel(Loc.GetF(_kind == ReportKind.Suggestion ? "suggestion_success_toast" : "bug_report_success_toast", token), token);
         }
 
         /// <summary>
