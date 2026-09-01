@@ -87,4 +87,50 @@
     <Setter Property="VerticalAlignment" Value="Center"/>
   </ControlTheme>
 
+  <!-- Views/Controls/Companion/Runtime/WorkshopCellTheme.xaml:27. That per-cell dictionary was
+       merged into each Workshop cell through a pack:// URI; on this head the keys live app-level
+       and the cells' UserControl.Resources block disappears. Only the two keys the ported
+       WorkshopLibraryCell uses are here - CmpCellLabelStyle / CmpCellValueStyle follow the same
+       mapping when a sibling cell needs them. -->
+  <ControlTheme x:Key="CmpCellHintStyle" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="10"/>
+    <Setter Property="Foreground" Value="#FF8F88AD"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="Margin" Value="0,1,0,0"/>
+  </ControlTheme>
+
+  <!-- WorkshopCellTheme.xaml:43. A quiet, full-width action button - the Workshop's own idiom for
+       "this opens a dialog". Two forced deviations inside the template:
+         ContentPresenter needs an explicit Content TemplateBinding (Avalonia does not wire it
+         implicitly the way WPF does, and a missing one renders an empty button), and
+         ControlTemplate.Triggers become nested selector styles. -->
+  <ControlTheme x:Key="CmpCellButtonStyle" TargetType="Button">
+    <Setter Property="Background" Value="#FF1C1A2E"/>
+    <Setter Property="Foreground" Value="#FFD8D2EA"/>
+    <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="8,4"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template">
+      <ControlTemplate TargetType="Button">
+        <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="6" Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#Chrome">
+      <Setter Property="Background" Value="#FF2A2440"/>
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+  </ControlTheme>
+
 </ResourceDictionary>
