@@ -87,37 +87,51 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # --repo is required: `gh pr create` in a fork defaults its base to the PARENT repo, which
-          # would propose our entire CCP.Core branch to upstream by accident.
+          # would propose our entire CCP.Core branch to upstream by accident (observed 2026-09-01).
+          cat > /tmp/pr-body.md <<'BODY'
+          Automated fork sync. Merges `upstream/main` cleanly - no conflicts.
+
+          Review the incoming commits, then merge.
+
+          If CI has not run on this PR, that is the known `GITHUB_TOKEN` restriction on
+          workflow-created PRs: close and reopen it, or add a PAT as `SYNC_TOKEN`, to make the
+          gates fire.
+          BODY
+          sed -i 's/^          //' /tmp/pr-body.md
+          {
+            echo ""
+            echo "Behind upstream by ${{ steps.gap.outputs.behind }} commit(s); ahead by ${{ steps.gap.outputs.ahead }}."
+          } >> /tmp/pr-body.md
           gh pr create \
             --repo "${{ github.repository }}" \
             --base "${{ github.event.repository.default_branch }}" \
             --head "${{ steps.merge.outputs.branch }}" \
             --title "chore: sync upstream (${{ steps.gap.outputs.behind }} commit(s))" \
-            --body "Automated fork sync. Merges \`upstream/${{ env.UPSTREAM_BRANCH }}\` cleanly — no conflicts.
-
-Behind by ${{ steps.gap.outputs.behind }}, ahead by ${{ steps.gap.outputs.ahead }}.
-
-Review the incoming commits, then merge. If CI has not run on this PR, that is the known
-\`GITHUB_TOKEN\` restriction on workflow-created PRs — close and reopen it, or add a PAT as
-\`SYNC_TOKEN\`, to get the gates to fire."
+            --body-file /tmp/pr-body.md
 
       - name: Raise an issue on conflict
         if: steps.merge.outputs.result == 'conflict'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          FILES=$(sed 's/^/- `/; s/$/`/' /tmp/conflicts.txt)
+          cat > /tmp/issue-body.md <<'BODY'
+          The scheduled sync could not merge upstream cleanly. Nothing was pushed - the merge was
+          aborted and the tree left untouched.
+
+          Conflicting files:
+          BODY
+          sed -i 's/^          //' /tmp/issue-body.md
+          sed 's/^/- `/; s/$/`/' /tmp/conflicts.txt >> /tmp/issue-body.md
+          cat >> /tmp/issue-body.md <<'BODY'
+
+          Most likely cause: upstream edited a file that has since migrated to `CCP.Core`. Resolve
+          by taking upstream's change and re-applying it at the file's new location.
+
+          Resolve promptly. Every deferred sync makes the next one larger, and that is exactly how
+          upstream PR #48 reached 347k lines across 958 files and was closed unreviewed.
+          BODY
+          sed -i 's/^          //' /tmp/issue-body.md
           gh issue create \
             --repo "${{ github.repository }}" \
             --title "Upstream sync conflicts (${{ steps.gap.outputs.behind }} commit(s) behind)" \
-            --body "The scheduled sync could not merge \`upstream/${{ env.UPSTREAM_BRANCH }}\` cleanly.
-Nothing was pushed — the merge was aborted and the tree left untouched.
-
-Conflicting files:
-$FILES
-
-Most likely cause: upstream edited a file that has since migrated to \`CCP.Core\`. Resolve by taking
-upstream's change and re-applying it at the file's new location.
-
-Resolve promptly. Every sync deferred makes the next one larger, and that is exactly how upstream
-PR #48 reached 347k lines and was closed unreviewed."
+            --body-file /tmp/issue-body.md
