@@ -40,30 +40,18 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 # ---------------------------------------------------------------------------------------------
-# TEMPORARY BASELINE - added 2026-09-01. DO NOT ADD TO IT.
+# BASELINE - EMPTY. Nothing is exempt; every pattern above is enforced on every line of CCP.Core.
 #
-# These seven lines are WPF pack:// URIs that were moved into CCP.Core before this guard existed.
-# They are real violations, not false positives: only PresentationFramework resolves a pack:// URI,
-# so the Avalonia and VR heads cannot load them. Windows is unaffected (they are string data), which
-# is why they got in unnoticed. They are scheduled for deletion by the follow-up unit that gives
-# CompanionDefinition.cs and SeasonRecap.cs a head-provided resource id instead of a pack:// string.
+# It held seven WPF pack:// URIs in CompanionDefinition.cs and SeasonRecap.cs. Those are gone: Core
+# now stores a bare file name and the WPF head composes "pack://application:,,,/Resources/{id}",
+# so the entries were deleted here in the same PR, as the ratchet below requires.
 #
-# This is a ratchet, not a graveyard: the guard FAILS if a listed line stops matching, so the entry
-# must be deleted in the same PR that fixes the line. It cannot quietly rot.
-#
-# Exact file:line only - no globs, no directory exemptions, no pattern exemptions. That makes the
-# list sensitive to line shifts: inserting a line above one of these makes the entries below it go
-# stale. Accepted deliberately - the block is short-lived, and the alternative (a looser key) is how
-# an allowlist stops being exact. If it fires, re-run this script and correct the numbers.
+# The mechanism is kept for the next migration wave, unused. Rules if it is ever repopulated: exact
+# "file:line" only - no globs, no directory or pattern exemptions - and the guard FAILS on an entry
+# that stops matching, so a listed line is either fixed-and-deleted or line-shifted-and-corrected.
+# An allowlist that cannot go stale is how it stays a ratchet instead of a graveyard.
 # ---------------------------------------------------------------------------------------------
 cat > "$WORK/baseline.txt" <<'EOF'
-CCP.Core/Models/CompanionDefinition.cs:92
-CCP.Core/Models/CompanionDefinition.cs:103
-CCP.Core/Models/CompanionDefinition.cs:114
-CCP.Core/Models/CompanionDefinition.cs:125
-CCP.Core/Models/CompanionDefinition.cs:137
-CCP.Core/Models/SeasonRecap.cs:180
-CCP.Core/Models/SeasonRecap.cs:181
 EOF
 : > "$WORK/seen.txt"
 
