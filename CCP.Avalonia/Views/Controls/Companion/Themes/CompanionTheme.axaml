@@ -9,7 +9,7 @@
      same-dictionary StaticResource references at parse time. -->
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:cnv="clr-namespace:ConditioningControlPanel.Avalonia.Views.Controls.Companion">
+                    xmlns:cmp="clr-namespace:ConditioningControlPanel.Avalonia.Views.Controls.Companion">
 
   <!-- ===== Metrics ===== -->
     <Thickness x:Key="CmpCardPadding">20,18,20,18</Thickness>
