@@ -1,0 +1,393 @@
+<!-- PARTIAL PORT of ConditioningControlPanel/Views/Controls/Companion/Themes/CompanionTheme.xaml.
+
+     *** COORDINATOR: this is a SHARED file. It carries only the subset of the 1605-line WPF
+     companion dictionary that Views/Controls/Companion/EngineRoomDrawer.axaml consumes. Any other
+     ported companion view will need a different (overlapping) subset - the section headings, key
+     order and comments below are kept verbatim from the original so two subsets merge as a union
+     rather than a conflict. Nothing here was invented: every hex, radius and setter is copied from
+     the WPF file at the line noted. ***
+
+     Deviations, all forced by real WPF/Avalonia differences:
+
+       <Style x:Key TargetType>     ->  <ControlTheme x:Key TargetType>  (a keyed, reusable style)
+       ControlTemplate.Triggers     ->  nested <Style Selector="^:checked|^:pointerover|^:disabled">
+       <ContentPresenter/>          ->  <ContentPresenter Name="PART_ContentPresenter" .../>
+       TextBlock.Foreground=" " on
+       a ContentPresenter           ->  dropped: Foreground/FontSize/FontWeight inherit in Avalonia
+       PasswordBox                  ->  TextBox + PasswordChar (Avalonia has no PasswordBox)
+       PART_ContentHost ScrollViewer->  PART_ScrollViewer + PART_TextPresenter (Avalonia's parts)
+       VirtualizingPanel.* /
+       ScrollViewer.CanContentScroll->  dropped: no such attached properties on Avalonia
+       SnapsToDevicePixels          ->  dropped: no equivalent, Avalonia snaps by default
+       cmp:CompanionCapsule.IsCapsule-> dropped: the attached property is a WPF head helper
+                                        (Border.CornerRadius = ActualHeight/2 on SizeChanged) and
+                                        is NOT ported. Only CmpSegmentStripStyle used it here, and
+                                        the Engine Room's variant overrides CornerRadius anyway.
+       CmpEnumToVis / CmpBoolToVis  ->  not instanced: Avalonia binds IsVisible to a bool, so the
+                                        enum-equals converter below serves both roles. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:cmp="clr-namespace:ConditioningControlPanel.Avalonia.Views.Controls.Companion">
+
+    <!-- ============================ 0. converters ============================ -->
+    <cmp:CompanionEnumEqualsConverter x:Key="CmpEnumEquals"/>
+    <!-- The same instance under the original's visibility key, so ported markup keeps the key it
+         had. On this head it returns bool, because IsVisible IS a bool. -->
+    <cmp:CompanionEnumEqualsConverter x:Key="CmpEnumToVis"/>
+
+    <!-- ============================ 1. spacing tokens ============================ -->
+    <CornerRadius x:Key="CmpRadiusInner">10</CornerRadius>
+
+    <!-- ============================ 2. colour tokens ============================ -->
+    <Color x:Key="CmpRoom2Color">#FF12101F</Color>
+    <Color x:Key="CmpSurfaceColor">#FF252542</Color>
+    <Color x:Key="CmpPurpleColor">#FFB478FF</Color>
+    <Color x:Key="CmpVioletColor">#FF9370DB</Color>
+
+    <SolidColorBrush x:Key="CmpRoom2Brush" Color="{StaticResource CmpRoom2Color}"/>
+    <SolidColorBrush x:Key="CmpSurfaceBrush" Color="{StaticResource CmpSurfaceColor}"/>
+    <SolidColorBrush x:Key="CmpVioletBrush" Color="{StaticResource CmpVioletColor}"/>
+
+    <SolidColorBrush x:Key="CmpTextBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="CmpDimBrush" Color="#FFB8B1CC"/>
+    <SolidColorBrush x:Key="CmpMutedBrush" Color="#FF9A93B8"/>
+    <SolidColorBrush x:Key="CmpFaintBrush" Color="#FF6C6689"/>
+
+    <SolidColorBrush x:Key="CmpHairlineBrush" Color="#14FFFFFF"/>
+    <SolidColorBrush x:Key="CmpHairlineSoftBrush" Color="#0DFFFFFF"/>
+    <SolidColorBrush x:Key="CmpDrawerBorderBrush" Color="#FF3A3A52"/>
+    <SolidColorBrush x:Key="CmpWorkshopBorderBrush" Color="#33808080"/>
+
+    <!-- ============================ 4. text styles ============================ -->
+    <ControlTheme x:Key="CmpDimTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Foreground" Value="{StaticResource CmpDimBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </ControlTheme>
+
+    <ControlTheme x:Key="CmpFaintTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="Foreground" Value="{StaticResource CmpFaintBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </ControlTheme>
+
+    <!-- inset panel inside a card (knows-strip, spice row, workshop cell) -->
+    <ControlTheme x:Key="CmpInsetPanelStyle" TargetType="Border">
+        <Setter Property="Background" Value="#B312101F"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CmpHairlineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource CmpRadiusInner}"/>
+        <Setter Property="Padding" Value="12,10,12,10"/>
+    </ControlTheme>
+
+    <!-- ============================ 12. segmented dial ============================
+         Three (or four) RadioButtons sharing one templated pill strip: the Z5 intensity dial
+         and the Z7 provider row. No custom control, no code-behind — IsChecked binds through
+         CmpEnumEquals with a per-button ConverterParameter. -->
+    <ControlTheme x:Key="CmpSegmentStyle" TargetType="RadioButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource CmpFaintBrush}"/>
+        <Setter Property="Padding" Value="6,8,6,8"/>
+        <Setter Property="MinWidth" Value="70"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="RadioButton">
+                <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource CmpTextBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#Bd">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                    <GradientStop Color="{StaticResource CmpVioletColor}" Offset="0"/>
+                    <GradientStop Color="{StaticResource CmpPurpleColor}" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
+        </Style>
+        <Style Selector="^:checked">
+            <!-- the violet→purple fill IS the checked state; no Effect (glow budget) -->
+            <Setter Property="Foreground" Value="{StaticResource CmpTextBrush}"/>
+        </Style>
+        <Style Selector="^:disabled /template/ Border#Bd">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- the strip the segments sit in -->
+    <ControlTheme x:Key="CmpSegmentStripStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CmpRoom2Brush}"/>
+        <Setter Property="BorderBrush" Value="#1CFFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <!-- WPF also sets cmp:CompanionCapsule.IsCapsule="True" here; see the header. -->
+        <Setter Property="ClipToBounds" Value="True"/>
+    </ControlTheme>
+
+    <!-- .seg — the Engine Room's deliberately unglamorous square variant -->
+    <ControlTheme x:Key="CmpEngineSegmentStripStyle" TargetType="Border" BasedOn="{StaticResource CmpSegmentStripStyle}">
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="BorderBrush" Value="#1FFFFFFF"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+    </ControlTheme>
+    <ControlTheme x:Key="CmpEngineSegmentStyle" TargetType="RadioButton" BasedOn="{StaticResource CmpSegmentStyle}">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Padding" Value="16,7,16,7"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="RadioButton">
+                <Border x:Name="Bd" Background="{StaticResource CmpRoom2Brush}" Padding="{TemplateBinding Padding}"
+                        BorderThickness="1" BorderBrush="Transparent">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource CmpTextBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#Bd">
+            <Setter Property="Background" Value="#FF2A1A3A"/>
+            <Setter Property="BorderBrush" Value="#66FF69B4"/>
+        </Style>
+        <Style Selector="^:checked">
+            <Setter Property="Foreground" Value="#FFFF9CCE"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- ============================ 14. drawers (Z7 / Z8) ============================
+         Deliberately unglamorous: flat, thin gray border, no glow, no gradient. The contrast
+         with everything above IS the design — that is her, this is wiring. -->
+    <!-- NEW KEY, not in the WPF original: the drawer header's ToggleButton had an inline
+         ControlTemplate with its own triggers. Avalonia cannot hang a <Style> off an element
+         inside another control's template, so the header toggle becomes its own keyed theme.
+         Same visuals, same two state changes. -->
+    <ControlTheme x:Key="CmpDrawerHeaderToggleStyle" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="18,13,18,13"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Border x:Name="HeadBd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ContentPresenter Name="PART_ContentPresenter" Grid.Column="0" VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        <!-- ▼ / ▲ swap rather than a rotate: a named transform
+                             inside a property value is not a trigger target. -->
+                        <TextBlock x:Name="Arrow" Grid.Column="1" Text="&#x25BC;" FontSize="11"
+                                   VerticalAlignment="Center" Foreground="#FFA9A3C4"/>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:checked /template/ TextBlock#Arrow">
+            <Setter Property="Text" Value="&#x25B2;"/>
+        </Style>
+        <Style Selector="^:pointerover /template/ TextBlock#Arrow">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="CmpDrawerStyle" TargetType="Expander">
+        <Setter Property="Foreground" Value="#FFA9A3C4"/>
+        <Setter Property="Margin" Value="0,16,0,0"/>
+        <!-- The chrome is a TemplateBinding, not a hardcode, precisely so the Engine Room can be
+             a shade grayer than the Workshop (the mockup's .drawer vs .drawer.engine). -->
+        <Setter Property="BorderBrush" Value="{StaticResource CmpWorkshopBorderBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Expander">
+                <Border Background="#D916162B" BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="1" CornerRadius="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ToggleButton x:Name="HeaderToggle" Grid.Row="0"
+                                      Theme="{StaticResource CmpDrawerHeaderToggleStyle}"
+                                      IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                                      Content="{TemplateBinding Header}"/>
+                        <Border x:Name="BodyHost" Grid.Row="1" IsVisible="False"
+                                BorderBrush="{StaticResource CmpHairlineSoftBrush}" BorderThickness="0,1,0,0"
+                                Padding="20,4,20,18">
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:expanded /template/ Border#BodyHost">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+    </ControlTheme>
+    <!-- the Engine Room is a shade grayer still than the Workshop (mockup: .drawer.engine) -->
+    <ControlTheme x:Key="CmpEngineDrawerStyle" TargetType="Expander" BasedOn="{StaticResource CmpDrawerStyle}">
+        <Setter Property="BorderBrush" Value="{StaticResource CmpDrawerBorderBrush}"/>
+    </ControlTheme>
+
+    <ControlTheme x:Key="CmpDrawerHeaderTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#FFA9A3C4"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+    <ControlTheme x:Key="CmpDrawerNoteStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="FontStyle" Value="Italic"/>
+        <Setter Property="Foreground" Value="{StaticResource CmpFaintBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="0,8,0,12"/>
+    </ControlTheme>
+
+    <!-- .gbtn — the Engine Room's plain gray button.
+         WPF targets ButtonBase; an Avalonia ControlTheme is matched against the control's own
+         type, so this targets Button - the only ButtonBase this style is used on. -->
+    <ControlTheme x:Key="CmpGrayButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="#FFCFC9E4"/>
+        <Setter Property="Padding" Value="14,7,14,7"/>
+        <Setter Property="Margin" Value="0,0,8,8"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+                <Border x:Name="Bd" Background="{StaticResource CmpSurfaceBrush}" BorderBrush="#26FFFFFF"
+                        BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{StaticResource CmpVioletBrush}"/>
+        </Style>
+        <Style Selector="^:disabled /template/ Border#Bd">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="CmpFieldLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="Foreground" Value="{StaticResource CmpFaintBrush}"/>
+        <Setter Property="Margin" Value="0,0,0,3"/>
+    </ControlTheme>
+    <!-- The BYO API-key field. Same chrome as CmpFieldBoxStyle, on a PasswordBox in WPF: the key
+         is a real secret, and PasswordBox is the only text input in WPF that does not expose its
+         content as a dependency property a binding (or an automation client) can read.
+         AVALONIA HAS NO PasswordBox. The nearest equivalent is a TextBox with PasswordChar set,
+         whose Text IS a readable styled property - so the masking survives the port but the
+         "cannot be read back" guarantee does NOT. The view compensates as far as markup can, by
+         binding the key OneWayToSource. Flagged for the coordinator. -->
+    <ControlTheme x:Key="CmpFieldPasswordStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource CmpSurfaceBrush}"/>
+        <Setter Property="Foreground" Value="#FFCFC9E4"/>
+        <Setter Property="CaretBrush" Value="#FFCFC9E4"/>
+        <Setter Property="BorderBrush" Value="#1CFFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="10,7,10,7"/>
+        <Setter Property="PasswordChar" Value="●"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="TextBox">
+                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
+                    <ScrollViewer Name="PART_ScrollViewer" Margin="{TemplateBinding Padding}"
+                                  VerticalAlignment="Center" Focusable="False"
+                                  HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden">
+                        <TextPresenter Name="PART_TextPresenter"
+                                       Text="{TemplateBinding Text, Mode=TwoWay}"
+                                       CaretIndex="{TemplateBinding CaretIndex}"
+                                       SelectionStart="{TemplateBinding SelectionStart}"
+                                       SelectionEnd="{TemplateBinding SelectionEnd}"
+                                       CaretBrush="{TemplateBinding CaretBrush}"
+                                       SelectionBrush="{TemplateBinding SelectionBrush}"
+                                       SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                                       PasswordChar="{TemplateBinding PasswordChar}"
+                                       RevealPassword="{TemplateBinding RevealPassword}"
+                                       VerticalAlignment="Center"/>
+                    </ScrollViewer>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="CmpFieldBoxStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource CmpSurfaceBrush}"/>
+        <Setter Property="Foreground" Value="#FFCFC9E4"/>
+        <Setter Property="CaretBrush" Value="#FFCFC9E4"/>
+        <Setter Property="BorderBrush" Value="#1CFFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="10,7,10,7"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="TextBox">
+                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7">
+                    <ScrollViewer Name="PART_ScrollViewer" Margin="{TemplateBinding Padding}"
+                                  VerticalAlignment="Center" Focusable="False"
+                                  HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden">
+                        <TextPresenter Name="PART_TextPresenter"
+                                       Text="{TemplateBinding Text, Mode=TwoWay}"
+                                       CaretIndex="{TemplateBinding CaretIndex}"
+                                       SelectionStart="{TemplateBinding SelectionStart}"
+                                       SelectionEnd="{TemplateBinding SelectionEnd}"
+                                       CaretBrush="{TemplateBinding CaretBrush}"
+                                       SelectionBrush="{TemplateBinding SelectionBrush}"
+                                       SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                                       VerticalAlignment="Center"/>
+                    </ScrollViewer>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="CmpWorkshopRowStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="Foreground" Value="{StaticResource CmpMutedBrush}"/>
+        <Setter Property="Margin" Value="0,2.5,0,2.5"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </ControlTheme>
+
+    <!-- ============================ 16. virtualised lists ============================
+         Requirement: fact walls and any unbounded list virtualise. A bare ItemsControl does
+         NOT virtualise — it needs a ScrollViewer in its template plus a VirtualizingStackPanel
+         as ItemsPanel. This style supplies both. (WPF's VirtualizingPanel.* attached properties
+         have no Avalonia equivalent: VirtualizingStackPanel there always recycles.) -->
+    <ControlTheme x:Key="CmpVirtualizedItemsControlStyle" TargetType="ItemsControl">
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate>
+                <VirtualizingStackPanel Orientation="Vertical"/>
+            </ItemsPanelTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ItemsControl">
+                <ScrollViewer Focusable="False"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto"
+                              Padding="{TemplateBinding Padding}">
+                    <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                </ScrollViewer>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>
