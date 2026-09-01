@@ -1,0 +1,123 @@
+name: Upstream sync
+
+# This repository is a fork of CodeBambi/Conditioning-Control-Panel---CSharp-WPF and carries the
+# CCP.Core cross-platform work on top of it. Upstream ships fast, so divergence is the main risk to
+# that work: upstream PR #48 ("feat(app): cross-platform") reached +347,199 lines across 958 files,
+# sat for 73 days, and was closed unreviewed.
+#
+# This job keeps the gap small enough to stay mergeable. Every 4 hours it checks upstream and, when
+# there is anything new, opens a PR merging it in. A clean merge is a one-click review; a conflicted
+# one gets an issue naming the exact files, so it surfaces while it is still a handful of commits
+# rather than a year of them.
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:      # so a human can force a check without waiting for the cron
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://github.com/CodeBambi/Conditioning-Control-Panel---CSharp-WPF.git
+  UPSTREAM_BRANCH: main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history; a shallow clone cannot compute a merge base
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM" 2>/dev/null || git remote set-url upstream "$UPSTREAM"
+          git fetch upstream "$UPSTREAM_BRANCH"
+
+      - name: Measure divergence
+        id: gap
+        run: |
+          BEHIND=$(git rev-list --count HEAD..upstream/$UPSTREAM_BRANCH)
+          AHEAD=$(git rev-list --count upstream/$UPSTREAM_BRANCH..HEAD)
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "ahead=$AHEAD"   >> "$GITHUB_OUTPUT"
+          echo "Behind upstream by $BEHIND commit(s); ahead by $AHEAD."
+
+      - name: Nothing to do
+        if: steps.gap.outputs.behind == '0'
+        run: echo "Already current with upstream. Exiting."
+
+      - name: Attempt merge
+        if: steps.gap.outputs.behind != '0'
+        id: merge
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          SHORT=$(git rev-parse --short upstream/$UPSTREAM_BRANCH)
+          BRANCH="chore/sync-upstream-$SHORT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+          # An existing branch means a previous sync PR is still open and unmerged. Leave it alone
+          # rather than stacking a second one on the same upstream head.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "result=already-open" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          git checkout -b "$BRANCH"
+          if git merge upstream/$UPSTREAM_BRANCH --no-edit; then
+            echo "result=clean" >> "$GITHUB_OUTPUT"
+            git push origin "$BRANCH"
+          else
+            # Record what collided, then back out. We never push a conflicted tree.
+            git diff --name-only --diff-filter=U > /tmp/conflicts.txt
+            git merge --abort
+            echo "result=conflict" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open sync PR
+        if: steps.merge.outputs.result == 'clean'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # --repo is required: `gh pr create` in a fork defaults its base to the PARENT repo, which
+          # would propose our entire CCP.Core branch to upstream by accident.
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base "${{ github.event.repository.default_branch }}" \
+            --head "${{ steps.merge.outputs.branch }}" \
+            --title "chore: sync upstream (${{ steps.gap.outputs.behind }} commit(s))" \
+            --body "Automated fork sync. Merges \`upstream/${{ env.UPSTREAM_BRANCH }}\` cleanly — no conflicts.
+
+Behind by ${{ steps.gap.outputs.behind }}, ahead by ${{ steps.gap.outputs.ahead }}.
+
+Review the incoming commits, then merge. If CI has not run on this PR, that is the known
+\`GITHUB_TOKEN\` restriction on workflow-created PRs — close and reopen it, or add a PAT as
+\`SYNC_TOKEN\`, to get the gates to fire."
+
+      - name: Raise an issue on conflict
+        if: steps.merge.outputs.result == 'conflict'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILES=$(sed 's/^/- `/; s/$/`/' /tmp/conflicts.txt)
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Upstream sync conflicts (${{ steps.gap.outputs.behind }} commit(s) behind)" \
+            --body "The scheduled sync could not merge \`upstream/${{ env.UPSTREAM_BRANCH }}\` cleanly.
+Nothing was pushed — the merge was aborted and the tree left untouched.
+
+Conflicting files:
+$FILES
+
+Most likely cause: upstream edited a file that has since migrated to \`CCP.Core\`. Resolve by taking
+upstream's change and re-applying it at the file's new location.
+
+Resolve promptly. Every sync deferred makes the next one larger, and that is exactly how upstream
+PR #48 reached 347k lines and was closed unreviewed."
