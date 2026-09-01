@@ -5,14 +5,14 @@ name: Upstream sync
 # that work: upstream PR #48 ("feat(app): cross-platform") reached +347,199 lines across 958 files,
 # sat for 73 days, and was closed unreviewed.
 #
-# This job keeps the gap small enough to stay mergeable. Every 4 hours it checks upstream and, when
+# This job keeps the gap small enough to stay mergeable. Every 30 minutes it checks upstream and, when
 # there is anything new, opens a PR merging it in. A clean merge is a one-click review; a conflicted
 # one gets an issue naming the exact files, so it surfaces while it is still a handful of commits
 # rather than a year of them.
 
 on:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:      # so a human can force a check without waiting for the cron
 
 permissions:
