@@ -92,6 +92,9 @@
        and the cells' UserControl.Resources block disappears. Only the two keys the ported
        WorkshopLibraryCell uses are here - CmpCellLabelStyle / CmpCellValueStyle follow the same
        mapping when a sibling cell needs them. -->
+  <!-- Views/Controls/Companion/Runtime/WorkshopCellTheme.xaml:27. That dictionary is merged into
+       each Workshop cell through a pack:// URI, which Avalonia has no equivalent for, so the keys
+       the ported cells use live here with the head's other keyed styles. Setters copied exactly. -->
   <ControlTheme x:Key="CmpCellHintStyle" TargetType="TextBlock">
     <Setter Property="FontSize" Value="10"/>
     <Setter Property="Foreground" Value="#FF8F88AD"/>
@@ -104,6 +107,8 @@
          ContentPresenter needs an explicit Content TemplateBinding (Avalonia does not wire it
          implicitly the way WPF does, and a missing one renders an empty button), and
          ControlTemplate.Triggers become nested selector styles. -->
+       "this opens a dialog". The WPF ControlTemplate.Triggers become nested selectors, and the
+       ContentPresenter binds Content explicitly: Avalonia's does not do it implicitly. -->
   <ControlTheme x:Key="CmpCellButtonStyle" TargetType="Button">
     <Setter Property="Background" Value="#FF1C1A2E"/>
     <Setter Property="Foreground" Value="#FFD8D2EA"/>
